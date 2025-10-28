@@ -141,6 +141,11 @@ const Auth = () => {
             <p className="text-xs font-semibold mb-2 text-muted-foreground">Credenciais de teste:</p>
             <p className="text-xs text-muted-foreground"><strong>Admin:</strong> admin@local / 123456</p>
             <p className="text-xs text-muted-foreground"><strong>Colaboradora:</strong> emilly@local / 123456</p>
+            <p className="text-xs text-muted-foreground mt-2">
+              <a href="/seed" className="text-primary hover:text-accent underline">
+                Clique aqui para criar os usuários de teste
+              </a>
+            </p>
           </div>
         </CardContent>
       </Card>
