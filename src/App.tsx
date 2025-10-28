@@ -10,6 +10,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import ColaboradoraDashboard from "./pages/ColaboradoraDashboard";
 import NovaCompra from "./pages/NovaCompra";
 import Relatorios from "./pages/Relatorios";
+import Seed from "./pages/Seed";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/seed" element={<Seed />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/nova-compra" element={<NovaCompra />} />
             <Route path="/admin/relatorios" element={<Relatorios />} />
