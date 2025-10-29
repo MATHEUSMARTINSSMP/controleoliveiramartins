@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import AdminDashboard from "./pages/AdminDashboard";
 import ColaboradoraDashboard from "./pages/ColaboradoraDashboard";
 import NovaCompra from "./pages/NovaCompra";
+import Lancamentos from "./pages/Lancamentos";
 import Relatorios from "./pages/Relatorios";
 import Seed from "./pages/Seed";
 import NotFound from "./pages/NotFound";
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/seed" element={<Seed />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/nova-compra" element={<NovaCompra />} />
+            <Route path="/admin/lancamentos" element={<Lancamentos />} />
             <Route path="/admin/relatorios" element={<Relatorios />} />
             <Route path="/me" element={<ColaboradoraDashboard />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

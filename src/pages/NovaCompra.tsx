@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, XCircle } from "lucide-react";
 
 interface Store {
   id: string;
@@ -27,13 +27,17 @@ const NovaCompra = () => {
   const [loading, setLoading] = useState(false);
   const [stores, setStores] = useState<Store[]>([]);
   const [colaboradoras, setColaboradoras] = useState<Colaboradora[]>([]);
+  const [items, setItems] = useState([
+    {
+      item: "",
+      preco_venda: "",
+      desconto_beneficio: "",
+    },
+  ]);
   const [formData, setFormData] = useState({
     colaboradora_id: "",
     loja_id: "",
     data_compra: new Date().toISOString().split("T")[0],
-    item: "",
-    preco_venda: "",
-    desconto_beneficio: "",
     num_parcelas: "1",
     primeiro_mes: "",
     observacoes: "",
@@ -64,10 +68,43 @@ const NovaCompra = () => {
     if (data) setColaboradoras(data);
   };
 
+  const addItem = () => {
+    setItems([...items, { item: "", preco_venda: "", desconto_beneficio: "" }]);
+  };
+
+  const removeItem = (index: number) => {
+    if (items.length > 1) {
+      setItems(items.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateItem = (index: number, field: string, value: string) => {
+    const newItems = [...items];
+    newItems[index] = { ...newItems[index], [field]: value };
+    setItems(newItems);
+  };
+
   const calcularPrecoFinal = () => {
-    const venda = parseFloat(formData.preco_venda) || 0;
-    const desconto = parseFloat(formData.desconto_beneficio) || 0;
-    return Math.max(venda - desconto, 0).toFixed(2);
+    return items.reduce((total, item) => {
+      const venda = parseFloat(item.preco_venda) || 0;
+      const desconto = parseFloat(item.desconto_beneficio) || 0;
+      return total + Math.max(venda - desconto, 0);
+    }, 0).toFixed(2);
+  };
+
+  const getMesesDisponiveis = () => {
+    const meses = [];
+    const dataAtual = new Date();
+    for (let i = 0; i < 12; i++) {
+      const data = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + i, 1);
+      const ano = data.getFullYear();
+      const mes = String(data.getMonth() + 1).padStart(2, "0");
+      meses.push({
+        value: `${ano}-${mes}`,
+        label: `${mes}/${ano}`,
+      });
+    }
+    return meses;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,6 +120,11 @@ const NovaCompra = () => {
       const totalParcelas = valorBase * numParcelas;
       const diferenca = precoFinal - totalParcelas;
 
+      // Concatenar todos os itens
+      const itemsDescricao = items.map(item => item.item).filter(i => i).join(", ");
+      const totalVenda = items.reduce((sum, item) => sum + (parseFloat(item.preco_venda) || 0), 0);
+      const totalDesconto = items.reduce((sum, item) => sum + (parseFloat(item.desconto_beneficio) || 0), 0);
+
       // Criar compra
       const { data: purchase, error: purchaseError } = await supabase
         .from("purchases")
@@ -90,9 +132,9 @@ const NovaCompra = () => {
           colaboradora_id: formData.colaboradora_id,
           loja_id: formData.loja_id,
           data_compra: new Date(formData.data_compra).toISOString(),
-          item: formData.item,
-          preco_venda: parseFloat(formData.preco_venda),
-          desconto_beneficio: parseFloat(formData.desconto_beneficio),
+          item: itemsDescricao,
+          preco_venda: totalVenda,
+          desconto_beneficio: totalDesconto,
           preco_final: precoFinal,
           num_parcelas: numParcelas,
           status_compra: "PENDENTE",
@@ -208,48 +250,75 @@ const NovaCompra = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="item">Item *</Label>
-                <Input
-                  id="item"
-                  value={formData.item}
-                  onChange={(e) => setFormData({ ...formData, item: e.target.value })}
-                  placeholder="Descrição do item"
-                  required
-                />
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="preco_venda">Preço Venda (R$) *</Label>
-                  <Input
-                    id="preco_venda"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.preco_venda}
-                    onChange={(e) => setFormData({ ...formData, preco_venda: e.target.value })}
-                    required
-                  />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label>Itens da Compra *</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addItem}
+                    className="border-primary/20"
+                  >
+                    <span className="text-lg mr-1">+</span> Adicionar Item
+                  </Button>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="desconto">Desconto (R$) *</Label>
-                  <Input
-                    id="desconto"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.desconto_beneficio}
-                    onChange={(e) => setFormData({ ...formData, desconto_beneficio: e.target.value })}
-                    required
-                  />
-                </div>
+                {items.map((item, index) => (
+                  <div key={index} className="p-4 border border-primary/10 rounded-lg space-y-3 bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-muted-foreground">Item {index + 1}</span>
+                      {items.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeItem(index)}
+                          className="h-6 text-destructive hover:text-destructive"
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    
+                    <Input
+                      value={item.item}
+                      onChange={(e) => updateItem(index, "item", e.target.value)}
+                      placeholder="Descrição do item"
+                      required
+                    />
+                    
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div>
+                        <Label className="text-xs">Preço Venda (R$)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={item.preco_venda}
+                          onChange={(e) => updateItem(index, "preco_venda", e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Desconto (R$)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={item.desconto_beneficio}
+                          onChange={(e) => updateItem(index, "desconto_beneficio", e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
 
-                <div className="space-y-2">
-                  <Label>Preço Final</Label>
-                  <div className="h-10 flex items-center px-3 bg-muted rounded-md font-semibold text-primary">
-                    R$ {calcularPrecoFinal()}
+                <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-lg">Preço Final Total:</span>
+                    <span className="font-bold text-2xl text-primary">R$ {calcularPrecoFinal()}</span>
                   </div>
                 </div>
               </div>
@@ -280,13 +349,22 @@ const NovaCompra = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="primeiro_mes">1º Mês Desconto *</Label>
-                  <Input
-                    id="primeiro_mes"
-                    type="month"
+                  <Select
                     value={formData.primeiro_mes}
-                    onChange={(e) => setFormData({ ...formData, primeiro_mes: e.target.value })}
+                    onValueChange={(value) => setFormData({ ...formData, primeiro_mes: value })}
                     required
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o mês" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getMesesDisponiveis().map((mes) => (
+                        <SelectItem key={mes.value} value={mes.value}>
+                          {mes.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

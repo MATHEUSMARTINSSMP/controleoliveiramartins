@@ -4,19 +4,21 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { KPICard } from "@/components/KPICard";
-import { DollarSign, TrendingUp, Clock, LogOut, Plus } from "lucide-react";
+import { DollarSign, TrendingUp, Clock, LogOut, Plus, Calendar } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 interface KPIData {
   previsto: number;
   descontado: number;
   pendente: number;
+  mesAtual: number;
 }
 
 const AdminDashboard = () => {
   const { profile, signOut, loading } = useAuth();
   const navigate = useNavigate();
-  const [kpis, setKpis] = useState<KPIData>({ previsto: 0, descontado: 0, pendente: 0 });
+  const [kpis, setKpis] = useState<KPIData>({ previsto: 0, descontado: 0, pendente: 0, mesAtual: 0 });
 
   useEffect(() => {
     if (!loading) {
@@ -34,9 +36,11 @@ const AdminDashboard = () => {
     try {
       const { data: parcelas, error } = await supabase
         .from("parcelas")
-        .select("valor_parcela, status_parcela");
+        .select("valor_parcela, status_parcela, competencia");
 
       if (error) throw error;
+
+      const mesAtual = format(new Date(), "yyyyMM");
 
       const previsto = parcelas?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
       const descontado = parcelas
@@ -45,8 +49,11 @@ const AdminDashboard = () => {
       const pendente = parcelas
         ?.filter(p => p.status_parcela === "PENDENTE" || p.status_parcela === "AGENDADO")
         .reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
+      const mesAtualTotal = parcelas
+        ?.filter(p => p.competencia === mesAtual && (p.status_parcela === "PENDENTE" || p.status_parcela === "AGENDADO"))
+        .reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
 
-      setKpis({ previsto, descontado, pendente });
+      setKpis({ previsto, descontado, pendente, mesAtual: mesAtualTotal });
     } catch (error) {
       console.error("Error fetching KPIs:", error);
       toast.error("Erro ao carregar indicadores");
@@ -88,11 +95,16 @@ const AdminDashboard = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="grid gap-6 md:grid-cols-3 mb-8">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <KPICard
             title="Total Previsto"
             value={`R$ ${kpis.previsto.toFixed(2)}`}
             icon={DollarSign}
+          />
+          <KPICard
+            title="Descontar Mês Atual"
+            value={`R$ ${kpis.mesAtual.toFixed(2)}`}
+            icon={Calendar}
           />
           <KPICard
             title="Total Descontado"
@@ -110,13 +122,20 @@ const AdminDashboard = () => {
           />
         </div>
 
-        <div className="flex gap-4 mb-6">
+        <div className="flex gap-4 mb-6 flex-wrap">
           <Button
             className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all shadow-md hover:shadow-lg"
             onClick={() => navigate("/admin/nova-compra")}
           >
             <Plus className="mr-2 h-4 w-4" />
             Nova Compra
+          </Button>
+          <Button
+            variant="outline"
+            className="border-primary/20 hover:bg-primary/10"
+            onClick={() => navigate("/admin/lancamentos")}
+          >
+            Lançamentos e Descontos
           </Button>
           <Button
             variant="outline"
