@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { KPICard } from "@/components/KPICard";
-import { DollarSign, Calendar, CheckCircle, LogOut } from "lucide-react";
+import { DollarSign, Calendar, CheckCircle, LogOut, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 
 interface UserKPIs {
@@ -16,11 +16,7 @@ interface UserKPIs {
 const ColaboradoraDashboard = () => {
   const { profile, signOut, loading } = useAuth();
   const navigate = useNavigate();
-  const [kpis, setKpis] = useState<UserKPIs>({
-    totalPendente: 0,
-    proximasParcelas: 0,
-    totalPago: 0,
-  });
+  const [kpis, setKpis] = useState<UserKPIs | null>(null);
 
   useEffect(() => {
     if (!loading) {
@@ -74,6 +70,7 @@ const ColaboradoraDashboard = () => {
     } catch (error) {
       console.error("Error fetching user KPIs:", error);
       toast.error("Erro ao carregar seus dados");
+      setKpis({ totalPendente: 0, proximasParcelas: 0, totalPago: 0 });
     }
   };
 
@@ -82,10 +79,15 @@ const ColaboradoraDashboard = () => {
     navigate("/auth");
   };
 
-  if (loading || !profile) {
+  if (loading || !profile || kpis === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10">
+        <div className="text-center">
+          <div className="inline-block p-6 rounded-full bg-gradient-to-br from-primary to-accent mb-6 animate-pulse">
+            <ShoppingBag className="w-16 h-16 text-primary-foreground" />
+          </div>
+          <p className="text-muted-foreground">Carregando...</p>
+        </div>
       </div>
     );
   }
@@ -115,17 +117,17 @@ const ColaboradoraDashboard = () => {
         <div className="grid gap-6 md:grid-cols-3 mb-8">
           <KPICard
             title="Próximas Parcelas"
-            value={`R$ ${kpis.proximasParcelas.toFixed(2)}`}
+            value={`R$ ${kpis?.proximasParcelas?.toFixed(2) || '0.00'}`}
             icon={Calendar}
           />
           <KPICard
             title="Total Pendente"
-            value={`R$ ${kpis.totalPendente.toFixed(2)}`}
+            value={`R$ ${kpis?.totalPendente?.toFixed(2) || '0.00'}`}
             icon={DollarSign}
           />
           <KPICard
             title="Total Pago"
-            value={`R$ ${kpis.totalPago.toFixed(2)}`}
+            value={`R$ ${kpis?.totalPago?.toFixed(2) || '0.00'}`}
             icon={CheckCircle}
           />
         </div>
