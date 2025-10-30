@@ -11,6 +11,9 @@ interface UserKPIs {
   totalPendente: number;
   proximasParcelas: number;
   totalPago: number;
+  limiteTotal: number;
+  limiteDisponivel: number;
+  limiteMensal: number;
 }
 
 const ColaboradoraDashboard = () => {
@@ -34,6 +37,12 @@ const ColaboradoraDashboard = () => {
     if (!profile) return;
 
     try {
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("limite_total, limite_mensal")
+        .eq("id", profile.id)
+        .single();
+
       const { data: purchases } = await supabase
         .from("purchases")
         .select("id")
@@ -66,11 +75,15 @@ const ColaboradoraDashboard = () => {
         ?.filter(p => p.status_parcela === "DESCONTADO")
         .reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
 
-      setKpis({ totalPendente, proximasParcelas, totalPago });
+      const limiteTotal = Number(profileData?.limite_total || 1000);
+      const limiteDisponivel = limiteTotal - totalPendente;
+      const limiteMensal = Number(profileData?.limite_mensal || 800);
+
+      setKpis({ totalPendente, proximasParcelas, totalPago, limiteTotal, limiteDisponivel, limiteMensal });
     } catch (error) {
       console.error("Error fetching user KPIs:", error);
       toast.error("Erro ao carregar seus dados");
-      setKpis({ totalPendente: 0, proximasParcelas: 0, totalPago: 0 });
+      setKpis({ totalPendente: 0, proximasParcelas: 0, totalPago: 0, limiteTotal: 1000, limiteDisponivel: 1000, limiteMensal: 800 });
     }
   };
 
@@ -114,7 +127,22 @@ const ColaboradoraDashboard = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="grid gap-6 md:grid-cols-3 mb-8">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
+          <KPICard
+            title="Limite Total"
+            value={`R$ ${kpis?.limiteTotal?.toFixed(2) || '0.00'}`}
+            icon={DollarSign}
+          />
+          <KPICard
+            title="Limite Disponível"
+            value={`R$ ${kpis?.limiteDisponivel?.toFixed(2) || '0.00'}`}
+            icon={CheckCircle}
+          />
+          <KPICard
+            title="Limite Mensal"
+            value={`R$ ${kpis?.limiteMensal?.toFixed(2) || '0.00'}`}
+            icon={Calendar}
+          />
           <KPICard
             title="Próximas Parcelas"
             value={`R$ ${kpis?.proximasParcelas?.toFixed(2) || '0.00'}`}

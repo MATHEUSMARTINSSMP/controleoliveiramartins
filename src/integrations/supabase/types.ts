@@ -118,6 +118,8 @@ export type Database = {
           created_at: string | null
           email: string
           id: string
+          limite_mensal: number
+          limite_total: number
           name: string
           role: Database["public"]["Enums"]["app_role"]
           store_default: string | null
@@ -128,6 +130,8 @@ export type Database = {
           created_at?: string | null
           email: string
           id: string
+          limite_mensal?: number
+          limite_total?: number
           name: string
           role: Database["public"]["Enums"]["app_role"]
           store_default?: string | null
@@ -138,6 +142,8 @@ export type Database = {
           created_at?: string | null
           email?: string
           id?: string
+          limite_mensal?: number
+          limite_total?: number
           name?: string
           role?: Database["public"]["Enums"]["app_role"]
           store_default?: string | null

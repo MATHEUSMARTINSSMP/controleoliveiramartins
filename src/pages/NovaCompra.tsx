@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, XCircle } from "lucide-react";
+import { format } from "date-fns";
 
 interface Store {
   id: string;
@@ -27,6 +28,12 @@ const NovaCompra = () => {
   const [loading, setLoading] = useState(false);
   const [stores, setStores] = useState<Store[]>([]);
   const [colaboradoras, setColaboradoras] = useState<Colaboradora[]>([]);
+  const [limiteInfo, setLimiteInfo] = useState<{
+    limite_total: number;
+    limite_mensal: number;
+    usado_total: number;
+    usado_mes_atual: number;
+  } | null>(null);
   const [items, setItems] = useState([
     {
       item: "",
@@ -62,10 +69,59 @@ const NovaCompra = () => {
   const fetchColaboradoras = async () => {
     const { data } = await supabase
       .from("profiles")
-      .select("id, name")
+      .select("id, name, limite_total, limite_mensal")
       .eq("role", "COLABORADORA")
       .eq("active", true);
     if (data) setColaboradoras(data);
+  };
+
+  const fetchLimiteInfo = async (colaboradoraId: string) => {
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("limite_total, limite_mensal")
+        .eq("id", colaboradoraId)
+        .single();
+
+      if (!profile) return;
+
+      // Buscar compras da colaboradora
+      const { data: purchases } = await supabase
+        .from("purchases")
+        .select("id")
+        .eq("colaboradora_id", colaboradoraId);
+
+      const purchaseIds = purchases?.map(p => p.id) || [];
+
+      // Buscar total usado
+      const { data: parcelasTotal } = await supabase
+        .from("parcelas")
+        .select("valor_parcela")
+        .in("compra_id", purchaseIds)
+        .in("status_parcela", ["PENDENTE", "AGENDADO"]);
+
+      const usado_total = parcelasTotal?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
+
+      // Buscar usado no mês atual
+      const mesAtual = format(new Date(), "yyyyMM");
+      const { data: parcelasMes } = await supabase
+        .from("parcelas")
+        .select("valor_parcela")
+        .in("compra_id", purchaseIds)
+        .eq("competencia", mesAtual)
+        .in("status_parcela", ["PENDENTE", "AGENDADO"]);
+
+      const usado_mes_atual = parcelasMes?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
+
+      setLimiteInfo({
+        limite_total: Number(profile.limite_total),
+        limite_mensal: Number(profile.limite_mensal),
+        usado_total,
+        usado_mes_atual,
+      });
+    } catch (error) {
+      console.error("Erro ao buscar limite:", error);
+    }
   };
 
   const addItem = () => {
@@ -213,7 +269,10 @@ const NovaCompra = () => {
                   <Label htmlFor="colaboradora">Colaboradora *</Label>
                   <Select
                     value={formData.colaboradora_id}
-                    onValueChange={(value) => setFormData({ ...formData, colaboradora_id: value })}
+                    onValueChange={(value) => {
+                      setFormData({ ...formData, colaboradora_id: value });
+                      fetchLimiteInfo(value);
+                    }}
                     required
                   >
                     <SelectTrigger>
@@ -227,6 +286,33 @@ const NovaCompra = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  
+                  {limiteInfo && (
+                    <div className="mt-2 p-3 bg-primary/5 rounded-lg border border-primary/20 space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Limite Total:</span>
+                        <span className="font-medium">R$ {limiteInfo.limite_total.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Usado:</span>
+                        <span className="font-medium">R$ {limiteInfo.usado_total.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-success font-semibold">Disponível:</span>
+                        <span className="font-bold text-success">R$ {(limiteInfo.limite_total - limiteInfo.usado_total).toFixed(2)}</span>
+                      </div>
+                      <div className="pt-2 border-t border-primary/10">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Limite Mensal:</span>
+                          <span className="font-medium">R$ {limiteInfo.limite_mensal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Usado Este Mês:</span>
+                          <span className="font-medium">R$ {limiteInfo.usado_mes_atual.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">

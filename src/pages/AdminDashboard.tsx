@@ -4,9 +4,30 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { KPICard } from "@/components/KPICard";
-import { DollarSign, TrendingUp, Clock, LogOut, Plus, Calendar } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DollarSign, TrendingUp, Clock, LogOut, Plus, Calendar, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+interface ColaboradoraLimite {
+  id: string;
+  name: string;
+  limite_total: number;
+  limite_mensal: number;
+  usado_total: number;
+  disponivel: number;
+}
 
 interface KPIData {
   previsto: number;
@@ -19,6 +40,8 @@ const AdminDashboard = () => {
   const { profile, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const [kpis, setKpis] = useState<KPIData>({ previsto: 0, descontado: 0, pendente: 0, mesAtual: 0 });
+  const [colaboradoras, setColaboradoras] = useState<ColaboradoraLimite[]>([]);
+  const [deleteCompraId, setDeleteCompraId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading) {
@@ -28,6 +51,7 @@ const AdminDashboard = () => {
         navigate("/me");
       } else {
         fetchKPIs();
+        fetchColaboradorasLimites();
       }
     }
   }, [profile, loading, navigate]);
@@ -57,6 +81,77 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error("Error fetching KPIs:", error);
       toast.error("Erro ao carregar indicadores");
+    }
+  };
+
+  const fetchColaboradorasLimites = async () => {
+    try {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, name, limite_total, limite_mensal")
+        .eq("role", "COLABORADORA")
+        .eq("active", true);
+
+      if (!profiles) return;
+
+      const limites: ColaboradoraLimite[] = [];
+
+      for (const prof of profiles) {
+        const { data: purchases } = await supabase
+          .from("purchases")
+          .select("id")
+          .eq("colaboradora_id", prof.id);
+
+        const purchaseIds = purchases?.map(p => p.id) || [];
+
+        const { data: parcelas } = await supabase
+          .from("parcelas")
+          .select("valor_parcela")
+          .in("compra_id", purchaseIds)
+          .in("status_parcela", ["PENDENTE", "AGENDADO"]);
+
+        const usado_total = parcelas?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
+        const disponivel = Number(prof.limite_total) - usado_total;
+
+        limites.push({
+          id: prof.id,
+          name: prof.name,
+          limite_total: Number(prof.limite_total),
+          limite_mensal: Number(prof.limite_mensal),
+          usado_total,
+          disponivel,
+        });
+      }
+
+      setColaboradoras(limites);
+    } catch (error) {
+      console.error("Erro ao buscar limites:", error);
+    }
+  };
+
+  const handleDeleteCompra = async (compraId: string) => {
+    try {
+      const { error: parcelasError } = await supabase
+        .from("parcelas")
+        .delete()
+        .eq("compra_id", compraId);
+
+      if (parcelasError) throw parcelasError;
+
+      const { error: compraError } = await supabase
+        .from("purchases")
+        .delete()
+        .eq("id", compraId);
+
+      if (compraError) throw compraError;
+
+      toast.success("Compra excluída com sucesso!");
+      fetchKPIs();
+      fetchColaboradorasLimites();
+    } catch (error: any) {
+      toast.error("Erro ao excluir compra: " + error.message);
+    } finally {
+      setDeleteCompraId(null);
     }
   };
 
@@ -146,13 +241,80 @@ const AdminDashboard = () => {
           </Button>
         </div>
 
-        <div className="bg-card/80 backdrop-blur-sm rounded-lg border border-primary/10 p-6 shadow-[var(--shadow-card)]">
-          <h2 className="text-xl font-semibold mb-4">Gestão de Compras e Parcelas</h2>
-          <p className="text-muted-foreground">
-            Área em desenvolvimento. Use os botões acima para criar novas compras ou visualizar relatórios.
-          </p>
-        </div>
+        <Card className="backdrop-blur-sm bg-card/95 shadow-[var(--shadow-card)] border-primary/10">
+          <CardHeader>
+            <CardTitle className="text-xl bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Limites das Colaboradoras
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-lg border border-primary/10 overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="font-semibold">Colaboradora</TableHead>
+                    <TableHead className="font-semibold">Limite Total</TableHead>
+                    <TableHead className="font-semibold">Usado</TableHead>
+                    <TableHead className="font-semibold">Disponível</TableHead>
+                    <TableHead className="font-semibold">Limite Mensal</TableHead>
+                    <TableHead className="font-semibold">% Usado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {colaboradoras.map((colab) => {
+                    const percentual = (colab.usado_total / colab.limite_total) * 100;
+                    return (
+                      <TableRow key={colab.id} className="hover:bg-muted/50 transition-colors">
+                        <TableCell className="font-medium">{colab.name}</TableCell>
+                        <TableCell>R$ {colab.limite_total.toFixed(2)}</TableCell>
+                        <TableCell>R$ {colab.usado_total.toFixed(2)}</TableCell>
+                        <TableCell className={colab.disponivel < 0 ? "text-destructive font-semibold" : "text-success font-semibold"}>
+                          R$ {colab.disponivel.toFixed(2)}
+                        </TableCell>
+                        <TableCell>R$ {colab.limite_mensal.toFixed(2)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full transition-all ${
+                                  percentual >= 90 ? "bg-destructive" : 
+                                  percentual >= 70 ? "bg-amber-500" : 
+                                  "bg-success"
+                                }`}
+                                style={{ width: `${Math.min(percentual, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-sm font-medium min-w-[3rem] text-right">
+                              {percentual.toFixed(0)}%
+                            </span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
       </main>
+
+      <AlertDialog open={!!deleteCompraId} onOpenChange={() => setDeleteCompraId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta compra? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteCompraId && handleDeleteCompra(deleteCompraId)} className="bg-destructive text-destructive-foreground">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
