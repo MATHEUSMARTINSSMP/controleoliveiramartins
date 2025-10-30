@@ -16,7 +16,7 @@ const Seed = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
         }
       );
@@ -43,7 +43,7 @@ const Seed = () => {
           </Button>
           <div className="mt-4 text-sm text-muted-foreground">
             <p><strong>Admin:</strong> admin@local / 123456</p>
-            <p><strong>Colaboradoras:</strong> emilly@local, naima@local, etc. / 123456</p>
+            <p><strong>Colaboradoras:</strong> bruna@local, karol@local, naima@local, rosana@local, emilly@local, fernanda@local, ingred@local, daniel@local, leticia@local, michelle@local, ramayane@local, ellen@local / 123456</p>
           </div>
         </CardContent>
       </Card>

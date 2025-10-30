@@ -18,15 +18,17 @@ Deno.serve(async (req) => {
 
     const usuarios = [
       { name: 'Admin', email: 'admin@local', role: 'ADMIN' },
-      { name: 'Karol', email: 'karol@local', role: 'COLABORADORA' },
       { name: 'Bruna', email: 'bruna@local', role: 'COLABORADORA' },
-      { name: 'Leítica', email: 'leitica@local', role: 'COLABORADORA' },
-      { name: 'Rosana', email: 'rosana@local', role: 'COLABORADORA' },
+      { name: 'Karol', email: 'karol@local', role: 'COLABORADORA' },
       { name: 'Naíma', email: 'naima@local', role: 'COLABORADORA' },
+      { name: 'Rosana', email: 'rosana@local', role: 'COLABORADORA' },
+      { name: 'Emilly', email: 'emilly@local', role: 'COLABORADORA' },
       { name: 'Fernanda', email: 'fernanda@local', role: 'COLABORADORA' },
       { name: 'Ingred', email: 'ingred@local', role: 'COLABORADORA' },
       { name: 'Daniel', email: 'daniel@local', role: 'COLABORADORA' },
-      { name: 'Ramayanne', email: 'ramayanne@local', role: 'COLABORADORA' },
+      { name: 'Letícia', email: 'leticia@local', role: 'COLABORADORA' },
+      { name: 'Michelle', email: 'michelle@local', role: 'COLABORADORA' },
+      { name: 'Ramayane', email: 'ramayane@local', role: 'COLABORADORA' },
       { name: 'Ellen', email: 'ellen@local', role: 'COLABORADORA' },
     ]
 
