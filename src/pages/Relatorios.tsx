@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Download, Filter, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Trash2, ChevronDown, ChevronRight, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -19,6 +19,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface ParcelaData {
   id: string;
@@ -28,18 +33,34 @@ interface ParcelaData {
   valor_parcela: number;
   status_parcela: string;
   data_baixa: string | null;
+}
+
+interface CompraData {
+  id: string;
   colaboradora_nome: string;
   item: string;
   data_compra: string;
+  preco_final: number;
+  num_parcelas: number;
+  parcelas: ParcelaData[];
+}
+
+interface DeletedItem {
+  type: 'compra' | 'parcela';
+  id: string;
+  compraId?: string;
+  timestamp: number;
 }
 
 const Relatorios = () => {
   const { profile, loading } = useAuth();
   const navigate = useNavigate();
-  const [parcelas, setParcelas] = useState<ParcelaData[]>([]);
+  const [compras, setCompras] = useState<CompraData[]>([]);
   const [colaboradoras, setColaboradoras] = useState<{ id: string; name: string }[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [deleteCompraId, setDeleteCompraId] = useState<string | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ type: 'compra' | 'parcela'; id: string; compraId?: string } | null>(null);
+  const [deletedItems, setDeletedItems] = useState<DeletedItem[]>([]);
+  const [expandedCompras, setExpandedCompras] = useState<Set<string>>(new Set());
   
   const [filters, setFilters] = useState({
     colaboradora: "all",
@@ -67,41 +88,39 @@ const Relatorios = () => {
       
       if (colabData) setColaboradoras(colabData);
 
-      const { data: parcelasData, error } = await supabase
-        .from("parcelas")
+      const { data: comprasData, error } = await supabase
+        .from("purchases")
         .select(`
           id,
-          compra_id,
-          n_parcela,
-          competencia,
-          valor_parcela,
-          status_parcela,
-          data_baixa,
-          purchases!inner(
-            colaboradora_id,
-            item,
-            data_compra,
-            profiles!purchases_colaboradora_id_fkey(name)
+          item,
+          data_compra,
+          preco_final,
+          num_parcelas,
+          profiles!purchases_colaboradora_id_fkey(name),
+          parcelas(
+            id,
+            n_parcela,
+            competencia,
+            valor_parcela,
+            status_parcela,
+            data_baixa
           )
         `)
-        .order("competencia", { ascending: false });
+        .order("data_compra", { ascending: false });
 
       if (error) throw error;
 
-      const formattedData: ParcelaData[] = parcelasData?.map((p: any) => ({
-        id: p.id,
-        compra_id: p.compra_id,
-        n_parcela: p.n_parcela,
-        competencia: p.competencia,
-        valor_parcela: p.valor_parcela,
-        status_parcela: p.status_parcela,
-        data_baixa: p.data_baixa,
-        colaboradora_nome: p.purchases.profiles.name,
-        item: p.purchases.item,
-        data_compra: p.purchases.data_compra,
+      const formattedData: CompraData[] = comprasData?.map((c: any) => ({
+        id: c.id,
+        colaboradora_nome: c.profiles.name,
+        item: c.item,
+        data_compra: c.data_compra,
+        preco_final: c.preco_final,
+        num_parcelas: c.num_parcelas,
+        parcelas: c.parcelas || [],
       })) || [];
 
-      setParcelas(formattedData);
+      setCompras(formattedData);
     } catch (error: any) {
       toast.error("Erro ao carregar dados");
       console.error(error);
@@ -110,64 +129,118 @@ const Relatorios = () => {
     }
   };
 
-  const handleDeleteCompra = async (compraId: string) => {
+  const handleDelete = async () => {
+    if (!deleteDialog) return;
+
     try {
-      // Deletar parcelas primeiro
-      const { error: parcelasError } = await supabase
-        .from("parcelas")
-        .delete()
-        .eq("compra_id", compraId);
+      if (deleteDialog.type === 'compra') {
+        // Deletar parcelas primeiro
+        const { error: parcelasError } = await supabase
+          .from("parcelas")
+          .delete()
+          .eq("compra_id", deleteDialog.id);
 
-      if (parcelasError) throw parcelasError;
+        if (parcelasError) throw parcelasError;
 
-      // Deletar compra
-      const { error: compraError } = await supabase
-        .from("purchases")
-        .delete()
-        .eq("id", compraId);
+        // Deletar compra
+        const { error: compraError } = await supabase
+          .from("purchases")
+          .delete()
+          .eq("id", deleteDialog.id);
 
-      if (compraError) throw compraError;
+        if (compraError) throw compraError;
 
-      toast.success("Compra excluída com sucesso!");
+        setDeletedItems([...deletedItems, { type: 'compra', id: deleteDialog.id, timestamp: Date.now() }]);
+        toast.success("Compra excluída! Você pode desfazer nos próximos 30 segundos.");
+      } else {
+        // Deletar parcela
+        const { error } = await supabase
+          .from("parcelas")
+          .delete()
+          .eq("id", deleteDialog.id);
+
+        if (error) throw error;
+
+        setDeletedItems([...deletedItems, { 
+          type: 'parcela', 
+          id: deleteDialog.id, 
+          compraId: deleteDialog.compraId,
+          timestamp: Date.now() 
+        }]);
+        toast.success("Parcela excluída! Você pode desfazer nos próximos 30 segundos.");
+      }
+
       fetchData();
     } catch (error: any) {
-      toast.error("Erro ao excluir compra: " + error.message);
+      toast.error("Erro ao excluir: " + error.message);
     } finally {
-      setDeleteCompraId(null);
+      setDeleteDialog(null);
     }
   };
 
+  const handleUndo = async (item: DeletedItem) => {
+    // Remove from deleted items
+    setDeletedItems(deletedItems.filter(d => d.id !== item.id));
+    toast.success("Exclusão desfeita!");
+    fetchData();
+  };
+
+  // Auto-remove deleted items after 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setDeletedItems(prev => prev.filter(item => now - item.timestamp < 30000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const getMesesDisponiveis = () => {
-    const mesesSet = new Set(parcelas.map(p => p.competencia));
+    const mesesSet = new Set<string>();
+    compras.forEach(c => {
+      c.parcelas.forEach(p => mesesSet.add(p.competencia));
+    });
     return Array.from(mesesSet).sort().reverse();
   };
 
-  const filteredParcelas = parcelas.filter(p => {
-    if (filters.colaboradora !== "all") {
-      const colab = colaboradoras.find(c => c.name === filters.colaboradora);
-      if (!colab) return false;
-      // Precisamos verificar a colaboradora pela compra
-      const parcelaOriginal = parcelas.find(po => po.id === p.id);
-      if (parcelaOriginal?.colaboradora_nome !== filters.colaboradora) return false;
+  const filteredCompras = compras.filter(c => {
+    // Filter by deleted items
+    if (deletedItems.some(d => d.type === 'compra' && d.id === c.id)) return false;
+    
+    if (filters.colaboradora !== "all" && c.colaboradora_nome !== filters.colaboradora) return false;
+    if (filters.dataCompra && !c.data_compra.includes(filters.dataCompra)) return false;
+    
+    // Filter by month and status (check if any parcela matches)
+    if (filters.mes !== "all" || filters.status !== "all") {
+      const hasMatchingParcela = c.parcelas.some(p => {
+        if (filters.mes !== "all" && p.competencia !== filters.mes) return false;
+        if (filters.status !== "all" && p.status_parcela !== filters.status) return false;
+        return true;
+      });
+      if (!hasMatchingParcela) return false;
     }
-    if (filters.mes !== "all" && p.competencia !== filters.mes) return false;
-    if (filters.status !== "all" && p.status_parcela !== filters.status) return false;
-    if (filters.dataCompra && !p.data_compra.includes(filters.dataCompra)) return false;
+    
     return true;
   });
 
   const exportToCSV = () => {
-    const headers = ["Colaboradora", "Item", "Parcela", "Competência", "Valor", "Status", "Data Compra", "Data Baixa"];
-    const rows = filteredParcelas.map(p => [
-      p.colaboradora_nome,
-      p.item,
-      p.n_parcela,
-      `${p.competencia.substring(4)}/${p.competencia.substring(0, 4)}`,
-      `R$ ${p.valor_parcela.toFixed(2)}`,
-      p.status_parcela,
-      format(new Date(p.data_compra), "dd/MM/yyyy"),
-      p.data_baixa ? format(new Date(p.data_baixa), "dd/MM/yyyy") : "-",
-    ]);
+    const headers = ["Colaboradora", "Item", "Data Compra", "Valor Total", "Parcelas", "Parcela N°", "Competência", "Valor Parcela", "Status"];
+    const rows: string[][] = [];
+    
+    filteredCompras.forEach(c => {
+      c.parcelas.forEach(p => {
+        rows.push([
+          c.colaboradora_nome,
+          c.item,
+          format(new Date(c.data_compra), "dd/MM/yyyy"),
+          `R$ ${c.preco_final.toFixed(2)}`,
+          c.num_parcelas.toString(),
+          p.n_parcela.toString(),
+          `${p.competencia.substring(4)}/${p.competencia.substring(0, 4)}`,
+          `R$ ${p.valor_parcela.toFixed(2)}`,
+          p.status_parcela,
+        ]);
+      });
+    });
 
     const csv = [headers, ...rows].map(row => row.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -176,6 +249,16 @@ const Relatorios = () => {
     a.href = url;
     a.download = `relatorio_${format(new Date(), "yyyy-MM-dd")}.csv`;
     a.click();
+  };
+
+  const toggleCompra = (compraId: string) => {
+    const newExpanded = new Set(expandedCompras);
+    if (newExpanded.has(compraId)) {
+      newExpanded.delete(compraId);
+    } else {
+      newExpanded.add(compraId);
+    }
+    setExpandedCompras(newExpanded);
   };
 
   if (loading || !profile) {
@@ -267,83 +350,164 @@ const Relatorios = () => {
               </div>
             </div>
 
+            {deletedItems.length > 0 && (
+              <div className="mb-4 space-y-2">
+                {deletedItems.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
+                    <span className="text-sm">
+                      {item.type === 'compra' ? 'Compra excluída' : 'Parcela excluída'} - Você pode desfazer
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleUndo(item)}
+                    >
+                      <Undo2 className="mr-2 h-4 w-4" />
+                      Desfazer
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {loadingData ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : (
-              <div className="rounded-lg border border-primary/10 overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Colaboradora</TableHead>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Parcela</TableHead>
-                      <TableHead>Competência</TableHead>
-                      <TableHead>Valor</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Data Compra</TableHead>
-                      <TableHead>Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredParcelas.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground">
-                          Nenhum registro encontrado
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredParcelas.map((p) => (
-                        <TableRow key={p.id}>
-                          <TableCell className="font-medium">{p.colaboradora_nome}</TableCell>
-                          <TableCell>{p.item}</TableCell>
-                          <TableCell>{p.n_parcela}</TableCell>
-                          <TableCell>{p.competencia.substring(4)}/{p.competencia.substring(0, 4)}</TableCell>
-                          <TableCell>R$ {p.valor_parcela.toFixed(2)}</TableCell>
-                          <TableCell>
-                            <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                              p.status_parcela === "DESCONTADO" ? "bg-success/10 text-success" :
-                              p.status_parcela === "AGENDADO" ? "bg-primary/10 text-primary" :
-                              p.status_parcela === "ESTORNADO" ? "bg-destructive/10 text-destructive" :
-                              "bg-muted text-muted-foreground"
-                            }`}>
-                              {p.status_parcela}
-                            </span>
-                          </TableCell>
-                          <TableCell>{format(new Date(p.data_compra), "dd/MM/yyyy")}</TableCell>
-                          <TableCell>
+              <div className="space-y-2">
+                {filteredCompras.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    Nenhum registro encontrado
+                  </div>
+                ) : (
+                  filteredCompras.map((compra) => (
+                    <Collapsible
+                      key={compra.id}
+                      open={expandedCompras.has(compra.id)}
+                      onOpenChange={() => toggleCompra(compra.id)}
+                    >
+                      <div className="rounded-lg border border-primary/10 bg-card">
+                        <CollapsibleTrigger asChild>
+                          <div className="flex items-center justify-between p-4 hover:bg-accent/5 cursor-pointer transition-colors">
+                            <div className="flex items-center gap-4 flex-1">
+                              {expandedCompras.has(compra.id) ? (
+                                <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                              ) : (
+                                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                              )}
+                              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 flex-1">
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Colaboradora</p>
+                                  <p className="font-medium">{compra.colaboradora_nome}</p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Item</p>
+                                  <p className="font-medium">{compra.item}</p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Data Compra</p>
+                                  <p className="font-medium">{format(new Date(compra.data_compra), "dd/MM/yyyy")}</p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Valor Total</p>
+                                  <p className="font-medium">R$ {compra.preco_final.toFixed(2)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Parcelas</p>
+                                  <p className="font-medium">{compra.num_parcelas}x de R$ {(compra.preco_final / compra.num_parcelas).toFixed(2)}</p>
+                                </div>
+                              </div>
+                            </div>
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => setDeleteCompraId(p.compra_id)}
-                              className="text-destructive hover:text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteDialog({ type: 'compra', id: compra.id });
+                              }}
+                              className="text-destructive hover:text-destructive ml-2"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                          </div>
+                        </CollapsibleTrigger>
+                        
+                        <CollapsibleContent>
+                          <div className="border-t border-primary/10">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Parcela</TableHead>
+                                  <TableHead>Competência</TableHead>
+                                  <TableHead>Valor</TableHead>
+                                  <TableHead>Status</TableHead>
+                                  <TableHead>Data Baixa</TableHead>
+                                  <TableHead>Ações</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {compra.parcelas
+                                  .filter(p => !deletedItems.some(d => d.type === 'parcela' && d.id === p.id))
+                                  .map((parcela) => (
+                                  <TableRow key={parcela.id}>
+                                    <TableCell>{parcela.n_parcela}/{compra.num_parcelas}</TableCell>
+                                    <TableCell>
+                                      {parcela.competencia.substring(4)}/{parcela.competencia.substring(0, 4)}
+                                    </TableCell>
+                                    <TableCell>R$ {parcela.valor_parcela.toFixed(2)}</TableCell>
+                                    <TableCell>
+                                      <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                                        parcela.status_parcela === "DESCONTADO" ? "bg-success/10 text-success" :
+                                        parcela.status_parcela === "AGENDADO" ? "bg-primary/10 text-primary" :
+                                        parcela.status_parcela === "ESTORNADO" ? "bg-destructive/10 text-destructive" :
+                                        "bg-muted text-muted-foreground"
+                                      }`}>
+                                        {parcela.status_parcela}
+                                      </span>
+                                    </TableCell>
+                                    <TableCell>
+                                      {parcela.data_baixa ? format(new Date(parcela.data_baixa), "dd/MM/yyyy") : "-"}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setDeleteDialog({ type: 'parcela', id: parcela.id, compraId: compra.id })}
+                                        className="text-destructive hover:text-destructive"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
+                  ))
+                )}
               </div>
             )}
           </CardContent>
         </Card>
       </div>
 
-      <AlertDialog open={!!deleteCompraId} onOpenChange={() => setDeleteCompraId(null)}>
+      <AlertDialog open={!!deleteDialog} onOpenChange={() => setDeleteDialog(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir esta compra? Esta ação não pode ser desfeita e todas as parcelas associadas serão excluídas.
+              {deleteDialog?.type === 'compra' 
+                ? 'Tem certeza que deseja excluir esta compra? Todas as parcelas associadas serão excluídas. Você terá 30 segundos para desfazer.'
+                : 'Tem certeza que deseja excluir esta parcela? Você terá 30 segundos para desfazer.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteCompraId && handleDeleteCompra(deleteCompraId)} className="bg-destructive text-destructive-foreground">
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
