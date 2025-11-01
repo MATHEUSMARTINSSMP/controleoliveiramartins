@@ -9,8 +9,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, XCircle } from "lucide-react";
+import { ArrowLeft, Loader2, XCircle, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Store {
   id: string;
@@ -34,6 +44,11 @@ const NovaCompra = () => {
     usado_total: number;
     usado_mes_atual: number;
   } | null>(null);
+  const [limiteExcedido, setLimiteExcedido] = useState<{
+    open: boolean;
+    tipo: string;
+    mensagem: string;
+  }>({ open: false, tipo: "", mensagem: "" });
   const [items, setItems] = useState([
     {
       item: "",
@@ -163,18 +178,66 @@ const NovaCompra = () => {
     return meses;
   };
 
+  const validarLimites = () => {
+    if (!limiteInfo) return true;
+
+    const precoFinal = parseFloat(calcularPrecoFinal());
+    const numParcelas = parseInt(formData.num_parcelas);
+    const valorPorParcela = precoFinal / numParcelas;
+
+    const disponivel = limiteInfo.limite_total - limiteInfo.usado_total;
+    const disponivelMensal = limiteInfo.limite_mensal - limiteInfo.usado_mes_atual;
+
+    // Verificar limite total
+    if (precoFinal > disponivel) {
+      setLimiteExcedido({
+        open: true,
+        tipo: "total",
+        mensagem: `Esta compra ultrapassa o limite total disponível. Disponível: R$ ${disponivel.toFixed(2)} | Compra: R$ ${precoFinal.toFixed(2)}`,
+      });
+      return false;
+    }
+
+    // Verificar limite mensal considerando primeira parcela
+    if (valorPorParcela > disponivelMensal) {
+      setLimiteExcedido({
+        open: true,
+        tipo: "mensal",
+        mensagem: `O valor da parcela (R$ ${valorPorParcela.toFixed(2)}) ultrapassa o limite mensal disponível (R$ ${disponivelMensal.toFixed(2)}).`,
+      });
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validar limites antes de prosseguir
+    if (!validarLimites()) {
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const precoFinal = parseFloat(calcularPrecoFinal());
-      const numParcelas = parseInt(formData.num_parcelas);
-      
-      // Calcular valor base da parcela com arredondamento bancário
-      const valorBase = Math.round((precoFinal / numParcelas) * 100) / 100;
-      const totalParcelas = valorBase * numParcelas;
-      const diferenca = precoFinal - totalParcelas;
+      await processarCompra();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao criar compra");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const processarCompra = async () => {
+    const precoFinal = parseFloat(calcularPrecoFinal());
+    const numParcelas = parseInt(formData.num_parcelas);
+    
+    // Calcular valor base da parcela com arredondamento bancário
+    const valorBase = Math.round((precoFinal / numParcelas) * 100) / 100;
+    const totalParcelas = valorBase * numParcelas;
+    const diferenca = precoFinal - totalParcelas;
 
       // Concatenar todos os itens
       const itemsDescricao = items.map(item => item.item).filter(i => i).join(", ");
@@ -227,13 +290,8 @@ const NovaCompra = () => {
       const { error: parcelasError } = await supabase.from("parcelas").insert(parcelas);
       if (parcelasError) throw parcelasError;
 
-      toast.success("Compra criada com sucesso!");
-      navigate("/admin");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao criar compra");
-    } finally {
-      setLoading(false);
-    }
+    toast.success("Compra criada com sucesso!");
+    navigate("/admin");
   };
 
   if (authLoading || !profile) {
@@ -482,6 +540,40 @@ const NovaCompra = () => {
             </form>
           </CardContent>
         </Card>
+
+        <AlertDialog open={limiteExcedido.open} onOpenChange={(open) => setLimiteExcedido({ ...limiteExcedido, open })}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+                Limite Excedido
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2">
+                <p>{limiteExcedido.mensagem}</p>
+                <p className="font-medium text-foreground">Deseja continuar mesmo assim?</p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setLoading(false)}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  setLimiteExcedido({ open: false, tipo: "", mensagem: "" });
+                  setLoading(true);
+                  try {
+                    await processarCompra();
+                  } catch (error: any) {
+                    toast.error(error.message || "Erro ao criar compra");
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                className="bg-destructive text-destructive-foreground"
+              >
+                Continuar Mesmo Assim
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { KPICard } from "@/components/KPICard";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, TrendingUp, Clock, LogOut, Plus, Calendar, Trash2 } from "lucide-react";
+import { DollarSign, TrendingUp, Clock, LogOut, Plus, Calendar, Trash2, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -19,6 +19,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 
 interface ColaboradoraLimite {
   id: string;
@@ -42,6 +46,11 @@ const AdminDashboard = () => {
   const [kpis, setKpis] = useState<KPIData>({ previsto: 0, descontado: 0, pendente: 0, mesAtual: 0 });
   const [colaboradoras, setColaboradoras] = useState<ColaboradoraLimite[]>([]);
   const [deleteCompraId, setDeleteCompraId] = useState<string | null>(null);
+  const [editLimiteDialog, setEditLimiteDialog] = useState<{ open: boolean; colaboradora: ColaboradoraLimite | null }>({
+    open: false,
+    colaboradora: null,
+  });
+  const [limiteForm, setLimiteForm] = useState({ limite_total: "", limite_mensal: "" });
 
   useEffect(() => {
     if (!loading) {
@@ -155,6 +164,36 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleEditLimite = (colaboradora: ColaboradoraLimite) => {
+    setEditLimiteDialog({ open: true, colaboradora });
+    setLimiteForm({
+      limite_total: colaboradora.limite_total.toString(),
+      limite_mensal: colaboradora.limite_mensal.toString(),
+    });
+  };
+
+  const handleSaveLimite = async () => {
+    if (!editLimiteDialog.colaboradora) return;
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          limite_total: parseFloat(limiteForm.limite_total),
+          limite_mensal: parseFloat(limiteForm.limite_mensal),
+        })
+        .eq("id", editLimiteDialog.colaboradora.id);
+
+      if (error) throw error;
+
+      toast.success("Limites atualizados com sucesso!");
+      setEditLimiteDialog({ open: false, colaboradora: null });
+      fetchColaboradorasLimites();
+    } catch (error: any) {
+      toast.error("Erro ao atualizar limites: " + error.message);
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate("/auth");
@@ -258,6 +297,7 @@ const AdminDashboard = () => {
                     <TableHead className="font-semibold">Disponível</TableHead>
                     <TableHead className="font-semibold">Limite Mensal</TableHead>
                     <TableHead className="font-semibold">% Usado</TableHead>
+                    <TableHead className="font-semibold">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -273,21 +313,29 @@ const AdminDashboard = () => {
                         </TableCell>
                         <TableCell>R$ {colab.limite_mensal.toFixed(2)}</TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                              <div 
-                                className={`h-full transition-all ${
-                                  percentual >= 90 ? "bg-destructive" : 
-                                  percentual >= 70 ? "bg-amber-500" : 
-                                  "bg-success"
-                                }`}
-                                style={{ width: `${Math.min(percentual, 100)}%` }}
-                              />
-                            </div>
-                            <span className="text-sm font-medium min-w-[3rem] text-right">
-                              {percentual.toFixed(0)}%
+                          <div className="flex flex-col gap-1 min-w-[120px]">
+                            <Progress 
+                              value={Math.min(percentual, 100)} 
+                              className={`h-2 ${
+                                percentual >= 90 ? "[&>div]:bg-destructive" : 
+                                percentual >= 70 ? "[&>div]:bg-amber-500" : 
+                                "[&>div]:bg-success"
+                              }`}
+                            />
+                            <span className="text-xs font-medium text-right">
+                              {percentual.toFixed(1)}%
                             </span>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditLimite(colab)}
+                            className="hover:bg-primary/10"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -315,6 +363,46 @@ const AdminDashboard = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={editLimiteDialog.open} onOpenChange={(open) => setEditLimiteDialog({ open, colaboradora: null })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Limites - {editLimiteDialog.colaboradora?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="limite_total">Limite Total (R$)</Label>
+              <Input
+                id="limite_total"
+                type="number"
+                step="0.01"
+                min="0"
+                value={limiteForm.limite_total}
+                onChange={(e) => setLimiteForm({ ...limiteForm, limite_total: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="limite_mensal">Limite Mensal (R$)</Label>
+              <Input
+                id="limite_mensal"
+                type="number"
+                step="0.01"
+                min="0"
+                value={limiteForm.limite_mensal}
+                onChange={(e) => setLimiteForm({ ...limiteForm, limite_mensal: e.target.value })}
+              />
+            </div>
+            <div className="flex gap-2 justify-end pt-4">
+              <Button variant="outline" onClick={() => setEditLimiteDialog({ open: false, colaboradora: null })}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveLimite}>
+                Salvar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
