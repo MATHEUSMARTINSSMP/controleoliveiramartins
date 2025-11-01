@@ -81,7 +81,7 @@ const Relatorios = () => {
             colaboradora_id,
             item,
             data_compra,
-            profiles!inner(name)
+            profiles!purchases_colaboradora_id_fkey(name)
           )
         `)
         .order("competencia", { ascending: false });

@@ -198,12 +198,12 @@ const NovaCompra = () => {
       return false;
     }
 
-    // Verificar limite mensal considerando primeira parcela
+    // Verificar limite mensal - o valor de CADA parcela não pode ultrapassar o disponível mensal
     if (valorPorParcela > disponivelMensal) {
       setLimiteExcedido({
         open: true,
         tipo: "mensal",
-        mensagem: `O valor da parcela (R$ ${valorPorParcela.toFixed(2)}) ultrapassa o limite mensal disponível (R$ ${disponivelMensal.toFixed(2)}).`,
+        mensagem: `O valor da parcela (R$ ${valorPorParcela.toFixed(2)}) ultrapassa o limite mensal disponível (R$ ${disponivelMensal.toFixed(2)}). Total da compra: R$ ${precoFinal.toFixed(2)} em ${numParcelas}x.`,
       });
       return false;
     }
@@ -408,56 +408,71 @@ const NovaCompra = () => {
                   </Button>
                 </div>
 
-                {items.map((item, index) => (
-                  <div key={index} className="p-4 border border-primary/10 rounded-lg space-y-3 bg-muted/30">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-muted-foreground">Item {index + 1}</span>
-                      {items.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeItem(index)}
-                          className="h-6 text-destructive hover:text-destructive"
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </Button>
+                {items.map((item, index) => {
+                  const venda = parseFloat(item.preco_venda) || 0;
+                  const desconto = parseFloat(item.desconto_beneficio) || 0;
+                  const subtotal = Math.max(venda - desconto, 0);
+                  
+                  return (
+                    <div key={index} className="p-4 border border-primary/10 rounded-lg space-y-3 bg-muted/30">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-muted-foreground">Item {index + 1}</span>
+                        {items.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeItem(index)}
+                            className="h-6 text-destructive hover:text-destructive"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                      
+                      <Input
+                        value={item.item}
+                        onChange={(e) => updateItem(index, "item", e.target.value)}
+                        placeholder="Descrição do item"
+                        required
+                      />
+                      
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div>
+                          <Label className="text-xs">Preço Venda (R$)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={item.preco_venda}
+                            onChange={(e) => updateItem(index, "preco_venda", e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Desconto (R$)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={item.desconto_beneficio}
+                            onChange={(e) => updateItem(index, "desconto_beneficio", e.target.value)}
+                            required
+                          />
+                        </div>
+                      </div>
+                      
+                      {(venda > 0 || desconto > 0) && (
+                        <div className="pt-2 border-t border-primary/10">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Subtotal:</span>
+                            <span className="font-semibold text-primary">R$ {subtotal.toFixed(2)}</span>
+                          </div>
+                        </div>
                       )}
                     </div>
-                    
-                    <Input
-                      value={item.item}
-                      onChange={(e) => updateItem(index, "item", e.target.value)}
-                      placeholder="Descrição do item"
-                      required
-                    />
-                    
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <div>
-                        <Label className="text-xs">Preço Venda (R$)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={item.preco_venda}
-                          onChange={(e) => updateItem(index, "preco_venda", e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Desconto (R$)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={item.desconto_beneficio}
-                          onChange={(e) => updateItem(index, "desconto_beneficio", e.target.value)}
-                          required
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
                   <div className="flex items-center justify-between">
@@ -548,9 +563,11 @@ const NovaCompra = () => {
                 <AlertCircle className="h-5 w-5 text-destructive" />
                 Limite Excedido
               </AlertDialogTitle>
-              <AlertDialogDescription className="space-y-2">
-                <p>{limiteExcedido.mensagem}</p>
-                <p className="font-medium text-foreground">Deseja continuar mesmo assim?</p>
+            <AlertDialogDescription>
+                <div className="space-y-2">
+                  <p>{limiteExcedido.mensagem}</p>
+                  <p className="font-medium text-foreground">Deseja continuar mesmo assim?</p>
+                </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
