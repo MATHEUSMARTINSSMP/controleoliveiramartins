@@ -4,7 +4,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { KPICard } from "@/components/KPICard";
-import { DollarSign, Calendar, CheckCircle, LogOut, ShoppingBag } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { DollarSign, Calendar, CheckCircle, LogOut, ShoppingBag, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 interface UserKPIs {
@@ -16,10 +19,20 @@ interface UserKPIs {
   limiteMensal: number;
 }
 
+interface Adiantamento {
+  id: string;
+  valor: number;
+  data_solicitacao: string;
+  mes_competencia: string;
+  status: string;
+  motivo_recusa: string | null;
+}
+
 const ColaboradoraDashboard = () => {
   const { profile, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const [kpis, setKpis] = useState<UserKPIs | null>(null);
+  const [adiantamentos, setAdiantamentos] = useState<Adiantamento[]>([]);
 
   useEffect(() => {
     if (!loading) {
@@ -29,6 +42,7 @@ const ColaboradoraDashboard = () => {
         navigate("/admin");
       } else {
         fetchUserKPIs();
+        fetchAdiantamentos();
       }
     }
   }, [profile, loading, navigate]);
@@ -87,9 +101,36 @@ const ColaboradoraDashboard = () => {
     }
   };
 
+  const fetchAdiantamentos = async () => {
+    if (!profile) return;
+
+    const { data, error } = await supabase
+      .from("adiantamentos")
+      .select("*")
+      .eq("colaboradora_id", profile.id)
+      .order("data_solicitacao", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching adiantamentos:", error);
+    } else {
+      setAdiantamentos(data || []);
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate("/auth");
+  };
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+      PENDENTE: "secondary",
+      APROVADO: "default",
+      RECUSADO: "destructive",
+      DESCONTADO: "outline",
+    };
+
+    return <Badge variant={variants[status] || "default"}>{status}</Badge>;
   };
 
   if (loading || !profile || kpis === null) {
@@ -159,6 +200,46 @@ const ColaboradoraDashboard = () => {
             icon={CheckCircle}
           />
         </div>
+
+        <Card className="mb-8">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Meus Adiantamentos</CardTitle>
+            <Button onClick={() => navigate("/solicitar-adiantamento")}>
+              <Plus className="mr-2 h-4 w-4" />
+              Solicitar Adiantamento
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {adiantamentos.length === 0 ? (
+              <p className="text-muted-foreground">Você ainda não possui adiantamentos.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Valor</TableHead>
+                    <TableHead>Data Solicitação</TableHead>
+                    <TableHead>Mês Competência</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Motivo Recusa</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {adiantamentos.map((adiantamento) => (
+                    <TableRow key={adiantamento.id}>
+                      <TableCell>R$ {parseFloat(adiantamento.valor.toString()).toFixed(2)}</TableCell>
+                      <TableCell>
+                        {new Date(adiantamento.data_solicitacao).toLocaleDateString("pt-BR")}
+                      </TableCell>
+                      <TableCell>{adiantamento.mes_competencia}</TableCell>
+                      <TableCell>{getStatusBadge(adiantamento.status)}</TableCell>
+                      <TableCell>{adiantamento.motivo_recusa || "-"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="bg-card/80 backdrop-blur-sm rounded-lg border border-primary/10 p-6 shadow-[var(--shadow-card)]">
           <h2 className="text-xl font-semibold mb-4">Histórico de Compras</h2>

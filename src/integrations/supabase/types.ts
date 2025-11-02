@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      adiantamentos: {
+        Row: {
+          aprovado_por_id: string | null
+          colaboradora_id: string
+          created_at: string | null
+          data_aprovacao: string | null
+          data_desconto: string | null
+          data_solicitacao: string
+          descontado_por_id: string | null
+          id: string
+          mes_competencia: string
+          motivo_recusa: string | null
+          observacoes: string | null
+          status: Database["public"]["Enums"]["status_adiantamento"]
+          updated_at: string | null
+          valor: number
+        }
+        Insert: {
+          aprovado_por_id?: string | null
+          colaboradora_id: string
+          created_at?: string | null
+          data_aprovacao?: string | null
+          data_desconto?: string | null
+          data_solicitacao?: string
+          descontado_por_id?: string | null
+          id?: string
+          mes_competencia: string
+          motivo_recusa?: string | null
+          observacoes?: string | null
+          status?: Database["public"]["Enums"]["status_adiantamento"]
+          updated_at?: string | null
+          valor: number
+        }
+        Update: {
+          aprovado_por_id?: string | null
+          colaboradora_id?: string
+          created_at?: string | null
+          data_aprovacao?: string | null
+          data_desconto?: string | null
+          data_solicitacao?: string
+          descontado_por_id?: string | null
+          id?: string
+          mes_competencia?: string
+          motivo_recusa?: string | null
+          observacoes?: string | null
+          status?: Database["public"]["Enums"]["status_adiantamento"]
+          updated_at?: string | null
+          valor?: number
+        }
+        Relationships: []
+      }
       audit: {
         Row: {
           action: string
@@ -261,6 +312,7 @@ export type Database = {
     }
     Enums: {
       app_role: "ADMIN" | "COLABORADORA"
+      status_adiantamento: "PENDENTE" | "APROVADO" | "RECUSADO" | "DESCONTADO"
       status_compra: "PENDENTE" | "PARCIAL" | "PAGO" | "CANCELADO"
       status_parcela:
         | "PENDENTE"
@@ -396,6 +448,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["ADMIN", "COLABORADORA"],
+      status_adiantamento: ["PENDENTE", "APROVADO", "RECUSADO", "DESCONTADO"],
       status_compra: ["PENDENTE", "PARCIAL", "PAGO", "CANCELADO"],
       status_parcela: [
         "PENDENTE",

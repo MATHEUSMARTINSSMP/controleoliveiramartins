@@ -265,11 +265,25 @@ const AdminDashboard = () => {
             Nova Compra
           </Button>
           <Button
+            className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all shadow-md hover:shadow-lg"
+            onClick={() => navigate("/admin/novo-adiantamento")}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Adiantamento
+          </Button>
+          <Button
             variant="outline"
             className="border-primary/20 hover:bg-primary/10"
             onClick={() => navigate("/admin/lancamentos")}
           >
             Lançamentos e Descontos
+          </Button>
+          <Button
+            variant="outline"
+            className="border-primary/20 hover:bg-primary/10"
+            onClick={() => navigate("/admin/adiantamentos")}
+          >
+            Gerenciar Adiantamentos
           </Button>
           <Button
             variant="outline"

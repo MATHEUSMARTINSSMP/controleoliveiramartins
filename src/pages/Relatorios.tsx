@@ -46,19 +46,31 @@ interface CompraData {
 }
 
 interface DeletedItem {
-  type: 'compra' | 'parcela';
+  type: 'compra' | 'parcela' | 'adiantamento';
   id: string;
   compraId?: string;
   timestamp: number;
+}
+
+interface AdiantamentoData {
+  id: string;
+  colaboradora_id: string;
+  colaboradora_nome: string;
+  valor: number;
+  data_solicitacao: string;
+  mes_competencia: string;
+  status: string;
+  motivo_recusa: string | null;
 }
 
 const Relatorios = () => {
   const { profile, loading } = useAuth();
   const navigate = useNavigate();
   const [compras, setCompras] = useState<CompraData[]>([]);
+  const [adiantamentos, setAdiantamentos] = useState<AdiantamentoData[]>([]);
   const [colaboradoras, setColaboradoras] = useState<{ id: string; name: string }[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [deleteDialog, setDeleteDialog] = useState<{ type: 'compra' | 'parcela'; id: string; compraId?: string } | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ type: 'compra' | 'parcela' | 'adiantamento'; id: string; compraId?: string } | null>(null);
   const [deletedItems, setDeletedItems] = useState<DeletedItem[]>([]);
   const [expandedCompras, setExpandedCompras] = useState<Set<string>>(new Set());
   
@@ -67,6 +79,7 @@ const Relatorios = () => {
     mes: "all",
     status: "all",
     dataCompra: "",
+    tipo: "compras", // 'compras' or 'adiantamentos'
   });
 
   useEffect(() => {
@@ -121,6 +134,30 @@ const Relatorios = () => {
       })) || [];
 
       setCompras(formattedData);
+
+      // Buscar adiantamentos
+      const { data: adiantamentosData, error: adiantamentosError } = await supabase
+        .from("adiantamentos")
+        .select("*")
+        .order("data_solicitacao", { ascending: false });
+
+      if (adiantamentosError) throw adiantamentosError;
+
+      // Buscar perfis das colaboradoras para adiantamentos
+      const colaboradoraIds = [...new Set(adiantamentosData?.map(a => a.colaboradora_id) || [])];
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("id, name")
+        .in("id", colaboradoraIds);
+
+      const profilesMap = new Map(profilesData?.map(p => [p.id, p.name]) || []);
+
+      const formattedAdiantamentos: AdiantamentoData[] = adiantamentosData?.map((a: any) => ({
+        ...a,
+        colaboradora_nome: profilesMap.get(a.colaboradora_id) || "Desconhecido"
+      })) || [];
+
+      setAdiantamentos(formattedAdiantamentos);
     } catch (error: any) {
       toast.error("Erro ao carregar dados");
       console.error(error);
@@ -152,7 +189,7 @@ const Relatorios = () => {
 
         setDeletedItems([...deletedItems, { type: 'compra', id: deleteDialog.id, timestamp: Date.now() }]);
         toast.success("Compra excluída! Você pode desfazer nos próximos 30 segundos.");
-      } else {
+      } else if (deleteDialog.type === 'parcela') {
         // Deletar parcela
         const { error } = await supabase
           .from("parcelas")
@@ -168,6 +205,17 @@ const Relatorios = () => {
           timestamp: Date.now() 
         }]);
         toast.success("Parcela excluída! Você pode desfazer nos próximos 30 segundos.");
+      } else if (deleteDialog.type === 'adiantamento') {
+        // Deletar adiantamento
+        const { error } = await supabase
+          .from("adiantamentos")
+          .delete()
+          .eq("id", deleteDialog.id);
+
+        if (error) throw error;
+
+        setDeletedItems([...deletedItems, { type: 'adiantamento', id: deleteDialog.id, timestamp: Date.now() }]);
+        toast.success("Adiantamento excluído! Você pode desfazer nos próximos 30 segundos.");
       }
 
       fetchData();
@@ -290,7 +338,20 @@ const Relatorios = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-4 mb-6">
+            <div className="grid gap-4 md:grid-cols-5 mb-6">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Tipo</label>
+                <Select value={filters.tipo} onValueChange={(v) => setFilters({...filters, tipo: v})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="compras">Compras</SelectItem>
+                    <SelectItem value="adiantamentos">Adiantamentos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div>
                 <label className="text-sm font-medium mb-2 block">Colaboradora</label>
                 <Select value={filters.colaboradora} onValueChange={(v) => setFilters({...filters, colaboradora: v})}>

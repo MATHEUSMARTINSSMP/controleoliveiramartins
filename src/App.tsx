@@ -9,6 +9,9 @@ import Auth from "./pages/Auth";
 import AdminDashboard from "./pages/AdminDashboard";
 import ColaboradoraDashboard from "./pages/ColaboradoraDashboard";
 import NovaCompra from "./pages/NovaCompra";
+import NovoAdiantamento from "./pages/NovoAdiantamento";
+import Adiantamentos from "./pages/Adiantamentos";
+import SolicitarAdiantamento from "./pages/SolicitarAdiantamento";
 import Lancamentos from "./pages/Lancamentos";
 import Relatorios from "./pages/Relatorios";
 import Seed from "./pages/Seed";
@@ -29,9 +32,12 @@ const App = () => (
             <Route path="/seed" element={<Seed />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/nova-compra" element={<NovaCompra />} />
+            <Route path="/admin/novo-adiantamento" element={<NovoAdiantamento />} />
+            <Route path="/admin/adiantamentos" element={<Adiantamentos />} />
             <Route path="/admin/lancamentos" element={<Lancamentos />} />
             <Route path="/admin/relatorios" element={<Relatorios />} />
             <Route path="/me" element={<ColaboradoraDashboard />} />
+            <Route path="/solicitar-adiantamento" element={<SolicitarAdiantamento />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
