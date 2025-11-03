@@ -341,77 +341,49 @@ const Relatorios = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-5 mb-6">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Tipo</label>
-                <Select value={filters.tipo} onValueChange={(v) => setFilters({...filters, tipo: v})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="compras">Compras</SelectItem>
-                    <SelectItem value="adiantamentos">Adiantamentos</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid gap-4 md:grid-cols-4">
+              <Select value={filtros.mes} onValueChange={(v) => setFiltros({ ...filtros, mes: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos os meses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Todos os meses</SelectItem>
+                  {getMesesDisponiveis().map((mes) => (
+                    <SelectItem key={mes} value={mes}>
+                      {mes.slice(0, 4)}/{mes.slice(4)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-              <div>
-                <label className="text-sm font-medium mb-2 block">Colaboradora</label>
-                <Select value={filters.colaboradora} onValueChange={(v) => setFilters({...filters, colaboradora: v})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {colaboradoras.map(c => (
-                      <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select value={filtros.status} onValueChange={(v) => setFiltros({ ...filtros, status: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos os status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Todos os status</SelectItem>
+                  <SelectItem value="PENDENTE">Pendente</SelectItem>
+                  <SelectItem value="APROVADO">Aprovado</SelectItem>
+                  <SelectItem value="DESCONTADO">Descontado</SelectItem>
+                  <SelectItem value="ESTORNADO">Estornado</SelectItem>
+                  <SelectItem value="CANCELADO">Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
 
-              <div>
-                <label className="text-sm font-medium mb-2 block">Competência (Mês)</label>
-                <Select value={filters.mes} onValueChange={(v) => setFilters({...filters, mes: v})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {getMesesDisponiveis().map(m => (
-                      <SelectItem key={m} value={m}>
-                        {m.substring(4)}/{m.substring(0, 4)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select value={filtros.tipo} onValueChange={(v) => setFiltros({ ...filtros, tipo: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="TODOS">Todos</SelectItem>
+                  <SelectItem value="COMPRAS">Compras</SelectItem>
+                  <SelectItem value="ADIANTAMENTOS">Adiantamentos</SelectItem>
+                </SelectContent>
+              </Select>
 
-              <div>
-                <label className="text-sm font-medium mb-2 block">Status</label>
-                <Select value={filters.status} onValueChange={(v) => setFilters({...filters, status: v})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="PENDENTE">Pendente</SelectItem>
-                    <SelectItem value="AGENDADO">Agendado</SelectItem>
-                    <SelectItem value="DESCONTADO">Descontado</SelectItem>
-                    <SelectItem value="ESTORNADO">Estornado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium mb-2 block">Data da Compra</label>
-                <input
-                  type="date"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={filters.dataCompra}
-                  onChange={(e) => setFilters({...filters, dataCompra: e.target.value})}
-                />
-              </div>
+              <Button onClick={aplicarFiltros} className="w-full">
+                Filtrar
+              </Button>
             </div>
 
             {deletedItems.length > 0 && (
