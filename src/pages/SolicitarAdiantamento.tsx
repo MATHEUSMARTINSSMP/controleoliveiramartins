@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle } from "lucide-react";
@@ -23,6 +24,21 @@ export default function SolicitarAdiantamento() {
     mes_competencia: "",
     observacoes: "",
   });
+
+  const getMesesDisponiveis = () => {
+    const meses = [];
+    const dataAtual = new Date();
+    for (let i = 0; i < 12; i++) {
+      const data = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + i, 1);
+      const ano = data.getFullYear();
+      const mes = String(data.getMonth() + 1).padStart(2, "0");
+      meses.push({
+        value: `${ano}${mes}`,
+        label: `${mes}/${ano}`,
+      });
+    }
+    return meses;
+  };
 
   const validarLimites = async (): Promise<boolean> => {
     if (!profile) return false;
@@ -154,13 +170,22 @@ export default function SolicitarAdiantamento() {
 
               <div className="space-y-2">
                 <Label htmlFor="mes_competencia">Mês de Competência *</Label>
-                <Input
-                  id="mes_competencia"
-                  type="month"
+                <Select
                   value={formData.mes_competencia}
-                  onChange={(e) => setFormData({ ...formData, mes_competencia: e.target.value })}
+                  onValueChange={(value) => setFormData({ ...formData, mes_competencia: value })}
                   required
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o mês" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getMesesDisponiveis().map((mes) => (
+                      <SelectItem key={mes.value} value={mes.value}>
+                        {mes.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">

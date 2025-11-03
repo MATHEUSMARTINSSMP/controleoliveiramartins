@@ -55,6 +55,21 @@ export default function NovoAdiantamento() {
     }
   };
 
+  const getMesesDisponiveis = () => {
+    const meses = [];
+    const dataAtual = new Date();
+    for (let i = 0; i < 12; i++) {
+      const data = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + i, 1);
+      const ano = data.getFullYear();
+      const mes = String(data.getMonth() + 1).padStart(2, "0");
+      meses.push({
+        value: `${ano}${mes}`,
+        label: `${mes}/${ano}`,
+      });
+    }
+    return meses;
+  };
+
   const validarLimites = async (): Promise<boolean> => {
     const valor = parseFloat(formData.valor);
     const colaboradora = colaboradoras.find(c => c.id === formData.colaboradora_id);
@@ -213,13 +228,22 @@ export default function NovoAdiantamento() {
 
               <div className="space-y-2">
                 <Label htmlFor="mes_competencia">Mês de Competência *</Label>
-                <Input
-                  id="mes_competencia"
-                  type="month"
+                <Select
                   value={formData.mes_competencia}
-                  onChange={(e) => setFormData({ ...formData, mes_competencia: e.target.value })}
+                  onValueChange={(value) => setFormData({ ...formData, mes_competencia: value })}
                   required
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o mês" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getMesesDisponiveis().map((mes) => (
+                      <SelectItem key={mes.value} value={mes.value}>
+                        {mes.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">

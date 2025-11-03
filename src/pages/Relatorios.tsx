@@ -74,12 +74,15 @@ const Relatorios = () => {
   const [deletedItems, setDeletedItems] = useState<DeletedItem[]>([]);
   const [expandedCompras, setExpandedCompras] = useState<Set<string>>(new Set());
   
-  const [filters, setFilters] = useState({
-    colaboradora: "all",
-    mes: "all",
-    status: "all",
-    dataCompra: "",
-    tipo: "compras", // 'compras' or 'adiantamentos'
+  const [filtros, setFiltros] = useState({
+    mes: "",
+    status: "",
+    tipo: "TODOS",
+  });
+  const [filtrosAplicados, setFiltrosAplicados] = useState({
+    mes: "",
+    status: "",
+    tipo: "TODOS",
   });
 
   useEffect(() => {
