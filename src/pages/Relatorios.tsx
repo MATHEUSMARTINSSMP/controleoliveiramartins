@@ -250,25 +250,52 @@ const Relatorios = () => {
     compras.forEach(c => {
       c.parcelas.forEach(p => mesesSet.add(p.competencia));
     });
+    adiantamentos.forEach(a => {
+      mesesSet.add(a.mes_competencia);
+    });
     return Array.from(mesesSet).sort().reverse();
+  };
+
+  const aplicarFiltros = () => {
+    setFiltrosAplicados({
+      mes: filtros.mes,
+      status: filtros.status,
+      tipo: filtros.tipo,
+    });
   };
 
   const filteredCompras = compras.filter(c => {
     // Filter by deleted items
     if (deletedItems.some(d => d.type === 'compra' && d.id === c.id)) return false;
     
-    if (filters.colaboradora !== "all" && c.colaboradora_nome !== filters.colaboradora) return false;
-    if (filters.dataCompra && !c.data_compra.includes(filters.dataCompra)) return false;
+    // Filter by type
+    if (filtrosAplicados.tipo === "ADIANTAMENTOS") return false;
     
     // Filter by month and status (check if any parcela matches)
-    if (filters.mes !== "all" || filters.status !== "all") {
+    if (filtrosAplicados.mes || filtrosAplicados.status) {
       const hasMatchingParcela = c.parcelas.some(p => {
-        if (filters.mes !== "all" && p.competencia !== filters.mes) return false;
-        if (filters.status !== "all" && p.status_parcela !== filters.status) return false;
+        if (filtrosAplicados.mes && p.competencia !== filtrosAplicados.mes) return false;
+        if (filtrosAplicados.status && p.status_parcela !== filtrosAplicados.status) return false;
         return true;
       });
       if (!hasMatchingParcela) return false;
     }
+    
+    return true;
+  });
+
+  const filteredAdiantamentos = adiantamentos.filter(a => {
+    // Filter by deleted items
+    if (deletedItems.some(d => d.type === 'adiantamento' && d.id === a.id)) return false;
+    
+    // Filter by type
+    if (filtrosAplicados.tipo === "COMPRAS") return false;
+    
+    // Filter by month
+    if (filtrosAplicados.mes && a.mes_competencia !== filtrosAplicados.mes) return false;
+    
+    // Filter by status
+    if (filtrosAplicados.status && a.status !== filtrosAplicados.status) return false;
     
     return true;
   });
@@ -391,7 +418,7 @@ const Relatorios = () => {
                 {deletedItems.map((item) => (
                   <div key={item.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
                     <span className="text-sm">
-                      {item.type === 'compra' ? 'Compra excluída' : 'Parcela excluída'} - Você pode desfazer
+                      {item.type === 'compra' ? 'Compra excluída' : item.type === 'parcela' ? 'Parcela excluída' : 'Adiantamento excluído'} - Você pode desfazer
                     </span>
                     <Button
                       variant="outline"
@@ -411,13 +438,14 @@ const Relatorios = () => {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : (
-              <div className="space-y-2">
-                {filteredCompras.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    Nenhum registro encontrado
-                  </div>
-                ) : (
-                  filteredCompras.map((compra) => (
+              <div className="space-y-4">
+                {/* Compras Section */}
+                {(filtrosAplicados.tipo === "TODOS" || filtrosAplicados.tipo === "COMPRAS") && (
+                  <div className="space-y-2">
+                    {filteredCompras.length > 0 && (
+                      <h3 className="text-lg font-semibold text-foreground mb-2">Compras</h3>
+                    )}
+                    {filteredCompras.map((compra) => (
                     <Collapsible
                       key={compra.id}
                       open={expandedCompras.has(compra.id)}
@@ -523,7 +551,74 @@ const Relatorios = () => {
                         </CollapsibleContent>
                       </div>
                     </Collapsible>
-                  ))
+                    ))}
+                  </div>
+                )}
+
+                {/* Adiantamentos Section */}
+                {(filtrosAplicados.tipo === "TODOS" || filtrosAplicados.tipo === "ADIANTAMENTOS") && (
+                  <div className="space-y-2">
+                    {filteredAdiantamentos.length > 0 && (
+                      <h3 className="text-lg font-semibold text-foreground mb-2">Adiantamentos</h3>
+                    )}
+                    {filteredAdiantamentos.map((adiantamento) => (
+                      <div key={adiantamento.id} className="rounded-lg border border-primary/10 bg-card p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Colaboradora</p>
+                            <p className="font-medium">{adiantamento.colaboradora_nome}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Valor</p>
+                            <p className="font-medium">R$ {adiantamento.valor.toFixed(2)}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Data Solicitação</p>
+                            <p className="font-medium">{format(new Date(adiantamento.data_solicitacao), "dd/MM/yyyy")}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Competência</p>
+                            <p className="font-medium">
+                              {adiantamento.mes_competencia.substring(4)}/{adiantamento.mes_competencia.substring(0, 4)}
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm text-muted-foreground">Status</p>
+                              <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                                adiantamento.status === "DESCONTADO" ? "bg-success/10 text-success" :
+                                adiantamento.status === "APROVADO" ? "bg-primary/10 text-primary" :
+                                adiantamento.status === "RECUSADO" ? "bg-destructive/10 text-destructive" :
+                                "bg-muted text-muted-foreground"
+                              }`}>
+                                {adiantamento.status}
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeleteDialog({ type: 'adiantamento', id: adiantamento.id })}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        {adiantamento.motivo_recusa && (
+                          <div className="mt-3 pt-3 border-t border-primary/10">
+                            <p className="text-sm text-muted-foreground">Motivo da Recusa:</p>
+                            <p className="text-sm">{adiantamento.motivo_recusa}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {filteredCompras.length === 0 && filteredAdiantamentos.length === 0 && (
+                  <div className="text-center py-12 text-muted-foreground">
+                    Nenhum registro encontrado
+                  </div>
                 )}
               </div>
             )}
@@ -538,7 +633,9 @@ const Relatorios = () => {
             <AlertDialogDescription>
               {deleteDialog?.type === 'compra' 
                 ? 'Tem certeza que deseja excluir esta compra? Todas as parcelas associadas serão excluídas. Você terá 30 segundos para desfazer.'
-                : 'Tem certeza que deseja excluir esta parcela? Você terá 30 segundos para desfazer.'}
+                : deleteDialog?.type === 'parcela'
+                ? 'Tem certeza que deseja excluir esta parcela? Você terá 30 segundos para desfazer.'
+                : 'Tem certeza que deseja excluir este adiantamento? Você terá 30 segundos para desfazer.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
