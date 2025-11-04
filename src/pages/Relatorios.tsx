@@ -75,8 +75,8 @@ const Relatorios = () => {
   const [expandedCompras, setExpandedCompras] = useState<Set<string>>(new Set());
   
   const [filtros, setFiltros] = useState({
-    mes: "",
-    status: "",
+    mes: "TODOS_MESES",
+    status: "TODOS_STATUS",
     tipo: "TODOS",
   });
   const [filtrosAplicados, setFiltrosAplicados] = useState({
@@ -369,12 +369,12 @@ const Relatorios = () => {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-4">
-              <Select value={filtros.mes} onValueChange={(v) => setFiltros({ ...filtros, mes: v })}>
+              <Select value={filtros.mes} onValueChange={(v) => setFiltros({ ...filtros, mes: v === "TODOS_MESES" ? "" : v })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Todos os meses" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os meses</SelectItem>
+                  <SelectItem value="TODOS_MESES">Todos os meses</SelectItem>
                   {getMesesDisponiveis().map((mes) => (
                     <SelectItem key={mes} value={mes}>
                       {mes.slice(0, 4)}/{mes.slice(4)}
@@ -383,12 +383,12 @@ const Relatorios = () => {
                 </SelectContent>
               </Select>
 
-              <Select value={filtros.status} onValueChange={(v) => setFiltros({ ...filtros, status: v })}>
+              <Select value={filtros.status} onValueChange={(v) => setFiltros({ ...filtros, status: v === "TODOS_STATUS" ? "" : v })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Todos os status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os status</SelectItem>
+                  <SelectItem value="TODOS_STATUS">Todos os status</SelectItem>
                   <SelectItem value="PENDENTE">Pendente</SelectItem>
                   <SelectItem value="APROVADO">Aprovado</SelectItem>
                   <SelectItem value="DESCONTADO">Descontado</SelectItem>

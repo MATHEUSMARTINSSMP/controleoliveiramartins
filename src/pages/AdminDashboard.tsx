@@ -292,6 +292,13 @@ const AdminDashboard = () => {
           >
             Ver Relatórios
           </Button>
+          <Button
+            variant="outline"
+            className="border-primary/20 hover:bg-primary/10"
+            onClick={() => navigate("/admin/colaboradores")}
+          >
+            Gerenciar Colaboradoras
+          </Button>
         </div>
 
         <Card className="backdrop-blur-sm bg-card/95 shadow-[var(--shadow-card)] border-primary/10">

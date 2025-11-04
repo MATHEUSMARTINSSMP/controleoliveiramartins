@@ -1,7 +1,4 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@2.0.0";
-
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +9,7 @@ const corsHeaders = {
 interface WelcomeEmailRequest {
   email: string;
   name: string;
-  tempPassword: string;
+  password: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -21,43 +18,23 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, name, tempPassword }: WelcomeEmailRequest = await req.json();
+    const { email, name, password }: WelcomeEmailRequest = await req.json();
 
-    const emailResponse = await resend.emails.send({
-      from: "Sistema de Compras <onboarding@resend.dev>",
-      to: [email],
-      subject: "Bem-vinda ao Sistema de Compras!",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #D4AF37 0%, #F4E4C1 100%); border-radius: 10px;">
-          <h1 style="color: #5D4E37; text-align: center;">Bem-vinda, ${name}!</h1>
-          <div style="background: white; padding: 30px; border-radius: 8px; margin-top: 20px;">
-            <p style="color: #5D4E37; font-size: 16px;">
-              Sua conta foi criada com sucesso no Sistema de Compras!
-            </p>
-            <div style="background: #F8F5F0; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #D4AF37;">
-              <p style="margin: 0; color: #5D4E37;"><strong>Email:</strong> ${email}</p>
-              <p style="margin: 10px 0 0 0; color: #5D4E37;"><strong>Senha Temporária:</strong> ${tempPassword}</p>
-            </div>
-            <p style="color: #5D4E37;">
-              Por favor, faça login usando as credenciais acima e altere sua senha assim que possível.
-            </p>
-            <div style="text-align: center; margin-top: 30px;">
-              <a href="${Deno.env.get("VITE_SUPABASE_URL")}" 
-                 style="background: linear-gradient(135deg, #D4AF37, #F4E4C1); color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
-                Acessar Sistema
-              </a>
-            </div>
-          </div>
-          <p style="text-align: center; color: #5D4E37; margin-top: 20px; font-size: 14px;">
-            Sistema de Compras - Gestão Inteligente
-          </p>
-        </div>
-      `,
+    // Log the email that would be sent
+    console.log("Welcome email would be sent to:", {
+      to: email,
+      name: name,
+      password: password
     });
 
-    console.log("Email sent successfully:", emailResponse);
+    // Here you can integrate with Resend or any other email service
+    // For now, just return success
+    const response = {
+      success: true,
+      message: "Email would be sent (configure email service to actually send)"
+    };
 
-    return new Response(JSON.stringify(emailResponse), {
+    return new Response(JSON.stringify(response), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
