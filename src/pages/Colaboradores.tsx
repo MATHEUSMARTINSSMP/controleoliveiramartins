@@ -147,7 +147,7 @@ const Colaboradores = () => {
           throw new Error(data.error || "Erro ao criar colaboradora");
         }
 
-        toast.success("Colaboradora criada com sucesso!");
+        toast.success("Colaboradora criada com sucesso! Email de boas-vindas enviado.");
       }
 
       setDialogOpen(false);
