@@ -76,33 +76,60 @@ export default function NovoAdiantamento() {
     
     if (!colaboradora) return false;
 
-    // Buscar compras pendentes e aprovadas
-    const { data: compras } = await supabase
+    // Buscar compras pendentes
+    const { data: purchases } = await supabase
       .from("purchases")
-      .select("preco_final, num_parcelas")
-      .eq("colaboradora_id", formData.colaboradora_id)
-      .in("status_compra", ["PENDENTE"] as any);
+      .select("id")
+      .eq("colaboradora_id", formData.colaboradora_id);
 
-    // Buscar parcelas pendentes do mês
-    const { data: parcelasMes } = await supabase
+    const purchaseIds = purchases?.map(p => p.id) || [];
+
+    // Buscar parcelas pendentes (todas as competências para o total)
+    const { data: parcelas } = await supabase
       .from("parcelas")
-      .select("valor_parcela")
-      .eq("competencia", formData.mes_competencia)
-      .in("status_parcela", ["PENDENTE", "AGENDADO", "DESCONTADO"]);
+      .select("valor_parcela, competencia")
+      .in("compra_id", purchaseIds)
+      .in("status_parcela", ["PENDENTE", "AGENDADO"]);
 
-    // Buscar adiantamentos pendentes e aprovados
-    const { data: adiantamentos } = await supabase
+    // Buscar todos adiantamentos aprovados e não descontados (para limite total)
+    const { data: adiantamentosTotal } = await supabase
       .from("adiantamentos")
       .select("valor")
       .eq("colaboradora_id", formData.colaboradora_id)
-      .in("status", ["PENDENTE", "APROVADO"] as any);
+      .eq("status", "APROVADO" as any)
+      .is("data_desconto", null);
 
-    const totalComprasPendentes = (compras || []).reduce((acc, c) => acc + parseFloat(c.preco_final.toString()), 0);
-    const totalAdiantamentosPendentes = (adiantamentos || []).reduce((acc, a) => acc + parseFloat(a.valor.toString()), 0);
-    const totalParcelasMes = (parcelasMes || []).reduce((acc, p) => acc + parseFloat(p.valor_parcela.toString()), 0);
+    // Buscar adiantamentos aprovados do mês (para limite mensal)
+    const { data: adiantamentosMes } = await supabase
+      .from("adiantamentos")
+      .select("valor")
+      .eq("colaboradora_id", formData.colaboradora_id)
+      .eq("mes_competencia", formData.mes_competencia)
+      .eq("status", "APROVADO" as any)
+      .is("data_desconto", null);
 
-    const disponivelTotal = colaboradora.limite_total - totalComprasPendentes - totalAdiantamentosPendentes;
-    const disponivelMensal = colaboradora.limite_mensal - totalParcelasMes;
+    const totalParcelas = parcelas?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
+    const totalAdiantamentosAprovados = adiantamentosTotal?.reduce((sum, a) => sum + Number(a.valor), 0) || 0;
+    const totalAdiantamentosMes = adiantamentosMes?.reduce((sum, a) => sum + Number(a.valor), 0) || 0;
+    const parcelasMesAtual = parcelas
+      ?.filter(p => p.competencia === formData.mes_competencia)
+      .reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
+
+    // Cálculo correto: limite - (parcelas + adiantamentos + novo valor) > 0
+    const disponivelTotal = colaboradora.limite_total - totalParcelas - totalAdiantamentosAprovados;
+    const disponivelMensal = colaboradora.limite_mensal - parcelasMesAtual - totalAdiantamentosMes;
+
+    console.log("Validação de limites:", {
+      limiteTotal: colaboradora.limite_total,
+      limiteMensal: colaboradora.limite_mensal,
+      totalParcelas,
+      totalAdiantamentosAprovados,
+      parcelasMesAtual,
+      totalAdiantamentosMes,
+      disponivelTotal,
+      disponivelMensal,
+      valorSolicitado: valor
+    });
 
     // Verificar limite total
     if (valor > disponivelTotal) {

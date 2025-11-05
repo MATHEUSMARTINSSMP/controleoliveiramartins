@@ -32,6 +32,7 @@ interface Colaboradora {
   id: string;
   name: string;
   email: string;
+  cpf: string;
   limite_total: number;
   limite_mensal: number;
   active: boolean;
@@ -49,6 +50,7 @@ const Colaboradores = () => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    cpf: "",
     password: "",
     limite_total: "1000.00",
     limite_mensal: "800.00",
@@ -88,6 +90,7 @@ const Colaboradores = () => {
       setFormData({
         name: colaboradora.name,
         email: colaboradora.email,
+        cpf: colaboradora.cpf,
         password: "",
         limite_total: colaboradora.limite_total.toString(),
         limite_mensal: colaboradora.limite_mensal.toString(),
@@ -98,6 +101,7 @@ const Colaboradores = () => {
       setFormData({
         name: "",
         email: "",
+        cpf: "",
         password: "",
         limite_total: "1000.00",
         limite_mensal: "800.00",
@@ -112,14 +116,10 @@ const Colaboradores = () => {
         // Update existing colaboradora
         const updateData: any = {
           name: formData.name,
+          email: formData.email,
           limite_total: parseFloat(formData.limite_total),
           limite_mensal: parseFloat(formData.limite_mensal),
         };
-
-        // Update email if changed
-        if (formData.email) {
-          updateData.email = formData.email;
-        }
 
         const { error } = await supabase
           .from("profiles")
@@ -129,6 +129,12 @@ const Colaboradores = () => {
         if (error) throw error;
         toast.success("Colaboradora atualizada com sucesso!");
       } else {
+        // Validate required fields
+        if (!formData.name || !formData.cpf || !formData.email || !formData.password) {
+          toast.error("Todos os campos obrigatórios devem ser preenchidos");
+          return;
+        }
+
         // Create new colaboradora via edge function
         const { data: { session } } = await supabase.auth.getSession();
         
@@ -145,6 +151,7 @@ const Colaboradores = () => {
               email: formData.email,
               password: formData.password,
               name: formData.name,
+              cpf: formData.cpf,
               limite_total: formData.limite_total,
               limite_mensal: formData.limite_mensal,
             }),
@@ -264,6 +271,7 @@ const Colaboradores = () => {
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead className="font-semibold">Nome</TableHead>
+                      <TableHead className="font-semibold">CPF</TableHead>
                       <TableHead className="font-semibold">Email</TableHead>
                       <TableHead className="font-semibold">Limite Total</TableHead>
                       <TableHead className="font-semibold">Limite Mensal</TableHead>
@@ -275,6 +283,7 @@ const Colaboradores = () => {
                     {colaboradoras.map((colab) => (
                       <TableRow key={colab.id} className="hover:bg-muted/50 transition-colors">
                         <TableCell className="font-medium">{colab.name}</TableCell>
+                        <TableCell>{colab.cpf || "Não informado"}</TableCell>
                         <TableCell>{colab.email}</TableCell>
                         <TableCell>R$ {colab.limite_total.toFixed(2)}</TableCell>
                         <TableCell>R$ {colab.limite_mensal.toFixed(2)}</TableCell>
@@ -344,34 +353,47 @@ const Colaboradores = () => {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Nome Completo</Label>
+              <Label htmlFor="name">Nome Completo *</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Digite o nome"
+                required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="cpf">CPF *</Label>
+              <Input
+                id="cpf"
+                value={formData.cpf}
+                onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+                placeholder="000.000.000-00"
+                disabled={editMode}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email *</Label>
               <Input
                 id="email"
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="email@exemplo.com"
-                disabled={editMode}
+                required
               />
             </div>
             {!editMode && (
               <div className="space-y-2">
-                <Label htmlFor="password">Senha Inicial</Label>
+                <Label htmlFor="password">Senha Inicial *</Label>
                 <Input
                   id="password"
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder="Mínimo 6 caracteres"
+                  required
                 />
               </div>
             )}

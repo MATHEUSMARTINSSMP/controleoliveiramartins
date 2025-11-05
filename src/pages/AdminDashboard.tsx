@@ -119,7 +119,17 @@ const AdminDashboard = () => {
           .in("compra_id", purchaseIds)
           .in("status_parcela", ["PENDENTE", "AGENDADO"]);
 
-        const usado_total = parcelas?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
+        // Buscar adiantamentos aprovados e não descontados
+        const { data: adiantamentos } = await supabase
+          .from("adiantamentos")
+          .select("valor")
+          .eq("colaboradora_id", prof.id)
+          .eq("status", "APROVADO" as any)
+          .is("data_desconto", null);
+
+        const totalParcelas = parcelas?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
+        const totalAdiantamentos = adiantamentos?.reduce((sum, a) => sum + Number(a.valor), 0) || 0;
+        const usado_total = totalParcelas + totalAdiantamentos;
         const disponivel = Number(prof.limite_total) - usado_total;
 
         limites.push({

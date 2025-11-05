@@ -166,6 +166,7 @@ export type Database = {
       profiles: {
         Row: {
           active: boolean | null
+          cpf: string | null
           created_at: string | null
           email: string
           id: string
@@ -178,6 +179,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean | null
+          cpf?: string | null
           created_at?: string | null
           email: string
           id: string
@@ -190,6 +192,7 @@ export type Database = {
         }
         Update: {
           active?: boolean | null
+          cpf?: string | null
           created_at?: string | null
           email?: string
           id?: string

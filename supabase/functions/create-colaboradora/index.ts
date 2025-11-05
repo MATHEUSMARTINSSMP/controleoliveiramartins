@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { email, password, name, limite_total, limite_mensal } = await req.json()
+    const { email, password, name, cpf, limite_total, limite_mensal } = await req.json()
 
     // Create user with admin client
     const { data: userData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -31,11 +31,12 @@ Deno.serve(async (req) => {
 
     if (authError) throw authError
 
-    // Update profile with custom limits
+    // Update profile with CPF and custom limits
     if (userData.user) {
       const { error: profileError } = await supabaseAdmin
         .from('profiles')
         .update({
+          cpf: cpf,
           limite_total: parseFloat(limite_total),
           limite_mensal: parseFloat(limite_mensal),
         })
