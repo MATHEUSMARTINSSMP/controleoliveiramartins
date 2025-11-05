@@ -110,26 +110,36 @@ const Colaboradores = () => {
     try {
       if (editMode && selectedId) {
         // Update existing colaboradora
+        const updateData: any = {
+          name: formData.name,
+          limite_total: parseFloat(formData.limite_total),
+          limite_mensal: parseFloat(formData.limite_mensal),
+        };
+
+        // Update email if changed
+        if (formData.email) {
+          updateData.email = formData.email;
+        }
+
         const { error } = await supabase
           .from("profiles")
-          .update({
-            name: formData.name,
-            limite_total: parseFloat(formData.limite_total),
-            limite_mensal: parseFloat(formData.limite_mensal),
-          })
+          .update(updateData)
           .eq("id", selectedId);
 
         if (error) throw error;
         toast.success("Colaboradora atualizada com sucesso!");
       } else {
         // Create new colaboradora via edge function
+        const { data: { session } } = await supabase.auth.getSession();
+        
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-colaboradora`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              "Authorization": `Bearer ${session?.access_token}`,
+              "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             },
             body: JSON.stringify({
               email: formData.email,
@@ -154,6 +164,47 @@ const Colaboradores = () => {
       fetchColaboradoras();
     } catch (error: any) {
       toast.error("Erro: " + error.message);
+    }
+  };
+
+  const handleResetPassword = async (colaboradoraId: string, colaboradoraEmail: string) => {
+    try {
+      const newPassword = prompt("Digite a nova senha para a colaboradora (mínimo 6 caracteres):");
+      
+      if (!newPassword || newPassword.length < 6) {
+        toast.error("Senha inválida. Mínimo 6 caracteres.");
+        return;
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // Call edge function to reset password
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reset-colaboradora-password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token}`,
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            user_id: colaboradoraId,
+            new_password: newPassword,
+            email: colaboradoraEmail,
+          }),
+        }
+      );
+
+      const data = await response.json();
+      
+      if (!response.ok || data.error) {
+        throw new Error(data.error || "Erro ao resetar senha");
+      }
+
+      toast.success("Senha resetada com sucesso! Email enviado.");
+    } catch (error: any) {
+      toast.error("Erro ao resetar senha: " + error.message);
     }
   };
 
@@ -243,8 +294,18 @@ const Colaboradores = () => {
                               size="sm"
                               onClick={() => handleOpenDialog(colab)}
                               className="hover:bg-primary/10"
+                              title="Editar"
                             >
                               <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleResetPassword(colab.id, colab.email)}
+                              className="hover:bg-warning/10 text-warning"
+                              title="Resetar Senha"
+                            >
+                              <Mail className="h-4 w-4" />
                             </Button>
                             {colab.active && (
                               <Button
@@ -252,6 +313,7 @@ const Colaboradores = () => {
                                 size="sm"
                                 onClick={() => setDeleteDialog(colab.id)}
                                 className="hover:bg-destructive/10 text-destructive"
+                                title="Desativar"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -290,29 +352,28 @@ const Colaboradores = () => {
                 placeholder="Digite o nome"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="email@exemplo.com"
+                disabled={editMode}
+              />
+            </div>
             {!editMode && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="email@exemplo.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Senha Inicial</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder="Mínimo 6 caracteres"
-                  />
-                </div>
-              </>
+              <div className="space-y-2">
+                <Label htmlFor="password">Senha Inicial</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </div>
             )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

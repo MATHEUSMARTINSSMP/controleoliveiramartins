@@ -1,0 +1,72 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { Resend } from "https://esm.sh/resend@4.0.0";
+
+const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+interface PasswordResetEmailRequest {
+  email: string;
+  new_password: string;
+}
+
+const handler = async (req: Request): Promise<Response> => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { email, new_password }: PasswordResetEmailRequest = await req.json();
+
+    console.log("Sending password reset email to:", email);
+
+    // Send password reset email via Resend
+    const emailResponse = await resend.emails.send({
+      from: "Dashboard de Compras <onboarding@resend.dev>",
+      to: [email],
+      subject: "Sua senha foi alterada - Dashboard de Compras",
+      html: `
+        <h1>Senha Alterada</h1>
+        <p>Sua senha do Dashboard de Compras foi alterada pelo administrador.</p>
+        <p>Sua nova senha temporária é:</p>
+        <p><strong>${new_password}</strong></p>
+        <p>Por favor, faça login em: <a href="${Deno.env.get('SUPABASE_URL')?.replace('supabase.co', 'lovableproject.com') || 'https://51fd7933-ecd0-4561-8a16-223b4ee29b63.lovableproject.com'}/auth">Dashboard de Compras</a></p>
+        <p>Recomendamos fortemente que você altere sua senha após fazer login.</p>
+        <br>
+        <p>Atenciosamente,<br>Equipe Dashboard de Compras</p>
+      `,
+    });
+
+    console.log("Email sent successfully:", emailResponse);
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      message: "Email enviado com sucesso",
+      emailId: emailResponse.data?.id 
+    }), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        ...corsHeaders,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error in send-password-reset-email function:", error);
+    return new Response(
+      JSON.stringify({ 
+        error: error.message,
+        success: false 
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      }
+    );
+  }
+};
+
+serve(handler);
