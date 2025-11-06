@@ -16,6 +16,7 @@ import Lancamentos from "./pages/Lancamentos";
 import Relatorios from "./pages/Relatorios";
 import Colaboradores from "./pages/Colaboradores";
 import Seed from "./pages/Seed";
+import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/seed" element={<Seed />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/nova-compra" element={<NovaCompra />} />
             <Route path="/admin/novo-adiantamento" element={<NovoAdiantamento />} />

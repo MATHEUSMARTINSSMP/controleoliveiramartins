@@ -27,7 +27,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send welcome email via Resend
     const emailResponse = await resend.emails.send({
-      from: "Dashboard de Compras <onboarding@resend.dev>",
+      from: "Dashboard de Compras <teste@eleveaagencia.com.br>",
       to: [email],
       subject: "Bem-vinda ao Dashboard de Compras!",
       html: `
