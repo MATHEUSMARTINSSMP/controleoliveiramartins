@@ -31,7 +31,17 @@ Deno.serve(async (req) => {
       throw updateError
     }
 
-    console.log('Password updated successfully, sending email notification')
+    console.log('Password updated successfully, invalidating sessions')
+
+    // Sign out all sessions for this user to force re-login with new password
+    const { error: signOutError } = await supabaseAdmin.auth.admin.signOut(user_id)
+    
+    if (signOutError) {
+      console.error('Error signing out user:', signOutError)
+      // Continue anyway - password was updated
+    }
+
+    console.log('Sessions invalidated, sending email notification')
 
     // Send notification email
     try {
