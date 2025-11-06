@@ -34,18 +34,19 @@ Deno.serve(async (req) => {
     console.log('Password updated successfully, invalidating sessions')
 
     // Sign out all sessions for this user to force re-login with new password
-    const { error: signOutError } = await supabaseAdmin.auth.admin.signOut(user_id)
-    
-    if (signOutError) {
+    try {
+      await supabaseAdmin.auth.admin.signOut(user_id, 'global')
+      console.log('Sessions invalidated successfully')
+    } catch (signOutError) {
       console.error('Error signing out user:', signOutError)
       // Continue anyway - password was updated
     }
 
-    console.log('Sessions invalidated, sending email notification')
+    console.log('Sending email notification')
 
     // Send notification email
     try {
-      await fetch(
+      const emailResponse = await fetch(
         `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-password-reset-email`,
         {
           method: 'POST',
@@ -59,6 +60,13 @@ Deno.serve(async (req) => {
           }),
         }
       )
+      
+      const emailData = await emailResponse.json()
+      console.log('Email sent response:', emailData)
+      
+      if (!emailResponse.ok) {
+        console.error('Email sending failed:', emailData)
+      }
     } catch (emailError) {
       console.error('Error sending email:', emailError)
       // Don't fail the request if email fails
