@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { ArrowLeft, CheckCircle2, Undo2 } from "lucide-react";
 import { format } from "date-fns";
+import { formatCurrency } from "@/lib/utils";
 
 interface Parcela {
   id: string;
@@ -70,6 +71,7 @@ const Lancamentos = () => {
   const fetchParcelas = async () => {
     try {
       const { data, error } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("parcelas")
         .select(`
           *,
@@ -93,6 +95,7 @@ const Lancamentos = () => {
   const fetchAdiantamentos = async () => {
     try {
       const { data: adiantamentosData, error } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("adiantamentos")
         .select("*")
         .eq("status", "APROVADO" as any)
@@ -103,6 +106,7 @@ const Lancamentos = () => {
       // Buscar perfis separadamente
       const colaboradoraIds = [...new Set(adiantamentosData?.map(a => a.colaboradora_id) || [])];
       const { data: profilesData } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("profiles")
         .select("id, name")
         .in("id", colaboradoraIds);
@@ -130,6 +134,7 @@ const Lancamentos = () => {
   const handleDescontar = async (parcelaId: string) => {
     try {
       const { error } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("parcelas")
         .update({
           status_parcela: "DESCONTADO",
@@ -154,6 +159,7 @@ const Lancamentos = () => {
 
     try {
       const { error } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("parcelas")
         .update({
           status_parcela: "ESTORNADO",
@@ -175,6 +181,7 @@ const Lancamentos = () => {
   const handleDescontarAdiantamento = async (adiantamentoId: string) => {
     try {
       const { error } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("adiantamentos")
         .update({
           status: "DESCONTADO" as any,
@@ -199,6 +206,7 @@ const Lancamentos = () => {
 
     try {
       const { error } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("adiantamentos")
         .update({
           status: "APROVADO" as any,
@@ -292,7 +300,7 @@ const Lancamentos = () => {
                           <TableCell>
                             {parcela.competencia.slice(0, 4)}/{parcela.competencia.slice(4)}
                           </TableCell>
-                          <TableCell>R$ {Number(parcela.valor_parcela).toFixed(2)}</TableCell>
+                          <TableCell>{formatCurrency(parcela.valor_parcela)}</TableCell>
                           <TableCell>{getStatusBadge(parcela.status_parcela)}</TableCell>
                           <TableCell>
                             <div className="flex gap-2">
@@ -379,7 +387,7 @@ const Lancamentos = () => {
                           <TableCell>
                             {adiantamento.mes_competencia.slice(0, 4)}/{adiantamento.mes_competencia.slice(4)}
                           </TableCell>
-                          <TableCell>R$ {Number(adiantamento.valor).toFixed(2)}</TableCell>
+                          <TableCell>{formatCurrency(adiantamento.valor)}</TableCell>
                           <TableCell>{getStatusBadge(adiantamento.status)}</TableCell>
                           <TableCell>
                             <div className="flex gap-2">

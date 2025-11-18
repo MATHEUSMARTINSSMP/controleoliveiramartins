@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { formatCurrency } from "@/lib/utils";
 
 export default function SolicitarAdiantamento() {
   const navigate = useNavigate();
@@ -47,7 +48,8 @@ export default function SolicitarAdiantamento() {
 
     // Buscar limites do perfil
     const { data: profileData } = await supabase
-      .from("profiles")
+        .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("profiles")
       .select("limite_total, limite_mensal")
       .eq("id", profile.id)
       .single();
@@ -56,21 +58,24 @@ export default function SolicitarAdiantamento() {
 
     // Buscar compras pendentes e aprovadas
     const { data: compras } = await supabase
-      .from("purchases")
+        .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("purchases")
       .select("preco_final, num_parcelas")
       .eq("colaboradora_id", profile.id)
       .in("status_compra", ["PENDENTE"] as any);
 
     // Buscar parcelas pendentes do mês
     const { data: parcelasMes } = await supabase
-      .from("parcelas")
+        .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("parcelas")
       .select("valor_parcela")
       .eq("competencia", formData.mes_competencia)
       .in("status_parcela", ["PENDENTE", "AGENDADO", "DESCONTADO"]);
 
     // Buscar adiantamentos pendentes e aprovados
     const { data: adiantamentos } = await supabase
-      .from("adiantamentos")
+        .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("adiantamentos")
       .select("valor")
       .eq("colaboradora_id", profile.id)
       .in("status", ["PENDENTE", "APROVADO"] as any);
@@ -84,13 +89,13 @@ export default function SolicitarAdiantamento() {
 
     // Verificar limite total
     if (valor > disponivelTotal) {
-      setLimiteExcedido(`O valor de R$ ${valor.toFixed(2)} ultrapassa o limite total disponível de R$ ${disponivelTotal.toFixed(2)}.`);
+      setLimiteExcedido(`O valor de ${formatCurrency(valor)} ultrapassa o limite total disponível de ${formatCurrency(disponivelTotal)}.`);
       return false;
     }
 
     // Verificar limite mensal
     if (valor > disponivelMensal) {
-      setLimiteExcedido(`O valor de R$ ${valor.toFixed(2)} ultrapassa o limite mensal disponível de R$ ${disponivelMensal.toFixed(2)} para ${formData.mes_competencia}.`);
+      setLimiteExcedido(`O valor de ${formatCurrency(valor)} ultrapassa o limite mensal disponível de ${formatCurrency(disponivelMensal)} para ${formData.mes_competencia}.`);
       return false;
     }
 
@@ -102,7 +107,7 @@ export default function SolicitarAdiantamento() {
 
     setLoading(true);
 
-    const { error } = await supabase.from("adiantamentos").insert({
+    const { error } = await supabase.schema("sacadaohboy-mrkitsch-loungerie").from("adiantamentos").insert({
       colaboradora_id: profile.id,
       valor: parseFloat(formData.valor),
       mes_competencia: formData.mes_competencia,

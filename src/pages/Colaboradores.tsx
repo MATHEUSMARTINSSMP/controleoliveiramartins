@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, UserPlus, Trash2, Edit, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { formatCurrency } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -68,6 +69,7 @@ const Colaboradores = () => {
     setLoadingData(true);
     try {
       const { data, error } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("profiles")
         .select("*")
         .eq("role", "COLABORADORA")
@@ -122,7 +124,8 @@ const Colaboradores = () => {
         };
 
         const { error } = await supabase
-          .from("profiles")
+          .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("profiles")
           .update(updateData)
           .eq("id", selectedId);
 
@@ -218,6 +221,7 @@ const Colaboradores = () => {
   const handleDelete = async (id: string) => {
     try {
       const { error } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("profiles")
         .update({ active: false })
         .eq("id", id);
@@ -285,8 +289,8 @@ const Colaboradores = () => {
                         <TableCell className="font-medium">{colab.name}</TableCell>
                         <TableCell>{colab.cpf || "Não informado"}</TableCell>
                         <TableCell>{colab.email}</TableCell>
-                        <TableCell>R$ {colab.limite_total.toFixed(2)}</TableCell>
-                        <TableCell>R$ {colab.limite_mensal.toFixed(2)}</TableCell>
+                        <TableCell>{formatCurrency(colab.limite_total)}</TableCell>
+                        <TableCell>{formatCurrency(colab.limite_mensal)}</TableCell>
                         <TableCell>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             colab.active 

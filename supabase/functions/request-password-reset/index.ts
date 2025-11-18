@@ -21,25 +21,87 @@ Deno.serve(async (req) => {
 
     const { identifier } = await req.json()
 
-    console.log('Searching for user with identifier:', identifier)
+    if (!identifier || typeof identifier !== 'string') {
+      return new Response(
+        JSON.stringify({ success: false, message: 'Identificador inválido' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
 
-    // Search for user by email, CPF, or name
-    const { data: profiles, error: searchError } = await supabaseAdmin
+    const searchIdentifier = identifier.trim()
+    console.log('Searching for user with identifier:', searchIdentifier)
+
+    // Search for user by email (case insensitive), CPF, or name (case insensitive)
+    // Try multiple queries to find the user
+    let profiles = null
+    let searchError = null
+
+    // First try: exact email match (case insensitive)
+    const { data: emailMatch, error: emailError } = await supabaseAdmin
+      .schema('sacadaohboy-mrkitsch-loungerie')
       .from('profiles')
       .select('id, name, email, cpf')
-      .or(`email.eq.${identifier},cpf.eq.${identifier},name.ilike.${identifier}`)
+      .ilike('email', searchIdentifier)
       .eq('active', true)
       .limit(1)
 
+    if (emailMatch && emailMatch.length > 0) {
+      profiles = emailMatch
+    } else {
+      // Second try: CPF match
+      const { data: cpfMatch, error: cpfError } = await supabaseAdmin
+        .schema('sacadaohboy-mrkitsch-loungerie')
+        .from('profiles')
+        .select('id, name, email, cpf')
+        .eq('cpf', searchIdentifier)
+        .eq('active', true)
+        .limit(1)
+
+      if (cpfMatch && cpfMatch.length > 0) {
+        profiles = cpfMatch
+      } else {
+        // Third try: name match (case insensitive, partial)
+        const { data: nameMatch, error: nameError } = await supabaseAdmin
+          .schema('sacadaohboy-mrkitsch-loungerie')
+          .from('profiles')
+          .select('id, name, email, cpf')
+          .ilike('name', `%${searchIdentifier}%`)
+          .eq('active', true)
+          .limit(1)
+
+        if (nameMatch && nameMatch.length > 0) {
+          profiles = nameMatch
+        } else {
+          searchError = nameError || cpfError || emailError
+        }
+      }
+    }
+
     if (searchError) {
       console.error('Error searching for user:', searchError)
-      throw searchError
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          message: 'Erro ao buscar usuário',
+          error: String(searchError)
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
     }
 
     if (!profiles || profiles.length === 0) {
-      console.log('User not found')
+      console.log('User not found with identifier:', searchIdentifier)
       return new Response(
-        JSON.stringify({ success: false, message: 'Usuário não encontrado' }),
+        JSON.stringify({ 
+          success: false, 
+          message: `Usuário não encontrado. Verifique se o email, CPF ou nome estão corretos.`
+        }),
         {
           status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -80,7 +142,7 @@ Deno.serve(async (req) => {
 
     // Send password reset email via Resend
     const emailResponse = await resend.emails.send({
-      from: "Dashboard de Compras <teste@eleveaagencia.com.br>",
+      from: "Dashboard de Compras <senhas@eleveaagencia.com.br>",
       to: [profile.email],
       subject: "Recuperação de Senha - Dashboard de Compras",
       html: `
@@ -89,7 +151,7 @@ Deno.serve(async (req) => {
         <p>Sua senha foi resetada conforme solicitado.</p>
         <p>Sua nova senha temporária é:</p>
         <p><strong style="font-size: 18px; color: #2563eb;">${tempPassword}</strong></p>
-        <p>Faça login em: <a href="${Deno.env.get('SUPABASE_URL')?.replace('supabase.co', 'lovableproject.com') || 'https://51fd7933-ecd0-4561-8a16-223b4ee29b63.lovableproject.com'}/auth">Dashboard de Compras</a></p>
+        <p>Faça login em: <a href="https://controleinterno.netlify.app/auth">Dashboard de Compras</a></p>
         <p><strong>Importante:</strong> Por favor, altere sua senha após fazer login.</p>
         <br>
         <p>Se você não solicitou esta alteração, entre em contato com o administrador imediatamente.</p>
@@ -107,11 +169,15 @@ Deno.serve(async (req) => {
       }
     )
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Error in request-password-reset:', error)
     return new Response(
-      JSON.stringify({ success: false, error: String(error) }),
+      JSON.stringify({ 
+        success: false, 
+        message: 'Erro ao processar solicitação de recuperação de senha',
+        error: String(error)
+      }),
       {
-        status: 400,
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     )

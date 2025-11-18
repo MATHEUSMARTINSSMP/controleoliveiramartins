@@ -27,17 +27,26 @@ const ForgotPassword = () => {
         body: { identifier: identifier.trim() }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase function error:", error);
+        throw new Error(error.message || "Erro ao chamar função de recuperação");
+      }
+
+      if (!data) {
+        throw new Error("Nenhuma resposta recebida do servidor");
+      }
 
       if (data.success) {
-        toast.success("Email de recuperação enviado com sucesso!");
-        setTimeout(() => navigate('/auth'), 2000);
+        toast.success("Email de recuperação enviado com sucesso! Verifique sua caixa de entrada.");
+        setTimeout(() => navigate('/auth'), 3000);
       } else {
-        toast.error(data.message || "Usuário não encontrado");
+        const errorMsg = data.message || data.error || "Usuário não encontrado";
+        toast.error(errorMsg);
       }
     } catch (error: any) {
       console.error("Error requesting password reset:", error);
-      toast.error("Erro ao solicitar recuperação de senha");
+      const errorMessage = error?.message || error?.error || error?.toString() || "Erro ao solicitar recuperação de senha. Tente novamente.";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

@@ -27,7 +27,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send welcome email via Resend
     const emailResponse = await resend.emails.send({
-      from: "Dashboard de Compras <teste@eleveaagencia.com.br>",
+      from: "Dashboard de Compras <senhas@eleveaagencia.com.br>",
       to: [email],
       subject: "Bem-vinda ao Dashboard de Compras!",
       html: `
@@ -38,7 +38,7 @@ const handler = async (req: Request): Promise<Response> => {
           <li><strong>Email:</strong> ${email}</li>
           <li><strong>Senha:</strong> ${password}</li>
         </ul>
-        <p>Por favor, faça login em: <a href="${Deno.env.get('SUPABASE_URL')?.replace('supabase.co', 'lovableproject.com') || 'https://51fd7933-ecd0-4561-8a16-223b4ee29b63.lovableproject.com'}/auth">Dashboard de Compras</a></p>
+        <p>Por favor, faça login em: <a href="https://controleinterno.netlify.app/auth">Dashboard de Compras</a></p>
         <p>Recomendamos que você altere sua senha após o primeiro login.</p>
         <br>
         <p>Atenciosamente,<br>Equipe Dashboard de Compras</p>

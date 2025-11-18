@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, TrendingUp, Clock, LogOut, Plus, Calendar, Trash2, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { formatCurrency } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -68,6 +69,7 @@ const AdminDashboard = () => {
   const fetchKPIs = async () => {
     try {
       const { data: parcelas, error } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("parcelas")
         .select("valor_parcela, status_parcela, competencia");
 
@@ -96,6 +98,7 @@ const AdminDashboard = () => {
   const fetchColaboradorasLimites = async () => {
     try {
       const { data: profiles } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("profiles")
         .select("id, name, limite_total, limite_mensal")
         .eq("role", "COLABORADORA")
@@ -107,6 +110,7 @@ const AdminDashboard = () => {
 
       for (const prof of profiles) {
         const { data: purchases } = await supabase
+          .schema("sacadaohboy-mrkitsch-loungerie")
           .from("purchases")
           .select("id")
           .eq("colaboradora_id", prof.id);
@@ -114,6 +118,7 @@ const AdminDashboard = () => {
         const purchaseIds = purchases?.map(p => p.id) || [];
 
         const { data: parcelas } = await supabase
+          .schema("sacadaohboy-mrkitsch-loungerie")
           .from("parcelas")
           .select("valor_parcela")
           .in("compra_id", purchaseIds)
@@ -121,6 +126,7 @@ const AdminDashboard = () => {
 
         // Buscar adiantamentos aprovados e não descontados
         const { data: adiantamentos } = await supabase
+          .schema("sacadaohboy-mrkitsch-loungerie")
           .from("adiantamentos")
           .select("valor")
           .eq("colaboradora_id", prof.id)
@@ -151,6 +157,7 @@ const AdminDashboard = () => {
   const handleDeleteCompra = async (compraId: string) => {
     try {
       const { error: parcelasError } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("parcelas")
         .delete()
         .eq("compra_id", compraId);
@@ -158,6 +165,7 @@ const AdminDashboard = () => {
       if (parcelasError) throw parcelasError;
 
       const { error: compraError } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("purchases")
         .delete()
         .eq("id", compraId);
@@ -187,6 +195,7 @@ const AdminDashboard = () => {
 
     try {
       const { error } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("profiles")
         .update({
           limite_total: parseFloat(limiteForm.limite_total),
@@ -242,17 +251,17 @@ const AdminDashboard = () => {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <KPICard
             title="Total Previsto"
-            value={`R$ ${kpis.previsto.toFixed(2)}`}
+            value={formatCurrency(kpis.previsto)}
             icon={DollarSign}
           />
           <KPICard
             title="Descontar Mês Atual"
-            value={`R$ ${kpis.mesAtual.toFixed(2)}`}
+            value={formatCurrency(kpis.mesAtual)}
             icon={Calendar}
           />
           <KPICard
             title="Total Descontado"
-            value={`R$ ${kpis.descontado.toFixed(2)}`}
+            value={formatCurrency(kpis.descontado)}
             icon={TrendingUp}
             trend={{
               value: `${((kpis.descontado / kpis.previsto) * 100 || 0).toFixed(1)}%`,
@@ -261,7 +270,7 @@ const AdminDashboard = () => {
           />
           <KPICard
             title="Total Pendente"
-            value={`R$ ${kpis.pendente.toFixed(2)}`}
+            value={formatCurrency(kpis.pendente)}
             icon={Clock}
           />
         </div>
@@ -337,12 +346,12 @@ const AdminDashboard = () => {
                     return (
                       <TableRow key={colab.id} className="hover:bg-muted/50 transition-colors">
                         <TableCell className="font-medium">{colab.name}</TableCell>
-                        <TableCell>R$ {colab.limite_total.toFixed(2)}</TableCell>
-                        <TableCell>R$ {colab.usado_total.toFixed(2)}</TableCell>
+                        <TableCell>{formatCurrency(colab.limite_total)}</TableCell>
+                        <TableCell>{formatCurrency(colab.usado_total)}</TableCell>
                         <TableCell className={colab.disponivel < 0 ? "text-destructive font-semibold" : "text-success font-semibold"}>
-                          R$ {colab.disponivel.toFixed(2)}
+                          {formatCurrency(colab.disponivel)}
                         </TableCell>
-                        <TableCell>R$ {colab.limite_mensal.toFixed(2)}</TableCell>
+                        <TableCell>{formatCurrency(colab.limite_mensal)}</TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1 min-w-[120px]">
                             <Progress 

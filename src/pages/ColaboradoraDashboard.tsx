@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { DollarSign, Calendar, CheckCircle, LogOut, ShoppingBag, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { formatCurrency } from "@/lib/utils";
 
 interface UserKPIs {
   totalPendente: number;
@@ -52,12 +53,14 @@ const ColaboradoraDashboard = () => {
 
     try {
       const { data: profileData } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("profiles")
         .select("limite_total, limite_mensal")
         .eq("id", profile.id)
         .single();
 
       const { data: purchases } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("purchases")
         .select("id")
         .eq("colaboradora_id", profile.id);
@@ -67,6 +70,7 @@ const ColaboradoraDashboard = () => {
       const purchaseIds = purchases.map(p => p.id);
       
       const { data: parcelas, error } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("parcelas")
         .select("valor_parcela, status_parcela, competencia")
         .in("compra_id", purchaseIds);
@@ -105,6 +109,7 @@ const ColaboradoraDashboard = () => {
     if (!profile) return;
 
     const { data, error } = await supabase
+      .schema("sacadaohboy-mrkitsch-loungerie")
       .from("adiantamentos")
       .select("*")
       .eq("colaboradora_id", profile.id)
@@ -171,32 +176,32 @@ const ColaboradoraDashboard = () => {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
           <KPICard
             title="Limite Total"
-            value={`R$ ${kpis?.limiteTotal?.toFixed(2) || '0.00'}`}
+            value={formatCurrency(kpis?.limiteTotal || 0)}
             icon={DollarSign}
           />
           <KPICard
             title="Limite Disponível"
-            value={`R$ ${kpis?.limiteDisponivel?.toFixed(2) || '0.00'}`}
+            value={formatCurrency(kpis?.limiteDisponivel || 0)}
             icon={CheckCircle}
           />
           <KPICard
             title="Limite Mensal"
-            value={`R$ ${kpis?.limiteMensal?.toFixed(2) || '0.00'}`}
+            value={formatCurrency(kpis?.limiteMensal || 0)}
             icon={Calendar}
           />
           <KPICard
             title="Próximas Parcelas"
-            value={`R$ ${kpis?.proximasParcelas?.toFixed(2) || '0.00'}`}
+            value={formatCurrency(kpis?.proximasParcelas || 0)}
             icon={Calendar}
           />
           <KPICard
             title="Total Pendente"
-            value={`R$ ${kpis?.totalPendente?.toFixed(2) || '0.00'}`}
+            value={formatCurrency(kpis?.totalPendente || 0)}
             icon={DollarSign}
           />
           <KPICard
             title="Total Pago"
-            value={`R$ ${kpis?.totalPago?.toFixed(2) || '0.00'}`}
+            value={formatCurrency(kpis?.totalPago || 0)}
             icon={CheckCircle}
           />
         </div>
@@ -226,7 +231,7 @@ const ColaboradoraDashboard = () => {
                 <TableBody>
                   {adiantamentos.map((adiantamento) => (
                     <TableRow key={adiantamento.id}>
-                      <TableCell>R$ {parseFloat(adiantamento.valor.toString()).toFixed(2)}</TableCell>
+                      <TableCell>{formatCurrency(adiantamento.valor)}</TableCell>
                       <TableCell>
                         {new Date(adiantamento.data_solicitacao).toLocaleDateString("pt-BR")}
                       </TableCell>

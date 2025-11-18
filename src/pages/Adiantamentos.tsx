@@ -10,6 +10,7 @@ import { ArrowLeft, Check, X, DollarSign } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { formatCurrency } from "@/lib/utils";
 
 interface Adiantamento {
   id: string;
@@ -50,6 +51,7 @@ export default function Adiantamentos() {
     try {
       // Buscar adiantamentos
       const { data: adiantamentosData, error: adiantamentosError } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("adiantamentos")
         .select("*")
         .order("data_solicitacao", { ascending: false });
@@ -59,6 +61,7 @@ export default function Adiantamentos() {
       // Buscar perfis das colaboradoras
       const colaboradoraIds = [...new Set(adiantamentosData?.map(a => a.colaboradora_id) || [])];
       const { data: profilesData, error: profilesError } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("profiles")
         .select("id, name")
         .in("id", colaboradoraIds);
@@ -193,7 +196,7 @@ export default function Adiantamentos() {
                   {adiantamentos.map((adiantamento) => (
                     <TableRow key={adiantamento.id}>
                       <TableCell>{adiantamento.profiles.name}</TableCell>
-                      <TableCell>R$ {parseFloat(adiantamento.valor.toString()).toFixed(2)}</TableCell>
+                      <TableCell>{formatCurrency(adiantamento.valor)}</TableCell>
                       <TableCell>
                         {new Date(adiantamento.data_solicitacao).toLocaleDateString("pt-BR")}
                       </TableCell>

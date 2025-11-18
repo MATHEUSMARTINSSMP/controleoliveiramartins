@@ -26,7 +26,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send password reset email via Resend
     const emailResponse = await resend.emails.send({
-      from: "Dashboard de Compras <teste@eleveaagencia.com.br>",
+      from: "Dashboard de Compras <senhas@eleveaagencia.com.br>",
       to: [email],
       subject: "Sua senha foi alterada - Dashboard de Compras",
       html: `
@@ -34,7 +34,7 @@ const handler = async (req: Request): Promise<Response> => {
         <p>Sua senha do Dashboard de Compras foi alterada pelo administrador.</p>
         <p>Sua nova senha temporária é:</p>
         <p><strong>${new_password}</strong></p>
-        <p>Por favor, faça login em: <a href="${Deno.env.get('SUPABASE_URL')?.replace('supabase.co', 'lovableproject.com') || 'https://51fd7933-ecd0-4561-8a16-223b4ee29b63.lovableproject.com'}/auth">Dashboard de Compras</a></p>
+        <p>Por favor, faça login em: <a href="https://controleinterno.netlify.app/auth">Dashboard de Compras</a></p>
         <p>Recomendamos fortemente que você altere sua senha após fazer login.</p>
         <br>
         <p>Atenciosamente,<br>Equipe Dashboard de Compras</p>

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { formatCurrency } from "@/lib/utils";
 
 interface Colaboradora {
   id: string;
@@ -38,7 +39,8 @@ export default function NovoAdiantamento() {
 
   const fetchColaboradoras = async () => {
     const { data, error } = await supabase
-      .from("profiles")
+        .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("profiles")
       .select("id, name, limite_total, limite_mensal")
       .eq("role", "COLABORADORA")
       .eq("active", true)
@@ -78,7 +80,8 @@ export default function NovoAdiantamento() {
 
     // Buscar compras pendentes
     const { data: purchases } = await supabase
-      .from("purchases")
+        .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("purchases")
       .select("id")
       .eq("colaboradora_id", formData.colaboradora_id);
 
@@ -86,14 +89,16 @@ export default function NovoAdiantamento() {
 
     // Buscar parcelas pendentes (todas as competências para o total)
     const { data: parcelas } = await supabase
-      .from("parcelas")
+        .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("parcelas")
       .select("valor_parcela, competencia")
       .in("compra_id", purchaseIds)
       .in("status_parcela", ["PENDENTE", "AGENDADO"]);
 
     // Buscar todos adiantamentos aprovados e não descontados (para limite total)
     const { data: adiantamentosTotal } = await supabase
-      .from("adiantamentos")
+        .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("adiantamentos")
       .select("valor")
       .eq("colaboradora_id", formData.colaboradora_id)
       .eq("status", "APROVADO" as any)
@@ -101,7 +106,8 @@ export default function NovoAdiantamento() {
 
     // Buscar adiantamentos aprovados do mês (para limite mensal)
     const { data: adiantamentosMes } = await supabase
-      .from("adiantamentos")
+        .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("adiantamentos")
       .select("valor")
       .eq("colaboradora_id", formData.colaboradora_id)
       .eq("mes_competencia", formData.mes_competencia)
@@ -133,13 +139,13 @@ export default function NovoAdiantamento() {
 
     // Verificar limite total
     if (valor > disponivelTotal) {
-      setLimiteExcedido(`O valor de R$ ${valor.toFixed(2)} ultrapassa o limite total disponível de R$ ${disponivelTotal.toFixed(2)}.`);
+      setLimiteExcedido(`O valor de ${formatCurrency(valor)} ultrapassa o limite total disponível de ${formatCurrency(disponivelTotal)}.`);
       return false;
     }
 
     // Verificar limite mensal
     if (valor > disponivelMensal) {
-      setLimiteExcedido(`O valor de R$ ${valor.toFixed(2)} ultrapassa o limite mensal disponível de R$ ${disponivelMensal.toFixed(2)} para ${formData.mes_competencia}.`);
+      setLimiteExcedido(`O valor de ${formatCurrency(valor)} ultrapassa o limite mensal disponível de ${formatCurrency(disponivelMensal)} para ${formData.mes_competencia}.`);
       return false;
     }
 
@@ -160,7 +166,7 @@ export default function NovoAdiantamento() {
       return;
     }
 
-    const { error } = await supabase.from("adiantamentos").insert({
+    const { error } = await supabase.schema("sacadaohboy-mrkitsch-loungerie").from("adiantamentos").insert({
       colaboradora_id: formData.colaboradora_id,
       valor: parseFloat(formData.valor),
       mes_competencia: formData.mes_competencia,

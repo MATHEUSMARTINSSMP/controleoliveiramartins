@@ -34,6 +34,7 @@ Deno.serve(async (req) => {
     // Update profile with CPF and custom limits
     if (userData.user) {
       const { error: profileError } = await supabaseAdmin
+        .schema('sacadaohboy-mrkitsch-loungerie')
         .from('profiles')
         .update({
           cpf: cpf,

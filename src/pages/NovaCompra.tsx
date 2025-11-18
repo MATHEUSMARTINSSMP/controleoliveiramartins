@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, XCircle, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
+import { formatCurrency } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,12 +78,13 @@ const NovaCompra = () => {
   }, [profile, authLoading, navigate]);
 
   const fetchStores = async () => {
-    const { data } = await supabase.from("stores").select("id, name").eq("active", true);
+    const { data } = await supabase.schema("sacadaohboy-mrkitsch-loungerie").from("stores").select("id, name").eq("active", true);
     if (data) setStores(data);
   };
 
   const fetchColaboradoras = async () => {
     const { data } = await supabase
+      .schema("sacadaohboy-mrkitsch-loungerie")
       .from("profiles")
       .select("id, name, limite_total, limite_mensal")
       .eq("role", "COLABORADORA")
@@ -93,7 +95,8 @@ const NovaCompra = () => {
   const fetchLimiteInfo = async (colaboradoraId: string) => {
     try {
       const { data: profile } = await supabase
-        .from("profiles")
+        .schema("sacadaohboy-mrkitsch-loungerie")
+      .from("profiles")
         .select("limite_total, limite_mensal")
         .eq("id", colaboradoraId)
         .single();
@@ -102,7 +105,8 @@ const NovaCompra = () => {
 
       // Buscar compras da colaboradora
       const { data: purchases } = await supabase
-        .from("purchases")
+        .schema("sacadaohboy-mrkitsch-loungerie")
+      .from("purchases")
         .select("id")
         .eq("colaboradora_id", colaboradoraId);
 
@@ -110,7 +114,8 @@ const NovaCompra = () => {
 
       // Buscar total usado
       const { data: parcelasTotal } = await supabase
-        .from("parcelas")
+        .schema("sacadaohboy-mrkitsch-loungerie")
+      .from("parcelas")
         .select("valor_parcela")
         .in("compra_id", purchaseIds)
         .in("status_parcela", ["PENDENTE", "AGENDADO"]);
@@ -120,7 +125,8 @@ const NovaCompra = () => {
       // Buscar usado no mês atual
       const mesAtual = format(new Date(), "yyyyMM");
       const { data: parcelasMes } = await supabase
-        .from("parcelas")
+        .schema("sacadaohboy-mrkitsch-loungerie")
+      .from("parcelas")
         .select("valor_parcela")
         .in("compra_id", purchaseIds)
         .eq("competencia", mesAtual)
@@ -193,7 +199,7 @@ const NovaCompra = () => {
       setLimiteExcedido({
         open: true,
         tipo: "total",
-        mensagem: `Esta compra ultrapassa o limite total disponível. Disponível: R$ ${disponivel.toFixed(2)} | Compra: R$ ${precoFinal.toFixed(2)}`,
+        mensagem: `Esta compra ultrapassa o limite total disponível. Disponível: ${formatCurrency(disponivel)} | Compra: ${formatCurrency(precoFinal)}`,
       });
       return false;
     }
@@ -203,7 +209,7 @@ const NovaCompra = () => {
       setLimiteExcedido({
         open: true,
         tipo: "mensal",
-        mensagem: `O valor da parcela (R$ ${valorPorParcela.toFixed(2)}) ultrapassa o limite mensal disponível (R$ ${disponivelMensal.toFixed(2)}). Total da compra: R$ ${precoFinal.toFixed(2)} em ${numParcelas}x.`,
+        mensagem: `O valor da parcela (${formatCurrency(valorPorParcela)}) ultrapassa o limite mensal disponível (${formatCurrency(disponivelMensal)}). Total da compra: ${formatCurrency(precoFinal)} em ${numParcelas}x.`,
       });
       return false;
     }
@@ -246,7 +252,8 @@ const NovaCompra = () => {
 
       // Criar compra
       const { data: purchase, error: purchaseError } = await supabase
-        .from("purchases")
+        .schema("sacadaohboy-mrkitsch-loungerie")
+      .from("purchases")
         .insert({
           colaboradora_id: formData.colaboradora_id,
           loja_id: formData.loja_id,
@@ -287,7 +294,7 @@ const NovaCompra = () => {
         });
       }
 
-      const { error: parcelasError } = await supabase.from("parcelas").insert(parcelas);
+      const { error: parcelasError } = await supabase.schema("sacadaohboy-mrkitsch-loungerie").from("parcelas").insert(parcelas);
       if (parcelasError) throw parcelasError;
 
     toast.success("Compra criada com sucesso!");
@@ -349,24 +356,24 @@ const NovaCompra = () => {
                     <div className="mt-2 p-3 bg-primary/5 rounded-lg border border-primary/20 space-y-1">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Limite Total:</span>
-                        <span className="font-medium">R$ {limiteInfo.limite_total.toFixed(2)}</span>
+                        <span className="font-medium">{formatCurrency(limiteInfo.limite_total)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Usado:</span>
-                        <span className="font-medium">R$ {limiteInfo.usado_total.toFixed(2)}</span>
+                        <span className="font-medium">{formatCurrency(limiteInfo.usado_total)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-success font-semibold">Disponível:</span>
-                        <span className="font-bold text-success">R$ {(limiteInfo.limite_total - limiteInfo.usado_total).toFixed(2)}</span>
+                        <span className="font-bold text-success">{formatCurrency(limiteInfo.limite_total - limiteInfo.usado_total)}</span>
                       </div>
                       <div className="pt-2 border-t border-primary/10">
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Limite Mensal:</span>
-                          <span className="font-medium">R$ {limiteInfo.limite_mensal.toFixed(2)}</span>
+                          <span className="font-medium">{formatCurrency(limiteInfo.limite_mensal)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Usado Este Mês:</span>
-                          <span className="font-medium">R$ {limiteInfo.usado_mes_atual.toFixed(2)}</span>
+                          <span className="font-medium">{formatCurrency(limiteInfo.usado_mes_atual)}</span>
                         </div>
                       </div>
                     </div>
@@ -466,7 +473,7 @@ const NovaCompra = () => {
                         <div className="pt-2 border-t border-primary/10">
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-muted-foreground">Subtotal:</span>
-                            <span className="font-semibold text-primary">R$ {subtotal.toFixed(2)}</span>
+                            <span className="font-semibold text-primary">{formatCurrency(subtotal)}</span>
                           </div>
                         </div>
                       )}
@@ -477,7 +484,7 @@ const NovaCompra = () => {
                 <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-lg">Preço Final Total:</span>
-                    <span className="font-bold text-2xl text-primary">R$ {calcularPrecoFinal()}</span>
+                    <span className="font-bold text-2xl text-primary">{formatCurrency(parseFloat(calcularPrecoFinal()))}</span>
                   </div>
                 </div>
               </div>

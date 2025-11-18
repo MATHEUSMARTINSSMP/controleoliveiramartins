@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ArrowLeft, Download, Trash2, ChevronDown, ChevronRight, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { formatCurrency } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -97,6 +98,7 @@ const Relatorios = () => {
     setLoadingData(true);
     try {
       const { data: colabData } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("profiles")
         .select("id, name")
         .eq("role", "COLABORADORA")
@@ -105,6 +107,7 @@ const Relatorios = () => {
       if (colabData) setColaboradoras(colabData);
 
       const { data: comprasData, error } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("purchases")
         .select(`
           id,
@@ -140,6 +143,7 @@ const Relatorios = () => {
 
       // Buscar adiantamentos
       const { data: adiantamentosData, error: adiantamentosError } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("adiantamentos")
         .select("*")
         .order("data_solicitacao", { ascending: false });
@@ -149,6 +153,7 @@ const Relatorios = () => {
       // Buscar perfis das colaboradoras para adiantamentos
       const colaboradoraIds = [...new Set(adiantamentosData?.map(a => a.colaboradora_id) || [])];
       const { data: profilesData } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
         .from("profiles")
         .select("id, name")
         .in("id", colaboradoraIds);
@@ -176,7 +181,8 @@ const Relatorios = () => {
       if (deleteDialog.type === 'compra') {
         // Deletar parcelas primeiro
         const { error: parcelasError } = await supabase
-          .from("parcelas")
+          .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("parcelas")
           .delete()
           .eq("compra_id", deleteDialog.id);
 
@@ -184,7 +190,8 @@ const Relatorios = () => {
 
         // Deletar compra
         const { error: compraError } = await supabase
-          .from("purchases")
+          .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("purchases")
           .delete()
           .eq("id", deleteDialog.id);
 
@@ -195,7 +202,8 @@ const Relatorios = () => {
       } else if (deleteDialog.type === 'parcela') {
         // Deletar parcela
         const { error } = await supabase
-          .from("parcelas")
+          .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("parcelas")
           .delete()
           .eq("id", deleteDialog.id);
 
@@ -211,7 +219,8 @@ const Relatorios = () => {
       } else if (deleteDialog.type === 'adiantamento') {
         // Deletar adiantamento
         const { error } = await supabase
-          .from("adiantamentos")
+          .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("adiantamentos")
           .delete()
           .eq("id", deleteDialog.id);
 
@@ -310,11 +319,11 @@ const Relatorios = () => {
           c.colaboradora_nome,
           c.item,
           format(new Date(c.data_compra), "dd/MM/yyyy"),
-          `R$ ${c.preco_final.toFixed(2)}`,
+          formatCurrency(c.preco_final, { showSymbol: false }),
           c.num_parcelas.toString(),
           p.n_parcela.toString(),
           `${p.competencia.substring(4)}/${p.competencia.substring(0, 4)}`,
-          `R$ ${p.valor_parcela.toFixed(2)}`,
+          formatCurrency(p.valor_parcela, { showSymbol: false }),
           p.status_parcela,
         ]);
       });
@@ -475,11 +484,11 @@ const Relatorios = () => {
                                 </div>
                                 <div>
                                   <p className="text-sm text-muted-foreground">Valor Total</p>
-                                  <p className="font-medium">R$ {compra.preco_final.toFixed(2)}</p>
+                                  <p className="font-medium">{formatCurrency(compra.preco_final)}</p>
                                 </div>
                                 <div>
                                   <p className="text-sm text-muted-foreground">Parcelas</p>
-                                  <p className="font-medium">{compra.num_parcelas}x de R$ {(compra.preco_final / compra.num_parcelas).toFixed(2)}</p>
+                                  <p className="font-medium">{compra.num_parcelas}x de {formatCurrency(compra.preco_final / compra.num_parcelas)}</p>
                                 </div>
                               </div>
                             </div>
@@ -519,7 +528,7 @@ const Relatorios = () => {
                                     <TableCell>
                                       {parcela.competencia.substring(4)}/{parcela.competencia.substring(0, 4)}
                                     </TableCell>
-                                    <TableCell>R$ {parcela.valor_parcela.toFixed(2)}</TableCell>
+                                    <TableCell>{formatCurrency(parcela.valor_parcela)}</TableCell>
                                     <TableCell>
                                       <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                                         parcela.status_parcela === "DESCONTADO" ? "bg-success/10 text-success" :
@@ -570,7 +579,7 @@ const Relatorios = () => {
                           </div>
                           <div>
                             <p className="text-sm text-muted-foreground">Valor</p>
-                            <p className="font-medium">R$ {adiantamento.valor.toFixed(2)}</p>
+                            <p className="font-medium">{formatCurrency(adiantamento.valor)}</p>
                           </div>
                           <div>
                             <p className="text-sm text-muted-foreground">Data Solicitação</p>
