@@ -1,11 +1,11 @@
-import { createClient } from '@supabase/supabase-js';
+const { createClient } = require('@supabase/supabase-js');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-export const handler = async (event, context) => {
+exports.handler = async (event, context) => {
   // Handle CORS preflight
   if (event.httpMethod === 'OPTIONS') {
     return {
@@ -38,12 +38,13 @@ export const handler = async (event, context) => {
     console.log('Password updated successfully, invalidating sessions');
 
     // Sign out all sessions for this user to force re-login with new password
-    try {
-      await supabaseAdmin.auth.admin.signOut(user_id, 'global');
-      console.log('Sessions invalidated successfully');
-    } catch (signOutError) {
+    const { error: signOutError } = await supabaseAdmin.auth.admin.signOut(user_id);
+
+    if (signOutError) {
       console.error('Error signing out user:', signOutError);
       // Continue anyway - password was updated
+    } else {
+      console.log('Sessions invalidated successfully');
     }
 
     console.log('Sending email notification');
