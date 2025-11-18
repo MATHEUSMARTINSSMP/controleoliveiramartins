@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@4.0.0";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
@@ -9,19 +8,26 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-interface WelcomeEmailRequest {
-  email: string;
-  name: string;
-  password: string;
-}
-
-const handler = async (req: Request): Promise<Response> => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { email, name, password }: WelcomeEmailRequest = await req.json();
+    const { email, name, password } = await req.json();
+
+    if (!email || !name || !password) {
+      return new Response(
+        JSON.stringify({ 
+          error: "Email, nome e senha são obrigatórios",
+          success: false 
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
 
     console.log("Sending welcome email to:", email);
 
@@ -62,7 +68,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.error("Error in send-welcome-email function:", error);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: error.message || String(error),
         success: false 
       }),
       {
@@ -71,6 +77,4 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
   }
-};
-
-serve(handler);
+});

@@ -23,18 +23,31 @@ const ForgotPassword = () => {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('request-password-reset', {
-        body: { identifier: identifier.trim() }
+      // Obter URL e chave do Supabase das variáveis de ambiente
+      const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
+      const supabaseKey = (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error("Configuração do Supabase não encontrada. Verifique as variáveis de ambiente.");
+      }
+
+      // Chamar Edge Function diretamente via fetch
+      const response = await fetch(`${supabaseUrl}/functions/v1/request-password-reset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+        },
+        body: JSON.stringify({ identifier: identifier.trim() })
       });
 
-      if (error) {
-        console.error("Supabase function error:", error);
-        throw new Error(error.message || "Erro ao chamar função de recuperação");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Erro ao processar resposta' }));
+        throw new Error(errorData.message || errorData.error || `Erro ${response.status}: ${response.statusText}`);
       }
 
-      if (!data) {
-        throw new Error("Nenhuma resposta recebida do servidor");
-      }
+      const data = await response.json();
 
       if (data.success) {
         toast.success("Email de recuperação enviado com sucesso! Verifique sua caixa de entrada.");
@@ -45,7 +58,7 @@ const ForgotPassword = () => {
       }
     } catch (error: any) {
       console.error("Error requesting password reset:", error);
-      const errorMessage = error?.message || error?.error || error?.toString() || "Erro ao solicitar recuperação de senha. Tente novamente.";
+      const errorMessage = error?.message || error?.error || error?.toString() || "Erro ao solicitar recuperação de senha. Verifique sua conexão e tente novamente.";
       toast.error(errorMessage);
     } finally {
       setLoading(false);
