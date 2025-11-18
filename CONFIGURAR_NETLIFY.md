@@ -18,8 +18,10 @@ Configure as seguintes variáveis no Netlify Dashboard:
   - Valor: `https://kktsbnrnlnzyofupegjc.supabase.co`
   
 - **SUPABASE_SERVICE_ROLE_KEY**
-  - Valor: (sua chave de service role do Supabase)
-  - Onde encontrar: Supabase Dashboard > Project Settings > API > service_role key
+  - Valor: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrdHNibnJubG56eW9mdXBlZ2pjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDc5NTAyNiwiZXhwIjoyMDc2MzcxMDI2fQ.C4bs65teQiC4cQNgRfFjDmmT27dCkEoS_H3eQFmdl3s`
+
+- **SUPABASE_ANON_KEY** (opcional, mas recomendado)
+  - Valor: `sb_publishable_E9kuT5BNQhQzLgHDEwSX-w_9EVMPPYp`
 
 - **RESEND_API_KEY**
   - Valor: `re_LGPMbE4N_7VGxWn33BAFzD6s3AjYeadbA`

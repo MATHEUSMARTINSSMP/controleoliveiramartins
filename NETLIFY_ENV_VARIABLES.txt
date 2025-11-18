@@ -1,0 +1,30 @@
+# VARIÁVEIS DE AMBIENTE PARA CONFIGURAR NO NETLIFY DASHBOARD
+# Acesse: https://app.netlify.com/sites/controleinterno/settings/deploys#environment-variables
+
+# ============================================
+# VARIÁVEIS OBRIGATÓRIAS
+# ============================================
+
+SUPABASE_URL=https://kktsbnrnlnzyofupegjc.supabase.co
+
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrdHNibnJubG56eW9mdXBlZ2pjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDc5NTAyNiwiZXhwIjoyMDc2MzcxMDI2fQ.C4bs65teQiC4cQNgRfFjDmmT27dCkEoS_H3eQFmdl3s
+
+RESEND_API_KEY=re_LGPMbE4N_7VGxWn33BAFzD6s3AjYeadbA
+
+# ============================================
+# VARIÁVEIS OPCIONAIS (mas recomendadas)
+# ============================================
+
+SUPABASE_ANON_KEY=sb_publishable_E9kuT5BNQhQzLgHDEwSX-w_9EVMPPYp
+
+# ============================================
+# INSTRUÇÕES
+# ============================================
+# 1. Copie cada variável acima
+# 2. Acesse o Netlify Dashboard
+# 3. Vá em: Site settings > Environment variables
+# 4. Clique em "Add a variable"
+# 5. Cole o nome da variável e o valor
+# 6. Marque "Deploy to production"
+# 7. Salve e aguarde o próximo deploy
+

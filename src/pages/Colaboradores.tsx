@@ -125,7 +125,7 @@ const Colaboradores = () => {
 
         const { error } = await supabase
           .schema("sacadaohboy-mrkitsch-loungerie")
-        .from("profiles")
+          .from("profiles")
           .update(updateData)
           .eq("id", selectedId);
 
@@ -141,17 +141,17 @@ const Colaboradores = () => {
         // Create new colaboradora via Netlify Function
         const response = await fetch('/.netlify/functions/create-colaboradora', {
           method: 'POST',
-          headers: {
+            headers: {
             'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: formData.email,
-            password: formData.password,
-            name: formData.name,
-            cpf: formData.cpf,
-            limite_total: formData.limite_total,
-            limite_mensal: formData.limite_mensal,
-          }),
+            },
+            body: JSON.stringify({
+              email: formData.email,
+              password: formData.password,
+              name: formData.name,
+              cpf: formData.cpf,
+              limite_total: formData.limite_total,
+              limite_mensal: formData.limite_mensal,
+            }),
         });
 
         const data = await response.json();
@@ -182,14 +182,14 @@ const Colaboradores = () => {
       // Call Netlify Function to reset password
       const response = await fetch('/.netlify/functions/reset-colaboradora-password', {
         method: 'POST',
-        headers: {
+          headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user_id: colaboradoraId,
-          new_password: newPassword,
-          email: colaboradoraEmail,
-        }),
+          },
+          body: JSON.stringify({
+            user_id: colaboradoraId,
+            new_password: newPassword,
+            email: colaboradoraEmail,
+          }),
       });
 
       const data = await response.json();
