@@ -19,9 +19,25 @@ exports.handler = async (event, context) => {
   }
 
   try {
+    // Validate environment variables
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('Missing environment variables:', {
+        hasUrl: !!process.env.SUPABASE_URL,
+        hasKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      });
+      return {
+        statusCode: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          success: false,
+          message: 'Configuração do servidor incompleta',
+        }),
+      };
+    }
+
     const supabaseAdmin = createClient(
-      process.env.SUPABASE_URL || '',
-      process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
     const { identifier } = JSON.parse(event.body || '{}');
@@ -169,13 +185,15 @@ exports.handler = async (event, context) => {
     };
   } catch (error) {
     console.error('Error in request-password-reset:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error message:', error.message);
     return {
       statusCode: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         success: false,
         message: 'Erro ao processar solicitação de recuperação de senha',
-        error: String(error),
+        error: error.message || String(error),
       }),
     };
   }
