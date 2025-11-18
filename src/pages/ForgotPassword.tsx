@@ -23,31 +23,14 @@ const ForgotPassword = () => {
 
     setLoading(true);
     try {
-      // Obter URL e chave do Supabase das variáveis de ambiente
-      const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
-      const supabaseKey = (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      
-      if (!supabaseUrl || !supabaseKey) {
-        throw new Error("Configuração do Supabase não encontrada. Verifique as variáveis de ambiente.");
-      }
-
-      // Chamar Edge Function diretamente via fetch
-      const response = await fetch(`${supabaseUrl}/functions/v1/request-password-reset`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseKey}`,
-          'apikey': supabaseKey,
-        },
-        body: JSON.stringify({ identifier: identifier.trim() })
+      // Usar o método invoke do Supabase que gerencia a autenticação corretamente
+      const { data, error } = await supabase.functions.invoke('request-password-reset', {
+        body: { identifier: identifier.trim() }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Erro ao processar resposta' }));
-        throw new Error(errorData.message || errorData.error || `Erro ${response.status}: ${response.statusText}`);
+      if (error) {
+        throw error;
       }
-
-      const data = await response.json();
 
       if (data.success) {
         toast.success("Email de recuperação enviado com sucesso! Verifique sua caixa de entrada.");
