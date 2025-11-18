@@ -29,14 +29,31 @@ const ForgotPassword = () => {
       });
 
       if (error) {
-        throw error;
+        console.error("Edge Function error:", error);
+        // Tentar extrair mensagem de erro do response
+        let errorMessage = error.message || "Erro ao processar solicitação";
+        
+        // Se o erro contém um response, tentar extrair a mensagem
+        if (error.context && error.context.body) {
+          try {
+            const errorBody = typeof error.context.body === 'string' 
+              ? JSON.parse(error.context.body) 
+              : error.context.body;
+            errorMessage = errorBody.message || errorBody.error || errorMessage;
+          } catch (e) {
+            // Ignorar erro de parsing
+          }
+        }
+        
+        toast.error(errorMessage);
+        return;
       }
 
-      if (data.success) {
+      if (data && data.success) {
         toast.success("Email de recuperação enviado com sucesso! Verifique sua caixa de entrada.");
         setTimeout(() => navigate('/auth'), 3000);
       } else {
-        const errorMsg = data.message || data.error || "Usuário não encontrado";
+        const errorMsg = data?.message || data?.error || "Usuário não encontrado";
         toast.error(errorMsg);
       }
     } catch (error: any) {
