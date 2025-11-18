@@ -138,28 +138,21 @@ const Colaboradores = () => {
           return;
         }
 
-        // Create new colaboradora via edge function
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-colaboradora`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${session?.access_token}`,
-              "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            },
-            body: JSON.stringify({
-              email: formData.email,
-              password: formData.password,
-              name: formData.name,
-              cpf: formData.cpf,
-              limite_total: formData.limite_total,
-              limite_mensal: formData.limite_mensal,
-            }),
-          }
-        );
+        // Create new colaboradora via Netlify Function
+        const response = await fetch('/.netlify/functions/create-colaboradora', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            name: formData.name,
+            cpf: formData.cpf,
+            limite_total: formData.limite_total,
+            limite_mensal: formData.limite_mensal,
+          }),
+        });
 
         const data = await response.json();
         
@@ -186,25 +179,18 @@ const Colaboradores = () => {
         return;
       }
 
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      // Call edge function to reset password
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reset-colaboradora-password`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${session?.access_token}`,
-            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({
-            user_id: colaboradoraId,
-            new_password: newPassword,
-            email: colaboradoraEmail,
-          }),
-        }
-      );
+      // Call Netlify Function to reset password
+      const response = await fetch('/.netlify/functions/reset-colaboradora-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: colaboradoraId,
+          new_password: newPassword,
+          email: colaboradoraEmail,
+        }),
+      });
 
       const data = await response.json();
       

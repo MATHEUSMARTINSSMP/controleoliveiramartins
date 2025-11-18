@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, ShoppingBag } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 
 const ForgotPassword = () => {
   const [identifier, setIdentifier] = useState("");
@@ -23,42 +22,37 @@ const ForgotPassword = () => {
 
     setLoading(true);
     try {
-      // Usar o método invoke do Supabase que gerencia a autenticação corretamente
-      const { data, error } = await supabase.functions.invoke('request-password-reset', {
-        body: { identifier: identifier.trim() }
+      // Chamar Netlify Function
+      const response = await fetch('/.netlify/functions/request-password-reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ identifier: identifier.trim() }),
       });
 
-      if (error) {
-        console.error("Edge Function error:", error);
-        // Tentar extrair mensagem de erro do response
-        let errorMessage = error.message || "Erro ao processar solicitação";
-        
-        // Se o erro contém um response, tentar extrair a mensagem
-        if (error.context && error.context.body) {
-          try {
-            const errorBody = typeof error.context.body === 'string' 
-              ? JSON.parse(error.context.body) 
-              : error.context.body;
-            errorMessage = errorBody.message || errorBody.error || errorMessage;
-          } catch (e) {
-            // Ignorar erro de parsing
-          }
-        }
-        
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorMessage = data.message || data.error || 'Erro ao processar solicitação';
         toast.error(errorMessage);
         return;
       }
 
       if (data && data.success) {
-        toast.success("Email de recuperação enviado com sucesso! Verifique sua caixa de entrada.");
+        toast.success('Email de recuperação enviado com sucesso! Verifique sua caixa de entrada.');
         setTimeout(() => navigate('/auth'), 3000);
       } else {
-        const errorMsg = data?.message || data?.error || "Usuário não encontrado";
+        const errorMsg = data?.message || data?.error || 'Usuário não encontrado';
         toast.error(errorMsg);
       }
     } catch (error: any) {
-      console.error("Error requesting password reset:", error);
-      const errorMessage = error?.message || error?.error || error?.toString() || "Erro ao solicitar recuperação de senha. Verifique sua conexão e tente novamente.";
+      console.error('Error requesting password reset:', error);
+      const errorMessage =
+        error?.message ||
+        error?.error ||
+        error?.toString() ||
+        'Erro ao solicitar recuperação de senha. Verifique sua conexão e tente novamente.';
       toast.error(errorMessage);
     } finally {
       setLoading(false);
