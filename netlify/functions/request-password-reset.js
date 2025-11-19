@@ -52,21 +52,69 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const searchIdentifier = identifier.trim();
-    console.log('Searching for user with identifier:', searchIdentifier);
+    // Normalize identifier: trim, lowercase, remove extra spaces
+    let searchIdentifier = identifier.trim().toLowerCase().replace(/\s+/g, ' ');
+    
+    // If it looks like an email, normalize it further
+    if (searchIdentifier.includes('@')) {
+      // Normalize email: lowercase, remove spaces, trim
+      const emailParts = searchIdentifier.split('@');
+      if (emailParts.length === 2) {
+        const localPart = emailParts[0].replace(/\s+/g, '').toLowerCase();
+        const domainPart = emailParts[1].replace(/\s+/g, '').toLowerCase();
+        searchIdentifier = `${localPart}@${domainPart}`;
+      }
+    }
+    
+    console.log('Original identifier:', identifier);
+    console.log('Normalized identifier:', searchIdentifier);
 
     // Search for user by email (case insensitive), CPF, or name (case insensitive)
     let profiles = null;
     let searchError = null;
 
     // First try: exact email match (case insensitive)
+    // Try exact match first, then ilike if needed
     console.log('Attempting email search for:', searchIdentifier);
-    const { data: emailMatch, error: emailError } = await supabaseAdmin
-      .schema('sacadaohboy-mrkitsch-loungerie')
-      .from('profiles')
-      .select('uuid, id, name, email, cpf, active')
-      .ilike('email', searchIdentifier)
-      .limit(1);
+    
+    let emailMatch = null;
+    let emailError = null;
+    
+    // Try exact match first (faster)
+    if (searchIdentifier.includes('@')) {
+      const { data: exactMatch, error: exactError } = await supabaseAdmin
+        .schema('sacadaohboy-mrkitsch-loungerie')
+        .from('profiles')
+        .select('uuid, id, name, email, cpf, active')
+        .eq('email', searchIdentifier)
+        .limit(1);
+      
+      if (exactError) {
+        console.error('Exact email search error:', exactError);
+        emailError = exactError;
+      } else if (exactMatch && exactMatch.length > 0) {
+        emailMatch = exactMatch;
+        console.log('User found by exact email match:', exactMatch[0].email);
+      }
+    }
+    
+    // If exact match didn't work, try case-insensitive
+    if (!emailMatch && !emailError && searchIdentifier.includes('@')) {
+      const { data: ilikeMatch, error: ilikeError } = await supabaseAdmin
+        .schema('sacadaohboy-mrkitsch-loungerie')
+        .from('profiles')
+        .select('uuid, id, name, email, cpf, active')
+        .ilike('email', searchIdentifier)
+        .limit(1);
+      
+      if (ilikeError) {
+        console.error('Case-insensitive email search error:', ilikeError);
+        emailError = ilikeError;
+      } else if (ilikeMatch && ilikeMatch.length > 0) {
+        emailMatch = ilikeMatch;
+        console.log('User found by case-insensitive email match:', ilikeMatch[0].email);
+      }
+    }
 
     if (emailError) {
       console.error('Email search error:', emailError);
