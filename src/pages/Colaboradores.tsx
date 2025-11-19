@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ArrowLeft, UserPlus, Trash2, Edit, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
+import { normalizeCPF } from "@/lib/cpf";
 import {
   Dialog,
   DialogContent,
@@ -145,21 +146,21 @@ const Colaboradores = () => {
         // Create new colaboradora via Netlify Function
         const response = await fetch('/.netlify/functions/create-colaboradora', {
           method: 'POST',
-            headers: {
+          headers: {
             'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email: formData.email,
-              password: formData.password,
-              name: formData.name,
-              cpf: formData.cpf,
-              limite_total: formData.limite_total,
-              limite_mensal: formData.limite_mensal,
-            }),
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            name: formData.name,
+            cpf: normalizeCPF(formData.cpf),  // Normalize CPF before sending
+            limite_total: formData.limite_total,
+            limite_mensal: formData.limite_mensal,
+          }),
         });
 
         const data = await response.json();
-        
+
         if (!response.ok || data.error) {
           throw new Error(data.error || "Erro ao criar colaboradora");
         }
@@ -177,7 +178,7 @@ const Colaboradores = () => {
   const handleResetPassword = async (colaboradoraId: string, colaboradoraEmail: string) => {
     try {
       const newPassword = prompt("Digite a nova senha para a colaboradora (mínimo 6 caracteres):");
-      
+
       if (!newPassword || newPassword.length < 6) {
         toast.error("Senha inválida. Mínimo 6 caracteres.");
         return;
@@ -186,18 +187,18 @@ const Colaboradores = () => {
       // Call Netlify Function to reset password
       const response = await fetch('/.netlify/functions/reset-colaboradora-password', {
         method: 'POST',
-          headers: {
+        headers: {
           'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            user_id: colaboradoraId,
-            new_password: newPassword,
-            email: colaboradoraEmail,
-          }),
+        },
+        body: JSON.stringify({
+          user_id: colaboradoraId,
+          new_password: newPassword,
+          email: colaboradoraEmail,
+        }),
       });
 
       const data = await response.json();
-      
+
       if (!response.ok || data.error) {
         throw new Error(data.error || "Erro ao resetar senha");
       }
@@ -282,11 +283,10 @@ const Colaboradores = () => {
                         <TableCell>{formatCurrency(colab.limite_total)}</TableCell>
                         <TableCell>{formatCurrency(colab.limite_mensal)}</TableCell>
                         <TableCell>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            colab.active 
-                              ? "bg-success/10 text-success" 
-                              : "bg-muted text-muted-foreground"
-                          }`}>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${colab.active
+                            ? "bg-success/10 text-success"
+                            : "bg-muted text-muted-foreground"
+                            }`}>
                             {colab.active ? "Ativa" : "Inativa"}
                           </span>
                         </TableCell>
@@ -340,8 +340,8 @@ const Colaboradores = () => {
               {editMode ? "Editar Colaboradora" : "Nova Colaboradora"}
             </DialogTitle>
             <DialogDescription>
-              {editMode 
-                ? "Atualize as informações da colaboradora" 
+              {editMode
+                ? "Atualize as informações da colaboradora"
                 : "Preencha os dados para criar uma nova colaboradora"}
             </DialogDescription>
           </DialogHeader>

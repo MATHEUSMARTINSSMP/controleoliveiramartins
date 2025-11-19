@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { normalizeCPF } from "@/lib/cpf";
 
 interface Profile {
   id: string;
@@ -88,21 +89,58 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!emailError && profileByEmail) {
           console.log("[AuthContext] Profile found by email! Updating ID to match auth.user.id");
 
-          // Update profile ID to match auth user ID
+          // Update profile ID to match auth user ID and normalize CPF
           const { error: updateError } = await supabase
             .schema("sistemaretiradas")
             .from("profiles")
-            .update({ id: userId })
+            .update({
+              id: userId,
+              cpf: normalizeCPF(profileByEmail.cpf || "")
+            })
             .eq("email", userEmail);
 
           if (updateError) {
             console.error("[AuthContext] Error updating profile ID:", updateError);
           } else {
             console.log("[AuthContext] Profile ID updated successfully");
-            data = { ...profileByEmail, id: userId };
+            data = { ...profileByEmail, id: userId, cpf: normalizeCPF(profileByEmail.cpf || "") };
           }
         } else {
-          throw new Error("Profile not found by ID or email");
+          // Last attempt: try to find by user metadata (if CPF was stored there)
+          const userCPF = user?.user_metadata?.cpf;
+          if (userCPF) {
+            console.log("[AuthContext] Email not found, trying by CPF from metadata...");
+
+            const normalizedCPF = normalizeCPF(userCPF);
+            const { data: profileByCPF, error: cpfError } = await supabase
+              .schema("sistemaretiradas")
+              .from("profiles")
+              .select("*")
+              .eq("cpf", normalizedCPF)
+              .single();
+
+            if (!cpfError && profileByCPF) {
+              console.log("[AuthContext] Profile found by CPF! Updating ID and email");
+
+              // Update profile to match auth user
+              const { error: updateError } = await supabase
+                .schema("sistemaretiradas")
+                .from("profiles")
+                .update({ id: userId, email: userEmail })
+                .eq("cpf", normalizedCPF);
+
+              if (updateError) {
+                console.error("[AuthContext] Error updating profile:", updateError);
+              } else {
+                console.log("[AuthContext] Profile updated successfully");
+                data = { ...profileByCPF, id: userId, email: userEmail };
+              }
+            } else {
+              throw new Error("Profile not found by ID, email or CPF");
+            }
+          } else {
+            throw new Error("Profile not found by ID or email");
+          }
         }
       } else if (error) {
         console.error("[AuthContext] Error fetching profile:", error);
