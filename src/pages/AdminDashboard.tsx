@@ -68,12 +68,38 @@ const AdminDashboard = () => {
 
   const fetchKPIs = async () => {
     try {
-      const { data: parcelas, error } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
-        .from("parcelas")
-        .select("valor_parcela, status_parcela, competencia");
+      // Try multiple schemas in case of restrictions
+      const schemasToTry = ['sacadaohboy-mrkitsch-loungerie', 'elevea', 'public'];
+      let parcelas = null;
+      let lastError = null;
 
-      if (error) throw error;
+      for (const schemaName of schemasToTry) {
+        const { data, error } = await supabase
+          .schema(schemaName)
+          .from("parcelas")
+          .select("valor_parcela, status_parcela, competencia");
+
+        if (error) {
+          console.error(`Error fetching parcelas from schema ${schemaName}:`, error);
+          lastError = error;
+          // If it's a schema restriction error or 404, try next schema
+          if (error.message && (error.message.includes('schema must be one of') || error.message.includes('404') || error.message.includes('not found'))) {
+            continue;
+          }
+          // For other errors, break and show error
+          break;
+        }
+
+        if (data) {
+          parcelas = data;
+          console.log(`Found ${data.length} parcelas in schema ${schemaName}`);
+          break;
+        }
+      }
+
+      if (!parcelas && lastError) {
+        throw lastError;
+      }
 
       const mesAtual = format(new Date(), "yyyyMM");
 
@@ -97,41 +123,103 @@ const AdminDashboard = () => {
 
   const fetchColaboradorasLimites = async () => {
     try {
-      const { data: profiles } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
-        .from("profiles")
-        .select("id, name, limite_total, limite_mensal")
-        .eq("role", "COLABORADORA")
-        .eq("active", true);
+      // Try multiple schemas in case of restrictions
+      const schemasToTry = ['sacadaohboy-mrkitsch-loungerie', 'elevea', 'public'];
+      let profiles = null;
+      let lastError = null;
 
-      if (!profiles) return;
+      for (const schemaName of schemasToTry) {
+        const { data, error } = await supabase
+          .schema(schemaName)
+          .from("profiles")
+          .select("id, name, limite_total, limite_mensal")
+          .eq("role", "COLABORADORA")
+          .eq("active", true);
+
+        if (error) {
+          console.error(`Error fetching from schema ${schemaName}:`, error);
+          lastError = error;
+          // If it's a schema restriction error, try next schema
+          if (error.message && error.message.includes('schema must be one of')) {
+            continue;
+          }
+          // For 404 errors, try next schema
+          if (error.code === 'PGRST116' || error.message?.includes('404') || error.message?.includes('not found')) {
+            continue;
+          }
+          // For other errors, break and show error
+          break;
+        }
+
+        if (data && data.length > 0) {
+          profiles = data;
+          console.log(`Found ${data.length} profiles in schema ${schemaName}`);
+          break;
+        }
+      }
+
+      if (!profiles) {
+        if (lastError) {
+          console.error('Error fetching profiles:', lastError);
+          toast.error("Erro ao carregar colaboradoras: " + (lastError.message || String(lastError)));
+        }
+        return;
+      }
 
       const limites: ColaboradoraLimite[] = [];
 
       for (const prof of profiles) {
-        const { data: purchases } = await supabase
-          .schema("sacadaohboy-mrkitsch-loungerie")
-          .from("purchases")
-          .select("id")
-          .eq("colaboradora_id", prof.id);
+        // Try multiple schemas for purchases
+        let purchases = null;
+        for (const schemaName of schemasToTry) {
+          const { data, error } = await supabase
+            .schema(schemaName)
+            .from("purchases")
+            .select("id")
+            .eq("colaboradora_id", prof.id);
+          
+          if (!error && data) {
+            purchases = data;
+            break;
+          }
+        }
 
         const purchaseIds = purchases?.map(p => p.id) || [];
 
-        const { data: parcelas } = await supabase
-          .schema("sacadaohboy-mrkitsch-loungerie")
-          .from("parcelas")
-          .select("valor_parcela")
-          .in("compra_id", purchaseIds)
-          .in("status_parcela", ["PENDENTE", "AGENDADO"]);
+        // Try multiple schemas for parcelas
+        let parcelas = null;
+        if (purchaseIds.length > 0) {
+          for (const schemaName of schemasToTryForData) {
+            const { data, error } = await supabase
+              .schema(schemaName)
+              .from("parcelas")
+              .select("valor_parcela")
+              .in("compra_id", purchaseIds)
+              .in("status_parcela", ["PENDENTE", "AGENDADO"]);
+            
+            if (!error && data) {
+              parcelas = data;
+              break;
+            }
+          }
+        }
 
-        // Buscar adiantamentos aprovados e não descontados
-        const { data: adiantamentos } = await supabase
-          .schema("sacadaohboy-mrkitsch-loungerie")
-          .from("adiantamentos")
-          .select("valor")
-          .eq("colaboradora_id", prof.id)
-          .eq("status", "APROVADO" as any)
-          .is("data_desconto", null);
+        // Try multiple schemas for adiantamentos
+        let adiantamentos = null;
+        for (const schemaName of schemasToTryForData) {
+          const { data, error } = await supabase
+            .schema(schemaName)
+            .from("adiantamentos")
+            .select("valor")
+            .eq("colaboradora_id", prof.id)
+            .eq("status", "APROVADO" as any)
+            .is("data_desconto", null);
+          
+          if (!error && data) {
+            adiantamentos = data;
+            break;
+          }
+        }
 
         const totalParcelas = parcelas?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
         const totalAdiantamentos = adiantamentos?.reduce((sum, a) => sum + Number(a.valor), 0) || 0;
