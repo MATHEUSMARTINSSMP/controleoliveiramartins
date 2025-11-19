@@ -80,62 +80,44 @@ exports.handler = async (event, context) => {
     let emailMatch = null;
     let emailError = null;
     
-    // List of schemas to try (in order of preference)
-    const schemasToTry = ['sacadaohboy-mrkitsch-loungerie', 'elevea', 'public'];
+    // Search only in sacadaohboy-mrkitsch-loungerie schema
+    const schemaName = 'sacadaohboy-mrkitsch-loungerie';
     
     // Try exact match first (faster)
     if (searchIdentifier.includes('@')) {
-      for (const schemaName of schemasToTry) {
-        console.log(`Trying schema: ${schemaName}`);
-        const { data: exactMatch, error: exactError } = await supabaseAdmin
-          .schema(schemaName)
-          .from('profiles')
-          .select('id, name, email, cpf, active')
-          .eq('email', searchIdentifier)
-          .limit(1);
-        
-        if (exactError) {
-          console.error(`Exact email search error in schema ${schemaName}:`, exactError);
-          // If it's a schema restriction error, try next schema
-          if (exactError.message && exactError.message.includes('schema must be one of')) {
-            console.log(`Schema ${schemaName} not allowed, trying next...`);
-            continue;
-          }
-          emailError = exactError;
-          break;
-        } else if (exactMatch && exactMatch.length > 0) {
-          emailMatch = exactMatch;
-          console.log(`User found by exact email match in schema ${schemaName}:`, exactMatch[0].email);
-          break;
-        }
+      console.log(`Trying exact email match in schema: ${schemaName}`);
+      const { data: exactMatch, error: exactError } = await supabaseAdmin
+        .schema(schemaName)
+        .from('profiles')
+        .select('id, name, email, cpf, active')
+        .eq('email', searchIdentifier)
+        .limit(1);
+      
+      if (exactError) {
+        console.error(`Exact email search error:`, exactError);
+        emailError = exactError;
+      } else if (exactMatch && exactMatch.length > 0) {
+        emailMatch = exactMatch;
+        console.log(`User found by exact email match:`, exactMatch[0].email);
       }
     }
     
     // If exact match didn't work, try case-insensitive
     if (!emailMatch && !emailError && searchIdentifier.includes('@')) {
-      for (const schemaName of schemasToTry) {
-        console.log(`Trying case-insensitive search in schema: ${schemaName}`);
-        const { data: ilikeMatch, error: ilikeError } = await supabaseAdmin
-          .schema(schemaName)
-          .from('profiles')
-          .select('id, name, email, cpf, active')
-          .ilike('email', searchIdentifier)
-          .limit(1);
-        
-        if (ilikeError) {
-          console.error(`Case-insensitive email search error in schema ${schemaName}:`, ilikeError);
-          // If it's a schema restriction error, try next schema
-          if (ilikeError.message && ilikeError.message.includes('schema must be one of')) {
-            console.log(`Schema ${schemaName} not allowed, trying next...`);
-            continue;
-          }
-          emailError = ilikeError;
-          break;
-        } else if (ilikeMatch && ilikeMatch.length > 0) {
-          emailMatch = ilikeMatch;
-          console.log(`User found by case-insensitive email match in schema ${schemaName}:`, ilikeMatch[0].email);
-          break;
-        }
+      console.log(`Trying case-insensitive email search in schema: ${schemaName}`);
+      const { data: ilikeMatch, error: ilikeError } = await supabaseAdmin
+        .schema(schemaName)
+        .from('profiles')
+        .select('id, name, email, cpf, active')
+        .ilike('email', searchIdentifier)
+        .limit(1);
+      
+      if (ilikeError) {
+        console.error(`Case-insensitive email search error:`, ilikeError);
+        emailError = ilikeError;
+      } else if (ilikeMatch && ilikeMatch.length > 0) {
+        emailMatch = ilikeMatch;
+        console.log(`User found by case-insensitive email match:`, ilikeMatch[0].email);
       }
     }
 
@@ -148,31 +130,13 @@ exports.handler = async (event, context) => {
     } else {
       console.log('No email match, trying CPF...');
       // Second try: CPF match
-      let cpfMatch = null;
-      let cpfError = null;
-      
-      for (const schemaName of schemasToTry) {
-        console.log(`Trying CPF search in schema: ${schemaName}`);
-        const { data: match, error: error } = await supabaseAdmin
-          .schema(schemaName)
-          .from('profiles')
-          .select('id, name, email, cpf, active')
-          .eq('cpf', searchIdentifier)
-          .limit(1);
-        
-        if (error) {
-          if (error.message && error.message.includes('schema must be one of')) {
-            console.log(`Schema ${schemaName} not allowed, trying next...`);
-            continue;
-          }
-          cpfError = error;
-          break;
-        } else if (match && match.length > 0) {
-          cpfMatch = match;
-          console.log(`User found by CPF in schema ${schemaName}:`, match[0].email);
-          break;
-        }
-      }
+      console.log(`Trying CPF search in schema: ${schemaName}`);
+      const { data: cpfMatch, error: cpfError } = await supabaseAdmin
+        .schema(schemaName)
+        .from('profiles')
+        .select('id, name, email, cpf, active')
+        .eq('cpf', searchIdentifier)
+        .limit(1);
 
       if (cpfError) {
         console.error('CPF search error:', cpfError);
@@ -183,31 +147,13 @@ exports.handler = async (event, context) => {
       } else {
         console.log('No CPF match, trying name...');
         // Third try: name match (case insensitive, partial)
-        let nameMatch = null;
-        let nameError = null;
-        
-        for (const schemaName of schemasToTry) {
-          console.log(`Trying name search in schema: ${schemaName}`);
-          const { data: match, error: error } = await supabaseAdmin
-            .schema(schemaName)
-            .from('profiles')
-            .select('id, name, email, cpf, active')
-            .ilike('name', `%${searchIdentifier}%`)
-            .limit(1);
-          
-          if (error) {
-            if (error.message && error.message.includes('schema must be one of')) {
-              console.log(`Schema ${schemaName} not allowed, trying next...`);
-              continue;
-            }
-            nameError = error;
-            break;
-          } else if (match && match.length > 0) {
-            nameMatch = match;
-            console.log(`User found by name in schema ${schemaName}:`, match[0].email);
-            break;
-          }
-        }
+        console.log(`Trying name search in schema: ${schemaName}`);
+        const { data: nameMatch, error: nameError } = await supabaseAdmin
+          .schema(schemaName)
+          .from('profiles')
+          .select('id, name, email, cpf, active')
+          .ilike('name', `%${searchIdentifier}%`)
+          .limit(1);
 
         if (nameError) {
           console.error('Name search error:', nameError);
