@@ -82,8 +82,13 @@ const AdminDashboard = () => {
         if (error) {
           console.error(`Error fetching parcelas from schema ${schemaName}:`, error);
           lastError = error;
-          // If it's a schema restriction error or 404, try next schema
-          if (error.message && (error.message.includes('schema must be one of') || error.message.includes('404') || error.message.includes('not found'))) {
+          // If it's a schema restriction error, 404, or 4ZPOT, try next schema
+          if (error.code === '4ZPOT' ||
+              error.code === 'PGRST116' ||
+              (error.message && (error.message.includes('schema must be one of') || 
+                                 error.message.includes('404') || 
+                                 error.message.includes('not found') ||
+                                 error.message.includes('does not exist')))) {
             continue;
           }
           // For other errors, break and show error
@@ -143,8 +148,12 @@ const AdminDashboard = () => {
           if (error.message && error.message.includes('schema must be one of')) {
             continue;
           }
-          // For 404 errors, try next schema
-          if (error.code === 'PGRST116' || error.message?.includes('404') || error.message?.includes('not found')) {
+          // For 404 errors or 4ZPOT (schema not exposed), try next schema
+          if (error.code === 'PGRST116' || 
+              error.code === '4ZPOT' ||
+              error.message?.includes('404') || 
+              error.message?.includes('not found') ||
+              error.message?.includes('does not exist')) {
             continue;
           }
           // For other errors, break and show error
