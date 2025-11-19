@@ -62,6 +62,7 @@ interface Parcela {
   competencia: string;
   valor_parcela: number;
   status_parcela: string;
+  compra_id: string;
   purchases: {
     item: string;
     stores: { name: string } | null;
@@ -241,37 +242,56 @@ const ColaboradoraDashboard = () => {
   const fetchParcelas = async () => {
     if (!profile) return;
 
-    const { data: purchases } = await supabase
-      .schema("sistemaretiradas")
-      .from("purchases")
-      .select("id")
-      .eq("colaboradora_id", profile.id);
+    try {
+      const { data: purchases } = await supabase
+        .schema("sistemaretiradas")
+        .from("purchases")
+        .select("id")
+        .eq("colaboradora_id", profile.id);
 
-    if (!purchases) return;
+      if (!purchases || purchases.length === 0) {
+        setParcelas([]);
+        return;
+      }
 
-    const purchaseIds = purchases.map(p => p.id);
+      const purchaseIds = purchases.map(p => p.id);
 
-    const { data, error } = await supabase
-      .schema("sistemaretiradas")
-      .from("parcelas")
-      .select(`
-        id,
-        n_parcela,
-        competencia,
-        valor_parcela,
-        status_parcela,
-        purchases!inner (
+      const { data, error } = await supabase
+        .schema("sistemaretiradas")
+        .from("parcelas")
+        .select("id, n_parcela, competencia, valor_parcela, status_parcela, compra_id")
+        .in("compra_id", purchaseIds)
+        .order("competencia", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching parcelas:", error);
+        setParcelas([]);
+        return;
+      }
+
+      // Fetch purchase details separately
+      const { data: purchasesDetails } = await supabase
+        .schema("sistemaretiradas")
+        .from("purchases")
+        .select(`
+          id,
           item,
           stores (name)
-        )
-      `)
-      .in("compra_id", purchaseIds)
-      .order("competencia", { ascending: false });
+        `)
+        .in("id", purchaseIds);
 
-    if (error) {
-      console.error("Error fetching parcelas:", error);
-    } else {
-      setParcelas(data || []);
+      // Map purchases to parcelas
+      const purchasesMap = new Map(purchasesDetails?.map(p => [p.id, p]) || []);
+
+      const parcelasWithPurchases = data?.map(p => ({
+        ...p,
+        purchases: purchasesMap.get(p.compra_id) || null
+      })) || [];
+
+      setParcelas(parcelasWithPurchases);
+    } catch (error) {
+      console.error("Error in fetchParcelas:", error);
+      setParcelas([]);
     }
   };
 
