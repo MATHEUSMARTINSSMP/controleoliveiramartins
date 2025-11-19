@@ -68,43 +68,12 @@ const AdminDashboard = () => {
 
   const fetchKPIs = async () => {
     try {
-      // Try multiple schemas in case of restrictions
-      const schemasToTry = ['sacadaohboy-mrkitsch-loungerie', 'elevea', 'public'];
-      let parcelas = null;
-      let lastError = null;
+      const { data: parcelas, error } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("parcelas")
+        .select("valor_parcela, status_parcela, competencia");
 
-      for (const schemaName of schemasToTry) {
-        const { data, error } = await supabase
-          .schema(schemaName)
-          .from("parcelas")
-          .select("valor_parcela, status_parcela, competencia");
-
-        if (error) {
-          console.error(`Error fetching parcelas from schema ${schemaName}:`, error);
-          lastError = error;
-          // If it's a schema restriction error, 404, or 4ZPOT, try next schema
-          if (error.code === '4ZPOT' ||
-              error.code === 'PGRST116' ||
-              (error.message && (error.message.includes('schema must be one of') || 
-                                 error.message.includes('404') || 
-                                 error.message.includes('not found') ||
-                                 error.message.includes('does not exist')))) {
-            continue;
-          }
-          // For other errors, break and show error
-          break;
-        }
-
-        if (data) {
-          parcelas = data;
-          console.log(`Found ${data.length} parcelas in schema ${schemaName}`);
-          break;
-        }
-      }
-
-      if (!parcelas && lastError) {
-        throw lastError;
-      }
+      if (error) throw error;
 
       const mesAtual = format(new Date(), "yyyyMM");
 
@@ -128,50 +97,20 @@ const AdminDashboard = () => {
 
   const fetchColaboradorasLimites = async () => {
     try {
-      // Try multiple schemas in case of restrictions
-      const schemasToTry = ['sacadaohboy-mrkitsch-loungerie', 'elevea', 'public'];
-      let profiles = null;
-      let lastError = null;
+      const { data: profiles, error } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("profiles")
+        .select("id, name, limite_total, limite_mensal")
+        .eq("role", "COLABORADORA")
+        .eq("active", true);
 
-      for (const schemaName of schemasToTry) {
-        const { data, error } = await supabase
-          .schema(schemaName)
-          .from("profiles")
-          .select("id, name, limite_total, limite_mensal")
-          .eq("role", "COLABORADORA")
-          .eq("active", true);
-
-        if (error) {
-          console.error(`Error fetching from schema ${schemaName}:`, error);
-          lastError = error;
-          // If it's a schema restriction error, try next schema
-          if (error.message && error.message.includes('schema must be one of')) {
-            continue;
-          }
-          // For 404 errors or 4ZPOT (schema not exposed), try next schema
-          if (error.code === 'PGRST116' || 
-              error.code === '4ZPOT' ||
-              error.message?.includes('404') || 
-              error.message?.includes('not found') ||
-              error.message?.includes('does not exist')) {
-            continue;
-          }
-          // For other errors, break and show error
-          break;
-        }
-
-        if (data && data.length > 0) {
-          profiles = data;
-          console.log(`Found ${data.length} profiles in schema ${schemaName}`);
-          break;
-        }
+      if (error) {
+        console.error('Error fetching profiles:', error);
+        toast.error("Erro ao carregar colaboradoras: " + (error.message || String(error)));
+        return;
       }
 
-      if (!profiles) {
-        if (lastError) {
-          console.error('Error fetching profiles:', lastError);
-          toast.error("Erro ao carregar colaboradoras: " + (lastError.message || String(lastError)));
-        }
+      if (!profiles || profiles.length === 0) {
         return;
       }
 

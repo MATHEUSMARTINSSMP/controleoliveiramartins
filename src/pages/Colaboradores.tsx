@@ -68,46 +68,18 @@ const Colaboradores = () => {
   const fetchColaboradoras = async () => {
     setLoadingData(true);
     try {
-      // Try multiple schemas in case of restrictions
-      const schemasToTry = ['sacadaohboy-mrkitsch-loungerie', 'elevea', 'public'];
-      let colaboradorasData = null;
-      let lastError = null;
+      const { data, error } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("profiles")
+        .select("*")
+        .eq("role", "COLABORADORA")
+        .order("name");
 
-      for (const schemaName of schemasToTry) {
-        const { data, error } = await supabase
-          .schema(schemaName)
-          .from("profiles")
-          .select("*")
-          .eq("role", "COLABORADORA")
-          .order("name");
-
-        if (error) {
-          console.error(`Error fetching from schema ${schemaName}:`, error);
-          lastError = error;
-          // If it's a schema restriction error, try next schema
-          if (error.message && error.message.includes('schema must be one of')) {
-            continue;
-          }
-          // For other errors, break and show error
-          break;
-        }
-
-        if (data && data.length > 0) {
-          colaboradorasData = data;
-          console.log(`Found ${data.length} colaboradoras in schema ${schemaName}`);
-          break;
-        }
+      if (error) {
+        throw error;
       }
 
-      if (colaboradorasData) {
-        setColaboradoras(colaboradorasData);
-      } else if (lastError) {
-        throw lastError;
-      } else {
-        // No data found in any schema
-        setColaboradoras([]);
-        console.log('No colaboradoras found in any schema');
-      }
+      setColaboradoras(data || []);
     } catch (error: any) {
       toast.error("Erro ao carregar colaboradoras: " + (error.message || String(error)));
       console.error("Error fetching colaboradoras:", error);
