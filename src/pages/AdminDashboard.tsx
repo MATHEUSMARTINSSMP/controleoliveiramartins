@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { KPICard } from "@/components/KPICard";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, TrendingUp, Clock, LogOut, Plus, Calendar, Trash2, Edit } from "lucide-react";
+import { DollarSign, TrendingUp, Clock, LogOut, Plus, Calendar, Trash2, Edit, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
@@ -52,6 +52,8 @@ const AdminDashboard = () => {
     colaboradora: null,
   });
   const [limiteForm, setLimiteForm] = useState({ limite_total: "", limite_mensal: "" });
+  const [passwordDialog, setPasswordDialog] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
 
   useEffect(() => {
     if (!loading) {
@@ -223,6 +225,32 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleChangePassword = async () => {
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error("As senhas não coincidem");
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      toast.error("A senha deve ter pelo menos 6 caracteres");
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordForm.newPassword
+      });
+
+      if (error) throw error;
+
+      toast.success("Senha alterada com sucesso!");
+      setPasswordDialog(false);
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    } catch (error: any) {
+      toast.error("Erro ao alterar senha: " + error.message);
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate("/auth");
@@ -246,14 +274,24 @@ const AdminDashboard = () => {
             </h1>
             <p className="text-sm text-muted-foreground">Bem-vindo, {profile.name}</p>
           </div>
-          <Button
-            variant="outline"
-            onClick={handleSignOut}
-            className="border-primary/20 hover:bg-primary/10"
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Sair
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setPasswordDialog(true)}
+              className="border-primary/20 hover:bg-primary/10"
+            >
+              <KeyRound className="mr-2 h-4 w-4" />
+              Alterar Senha
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleSignOut}
+              className="border-primary/20 hover:bg-primary/10"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Sair
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -367,8 +405,8 @@ const AdminDashboard = () => {
                             <Progress
                               value={Math.min(percentual, 100)}
                               className={`h-2 ${percentual >= 90 ? "[&>div]:bg-destructive" :
-                                  percentual >= 70 ? "[&>div]:bg-amber-500" :
-                                    "[&>div]:bg-success"
+                                percentual >= 70 ? "[&>div]:bg-amber-500" :
+                                  "[&>div]:bg-success"
                                 }`}
                             />
                             <span className="text-xs font-medium text-right">
@@ -447,6 +485,44 @@ const AdminDashboard = () => {
               </Button>
               <Button onClick={handleSaveLimite}>
                 Salvar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={passwordDialog} onOpenChange={setPasswordDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Alterar Senha</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="newPassword">Nova Senha *</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={passwordForm.newPassword}
+                onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                placeholder="Mínimo 6 caracteres"
+              />
+            </div>
+            <div>
+              <Label htmlFor="confirmPassword">Confirmar Nova Senha *</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={passwordForm.confirmPassword}
+                onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                placeholder="Digite a senha novamente"
+              />
+            </div>
+            <div className="flex gap-2 justify-end pt-4">
+              <Button variant="outline" onClick={() => setPasswordDialog(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleChangePassword}>
+                Alterar Senha
               </Button>
             </div>
           </div>
