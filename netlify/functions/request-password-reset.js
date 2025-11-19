@@ -90,7 +90,7 @@ exports.handler = async (event, context) => {
         const { data: exactMatch, error: exactError } = await supabaseAdmin
           .schema(schemaName)
           .from('profiles')
-          .select('uuid, id, name, email, cpf, active')
+          .select('id, name, email, cpf, active')
           .eq('email', searchIdentifier)
           .limit(1);
         
@@ -118,7 +118,7 @@ exports.handler = async (event, context) => {
         const { data: ilikeMatch, error: ilikeError } = await supabaseAdmin
           .schema(schemaName)
           .from('profiles')
-          .select('uuid, id, name, email, cpf, active')
+          .select('id, name, email, cpf, active')
           .ilike('email', searchIdentifier)
           .limit(1);
         
@@ -156,7 +156,7 @@ exports.handler = async (event, context) => {
         const { data: match, error: error } = await supabaseAdmin
           .schema(schemaName)
           .from('profiles')
-          .select('uuid, id, name, email, cpf, active')
+          .select('id, name, email, cpf, active')
           .eq('cpf', searchIdentifier)
           .limit(1);
         
@@ -191,7 +191,7 @@ exports.handler = async (event, context) => {
           const { data: match, error: error } = await supabaseAdmin
             .schema(schemaName)
             .from('profiles')
-            .select('uuid, id, name, email, cpf, active')
+            .select('id, name, email, cpf, active')
             .ilike('name', `%${searchIdentifier}%`)
             .limit(1);
           
@@ -249,7 +249,7 @@ exports.handler = async (event, context) => {
     }
 
     const profile = profiles[0];
-    console.log('User found:', profile.email, 'UUID:', profile.uuid, 'Active:', profile.active);
+    console.log('User found:', profile.email, 'ID:', profile.id, 'Active:', profile.active);
 
     // Check if user is active (if active field exists and is false, skip)
     if (profile.active === false) {
@@ -264,9 +264,8 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Use uuid (Supabase Auth ID) - the uuid field in profiles table is the auth.users.id
-    // If uuid doesn't exist, try id field (some setups use id as the auth UUID)
-    const userId = profile.uuid || profile.id;
+    // Use id (which is the UUID from auth.users) - the id field in profiles table is the auth.users.id
+    const userId = profile.id;
     if (!userId) {
       console.error('No user ID found in profile:', JSON.stringify(profile, null, 2));
       return {
