@@ -141,8 +141,7 @@ const AdminDashboard = () => {
           .from("adiantamentos")
           .select("valor")
           .eq("colaboradora_id", prof.id)
-          .eq("status", "APROVADO" as any)
-          .is("data_desconto", null);
+          .in("status", ["APROVADO", "DESCONTADO"]);
 
         const totalParcelas = parcelas?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
         const totalAdiantamentos = adiantamentos?.reduce((sum, a) => sum + Number(a.valor), 0) || 0;
@@ -365,13 +364,12 @@ const AdminDashboard = () => {
                         <TableCell>{formatCurrency(colab.limite_mensal)}</TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1 min-w-[120px]">
-                            <Progress 
-                              value={Math.min(percentual, 100)} 
-                              className={`h-2 ${
-                                percentual >= 90 ? "[&>div]:bg-destructive" : 
-                                percentual >= 70 ? "[&>div]:bg-amber-500" : 
-                                "[&>div]:bg-success"
-                              }`}
+                            <Progress
+                              value={Math.min(percentual, 100)}
+                              className={`h-2 ${percentual >= 90 ? "[&>div]:bg-destructive" :
+                                  percentual >= 70 ? "[&>div]:bg-amber-500" :
+                                    "[&>div]:bg-success"
+                                }`}
                             />
                             <span className="text-xs font-medium text-right">
                               {percentual.toFixed(1)}%
