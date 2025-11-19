@@ -30,7 +30,7 @@ const Auth = () => {
         });
         if (error) throw error;
         toast.success("Login realizado com sucesso!");
-        // Navigation will happen automatically via protected route after profile loads
+        navigate("/"); // Redirect to Index which will handle profile-based routing
       } else {
         const { error } = await supabase.auth.signUp({
           email: formData.email,
