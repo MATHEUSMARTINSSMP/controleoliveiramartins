@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
           setTimeout(() => {
             fetchProfile(session.user.id);
@@ -58,6 +58,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const fetchProfile = async (userId: string) => {
+    console.log("[AuthContext] Fetching profile for userId:", userId);
     try {
       const { data, error } = await supabase
         .schema("sistemaretiradas")
@@ -66,12 +67,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .eq("id", userId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("[AuthContext] Error fetching profile:", error);
+        throw error;
+      }
+
+      console.log("[AuthContext] Profile loaded successfully:", data);
+      console.log("[AuthContext] User role:", data?.role);
       setProfile(data);
     } catch (error) {
-      console.error("Error fetching profile:", error);
+      console.error("[AuthContext] Error in fetchProfile:", error);
     } finally {
       setLoading(false);
+      console.log("[AuthContext] Loading set to false");
     }
   };
 
