@@ -112,7 +112,7 @@ const NovaCompra = () => {
 
       const purchaseIds = purchases?.map(p => p.id) || [];
 
-      // Buscar total usado
+      // Buscar total usado (parcelas)
       const { data: parcelasTotal } = await supabase
         .schema("sistemaretiradas")
         .from("parcelas")
@@ -120,9 +120,20 @@ const NovaCompra = () => {
         .in("compra_id", purchaseIds)
         .in("status_parcela", ["PENDENTE", "AGENDADO"]);
 
-      const usado_total = parcelasTotal?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
+      const totalParcelas = parcelasTotal?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
 
-      // Buscar usado no mês atual
+      // Buscar adiantamentos APROVADOS e DESCONTADOS
+      const { data: adiantamentos } = await supabase
+        .schema("sistemaretiradas")
+        .from("adiantamentos")
+        .select("valor, mes_competencia")
+        .eq("colaboradora_id", colaboradoraId)
+        .in("status", ["APROVADO", "DESCONTADO"]);
+
+      const totalAdiantamentos = adiantamentos?.reduce((sum, a) => sum + Number(a.valor), 0) || 0;
+      const usado_total = totalParcelas + totalAdiantamentos;
+
+      // Buscar usado no mês atual (parcelas)
       const mesAtual = format(new Date(), "yyyyMM");
       const { data: parcelasMes } = await supabase
         .schema("sistemaretiradas")
@@ -132,7 +143,13 @@ const NovaCompra = () => {
         .eq("competencia", mesAtual)
         .in("status_parcela", ["PENDENTE", "AGENDADO"]);
 
-      const usado_mes_atual = parcelasMes?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
+      const parcelasMesAtual = parcelasMes?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
+
+      // Buscar adiantamentos do mês atual
+      const adiantamentosMesAtual = adiantamentos?.filter(a => a.mes_competencia === mesAtual)
+        .reduce((sum, a) => sum + Number(a.valor), 0) || 0;
+
+      const usado_mes_atual = parcelasMesAtual + adiantamentosMesAtual;
 
       setLimiteInfo({
         limite_total: Number(profile.limite_total),
@@ -239,63 +256,63 @@ const NovaCompra = () => {
   const processarCompra = async () => {
     const precoFinal = parseFloat(calcularPrecoFinal());
     const numParcelas = parseInt(formData.num_parcelas);
-    
+
     // Calcular valor base da parcela com arredondamento bancário
     const valorBase = Math.round((precoFinal / numParcelas) * 100) / 100;
     const totalParcelas = valorBase * numParcelas;
     const diferenca = precoFinal - totalParcelas;
 
-      // Concatenar todos os itens
-      const itemsDescricao = items.map(item => item.item).filter(i => i).join(", ");
-      const totalVenda = items.reduce((sum, item) => sum + (parseFloat(item.preco_venda) || 0), 0);
-      const totalDesconto = items.reduce((sum, item) => sum + (parseFloat(item.desconto_beneficio) || 0), 0);
+    // Concatenar todos os itens
+    const itemsDescricao = items.map(item => item.item).filter(i => i).join(", ");
+    const totalVenda = items.reduce((sum, item) => sum + (parseFloat(item.preco_venda) || 0), 0);
+    const totalDesconto = items.reduce((sum, item) => sum + (parseFloat(item.desconto_beneficio) || 0), 0);
 
-      // Criar compra
-      const { data: purchase, error: purchaseError } = await supabase
-        .schema("sistemaretiradas")
-        .from("purchases")
-        .insert({
-          colaboradora_id: formData.colaboradora_id,
-          loja_id: formData.loja_id,
-          data_compra: new Date(formData.data_compra).toISOString(),
-          item: itemsDescricao,
-          preco_venda: totalVenda,
-          desconto_beneficio: totalDesconto,
-          preco_final: precoFinal,
-          num_parcelas: numParcelas,
-          status_compra: "PENDENTE",
-          observacoes: formData.observacoes || null,
-          created_by_id: profile!.id,
-        })
-        .select()
-        .single();
+    // Criar compra
+    const { data: purchase, error: purchaseError } = await supabase
+      .schema("sistemaretiradas")
+      .from("purchases")
+      .insert({
+        colaboradora_id: formData.colaboradora_id,
+        loja_id: formData.loja_id,
+        data_compra: new Date(formData.data_compra).toISOString(),
+        item: itemsDescricao,
+        preco_venda: totalVenda,
+        desconto_beneficio: totalDesconto,
+        preco_final: precoFinal,
+        num_parcelas: numParcelas,
+        status_compra: "PENDENTE",
+        observacoes: formData.observacoes || null,
+        created_by_id: profile!.id,
+      })
+      .select()
+      .single();
 
-      if (purchaseError) throw purchaseError;
+    if (purchaseError) throw purchaseError;
 
-      // Gerar parcelas
-      const [ano, mes] = formData.primeiro_mes.split("-");
-      const parcelas = [];
-      
-      for (let i = 0; i < numParcelas; i++) {
-        const mesAtual = parseInt(mes) + i;
-        const anoAtual = parseInt(ano) + Math.floor((mesAtual - 1) / 12);
-        const mesFormatado = ((mesAtual - 1) % 12) + 1;
-        const competencia = `${anoAtual}${mesFormatado.toString().padStart(2, "0")}`;
-        
-        // Ajustar diferença na última parcela
-        const valorParcela = i === numParcelas - 1 ? valorBase + diferenca : valorBase;
+    // Gerar parcelas
+    const [ano, mes] = formData.primeiro_mes.split("-");
+    const parcelas = [];
 
-        parcelas.push({
-          compra_id: purchase.id,
-          n_parcela: i + 1,
-          competencia,
-          valor_parcela: valorParcela,
-          status_parcela: "PENDENTE",
-        });
-      }
+    for (let i = 0; i < numParcelas; i++) {
+      const mesAtual = parseInt(mes) + i;
+      const anoAtual = parseInt(ano) + Math.floor((mesAtual - 1) / 12);
+      const mesFormatado = ((mesAtual - 1) % 12) + 1;
+      const competencia = `${anoAtual}${mesFormatado.toString().padStart(2, "0")}`;
 
-      const { error: parcelasError } = await supabase.schema("sistemaretiradas").from("parcelas").insert(parcelas);
-      if (parcelasError) throw parcelasError;
+      // Ajustar diferença na última parcela
+      const valorParcela = i === numParcelas - 1 ? valorBase + diferenca : valorBase;
+
+      parcelas.push({
+        compra_id: purchase.id,
+        n_parcela: i + 1,
+        competencia,
+        valor_parcela: valorParcela,
+        status_parcela: "PENDENTE",
+      });
+    }
+
+    const { error: parcelasError } = await supabase.schema("sistemaretiradas").from("parcelas").insert(parcelas);
+    if (parcelasError) throw parcelasError;
 
     toast.success("Compra criada com sucesso!");
     navigate("/admin");
@@ -351,7 +368,7 @@ const NovaCompra = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  
+
                   {limiteInfo && (
                     <div className="mt-2 p-3 bg-primary/5 rounded-lg border border-primary/20 space-y-1">
                       <div className="flex justify-between text-sm">
@@ -419,7 +436,7 @@ const NovaCompra = () => {
                   const venda = parseFloat(item.preco_venda) || 0;
                   const desconto = parseFloat(item.desconto_beneficio) || 0;
                   const subtotal = Math.max(venda - desconto, 0);
-                  
+
                   return (
                     <div key={index} className="p-4 border border-primary/10 rounded-lg space-y-3 bg-muted/30">
                       <div className="flex items-center justify-between">
@@ -436,14 +453,14 @@ const NovaCompra = () => {
                           </Button>
                         )}
                       </div>
-                      
+
                       <Input
                         value={item.item}
                         onChange={(e) => updateItem(index, "item", e.target.value)}
                         placeholder="Descrição do item"
                         required
                       />
-                      
+
                       <div className="grid gap-3 md:grid-cols-2">
                         <div>
                           <Label className="text-xs">Preço Venda (R$)</Label>
@@ -468,7 +485,7 @@ const NovaCompra = () => {
                           />
                         </div>
                       </div>
-                      
+
                       {(venda > 0 || desconto > 0) && (
                         <div className="pt-2 border-t border-primary/10">
                           <div className="flex items-center justify-between text-sm">
@@ -570,7 +587,7 @@ const NovaCompra = () => {
                 <AlertCircle className="h-5 w-5 text-destructive" />
                 Limite Excedido
               </AlertDialogTitle>
-            <AlertDialogDescription>
+              <AlertDialogDescription>
                 <div className="space-y-2">
                   <p>{limiteExcedido.mensagem}</p>
                   <p className="font-medium text-foreground">Deseja continuar mesmo assim?</p>

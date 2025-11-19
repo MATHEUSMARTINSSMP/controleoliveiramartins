@@ -30,10 +30,7 @@ const Auth = () => {
         });
         if (error) throw error;
         toast.success("Login realizado com sucesso!");
-        // Aguardar um pouco para o AuthContext carregar o profile antes de redirecionar
-        setTimeout(() => {
-        navigate("/");
-        }, 500);
+        // Navigation will happen automatically via protected route after profile loads
       } else {
         const { error } = await supabase.auth.signUp({
           email: formData.email,
