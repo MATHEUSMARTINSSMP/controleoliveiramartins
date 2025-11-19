@@ -10,8 +10,9 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 const SCHEMA_NAME = 'sacadaohboy-mrkitsch-loungerie';
 
-// Create base client
-const baseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+// Create client with global headers to ensure Accept-Profile is always sent
+// This ensures that even if .schema() doesn't work correctly, the header is always present
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
@@ -24,30 +25,3 @@ const baseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
     },
   },
 });
-
-// Override the schema method to ensure headers are always set
-const originalSchema = baseClient.schema.bind(baseClient);
-baseClient.schema = function(schemaName: string) {
-  const client = originalSchema(schemaName);
-  // Ensure headers are set on the client
-  if (client && typeof client === 'object') {
-    // The schema client should already have the headers, but we ensure it
-    const originalFrom = client.from.bind(client);
-    client.from = function(table: string) {
-      const query = originalFrom(table);
-      // Force headers on the query builder
-      if (query && typeof query === 'object') {
-        // PostgREST will use Accept-Profile from the client's global headers
-        // but we ensure it's set here too
-        (query as any)._headers = {
-          'Accept-Profile': schemaName,
-          'Content-Profile': schemaName,
-        };
-      }
-      return query;
-    };
-  }
-  return client;
-};
-
-export const supabase = baseClient;
