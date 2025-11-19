@@ -71,7 +71,7 @@ const Lancamentos = () => {
   const fetchParcelas = async () => {
     try {
       const { data: parcelasData, error } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("parcelas")
         .select(`
           *,
@@ -88,7 +88,7 @@ const Lancamentos = () => {
       // Buscar perfis das colaboradoras separadamente
       const colaboradoraIds = [...new Set(parcelasData?.map((p: any) => p.purchases?.colaboradora_id).filter(Boolean) || [])];
       const { data: profilesData } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("profiles")
         .select("id, name")
         .in("id", colaboradoraIds);
@@ -116,7 +116,7 @@ const Lancamentos = () => {
   const fetchAdiantamentos = async () => {
     try {
       const { data: adiantamentosData, error } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("adiantamentos")
         .select("*")
         .eq("status", "APROVADO" as any)
@@ -127,7 +127,7 @@ const Lancamentos = () => {
       // Buscar perfis separadamente
       const colaboradoraIds = [...new Set(adiantamentosData?.map(a => a.colaboradora_id) || [])];
       const { data: profilesData } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("profiles")
         .select("id, name")
         .in("id", colaboradoraIds);
@@ -155,7 +155,7 @@ const Lancamentos = () => {
   const handleDescontar = async (parcelaId: string) => {
     try {
       const { error } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("parcelas")
         .update({
           status_parcela: "DESCONTADO",
@@ -180,7 +180,7 @@ const Lancamentos = () => {
 
     try {
       const { error } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("parcelas")
         .update({
           status_parcela: "ESTORNADO",
@@ -202,7 +202,7 @@ const Lancamentos = () => {
   const handleDescontarAdiantamento = async (adiantamentoId: string) => {
     try {
       const { error } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("adiantamentos")
         .update({
           status: "DESCONTADO" as any,
@@ -227,7 +227,7 @@ const Lancamentos = () => {
 
     try {
       const { error } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("adiantamentos")
         .update({
           status: "APROVADO" as any,

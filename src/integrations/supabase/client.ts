@@ -8,7 +8,7 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-const SCHEMA_NAME = 'sacadaohboy-mrkitsch-loungerie';
+const SCHEMA_NAME = 'sistemaretiradas';
 
 // Create client with global headers to ensure Accept-Profile is always sent
 // IMPORTANT: 

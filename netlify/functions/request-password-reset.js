@@ -80,8 +80,8 @@ exports.handler = async (event, context) => {
     let emailMatch = null;
     let emailError = null;
     
-    // Search only in sacadaohboy-mrkitsch-loungerie schema
-    const schemaName = 'sacadaohboy-mrkitsch-loungerie';
+    // Search only in sistemaretiradas schema
+    const schemaName = 'sistemaretiradas';
     
     // Try exact match first (faster)
     if (searchIdentifier.includes('@')) {

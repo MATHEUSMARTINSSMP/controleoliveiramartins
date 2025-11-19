@@ -69,7 +69,7 @@ const Colaboradores = () => {
     setLoadingData(true);
     try {
       const { data, error } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("profiles")
         .select("*")
         .eq("role", "COLABORADORA")
@@ -128,7 +128,7 @@ const Colaboradores = () => {
         };
 
         const { error } = await supabase
-          .schema("sacadaohboy-mrkitsch-loungerie")
+          .schema("sistemaretiradas")
           .from("profiles")
           .update(updateData)
           .eq("id", selectedId);
@@ -211,7 +211,7 @@ const Colaboradores = () => {
   const handleDelete = async (id: string) => {
     try {
       const { error } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("profiles")
         .update({ active: false })
         .eq("id", id);

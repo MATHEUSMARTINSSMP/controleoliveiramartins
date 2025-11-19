@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("profiles")
         .select("*")
         .eq("id", userId)

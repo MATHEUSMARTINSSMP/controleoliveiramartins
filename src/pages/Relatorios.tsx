@@ -98,7 +98,7 @@ const Relatorios = () => {
     setLoadingData(true);
     try {
       const { data: colabData } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("profiles")
         .select("id, name")
         .eq("role", "COLABORADORA")
@@ -107,7 +107,7 @@ const Relatorios = () => {
       if (colabData) setColaboradoras(colabData);
 
       const { data: comprasData, error } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("purchases")
         .select(`
           id,
@@ -132,7 +132,7 @@ const Relatorios = () => {
       // Buscar perfis das colaboradoras separadamente
       const colaboradoraIds = [...new Set(comprasData?.map((c: any) => c.colaboradora_id) || [])];
       const { data: profilesData } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("profiles")
         .select("id, name")
         .in("id", colaboradoraIds);
@@ -153,7 +153,7 @@ const Relatorios = () => {
 
       // Buscar adiantamentos
       const { data: adiantamentosData, error: adiantamentosError } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("adiantamentos")
         .select("*")
         .order("data_solicitacao", { ascending: false });
@@ -163,7 +163,7 @@ const Relatorios = () => {
       // Buscar perfis das colaboradoras para adiantamentos
       const adiantamentoColaboradoraIds = [...new Set(adiantamentosData?.map(a => a.colaboradora_id) || [])];
       const { data: adiantamentoProfilesData } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("profiles")
         .select("id, name")
         .in("id", adiantamentoColaboradoraIds);
@@ -191,7 +191,7 @@ const Relatorios = () => {
       if (deleteDialog.type === 'compra') {
         // Deletar parcelas primeiro
         const { error: parcelasError } = await supabase
-          .schema("sacadaohboy-mrkitsch-loungerie")
+          .schema("sistemaretiradas")
           .from("parcelas")
           .delete()
           .eq("compra_id", deleteDialog.id);
@@ -200,7 +200,7 @@ const Relatorios = () => {
 
         // Deletar compra
         const { error: compraError } = await supabase
-          .schema("sacadaohboy-mrkitsch-loungerie")
+          .schema("sistemaretiradas")
           .from("purchases")
           .delete()
           .eq("id", deleteDialog.id);
@@ -212,7 +212,7 @@ const Relatorios = () => {
       } else if (deleteDialog.type === 'parcela') {
         // Deletar parcela
         const { error } = await supabase
-          .schema("sacadaohboy-mrkitsch-loungerie")
+          .schema("sistemaretiradas")
           .from("parcelas")
           .delete()
           .eq("id", deleteDialog.id);
@@ -229,7 +229,7 @@ const Relatorios = () => {
       } else if (deleteDialog.type === 'adiantamento') {
         // Deletar adiantamento
         const { error } = await supabase
-          .schema("sacadaohboy-mrkitsch-loungerie")
+          .schema("sistemaretiradas")
           .from("adiantamentos")
           .delete()
           .eq("id", deleteDialog.id);

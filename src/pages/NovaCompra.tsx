@@ -78,13 +78,13 @@ const NovaCompra = () => {
   }, [profile, authLoading, navigate]);
 
   const fetchStores = async () => {
-    const { data } = await supabase.schema("sacadaohboy-mrkitsch-loungerie").from("stores").select("id, name").eq("active", true);
+    const { data } = await supabase.schema("sistemaretiradas").from("stores").select("id, name").eq("active", true);
     if (data) setStores(data);
   };
 
   const fetchColaboradoras = async () => {
     const { data } = await supabase
-      .schema("sacadaohboy-mrkitsch-loungerie")
+      .schema("sistemaretiradas")
       .from("profiles")
       .select("id, name, limite_total, limite_mensal")
       .eq("role", "COLABORADORA")
@@ -95,7 +95,7 @@ const NovaCompra = () => {
   const fetchLimiteInfo = async (colaboradoraId: string) => {
     try {
       const { data: profile } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("profiles")
         .select("limite_total, limite_mensal")
         .eq("id", colaboradoraId)
@@ -105,7 +105,7 @@ const NovaCompra = () => {
 
       // Buscar compras da colaboradora
       const { data: purchases } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("purchases")
         .select("id")
         .eq("colaboradora_id", colaboradoraId);
@@ -114,7 +114,7 @@ const NovaCompra = () => {
 
       // Buscar total usado
       const { data: parcelasTotal } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("parcelas")
         .select("valor_parcela")
         .in("compra_id", purchaseIds)
@@ -125,7 +125,7 @@ const NovaCompra = () => {
       // Buscar usado no mês atual
       const mesAtual = format(new Date(), "yyyyMM");
       const { data: parcelasMes } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("parcelas")
         .select("valor_parcela")
         .in("compra_id", purchaseIds)
@@ -252,7 +252,7 @@ const NovaCompra = () => {
 
       // Criar compra
       const { data: purchase, error: purchaseError } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("purchases")
         .insert({
           colaboradora_id: formData.colaboradora_id,
@@ -294,7 +294,7 @@ const NovaCompra = () => {
         });
       }
 
-      const { error: parcelasError } = await supabase.schema("sacadaohboy-mrkitsch-loungerie").from("parcelas").insert(parcelas);
+      const { error: parcelasError } = await supabase.schema("sistemaretiradas").from("parcelas").insert(parcelas);
       if (parcelasError) throw parcelasError;
 
     toast.success("Compra criada com sucesso!");

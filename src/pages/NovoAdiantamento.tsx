@@ -39,7 +39,7 @@ export default function NovoAdiantamento() {
 
   const fetchColaboradoras = async () => {
     const { data, error } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("profiles")
       .select("id, name, limite_total, limite_mensal")
       .eq("role", "COLABORADORA")
@@ -80,7 +80,7 @@ export default function NovoAdiantamento() {
 
     // Buscar compras pendentes
     const { data: purchases } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("purchases")
       .select("id")
       .eq("colaboradora_id", formData.colaboradora_id);
@@ -89,7 +89,7 @@ export default function NovoAdiantamento() {
 
     // Buscar parcelas pendentes (todas as competências para o total)
     const { data: parcelas } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("parcelas")
       .select("valor_parcela, competencia")
       .in("compra_id", purchaseIds)
@@ -97,7 +97,7 @@ export default function NovoAdiantamento() {
 
     // Buscar todos adiantamentos aprovados e não descontados (para limite total)
     const { data: adiantamentosTotal } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("adiantamentos")
       .select("valor")
       .eq("colaboradora_id", formData.colaboradora_id)
@@ -106,7 +106,7 @@ export default function NovoAdiantamento() {
 
     // Buscar adiantamentos aprovados do mês (para limite mensal)
     const { data: adiantamentosMes } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("adiantamentos")
       .select("valor")
       .eq("colaboradora_id", formData.colaboradora_id)
@@ -166,7 +166,7 @@ export default function NovoAdiantamento() {
       return;
     }
 
-    const { error } = await supabase.schema("sacadaohboy-mrkitsch-loungerie").from("adiantamentos").insert({
+    const { error } = await supabase.schema("sistemaretiradas").from("adiantamentos").insert({
       colaboradora_id: formData.colaboradora_id,
       valor: parseFloat(formData.valor),
       mes_competencia: formData.mes_competencia,

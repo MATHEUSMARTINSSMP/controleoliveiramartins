@@ -51,7 +51,7 @@ export default function Adiantamentos() {
     try {
       // Buscar adiantamentos
       const { data: adiantamentosData, error: adiantamentosError } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("adiantamentos")
         .select("*")
         .order("data_solicitacao", { ascending: false });
@@ -61,7 +61,7 @@ export default function Adiantamentos() {
       // Buscar perfis das colaboradoras
       const colaboradoraIds = [...new Set(adiantamentosData?.map(a => a.colaboradora_id) || [])];
       const { data: profilesData, error: profilesError } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("profiles")
         .select("id, name")
         .in("id", colaboradoraIds);
@@ -125,7 +125,7 @@ export default function Adiantamentos() {
     }
 
     const { error } = await supabase
-      .schema("sacadaohboy-mrkitsch-loungerie")
+      .schema("sistemaretiradas")
       .from("adiantamentos")
       .update(updateData)
       .eq("id", actionDialog.adiantamento.id);

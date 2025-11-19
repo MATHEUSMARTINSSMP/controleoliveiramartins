@@ -53,14 +53,14 @@ const ColaboradoraDashboard = () => {
 
     try {
       const { data: profileData } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("profiles")
         .select("limite_total, limite_mensal")
         .eq("id", profile.id)
         .single();
 
       const { data: purchases } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("purchases")
         .select("id")
         .eq("colaboradora_id", profile.id);
@@ -70,7 +70,7 @@ const ColaboradoraDashboard = () => {
       const purchaseIds = purchases.map(p => p.id);
       
       const { data: parcelas, error } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("parcelas")
         .select("valor_parcela, status_parcela, competencia")
         .in("compra_id", purchaseIds);
@@ -109,7 +109,7 @@ const ColaboradoraDashboard = () => {
     if (!profile) return;
 
     const { data, error } = await supabase
-      .schema("sacadaohboy-mrkitsch-loungerie")
+      .schema("sistemaretiradas")
       .from("adiantamentos")
       .select("*")
       .eq("colaboradora_id", profile.id)

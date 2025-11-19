@@ -48,7 +48,7 @@ export default function SolicitarAdiantamento() {
 
     // Buscar limites do perfil
     const { data: profileData } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("profiles")
       .select("limite_total, limite_mensal")
       .eq("id", profile.id)
@@ -58,7 +58,7 @@ export default function SolicitarAdiantamento() {
 
     // Buscar compras pendentes e aprovadas
     const { data: compras } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("purchases")
       .select("preco_final, num_parcelas")
       .eq("colaboradora_id", profile.id)
@@ -66,7 +66,7 @@ export default function SolicitarAdiantamento() {
 
     // Buscar parcelas pendentes do mês
     const { data: parcelasMes } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("parcelas")
       .select("valor_parcela")
       .eq("competencia", formData.mes_competencia)
@@ -74,7 +74,7 @@ export default function SolicitarAdiantamento() {
 
     // Buscar adiantamentos pendentes e aprovados
     const { data: adiantamentos } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("adiantamentos")
       .select("valor")
       .eq("colaboradora_id", profile.id)
@@ -107,7 +107,7 @@ export default function SolicitarAdiantamento() {
 
     setLoading(true);
 
-    const { error } = await supabase.schema("sacadaohboy-mrkitsch-loungerie").from("adiantamentos").insert({
+    const { error } = await supabase.schema("sistemaretiradas").from("adiantamentos").insert({
       colaboradora_id: profile.id,
       valor: parseFloat(formData.valor),
       mes_competencia: formData.mes_competencia,

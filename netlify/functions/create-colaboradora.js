@@ -42,7 +42,7 @@ exports.handler = async (event, context) => {
     if (userData.user) {
       // First, check if profile exists
       const { data: existingProfile, error: checkError } = await supabaseAdmin
-        .schema('sacadaohboy-mrkitsch-loungerie')
+        .schema('sistemaretiradas')
         .from('profiles')
         .select('id')
         .eq('id', userData.user.id)
@@ -57,7 +57,7 @@ exports.handler = async (event, context) => {
       if (existingProfile) {
         // Profile exists, update it
         const { error: updateError } = await supabaseAdmin
-          .schema('sacadaohboy-mrkitsch-loungerie')
+          .schema('sistemaretiradas')
           .from('profiles')
           .update({
             name: name,
@@ -76,7 +76,7 @@ exports.handler = async (event, context) => {
       } else {
         // Profile doesn't exist, create it
         const { error: insertError } = await supabaseAdmin
-          .schema('sacadaohboy-mrkitsch-loungerie')
+          .schema('sistemaretiradas')
           .from('profiles')
           .insert({
             id: userData.user.id,

@@ -69,7 +69,7 @@ const AdminDashboard = () => {
   const fetchKPIs = async () => {
     try {
       const { data: parcelas, error } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("parcelas")
         .select("valor_parcela, status_parcela, competencia");
 
@@ -98,7 +98,7 @@ const AdminDashboard = () => {
   const fetchColaboradorasLimites = async () => {
     try {
       const { data: profiles, error } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("profiles")
         .select("id, name, limite_total, limite_mensal")
         .eq("role", "COLABORADORA")
@@ -118,7 +118,7 @@ const AdminDashboard = () => {
 
       for (const prof of profiles) {
         const { data: purchases } = await supabase
-          .schema("sacadaohboy-mrkitsch-loungerie")
+          .schema("sistemaretiradas")
           .from("purchases")
           .select("id")
           .eq("colaboradora_id", prof.id);
@@ -128,7 +128,7 @@ const AdminDashboard = () => {
         let parcelas = null;
         if (purchaseIds.length > 0) {
           const { data } = await supabase
-            .schema("sacadaohboy-mrkitsch-loungerie")
+            .schema("sistemaretiradas")
             .from("parcelas")
             .select("valor_parcela")
             .in("compra_id", purchaseIds)
@@ -137,7 +137,7 @@ const AdminDashboard = () => {
         }
 
         const { data: adiantamentos } = await supabase
-          .schema("sacadaohboy-mrkitsch-loungerie")
+          .schema("sistemaretiradas")
           .from("adiantamentos")
           .select("valor")
           .eq("colaboradora_id", prof.id)
@@ -168,7 +168,7 @@ const AdminDashboard = () => {
   const handleDeleteCompra = async (compraId: string) => {
     try {
       const { error: parcelasError } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("parcelas")
         .delete()
         .eq("compra_id", compraId);
@@ -176,7 +176,7 @@ const AdminDashboard = () => {
       if (parcelasError) throw parcelasError;
 
       const { error: compraError } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("purchases")
         .delete()
         .eq("id", compraId);
@@ -206,7 +206,7 @@ const AdminDashboard = () => {
 
     try {
       const { error } = await supabase
-        .schema("sacadaohboy-mrkitsch-loungerie")
+        .schema("sistemaretiradas")
         .from("profiles")
         .update({
           limite_total: parseFloat(limiteForm.limite_total),
