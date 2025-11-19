@@ -51,7 +51,7 @@ Após deploy, configure os secrets:
 
 1. Vá em: **Project Settings > Edge Functions > Secrets**
 2. Adicione:
-   - **RESEND_API_KEY** = `re_LGPMbE4N_7VGxWn33BAFzD6s3AjYeadbA`
+   - **RESEND_API_KEY** = `[Obtenha no Resend Dashboard > API Keys]`
 
 ## ✅ VERIFICAR SE FUNCIONOU
 

@@ -41,7 +41,7 @@ Certifique-se de que as seguintes variáveis estão configuradas no Supabase:
 
 1. **RESEND_API_KEY**
    - Vá em: Project Settings > Edge Functions > Secrets
-   - Adicione: `RESEND_API_KEY` = `re_LGPMbE4N_7VGxWn33BAFzD6s3AjYeadbA`
+   - Adicione: `RESEND_API_KEY` = `[Obtenha no Resend Dashboard > API Keys]`
 
 2. **SUPABASE_URL** (já configurado automaticamente)
 3. **SUPABASE_SERVICE_ROLE_KEY** (já configurado automaticamente)

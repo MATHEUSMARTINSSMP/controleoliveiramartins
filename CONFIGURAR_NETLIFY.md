@@ -18,13 +18,13 @@ Configure as seguintes variáveis no Netlify Dashboard:
   - Valor: `https://kktsbnrnlnzyofupegjc.supabase.co`
   
 - **SUPABASE_SERVICE_ROLE_KEY**
-  - Valor: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrdHNibnJubG56eW9mdXBlZ2pjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDc5NTAyNiwiZXhwIjoyMDc2MzcxMDI2fQ.C4bs65teQiC4cQNgRfFjDmmT27dCkEoS_H3eQFmdl3s`
+  - Valor: Obtenha no Supabase Dashboard > Project Settings > API > service_role key
 
 - **SUPABASE_ANON_KEY** (opcional, mas recomendado)
-  - Valor: `sb_publishable_E9kuT5BNQhQzLgHDEwSX-w_9EVMPPYp`
+  - Valor: Obtenha no Supabase Dashboard > Project Settings > API > anon/public key
 
 - **RESEND_API_KEY**
-  - Valor: `re_LGPMbE4N_7VGxWn33BAFzD6s3AjYeadbA`
+  - Valor: Obtenha no Resend Dashboard > API Keys
 
 ### Variáveis Opcionais (para chamadas internas):
 

@@ -32,7 +32,7 @@ SUPABASE_SERVICE_ROLE_KEY
 
 **Valor:**
 ```
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrdHNibnJubG56eW9mdXBlZ2pjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDc5NTAyNiwiZXhwIjoyMDc2MzcxMDI2fQ.C4bs65teQiC4cQNgRfFjDmmT27dCkEoS_H3eQFmdl3s
+[Obtenha no Supabase Dashboard > Project Settings > API > service_role key]
 ```
 
 ✅ Marque: **"Deploy to production"**
@@ -48,7 +48,7 @@ RESEND_API_KEY
 
 **Valor:**
 ```
-re_LGPMbE4N_7VGxWn33BAFzD6s3AjYeadbA
+[Obtenha no Resend Dashboard > API Keys]
 ```
 
 ✅ Marque: **"Deploy to production"**
@@ -64,7 +64,7 @@ SUPABASE_ANON_KEY
 
 **Valor:**
 ```
-sb_publishable_E9kuT5BNQhQzLgHDEwSX-w_9EVMPPYp
+[Obtenha no Supabase Dashboard > Project Settings > API > anon/public key]
 ```
 
 ✅ Marque: **"Deploy to production"**

@@ -7,15 +7,15 @@
 
 SUPABASE_URL=https://kktsbnrnlnzyofupegjc.supabase.co
 
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrdHNibnJubG56eW9mdXBlZ2pjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDc5NTAyNiwiZXhwIjoyMDc2MzcxMDI2fQ.C4bs65teQiC4cQNgRfFjDmmT27dCkEoS_H3eQFmdl3s
+SUPABASE_SERVICE_ROLE_KEY=COLE_SUA_CHAVE_SERVICE_ROLE_AQUI
 
-RESEND_API_KEY=re_LGPMbE4N_7VGxWn33BAFzD6s3AjYeadbA
+RESEND_API_KEY=COLE_SUA_CHAVE_RESEND_AQUI
 
 # ============================================
 # VARIÁVEIS OPCIONAIS (mas recomendadas)
 # ============================================
 
-SUPABASE_ANON_KEY=sb_publishable_E9kuT5BNQhQzLgHDEwSX-w_9EVMPPYp
+SUPABASE_ANON_KEY=COLE_SUA_CHAVE_ANON_AQUI
 
 # ============================================
 # INSTRUÇÕES
