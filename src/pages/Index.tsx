@@ -8,14 +8,23 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log("[Index] Effect triggered - loading:", loading, "profile:", profile);
+
     if (!loading) {
+      console.log("[Index] Not loading anymore");
+
       if (!profile) {
+        console.log("[Index] No profile found, redirecting to /auth");
         navigate("/auth");
       } else if (profile.role === "ADMIN") {
+        console.log("[Index] Admin role detected, redirecting to /admin");
         navigate("/admin");
       } else {
+        console.log("[Index] Colaboradora role detected, redirecting to /me");
         navigate("/me");
       }
+    } else {
+      console.log("[Index] Still loading, waiting...");
     }
   }, [profile, loading, navigate]);
 
