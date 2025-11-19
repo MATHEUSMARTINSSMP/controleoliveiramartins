@@ -161,18 +161,18 @@ const Relatorios = () => {
       if (adiantamentosError) throw adiantamentosError;
 
       // Buscar perfis das colaboradoras para adiantamentos
-      const colaboradoraIds = [...new Set(adiantamentosData?.map(a => a.colaboradora_id) || [])];
-      const { data: profilesData } = await supabase
+      const adiantamentoColaboradoraIds = [...new Set(adiantamentosData?.map(a => a.colaboradora_id) || [])];
+      const { data: adiantamentoProfilesData } = await supabase
         .schema("sacadaohboy-mrkitsch-loungerie")
         .from("profiles")
         .select("id, name")
-        .in("id", colaboradoraIds);
+        .in("id", adiantamentoColaboradoraIds);
 
-      const profilesMap = new Map(profilesData?.map(p => [p.id, p.name]) || []);
+      const adiantamentoProfilesMap = new Map(adiantamentoProfilesData?.map(p => [p.id, p.name]) || []);
 
       const formattedAdiantamentos: AdiantamentoData[] = adiantamentosData?.map((a: any) => ({
         ...a,
-        colaboradora_nome: profilesMap.get(a.colaboradora_id) || "Desconhecido"
+        colaboradora_nome: adiantamentoProfilesMap.get(a.colaboradora_id) || "Desconhecido"
       })) || [];
 
       setAdiantamentos(formattedAdiantamentos);
