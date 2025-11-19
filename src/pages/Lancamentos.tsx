@@ -57,6 +57,7 @@ const Lancamentos = () => {
   const [selectedAdiantamento, setSelectedAdiantamento] = useState<string | null>(null);
   const [motivoEstorno, setMotivoEstorno] = useState("");
   const [tipoFiltro, setTipoFiltro] = useState<"TODOS" | "COMPRAS" | "ADIANTAMENTOS">("TODOS");
+  const [mesFiltro, setMesFiltro] = useState<string>("TODOS");
 
   useEffect(() => {
     if (!authLoading) {
@@ -281,16 +282,35 @@ const Lancamentos = () => {
               <CardTitle className="text-2xl bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 Lançamentos e Descontos
               </CardTitle>
-              <Select value={tipoFiltro} onValueChange={(v) => setTipoFiltro(v as any)}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TODOS">Todos</SelectItem>
-                  <SelectItem value="COMPRAS">Compras</SelectItem>
-                  <SelectItem value="ADIANTAMENTOS">Adiantamentos</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select value={mesFiltro} onValueChange={setMesFiltro}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Mês" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TODOS">Todos</SelectItem>
+                    {Array.from(new Set([...parcelas.map(p => p.competencia), ...adiantamentos.map(a => a.mes_competencia)]))
+                      .sort()
+                      .reverse()
+                      .map(mes => (
+                        <SelectItem key={mes} value={mes}>
+                          {mes.slice(4)}/{mes.slice(0, 4)}
+                        </SelectItem>
+                      ))
+                    }
+                  </SelectContent>
+                </Select>
+                <Select value={tipoFiltro} onValueChange={(v) => setTipoFiltro(v as any)}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TODOS">Todos</SelectItem>
+                    <SelectItem value="COMPRAS">Compras</SelectItem>
+                    <SelectItem value="ADIANTAMENTOS">Adiantamentos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -311,74 +331,76 @@ const Lancamentos = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {parcelas.map((parcela) => (
-                        <TableRow key={parcela.id}>
-                          <TableCell className="font-medium">
-                            {parcela.purchases.profiles.name}
-                          </TableCell>
-                          <TableCell>{parcela.purchases.item}</TableCell>
-                          <TableCell>{parcela.n_parcela}</TableCell>
-                          <TableCell>
-                            {parcela.competencia.slice(0, 4)}/{parcela.competencia.slice(4)}
-                          </TableCell>
-                          <TableCell>{formatCurrency(parcela.valor_parcela)}</TableCell>
-                          <TableCell>{getStatusBadge(parcela.status_parcela)}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              {parcela.status_parcela === "PENDENTE" && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleDescontar(parcela.id)}
-                                  className="border-primary/20"
-                                >
-                                  <CheckCircle2 className="h-4 w-4 mr-1" />
-                                  Descontar
-                                </Button>
-                              )}
-                              {parcela.status_parcela === "DESCONTADO" && (
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => setSelectedParcela(parcela.id)}
-                                      className="border-destructive/20"
-                                    >
-                                      <Undo2 className="h-4 w-4 mr-1" />
-                                      Estornar
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent>
-                                    <DialogHeader>
-                                      <DialogTitle>Estornar Parcela</DialogTitle>
-                                    </DialogHeader>
-                                    <div className="space-y-4">
-                                      <div>
-                                        <Label htmlFor="motivo">Motivo do Estorno *</Label>
-                                        <Textarea
-                                          id="motivo"
-                                          value={motivoEstorno}
-                                          onChange={(e) => setMotivoEstorno(e.target.value)}
-                                          placeholder="Descreva o motivo do estorno"
-                                          rows={4}
-                                        />
-                                      </div>
+                      {parcelas
+                        .filter(p => mesFiltro === "TODOS" || p.competencia === mesFiltro)
+                        .map((parcela) => (
+                          <TableRow key={parcela.id}>
+                            <TableCell className="font-medium">
+                              {parcela.purchases.profiles.name}
+                            </TableCell>
+                            <TableCell>{parcela.purchases.item}</TableCell>
+                            <TableCell>{parcela.n_parcela}</TableCell>
+                            <TableCell>
+                              {parcela.competencia.slice(0, 4)}/{parcela.competencia.slice(4)}
+                            </TableCell>
+                            <TableCell>{formatCurrency(parcela.valor_parcela)}</TableCell>
+                            <TableCell>{getStatusBadge(parcela.status_parcela)}</TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                {parcela.status_parcela === "PENDENTE" && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleDescontar(parcela.id)}
+                                    className="border-primary/20"
+                                  >
+                                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                                    Descontar
+                                  </Button>
+                                )}
+                                {parcela.status_parcela === "DESCONTADO" && (
+                                  <Dialog>
+                                    <DialogTrigger asChild>
                                       <Button
-                                        onClick={handleEstornar}
-                                        className="w-full"
-                                        variant="destructive"
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setSelectedParcela(parcela.id)}
+                                        className="border-destructive/20"
                                       >
-                                        Confirmar Estorno
+                                        <Undo2 className="h-4 w-4 mr-1" />
+                                        Estornar
                                       </Button>
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                      <DialogHeader>
+                                        <DialogTitle>Estornar Parcela</DialogTitle>
+                                      </DialogHeader>
+                                      <div className="space-y-4">
+                                        <div>
+                                          <Label htmlFor="motivo">Motivo do Estorno *</Label>
+                                          <Textarea
+                                            id="motivo"
+                                            value={motivoEstorno}
+                                            onChange={(e) => setMotivoEstorno(e.target.value)}
+                                            placeholder="Descreva o motivo do estorno"
+                                            rows={4}
+                                          />
+                                        </div>
+                                        <Button
+                                          onClick={handleEstornar}
+                                          className="w-full"
+                                          variant="destructive"
+                                        >
+                                          Confirmar Estorno
+                                        </Button>
+                                      </div>
+                                    </DialogContent>
+                                  </Dialog>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
                     </TableBody>
                   </Table>
                 </div>
@@ -400,72 +422,74 @@ const Lancamentos = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {adiantamentos.map((adiantamento) => (
-                        <TableRow key={adiantamento.id}>
-                          <TableCell className="font-medium">
-                            {adiantamento.profiles.name}
-                          </TableCell>
-                          <TableCell>
-                            {adiantamento.mes_competencia.slice(0, 4)}/{adiantamento.mes_competencia.slice(4)}
-                          </TableCell>
-                          <TableCell>{formatCurrency(adiantamento.valor)}</TableCell>
-                          <TableCell>{getStatusBadge(adiantamento.status)}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              {adiantamento.status === "APROVADO" && !adiantamento.data_desconto && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleDescontarAdiantamento(adiantamento.id)}
-                                  className="border-primary/20"
-                                >
-                                  <CheckCircle2 className="h-4 w-4 mr-1" />
-                                  Descontar
-                                </Button>
-                              )}
-                              {adiantamento.status === "DESCONTADO" && (
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => setSelectedAdiantamento(adiantamento.id)}
-                                      className="border-destructive/20"
-                                    >
-                                      <Undo2 className="h-4 w-4 mr-1" />
-                                      Estornar
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent>
-                                    <DialogHeader>
-                                      <DialogTitle>Estornar Adiantamento</DialogTitle>
-                                    </DialogHeader>
-                                    <div className="space-y-4">
-                                      <div>
-                                        <Label htmlFor="motivoAd">Motivo do Estorno *</Label>
-                                        <Textarea
-                                          id="motivoAd"
-                                          value={motivoEstorno}
-                                          onChange={(e) => setMotivoEstorno(e.target.value)}
-                                          placeholder="Descreva o motivo do estorno"
-                                          rows={4}
-                                        />
-                                      </div>
+                      {adiantamentos
+                        .filter(a => mesFiltro === "TODOS" || a.mes_competencia === mesFiltro)
+                        .map((adiantamento) => (
+                          <TableRow key={adiantamento.id}>
+                            <TableCell className="font-medium">
+                              {adiantamento.profiles.name}
+                            </TableCell>
+                            <TableCell>
+                              {adiantamento.mes_competencia.slice(0, 4)}/{adiantamento.mes_competencia.slice(4)}
+                            </TableCell>
+                            <TableCell>{formatCurrency(adiantamento.valor)}</TableCell>
+                            <TableCell>{getStatusBadge(adiantamento.status)}</TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                {adiantamento.status === "APROVADO" && !adiantamento.data_desconto && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleDescontarAdiantamento(adiantamento.id)}
+                                    className="border-primary/20"
+                                  >
+                                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                                    Descontar
+                                  </Button>
+                                )}
+                                {adiantamento.status === "DESCONTADO" && (
+                                  <Dialog>
+                                    <DialogTrigger asChild>
                                       <Button
-                                        onClick={handleEstornarAdiantamento}
-                                        className="w-full"
-                                        variant="destructive"
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setSelectedAdiantamento(adiantamento.id)}
+                                        className="border-destructive/20"
                                       >
-                                        Confirmar Estorno
+                                        <Undo2 className="h-4 w-4 mr-1" />
+                                        Estornar
                                       </Button>
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                      <DialogHeader>
+                                        <DialogTitle>Estornar Adiantamento</DialogTitle>
+                                      </DialogHeader>
+                                      <div className="space-y-4">
+                                        <div>
+                                          <Label htmlFor="motivoAd">Motivo do Estorno *</Label>
+                                          <Textarea
+                                            id="motivoAd"
+                                            value={motivoEstorno}
+                                            onChange={(e) => setMotivoEstorno(e.target.value)}
+                                            placeholder="Descreva o motivo do estorno"
+                                            rows={4}
+                                          />
+                                        </div>
+                                        <Button
+                                          onClick={handleEstornarAdiantamento}
+                                          className="w-full"
+                                          variant="destructive"
+                                        >
+                                          Confirmar Estorno
+                                        </Button>
+                                      </div>
+                                    </DialogContent>
+                                  </Dialog>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
                     </TableBody>
                   </Table>
                 </div>

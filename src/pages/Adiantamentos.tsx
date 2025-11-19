@@ -32,7 +32,7 @@ export default function Adiantamentos() {
   const [loading, setLoading] = useState(true);
   const [actionDialog, setActionDialog] = useState<{
     open: boolean;
-    type: "aprovar" | "recusar" | "descontar" | null;
+    type: "aprovar" | "recusar" | "descontar" | "desfazer" | null;
     adiantamento: Adiantamento | null;
     motivo: string;
   }>({
@@ -121,6 +121,12 @@ export default function Adiantamentos() {
         status: "DESCONTADO",
         descontado_por_id: user.id,
         data_desconto: new Date().toISOString(),
+      };
+    } else if (actionDialog.type === "desfazer") {
+      updateData = {
+        status: "APROVADO",
+        descontado_por_id: null,
+        data_desconto: null,
       };
     }
 
@@ -254,6 +260,23 @@ export default function Adiantamentos() {
                               Descontar
                             </Button>
                           )}
+                          {adiantamento.status === "DESCONTADO" && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() =>
+                                setActionDialog({
+                                  open: true,
+                                  type: "desfazer",
+                                  adiantamento,
+                                  motivo: "",
+                                })
+                              }
+                            >
+                              <X className="h-4 w-4" />
+                              Desfazer
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -272,6 +295,7 @@ export default function Adiantamentos() {
               {actionDialog.type === "aprovar" && "Aprovar Adiantamento"}
               {actionDialog.type === "recusar" && "Recusar Adiantamento"}
               {actionDialog.type === "descontar" && "Efetivar Desconto"}
+              {actionDialog.type === "desfazer" && "Desfazer Desconto"}
             </DialogTitle>
           </DialogHeader>
 
@@ -294,6 +318,10 @@ export default function Adiantamentos() {
 
           {actionDialog.type === "descontar" && (
             <p>Confirma a efetivação do desconto deste adiantamento?</p>
+          )}
+
+          {actionDialog.type === "desfazer" && (
+            <p>Confirma desfazer o desconto deste adiantamento e retornar para APROVADO?</p>
           )}
 
           <DialogFooter>
