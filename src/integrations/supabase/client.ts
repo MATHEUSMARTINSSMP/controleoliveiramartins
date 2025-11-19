@@ -13,5 +13,14 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-  }
+  },
+  db: {
+    schema: 'sacadaohboy-mrkitsch-loungerie',
+  },
+  global: {
+    headers: {
+      'Accept-Profile': 'sacadaohboy-mrkitsch-loungerie',
+      'Content-Profile': 'sacadaohboy-mrkitsch-loungerie',
+    },
+  },
 });
