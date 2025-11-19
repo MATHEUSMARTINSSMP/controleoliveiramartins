@@ -117,57 +117,32 @@ const AdminDashboard = () => {
       const limites: ColaboradoraLimite[] = [];
 
       for (const prof of profiles) {
-        // Try multiple schemas for purchases
-        let purchases = null;
-        for (const schemaName of schemasToTry) {
-          const { data, error } = await supabase
-            .schema(schemaName)
-            .from("purchases")
-            .select("id")
-            .eq("colaboradora_id", prof.id);
-          
-          if (!error && data) {
-            purchases = data;
-            break;
-          }
-        }
+        const { data: purchases } = await supabase
+          .schema("sacadaohboy-mrkitsch-loungerie")
+          .from("purchases")
+          .select("id")
+          .eq("colaboradora_id", prof.id);
 
         const purchaseIds = purchases?.map(p => p.id) || [];
 
-        // Try multiple schemas for parcelas
         let parcelas = null;
         if (purchaseIds.length > 0) {
-          for (const schemaName of schemasToTryForData) {
-            const { data, error } = await supabase
-              .schema(schemaName)
-              .from("parcelas")
-              .select("valor_parcela")
-              .in("compra_id", purchaseIds)
-              .in("status_parcela", ["PENDENTE", "AGENDADO"]);
-            
-            if (!error && data) {
-              parcelas = data;
-              break;
-            }
-          }
+          const { data } = await supabase
+            .schema("sacadaohboy-mrkitsch-loungerie")
+            .from("parcelas")
+            .select("valor_parcela")
+            .in("compra_id", purchaseIds)
+            .in("status_parcela", ["PENDENTE", "AGENDADO"]);
+          parcelas = data;
         }
 
-        // Try multiple schemas for adiantamentos
-        let adiantamentos = null;
-        for (const schemaName of schemasToTryForData) {
-          const { data, error } = await supabase
-            .schema(schemaName)
-            .from("adiantamentos")
-            .select("valor")
-            .eq("colaboradora_id", prof.id)
-            .eq("status", "APROVADO" as any)
-            .is("data_desconto", null);
-          
-          if (!error && data) {
-            adiantamentos = data;
-            break;
-          }
-        }
+        const { data: adiantamentos } = await supabase
+          .schema("sacadaohboy-mrkitsch-loungerie")
+          .from("adiantamentos")
+          .select("valor")
+          .eq("colaboradora_id", prof.id)
+          .eq("status", "APROVADO" as any)
+          .is("data_desconto", null);
 
         const totalParcelas = parcelas?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
         const totalAdiantamentos = adiantamentos?.reduce((sum, a) => sum + Number(a.valor), 0) || 0;
