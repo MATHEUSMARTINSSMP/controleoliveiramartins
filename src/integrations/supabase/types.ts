@@ -12,7 +12,7 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
-  public: {
+  sistemaretiradas: {
     Tables: {
       adiantamentos: {
         Row: {
@@ -27,7 +27,7 @@ export type Database = {
           mes_competencia: string
           motivo_recusa: string | null
           observacoes: string | null
-          status: Database["public"]["Enums"]["status_adiantamento"]
+          status: Database["sistemaretiradas"]["Enums"]["status_adiantamento"]
           updated_at: string | null
           valor: number
         }
@@ -43,7 +43,7 @@ export type Database = {
           mes_competencia: string
           motivo_recusa?: string | null
           observacoes?: string | null
-          status?: Database["public"]["Enums"]["status_adiantamento"]
+          status?: Database["sistemaretiradas"]["Enums"]["status_adiantamento"]
           updated_at?: string | null
           valor: number
         }
@@ -59,7 +59,7 @@ export type Database = {
           mes_competencia?: string
           motivo_recusa?: string | null
           observacoes?: string | null
-          status?: Database["public"]["Enums"]["status_adiantamento"]
+          status?: Database["sistemaretiradas"]["Enums"]["status_adiantamento"]
           updated_at?: string | null
           valor?: number
         }
@@ -116,7 +116,7 @@ export type Database = {
           id: string
           motivo_estorno: string | null
           n_parcela: number
-          status_parcela: Database["public"]["Enums"]["status_parcela"] | null
+          status_parcela: Database["sistemaretiradas"]["Enums"]["status_parcela"] | null
           updated_at: string | null
           valor_parcela: number
         }
@@ -129,7 +129,7 @@ export type Database = {
           id?: string
           motivo_estorno?: string | null
           n_parcela: number
-          status_parcela?: Database["public"]["Enums"]["status_parcela"] | null
+          status_parcela?: Database["sistemaretiradas"]["Enums"]["status_parcela"] | null
           updated_at?: string | null
           valor_parcela: number
         }
@@ -142,7 +142,7 @@ export type Database = {
           id?: string
           motivo_estorno?: string | null
           n_parcela?: number
-          status_parcela?: Database["public"]["Enums"]["status_parcela"] | null
+          status_parcela?: Database["sistemaretiradas"]["Enums"]["status_parcela"] | null
           updated_at?: string | null
           valor_parcela?: number
         }
@@ -173,7 +173,7 @@ export type Database = {
           limite_mensal: number
           limite_total: number
           name: string
-          role: Database["public"]["Enums"]["app_role"]
+          role: Database["sistemaretiradas"]["Enums"]["app_role"]
           store_default: string | null
           updated_at: string | null
         }
@@ -186,7 +186,7 @@ export type Database = {
           limite_mensal?: number
           limite_total?: number
           name: string
-          role: Database["public"]["Enums"]["app_role"]
+          role: Database["sistemaretiradas"]["Enums"]["app_role"]
           store_default?: string | null
           updated_at?: string | null
         }
@@ -199,7 +199,7 @@ export type Database = {
           limite_mensal?: number
           limite_total?: number
           name?: string
-          role?: Database["public"]["Enums"]["app_role"]
+          role?: Database["sistemaretiradas"]["Enums"]["app_role"]
           store_default?: string | null
           updated_at?: string | null
         }
@@ -219,7 +219,7 @@ export type Database = {
           observacoes: string | null
           preco_final: number
           preco_venda: number
-          status_compra: Database["public"]["Enums"]["status_compra"] | null
+          status_compra: Database["sistemaretiradas"]["Enums"]["status_compra"] | null
           updated_at: string | null
         }
         Insert: {
@@ -235,7 +235,7 @@ export type Database = {
           observacoes?: string | null
           preco_final: number
           preco_venda: number
-          status_compra?: Database["public"]["Enums"]["status_compra"] | null
+          status_compra?: Database["sistemaretiradas"]["Enums"]["status_compra"] | null
           updated_at?: string | null
         }
         Update: {
@@ -251,7 +251,7 @@ export type Database = {
           observacoes?: string | null
           preco_final?: number
           preco_venda?: number
-          status_compra?: Database["public"]["Enums"]["status_compra"] | null
+          status_compra?: Database["sistemaretiradas"]["Enums"]["status_compra"] | null
           updated_at?: string | null
         }
         Relationships: [
@@ -309,7 +309,7 @@ export type Database = {
     Functions: {
       get_user_role: {
         Args: { user_id: string }
-        Returns: Database["public"]["Enums"]["app_role"]
+        Returns: Database["sistemaretiradas"]["Enums"]["app_role"]
       }
       is_admin: { Args: never; Returns: boolean }
     }
@@ -318,11 +318,11 @@ export type Database = {
       status_adiantamento: "PENDENTE" | "APROVADO" | "RECUSADO" | "DESCONTADO"
       status_compra: "PENDENTE" | "PARCIAL" | "PAGO" | "CANCELADO"
       status_parcela:
-        | "PENDENTE"
-        | "AGENDADO"
-        | "DESCONTADO"
-        | "ESTORNADO"
-        | "CANCELADO"
+      | "PENDENTE"
+      | "AGENDADO"
+      | "DESCONTADO"
+      | "ESTORNADO"
+      | "CANCELADO"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -332,123 +332,123 @@ export type Database = {
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "sistemaretiradas">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
+  | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+  | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+  ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+  : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
-    ? R
-    : never
+  ? R
+  : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
-    : never
+    DefaultSchema["Views"])
+  ? (DefaultSchema["Tables"] &
+    DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+      Row: infer R
+    }
+  ? R
+  : never
+  : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+  | keyof DefaultSchema["Tables"]
+  | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
-    }
-    ? I
-    : never
+    Insert: infer I
+  }
+  ? I
+  : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
-    : never
+  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+    Insert: infer I
+  }
+  ? I
+  : never
+  : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+  | keyof DefaultSchema["Tables"]
+  | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
-    }
-    ? U
-    : never
+    Update: infer U
+  }
+  ? U
+  : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
-    : never
+  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+    Update: infer U
+  }
+  ? U
+  : never
+  : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
+  | keyof DefaultSchema["Enums"]
+  | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+  ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+  : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
+  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+  : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
+  | keyof DefaultSchema["CompositeTypes"]
+  | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+  ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+  : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
+  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  : never
 
 export const Constants = {
-  public: {
+  sistemaretiradas: {
     Enums: {
       app_role: ["ADMIN", "COLABORADORA"],
       status_adiantamento: ["PENDENTE", "APROVADO", "RECUSADO", "DESCONTADO"],
