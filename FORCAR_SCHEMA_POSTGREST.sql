@@ -48,11 +48,16 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA "sacadaohboy-mrkitsch-loungerie"
 ALTER DEFAULT PRIVILEGES IN SCHEMA "sacadaohboy-mrkitsch-loungerie" 
   GRANT EXECUTE ON FUNCTIONS TO authenticator, anon, authenticated, service_role;
 
--- 8. FORÇAR O POSTGREST A RECARREGAR O CACHE DE SCHEMAS
+-- 8. CONFIGURAR O AUTHENTICATOR PARA RECONHECER O SCHEMA
+-- Este é CRÍTICO: o PostgREST usa o papel authenticator para conectar
+-- Ele precisa ter o schema configurado em pgrst.db_schemas
+ALTER ROLE authenticator SET pgrst.db_schemas = 'public, sacadaohboy-mrkitsch-loungerie, elevea';
+
+-- 9. FORÇAR O POSTGREST A RECARREGAR O CACHE DE SCHEMAS
 -- Este é o comando mais importante - força o PostgREST a recarregar o cache
 NOTIFY pgrst, 'reload schema';
 
--- 9. Verificar se a tabela profiles existe e está acessível
+-- 10. Verificar se a tabela profiles existe e está acessível
 SELECT 
   table_schema,
   table_name,
@@ -61,7 +66,7 @@ FROM information_schema.tables
 WHERE table_schema = 'sacadaohboy-mrkitsch-loungerie'
   AND table_name = 'profiles';
 
--- 10. Verificar se o PostgREST pode ver o schema
+-- 11. Verificar se o PostgREST pode ver o schema
 -- Execute este comando e verifique se retorna o schema
 SELECT schema_name 
 FROM information_schema.schemata 
