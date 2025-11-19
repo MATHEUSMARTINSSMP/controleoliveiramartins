@@ -32,7 +32,7 @@ const Auth = () => {
         toast.success("Login realizado com sucesso!");
         // Aguardar um pouco para o AuthContext carregar o profile antes de redirecionar
         setTimeout(() => {
-          navigate("/");
+        navigate("/");
         }, 500);
       } else {
         const { error } = await supabase.auth.signUp({
