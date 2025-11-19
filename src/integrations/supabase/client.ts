@@ -10,21 +10,22 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 const SCHEMA_NAME = 'sistemaretiradas';
 
-// Create client with global headers to ensure Accept-Profile is always sent
-// IMPORTANT: 
-// - Accept-Profile: Used for SELECT queries (reading data)
-// - Content-Profile: Used for INSERT/UPDATE/DELETE (writing data)
-// We need BOTH headers to ensure all operations use the correct schema
+// Create client with schema configured in db.schema option
+// This is CRITICAL: without this, supabase-js defaults to 'public' schema
+// Even with Accept-Profile headers, we need db.schema to ensure all queries use the correct schema
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
   },
+  db: {
+    schema: SCHEMA_NAME,  // ← THIS IS THE KEY! Forces all queries to use sistemaretiradas schema
+  },
   global: {
     headers: {
-      'Accept-Profile': SCHEMA_NAME,  // For SELECT queries
-      'Content-Profile': SCHEMA_NAME, // For INSERT/UPDATE/DELETE queries
+      'Accept-Profile': SCHEMA_NAME,  // For SELECT queries (PostgREST)
+      'Content-Profile': SCHEMA_NAME, // For INSERT/UPDATE/DELETE queries (PostgREST)
     },
   },
 });
