@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
 
     // First try: exact email match (case insensitive)
     const { data: emailMatch, error: emailError } = await supabaseAdmin
-      .schema('sacadaohboy-mrkitsch-loungerie')
+      .schema('sistemaretiradas')
       .from('profiles')
       .select('id, name, email, cpf')
       .ilike('email', searchIdentifier)
@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
     } else {
       // Second try: CPF match
       const { data: cpfMatch, error: cpfError } = await supabaseAdmin
-        .schema('sacadaohboy-mrkitsch-loungerie')
+        .schema('sistemaretiradas')
         .from('profiles')
         .select('id, name, email, cpf')
         .eq('cpf', searchIdentifier)
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
       } else {
         // Third try: name match (case insensitive, partial)
         const { data: nameMatch, error: nameError } = await supabaseAdmin
-          .schema('sacadaohboy-mrkitsch-loungerie')
+          .schema('sistemaretiradas')
           .from('profiles')
           .select('id, name, email, cpf')
           .ilike('name', `%${searchIdentifier}%`)
@@ -83,8 +83,8 @@ Deno.serve(async (req) => {
     if (searchError) {
       console.error('Error searching for user:', searchError)
       return new Response(
-        JSON.stringify({ 
-          success: false, 
+        JSON.stringify({
+          success: false,
           message: 'Erro ao buscar usuário',
           error: String(searchError)
         }),
@@ -98,8 +98,8 @@ Deno.serve(async (req) => {
     if (!profiles || profiles.length === 0) {
       console.log('User not found with identifier:', searchIdentifier)
       return new Response(
-        JSON.stringify({ 
-          success: false, 
+        JSON.stringify({
+          success: false,
           message: `Usuário não encontrado. Verifique se o email, CPF ou nome estão corretos.`
         }),
         {
@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
 
     // Sign out all sessions for this user
     const { error: signOutError } = await supabaseAdmin.auth.admin.signOut(profile.id)
-    
+
     if (signOutError) {
       console.error('Error signing out user:', signOutError)
       // Continue anyway - password was updated
@@ -171,8 +171,8 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error in request-password-reset:', error)
     return new Response(
-      JSON.stringify({ 
-        success: false, 
+      JSON.stringify({
+        success: false,
         message: 'Erro ao processar solicitação de recuperação de senha',
         error: String(error)
       }),
