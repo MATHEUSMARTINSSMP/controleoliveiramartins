@@ -11,7 +11,7 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const SCHEMA_NAME = 'sacadaohboy-mrkitsch-loungerie';
 
 // Create client with global headers to ensure Accept-Profile is always sent
-// This ensures that even if .schema() doesn't work correctly, the header is always present
+// IMPORTANT: Even when using .schema(), these headers ensure the correct schema is used
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
@@ -25,3 +25,9 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     },
   },
 });
+
+// Export a helper that ensures schema is always applied
+// This is a workaround for cases where .schema() might not work correctly
+export const getSupabaseWithSchema = () => {
+  return supabase.schema(SCHEMA_NAME);
+};
