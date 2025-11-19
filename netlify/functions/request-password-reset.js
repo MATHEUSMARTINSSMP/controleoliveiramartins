@@ -60,55 +60,69 @@ exports.handler = async (event, context) => {
     let searchError = null;
 
     // First try: exact email match (case insensitive)
+    console.log('Attempting email search for:', searchIdentifier);
     const { data: emailMatch, error: emailError } = await supabaseAdmin
       .schema('sacadaohboy-mrkitsch-loungerie')
       .from('profiles')
-      .select('id, name, email, cpf')
+      .select('uuid, id, name, email, cpf, active')
       .ilike('email', searchIdentifier)
-      .eq('active', true)
       .limit(1);
 
-    if (emailMatch && emailMatch.length > 0) {
+    if (emailError) {
+      console.error('Email search error:', emailError);
+      searchError = emailError;
+    } else if (emailMatch && emailMatch.length > 0) {
+      console.log('User found by email:', emailMatch[0].email);
       profiles = emailMatch;
     } else {
+      console.log('No email match, trying CPF...');
       // Second try: CPF match
       const { data: cpfMatch, error: cpfError } = await supabaseAdmin
         .schema('sacadaohboy-mrkitsch-loungerie')
         .from('profiles')
-        .select('id, name, email, cpf')
+        .select('uuid, id, name, email, cpf, active')
         .eq('cpf', searchIdentifier)
-        .eq('active', true)
         .limit(1);
 
-      if (cpfMatch && cpfMatch.length > 0) {
+      if (cpfError) {
+        console.error('CPF search error:', cpfError);
+        searchError = cpfError;
+      } else if (cpfMatch && cpfMatch.length > 0) {
+        console.log('User found by CPF:', cpfMatch[0].email);
         profiles = cpfMatch;
       } else {
+        console.log('No CPF match, trying name...');
         // Third try: name match (case insensitive, partial)
         const { data: nameMatch, error: nameError } = await supabaseAdmin
           .schema('sacadaohboy-mrkitsch-loungerie')
           .from('profiles')
-          .select('id, name, email, cpf')
+          .select('uuid, id, name, email, cpf, active')
           .ilike('name', `%${searchIdentifier}%`)
-          .eq('active', true)
           .limit(1);
 
-        if (nameMatch && nameMatch.length > 0) {
+        if (nameError) {
+          console.error('Name search error:', nameError);
+          searchError = nameError;
+        } else if (nameMatch && nameMatch.length > 0) {
+          console.log('User found by name:', nameMatch[0].email);
           profiles = nameMatch;
         } else {
-          searchError = nameError || cpfError || emailError;
+          console.log('No user found with any search method');
         }
       }
     }
 
     if (searchError) {
       console.error('Error searching for user:', searchError);
+      console.error('Search error details:', JSON.stringify(searchError, null, 2));
       return {
         statusCode: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           success: false,
-          message: 'Erro ao buscar usuário',
-          error: String(searchError),
+          message: 'Erro ao buscar usuário no banco de dados',
+          error: searchError.message || String(searchError),
+          details: searchError.details || searchError.hint || null,
         }),
       };
     }
@@ -126,18 +140,45 @@ exports.handler = async (event, context) => {
     }
 
     const profile = profiles[0];
-    console.log('User found:', profile.email);
+    console.log('User found:', profile.email, 'UUID:', profile.uuid, 'Active:', profile.active);
+
+    // Check if user is active (if active field exists and is false, skip)
+    if (profile.active === false) {
+      console.log('User is inactive:', profile.email);
+      return {
+        statusCode: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          success: false,
+          message: 'Usuário inativo. Entre em contato com o administrador.',
+        }),
+      };
+    }
+
+    // Use uuid (Supabase Auth ID) instead of id (table ID)
+    const userId = profile.uuid || profile.id;
+    if (!userId) {
+      console.error('No user ID found in profile:', profile);
+      return {
+        statusCode: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          success: false,
+          message: 'Erro: ID do usuário não encontrado',
+        }),
+      };
+    }
+
+    console.log('Updating password for user:', userId);
 
     // Generate a temporary password
     const tempPassword =
       Math.random().toString(36).slice(-8) +
       Math.random().toString(36).slice(-8).toUpperCase();
 
-    console.log('Updating password for user:', profile.id);
-
-    // Update password with admin client
+    // Update password with admin client using uuid
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-      profile.id,
+      userId,
       { password: tempPassword }
     );
 
@@ -149,7 +190,7 @@ exports.handler = async (event, context) => {
     console.log('Password updated successfully, invalidating sessions');
 
     // Sign out all sessions for this user
-    const { error: signOutError } = await supabaseAdmin.auth.admin.signOut(profile.id);
+    const { error: signOutError } = await supabaseAdmin.auth.admin.signOut(userId);
 
     if (signOutError) {
       console.error('Error signing out user:', signOutError);
