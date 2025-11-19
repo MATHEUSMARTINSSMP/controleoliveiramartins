@@ -60,14 +60,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchProfile = async (userId: string) => {
     console.log("[AuthContext] Fetching profile for userId:", userId);
     try {
-      const { data, error } = await supabase
+      // Get user email from auth
+      const { data: { user } } = await supabase.auth.getUser();
+      const userEmail = user?.email;
+
+      console.log("[AuthContext] User email:", userEmail);
+
+      // First try to find by ID
+      let { data, error } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
         .select("*")
         .eq("id", userId)
         .single();
 
-      if (error) {
+      // If not found by ID, try by email
+      if (error && error.code === 'PGRST116' && userEmail) {
+        console.log("[AuthContext] Profile not found by ID, trying by email...");
+
+        const { data: profileByEmail, error: emailError } = await supabase
+          .schema("sistemaretiradas")
+          .from("profiles")
+          .select("*")
+          .eq("email", userEmail)
+          .single();
+
+        if (!emailError && profileByEmail) {
+          console.log("[AuthContext] Profile found by email! Updating ID to match auth.user.id");
+
+          // Update profile ID to match auth user ID
+          const { error: updateError } = await supabase
+            .schema("sistemaretiradas")
+            .from("profiles")
+            .update({ id: userId })
+            .eq("email", userEmail);
+
+          if (updateError) {
+            console.error("[AuthContext] Error updating profile ID:", updateError);
+          } else {
+            console.log("[AuthContext] Profile ID updated successfully");
+            data = { ...profileByEmail, id: userId };
+          }
+        } else {
+          throw new Error("Profile not found by ID or email");
+        }
+      } else if (error) {
         console.error("[AuthContext] Error fetching profile:", error);
         throw error;
       }
@@ -77,6 +114,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setProfile(data);
     } catch (error) {
       console.error("[AuthContext] Error in fetchProfile:", error);
+      setProfile(null);
     } finally {
       setLoading(false);
       console.log("[AuthContext] Loading set to false");
