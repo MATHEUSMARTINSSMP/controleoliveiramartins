@@ -18,7 +18,12 @@ exports.handler = async (event, context) => {
   try {
     const supabaseAdmin = createClient(
       process.env.SUPABASE_URL || '',
-      process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+      process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+      {
+        db: {
+          schema: 'sistemaretiradas',
+        },
+      }
     );
 
     const { user_id, new_password, email } = JSON.parse(event.body || '{}');
