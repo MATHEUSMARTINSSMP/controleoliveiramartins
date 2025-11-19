@@ -38,19 +38,64 @@ exports.handler = async (event, context) => {
 
     if (authError) throw authError;
 
-    // Update profile with CPF and custom limits
+    // Check if profile exists and update/create it with CPF and custom limits
     if (userData.user) {
-      const { error: profileError } = await supabaseAdmin
+      // First, check if profile exists
+      const { data: existingProfile, error: checkError } = await supabaseAdmin
         .schema('sacadaohboy-mrkitsch-loungerie')
         .from('profiles')
-        .update({
-          cpf: cpf,
-          limite_total: parseFloat(limite_total),
-          limite_mensal: parseFloat(limite_mensal),
-        })
-        .eq('id', userData.user.id);
+        .select('id')
+        .eq('id', userData.user.id)
+        .single();
 
-      if (profileError) throw profileError;
+      if (checkError && checkError.code !== 'PGRST116') {
+        // PGRST116 = no rows returned, which is OK if profile doesn't exist yet
+        console.error('Error checking profile:', checkError);
+        throw checkError;
+      }
+
+      if (existingProfile) {
+        // Profile exists, update it
+        const { error: updateError } = await supabaseAdmin
+          .schema('sacadaohboy-mrkitsch-loungerie')
+          .from('profiles')
+          .update({
+            name: name,
+            cpf: cpf,
+            limite_total: parseFloat(limite_total),
+            limite_mensal: parseFloat(limite_mensal),
+            active: true,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', userData.user.id);
+
+        if (updateError) {
+          console.error('Error updating profile:', updateError);
+          throw updateError;
+        }
+      } else {
+        // Profile doesn't exist, create it
+        const { error: insertError } = await supabaseAdmin
+          .schema('sacadaohboy-mrkitsch-loungerie')
+          .from('profiles')
+          .insert({
+            id: userData.user.id,
+            name: name,
+            email: email,
+            cpf: cpf,
+            role: 'COLABORADORA',
+            limite_total: parseFloat(limite_total),
+            limite_mensal: parseFloat(limite_mensal),
+            active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+
+        if (insertError) {
+          console.error('Error creating profile:', insertError);
+          throw insertError;
+        }
+      }
 
       // Send welcome email via Netlify Function
       try {

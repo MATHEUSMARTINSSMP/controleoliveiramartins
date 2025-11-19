@@ -24,13 +24,16 @@ const Auth = () => {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: formData.email,
           password: formData.password,
         });
         if (error) throw error;
         toast.success("Login realizado com sucesso!");
-        navigate("/");
+        // Aguardar um pouco para o AuthContext carregar o profile antes de redirecionar
+        setTimeout(() => {
+          navigate("/");
+        }, 500);
       } else {
         const { error } = await supabase.auth.signUp({
           email: formData.email,

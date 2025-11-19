@@ -182,7 +182,7 @@ const Relatorios = () => {
         // Deletar parcelas primeiro
         const { error: parcelasError } = await supabase
           .schema("sacadaohboy-mrkitsch-loungerie")
-        .from("parcelas")
+          .from("parcelas")
           .delete()
           .eq("compra_id", deleteDialog.id);
 
@@ -191,7 +191,7 @@ const Relatorios = () => {
         // Deletar compra
         const { error: compraError } = await supabase
           .schema("sacadaohboy-mrkitsch-loungerie")
-        .from("purchases")
+          .from("purchases")
           .delete()
           .eq("id", deleteDialog.id);
 
@@ -203,7 +203,7 @@ const Relatorios = () => {
         // Deletar parcela
         const { error } = await supabase
           .schema("sacadaohboy-mrkitsch-loungerie")
-        .from("parcelas")
+          .from("parcelas")
           .delete()
           .eq("id", deleteDialog.id);
 
@@ -220,7 +220,7 @@ const Relatorios = () => {
         // Deletar adiantamento
         const { error } = await supabase
           .schema("sacadaohboy-mrkitsch-loungerie")
-        .from("adiantamentos")
+          .from("adiantamentos")
           .delete()
           .eq("id", deleteDialog.id);
 

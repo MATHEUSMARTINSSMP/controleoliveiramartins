@@ -96,7 +96,7 @@ const NovaCompra = () => {
     try {
       const { data: profile } = await supabase
         .schema("sacadaohboy-mrkitsch-loungerie")
-      .from("profiles")
+        .from("profiles")
         .select("limite_total, limite_mensal")
         .eq("id", colaboradoraId)
         .single();
@@ -106,7 +106,7 @@ const NovaCompra = () => {
       // Buscar compras da colaboradora
       const { data: purchases } = await supabase
         .schema("sacadaohboy-mrkitsch-loungerie")
-      .from("purchases")
+        .from("purchases")
         .select("id")
         .eq("colaboradora_id", colaboradoraId);
 
@@ -115,7 +115,7 @@ const NovaCompra = () => {
       // Buscar total usado
       const { data: parcelasTotal } = await supabase
         .schema("sacadaohboy-mrkitsch-loungerie")
-      .from("parcelas")
+        .from("parcelas")
         .select("valor_parcela")
         .in("compra_id", purchaseIds)
         .in("status_parcela", ["PENDENTE", "AGENDADO"]);
@@ -126,7 +126,7 @@ const NovaCompra = () => {
       const mesAtual = format(new Date(), "yyyyMM");
       const { data: parcelasMes } = await supabase
         .schema("sacadaohboy-mrkitsch-loungerie")
-      .from("parcelas")
+        .from("parcelas")
         .select("valor_parcela")
         .in("compra_id", purchaseIds)
         .eq("competencia", mesAtual)
@@ -253,7 +253,7 @@ const NovaCompra = () => {
       // Criar compra
       const { data: purchase, error: purchaseError } = await supabase
         .schema("sacadaohboy-mrkitsch-loungerie")
-      .from("purchases")
+        .from("purchases")
         .insert({
           colaboradora_id: formData.colaboradora_id,
           loja_id: formData.loja_id,
