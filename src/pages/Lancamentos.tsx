@@ -70,22 +70,43 @@ const Lancamentos = () => {
 
   const fetchParcelas = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: parcelasData, error } = await supabase
         .schema("sacadaohboy-mrkitsch-loungerie")
         .from("parcelas")
         .select(`
           *,
           purchases!inner(
             colaboradora_id,
-            item,
-            profiles!purchases_colaboradora_id_fkey(name)
+            item
           )
         `)
         .order("competencia", { ascending: true })
         .order("n_parcela", { ascending: true });
 
       if (error) throw error;
-      setParcelas(data || []);
+
+      // Buscar perfis das colaboradoras separadamente
+      const colaboradoraIds = [...new Set(parcelasData?.map((p: any) => p.purchases?.colaboradora_id).filter(Boolean) || [])];
+      const { data: profilesData } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("profiles")
+        .select("id, name")
+        .in("id", colaboradoraIds);
+
+      const profilesMap = new Map(profilesData?.map(p => [p.id, p.name]) || []);
+
+      // Formatar dados com nomes das colaboradoras
+      const formatted = parcelasData?.map((p: any) => ({
+        ...p,
+        purchases: {
+          ...p.purchases,
+          profiles: {
+            name: profilesMap.get(p.purchases?.colaboradora_id) || "Desconhecido"
+          }
+        }
+      })) || [];
+
+      setParcelas(formatted);
     } catch (error: any) {
       toast.error("Erro ao carregar parcelas");
       console.error(error);

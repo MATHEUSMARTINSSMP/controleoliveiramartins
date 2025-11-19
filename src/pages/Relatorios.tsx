@@ -115,7 +115,7 @@ const Relatorios = () => {
           data_compra,
           preco_final,
           num_parcelas,
-          profiles!purchases_colaboradora_id_fkey(name),
+          colaboradora_id,
           parcelas(
             id,
             n_parcela,
@@ -129,9 +129,19 @@ const Relatorios = () => {
 
       if (error) throw error;
 
+      // Buscar perfis das colaboradoras separadamente
+      const colaboradoraIds = [...new Set(comprasData?.map((c: any) => c.colaboradora_id) || [])];
+      const { data: profilesData } = await supabase
+        .schema("sacadaohboy-mrkitsch-loungerie")
+        .from("profiles")
+        .select("id, name")
+        .in("id", colaboradoraIds);
+
+      const profilesMap = new Map(profilesData?.map(p => [p.id, p.name]) || []);
+
       const formattedData: CompraData[] = comprasData?.map((c: any) => ({
         id: c.id,
-        colaboradora_nome: c.profiles.name,
+        colaboradora_nome: profilesMap.get(c.colaboradora_id) || "Desconhecido",
         item: c.item,
         data_compra: c.data_compra,
         preco_final: c.preco_final,
