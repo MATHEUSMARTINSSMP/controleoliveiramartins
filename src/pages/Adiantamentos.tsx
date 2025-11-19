@@ -125,6 +125,7 @@ export default function Adiantamentos() {
     }
 
     const { error } = await supabase
+      .schema("sacadaohboy-mrkitsch-loungerie")
       .from("adiantamentos")
       .update(updateData)
       .eq("id", actionDialog.adiantamento.id);
