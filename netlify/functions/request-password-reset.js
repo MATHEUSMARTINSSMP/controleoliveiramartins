@@ -203,21 +203,24 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Use uuid (Supabase Auth ID) instead of id (table ID)
+    // Use uuid (Supabase Auth ID) - the uuid field in profiles table is the auth.users.id
+    // If uuid doesn't exist, try id field (some setups use id as the auth UUID)
     const userId = profile.uuid || profile.id;
     if (!userId) {
-      console.error('No user ID found in profile:', profile);
+      console.error('No user ID found in profile:', JSON.stringify(profile, null, 2));
       return {
         statusCode: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           success: false,
-          message: 'Erro: ID do usuário não encontrado',
+          message: 'Erro: ID do usuário não encontrado no perfil',
+          debug: 'Profile data: ' + JSON.stringify(profile),
         }),
       };
     }
 
-    console.log('Updating password for user:', userId);
+    console.log('Profile data:', JSON.stringify(profile, null, 2));
+    console.log('Using user ID for password update:', userId);
 
     // Generate a temporary password
     const tempPassword =
