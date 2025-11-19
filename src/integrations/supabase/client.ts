@@ -10,6 +10,17 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 const SCHEMA_NAME = 'sistemaretiradas';
 
+// Validate environment variables
+if (!SUPABASE_URL) {
+  console.error('❌ VITE_SUPABASE_URL não está configurado!');
+  throw new Error('VITE_SUPABASE_URL is required');
+}
+
+if (!SUPABASE_PUBLISHABLE_KEY) {
+  console.error('❌ VITE_SUPABASE_PUBLISHABLE_KEY não está configurado!');
+  throw new Error('VITE_SUPABASE_PUBLISHABLE_KEY is required');
+}
+
 // Create client with schema configured in db.schema option
 // This is CRITICAL: without this, supabase-js defaults to 'public' schema
 // Even with Accept-Profile headers, we need db.schema to ensure all queries use the correct schema
