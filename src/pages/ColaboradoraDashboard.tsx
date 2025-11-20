@@ -43,6 +43,7 @@ interface UserKPIs {
   limiteTotal: number;
   limiteDisponivel: number;
   limiteMensal: number;
+  limiteDisponivelMensal: number;
 }
 
 interface Adiantamento {
@@ -172,7 +173,7 @@ const ColaboradoraDashboard = () => {
       const { data: adiantamentosData } = await supabase
         .schema("sistemaretiradas")
         .from("adiantamentos")
-        .select("valor")
+        .select("valor, mes_competencia")
         .eq("colaboradora_id", profile.id)
         .in("status", ["APROVADO", "DESCONTADO"]);
 
@@ -199,11 +200,48 @@ const ColaboradoraDashboard = () => {
       const limiteDisponivel = limiteTotal - totalPendente;
       const limiteMensal = Number(profileData?.limite_mensal || 800);
 
-      setKpis({ totalPendente, proximasParcelas, totalPago, limiteTotal, limiteDisponivel, limiteMensal });
+      // Calculate current month usage (parcelas + adiantamentos)
+      const currentMonthStr = format(new Date(), 'yyyyMM');
+
+      const parcelasEsteMes = parcelas
+        ?.filter(p =>
+          p.competencia === currentMonthStr &&
+          p.status_parcela === 'PENDENTE'
+        )
+        .reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
+
+      const adiantamentosEsteMes = adiantamentosData
+        ?.filter(a => {
+          // Adiantamentos with mes_competencia matching current month
+          // Check both APROVADO and DESCONTADO as both count against monthly limit
+          return a.mes_competencia === currentMonthStr;
+        })
+        .reduce((sum, a) => sum + Number(a.valor), 0) || 0;
+
+      const usadoEsteMes = parcelasEsteMes + adiantamentosEsteMes;
+      const limiteDisponivelMensal = Math.max(0, limiteMensal - usadoEsteMes);
+
+      setKpis({
+        totalPendente,
+        proximasParcelas,
+        totalPago,
+        limiteTotal,
+        limiteDisponivel,
+        limiteMensal,
+        limiteDisponivelMensal
+      });
     } catch (error) {
       console.error("Error fetching user KPIs:", error);
       toast.error("Erro ao carregar seus dados");
-      setKpis({ totalPendente: 0, proximasParcelas: 0, totalPago: 0, limiteTotal: 1000, limiteDisponivel: 1000, limiteMensal: 800 });
+      setKpis({
+        totalPendente: 0,
+        proximasParcelas: 0,
+        totalPago: 0,
+        limiteTotal: 1000,
+        limiteDisponivel: 1000,
+        limiteMensal: 800,
+        limiteDisponivelMensal: 800
+      });
     }
   };
 
