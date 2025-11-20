@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, UserPlus, Trash2, Edit, Mail, Loader2 } from "lucide-react";
+import { ArrowLeft, UserPlus, Trash2, Edit, Mail, Loader2, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { normalizeCPF } from "@/lib/cpf";
@@ -231,6 +231,22 @@ const Colaboradores = () => {
     }
   };
 
+  const handleReactivate = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .schema("sistemaretiradas")
+        .from("profiles")
+        .update({ active: true })
+        .eq("id", id);
+
+      if (error) throw error;
+      toast.success("Colaboradora reativada com sucesso!");
+      fetchColaboradoras();
+    } catch (error: any) {
+      toast.error("Erro ao reativar colaboradora: " + error.message);
+    }
+  };
+
   if (loading || !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -314,7 +330,7 @@ const Colaboradores = () => {
                             >
                               <Mail className="h-4 w-4" />
                             </Button>
-                            {colab.active && (
+                            {colab.active ? (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -323,6 +339,16 @@ const Colaboradores = () => {
                                 title="Desativar"
                               >
                                 <Trash2 className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleReactivate(colab.id)}
+                                className="hover:bg-success/10 text-success"
+                                title="Reativar"
+                              >
+                                <UserCheck className="h-4 w-4" />
                               </Button>
                             )}
                           </div>
