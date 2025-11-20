@@ -87,6 +87,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (!data) {
         console.error("[AuthContext] No profile found for email:", userEmail);
+        console.log("[AuthContext] Auto-signing out to clear broken session...");
+
+        // Auto sign out if profile not found (broken session)
+        await supabase.auth.signOut();
+
         throw new Error("Profile not found for email: " + userEmail);
       }
 
