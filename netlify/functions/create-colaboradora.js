@@ -60,16 +60,19 @@ exports.handler = async (event, context) => {
       user_metadata: { name, role: 'COLABORADORA' },
     });
 
+    // CRITICAL: Stop immediately if auth creation failed
     if (authError) {
-      console.error('[create-colaboradora] Auth error:', authError);
-      throw new Error(authError.message || 'Erro ao criar usuário');
+      console.error('[create-colaboradora] Auth creation FAILED:', authError);
+      throw new Error('Erro ao criar usuário: ' + (authError.message || String(authError)));
     }
 
-    if (!userData?.user) {
-      throw new Error('Falha ao criar usuário - sem dados retornados');
+    if (!userData || !userData.user || !userData.user.id) {
+      console.error('[create-colaboradora] Auth user created but missing data!', userData);
+      throw new Error('Erro ao criar usuário - dados incompletos retornados');
     }
 
-    console.log('[create-colaboradora] User created:', userData.user.id);
+    console.log('[create-colaboradora] ✅ Auth.user created successfully:', userData.user.id);
+    console.log('[create-colaboradora] Email:', userData.user.email);
 
     // STEP 3: Wait for auth propagation
     await new Promise(resolve => setTimeout(resolve, 500));
