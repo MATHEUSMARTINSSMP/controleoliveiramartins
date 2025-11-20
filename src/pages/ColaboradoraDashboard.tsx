@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import {
   DollarSign,
   Calendar,
+  CalendarClock,
   CheckCircle,
   LogOut,
   ShoppingBag,
@@ -26,6 +27,14 @@ import {
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { format } from "date-fns";
+import {
+  type PeriodFilter,
+  type MonthlyBreakdown,
+  getMonthsInPeriod,
+  aggregateMonthlyData,
+  getStatusBadgeVariant,
+  getStatusLabel
+} from "@/lib/monthlyCalendar";
 
 interface UserKPIs {
   totalPendente: number;
@@ -100,6 +109,13 @@ const ColaboradoraDashboard = () => {
     status: "TODOS",
     mesCompetencia: "TODOS"
   });
+
+  // Monthly calendar state
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>({ type: 'ultimos-3' });
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+  const [monthlyBreakdown, setMonthlyBreakdown] = useState<MonthlyBreakdown[]>([]);
+  const [expandedMonthRow, setExpandedMonthRow] = useState<string | null>(null);
 
   // Password dialog
   const [passwordDialog, setPasswordDialog] = useState(false);
@@ -837,6 +853,108 @@ const ColaboradoraDashboard = () => {
 
           {/* ABA RESUMO */}
           <TabsContent value="resumo">
+            {/* RESUMO DO MÊS VIGENTE - DESTAQUE */}
+            <Card className="mb-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <CalendarClock className="h-6 w-6 text-primary" />
+                  Resumo do Mês ({format(new Date(), 'MMMM yyyy', { locale: { localize: { month: (n: number) => ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][n] } } })})
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">Descontos previstos para este mês</p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* Parcelas do Mês */}
+                  <div className="bg-background/60 p-4 rounded-lg border">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Parcelas de Compras</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {(() => {
+                            const thisMonth = format(new Date(), 'yyyyMM');
+                            const count = parcelas.filter(p => p.competencia === thisMonth && p.status_parcela === 'PENDENTE').length;
+                            return `${count} ${count === 1 ? 'parcela' : 'parcelas'}`;
+                          })()}
+                        </p>
+                      </div>
+                      <ShoppingBag className="h-5 w-5 text-primary/60" />
+                    </div>
+                    <p className="text-2xl font-bold text-primary">
+                      {formatCurrency((() => {
+                        const thisMonth = format(new Date(), 'yyyyMM');
+                        return parcelas
+                          .filter(p => p.competencia === thisMonth && p.status_parcela === 'PENDENTE')
+                          .reduce((sum, p) => sum + parseFloat(p.valor_parcela || '0'), 0);
+                      })())}
+                    </p>
+                  </div>
+
+                  {/* Adiantamentos do Mês */}
+                  <div className="bg-background/60 p-4 rounded-lg border">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Adiantamentos</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {(() => {
+                            const thisMonth = format(new Date(), 'yyyyMM');
+                            const count = adiantamentos.filter(a => a.mes_competencia === thisMonth && a.status === 'APROVADO').length;
+                            return `${count} ${count === 1 ? 'adiantamento' : 'adiantamentos'}`;
+                          })()}
+                        </p>
+                      </div>
+                      <DollarSign className="h-5 w-5 text-primary/60" />
+                    </div>
+                    <p className="text-2xl font-bold text-primary">
+                      {formatCurrency((() => {
+                        const thisMonth = format(new Date(), 'yyyyMM');
+                        return adiantamentos
+                          .filter(a => a.mes_competencia === thisMonth && a.status === 'APROVADO')
+                          .reduce((sum, a) => sum + parseFloat(a.valor || '0'), 0);
+                      })())}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Total do Mês */}
+                <div className="mt-4 pt-4 border-t border-primary/20">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Total a Descontar</p>
+                      <p className="text-xs text-muted-foreground mt-1">Soma de parcelas + adiantamentos</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-3xl font-bold text-primary">
+                        {formatCurrency((() => {
+                          const thisMonth = format(new Date(), 'yyyyMM');
+                          const parcelasSum = parcelas
+                            .filter(p => p.competencia === thisMonth && p.status_parcela === 'PENDENTE')
+                            .reduce((sum, p) => sum + parseFloat(p.valor_parcela || '0'), 0);
+                          const adiantamentosSum = adiantamentos
+                            .filter(a => a.mes_competencia === thisMonth && a.status === 'APROVADO')
+                            .reduce((sum, a) => sum + parseFloat(a.valor || '0'), 0);
+                          return parcelasSum + adiantamentosSum;
+                        })())}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {(() => {
+                          const thisMonth = format(new Date(), 'yyyyMM');
+                          const parcelasSum = parcelas
+                            .filter(p => p.competencia === thisMonth && p.status_parcela === 'PENDENTE')
+                            .reduce((sum, p) => sum + parseFloat(p.valor_parcela || '0'), 0);
+                          const adiantamentosSum = adiantamentos
+                            .filter(a => a.mes_competencia === thisMonth && a.status === 'APROVADO')
+                            .reduce((sum, a) => sum + parseFloat(a.valor || '0'), 0);
+                          const total = parcelasSum + adiantamentosSum;
+                          const percentOfLimit = kpis ? (total / kpis.limiteMensal) * 100 : 0;
+                          return `${percentOfLimit.toFixed(1)}% do limite mensal`;
+                        })()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Resumo Financeiro</CardTitle>
