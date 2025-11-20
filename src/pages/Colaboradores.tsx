@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, UserPlus, Trash2, Edit, Mail } from "lucide-react";
+import { ArrowLeft, UserPlus, Trash2, Edit, Mail, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { normalizeCPF } from "@/lib/cpf";
@@ -46,6 +46,7 @@ const Colaboradores = () => {
   const [colaboradoras, setColaboradoras] = useState<Colaboradora[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Loading state for submit button
   const [deleteDialog, setDeleteDialog] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -118,6 +119,7 @@ const Colaboradores = () => {
   };
 
   const handleSubmit = async () => {
+    setIsSubmitting(true); // Start loading
     try {
       if (editMode && selectedId) {
         // Update existing colaboradora
@@ -172,6 +174,8 @@ const Colaboradores = () => {
       fetchColaboradoras();
     } catch (error: any) {
       toast.error("Erro: " + error.message);
+    } finally {
+      setIsSubmitting(false); // Reset submitting in finally block
     }
   };
 
@@ -415,11 +419,18 @@ const Colaboradores = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isSubmitting}>
               Cancelar
             </Button>
-            <Button onClick={handleSubmit}>
-              {editMode ? "Atualizar" : "Criar"}
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Criando...
+                </>
+              ) : (
+                editMode ? "Atualizar" : "Criar"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

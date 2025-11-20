@@ -32,7 +32,32 @@ exports.handler = async (event, context) => {
 
     console.log('[create-colaboradora] Creating user:', email);
 
-    // Step 1: Create auth.user
+    // Step 1: Check if auth.user already exists for this email
+    const { data: existingAuthUsers } = await supabaseAdmin.auth.admin.listUsers();
+    const existingUser = existingAuthUsers?.users?.find(u => u.email === email);
+
+    if (existingUser) {
+      console.log('[create-colaboradora] Found existing auth.user:', existingUser.id);
+
+      // Check if profile exists
+      const { data: existingProfile } = await supabaseAdmin
+        .schema('sistemaretiradas')
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (!existingProfile) {
+        // Orphaned auth.user without profile - delete it and create fresh
+        console.log('[create-colaboradora] Deleting orphaned auth.user without profile');
+        await supabaseAdmin.auth.admin.deleteUser(existingUser.id);
+      } else {
+        // Profile exists - this is a real duplicate
+        throw new Error('Já existe uma colaboradora com este email');
+      }
+    }
+
+    // Step 2: Create auth.user
     const { data: userData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -50,10 +75,10 @@ exports.handler = async (event, context) => {
 
     console.log('[create-colaboradora] User created with ID:', userData.user.id);
 
-    // Step 2: Wait a moment for auth user to be fully persisted
+    // Step 3: Wait a moment for auth user to be fully persisted
     await new Promise(resolve => setTimeout(resolve, 300));
 
-    // Step 3: Create or update profile with CORRECT ID
+    // Step 4: Create profile with CORRECT ID
     const profileData = {
       id: userData.user.id, // CRITICAL: Must match auth.user.id
       name,
@@ -73,7 +98,7 @@ exports.handler = async (event, context) => {
       .schema('sistemaretiradas')
       .from('profiles')
       .upsert(profileData, {
-        onConflict: 'id', // If ID exists, update
+        onConflict: 'id',
         ignoreDuplicates: false
       });
 
@@ -84,7 +109,7 @@ exports.handler = async (event, context) => {
 
     console.log('[create-colaboradora] Profile created successfully');
 
-    // Step 4: Send welcome email
+    // Step 5: Send welcome email
     try {
       const netlifyUrl =
         process.env.NETLIFY_URL ||
@@ -127,7 +152,7 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: String(error) }),
+      body: JSON.stringify({ error: String(error.message || error) }),
     };
   }
 };
