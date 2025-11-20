@@ -17,83 +17,135 @@ exports.handler = async (event, context) => {
       { db: { schema: 'sistemaretiradas' } }
     );
 
-    const { email, password, name, cpf, limite_total, limite_mensal } = JSON.parse(event.body || '{}');
+    // Extract data from request body
+    const { email, password, name, cpf, limite_total, limite_mensal, store_default } = JSON.parse(event.body);
 
-    console.log('[create-colaboradora] Starting for:', email);
+    console.log('[create-colaboradora] Received request:', { email, name, cpf, store_default });
 
-    // STEP 1: Check if user already exists BEFORE trying to create
-    console.log('[create-colaboradora] Checking existing users...');
-    const { data: allUsersData } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = allUsersData?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
-
-    if (existingUser) {
-      console.log('[create-colaboradora] User exists:', existingUser.id);
-
-      // Check if profile exists
-      const { data: profile } = await supabaseAdmin
-        .schema('sistemaretiradas')
-        .from('profiles')
-        .select('id')
-        .eq('id', existingUser.id)
-        .maybeSingle();
-
-      if (profile) {
-        console.log('[create-colaboradora] Profile exists - duplicate!');
-        throw new Error('Já existe uma colaboradora com este email');
-      }
-
-      // ORPHANED USER - Delete it
-      console.log('[create-colaboradora] ORPHANED user detected! Deleting...');
-      await supabaseAdmin.auth.admin.deleteUser(existingUser.id);
-
-      // Wait longer for deletion to propagate
-      console.log('[create-colaboradora] Waiting for deletion to propagate...');
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    // Validate required fields
+    if (!email || !password || !name || !cpf || !limite_total || !limite_mensal || !store_default) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'Missing required fields: email, password, name, cpf, limite_total, limite_mensal, store_default'
+        }),
+      };
     }
 
-    // STEP 2: Create auth.user
-    console.log('[create-colaboradora] Creating auth.user...');
+    // STEP 1: Try to create auth.user first
+    console.log('[create-colaboradora] Step 1: Creating auth.user...');
+
     const { data: userData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { name, role: 'COLABORADORA' },
+      email: email.toLowerCase(), // Always lowercase for consistency
+      password: password,
+      email_confirm: true,  // Auto-confirm email
+      user_metadata: {
+        name: name,
+        cpf: cpf,
+      },
     });
 
-    // CRITICAL: Stop immediately if auth creation failed
-    if (authError) {
-      console.error('[create-colaboradora] Auth creation FAILED:', authError);
-      throw new Error('Erro ao criar usuário: ' + (authError.message || String(authError)));
+    // CRITICAL: Strict validation - if createUser fails or returns incomplete data, stop immediately
+    if (authError || !userData || !userData.user || !userData.user.id) {
+      console.error('[create-colaboradora] ❌ FAILED to create auth.user:', authError);
+
+      // If user already exists, check if it's an orphan
+      if (authError && authError.message && authError.message.includes('already registered')) {
+        console.log('[create-colaboradora] User already registered. Checking for orphaned auth.user...');
+
+        // Check if this is an orphaned auth.user (no matching profile)
+        const { data: existingProfile, error: checkError } = await supabaseAdmin
+          .schema('sistemaretiradas')
+          .from('profiles')
+          .select('id')
+          .eq('email', email.toLowerCase())
+          .maybeSingle();
+
+        if (checkError) {
+          console.error('[create-colaboradora] Error checking for existing profile:', checkError);
+          throw new Error('Error checking existing user: ' + checkError.message);
+        }
+
+        if (!existingProfile) {
+          console.log('[create-colaboradora] Found orphaned auth.user (no profile). Attempting cleanup...');
+
+          // Get the orphaned user ID
+          const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+          if (listError) {
+            throw new Error('Error listing users: ' + listError.message);
+          }
+
+          const orphanedUser = users.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+
+          if (orphanedUser) {
+            console.log('[create-colaboradora] Deleting orphaned auth.user:', orphanedUser.id);
+            const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(orphanedUser.id);
+
+            if (deleteError) {
+              throw new Error('Error deleting orphaned user: ' + deleteError.message);
+            }
+
+            console.log('[create-colaboradora] Orphaned user deleted. Waiting 1s for propagation...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Retry creating the user
+            console.log('[create-colaboradora] Retrying auth.user creation after cleanup...');
+            const { data: retryUserData, error: retryAuthError } = await supabaseAdmin.auth.admin.createUser({
+              email: email.toLowerCase(),
+              password: password,
+              email_confirm: true,
+              user_metadata: {
+                name: name,
+                cpf: cpf,
+              },
+            });
+
+            if (retryAuthError || !retryUserData || !retryUserData.user || !retryUserData.user.id) {
+              console.error('[create-colaboradora] ❌ Retry FAILED:', retryAuthError);
+              throw new Error('Failed to create auth.user after cleanup: ' + (retryAuthError?.message || 'Unknown error'));
+            }
+
+            // Use retry data
+            userData.user = retryUserData.user;
+            console.log('[create-colaboradora] ✅ Retry SUCCESS! auth.user created:', userData.user.id);
+          } else {
+            throw new Error('User already registered but could not find orphaned auth.user');
+          }
+        } else {
+          throw new Error('User already registered with a valid profile');
+        }
+      } else {
+        throw new Error('Failed to create auth.user: ' + (authError?.message || 'Unknown error'));
+      }
+    } else {
+      console.log('[create-colaboradora] ✅ Step 1 SUCCESS: auth.user created with ID:', userData.user.id);
     }
 
-    if (!userData || !userData.user || !userData.user.id) {
-      console.error('[create-colaboradora] Auth user created but missing data!', userData);
-      throw new Error('Erro ao criar usuário - dados incompletos retornados');
-    }
-
-    console.log('[create-colaboradora] ✅ Auth.user created successfully:', userData.user.id);
-    console.log('[create-colaboradora] Email:', userData.user.email);
-
-    // STEP 3: Wait for auth propagation
+    // Wait 500ms to ensure auth.user is fully persisted in Supabase
+    console.log('[create-colaboradora] Waiting 500ms for auth.user persistence...');
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // STEP 4: Create profile
-    console.log('[create-colaboradora] Creating profile...');
-    const { error: profileError } = await supabaseAdmin
+    // STEP 2: Create/update profile with EXACT same ID
+    console.log('[create-colaboradora] Step 2: Creating profile with ID:', userData.user.id);
+
+    const { data: profileData, error: profileError } = await supabaseAdmin
       .schema('sistemaretiradas')
       .from('profiles')
       .upsert({
-        id: userData.user.id,
-        name,
-        email,
-        cpf,
-        role: 'COLABORADORA',
+        id: userData.user.id,  // CRITICAL: Must match auth.user.id
+        email: email.toLowerCase(),
+        name: name,
+        cpf: cpf,
         limite_total: parseFloat(limite_total),
         limite_mensal: parseFloat(limite_mensal),
+        store_default: store_default,
+        role: 'COLABORADORA',
         active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'id' });
+      }, {
+        onConflict: 'id',  // Use ID as conflict key
+      })
+      .select()
+      .single();
 
     if (profileError) {
       console.error('[create-colaboradora] Profile error:', profileError);

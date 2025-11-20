@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, UserPlus, Trash2, Edit, Mail, Loader2, UserCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -38,6 +39,7 @@ interface Colaboradora {
   limite_total: number;
   limite_mensal: number;
   active: boolean;
+  store_default: string | null;
 }
 
 const Colaboradores = () => {
@@ -57,6 +59,7 @@ const Colaboradores = () => {
     password: "",
     limite_total: "1000.00",
     limite_mensal: "800.00",
+    store: "",
   });
 
   useEffect(() => {
@@ -102,6 +105,7 @@ const Colaboradores = () => {
         password: "",
         limite_total: colaboradora.limite_total.toString(),
         limite_mensal: colaboradora.limite_mensal.toString(),
+        store: colaboradora.store_default || "",
       });
     } else {
       setEditMode(false);
@@ -113,6 +117,7 @@ const Colaboradores = () => {
         password: "",
         limite_total: "1000.00",
         limite_mensal: "800.00",
+        store: "",
       });
     }
     setDialogOpen(true);
@@ -128,6 +133,7 @@ const Colaboradores = () => {
           email: formData.email,
           limite_total: parseFloat(formData.limite_total),
           limite_mensal: parseFloat(formData.limite_mensal),
+          store_default: formData.store,
         };
 
         const { error } = await supabase
@@ -140,7 +146,7 @@ const Colaboradores = () => {
         toast.success("Colaboradora atualizada com sucesso!");
       } else {
         // Validate required fields
-        if (!formData.name || !formData.cpf || !formData.email || !formData.password) {
+        if (!formData.name || !formData.cpf || !formData.email || !formData.password || !formData.store) {
           toast.error("Todos os campos obrigatórios devem ser preenchidos");
           return;
         }
@@ -158,6 +164,7 @@ const Colaboradores = () => {
             cpf: normalizeCPF(formData.cpf),  // Normalize CPF before sending
             limite_total: formData.limite_total,
             limite_mensal: formData.limite_mensal,
+            store_default: formData.store,
           }),
         });
 
@@ -288,6 +295,7 @@ const Colaboradores = () => {
                       <TableHead className="font-semibold">Nome</TableHead>
                       <TableHead className="font-semibold">CPF</TableHead>
                       <TableHead className="font-semibold">Email</TableHead>
+                      <TableHead className="font-semibold">Loja</TableHead>
                       <TableHead className="font-semibold">Limite Total</TableHead>
                       <TableHead className="font-semibold">Limite Mensal</TableHead>
                       <TableHead className="font-semibold">Status</TableHead>
@@ -300,6 +308,11 @@ const Colaboradores = () => {
                         <TableCell className="font-medium">{colab.name}</TableCell>
                         <TableCell>{colab.cpf || "Não informado"}</TableCell>
                         <TableCell>{colab.email}</TableCell>
+                        <TableCell>
+                          <span className="text-xs font-medium px-2 py-1 bg-primary/10 rounded-full">
+                            {colab.store_default || "-"}
+                          </span>
+                        </TableCell>
                         <TableCell>{formatCurrency(colab.limite_total)}</TableCell>
                         <TableCell>{formatCurrency(colab.limite_mensal)}</TableCell>
                         <TableCell>
@@ -396,6 +409,22 @@ const Colaboradores = () => {
                 disabled={editMode}
                 required
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="store">Loja *</Label>
+              <Select
+                value={formData.store}
+                onValueChange={(value) => setFormData({ ...formData, store: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a loja" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Mr. Kitsch">Mr. Kitsch</SelectItem>
+                  <SelectItem value="Loungerie">Loungerie</SelectItem>
+                  <SelectItem value="Sacada Oh,Boy!">Sacada Oh,Boy!</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email *</Label>
