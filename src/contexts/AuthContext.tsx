@@ -70,15 +70,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error("No email found");
       }
 
-      console.log("[AuthContext] Searching profile by email:", userEmail);
+      console.log("[AuthContext] Searching for profile with email (case-insensitive):", userEmail);
 
-      // SIMPLIFIED: Search ONLY by email
       const { data, error } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
         .select("*")
-        .eq("email", userEmail)
-        .maybeSingle(); // Use maybeSingle instead of single to avoid error if not found
+        .ilike("email", userEmail) // Case-insensitive search
+        .maybeSingle();
 
       if (error) {
         console.error("[AuthContext] Error fetching profile by email:", error);
@@ -86,32 +85,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (!data) {
-        console.error("[AuthContext] No profile found for email:", userEmail);
-        console.error("[AuthContext] This should not happen - profile must exist in database");
+        console.error("[AuthContext] ❌ NO PROFILE FOUND for email:", userEmail);
+        console.error("[AuthContext] This means the profile doesn't exist or email doesn't match");
         throw new Error("Profile not found for email: " + userEmail);
       }
 
-      console.log("[AuthContext] Profile found by email:", data);
+      console.log("[AuthContext] ✅ PROFILE FOUND!");
+      console.log("[AuthContext] Profile ID:", data.id);
+      console.log("[AuthContext] Auth User ID:", userId);
+      console.log("[AuthContext] IDs match:", data.id === userId);
       console.log("[AuthContext] User role:", data.role);
 
-      // Update profile ID to match auth user ID if different
+      // Critical: Profile ID MUST match auth user ID for RLS
       if (data.id !== userId) {
-        console.log("[AuthContext] ID mismatch! Updating profile ID from", data.id, "to", userId);
-
-        const { error: updateError } = await supabase
-          .schema("sistemaretiradas")
-          .from("profiles")
-          .update({ id: userId })
-          .eq("email", userEmail);
-
-        if (updateError) {
-          console.error("[AuthContext] Failed to update ID:", updateError);
-        } else {
-          console.log("[AuthContext] ID updated successfully");
-          data.id = userId;
-        }
+        console.error("[AuthContext] ❌ CRITICAL: ID MISMATCH!");
+        console.error("[AuthContext] Profile ID:", data.id);
+        console.error("[AuthContext] Auth User ID:", userId);
+        console.error("[AuthContext] This will cause RLS to block access!");
+        throw new Error("Profile ID mismatch - contact admin");
       }
 
+      console.log("[AuthContext] Setting profile state...");
       setProfile(data);
     } catch (error) {
       console.error("[AuthContext] Error in fetchProfile:", error);
