@@ -30,6 +30,10 @@ const Auth = () => {
         });
         if (error) throw error;
         toast.success("Login realizado com sucesso!");
+
+        // Wait for AuthContext to process the session and fetch profile
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         navigate("/"); // Redirect to Index which will handle profile-based routing
       } else {
         const { error } = await supabase.auth.signUp({
