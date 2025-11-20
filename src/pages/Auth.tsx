@@ -18,6 +18,15 @@ const Auth = () => {
   });
   const navigate = useNavigate();
 
+  // Clear any existing session when Auth page loads
+  useEffect(() => {
+    const clearSession = async () => {
+      await supabase.auth.signOut();
+      console.log("[Auth] Cleared any existing session");
+    };
+    clearSession();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
