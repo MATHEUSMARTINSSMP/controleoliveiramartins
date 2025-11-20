@@ -65,90 +65,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data: { user } } = await supabase.auth.getUser();
       const userEmail = user?.email;
 
-      console.log("[AuthContext] User email:", userEmail);
+      if (!userEmail) {
+        console.error("[AuthContext] No email found for user");
+        throw new Error("No email found");
+      }
 
-      // First try to find by ID
-      let { data, error } = await supabase
+      console.log("[AuthContext] Searching profile by email:", userEmail);
+
+      // SIMPLIFIED: Search ONLY by email
+      const { data, error } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
         .select("*")
-        .eq("id", userId)
-        .single();
+        .eq("email", userEmail)
+        .maybeSingle(); // Use maybeSingle instead of single to avoid error if not found
 
-      // If not found by ID, try by email
-      if (error && error.code === 'PGRST116' && userEmail) {
-        console.log("[AuthContext] Profile not found by ID, trying by email...");
-
-        const { data: profileByEmail, error: emailError } = await supabase
-          .schema("sistemaretiradas")
-          .from("profiles")
-          .select("*")
-          .eq("email", userEmail)
-          .single();
-
-        if (!emailError && profileByEmail) {
-          console.log("[AuthContext] Profile found by email! Updating ID to match auth.user.id");
-
-          // Update profile ID to match auth user ID and normalize CPF
-          const { error: updateError } = await supabase
-            .schema("sistemaretiradas")
-            .from("profiles")
-            .update({
-              id: userId,
-              cpf: normalizeCPF(profileByEmail.cpf || "")
-            })
-            .eq("email", userEmail);
-
-          if (updateError) {
-            console.error("[AuthContext] Error updating profile ID:", updateError);
-          } else {
-            console.log("[AuthContext] Profile ID updated successfully");
-            data = { ...profileByEmail, id: userId, cpf: normalizeCPF(profileByEmail.cpf || "") };
-          }
-        } else {
-          // Last attempt: try to find by user metadata (if CPF was stored there)
-          const userCPF = user?.user_metadata?.cpf;
-          if (userCPF) {
-            console.log("[AuthContext] Email not found, trying by CPF from metadata...");
-
-            const normalizedCPF = normalizeCPF(userCPF);
-            const { data: profileByCPF, error: cpfError } = await supabase
-              .schema("sistemaretiradas")
-              .from("profiles")
-              .select("*")
-              .eq("cpf", normalizedCPF)
-              .single();
-
-            if (!cpfError && profileByCPF) {
-              console.log("[AuthContext] Profile found by CPF! Updating ID and email");
-
-              // Update profile to match auth user
-              const { error: updateError } = await supabase
-                .schema("sistemaretiradas")
-                .from("profiles")
-                .update({ id: userId, email: userEmail })
-                .eq("cpf", normalizedCPF);
-
-              if (updateError) {
-                console.error("[AuthContext] Error updating profile:", updateError);
-              } else {
-                console.log("[AuthContext] Profile updated successfully");
-                data = { ...profileByCPF, id: userId, email: userEmail };
-              }
-            } else {
-              throw new Error("Profile not found by ID, email or CPF");
-            }
-          } else {
-            throw new Error("Profile not found by ID or email");
-          }
-        }
-      } else if (error) {
-        console.error("[AuthContext] Error fetching profile:", error);
+      if (error) {
+        console.error("[AuthContext] Error fetching profile by email:", error);
         throw error;
       }
 
-      console.log("[AuthContext] Profile loaded successfully:", data);
-      console.log("[AuthContext] User role:", data?.role);
+      if (!data) {
+        console.error("[AuthContext] No profile found for email:", userEmail);
+        throw new Error("Profile not found for email: " + userEmail);
+      }
+
+      console.log("[AuthContext] Profile found by email:", data);
+      console.log("[AuthContext] User role:", data.role);
+
+      // Update profile ID to match auth user ID if different
+      if (data.id !== userId) {
+        console.log("[AuthContext] ID mismatch! Updating profile ID from", data.id, "to", userId);
+
+        const { error: updateError } = await supabase
+          .schema("sistemaretiradas")
+          .from("profiles")
+          .update({ id: userId })
+          .eq("email", userEmail);
+
+        if (updateError) {
+          console.error("[AuthContext] Failed to update ID:", updateError);
+        } else {
+          console.log("[AuthContext] ID updated successfully");
+          data.id = userId;
+        }
+      }
+
       setProfile(data);
     } catch (error) {
       console.error("[AuthContext] Error in fetchProfile:", error);
