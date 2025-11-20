@@ -146,7 +146,7 @@ const Colaboradores = () => {
         toast.success("Colaboradora atualizada com sucesso!");
       } else {
         // Validate required fields
-        if (!formData.name || !formData.cpf || !formData.email || !formData.password) {
+        if (!formData.name || !formData.cpf || !formData.email || !formData.password || !formData.store) {
           toast.error("Todos os campos obrigatórios devem ser preenchidos");
           return;
         }
