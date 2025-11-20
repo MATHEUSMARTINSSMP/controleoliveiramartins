@@ -462,12 +462,12 @@ const ColaboradoraDashboard = () => {
           />
         </div>
 
-        <Tabs defaultValue="compras" className="space-y-4">
+        <Tabs defaultValue="resumo" className="space-y-4">
           <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="resumo">Resumo</TabsTrigger>
             <TabsTrigger value="compras">Compras</TabsTrigger>
             <TabsTrigger value="parcelas">Parcelas</TabsTrigger>
             <TabsTrigger value="adiantamentos">Adiantamentos</TabsTrigger>
-            <TabsTrigger value="resumo">Resumo</TabsTrigger>
           </TabsList>
 
           {/* ABA COMPRAS */}
