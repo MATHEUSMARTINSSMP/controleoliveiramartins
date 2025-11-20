@@ -30,35 +30,13 @@ exports.handler = async (event, context) => {
       event.body || '{}'
     );
 
-    console.log('[create-colaboradora] Creating user:', email);
+    console.log('[create-colaboradora] Starting creation for:', email);
 
-    // Step 1: Check if auth.user already exists for this email
-    const { data: existingAuthUsers } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = existingAuthUsers?.users?.find(u => u.email === email);
+    // Step 1: Try to create user first
+    let userData;
+    let authError;
 
-    if (existingUser) {
-      console.log('[create-colaboradora] Found existing auth.user:', existingUser.id);
-
-      // Check if profile exists
-      const { data: existingProfile } = await supabaseAdmin
-        .schema('sistemaretiradas')
-        .from('profiles')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle();
-
-      if (!existingProfile) {
-        // Orphaned auth.user without profile - delete it and create fresh
-        console.log('[create-colaboradora] Deleting orphaned auth.user without profile');
-        await supabaseAdmin.auth.admin.deleteUser(existingUser.id);
-      } else {
-        // Profile exists - this is a real duplicate
-        throw new Error('Já existe uma colaboradora com este email');
-      }
-    }
-
-    // Step 2: Create auth.user
-    const { data: userData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    const createResult = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
@@ -68,14 +46,79 @@ exports.handler = async (event, context) => {
       },
     });
 
+    userData = createResult.data;
+    authError = createResult.error;
+
+    // Step 2: If user already exists, check if it's orphaned
+    if (authError && authError.message && authError.message.includes('already been registered')) {
+      console.log('[create-colaboradora] User exists, checking if orphaned...');
+
+      // Get existing user by email using SQL query
+      const { data: existingAuthUser, error: queryError } = await supabaseAdmin
+        .from('auth.users')
+        .select('id, email')
+        .eq('email', email)
+        .single();
+
+      if (queryError) {
+        console.error('[create-colaboradora] Error querying auth.users:', queryError);
+
+        // Alternative: try to get all users and filter (less efficient but works)
+        const { data: allUsers } = await supabaseAdmin.auth.admin.listUsers();
+        const foundUser = allUsers?.users?.find(u => u.email === email);
+
+        if (foundUser) {
+          console.log('[create-colaboradora] Found user via listUsers:', foundUser.id);
+
+          // Check if has profile
+          const { data: profile } = await supabaseAdmin
+            .schema('sistemaretiradas')
+            .from('profiles')
+            .select('id')
+            .eq('id', foundUser.id)
+            .maybeSingle();
+
+          if (!profile) {
+            console.log('[create-colaboradora] Orphaned user detected! Deleting:', foundUser.id);
+            await supabaseAdmin.auth.admin.deleteUser(foundUser.id);
+
+            // Wait a bit for deletion to propagate
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Retry creation
+            const retryResult = await supabaseAdmin.auth.admin.createUser({
+              email,
+              password,
+              email_confirm: true,
+              user_metadata: {
+                name,
+                role: 'COLABORADORA',
+              },
+            });
+
+            userData = retryResult.data;
+            authError = retryResult.error;
+          } else {
+            throw new Error('Já existe uma colaboradora ativa com este email');
+          }
+        } else {
+          throw new Error('Erro ao verificar usuário existente');
+        }
+      }
+    }
+
     if (authError) {
       console.error('[create-colaboradora] Auth error:', authError);
       throw authError;
     }
 
+    if (!userData || !userData.user) {
+      throw new Error('Falha ao criar usuário');
+    }
+
     console.log('[create-colaboradora] User created with ID:', userData.user.id);
 
-    // Step 3: Wait a moment for auth user to be fully persisted
+    // Step 3: Wait for auth user to be fully persisted
     await new Promise(resolve => setTimeout(resolve, 300));
 
     // Step 4: Create profile with CORRECT ID
@@ -131,11 +174,10 @@ exports.handler = async (event, context) => {
       if (!emailResponse.ok) {
         console.error('[create-colaboradora] Email failed:', await emailResponse.text());
       } else {
-        console.log('[create-colaboradora] Welcome email sent successfully');
+        console.log('[create-colaboradora] Welcome email sent');
       }
     } catch (emailError) {
       console.error('[create-colaboradora] Email error:', emailError);
-      // Don't throw - email failure shouldn't fail the whole operation
     }
 
     return {
@@ -144,15 +186,17 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         success: true,
         user: userData.user,
-        message: 'Colaboradora created successfully'
+        message: 'Colaboradora criada com sucesso'
       }),
     };
   } catch (error) {
-    console.error('[create-colaboradora] Error:', error);
+    console.error('[create-colaboradora] Final error:', error);
     return {
       statusCode: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: String(error.message || error) }),
+      body: JSON.stringify({
+        error: error.message || String(error)
+      }),
     };
   }
 };
