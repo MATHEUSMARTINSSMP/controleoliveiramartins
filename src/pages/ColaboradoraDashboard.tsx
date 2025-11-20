@@ -897,7 +897,7 @@ const ColaboradoraDashboard = () => {
                         <p className="text-xs text-muted-foreground mt-1">
                           {(() => {
                             const thisMonth = format(new Date(), 'yyyyMM');
-                            const count = adiantamentos.filter(a => a.mes_competencia === thisMonth && a.status === 'APROVADO').length;
+                            const count = adiantamentos.filter(a => a.mes_competencia === thisMonth && ['APROVADO', 'DESCONTADO'].includes(a.status)).length;
                             return `${count} ${count === 1 ? 'adiantamento' : 'adiantamentos'}`;
                           })()}
                         </p>
@@ -908,7 +908,7 @@ const ColaboradoraDashboard = () => {
                       {formatCurrency((() => {
                         const thisMonth = format(new Date(), 'yyyyMM');
                         return adiantamentos
-                          .filter(a => a.mes_competencia === thisMonth && a.status === 'APROVADO')
+                          .filter(a => a.mes_competencia === thisMonth && ['APROVADO', 'DESCONTADO'].includes(a.status))
                           .reduce((sum, a) => sum + parseFloat(a.valor || '0'), 0);
                       })())}
                     </p>
@@ -930,7 +930,7 @@ const ColaboradoraDashboard = () => {
                             .filter(p => p.competencia === thisMonth && p.status_parcela === 'PENDENTE')
                             .reduce((sum, p) => sum + parseFloat(p.valor_parcela || '0'), 0);
                           const adiantamentosSum = adiantamentos
-                            .filter(a => a.mes_competencia === thisMonth && a.status === 'APROVADO')
+                            .filter(a => a.mes_competencia === thisMonth && ['APROVADO', 'DESCONTADO'].includes(a.status))
                             .reduce((sum, a) => sum + parseFloat(a.valor || '0'), 0);
                           return parcelasSum + adiantamentosSum;
                         })())}
@@ -942,7 +942,7 @@ const ColaboradoraDashboard = () => {
                             .filter(p => p.competencia === thisMonth && p.status_parcela === 'PENDENTE')
                             .reduce((sum, p) => sum + parseFloat(p.valor_parcela || '0'), 0);
                           const adiantamentosSum = adiantamentos
-                            .filter(a => a.mes_competencia === thisMonth && a.status === 'APROVADO')
+                            .filter(a => a.mes_competencia === thisMonth && ['APROVADO', 'DESCONTADO'].includes(a.status))
                             .reduce((sum, a) => sum + parseFloat(a.valor || '0'), 0);
                           const total = parcelasSum + adiantamentosSum;
                           const percentOfLimit = kpis ? (total / kpis.limiteMensal) * 100 : 0;
