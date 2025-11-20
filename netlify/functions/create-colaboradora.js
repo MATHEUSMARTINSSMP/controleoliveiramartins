@@ -30,7 +30,9 @@ exports.handler = async (event, context) => {
       event.body || '{}'
     );
 
-    // Create user with admin client
+    console.log('[create-colaboradora] Creating user:', email);
+
+    // Step 1: Create auth.user
     const { data: userData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -39,44 +41,93 @@ exports.handler = async (event, context) => {
         name,
         role: 'COLABORADORA',
       },
-      name: name,
-      cpf: cpf
-    }
     });
 
-  process.env.DEPLOY_PRIME_URL ||
-    'https://controleinterno.netlify.app';
-  const emailResponse = await fetch(`${netlifyUrl}/.netlify/functions/send-welcome-email`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      email,
-      name,
-      password,
-    }),
-  });
-  if (!emailResponse.ok) {
-    console.error('Email sending failed:', await emailResponse.text());
-  }
-} catch (emailError) {
-  console.error('Error sending email:', emailError);
-}
+    if (authError) {
+      console.error('[create-colaboradora] Auth error:', authError);
+      throw authError;
     }
 
-return {
-  statusCode: 200,
-  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  body: JSON.stringify({ success: true, user: userData.user }),
-};
-  } catch (error) {
-  console.error('Error:', error);
-  return {
-    statusCode: 400,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ error: String(error) }),
-  };
-}
-};
+    console.log('[create-colaboradora] User created with ID:', userData.user.id);
 
+    // Step 2: Wait a moment for auth user to be fully persisted
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // Step 3: Create or update profile with CORRECT ID
+    const profileData = {
+      id: userData.user.id, // CRITICAL: Must match auth.user.id
+      name,
+      email,
+      cpf,
+      role: 'COLABORADORA',
+      limite_total: parseFloat(limite_total),
+      limite_mensal: parseFloat(limite_mensal),
+      active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    console.log('[create-colaboradora] Creating profile with ID:', profileData.id);
+
+    const { error: profileError } = await supabaseAdmin
+      .schema('sistemaretiradas')
+      .from('profiles')
+      .upsert(profileData, {
+        onConflict: 'id', // If ID exists, update
+        ignoreDuplicates: false
+      });
+
+    if (profileError) {
+      console.error('[create-colaboradora] Profile error:', profileError);
+      throw profileError;
+    }
+
+    console.log('[create-colaboradora] Profile created successfully');
+
+    // Step 4: Send welcome email
+    try {
+      const netlifyUrl =
+        process.env.NETLIFY_URL ||
+        process.env.DEPLOY_PRIME_URL ||
+        'https://controleinterno.netlify.app';
+
+      const emailResponse = await fetch(`${netlifyUrl}/.netlify/functions/send-welcome-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          name,
+          password,
+        }),
+      });
+
+      if (!emailResponse.ok) {
+        console.error('[create-colaboradora] Email failed:', await emailResponse.text());
+      } else {
+        console.log('[create-colaboradora] Welcome email sent successfully');
+      }
+    } catch (emailError) {
+      console.error('[create-colaboradora] Email error:', emailError);
+      // Don't throw - email failure shouldn't fail the whole operation
+    }
+
+    return {
+      statusCode: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        success: true,
+        user: userData.user,
+        message: 'Colaboradora created successfully'
+      }),
+    };
+  } catch (error) {
+    console.error('[create-colaboradora] Error:', error);
+    return {
+      statusCode: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: String(error) }),
+    };
+  }
+};
