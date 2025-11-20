@@ -106,16 +106,10 @@ const ColaboradoraDashboard = () => {
   const [passwordForm, setPasswordForm] = useState({ newPassword: "", confirmPassword: "" });
 
   useEffect(() => {
-    if (!loading) {
-      if (!profile) {
-        navigate("/auth");
-      } else if (profile.role === "ADMIN") {
-        navigate("/admin");
-      } else {
-        fetchAllData();
-      }
+    if (!loading && profile) {
+      fetchAllData();
     }
-  }, [profile, loading, navigate]);
+  }, [profile, loading]);
 
   const fetchAllData = async () => {
     await Promise.all([
