@@ -416,7 +416,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                 : 'border-yellow-300';
 
     return (
-        <Card className={`border-2 shadow-lg overflow-hidden ${borderColorClass}`}>
+        <Card className={`border-2 shadow-lg overflow-visible ${borderColorClass}`}>
             <CardHeader className={`bg-gradient-to-r ${mainStatusBadge.color} bg-opacity-10 pb-3`}>
                 <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
@@ -433,11 +433,11 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                     {format(weekRange.start, "dd/MM", { locale: ptBR })} a {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
                 </div>
             </CardHeader>
-            <CardContent className="pt-6 space-y-4">
+            <CardContent className="pt-6 space-y-4 overflow-visible">
                 {/* Progress Bars with Bonus Checkpoints */}
                 <div className="space-y-4">
                     {/* Unified Progress Bar with Checkpoints */}
-                    <div className="relative">
+                    <div className="relative pb-24 overflow-visible">
                         {/* Progress Bar Background */}
                         <div className="relative h-12 bg-muted rounded-full overflow-hidden border-2 border-muted-foreground/20">
                             {/* Progress Fill - até meta */}
@@ -466,19 +466,23 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                     />
                                     {/* Checkpoint Label above */}
                                     <div 
-                                        className={`absolute -top-10 left-1/2 transform -translate-x-1/2 text-[10px] sm:text-xs font-bold whitespace-nowrap px-2 py-1 rounded shadow-md z-30 ${
+                                        className={`absolute top-0 left-1/2 transform -translate-x-1/2 text-[10px] sm:text-xs font-bold whitespace-nowrap px-2 py-1 rounded shadow-md z-30 ${
                                             progress.progress >= 100 
                                                 ? progress.superProgress >= 100 
                                                     ? 'bg-purple-500 text-white border-2 border-purple-700' 
                                                     : 'bg-green-500 text-white border-2 border-green-700' 
                                                 : 'bg-green-200 text-green-800 border border-green-400'
                                         }`}
-                                        style={{ left: `${(progress.meta_valor / progress.super_meta_valor) * 100}%` }}
+                                        style={{ 
+                                            left: `${(progress.meta_valor / progress.super_meta_valor) * 100}%`,
+                                            top: '-3.5rem',
+                                            transform: 'translateX(-50%)'
+                                        }}
                                     >
                                         🎯 Checkpoint 1
-                                        <div className="text-[9px] font-normal mt-0.5">Meta: {formatCurrency(progress.meta_valor, { showSymbol: false })}</div>
+                                        <div className="text-[9px] font-normal mt-0.5 whitespace-nowrap">Meta: {formatCurrency(progress.meta_valor, { showSymbol: false })}</div>
                                         {progress.progress >= 100 && !(progress.superProgress >= 100) && (
-                                            <div className="text-[9px] font-bold mt-0.5 bg-white/20 px-1 rounded">Bônus: R$ {weeklyBonuses.meta_bonus}</div>
+                                            <div className="text-[9px] font-bold mt-0.5 bg-white/20 px-1 rounded whitespace-nowrap">Bônus: R$ {weeklyBonuses.meta_bonus}</div>
                                         )}
                                     </div>
                                 </>
@@ -489,19 +493,24 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                 <>
                                     <div 
                                         className="absolute top-0 right-0 h-full w-1 bg-purple-500 z-20 shadow-lg"
+                                        style={{ transform: 'translateX(50%)' }}
                                     />
                                     {/* Checkpoint Label above */}
                                     <div 
-                                        className={`absolute -top-10 right-0 text-[10px] sm:text-xs font-bold whitespace-nowrap px-2 py-1 rounded shadow-md z-30 ${
+                                        className={`absolute top-0 right-0 transform translate-x-1/2 text-[10px] sm:text-xs font-bold whitespace-nowrap px-2 py-1 rounded shadow-md z-30 ${
                                             progress.superProgress >= 100 
                                                 ? 'bg-purple-500 text-white border-2 border-purple-700' 
                                                 : 'bg-purple-200 text-purple-800 border border-purple-400'
                                         }`}
+                                        style={{ 
+                                            top: '-3.5rem',
+                                            transform: 'translateX(50%)'
+                                        }}
                                     >
                                         🏆 Checkpoint Final
-                                        <div className="text-[9px] font-normal mt-0.5">Super: {formatCurrency(progress.super_meta_valor, { showSymbol: false })}</div>
+                                        <div className="text-[9px] font-normal mt-0.5 whitespace-nowrap">Super: {formatCurrency(progress.super_meta_valor, { showSymbol: false })}</div>
                                         {progress.superProgress >= 100 && (
-                                            <div className="text-[9px] font-bold mt-0.5 bg-white/20 px-1 rounded">Bônus: R$ {weeklyBonuses.super_meta_bonus}</div>
+                                            <div className="text-[9px] font-bold mt-0.5 bg-white/20 px-1 rounded whitespace-nowrap">Bônus: R$ {weeklyBonuses.super_meta_bonus}</div>
                                         )}
                                     </div>
                                 </>
@@ -510,10 +519,10 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                             {/* Current Position Indicator (vertical line) */}
                             <div 
                                 className="absolute top-0 h-full w-0.5 bg-foreground z-30 shadow-lg"
-                                style={{ left: `${Math.min((progress.realizado / progress.super_meta_valor) * 100, 100)}%` }}
+                                style={{ left: `${Math.min((progress.realizado / progress.super_meta_valor) * 100, 100)}%`, transform: 'translateX(-50%)' }}
                             >
                                 {/* Current value label */}
-                                <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-[9px] sm:text-xs font-bold bg-background border-2 px-2 py-1 rounded shadow-md whitespace-nowrap">
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 text-[9px] sm:text-xs font-bold bg-background border-2 px-2 py-1 rounded shadow-md whitespace-nowrap mt-2">
                                     {formatCurrency(progress.realizado)}
                                     <div className="text-[8px] font-normal text-muted-foreground mt-0.5">
                                         {progress.progress.toFixed(1)}% da Meta
@@ -523,7 +532,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                         </div>
 
                         {/* Scale markers below */}
-                        <div className="flex justify-between text-[9px] sm:text-xs text-muted-foreground mt-10">
+                        <div className="flex justify-between text-[9px] sm:text-xs text-muted-foreground mt-16">
                             <span>R$ 0</span>
                             {weeklyBonuses.meta_bonus !== null && (
                                 <span className="font-medium">{formatCurrency(progress.meta_valor, { showSymbol: false })}</span>
