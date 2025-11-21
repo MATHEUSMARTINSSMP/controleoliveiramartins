@@ -57,14 +57,17 @@ export default function LojaDashboard() {
         fetchData();
     }, [profile, navigate]);
 
-    const fetchData = async () => {
-        await Promise.all([fetchSales(), fetchColaboradoras(), fetchGoals(), fetchMetrics(), fetchColaboradorasPerformance()]);
-        setLoading(false);
-    };
-
+    // NOTE: fetchData redefined later with extended logic
     const [goals, setGoals] = useState<any>(null);
     const [metrics, setMetrics] = useState<any>(null);
     const [colaboradorasPerformance, setColaboradorasPerformance] = useState<any[]>([]);
+    const [rankingTop3, setRankingTop3] = useState<any[]>([]);
+    const [offDayDialog, setOffDayDialog] = useState(false);
+    const [selectedColabForOffDay, setSelectedColabForOffDay] = useState<string | null>(null);
+    const [offDayDate, setOffDayDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+    const [dailyGoal, setDailyGoal] = useState<number>(0);
+    const [dailyProgress, setDailyProgress] = useState<number>(0);
+    const [history7Days, setHistory7Days] = useState<any[]>([]);
 
     const fetchGoals = async () => {
         const mesAtual = format(new Date(), 'yyyyMM');
@@ -80,7 +83,52 @@ export default function LojaDashboard() {
 
         if (!error && data) {
             setGoals(data);
+            // Calculate daily goal based on days in month
+            const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+            const daily = Number(data.meta_valor) / daysInMonth;
+            setDailyGoal(daily);
+            // Compute today's progress from sales data
+            const today = format(new Date(), 'yyyy-MM-dd');
+            const { data: salesToday, error: salesErr } = await supabase
+                .from('sales')
+                .select('valor')
+                .eq('store_id', getStoreId())
+                .gte('data_venda', `${today}T00:00:00`);
+            if (!salesErr && salesToday) {
+                const totalHoje = salesToday.reduce((sum: number, s: any) => sum + Number(s.valor), 0);
+                setDailyProgress((totalHoje / daily) * 100);
+            }
         }
+    };
+
+    const fetch7DayHistory = async () => {
+        const startDate = format(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
+        const { data, error } = await supabase
+            .from('sales')
+            .select('data_venda, valor, qtd_pecas')
+            .eq('store_id', getStoreId())
+            .gte('data_venda', `${startDate}T00:00:00`)
+            .order('data_venda', { ascending: true });
+        if (!error && data) {
+            // Group by day
+            const grouped: Record<string, any> = {};
+            data.forEach((sale: any) => {
+                const day = sale.data_venda.split('T')[0];
+                if (!grouped[day]) {
+                    grouped[day] = { total: 0, qtdVendas: 0, qtdPecas: 0 };
+                }
+                grouped[day].total += Number(sale.valor);
+                grouped[day].qtdVendas += 1;
+                grouped[day].qtdPecas += Number(sale.qtd_pecas);
+            });
+            const result = Object.entries(grouped).map(([day, info]) => ({ day, ...info }));
+            setHistory7Days(result);
+        }
+    };
+
+    const fetchData = async () => {
+        await Promise.all([fetchSales(), fetchColaboradoras(), fetchGoals(), fetchMetrics(), fetchColaboradorasPerformance(), fetchRankingTop3(), fetch7DayHistory()]);
+        setLoading(false);
     };
 
     const fetchMetrics = async () => {
@@ -140,6 +188,45 @@ export default function LojaDashboard() {
             });
 
             setColaboradorasPerformance(performance);
+        }
+    };
+
+    const fetchRankingTop3 = async () => {
+        const today = format(new Date(), 'yyyy-MM-dd');
+
+        const { data: salesData, error } = await supabase
+            .from('sales')
+            .select(`
+                colaboradora_id,
+                valor,
+                profiles!inner(name)
+            `)
+            .eq('store_id', getStoreId())
+            .gte('data_venda', `${today}T00:00:00`);
+
+        if (!error && salesData) {
+            // Agrupar por colaboradora
+            const grouped = salesData.reduce((acc: any, sale: any) => {
+                const id = sale.colaboradora_id;
+                if (!acc[id]) {
+                    acc[id] = {
+                        colaboradora_id: id,
+                        name: sale.profiles.name,
+                        total: 0,
+                        qtdVendas: 0
+                    };
+                }
+                acc[id].total += Number(sale.valor);
+                acc[id].qtdVendas += 1;
+                return acc;
+            }, {});
+
+            // Converter para array e ordenar
+            const ranking = Object.values(grouped)
+                .sort((a: any, b: any) => b.total - a.total)
+                .slice(0, 3); // Top 3
+
+            setRankingTop3(ranking as any[]);
         }
     };
 
@@ -289,8 +376,40 @@ export default function LojaDashboard() {
             toast.error('Erro ao deletar venda');
             console.error(error);
         } else {
-            toast.success('Venda deletada com sucesso!');
-            fetchSales();
+            toast.success('Venda excluída com sucesso!');
+            await fetchData();
+        }
+    };
+
+    const handleOpenOffDayDialog = (colaboradoraId: string) => {
+        setSelectedColabForOffDay(colaboradoraId);
+        setOffDayDate(format(new Date(), 'yyyy-MM-dd'));
+        setOffDayDialog(true);
+    };
+
+    const handleMarkOffDay = async () => {
+        if (!selectedColabForOffDay || !offDayDate) {
+            toast.error('Selecione uma colaboradora e data');
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('collaborator_off_days')
+                .insert([{
+                    colaboradora_id: selectedColabForOffDay,
+                    data_folga: offDayDate,
+                    store_id: getStoreId()
+                }]);
+
+            if (error) throw error;
+
+            toast.success('Folga marcada com sucesso!');
+            setOffDayDialog(false);
+            setSelectedColabForOffDay(null);
+            await fetchData();
+        } catch (error: any) {
+            toast.error('Erro ao marcar folga: ' + error.message);
         }
     };
 
@@ -340,6 +459,59 @@ export default function LojaDashboard() {
                                 </Select>
                             </div>
 
+                            {/* Ranking Top 3 do Dia */}
+                            <Card className="backdrop-blur-sm bg-card/95 shadow-[var(--shadow-card)] border-primary/10">
+                                <CardHeader>
+                                    <CardTitle className="text-xl bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                                        Ranking Top 3 do Dia
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid gap-4">
+                                        {rankingTop3.length === 0 ? (
+                                            <p className="text-muted-foreground text-center">Nenhum dado de ranking disponível.</p>
+                                        ) : (
+                                            rankingTop3.map((item, idx) => (
+                                                <div key={item.colaboradora_id} className="flex items-center gap-4 p-2 bg-muted/30 rounded-lg">
+                                                    <div className={`w-8 h-8 flex items-center justify-center rounded-full ${idx === 0 ? 'bg-yellow-400 text-white' : idx === 1 ? 'bg-gray-400 text-white' : 'bg-orange-600 text-white'}`}>
+                                                        {idx + 1}
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <p className="font-medium">{item.name}</p>
+                                                        <p className="text-sm text-muted-foreground">R$ {Number(item.total).toFixed(2)} ({item.qtdVendas} vendas)</p>
+                                                    </div>
+                                                    <Button variant="ghost" size="sm" onClick={() => handleOpenOffDayDialog(item.colaboradora_id)}>
+                                                        Marcar Folga
+                                                    </Button>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            {/* Off‑Day Dialog */}
+                            <Dialog open={offDayDialog} onOpenChange={(open) => setOffDayDialog(open)}>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Marcar Folga</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="space-y-4 pt-4">
+                                        <Label htmlFor="offDayDate">Data da Folga</Label>
+                                        <Input
+                                            id="offDayDate"
+                                            type="date"
+                                            value={offDayDate}
+                                            onChange={(e) => setOffDayDate(e.target.value)}
+                                        />
+                                        <div className="flex justify-end gap-2 pt-4">
+                                            <Button variant="outline" onClick={() => setOffDayDialog(false)}>
+                                                Cancelar
+                                            </Button>
+                                            <Button onClick={handleMarkOffDay}>Confirmar</Button>
+                                        </div>
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="valor">Valor Total (R$) *</Label>
