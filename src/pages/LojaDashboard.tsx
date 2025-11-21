@@ -477,16 +477,16 @@ export default function LojaDashboard() {
     }
 
     return (
-        <div className="container mx-auto p-6 space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-bold">🏪 {profile?.store_default}</h1>
-                    <p className="text-muted-foreground">Gestão de Vendas</p>
+        <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
+                <div className="min-w-0 flex-1">
+                    <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate">🏪 {profile?.store_default}</h1>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Gestão de Vendas</p>
                 </div>
                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                     <DialogTrigger asChild>
-                        <Button onClick={resetForm}>
-                            <Plus className="h-4 w-4 mr-2" />
+                        <Button onClick={resetForm} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
+                            <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                             Nova Venda
                         </Button>
                     </DialogTrigger>
@@ -604,18 +604,18 @@ export default function LojaDashboard() {
             </div>
 
             {/* KPI Cards - Metas e Métricas */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {/* Meta Mensal */}
                 {goals && (
                     <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Meta Mensal</CardTitle>
+                        <CardHeader className="pb-2 p-3 sm:p-6">
+                            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Meta Mensal</CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                             <div className="space-y-2">
-                                <p className="text-2xl font-bold">R$ {goals.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                <p className="text-lg sm:text-2xl font-bold truncate">R$ {goals.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                 {goals.super_meta_valor && (
-                                    <p className="text-sm text-muted-foreground">
+                                    <p className="text-xs sm:text-sm text-muted-foreground truncate">
                                         🏆 Super Meta: R$ {goals.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                     </p>
                                 )}
@@ -627,15 +627,15 @@ export default function LojaDashboard() {
                 {/* Meta Diária */}
                 {goals && (
                     <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Meta Diária (Hoje)</CardTitle>
+                        <CardHeader className="pb-2 p-3 sm:p-6">
+                            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Meta Diária (Hoje)</CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                             <div className="space-y-2">
-                                <p className="text-2xl font-bold">R$ {dailyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                <p className="text-lg sm:text-2xl font-bold">R$ {dailyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                 <div className="flex items-center gap-2">
-                                    <Progress value={Math.min(dailyProgress, 100)} className="h-2" />
-                                    <span className="text-xs text-muted-foreground">
+                                    <Progress value={Math.min(dailyProgress, 100)} className="h-2 flex-1" />
+                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
                                         {dailyProgress.toFixed(0)}%
                                     </span>
                                 </div>
@@ -646,12 +646,12 @@ export default function LojaDashboard() {
 
                 {/* Faturamento Hoje */}
                 <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Faturamento Hoje</CardTitle>
+                    <CardHeader className="pb-2 p-3 sm:p-6">
+                        <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Faturamento Hoje</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                         <div className="space-y-2">
-                            <p className="text-2xl font-bold">R$ {sales.reduce((sum, s) => sum + s.valor, 0).toFixed(2)}</p>
+                            <p className="text-lg sm:text-2xl font-bold">R$ {sales.reduce((sum, s) => sum + s.valor, 0).toFixed(2)}</p>
                             <p className="text-xs text-muted-foreground">{sales.length} vendas</p>
                         </div>
                     </CardContent>
@@ -660,18 +660,18 @@ export default function LojaDashboard() {
                 {/* Ticket Médio */}
                 {metrics && (
                     <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Ticket Médio</CardTitle>
+                        <CardHeader className="pb-2 p-3 sm:p-6">
+                            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Ticket Médio</CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                             <div className="space-y-2">
-                                <p className="text-2xl font-bold">R$ {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.valor, 0) / sales.length).toFixed(2) : '0.00'}</p>
+                                <p className="text-lg sm:text-2xl font-bold">R$ {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.valor, 0) / sales.length).toFixed(2) : '0.00'}</p>
                                 <div className="flex items-center gap-2">
                                     <Progress
                                         value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.length) / metrics.meta_ticket_medio) * 100, 100) : 0}
-                                        className="h-2"
+                                        className="h-2 flex-1"
                                     />
-                                    <span className="text-xs text-muted-foreground">
+                                    <span className="text-xs text-muted-foreground whitespace-nowrap truncate">
                                         Meta: R$ {metrics.meta_ticket_medio?.toFixed(2)}
                                     </span>
                                 </div>
@@ -683,18 +683,18 @@ export default function LojaDashboard() {
                 {/* PA (Peças por Atendimento) */}
                 {metrics && (
                     <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">PA (Peças/Venda)</CardTitle>
+                        <CardHeader className="pb-2 p-3 sm:p-6">
+                            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">PA (Peças/Venda)</CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                             <div className="space-y-2">
-                                <p className="text-2xl font-bold">{sales.length > 0 ? (sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length).toFixed(1) : '0.0'}</p>
+                                <p className="text-lg sm:text-2xl font-bold">{sales.length > 0 ? (sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length).toFixed(1) : '0.0'}</p>
                                 <div className="flex items-center gap-2">
                                     <Progress
                                         value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length) / metrics.meta_pa) * 100, 100) : 0}
-                                        className="h-2"
+                                        className="h-2 flex-1"
                                     />
-                                    <span className="text-xs text-muted-foreground">
+                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
                                         Meta: {metrics.meta_pa?.toFixed(1)}
                                     </span>
                                 </div>
@@ -705,16 +705,16 @@ export default function LojaDashboard() {
             </div>
 
             {/* Segunda linha de métricas */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {/* Preço por Peça */}
                 {metrics && (
                     <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Preço Médio por Peça</CardTitle>
+                        <CardHeader className="pb-2 p-3 sm:p-6">
+                            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Preço Médio por Peça</CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                             <div className="space-y-2">
-                                <p className="text-2xl font-bold">
+                                <p className="text-lg sm:text-2xl font-bold">
                                     R$ {sales.length > 0 ?
                                         (sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)).toFixed(2) :
                                         '0.00'}
@@ -722,9 +722,9 @@ export default function LojaDashboard() {
                                 <div className="flex items-center gap-2">
                                     <Progress
                                         value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)) / metrics.meta_preco_medio_peca) * 100, 100) : 0}
-                                        className="h-2"
+                                        className="h-2 flex-1"
                                     />
-                                    <span className="text-xs text-muted-foreground">
+                                    <span className="text-xs text-muted-foreground whitespace-nowrap truncate">
                                         Meta: R$ {metrics.meta_preco_medio_peca?.toFixed(2)}
                                     </span>
                                 </div>
@@ -742,77 +742,80 @@ export default function LojaDashboard() {
             {/* Tabela de Performance por Vendedora */}
             {colaboradorasPerformance.length > 0 && (
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Performance por Vendedora (Hoje)</CardTitle>
+                    <CardHeader className="p-3 sm:p-6">
+                        <CardTitle className="text-base sm:text-lg">Performance por Vendedora (Hoje)</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Vendedora</TableHead>
-                                    <TableHead>Vendido</TableHead>
-                                    <TableHead>Meta Dia</TableHead>
-                                    <TableHead>%</TableHead>
-                                    <TableHead>Ticket Médio</TableHead>
-                                    <TableHead>Vendas</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {colaboradorasPerformance.map((perf) => (
-                                    <TableRow key={perf.id}>
-                                        <TableCell className="font-medium">{perf.name}</TableCell>
-                                        <TableCell>R$ {perf.vendido.toFixed(2)}</TableCell>
-                                        <TableCell>R$ {perf.meta > 0 ? (perf.meta / 30).toFixed(2) : '0.00'}</TableCell>
-                                        <TableCell>
-                                            <span className={
-                                                perf.percentual >= 120 ? 'text-yellow-600 font-bold' : // Dourado/Ouro
-                                                    perf.percentual >= 100 ? 'text-green-600 font-bold' : // Verde
-                                                        perf.percentual >= 90 ? 'text-yellow-500' : // Amarelo
-                                                            'text-red-600' // Vermelho
-                                            }>
-                                                {perf.percentual.toFixed(0)}%
-                                                {perf.percentual >= 120 && ' 🏆'}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>R$ {perf.ticketMedio.toFixed(2)}</TableCell>
-                                        <TableCell>{perf.qtdVendas}</TableCell>
+                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="text-xs sm:text-sm">Vendedora</TableHead>
+                                        <TableHead className="text-xs sm:text-sm">Vendido</TableHead>
+                                        <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Meta Dia</TableHead>
+                                        <TableHead className="text-xs sm:text-sm">%</TableHead>
+                                        <TableHead className="text-xs sm:text-sm hidden md:table-cell">Ticket Médio</TableHead>
+                                        <TableHead className="text-xs sm:text-sm">Vendas</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {colaboradorasPerformance.map((perf) => (
+                                        <TableRow key={perf.id}>
+                                            <TableCell className="font-medium text-xs sm:text-sm truncate max-w-[120px]">{perf.name}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm font-medium">R$ {perf.vendido.toFixed(2)}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm hidden sm:table-cell">R$ {perf.meta > 0 ? (perf.meta / 30).toFixed(2) : '0.00'}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm">
+                                                <span className={
+                                                    perf.percentual >= 120 ? 'text-yellow-600 font-bold' :
+                                                        perf.percentual >= 100 ? 'text-green-600 font-bold' :
+                                                            perf.percentual >= 90 ? 'text-yellow-500' :
+                                                                'text-red-600'
+                                                }>
+                                                    {perf.percentual.toFixed(0)}%
+                                                    {perf.percentual >= 120 && ' 🏆'}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {perf.ticketMedio.toFixed(2)}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm">{perf.qtdVendas}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </CardContent>
                 </Card>
             )}
 
             {/* Rankings Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
                 {/* Ranking Diário */}
                 {rankingTop3.length > 0 && (
                     <Card className="bg-gradient-to-br from-card to-muted/50 border-primary/10">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="flex items-center gap-2 text-lg">
-                                <Trophy className="h-5 w-5 text-yellow-500" />
-                                Top 3 Vendedoras (Hoje)
+                        <CardHeader className="pb-2 p-3 sm:p-6">
+                            <CardTitle className="flex items-center gap-2 text-sm sm:text-lg">
+                                <Trophy className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500" />
+                                <span className="hidden sm:inline">Top 3 Vendedoras (Hoje)</span>
+                                <span className="sm:hidden">Top 3 (Hoje)</span>
                             </CardTitle>
                         </CardHeader>
-                        <CardContent>
-                            <div className="space-y-3">
+                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                            <div className="space-y-2 sm:space-y-3">
                                 {rankingTop3.map((item, index) => (
-                                    <div key={item.colaboradora_id} className="flex items-center justify-between p-2 rounded-lg bg-background/50 border border-border/50">
-                                        <div className="flex items-center gap-3">
+                                    <div key={item.colaboradora_id} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-background/50 border border-border/50">
+                                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                                             <div className={`
-                                                w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
+                                                w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold flex-shrink-0
                                                 ${index === 0 ? 'bg-yellow-500 text-yellow-950' :
                                                     index === 1 ? 'bg-gray-300 text-gray-800' :
                                                         'bg-amber-700 text-amber-100'}
                                             `}>
                                                 {index + 1}
                                             </div>
-                                            <span className="font-medium">{item.name}</span>
+                                            <span className="font-medium text-xs sm:text-sm truncate">{item.name}</span>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="font-bold text-primary">R$ {item.total.toFixed(2)}</p>
-                                            <p className="text-xs text-muted-foreground">{item.qtdVendas} vendas</p>
+                                        <div className="text-right flex-shrink-0 ml-2">
+                                            <p className="font-bold text-primary text-xs sm:text-sm">R$ {item.total.toFixed(2)}</p>
+                                            <p className="text-[10px] sm:text-xs text-muted-foreground">{item.qtdVendas} vendas</p>
                                         </div>
                                     </div>
                                 ))}
@@ -824,30 +827,31 @@ export default function LojaDashboard() {
                 {/* Ranking Mensal */}
                 {rankingMonthly.length > 0 && (
                     <Card className="bg-gradient-to-br from-card to-muted/50 border-primary/10">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="flex items-center gap-2 text-lg">
-                                <Trophy className="h-5 w-5 text-purple-500" />
-                                Top 3 Vendedoras (Mês)
+                        <CardHeader className="pb-2 p-3 sm:p-6">
+                            <CardTitle className="flex items-center gap-2 text-sm sm:text-lg">
+                                <Trophy className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500" />
+                                <span className="hidden sm:inline">Top 3 Vendedoras (Mês)</span>
+                                <span className="sm:hidden">Top 3 (Mês)</span>
                             </CardTitle>
                         </CardHeader>
-                        <CardContent>
-                            <div className="space-y-3">
+                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                            <div className="space-y-2 sm:space-y-3">
                                 {rankingMonthly.map((item, index) => (
-                                    <div key={item.colaboradora_id} className="flex items-center justify-between p-2 rounded-lg bg-background/50 border border-border/50">
-                                        <div className="flex items-center gap-3">
+                                    <div key={item.colaboradora_id} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-background/50 border border-border/50">
+                                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                                             <div className={`
-                                                w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
+                                                w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold flex-shrink-0
                                                 ${index === 0 ? 'bg-yellow-500 text-yellow-950' :
                                                     index === 1 ? 'bg-gray-300 text-gray-800' :
                                                         'bg-amber-700 text-amber-100'}
                                             `}>
                                                 {index + 1}
                                             </div>
-                                            <span className="font-medium">{item.name}</span>
+                                            <span className="font-medium text-xs sm:text-sm truncate">{item.name}</span>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="font-bold text-primary">R$ {item.total.toFixed(2)}</p>
-                                            <p className="text-xs text-muted-foreground">{item.qtdVendas} vendas</p>
+                                        <div className="text-right flex-shrink-0 ml-2">
+                                            <p className="font-bold text-primary text-xs sm:text-sm">R$ {item.total.toFixed(2)}</p>
+                                            <p className="text-[10px] sm:text-xs text-muted-foreground">{item.qtdVendas} vendas</p>
                                         </div>
                                     </div>
                                 ))}
@@ -860,80 +864,84 @@ export default function LojaDashboard() {
             {/* Histórico 7 Dias */}
             {history7Days.length > 0 && (
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Histórico de Vendas (Últimos 7 Dias)</CardTitle>
+                    <CardHeader className="p-3 sm:p-6">
+                        <CardTitle className="text-base sm:text-lg">Histórico de Vendas (Últimos 7 Dias)</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Data</TableHead>
-                                    <TableHead>Vendas</TableHead>
-                                    <TableHead>Peças</TableHead>
-                                    <TableHead>Total</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {history7Days.map((day) => (
-                                    <TableRow key={day.day}>
-                                        <TableCell>{format(new Date(day.day + 'T00:00:00'), 'dd/MM/yyyy')}</TableCell>
-                                        <TableCell>{day.qtdVendas}</TableCell>
-                                        <TableCell>{day.qtdPecas}</TableCell>
-                                        <TableCell>R$ {day.total.toFixed(2)}</TableCell>
+                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="text-xs sm:text-sm">Data</TableHead>
+                                        <TableHead className="text-xs sm:text-sm">Vendas</TableHead>
+                                        <TableHead className="text-xs sm:text-sm">Peças</TableHead>
+                                        <TableHead className="text-xs sm:text-sm">Total</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {history7Days.map((day) => (
+                                        <TableRow key={day.day}>
+                                            <TableCell className="text-xs sm:text-sm">{format(new Date(day.day + 'T00:00:00'), 'dd/MM/yyyy')}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm">{day.qtdVendas}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm">{day.qtdPecas}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm font-medium">R$ {day.total.toFixed(2)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </CardContent>
                 </Card>
             )}
 
             <Card>
-                <CardHeader>
-                    <CardTitle>Vendas de Hoje</CardTitle>
+                <CardHeader className="p-3 sm:p-6">
+                    <CardTitle className="text-base sm:text-lg">Vendas de Hoje</CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Horário</TableHead>
-                                <TableHead>Vendedora</TableHead>
-                                <TableHead>Valor</TableHead>
-                                <TableHead>Peças</TableHead>
-                                <TableHead>Ticket</TableHead>
-                                <TableHead>Ações</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {sales.length === 0 ? (
+                <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center text-muted-foreground">
-                                        Nenhuma venda lançada hoje
-                                    </TableCell>
+                                    <TableHead className="text-xs sm:text-sm">Horário</TableHead>
+                                    <TableHead className="text-xs sm:text-sm">Vendedora</TableHead>
+                                    <TableHead className="text-xs sm:text-sm">Valor</TableHead>
+                                    <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Peças</TableHead>
+                                    <TableHead className="text-xs sm:text-sm hidden md:table-cell">Ticket</TableHead>
+                                    <TableHead className="text-xs sm:text-sm">Ações</TableHead>
                                 </TableRow>
-                            ) : (
-                                sales.map((sale) => (
-                                    <TableRow key={sale.id}>
-                                        <TableCell>{format(new Date(sale.data_venda), 'HH:mm')}</TableCell>
-                                        <TableCell>{sale.colaboradora.name}</TableCell>
-                                        <TableCell>R$ {sale.valor.toFixed(2)}</TableCell>
-                                        <TableCell>{sale.qtd_pecas}</TableCell>
-                                        <TableCell>R$ {(sale.valor / sale.qtd_pecas).toFixed(2)}</TableCell>
-                                        <TableCell>
-                                            <div className="flex gap-2">
-                                                <Button variant="ghost" size="sm" onClick={() => handleEdit(sale)}>
-                                                    <Edit className="h-4 w-4" />
-                                                </Button>
-                                                <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(sale.id)}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
+                            </TableHeader>
+                            <TableBody>
+                                {sales.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="text-center text-muted-foreground text-xs sm:text-sm py-6">
+                                            Nenhuma venda lançada hoje
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
+                                ) : (
+                                    sales.map((sale) => (
+                                        <TableRow key={sale.id}>
+                                            <TableCell className="text-xs sm:text-sm">{format(new Date(sale.data_venda), 'HH:mm')}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm font-medium truncate max-w-[100px]">{sale.colaboradora.name}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm font-medium">R$ {sale.valor.toFixed(2)}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{sale.qtd_pecas}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {(sale.valor / sale.qtd_pecas).toFixed(2)}</TableCell>
+                                            <TableCell>
+                                                <div className="flex gap-1 sm:gap-2">
+                                                    <Button variant="ghost" size="sm" onClick={() => handleEdit(sale)} className="h-8 w-8 p-0">
+                                                        <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="sm" className="text-destructive h-8 w-8 p-0" onClick={() => handleDelete(sale.id)}>
+                                                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         </div>

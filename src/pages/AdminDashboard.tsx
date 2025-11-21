@@ -70,81 +70,96 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10">
       <header className="bg-card/80 backdrop-blur-lg border-b border-primary/10 sticky top-0 z-50 shadow-[var(--shadow-card)]">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               Dashboard Admin
             </h1>
-            <p className="text-sm text-muted-foreground">Bem-vindo, {profile.name}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">Bem-vindo, {profile.name}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full sm:w-auto">
             <Button
               variant="outline"
               onClick={() => setPasswordDialog(true)}
-              className="border-primary/20 hover:bg-primary/10"
+              className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
+              size="sm"
             >
-              <KeyRound className="mr-2 h-4 w-4" />
-              Alterar Senha
+              <KeyRound className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Alterar Senha</span>
+              <span className="sm:hidden">Senha</span>
             </Button>
             <Button
               variant="outline"
               onClick={handleSignOut}
-              className="border-primary/20 hover:bg-primary/10"
+              className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
+              size="sm"
             >
-              <LogOut className="mr-2 h-4 w-4" />
+              <LogOut className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               Sair
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="comercial" className="space-y-6">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        <Tabs defaultValue="comercial" className="space-y-4 sm:space-y-6">
           <TabsList className="grid w-full grid-cols-2 max-w-[400px] bg-muted/50 p-1 rounded-xl">
-            <TabsTrigger value="comercial" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              Comercial & Metas
+            <TabsTrigger value="comercial" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <span className="hidden sm:inline">Comercial & Metas</span>
+              <span className="sm:hidden">Comercial</span>
             </TabsTrigger>
-            <TabsTrigger value="financeiro" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              Financeiro & RH
+            <TabsTrigger value="financeiro" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <span className="hidden sm:inline">Financeiro & RH</span>
+              <span className="sm:hidden">Financeiro</span>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="comercial" className="space-y-6 animate-in fade-in-50 duration-500">
+          <TabsContent value="comercial" className="space-y-4 sm:space-y-6 animate-in fade-in-50 duration-500">
             {/* Botões de Ação Rápida Comercial */}
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-2 sm:gap-4">
               <Button
                 onClick={() => navigate("/admin/metas")}
-                className="bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-md"
+                className="bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-md text-xs sm:text-sm flex-1 sm:flex-initial"
+                size="sm"
               >
-                Gerenciar Metas
+                <span className="hidden sm:inline">Gerenciar Metas</span>
+                <span className="sm:hidden">Metas</span>
               </Button>
               <Button
                 variant="outline"
                 onClick={() => navigate("/admin/bonus")}
-                className="border-primary/20 hover:bg-primary/10"
+                className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
+                size="sm"
               >
-                Gerenciar Bônus
+                <span className="hidden sm:inline">Gerenciar Bônus</span>
+                <span className="sm:hidden">Bônus</span>
               </Button>
               <Button
                 variant="outline"
                 onClick={() => navigate("/admin/relatorios")}
-                className="border-primary/20 hover:bg-primary/10"
+                className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
+                size="sm"
               >
-                Relatórios Detalhados
+                <span className="hidden sm:inline">Relatórios</span>
+                <span className="sm:hidden">Relatórios</span>
               </Button>
               <Button
                 variant="outline"
                 onClick={() => navigate("/admin/benchmarks")}
-                className="border-primary/20 hover:bg-primary/10"
+                className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
+                size="sm"
               >
-                Gerenciar Benchmarks
+                <span className="hidden sm:inline">Benchmarks</span>
+                <span className="sm:hidden">Benchmarks</span>
               </Button>
               <Button
                 variant="outline"
                 onClick={() => navigate("/admin/metas-semanais")}
-                className="border-primary/20 hover:bg-primary/10"
+                className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
+                size="sm"
               >
-                Metas Semanais
+                <span className="hidden sm:inline">Metas Semanais</span>
+                <span className="sm:hidden">Semanais</span>
               </Button>
             </div>
 
@@ -158,34 +173,38 @@ const AdminDashboard = () => {
       </main>
 
       <Dialog open={passwordDialog} onOpenChange={setPasswordDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Alterar Senha</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg">Alterar Senha</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 pt-4">
+          <div className="space-y-3 sm:space-y-4 pt-3 sm:pt-4">
             <div className="space-y-2">
-              <Label htmlFor="newPassword">Nova Senha</Label>
+              <Label htmlFor="newPassword" className="text-xs sm:text-sm">Nova Senha</Label>
               <Input
                 id="newPassword"
                 type="password"
                 value={passwordForm.newPassword}
                 onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                className="text-xs sm:text-sm"
+                placeholder="Mínimo 6 caracteres"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirmar Nova Senha</Label>
+              <Label htmlFor="confirmPassword" className="text-xs sm:text-sm">Confirmar Nova Senha</Label>
               <Input
                 id="confirmPassword"
                 type="password"
                 value={passwordForm.confirmPassword}
                 onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                className="text-xs sm:text-sm"
+                placeholder="Digite novamente"
               />
             </div>
-            <div className="flex gap-2 justify-end pt-4">
-              <Button variant="outline" onClick={() => setPasswordDialog(false)}>
+            <div className="flex flex-col sm:flex-row gap-2 justify-end pt-3 sm:pt-4">
+              <Button variant="outline" onClick={() => setPasswordDialog(false)} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
                 Cancelar
               </Button>
-              <Button onClick={handleChangePassword}>
+              <Button onClick={handleChangePassword} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
                 Salvar
               </Button>
             </div>

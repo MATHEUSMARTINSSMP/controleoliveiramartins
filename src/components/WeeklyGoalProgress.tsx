@@ -75,15 +75,14 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
             let weeklyGoal;
             
             if (colaboradoraId) {
-                // Individual goal doesn't exist for weekly, use store goal
-                // But we'll calculate individual sales
+                // Individual weekly goal for collaborator
                 const { data: goalData } = await supabase
                     .from("goals")
                     .select("*, stores (name)")
                     .eq("store_id", storeId)
+                    .eq("colaboradora_id", colaboradoraId)
                     .eq("semana_referencia", currentWeek)
                     .eq("tipo", "SEMANAL")
-                    .is("colaboradora_id", null)
                     .single();
 
                 weeklyGoal = goalData;
@@ -129,57 +128,62 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                     });
                 }
             } else if (storeId) {
-                // Store weekly goal
-                const { data: goalData } = await supabase
+                // Store weekly goal - aggregate all individual goals
+                const { data: goalsData } = await supabase
                     .from("goals")
                     .select("*, stores (name)")
                     .eq("store_id", storeId)
                     .eq("semana_referencia", currentWeek)
                     .eq("tipo", "SEMANAL")
-                    .is("colaboradora_id", null)
-                    .single();
+                    .not("colaboradora_id", "is", null);
 
-                weeklyGoal = goalData;
-                if (goalData?.stores?.name) {
-                    setStoreName(goalData.stores.name);
-                }
-
-                // Fetch store sales for the week
-                const { data: salesData } = await supabase
-                    .from("sales")
-                    .select("valor")
-                    .eq("store_id", storeId)
-                    .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
-                    .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
-
-                const realizado = salesData?.reduce((sum, sale) => sum + parseFloat(sale.valor || '0'), 0) || 0;
-
-                if (weeklyGoal) {
-                    const progressPercent = (realizado / weeklyGoal.meta_valor) * 100;
-                    const superProgressPercent = (realizado / weeklyGoal.super_meta_valor) * 100;
-                    const dailyAverage = daysElapsed > 0 ? realizado / daysElapsed : 0;
-                    const projected = dailyAverage * 7;
-
-                    let status: 'on-track' | 'ahead' | 'behind' = 'on-track';
-                    const expectedByNow = (weeklyGoal.meta_valor / 7) * daysElapsed;
-                    if (realizado >= expectedByNow * 1.1) {
-                        status = 'ahead';
-                    } else if (realizado < expectedByNow * 0.9) {
-                        status = 'behind';
+                if (goalsData && goalsData.length > 0) {
+                    // Get store name
+                    if (goalsData[0]?.stores?.name) {
+                        setStoreName(goalsData[0].stores.name);
                     }
 
-                    setProgress({
-                        semana_referencia: currentWeek,
-                        meta_valor: weeklyGoal.meta_valor,
-                        super_meta_valor: weeklyGoal.super_meta_valor,
-                        realizado,
-                        progress: progressPercent,
-                        superProgress: superProgressPercent,
-                        daysElapsed,
-                        daysRemaining,
-                        projected,
-                        status
-                    });
+                    // Aggregate goals
+                    const totalMeta = goalsData.reduce((sum, g) => sum + (g.meta_valor || 0), 0);
+                    const totalSuper = goalsData.reduce((sum, g) => sum + (g.super_meta_valor || 0), 0);
+
+                    // Fetch store sales for the week
+                    const { data: salesData } = await supabase
+                        .from("sales")
+                        .select("valor")
+                        .eq("store_id", storeId)
+                        .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
+                        .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+
+                    const realizado = salesData?.reduce((sum, sale) => sum + parseFloat(sale.valor || '0'), 0) || 0;
+
+                    if (totalMeta > 0) {
+                        const progressPercent = (realizado / totalMeta) * 100;
+                        const superProgressPercent = totalSuper > 0 ? (realizado / totalSuper) * 100 : 0;
+                        const dailyAverage = daysElapsed > 0 ? realizado / daysElapsed : 0;
+                        const projected = dailyAverage * 7;
+
+                        let status: 'on-track' | 'ahead' | 'behind' = 'on-track';
+                        const expectedByNow = (totalMeta / 7) * daysElapsed;
+                        if (realizado >= expectedByNow * 1.1) {
+                            status = 'ahead';
+                        } else if (realizado < expectedByNow * 0.9) {
+                            status = 'behind';
+                        }
+
+                        setProgress({
+                            semana_referencia: currentWeek,
+                            meta_valor: totalMeta,
+                            super_meta_valor: totalSuper,
+                            realizado,
+                            progress: progressPercent,
+                            superProgress: superProgressPercent,
+                            daysElapsed,
+                            daysRemaining,
+                            projected,
+                            status
+                        });
+                    }
                 }
             }
         } catch (err) {
@@ -252,7 +256,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                     </Badge>
                 </div>
                 <div className="text-sm text-muted-foreground mt-1">
-                    {format(weekRange.start, "dd/MM", { locale: ptBR })} - {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
+                    {format(weekRange.start, "dd/MM", { locale: ptBR })} a {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
                 </div>
             </CardHeader>
             <CardContent className="pt-6 space-y-4">

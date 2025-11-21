@@ -496,36 +496,42 @@ const Relatorios = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
-      <div className="container mx-auto py-8">
-        <Button variant="ghost" onClick={() => navigate("/admin")} className="mb-4">
-          <ArrowLeft className="mr-2 h-4 w-4" />
+    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10 p-3 sm:p-4">
+      <div className="container mx-auto py-4 sm:py-8">
+        <Button variant="ghost" onClick={() => navigate("/admin")} className="mb-3 sm:mb-4 text-xs sm:text-sm" size="sm">
+          <ArrowLeft className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
           Voltar
         </Button>
 
         <Card className="backdrop-blur-sm bg-card/95 shadow-[var(--shadow-card)] border-primary/10">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-2xl bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+          <CardHeader className="p-3 sm:p-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <CardTitle className="text-lg sm:text-2xl bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 Relatórios
               </CardTitle>
-              <Button onClick={exportToCSV} variant="outline" size="sm">
-                <Download className="mr-2 h-4 w-4" />
+              <Button onClick={exportToCSV} variant="outline" size="sm" className="text-xs sm:text-sm w-full sm:w-auto">
+                <Download className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                 Exportar CSV
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="compras" className="space-y-4">
-              <TabsList>
-                <TabsTrigger value="compras">Compras & Adiantamentos</TabsTrigger>
-                <TabsTrigger value="analytics">Análise Comercial</TabsTrigger>
+          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+            <Tabs defaultValue="compras" className="space-y-3 sm:space-y-4">
+              <TabsList className="grid w-full grid-cols-2 h-auto">
+                <TabsTrigger value="compras" className="text-xs sm:text-sm px-2 sm:px-3 py-2">
+                  <span className="hidden sm:inline">Compras & Adiantamentos</span>
+                  <span className="sm:hidden">Compras</span>
+                </TabsTrigger>
+                <TabsTrigger value="analytics" className="text-xs sm:text-sm px-2 sm:px-3 py-2">
+                  <span className="hidden sm:inline">Análise Comercial</span>
+                  <span className="sm:hidden">Comercial</span>
+                </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="compras" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-4">
+              <TabsContent value="compras" className="space-y-3 sm:space-y-4">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
               <Select value={filtros.mes} onValueChange={(v) => setFiltros({ ...filtros, mes: v === "TODOS_MESES" ? "" : v })}>
-                <SelectTrigger>
+                <SelectTrigger className="text-xs sm:text-sm">
                   <SelectValue placeholder="Todos os meses" />
                 </SelectTrigger>
                 <SelectContent>
@@ -539,7 +545,7 @@ const Relatorios = () => {
               </Select>
 
               <Select value={filtros.status} onValueChange={(v) => setFiltros({ ...filtros, status: v === "TODOS_STATUS" ? "" : v })}>
-                <SelectTrigger>
+                <SelectTrigger className="text-xs sm:text-sm">
                   <SelectValue placeholder="Todos os status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -553,7 +559,7 @@ const Relatorios = () => {
               </Select>
 
               <Select value={filtros.tipo} onValueChange={(v) => setFiltros({ ...filtros, tipo: v })}>
-                <SelectTrigger>
+                <SelectTrigger className="text-xs sm:text-sm">
                   <SelectValue placeholder="Tipo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -563,7 +569,7 @@ const Relatorios = () => {
                 </SelectContent>
               </Select>
 
-              <Button onClick={aplicarFiltros} className="w-full">
+              <Button onClick={aplicarFiltros} className="w-full text-xs sm:text-sm" size="sm">
                 Filtrar
               </Button>
             </div>
@@ -609,32 +615,32 @@ const Relatorios = () => {
                       <div className="rounded-lg border border-primary/10 bg-card">
                         <CollapsibleTrigger asChild>
                           <div className="flex items-center justify-between p-4 hover:bg-accent/5 cursor-pointer transition-colors">
-                            <div className="flex items-center gap-4 flex-1">
+                            <div className="flex items-start gap-2 sm:gap-4 flex-1 min-w-0">
                               {expandedCompras.has(compra.id) ? (
-                                <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                                <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0 mt-1" />
                               ) : (
-                                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0 mt-1" />
                               )}
-                              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 flex-1">
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Colaboradora</p>
-                                  <p className="font-medium">{compra.colaboradora_nome}</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-4 flex-1 min-w-0">
+                                <div className="min-w-0">
+                                  <p className="text-xs sm:text-sm text-muted-foreground">Colaboradora</p>
+                                  <p className="font-medium text-xs sm:text-sm truncate">{compra.colaboradora_nome}</p>
                                 </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Item</p>
-                                  <p className="font-medium">{compra.item}</p>
+                                <div className="min-w-0">
+                                  <p className="text-xs sm:text-sm text-muted-foreground">Item</p>
+                                  <p className="font-medium text-xs sm:text-sm truncate">{compra.item}</p>
                                 </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Data Compra</p>
-                                  <p className="font-medium">{format(new Date(compra.data_compra), "dd/MM/yyyy")}</p>
+                                <div className="min-w-0">
+                                  <p className="text-xs sm:text-sm text-muted-foreground">Data Compra</p>
+                                  <p className="font-medium text-xs sm:text-sm">{format(new Date(compra.data_compra), "dd/MM/yyyy")}</p>
                                 </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Valor Total</p>
-                                  <p className="font-medium">{formatCurrency(compra.preco_final)}</p>
+                                <div className="min-w-0">
+                                  <p className="text-xs sm:text-sm text-muted-foreground">Valor Total</p>
+                                  <p className="font-medium text-xs sm:text-sm">{formatCurrency(compra.preco_final)}</p>
                                 </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Parcelas</p>
-                                  <p className="font-medium">{compra.num_parcelas}x de {formatCurrency(compra.preco_final / compra.num_parcelas)}</p>
+                                <div className="min-w-0">
+                                  <p className="text-xs sm:text-sm text-muted-foreground">Parcelas</p>
+                                  <p className="font-medium text-xs sm:text-sm">{compra.num_parcelas}x de {formatCurrency(compra.preco_final / compra.num_parcelas)}</p>
                                 </div>
                               </div>
                             </div>
@@ -645,7 +651,7 @@ const Relatorios = () => {
                                 e.stopPropagation();
                                 setDeleteDialog({ type: 'compra', id: compra.id });
                               }}
-                              className="text-destructive hover:text-destructive ml-2"
+                              className="text-destructive hover:text-destructive ml-2 flex-shrink-0"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -653,16 +659,16 @@ const Relatorios = () => {
                         </CollapsibleTrigger>
                         
                         <CollapsibleContent>
-                          <div className="border-t border-primary/10">
+                          <div className="border-t border-primary/10 overflow-x-auto">
                             <Table>
                               <TableHeader>
                                 <TableRow>
-                                  <TableHead>Parcela</TableHead>
-                                  <TableHead>Competência</TableHead>
-                                  <TableHead>Valor</TableHead>
-                                  <TableHead>Status</TableHead>
-                                  <TableHead>Data Baixa</TableHead>
-                                  <TableHead>Ações</TableHead>
+                                  <TableHead className="text-xs sm:text-sm">Parcela</TableHead>
+                                  <TableHead className="text-xs sm:text-sm">Competência</TableHead>
+                                  <TableHead className="text-xs sm:text-sm">Valor</TableHead>
+                                  <TableHead className="text-xs sm:text-sm">Status</TableHead>
+                                  <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Data Baixa</TableHead>
+                                  <TableHead className="text-xs sm:text-sm">Ações</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -670,13 +676,13 @@ const Relatorios = () => {
                                   .filter(p => !deletedItems.some(d => d.type === 'parcela' && d.id === p.id))
                                   .map((parcela) => (
                                   <TableRow key={parcela.id}>
-                                    <TableCell>{parcela.n_parcela}/{compra.num_parcelas}</TableCell>
-                                    <TableCell>
+                                    <TableCell className="text-xs sm:text-sm">{parcela.n_parcela}/{compra.num_parcelas}</TableCell>
+                                    <TableCell className="text-xs sm:text-sm">
                                       {parcela.competencia.substring(4)}/{parcela.competencia.substring(0, 4)}
                                     </TableCell>
-                                    <TableCell>{formatCurrency(parcela.valor_parcela)}</TableCell>
-                                    <TableCell>
-                                      <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                                    <TableCell className="text-xs sm:text-sm font-medium">{formatCurrency(parcela.valor_parcela)}</TableCell>
+                                    <TableCell className="text-xs sm:text-sm">
+                                      <span className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] sm:text-xs font-medium ${
                                         parcela.status_parcela === "DESCONTADO" ? "bg-success/10 text-success" :
                                         parcela.status_parcela === "AGENDADO" ? "bg-primary/10 text-primary" :
                                         parcela.status_parcela === "ESTORNADO" ? "bg-destructive/10 text-destructive" :
@@ -685,17 +691,17 @@ const Relatorios = () => {
                                         {parcela.status_parcela}
                                       </span>
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="text-xs sm:text-sm hidden sm:table-cell">
                                       {parcela.data_baixa ? format(new Date(parcela.data_baixa), "dd/MM/yyyy") : "-"}
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="text-xs sm:text-sm">
                                       <Button
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => setDeleteDialog({ type: 'parcela', id: parcela.id, compraId: compra.id })}
-                                        className="text-destructive hover:text-destructive"
+                                        className="text-destructive hover:text-destructive h-8 w-8 p-0"
                                       >
-                                        <Trash2 className="h-4 w-4" />
+                                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                                       </Button>
                                     </TableCell>
                                   </TableRow>
@@ -717,30 +723,30 @@ const Relatorios = () => {
                       <h3 className="text-lg font-semibold text-foreground mb-2">Adiantamentos</h3>
                     )}
                     {filteredAdiantamentos.map((adiantamento) => (
-                      <div key={adiantamento.id} className="rounded-lg border border-primary/10 bg-card p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Colaboradora</p>
-                            <p className="font-medium">{adiantamento.colaboradora_nome}</p>
+                      <div key={adiantamento.id} className="rounded-lg border border-primary/10 bg-card p-3 sm:p-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm text-muted-foreground">Colaboradora</p>
+                            <p className="font-medium text-xs sm:text-sm truncate">{adiantamento.colaboradora_nome}</p>
                           </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Valor</p>
-                            <p className="font-medium">{formatCurrency(adiantamento.valor)}</p>
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm text-muted-foreground">Valor</p>
+                            <p className="font-medium text-xs sm:text-sm">{formatCurrency(adiantamento.valor)}</p>
                           </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Data Solicitação</p>
-                            <p className="font-medium">{format(new Date(adiantamento.data_solicitacao), "dd/MM/yyyy")}</p>
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm text-muted-foreground">Data Solicitação</p>
+                            <p className="font-medium text-xs sm:text-sm">{format(new Date(adiantamento.data_solicitacao), "dd/MM/yyyy")}</p>
                           </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Competência</p>
-                            <p className="font-medium">
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm text-muted-foreground">Competência</p>
+                            <p className="font-medium text-xs sm:text-sm">
                               {adiantamento.mes_competencia.substring(4)}/{adiantamento.mes_competencia.substring(0, 4)}
                             </p>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-muted-foreground">Status</p>
-                              <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                          <div className="flex items-center justify-between sm:block">
+                            <div className="flex-1 sm:flex-none">
+                              <p className="text-xs sm:text-sm text-muted-foreground">Status</p>
+                              <span className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] sm:text-xs font-medium ${
                                 adiantamento.status === "DESCONTADO" ? "bg-success/10 text-success" :
                                 adiantamento.status === "APROVADO" ? "bg-primary/10 text-primary" :
                                 adiantamento.status === "RECUSADO" ? "bg-destructive/10 text-destructive" :
@@ -753,16 +759,16 @@ const Relatorios = () => {
                               variant="ghost"
                               size="sm"
                               onClick={() => setDeleteDialog({ type: 'adiantamento', id: adiantamento.id })}
-                              className="text-destructive hover:text-destructive"
+                              className="text-destructive hover:text-destructive flex-shrink-0 h-8 w-8 p-0 sm:mt-2 sm:ml-0"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                             </Button>
                           </div>
                         </div>
                         {adiantamento.motivo_recusa && (
                           <div className="mt-3 pt-3 border-t border-primary/10">
-                            <p className="text-sm text-muted-foreground">Motivo da Recusa:</p>
-                            <p className="text-sm">{adiantamento.motivo_recusa}</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">Motivo da Recusa:</p>
+                            <p className="text-xs sm:text-sm">{adiantamento.motivo_recusa}</p>
                           </div>
                         )}
                       </div>
@@ -782,15 +788,15 @@ const Relatorios = () => {
               <TabsContent value="analytics" className="space-y-6">
                 {/* Filtros de Período para Analytics */}
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Filtros de Período</CardTitle>
+                  <CardHeader className="p-3 sm:p-6">
+                    <CardTitle className="text-base sm:text-lg">Filtros de Período</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                       <div>
-                        <Label>Período</Label>
+                        <Label className="text-xs sm:text-sm">Período</Label>
                         <Select value={periodFilter} onValueChange={(v: any) => setPeriodFilter(v)}>
-                          <SelectTrigger>
+                          <SelectTrigger className="text-xs sm:text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -806,19 +812,21 @@ const Relatorios = () => {
                       {periodFilter === 'custom' && (
                         <>
                           <div>
-                            <Label>Data Início</Label>
+                            <Label className="text-xs sm:text-sm">Data Início</Label>
                             <Input
                               type="date"
                               value={customStartDate}
                               onChange={(e) => setCustomStartDate(e.target.value)}
+                              className="text-xs sm:text-sm"
                             />
                           </div>
                           <div>
-                            <Label>Data Fim</Label>
+                            <Label className="text-xs sm:text-sm">Data Fim</Label>
                             <Input
                               type="date"
                               value={customEndDate}
                               onChange={(e) => setCustomEndDate(e.target.value)}
+                              className="text-xs sm:text-sm"
                             />
                           </div>
                         </>
@@ -830,14 +838,15 @@ const Relatorios = () => {
                 {/* Gráfico de Evolução Diária */}
                 {dailyTrends.length > 0 && (
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <TrendingUp className="h-5 w-5" />
-                        Evolução Diária de Vendas por Loja
+                    <CardHeader className="p-3 sm:p-6">
+                      <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                        <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <span className="hidden sm:inline">Evolução Diária de Vendas por Loja</span>
+                        <span className="sm:hidden">Evolução Diária</span>
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <ResponsiveContainer width="100%" height={400}>
+                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                      <ResponsiveContainer width="100%" height={300} className="min-h-[250px] sm:min-h-[350px]">
                         <LineChart data={dailyTrends}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="date" />
@@ -863,14 +872,15 @@ const Relatorios = () => {
                 {/* Comparação de Vendas por Loja */}
                 {storeComparison.length > 0 && (
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <BarChart3 className="h-5 w-5" />
-                        Comparação de Vendas por Loja
+                    <CardHeader className="p-3 sm:p-6">
+                      <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                        <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <span className="hidden sm:inline">Comparação de Vendas por Loja</span>
+                        <span className="sm:hidden">Comparação</span>
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <ResponsiveContainer width="100%" height={400}>
+                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                      <ResponsiveContainer width="100%" height={300} className="min-h-[250px] sm:min-h-[350px]">
                         <BarChart data={storeComparison}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="store_name" />
@@ -886,14 +896,14 @@ const Relatorios = () => {
 
                 {/* Comparação com Benchmarks */}
                 {storeComparison.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {/* Ticket Médio vs Benchmark */}
                     <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg">Ticket Médio vs Meta</CardTitle>
+                      <CardHeader className="p-3 sm:p-6">
+                        <CardTitle className="text-sm sm:text-lg">Ticket Médio vs Meta</CardTitle>
                       </CardHeader>
-                      <CardContent>
-                        <ResponsiveContainer width="100%" height={300}>
+                      <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                        <ResponsiveContainer width="100%" height={250} className="min-h-[200px] sm:min-h-[250px]">
                           <BarChart data={storeComparison}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="store_name" angle={-45} textAnchor="end" height={100} />
@@ -909,11 +919,11 @@ const Relatorios = () => {
 
                     {/* PA vs Benchmark */}
                     <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg">P.A. vs Meta</CardTitle>
+                      <CardHeader className="p-3 sm:p-6">
+                        <CardTitle className="text-sm sm:text-lg">P.A. vs Meta</CardTitle>
                       </CardHeader>
-                      <CardContent>
-                        <ResponsiveContainer width="100%" height={300}>
+                      <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                        <ResponsiveContainer width="100%" height={250} className="min-h-[200px] sm:min-h-[250px]">
                           <BarChart data={storeComparison}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="store_name" angle={-45} textAnchor="end" height={100} />
@@ -929,11 +939,11 @@ const Relatorios = () => {
 
                     {/* Preço Médio vs Benchmark */}
                     <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg">Preço Médio vs Meta</CardTitle>
+                      <CardHeader className="p-3 sm:p-6">
+                        <CardTitle className="text-sm sm:text-lg">Preço Médio vs Meta</CardTitle>
                       </CardHeader>
-                      <CardContent>
-                        <ResponsiveContainer width="100%" height={300}>
+                      <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                        <ResponsiveContainer width="100%" height={250} className="min-h-[200px] sm:min-h-[250px]">
                           <BarChart data={storeComparison}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="store_name" angle={-45} textAnchor="end" height={100} />

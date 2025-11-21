@@ -110,6 +110,7 @@ const MetasManagementContent = () => {
     const [selectedWeek, setSelectedWeek] = useState<string>(getCurrentWeekRef());
     const [weeklyMetaValor, setWeeklyMetaValor] = useState<string>("");
     const [weeklySuperMetaValor, setWeeklySuperMetaValor] = useState<string>("");
+    const [weeklyColabGoals, setWeeklyColabGoals] = useState<{ id: string, name: string, meta: number, superMeta: number }[]>([]);
 
     function getCurrentWeekRef(): string {
         const hoje = new Date();
@@ -434,30 +435,69 @@ const MetasManagementContent = () => {
         }
 
         try {
+            // Get active collaborators for the store
+            const activeColabs = colaboradoras.filter(c => c.store_id === selectedStore);
+            
+            if (activeColabs.length === 0) {
+                toast.error("Nenhuma colaboradora ativa encontrada nesta loja");
+                return;
+            }
+
             // Get month from week
             const weekRange = getWeekRange(selectedWeek);
             const monthRef = format(weekRange.start, "yyyyMM");
             
-            // Get monthly goal
-            const { data: monthlyGoal } = await supabase
+            // Get monthly individual goals
+            const { data: monthlyGoals } = await supabase
                 .from("goals")
-                .select("meta_valor, super_meta_valor")
+                .select("colaboradora_id, meta_valor, super_meta_valor")
                 .eq("store_id", selectedStore)
-                .eq("tipo", "MENSAL")
-                .eq("mes_referencia", monthRef)
-                .is("colaboradora_id", null)
-                .single();
+                .eq("tipo", "INDIVIDUAL")
+                .eq("mes_referencia", monthRef);
 
-            if (monthlyGoal) {
-                // Calculate: monthly / 4.33 (average weeks per month)
-                const suggestedMeta = (monthlyGoal.meta_valor / 4.33).toFixed(2);
-                const suggestedSuper = (monthlyGoal.super_meta_valor / 4.33).toFixed(2);
+            if (monthlyGoals && monthlyGoals.length > 0) {
+                // Calculate weekly goals per collaborator
+                const colabGoalsData = activeColabs.map(colab => {
+                    const monthlyGoal = monthlyGoals.find(g => g.colaboradora_id === colab.id);
+                    if (monthlyGoal) {
+                        // Calculate: monthly / 4.33 (average weeks per month)
+                        const weeklyMeta = monthlyGoal.meta_valor / 4.33;
+                        const weeklySuper = monthlyGoal.super_meta_valor / 4.33;
+                        return {
+                            id: colab.id,
+                            name: colab.name,
+                            meta: parseFloat(weeklyMeta.toFixed(2)),
+                            superMeta: parseFloat(weeklySuper.toFixed(2))
+                        };
+                    } else {
+                        return {
+                            id: colab.id,
+                            name: colab.name,
+                            meta: 0,
+                            superMeta: 0
+                        };
+                    }
+                });
+
+                setWeeklyColabGoals(colabGoalsData);
                 
-                setWeeklyMetaValor(suggestedMeta);
-                setWeeklySuperMetaValor(suggestedSuper);
-                toast.success("Metas sugeridas calculadas com base na meta mensal");
+                // Calculate total
+                const totalMeta = colabGoalsData.reduce((sum, c) => sum + c.meta, 0);
+                const totalSuper = colabGoalsData.reduce((sum, c) => sum + c.superMeta, 0);
+                
+                setWeeklyMetaValor(totalMeta.toFixed(2));
+                setWeeklySuperMetaValor(totalSuper.toFixed(2));
+                
+                toast.success(`Metas sugeridas para ${activeColabs.length} colaboradora(s) baseadas nas metas mensais`);
             } else {
-                toast.warning("Meta mensal não encontrada. Defina manualmente.");
+                toast.warning("Metas mensais individuais não encontradas. Defina manualmente.");
+                // Initialize with empty goals
+                setWeeklyColabGoals(activeColabs.map(c => ({
+                    id: c.id,
+                    name: c.name,
+                    meta: 0,
+                    superMeta: 0
+                })));
             }
         } catch (err) {
             console.error("Error calculating suggested goals:", err);
@@ -465,75 +505,135 @@ const MetasManagementContent = () => {
         }
     };
 
+    const distributeWeeklyGoals = () => {
+        if (!weeklyMetaValor || !weeklySuperMetaValor || weeklyColabGoals.length === 0) return;
+
+        const totalMeta = parseFloat(weeklyMetaValor);
+        const totalSuper = parseFloat(weeklySuperMetaValor);
+        const count = weeklyColabGoals.length;
+
+        const individualMeta = totalMeta / count;
+        const individualSuper = totalSuper / count;
+
+        setWeeklyColabGoals(weeklyColabGoals.map(c => ({
+            ...c,
+            meta: parseFloat(individualMeta.toFixed(2)),
+            superMeta: parseFloat(individualSuper.toFixed(2))
+        })));
+    };
+
+    const handleWeeklyColabChange = (id: string, field: 'meta' | 'superMeta', value: string) => {
+        const numValue = parseFloat(value) || 0;
+        setWeeklyColabGoals(prev => prev.map(c => {
+            if (c.id !== id) return c;
+            if (field === 'meta') {
+                // Recalculate super meta proportionally
+                const ratio = parseFloat(weeklySuperMetaValor) / parseFloat(weeklyMetaValor || '1');
+                return { ...c, meta: numValue, superMeta: parseFloat((numValue * ratio).toFixed(2)) };
+            } else {
+                return { ...c, superMeta: numValue };
+            }
+        }));
+    };
+
     const handleSaveWeeklyGoal = async () => {
-        if (!selectedStore || !selectedWeek || !weeklyMetaValor || !weeklySuperMetaValor) {
+        if (!selectedStore || !selectedWeek || weeklyColabGoals.length === 0) {
             toast.error("Preencha todos os campos obrigatórios");
             return;
         }
 
-        const payload = {
-            store_id: selectedStore,
-            semana_referencia: selectedWeek,
-            tipo: "SEMANAL",
-            meta_valor: parseFloat(weeklyMetaValor),
-            super_meta_valor: parseFloat(weeklySuperMetaValor),
-            colaboradora_id: null,
-            ativo: true,
-            mes_referencia: null,
-        };
+        // Validate total
+        const totalMeta = weeklyColabGoals.reduce((sum, c) => sum + c.meta, 0);
+        const totalSuper = weeklyColabGoals.reduce((sum, c) => sum + c.superMeta, 0);
+        const expectedMeta = parseFloat(weeklyMetaValor || "0");
+        const expectedSuper = parseFloat(weeklySuperMetaValor || "0");
+
+        if (Math.abs(totalMeta - expectedMeta) > 1 || Math.abs(totalSuper - expectedSuper) > 1) {
+            toast.error("A soma das metas individuais não corresponde ao total informado!");
+            return;
+        }
 
         try {
-            if (editingWeeklyGoal?.id) {
-                const { error } = await supabase
-                    .from("goals")
-                    .update(payload)
-                    .eq("id", editingWeeklyGoal.id);
+            // Create/Update individual weekly goals for each collaborator
+            const payloads = weeklyColabGoals.map(colab => ({
+                store_id: selectedStore,
+                semana_referencia: selectedWeek,
+                tipo: "SEMANAL",
+                meta_valor: colab.meta,
+                super_meta_valor: colab.superMeta,
+                colaboradora_id: colab.id,
+                ativo: true,
+                mes_referencia: null,
+            }));
 
-                if (error) throw error;
-                toast.success("Meta semanal atualizada!");
-            } else {
-                // Check if exists
-                const { data: existing } = await supabase
-                    .from("goals")
-                    .select("id")
-                    .eq("store_id", selectedStore)
-                    .eq("semana_referencia", selectedWeek)
-                    .eq("tipo", "SEMANAL")
-                    .single();
+            // Delete existing weekly goals for this store and week
+            const { error: deleteError } = await supabase
+                .from("goals")
+                .delete()
+                .eq("store_id", selectedStore)
+                .eq("semana_referencia", selectedWeek)
+                .eq("tipo", "SEMANAL");
 
-                if (existing) {
-                    const { error } = await supabase
-                        .from("goals")
-                        .update(payload)
-                        .eq("id", existing.id);
+            if (deleteError) throw deleteError;
 
-                    if (error) throw error;
-                    toast.success("Meta semanal atualizada!");
-                } else {
-                    const { error } = await supabase
-                        .from("goals")
-                        .insert([payload]);
+            // Insert new weekly goals
+            const { error: insertError } = await supabase
+                .from("goals")
+                .insert(payloads);
 
-                    if (error) throw error;
-                    toast.success("Meta semanal criada!");
-                }
-            }
+            if (insertError) throw insertError;
 
+            toast.success(`Metas semanais criadas para ${weeklyColabGoals.length} colaboradora(s)!`);
             setWeeklyDialogOpen(false);
             resetWeeklyForm();
             fetchWeeklyGoals();
         } catch (err: any) {
-            console.error("Error saving weekly goal:", err);
-            toast.error(err.message || "Erro ao salvar meta semanal");
+            console.error("Error saving weekly goals:", err);
+            toast.error(err.message || "Erro ao salvar metas semanais");
         }
     };
 
-    const handleEditWeekly = (goal: Goal) => {
+    const handleEditWeekly = async (goal: Goal) => {
         setEditingWeeklyGoal(goal);
         setSelectedStore(goal.store_id || "");
         setSelectedWeek(goal.semana_referencia || getCurrentWeekRef());
-        setWeeklyMetaValor(goal.meta_valor.toString());
-        setWeeklySuperMetaValor(goal.super_meta_valor.toString());
+
+        // Fetch all weekly goals for this store and week
+        const { data: weeklyGoalsData } = await supabase
+            .from("goals")
+            .select("*, profiles (name)")
+            .eq("store_id", goal.store_id)
+            .eq("semana_referencia", goal.semana_referencia)
+            .eq("tipo", "SEMANAL");
+
+        if (weeklyGoalsData && weeklyGoalsData.length > 0) {
+            const colabGoalsData = weeklyGoalsData.map((g: any) => ({
+                id: g.colaboradora_id,
+                name: g.profiles?.name || "Colaboradora desconhecida",
+                meta: g.meta_valor,
+                superMeta: g.super_meta_valor
+            }));
+
+            setWeeklyColabGoals(colabGoalsData);
+
+            const totalMeta = colabGoalsData.reduce((sum, c) => sum + c.meta, 0);
+            const totalSuper = colabGoalsData.reduce((sum, c) => sum + c.superMeta, 0);
+            
+            setWeeklyMetaValor(totalMeta.toFixed(2));
+            setWeeklySuperMetaValor(totalSuper.toFixed(2));
+        } else {
+            // If no goals found, load active collaborators
+            const activeColabs = colaboradoras.filter(c => c.store_id === goal.store_id);
+            setWeeklyColabGoals(activeColabs.map(c => ({
+                id: c.id,
+                name: c.name,
+                meta: 0,
+                superMeta: 0
+            })));
+            setWeeklyMetaValor("");
+            setWeeklySuperMetaValor("");
+        }
+
         setWeeklyDialogOpen(true);
     };
 
@@ -543,6 +643,7 @@ const MetasManagementContent = () => {
         setSelectedWeek(getCurrentWeekRef());
         setWeeklyMetaValor("");
         setWeeklySuperMetaValor("");
+        setWeeklyColabGoals([]);
     };
 
     const getWeekOptions = () => {
@@ -565,26 +666,28 @@ const MetasManagementContent = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-background via-muted/50 to-background p-6 space-y-8">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => navigate('/admin')}>
-                        <ArrowLeft className="h-6 w-6" />
+        <div className="min-h-screen bg-gradient-to-br from-background via-muted/50 to-background p-3 sm:p-6 space-y-4 sm:space-y-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+                <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
+                    <Button variant="ghost" size="icon" onClick={() => navigate('/admin')} className="flex-shrink-0">
+                        <ArrowLeft className="h-5 w-5 sm:h-6 sm:w-6" />
                     </Button>
-                    <div>
-                        <h1 className="text-3xl font-bold text-primary">Gerenciar Metas</h1>
-                        <p className="text-muted-foreground">Defina metas por loja e distribua entre a equipe</p>
+                    <div className="min-w-0 flex-1">
+                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-primary">Gerenciar Metas</h1>
+                        <p className="text-xs sm:text-sm text-muted-foreground">Defina metas por loja e distribua entre a equipe</p>
                     </div>
                 </div>
                 {activeTab === 'mensal' ? (
-                    <Button onClick={() => setDialogOpen(true)} className="bg-primary hover:bg-primary/90">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Nova Distribuição Mensal
+                    <Button onClick={() => setDialogOpen(true)} className="bg-primary hover:bg-primary/90 text-xs sm:text-sm w-full sm:w-auto" size="sm">
+                        <Plus className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="hidden sm:inline">Nova Distribuição Mensal</span>
+                        <span className="sm:hidden">Nova Mensal</span>
                     </Button>
                 ) : (
-                    <Button onClick={() => { resetWeeklyForm(); setWeeklyDialogOpen(true); }} className="bg-primary hover:bg-primary/90">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Nova Meta Semanal
+                    <Button onClick={() => { resetWeeklyForm(); setWeeklyDialogOpen(true); }} className="bg-primary hover:bg-primary/90 text-xs sm:text-sm w-full sm:w-auto" size="sm">
+                        <Plus className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="hidden sm:inline">Nova Meta Semanal</span>
+                        <span className="sm:hidden">Nova Semanal</span>
                     </Button>
                 )}
             </div>
@@ -592,18 +695,24 @@ const MetasManagementContent = () => {
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'mensal' | 'semanal')}>
                 <TabsList className="grid w-full max-w-md grid-cols-2">
-                    <TabsTrigger value="mensal">Metas Mensais</TabsTrigger>
-                    <TabsTrigger value="semanal">Metas Semanais</TabsTrigger>
+                    <TabsTrigger value="mensal" className="text-xs sm:text-sm">
+                        <span className="hidden sm:inline">Metas Mensais</span>
+                        <span className="sm:hidden">Mensais</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="semanal" className="text-xs sm:text-sm">
+                        <span className="hidden sm:inline">Metas Semanais</span>
+                        <span className="sm:hidden">Semanais</span>
+                    </TabsTrigger>
                 </TabsList>
 
                 {/* Mensal Tab */}
-                <TabsContent value="mensal" className="space-y-6 mt-6">
+                <TabsContent value="mensal" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
                     {/* Filters */}
-                    <div className="flex gap-4 bg-card p-4 rounded-lg border shadow-sm">
-                        <div className="w-48">
-                            <Label>Filtrar por Loja</Label>
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 bg-card p-3 sm:p-4 rounded-lg border shadow-sm">
+                        <div className="w-full sm:w-48">
+                            <Label className="text-xs sm:text-sm">Filtrar por Loja</Label>
                             <Select value={storeFilter} onValueChange={setStoreFilter}>
-                                <SelectTrigger>
+                                <SelectTrigger className="text-xs sm:text-sm">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -612,9 +721,14 @@ const MetasManagementContent = () => {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="w-48">
-                            <Label>Mês</Label>
-                            <Input value={monthFilter} onChange={e => setMonthFilter(e.target.value)} placeholder="YYYYMM" />
+                        <div className="w-full sm:w-48">
+                            <Label className="text-xs sm:text-sm">Mês</Label>
+                            <Input 
+                                value={monthFilter} 
+                                onChange={e => setMonthFilter(e.target.value)} 
+                                placeholder="YYYYMM"
+                                className="text-xs sm:text-sm"
+                            />
                         </div>
                     </div>
 
@@ -635,41 +749,41 @@ const MetasManagementContent = () => {
                         }, {} as Record<string, any>)
                 ).map(([key, group]: [string, any]) => (
                     <Card key={key} className="overflow-hidden border-l-4 border-l-primary">
-                        <div className="p-4 bg-muted/30 flex justify-between items-center border-b">
-                            <div className="flex items-center gap-4">
-                                <div className="bg-primary/10 p-2 rounded-full">
-                                    <Store className="h-6 w-6 text-primary" />
+                        <div className="p-3 sm:p-4 bg-muted/30 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 border-b">
+                            <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+                                <div className="bg-primary/10 p-2 rounded-full flex-shrink-0">
+                                    <Store className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                                 </div>
-                                <div>
-                                    <h3 className="font-bold text-lg">{group.store?.name || 'Loja Desconhecida'}</h3>
-                                    <p className="text-sm text-muted-foreground">Referência: {group.month}</p>
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="font-bold text-base sm:text-lg truncate">{group.store?.name || 'Loja Desconhecida'}</h3>
+                                    <p className="text-xs sm:text-sm text-muted-foreground">Referência: {group.month}</p>
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-6">
-                                <div className="text-right hidden md:block">
-                                    <p className="text-xs text-muted-foreground">Meta da Loja</p>
-                                    <p className="font-bold text-lg">R$ {group.storeGoal?.meta_valor?.toLocaleString('pt-BR') || '0,00'}</p>
+                            <div className="flex items-center gap-3 sm:gap-6 w-full sm:w-auto">
+                                <div className="text-right flex-1 sm:flex-initial">
+                                    <p className="text-xs text-muted-foreground hidden sm:block">Meta da Loja</p>
+                                    <p className="font-bold text-sm sm:text-lg">R$ {group.storeGoal?.meta_valor?.toLocaleString('pt-BR') || '0,00'}</p>
                                 </div>
-                                <Button variant="outline" size="sm" onClick={() => handleEdit(group.storeGoal?.store_id, group.month)}>
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Editar
+                                <Button variant="outline" size="sm" onClick={() => handleEdit(group.storeGoal?.store_id, group.month)} className="flex-shrink-0 text-xs sm:text-sm">
+                                    <Edit className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                                    <span className="hidden sm:inline">Editar</span>
                                 </Button>
                             </div>
                         </div>
 
-                        <div className="p-4 bg-card">
-                            <h4 className="text-xs font-semibold mb-3 text-muted-foreground flex items-center gap-2 uppercase tracking-wider">
-                                <UserCheck className="h-4 w-4" />
+                        <div className="p-3 sm:p-4 bg-card">
+                            <h4 className="text-[10px] sm:text-xs font-semibold mb-3 text-muted-foreground flex items-center gap-2 uppercase tracking-wider">
+                                <UserCheck className="h-3 w-3 sm:h-4 sm:w-4" />
                                 Metas Individuais
                             </h4>
-                            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                            <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                                 {group.individuals.map((ind: any) => (
-                                    <div key={ind.id} className="flex justify-between items-center p-3 rounded-lg border bg-background hover:bg-muted/20 transition-colors">
-                                        <span className="font-medium text-sm">{ind.profiles?.name}</span>
-                                        <div className="text-right">
-                                            <div className="font-bold text-sm">R$ {ind.meta_valor.toLocaleString('pt-BR')}</div>
-                                            <div className="text-xs text-purple-600 font-medium">Super: R$ {ind.super_meta_valor.toLocaleString('pt-BR')}</div>
+                                    <div key={ind.id} className="flex justify-between items-center p-2 sm:p-3 rounded-lg border bg-background hover:bg-muted/20 transition-colors">
+                                        <span className="font-medium text-xs sm:text-sm truncate flex-1 min-w-0 mr-2">{ind.profiles?.name}</span>
+                                        <div className="text-right flex-shrink-0">
+                                            <div className="font-bold text-xs sm:text-sm">R$ {ind.meta_valor.toLocaleString('pt-BR')}</div>
+                                            <div className="text-[10px] sm:text-xs text-purple-600 font-medium">Super: R$ {ind.super_meta_valor.toLocaleString('pt-BR')}</div>
                                         </div>
                                     </div>
                                 ))}
@@ -689,41 +803,56 @@ const MetasManagementContent = () => {
                 <TabsContent value="semanal" className="space-y-6 mt-6">
                     {/* Weekly Goals List */}
                     <div className="space-y-4">
-                        {weeklyGoals.map((goal) => {
-                            const weekRange = getWeekRange(goal.semana_referencia || "");
-                            const isCurrentWeek = goal.semana_referencia === getCurrentWeekRef();
+                        {Object.entries(
+                            weeklyGoals.reduce((acc, goal) => {
+                                const key = `${goal.store_id}-${goal.semana_referencia}`;
+                                if (!acc[key]) {
+                                    acc[key] = {
+                                        store: goal.stores,
+                                        semana_referencia: goal.semana_referencia,
+                                        goals: []
+                                    };
+                                }
+                                acc[key].goals.push(goal);
+                                return acc;
+                            }, {} as Record<string, any>)
+                        ).map(([key, group]: [string, any]) => {
+                            const weekRange = getWeekRange(group.semana_referencia || "");
+                            const isCurrentWeek = group.semana_referencia === getCurrentWeekRef();
+                            const totalMeta = group.goals.reduce((sum: number, g: any) => sum + g.meta_valor, 0);
+                            const totalSuper = group.goals.reduce((sum: number, g: any) => sum + g.super_meta_valor, 0);
                             
                             return (
                                 <Card 
-                                    key={goal.id} 
+                                    key={key} 
                                     className={`overflow-hidden shadow-md hover:shadow-lg transition-shadow ${
                                         isCurrentWeek ? 'border-2 border-primary' : ''
                                     }`}
                                 >
-                                    <div className="p-4 bg-gradient-to-r from-primary/10 to-purple-500/10 flex justify-between items-center border-b">
-                                        <div className="flex items-center gap-4">
-                                            <div className="bg-primary/10 p-2 rounded-full">
-                                                <Calendar className="h-6 w-6 text-primary" />
+                                    <div className="p-3 sm:p-4 bg-gradient-to-r from-primary/10 to-purple-500/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b">
+                                        <div className="flex items-center gap-2 sm:gap-4 flex-1">
+                                            <div className="bg-primary/10 p-2 rounded-full flex-shrink-0">
+                                                <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                                             </div>
-                                            <div>
-                                                <h3 className="font-bold text-lg">{goal.stores?.name || 'Loja Desconhecida'}</h3>
-                                                <p className="text-sm text-muted-foreground">
-                                                    {format(weekRange.start, "dd/MM", { locale: ptBR })} - {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
+                                            <div className="min-w-0">
+                                                <h3 className="font-bold text-base sm:text-lg">{group.store?.name || 'Loja Desconhecida'}</h3>
+                                                <p className="text-xs sm:text-sm text-muted-foreground">
+                                                    {format(weekRange.start, "dd/MM", { locale: ptBR })} a {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
                                                 </p>
                                             </div>
                                             {isCurrentWeek && (
-                                                <Badge className="bg-primary text-primary-foreground">Semana Atual</Badge>
+                                                <Badge className="bg-primary text-primary-foreground text-xs">Semana Atual</Badge>
                                             )}
                                         </div>
-                                        <div className="flex items-center gap-6">
-                                            <div className="text-right hidden md:block">
-                                                <p className="text-xs text-muted-foreground">Meta Semanal</p>
-                                                <p className="font-bold text-lg">R$ {goal.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</p>
-                                                <p className="text-xs text-purple-600 font-medium">Super: R$ {goal.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</p>
+                                        <div className="flex items-center gap-3 sm:gap-6 w-full sm:w-auto">
+                                            <div className="text-left sm:text-right flex-1 sm:flex-initial">
+                                                <p className="text-xs text-muted-foreground">Total ({group.goals.length} colaboradora{group.goals.length > 1 ? 's' : ''})</p>
+                                                <p className="font-bold text-sm sm:text-lg text-primary">R$ {totalMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                <p className="text-xs text-purple-600 font-medium">Super: R$ {totalSuper.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                             </div>
-                                            <Button variant="outline" size="sm" onClick={() => handleEditWeekly(goal)}>
-                                                <Edit className="h-4 w-4 mr-2" />
-                                                Editar
+                                            <Button variant="outline" size="sm" onClick={() => handleEditWeekly(group.goals[0])} className="flex-shrink-0">
+                                                <Edit className="h-4 w-4 mr-1 sm:mr-2" />
+                                                <span className="hidden sm:inline">Editar</span>
                                             </Button>
                                         </div>
                                     </div>
@@ -745,18 +874,18 @@ const MetasManagementContent = () => {
 
             {/* New Goal Dialog (Mensal) */}
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Nova Distribuição de Metas</DialogTitle>
+                        <DialogTitle className="text-base sm:text-lg">Nova Distribuição de Metas</DialogTitle>
                     </DialogHeader>
 
-                    <div className="space-y-6 py-4">
+                    <div className="space-y-4 sm:space-y-6 py-3 sm:py-4">
                         {/* 1. Store & Global Values */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg border">
-                            <div className="md:col-span-2">
-                                <Label>Loja</Label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 p-3 sm:p-4 bg-muted/30 rounded-lg border">
+                            <div className="sm:col-span-2">
+                                <Label className="text-xs sm:text-sm">Loja</Label>
                                 <Select value={selectedStore} onValueChange={handleStoreSelect}>
-                                    <SelectTrigger>
+                                    <SelectTrigger className="text-xs sm:text-sm">
                                         <SelectValue placeholder="Selecione a Loja" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -765,86 +894,87 @@ const MetasManagementContent = () => {
                                 </Select>
                             </div>
                             <div>
-                                <Label>Mês (YYYYMM)</Label>
-                                <Input value={mesReferencia} onChange={e => setMesReferencia(e.target.value)} />
+                                <Label className="text-xs sm:text-sm">Mês (YYYYMM)</Label>
+                                <Input value={mesReferencia} onChange={e => setMesReferencia(e.target.value)} className="text-xs sm:text-sm" />
                             </div>
                             <div className="flex items-end">
-                                <Button variant="outline" onClick={() => setShowWeights(!showWeights)} className="w-full">
-                                    <Calendar className="mr-2 h-4 w-4" />
-                                    Pesos Diários
+                                <Button variant="outline" onClick={() => setShowWeights(!showWeights)} className="w-full text-xs sm:text-sm" size="sm">
+                                    <Calendar className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                                    <span className="hidden sm:inline">Pesos Diários</span>
+                                    <span className="sm:hidden">Pesos</span>
                                 </Button>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <div>
-                                <Label className="text-blue-600 font-semibold">Meta da Loja (R$)</Label>
+                                <Label className="text-blue-600 font-semibold text-xs sm:text-sm">Meta da Loja (R$)</Label>
                                 <Input
                                     type="number"
                                     value={metaLoja}
                                     onChange={e => setMetaLoja(e.target.value)}
-                                    className="text-lg font-bold"
+                                    className="text-base sm:text-lg font-bold"
                                 />
                             </div>
                             <div>
-                                <Label className="text-purple-600 font-semibold">Super Meta da Loja (R$)</Label>
+                                <Label className="text-purple-600 font-semibold text-xs sm:text-sm">Super Meta da Loja (R$)</Label>
                                 <Input
                                     type="number"
                                     value={superMetaLoja}
                                     onChange={e => setSuperMetaLoja(e.target.value)}
-                                    className="text-lg font-bold"
+                                    className="text-base sm:text-lg font-bold"
                                 />
                             </div>
                         </div>
 
-                        <Button onClick={distributeGoals} className="w-full" disabled={!metaLoja || !selectedStore}>
-                            <Calculator className="mr-2 h-4 w-4" />
+                        <Button onClick={distributeGoals} className="w-full text-xs sm:text-sm" size="sm" disabled={!metaLoja || !selectedStore}>
+                            <Calculator className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                             Distribuir Igualmente
                         </Button>
 
                         {/* 2. Distribution List */}
                         <div className="border rounded-lg overflow-hidden">
-                            <div className="bg-muted p-3 grid grid-cols-12 gap-2 font-medium text-sm">
-                                <div className="col-span-4">Colaboradora</div>
-                                <div className="col-span-4">Meta Individual</div>
+                            <div className="bg-muted p-2 sm:p-3 grid grid-cols-12 gap-2 font-medium text-xs sm:text-sm">
+                                <div className="col-span-5 sm:col-span-4">Colaboradora</div>
+                                <div className="col-span-3 sm:col-span-4">Meta Individual</div>
                                 <div className="col-span-4">Super Meta</div>
                             </div>
-                            <ScrollArea className="h-[300px]">
+                            <ScrollArea className="h-[250px] sm:h-[300px]">
                                 {colabGoals.map(colab => (
-                                    <div key={colab.id} className="p-3 grid grid-cols-12 gap-2 items-center border-b hover:bg-muted/20">
-                                        <div className="col-span-4 font-medium">{colab.name}</div>
-                                        <div className="col-span-4">
+                                    <div key={colab.id} className="p-2 sm:p-3 grid grid-cols-12 gap-2 items-center border-b hover:bg-muted/20">
+                                        <div className="col-span-5 sm:col-span-4 font-medium text-xs sm:text-sm truncate">{colab.name}</div>
+                                        <div className="col-span-3 sm:col-span-4">
                                             <div className="relative">
-                                                <span className="absolute left-2 top-2 text-xs text-muted-foreground">R$</span>
+                                                <span className="absolute left-2 top-2 text-[10px] sm:text-xs text-muted-foreground">R$</span>
                                                 <Input
                                                     type="number"
                                                     value={colab.meta}
                                                     onChange={e => handleColabChange(colab.id, 'meta', e.target.value)}
-                                                    className="pl-6 h-8"
+                                                    className="pl-6 h-7 sm:h-8 text-xs sm:text-sm"
                                                 />
                                             </div>
                                         </div>
                                         <div className="col-span-4">
                                             <div className="relative">
-                                                <span className="absolute left-2 top-2 text-xs text-muted-foreground">R$</span>
+                                                <span className="absolute left-2 top-2 text-[10px] sm:text-xs text-muted-foreground">R$</span>
                                                 <Input
                                                     type="number"
                                                     value={colab.superMeta}
                                                     onChange={e => handleColabChange(colab.id, 'superMeta', e.target.value)}
-                                                    className="pl-6 h-8 text-purple-700 font-medium"
+                                                    className="pl-6 h-7 sm:h-8 text-xs sm:text-sm text-purple-700 font-medium"
                                                 />
                                             </div>
                                         </div>
                                     </div>
                                 ))}
                             </ScrollArea>
-                            <div className="p-3 bg-muted/50 flex justify-between items-center border-t">
-                                <span className="font-semibold">Total Distribuído:</span>
-                                <div className="flex gap-4">
-                                    <span className={validateTotal() ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
+                            <div className="p-2 sm:p-3 bg-muted/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0 border-t">
+                                <span className="font-semibold text-xs sm:text-sm">Total Distribuído:</span>
+                                <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
+                                    <span className={`text-xs sm:text-sm ${validateTotal() ? "text-green-600 font-bold" : "text-red-600 font-bold"}`}>
                                         Meta: R$ {colabGoals.reduce((s, c) => s + c.meta, 0).toLocaleString('pt-BR')}
                                     </span>
-                                    <span className="text-purple-600 font-bold">
+                                    <span className="text-xs sm:text-sm text-purple-600 font-bold">
                                         Super: R$ {colabGoals.reduce((s, c) => s + c.superMeta, 0).toLocaleString('pt-BR')}
                                     </span>
                                 </div>
@@ -978,10 +1108,12 @@ const MetasManagementContent = () => {
                             );
                         })()}
 
-                        <div className="flex justify-end gap-2 pt-4">
-                            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-                            <Button onClick={handleSave} disabled={!validateTotal()}>
-                                <Save className="mr-2 h-4 w-4" />
+                        <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4">
+                            <Button variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
+                                Cancelar
+                            </Button>
+                            <Button onClick={handleSave} disabled={!validateTotal()} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
+                                <Save className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                                 Salvar Distribuição
                             </Button>
                         </div>
@@ -991,17 +1123,17 @@ const MetasManagementContent = () => {
 
             {/* Weekly Goal Dialog */}
             <Dialog open={weeklyDialogOpen} onOpenChange={setWeeklyDialogOpen}>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>
+                        <DialogTitle className="text-base sm:text-lg">
                             {editingWeeklyGoal ? "Editar Meta Semanal" : "Nova Meta Semanal"}
                         </DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
+                    <div className="space-y-3 sm:space-y-4 py-3 sm:py-4">
                         <div>
-                            <Label>Loja *</Label>
+                            <Label className="text-xs sm:text-sm">Loja *</Label>
                             <Select value={selectedStore} onValueChange={setSelectedStore}>
-                                <SelectTrigger>
+                                <SelectTrigger className="text-xs sm:text-sm">
                                     <SelectValue placeholder="Selecione uma loja" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1015,62 +1147,181 @@ const MetasManagementContent = () => {
                         </div>
 
                         <div>
-                            <Label>Semana * (Segunda a Domingo)</Label>
-                            <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-                                <SelectTrigger>
+                            <Label className="text-xs sm:text-sm">Semana * (Segunda a Domingo)</Label>
+                            <Select value={selectedWeek} onValueChange={(value) => {
+                                setSelectedWeek(value);
+                                // Clear colab goals when week changes
+                                setWeeklyColabGoals([]);
+                                setWeeklyMetaValor("");
+                                setWeeklySuperMetaValor("");
+                            }}>
+                                <SelectTrigger className="text-xs sm:text-sm">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {getWeekOptions().map((option) => (
-                                        <SelectItem key={option.value} value={option.value}>
-                                            {option.label}
-                                        </SelectItem>
-                                    ))}
+                                    {getWeekOptions().map((option) => {
+                                        const weekRange = getWeekRange(option.value);
+                                        return (
+                                            <SelectItem key={option.value} value={option.value} className="text-xs sm:text-sm">
+                                                {option.label} - {format(weekRange.start, "dd/MM", { locale: ptBR })} a {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
+                                            </SelectItem>
+                                        );
+                                    })}
                                 </SelectContent>
                             </Select>
                         </div>
+                        
+                        {selectedStore && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                    const activeColabs = colaboradoras.filter(c => c.store_id === selectedStore);
+                                    if (activeColabs.length === 0) {
+                                        toast.error("Nenhuma colaboradora ativa encontrada nesta loja");
+                                        return;
+                                    }
+                                    setWeeklyColabGoals(activeColabs.map(c => ({
+                                        id: c.id,
+                                        name: c.name,
+                                        meta: 0,
+                                        superMeta: 0
+                                    })));
+                                }}
+                                className="w-full text-xs sm:text-sm"
+                                size="sm"
+                            >
+                                <UserCheck className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                                <span className="hidden sm:inline">Carregar Colaboradoras da Loja</span>
+                                <span className="sm:hidden">Carregar Colaboradoras</span>
+                            </Button>
+                        )}
 
-                        <div className="flex items-end gap-2">
-                            <div className="flex-1">
-                                <Label>Meta (R$) *</Label>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 sm:gap-2">
+                            <div className="flex-1 w-full sm:w-auto">
+                                <Label className="text-xs sm:text-sm">Meta Total (R$) *</Label>
                                 <Input
                                     type="number"
                                     step="0.01"
                                     value={weeklyMetaValor}
                                     onChange={(e) => setWeeklyMetaValor(e.target.value)}
                                     placeholder="Ex: 10000.00"
+                                    className="text-xs sm:text-sm"
                                 />
                             </div>
-                            <div className="flex-1">
-                                <Label>Super Meta (R$) *</Label>
+                            <div className="flex-1 w-full sm:w-auto">
+                                <Label className="text-xs sm:text-sm">Super Meta Total (R$) *</Label>
                                 <Input
                                     type="number"
                                     step="0.01"
                                     value={weeklySuperMetaValor}
                                     onChange={(e) => setWeeklySuperMetaValor(e.target.value)}
                                     placeholder="Ex: 12000.00"
+                                    className="text-xs sm:text-sm"
                                 />
                             </div>
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={calculateWeeklyGoalFromMonthly}
-                                className="gap-2"
-                                disabled={!selectedStore}
+                                className="gap-2 w-full sm:w-auto text-xs sm:text-sm"
+                                size="sm"
+                                disabled={!selectedStore || !selectedWeek}
                             >
-                                <Calculator className="h-4 w-4" />
+                                <Calculator className="h-3 w-3 sm:h-4 sm:w-4" />
                                 Sugerir
                             </Button>
                         </div>
 
+                        {/* Cálculo simples */}
+                        {weeklyColabGoals.length > 0 && (
+                            <div className="bg-purple-50 dark:bg-purple-950 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-sm">
+                                    <div>
+                                        <p className="font-semibold text-purple-900 dark:text-purple-100">
+                                            Número de colaboradoras: <span className="text-purple-600 dark:text-purple-400">{weeklyColabGoals.length}</span>
+                                        </p>
+                                        <p className="text-purple-700 dark:text-purple-300 text-xs mt-1">
+                                            Meta individual: R$ {(parseFloat(weeklyMetaValor || "0") / weeklyColabGoals.length).toFixed(2)}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-semibold text-purple-900 dark:text-purple-100">
+                                            Total: <span className="text-purple-600 dark:text-purple-400">R$ {weeklyColabGoals.reduce((sum, c) => sum + c.meta, 0).toFixed(2)}</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
                             <p className="text-sm text-blue-900 dark:text-blue-100">
-                                💡 <strong>Dica:</strong> Use o botão "Sugerir" para calcular automaticamente as metas semanais 
-                                baseadas na meta mensal da loja (mensal ÷ 4.33). Você pode editar os valores sugeridos livremente.
+                                💡 <strong>Dica:</strong> As metas semanais são calculadas por colaboradora. Use o botão "Sugerir" para calcular automaticamente 
+                                baseadas nas metas mensais individuais (mensal ÷ 4.33). Você pode editar livremente.
                             </p>
                         </div>
 
-                        <div className="flex justify-end gap-2 pt-4">
+                        {/* Distribuição Individual */}
+                        {weeklyColabGoals.length > 0 && (
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <Label className="text-base font-semibold">Metas Individuais</Label>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={distributeWeeklyGoals}
+                                        disabled={!weeklyMetaValor || !weeklySuperMetaValor}
+                                    >
+                                        <Calculator className="h-3 w-3 mr-1" />
+                                        Distribuir Igualmente
+                                    </Button>
+                                </div>
+                                <div className="border rounded-lg overflow-hidden max-h-[300px] overflow-y-auto">
+                                    <div className="bg-muted p-2 grid grid-cols-12 gap-2 font-medium text-xs sticky top-0 z-10">
+                                        <div className="col-span-4 sm:col-span-5">Colaboradora</div>
+                                        <div className="col-span-4">Meta</div>
+                                        <div className="col-span-4">Super Meta</div>
+                                    </div>
+                                    {weeklyColabGoals.map((colab) => (
+                                        <div key={colab.id} className="p-2 grid grid-cols-12 gap-2 items-center border-b hover:bg-muted/20">
+                                            <div className="col-span-4 sm:col-span-5 font-medium text-sm truncate">{colab.name}</div>
+                                            <div className="col-span-4">
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={colab.meta}
+                                                    onChange={(e) => handleWeeklyColabChange(colab.id, 'meta', e.target.value)}
+                                                    className="h-8 text-sm"
+                                                />
+                                            </div>
+                                            <div className="col-span-4">
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={colab.superMeta}
+                                                    onChange={(e) => handleWeeklyColabChange(colab.id, 'superMeta', e.target.value)}
+                                                    className="h-8 text-sm text-purple-700"
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <div className="p-2 bg-muted/50 flex justify-between items-center border-t text-xs sm:text-sm">
+                                        <span className="font-semibold">Total:</span>
+                                        <div className="flex gap-3">
+                                            <span className="text-primary font-bold">
+                                                Meta: R$ {weeklyColabGoals.reduce((s, c) => s + c.meta, 0).toFixed(2)}
+                                            </span>
+                                            <span className="text-purple-600 font-bold">
+                                                Super: R$ {weeklyColabGoals.reduce((s, c) => s + c.superMeta, 0).toFixed(2)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4">
                             <Button
                                 type="button"
                                 variant="outline"
@@ -1078,11 +1329,13 @@ const MetasManagementContent = () => {
                                     setWeeklyDialogOpen(false);
                                     resetWeeklyForm();
                                 }}
+                                className="w-full sm:w-auto text-xs sm:text-sm"
+                                size="sm"
                             >
                                 Cancelar
                             </Button>
-                            <Button onClick={handleSaveWeeklyGoal}>
-                                <Save className="mr-2 h-4 w-4" />
+                            <Button onClick={handleSaveWeeklyGoal} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
+                                <Save className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                                 {editingWeeklyGoal ? "Atualizar" : "Criar"} Meta Semanal
                             </Button>
                         </div>

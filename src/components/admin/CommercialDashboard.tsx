@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, startOfDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, startOfDay, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -48,6 +48,7 @@ interface TodaySales {
     pa: number;
 }
 
+type QuickFilter = 'today' | 'yesterday' | 'last7' | 'month' | 'lastMonth';
 type PeriodFilter = 'today' | 'week' | 'month' | 'custom';
 
 export const CommercialDashboard = () => {
@@ -63,15 +64,30 @@ export const CommercialDashboard = () => {
     const [todaySales, setTodaySales] = useState<TodaySales[]>([]);
     const [loadingToday, setLoadingToday] = useState(true);
     const [showByStore, setShowByStore] = useState(true); // Toggle para visualização por loja
+    const [quickFilter, setQuickFilter] = useState<QuickFilter>('today');
+    const [salesSummary, setSalesSummary] = useState<{
+        total_valor: number;
+        total_vendas: number;
+        total_pecas: number;
+        ticket_medio: number;
+        pa: number;
+        stores: TodaySales[];
+    } | null>(null);
+    const [loadingSummary, setLoadingSummary] = useState(false);
 
     useEffect(() => {
         fetchTodaySales();
         fetchData();
+        fetchSalesSummary();
     }, []);
 
     useEffect(() => {
         fetchData();
     }, [month, periodFilter, customStartDate, customEndDate]);
+
+    useEffect(() => {
+        fetchSalesSummary();
+    }, [quickFilter]);
 
     const fetchTodaySales = async () => {
         setLoadingToday(true);
@@ -121,6 +137,98 @@ export const CommercialDashboard = () => {
             console.error("Error fetching today's sales:", error);
         } finally {
             setLoadingToday(false);
+        }
+    };
+
+    const fetchSalesSummary = async () => {
+        setLoadingSummary(true);
+        try {
+            const hoje = new Date();
+            let start: string;
+            let end: string = format(hoje, 'yyyy-MM-dd');
+
+            switch (quickFilter) {
+                case 'today':
+                    start = format(startOfDay(hoje), 'yyyy-MM-dd');
+                    break;
+                case 'yesterday':
+                    const yesterday = subDays(hoje, 1);
+                    start = format(startOfDay(yesterday), 'yyyy-MM-dd');
+                    end = format(startOfDay(yesterday), 'yyyy-MM-dd');
+                    break;
+                case 'last7':
+                    start = format(subDays(hoje, 7), 'yyyy-MM-dd');
+                    break;
+                case 'month':
+                    start = format(startOfMonth(hoje), 'yyyy-MM-dd');
+                    end = format(endOfMonth(hoje), 'yyyy-MM-dd');
+                    break;
+                case 'lastMonth':
+                    const lastMonth = subMonths(hoje, 1);
+                    start = format(startOfMonth(lastMonth), 'yyyy-MM-dd');
+                    end = format(endOfMonth(lastMonth), 'yyyy-MM-dd');
+                    break;
+                default:
+                    start = format(startOfDay(hoje), 'yyyy-MM-dd');
+            }
+
+            const { data: dailyData, error } = await supabase
+                .schema('sistemaretiradas')
+                .from('analytics_daily_performance')
+                .select('*')
+                .gte('data_referencia', start)
+                .lte('data_referencia', end)
+                .order('store_name', { ascending: true });
+
+            if (error) throw error;
+
+            // Agregar por loja
+            const storeAgg: Record<string, TodaySales> = {};
+            let totalValor = 0;
+            let totalVendas = 0;
+            let totalPecas = 0;
+
+            dailyData?.forEach((day: any) => {
+                if (!storeAgg[day.store_id]) {
+                    storeAgg[day.store_id] = {
+                        store_id: day.store_id,
+                        store_name: day.store_name,
+                        total_vendas: 0,
+                        total_valor: 0,
+                        total_pecas: 0,
+                        ticket_medio: 0,
+                        pa: 0
+                    };
+                }
+
+                storeAgg[day.store_id].total_vendas += day.total_vendas;
+                storeAgg[day.store_id].total_valor += day.total_valor;
+                storeAgg[day.store_id].total_pecas += day.total_pecas;
+
+                totalVendas += day.total_vendas;
+                totalValor += day.total_valor;
+                totalPecas += day.total_pecas;
+            });
+
+            // Calcular KPIs finais por loja
+            const stores = Object.values(storeAgg).map(s => ({
+                ...s,
+                ticket_medio: s.total_vendas > 0 ? s.total_valor / s.total_vendas : 0,
+                pa: s.total_vendas > 0 ? s.total_pecas / s.total_vendas : 0
+            }));
+
+            setSalesSummary({
+                total_valor: totalValor,
+                total_vendas: totalVendas,
+                total_pecas: totalPecas,
+                ticket_medio: totalVendas > 0 ? totalValor / totalVendas : 0,
+                pa: totalVendas > 0 ? totalPecas / totalVendas : 0,
+                stores
+            });
+        } catch (error) {
+            console.error("Error fetching sales summary:", error);
+        } finally {
+            setLoadingSummary(false);
         }
     };
 
@@ -263,116 +371,169 @@ export const CommercialDashboard = () => {
 
     return (
         <div className="space-y-6">
-            {/* Resumo do Dia - PRINCIPAL */}
+            {/* Resumo das Vendas - PRINCIPAL */}
             <Card className="border-2 border-primary/20 shadow-lg">
                 <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5 pb-3">
-                    <CardTitle className="flex items-center justify-between">
+                    <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                         <div className="flex items-center gap-2">
-                            <Calendar className="h-6 w-6 text-primary" />
-                            <span className="text-xl">Resumo das Vendas de Hoje</span>
-                            <span className="text-sm font-normal text-muted-foreground">
-                                {format(new Date(), "dd/MM/yyyy", { locale: ptBR })}
-                            </span>
+                            <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                            <span className="text-lg sm:text-xl">Resumo das Vendas</span>
+                        </div>
+                        {/* Filtros Rápidos */}
+                        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                            <Button
+                                variant={quickFilter === 'today' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setQuickFilter('today')}
+                                className="text-xs sm:text-sm"
+                            >
+                                Hoje
+                            </Button>
+                            <Button
+                                variant={quickFilter === 'yesterday' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setQuickFilter('yesterday')}
+                                className="text-xs sm:text-sm"
+                            >
+                                Ontem
+                            </Button>
+                            <Button
+                                variant={quickFilter === 'last7' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setQuickFilter('last7')}
+                                className="text-xs sm:text-sm"
+                            >
+                                Últimos 7 dias
+                            </Button>
+                            <Button
+                                variant={quickFilter === 'month' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setQuickFilter('month')}
+                                className="text-xs sm:text-sm"
+                            >
+                                Mês Atual
+                            </Button>
+                            <Button
+                                variant={quickFilter === 'lastMonth' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setQuickFilter('lastMonth')}
+                                className="text-xs sm:text-sm"
+                            >
+                                Mês Passado
+                            </Button>
                         </div>
                     </CardTitle>
                 </CardHeader>
-                <CardContent className="pt-6">
-                    {/* Total Geral do Dia */}
-                    <div className="mb-6 p-4 bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg border border-primary/20">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 bg-primary/10 rounded-lg">
-                                    <DollarSign className="h-6 w-6 text-primary" />
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Total do Dia</p>
-                                    <p className="text-2xl font-bold text-primary">
-                                        {formatCurrency(todayTotal)}
-                                    </p>
+                <CardContent className="pt-4 sm:pt-6">
+                    {/* Total Geral */}
+                    {loadingSummary ? (
+                        <div className="text-center py-6 text-muted-foreground">Carregando dados...</div>
+                    ) : salesSummary ? (
+                        <>
+                            <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg border border-primary/20">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                                    <div className="flex items-center gap-2 sm:gap-3">
+                                        <div className="p-2 sm:p-3 bg-primary/10 rounded-lg flex-shrink-0">
+                                            <DollarSign className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs sm:text-sm text-muted-foreground">Faturamento</p>
+                                            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-primary truncate">
+                                                {formatCurrency(salesSummary.total_valor)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 sm:gap-3">
+                                        <div className="p-2 sm:p-3 bg-blue-500/10 rounded-lg flex-shrink-0">
+                                            <ShoppingBag className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs sm:text-sm text-muted-foreground">Total de Vendas</p>
+                                            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-600">
+                                                {salesSummary.total_vendas}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 sm:gap-3">
+                                        <div className="p-2 sm:p-3 bg-purple-500/10 rounded-lg flex-shrink-0">
+                                            <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs sm:text-sm text-muted-foreground">Ticket Médio</p>
+                                            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-purple-600 truncate">
+                                                {formatCurrency(salesSummary.ticket_medio)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 sm:gap-3">
+                                        <div className="p-2 sm:p-3 bg-green-500/10 rounded-lg flex-shrink-0">
+                                            <Package className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs sm:text-sm text-muted-foreground">PA</p>
+                                            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-green-600">
+                                                {salesSummary.pa.toFixed(1)}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 bg-blue-500/10 rounded-lg">
-                                    <ShoppingBag className="h-6 w-6 text-blue-500" />
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Total de Vendas</p>
-                                    <p className="text-2xl font-bold text-blue-600">
-                                        {todayTotalVendas}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 bg-green-500/10 rounded-lg">
-                                    <Package className="h-6 w-6 text-green-500" />
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Total de Peças</p>
-                                    <p className="text-2xl font-bold text-green-600">
-                                        {todayTotalPecas}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 bg-orange-500/10 rounded-lg">
-                                    <TrendingUp className="h-6 w-6 text-orange-500" />
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Ticket Médio</p>
-                                    <p className="text-2xl font-bold text-orange-600">
-                                        {todayTotalVendas > 0 ? formatCurrency(todayTotal / todayTotalVendas) : formatCurrency(0)}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
-                    {/* Vendas por Loja */}
-                    {loadingToday ? (
-                        <div className="text-center py-6 text-muted-foreground">
-                            Carregando vendas do dia...
-                        </div>
-                    ) : todaySales.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {todaySales.map((store) => (
-                                <Card 
-                                    key={store.store_id} 
-                                    className="border-l-4 border-l-primary shadow-md hover:shadow-lg transition-shadow"
-                                >
-                                    <CardHeader className="pb-2 bg-muted/30">
-                                        <CardTitle className="text-lg">{store.store_name}</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="pt-4 space-y-3">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Total:</span>
-                                            <span className="text-xl font-bold text-primary">
-                                                {formatCurrency(store.total_valor)}
-                                            </span>
-                                        </div>
-                                        <div className="grid grid-cols-3 gap-2 text-center pt-2 border-t">
-                                            <div>
-                                                <p className="text-xs text-muted-foreground mb-1">Vendas</p>
-                                                <p className="font-semibold">{store.total_vendas}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-muted-foreground mb-1">Peças</p>
-                                                <p className="font-semibold">{store.total_pecas}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-muted-foreground mb-1">TM</p>
-                                                <p className="font-semibold text-xs">
-                                                    {formatCurrency(store.ticket_medio)}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
+                            {/* Vendas por Loja */}
+                            {salesSummary.stores.length > 0 ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                                    {salesSummary.stores.map((store) => (
+                                        <Card 
+                                            key={store.store_id} 
+                                            className="border-l-4 border-l-primary shadow-md hover:shadow-lg transition-shadow"
+                                        >
+                                            <CardHeader className="pb-2 bg-muted/30">
+                                                <CardTitle className="text-base sm:text-lg">{store.store_name}</CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="pt-3 sm:pt-4 space-y-2 sm:space-y-3">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs sm:text-sm text-muted-foreground">Faturamento:</span>
+                                                    <span className="text-lg sm:text-xl font-bold text-primary">
+                                                        {formatCurrency(store.total_valor)}
+                                                    </span>
+                                                </div>
+                                                <div className="grid grid-cols-4 gap-1 sm:gap-2 text-center pt-2 border-t">
+                                                    <div>
+                                                        <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Vendas</p>
+                                                        <p className="text-sm sm:text-base font-semibold">{store.total_vendas}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Peças</p>
+                                                        <p className="text-sm sm:text-base font-semibold">{store.total_pecas}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">TM</p>
+                                                        <p className="text-[10px] sm:text-xs font-semibold truncate">
+                                                            {formatCurrency(store.ticket_medio)}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">PA</p>
+                                                        <p className="text-[10px] sm:text-xs font-semibold">
+                                                            {store.pa.toFixed(1)}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-6 sm:py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                                    <Package className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-2 opacity-50" />
+                                    <p className="text-sm sm:text-base">Nenhuma venda registrada neste período</p>
+                                </div>
+                            )}
+                        </>
                     ) : (
-                        <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
-                            <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                            <p>Nenhuma venda registrada hoje</p>
+                        <div className="text-center py-6 text-muted-foreground">
+                            <Package className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm sm:text-base">Nenhuma venda registrada</p>
                         </div>
                     )}
                 </CardContent>
@@ -455,26 +616,27 @@ export const CommercialDashboard = () => {
             {dailyTrends.length > 0 && (
                 <Card className="shadow-lg border-2 border-primary/10">
                     <CardHeader className="bg-gradient-to-r from-primary/5 to-purple-500/5">
-                        <div className="flex items-center justify-between">
-                            <CardTitle className="flex items-center gap-2">
-                                <TrendingUp className="h-5 w-5 text-primary" />
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                                 Evolução Diária de Vendas
                             </CardTitle>
-                            <div className="flex items-center gap-2">
-                                <Label htmlFor="show-by-store" className="text-sm text-muted-foreground cursor-pointer">
-                                    {showByStore ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                <Label htmlFor="show-by-store" className="text-xs sm:text-sm text-muted-foreground cursor-pointer flex items-center gap-1">
+                                    {showByStore ? <Eye className="h-3 w-3 sm:h-4 sm:w-4" /> : <EyeOff className="h-3 w-3 sm:h-4 sm:w-4" />}
+                                    <span className="hidden sm:inline">Por Loja</span>
                                 </Label>
                                 <Switch
                                     id="show-by-store"
                                     checked={showByStore}
                                     onCheckedChange={setShowByStore}
                                 />
-                                <span className="text-sm text-muted-foreground">Por Loja</span>
+                                <span className="text-xs sm:text-sm text-muted-foreground sm:hidden">Loja</span>
                             </div>
                         </div>
                     </CardHeader>
-                    <CardContent className="pt-6">
-                        <ResponsiveContainer width="100%" height={350}>
+                    <CardContent className="pt-4 sm:pt-6">
+                        <ResponsiveContainer width="100%" height={300} className="min-h-[250px] sm:min-h-[300px]">
                             <LineChart data={dailyTrends} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                                 <defs>
                                     {Object.keys(dailyTrends[0] || {}).filter(key => key !== 'date').map((storeName, idx) => (
@@ -541,17 +703,36 @@ export const CommercialDashboard = () => {
             {analytics.length > 0 && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Comparação de Vendas por Loja</CardTitle>
+                        <CardTitle className="text-base sm:text-lg">Comparação de Vendas por Loja</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={analytics}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="store_name" />
-                                <YAxis />
-                                <Tooltip formatter={(value: any) => `R$ ${Number(value).toLocaleString('pt-BR')}`} />
-                                <Legend />
-                                <Bar dataKey="total_valor" fill="#8884d8" name="Vendas (R$)" />
+                    <CardContent className="pt-4 sm:pt-6">
+                        <ResponsiveContainer width="100%" height={280} className="min-h-[250px] sm:min-h-[280px]">
+                            <BarChart data={analytics} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis 
+                                    dataKey="store_name" 
+                                    stroke="#6b7280"
+                                    style={{ fontSize: '11px' }}
+                                    angle={-45}
+                                    textAnchor="end"
+                                    height={60}
+                                />
+                                <YAxis 
+                                    stroke="#6b7280"
+                                    style={{ fontSize: '11px' }}
+                                    tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                                />
+                                <Tooltip 
+                                    contentStyle={{
+                                        backgroundColor: 'white',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '8px',
+                                        fontSize: '12px'
+                                    }}
+                                    formatter={(value: any) => `R$ ${Number(value).toLocaleString('pt-BR')}`} 
+                                />
+                                <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                                <Bar dataKey="total_valor" fill="#8884d8" name="Vendas (R$)" radius={[4, 4, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
                     </CardContent>
@@ -559,7 +740,7 @@ export const CommercialDashboard = () => {
             )}
 
             {/* Cards de KPIs por Loja */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {analytics.map(store => {
                     const goal = goals[store.store_id];
                     const bench = benchmarks[store.store_id];
@@ -568,51 +749,54 @@ export const CommercialDashboard = () => {
                     return (
                         <Card key={store.store_id} className="overflow-hidden border-t-4 border-t-primary shadow-md hover:shadow-lg transition-shadow">
                             <CardHeader className="pb-2 bg-muted/20">
-                                <CardTitle className="flex justify-between items-center">
-                                    <span>{store.store_name}</span>
-                                    <span className="text-sm font-normal text-muted-foreground capitalize">
+                                <CardTitle className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
+                                    <span className="text-base sm:text-lg">{store.store_name}</span>
+                                    <span className="text-xs sm:text-sm font-normal text-muted-foreground capitalize">
                                         {format(month, 'MMMM/yyyy', { locale: ptBR })}
                                     </span>
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="pt-4 space-y-6">
+                            <CardContent className="pt-3 sm:pt-4 space-y-4 sm:space-y-6">
                                 {/* Main Goal Progress */}
                                 <div>
-                                    <div className="flex justify-between text-sm mb-1">
+                                    <div className="flex justify-between text-xs sm:text-sm mb-1">
                                         <span className="text-muted-foreground">Meta Mensal</span>
-                                        <span className={`font-bold ${progress >= 100 ? 'text-green-600' : 'text-primary'}`}>
+                                        <span className={`font-bold text-sm sm:text-base ${progress >= 100 ? 'text-green-600' : 'text-primary'}`}>
                                             {progress.toFixed(1)}%
                                         </span>
                                     </div>
-                                    <Progress value={progress} className="h-3" />
-                                    <div className="flex justify-between text-xs mt-1 text-muted-foreground">
-                                        <span>R$ {store.total_valor.toLocaleString('pt-BR')}</span>
-                                        <span>R$ {goal?.meta_valor?.toLocaleString('pt-BR') || '0'}</span>
+                                    <Progress value={progress} className="h-2 sm:h-3" />
+                                    <div className="flex justify-between text-[10px] sm:text-xs mt-1 text-muted-foreground">
+                                        <span className="truncate pr-1">R$ {store.total_valor.toLocaleString('pt-BR')}</span>
+                                        <span className="truncate pl-1">R$ {goal?.meta_valor?.toLocaleString('pt-BR') || '0'}</span>
                                     </div>
                                 </div>
 
-                                {/* KPIs Grid */}
-                                <div className="grid grid-cols-3 gap-2 text-center">
-                                    <div className="p-2 bg-muted/30 rounded-lg">
-                                        <div className="text-xs text-muted-foreground mb-1">Ticket Médio</div>
-                                        <div className={`font-bold ${getKPIColor(store.ticket_medio, bench?.ideal_ticket_medio)}`}>
+                                {/* Summary KPIs */}
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center border-t pt-3">
+                                    <div className="p-2 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+                                        <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">Vendas</div>
+                                        <div className="font-bold text-sm sm:text-base text-blue-600">
+                                            {store.total_vendas}
+                                        </div>
+                                    </div>
+                                    <div className="p-2 bg-purple-50 dark:bg-purple-950/20 rounded-lg">
+                                        <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">Ticket Médio</div>
+                                        <div className={`font-bold text-xs sm:text-sm ${getKPIColor(store.ticket_medio, bench?.ideal_ticket_medio)}`}>
                                             R$ {store.ticket_medio.toFixed(0)}
                                         </div>
-                                        <div className="text-[10px] text-muted-foreground">Meta: {bench?.ideal_ticket_medio || '-'}</div>
                                     </div>
-                                    <div className="p-2 bg-muted/30 rounded-lg">
-                                        <div className="text-xs text-muted-foreground mb-1">P.A.</div>
-                                        <div className={`font-bold ${getKPIColor(store.pa, bench?.ideal_pa)}`}>
+                                    <div className="p-2 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                                        <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">P.A.</div>
+                                        <div className={`font-bold text-xs sm:text-sm ${getKPIColor(store.pa, bench?.ideal_pa)}`}>
                                             {store.pa.toFixed(1)}
                                         </div>
-                                        <div className="text-[10px] text-muted-foreground">Meta: {bench?.ideal_pa || '-'}</div>
                                     </div>
-                                    <div className="p-2 bg-muted/30 rounded-lg">
-                                        <div className="text-xs text-muted-foreground mb-1">Preço Médio</div>
-                                        <div className={`font-bold ${getKPIColor(store.preco_medio, bench?.ideal_preco_medio)}`}>
+                                    <div className="p-2 bg-orange-50 dark:bg-orange-950/20 rounded-lg">
+                                        <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">Preço Médio</div>
+                                        <div className={`font-bold text-xs sm:text-sm ${getKPIColor(store.preco_medio, bench?.ideal_preco_medio)}`}>
                                             R$ {store.preco_medio.toFixed(0)}
                                         </div>
-                                        <div className="text-[10px] text-muted-foreground">Meta: {bench?.ideal_preco_medio || '-'}</div>
                                     </div>
                                 </div>
                             </CardContent>

@@ -157,26 +157,26 @@ export default function BonusManagement() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-background via-muted/50 to-background p-6 space-y-8">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+        <div className="min-h-screen bg-gradient-to-br from-background via-muted/50 to-background p-3 sm:p-6 space-y-4 sm:space-y-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+                <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={() => navigate("/admin")}
-                        className="gap-2"
+                        className="gap-2 text-xs sm:text-sm flex-shrink-0"
                     >
-                        <ArrowLeft className="h-4 w-4" />
+                        <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />
                         Voltar
                     </Button>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+                    <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent truncate flex-1 min-w-0">
                         Gerenciar Bônus
                     </h1>
                 </div>
             </div>
-            <div className="flex flex-col sm:flex-row gap-4 mb-4">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-3 sm:mb-4">
                 <Select value={storeFilter} onValueChange={setStoreFilter}>
-                    <SelectTrigger className="w-full sm:w-48">
+                    <SelectTrigger className="w-full sm:w-48 text-xs sm:text-sm">
                         <SelectValue placeholder="Todas as lojas" />
                     </SelectTrigger>
                     <SelectContent>
@@ -188,50 +188,50 @@ export default function BonusManagement() {
                         ))}
                     </SelectContent>
                 </Select>
-                <Button className="ml-auto" onClick={() => { setEditingBonus(null); resetForm(); setDialogOpen(true); }}>
-                    <Plus className="mr-2 h-4 w-4" />
+                <Button className="w-full sm:w-auto text-xs sm:text-sm ml-0 sm:ml-auto" size="sm" onClick={() => { setEditingBonus(null); resetForm(); setDialogOpen(true); }}>
+                    <Plus className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                     Novo Bônus
                 </Button>
             </div>
 
             {/* Cards grid */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {bonuses
                     .filter((b) => (storeFilter && storeFilter !== "ALL" ? b.store_id === storeFilter : true))
                     .map((bonus) => (
                         <Card key={bonus.id} className="relative group hover:shadow-lg transition-shadow">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="flex items-center gap-2 text-lg">
-                                    <Gift className="h-4 w-4 text-primary" />
-                                    {bonus.name}
+                            <CardHeader className="pb-2 p-3 sm:p-6">
+                                <CardTitle className="flex items-center gap-2 text-sm sm:text-lg truncate">
+                                    <Gift className="h-3 w-3 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
+                                    <span className="truncate">{bonus.name}</span>
                                 </CardTitle>
-                                <Badge variant={bonus.ativo ? "default" : "destructive"} className="absolute top-2 right-2">
+                                <Badge variant={bonus.ativo ? "default" : "destructive"} className="absolute top-2 right-2 text-[10px] sm:text-xs">
                                     {bonus.ativo ? "Ativo" : "Inativo"}
                                 </Badge>
                             </CardHeader>
-                            <CardContent className="space-y-2 text-sm">
-                                <p className="text-muted-foreground">{bonus.description}</p>
+                            <CardContent className="space-y-2 text-xs sm:text-sm p-3 sm:p-6 pt-0 sm:pt-0">
+                                <p className="text-muted-foreground text-xs sm:text-sm">{bonus.description}</p>
                                 <div className="grid grid-cols-2 gap-2 mt-2">
                                     <div className="bg-muted p-2 rounded">
-                                        <span className="text-xs text-muted-foreground block">Tipo</span>
-                                        <span className="font-medium">{bonus.tipo}</span>
+                                        <span className="text-[10px] sm:text-xs text-muted-foreground block">Tipo</span>
+                                        <span className="font-medium text-xs sm:text-sm truncate">{bonus.tipo}</span>
                                     </div>
                                     <div className="bg-muted p-2 rounded">
-                                        <span className="text-xs text-muted-foreground block">Valor Bônus</span>
-                                        <span className="font-medium text-green-600">
+                                        <span className="text-[10px] sm:text-xs text-muted-foreground block">Valor Bônus</span>
+                                        <span className="font-medium text-green-600 text-xs sm:text-sm">
                                             {bonus.tipo.includes('PERCENTUAL') ? `${bonus.valor_bonus}%` : `R$ ${bonus.valor_bonus}`}
                                         </span>
                                     </div>
                                     <div className="bg-muted p-2 rounded col-span-2">
-                                        <span className="text-xs text-muted-foreground block">Condição</span>
-                                        <span className="font-medium">
+                                        <span className="text-[10px] sm:text-xs text-muted-foreground block">Condição</span>
+                                        <span className="font-medium text-xs sm:text-sm">
                                             {bonus.tipo === 'META_PERCENTUAL' && `Atingir ${bonus.condicao_valor}% da Meta`}
                                             {bonus.tipo === 'RANKING' && `Ficar em ${bonus.condicao_valor}º Lugar`}
                                             {bonus.tipo === 'VALOR_FIXO' && `Vender R$ ${bonus.condicao_valor}`}
                                         </span>
                                     </div>
                                 </div>
-                                <p className="text-xs text-muted-foreground mt-2">
+                                <p className="text-[10px] sm:text-xs text-muted-foreground mt-2">
                                     <strong>Loja:</strong> {bonus.stores?.name || "Todas"}
                                 </p>
                             </CardContent>
@@ -255,36 +255,38 @@ export default function BonusManagement() {
             </div>
 
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>{editingBonus ? "Editar Bônus" : "Novo Bônus"}</DialogTitle>
+                        <DialogTitle className="text-base sm:text-lg">{editingBonus ? "Editar Bônus" : "Novo Bônus"}</DialogTitle>
                     </DialogHeader>
 
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
                         <div>
-                            <Label>Nome do Bônus</Label>
+                            <Label className="text-xs sm:text-sm">Nome do Bônus</Label>
                             <Input
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                 placeholder="Ex: Bônus Meta Batida"
                                 required
+                                className="text-xs sm:text-sm"
                             />
                         </div>
 
                         <div>
-                            <Label>Descrição</Label>
+                            <Label className="text-xs sm:text-sm">Descrição</Label>
                             <Input
                                 value={formData.description}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                 placeholder="Ex: Bônus para quem atingir 100% da meta"
+                                className="text-xs sm:text-sm"
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <div>
-                                <Label>Tipo</Label>
+                                <Label className="text-xs sm:text-sm">Tipo</Label>
                                 <Select value={formData.tipo} onValueChange={(v) => setFormData({ ...formData, tipo: v })}>
-                                    <SelectTrigger>
+                                    <SelectTrigger className="text-xs sm:text-sm">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -296,9 +298,9 @@ export default function BonusManagement() {
                             </div>
 
                             <div>
-                                <Label>Loja</Label>
+                                <Label className="text-xs sm:text-sm">Loja</Label>
                                 <Select value={formData.store_id} onValueChange={(v) => setFormData({ ...formData, store_id: v })}>
-                                    <SelectTrigger>
+                                    <SelectTrigger className="text-xs sm:text-sm">
                                         <SelectValue placeholder="Selecione" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -313,9 +315,9 @@ export default function BonusManagement() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <div>
-                                <Label>Condição (Valor/%)</Label>
+                                <Label className="text-xs sm:text-sm">Condição (Valor/%)</Label>
                                 <Input
                                     type="number"
                                     step="0.01"
@@ -323,11 +325,12 @@ export default function BonusManagement() {
                                     onChange={(e) => setFormData({ ...formData, condicao_valor: e.target.value })}
                                     placeholder="Ex: 100 (para 100%)"
                                     required
+                                    className="text-xs sm:text-sm"
                                 />
                             </div>
 
                             <div>
-                                <Label>Valor do Bônus</Label>
+                                <Label className="text-xs sm:text-sm">Valor do Bônus</Label>
                                 <Input
                                     type="number"
                                     step="0.01"
@@ -335,11 +338,12 @@ export default function BonusManagement() {
                                     onChange={(e) => setFormData({ ...formData, valor_bonus: e.target.value })}
                                     placeholder="Ex: 500 ou 10"
                                     required
+                                    className="text-xs sm:text-sm"
                                 />
                             </div>
                         </div>
 
-                        <div className="flex justify-end gap-2 pt-4">
+                        <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4">
                             <Button
                                 type="button"
                                 variant="outline"
@@ -348,10 +352,12 @@ export default function BonusManagement() {
                                     setEditingBonus(null);
                                     resetForm();
                                 }}
+                                className="w-full sm:w-auto text-xs sm:text-sm"
+                                size="sm"
                             >
                                 Cancelar
                             </Button>
-                            <Button type="submit">
+                            <Button type="submit" className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
                                 {editingBonus ? "Atualizar" : "Criar"} Bônus
                             </Button>
                         </div>
