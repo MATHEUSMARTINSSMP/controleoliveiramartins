@@ -464,96 +464,107 @@ function MetasManagementContent() {
                         </div>
 
                         {/* 3. Weights Dialog/Section */}
-                        {showWeights && (
-                            <div className="p-6 border-2 rounded-xl bg-gradient-to-br from-muted/30 to-muted/10 space-y-4">
-                                <div className="flex justify-between items-center">
-                                    <h3 className="text-lg font-bold">Pesos Diários (Automático: 65% até dia 15)</h3>
-                                    <div className="text-sm text-muted-foreground">
-                                        Total de Pesos: {Object.values(dailyWeights).reduce((sum, w) => sum + w, 0).toFixed(2)}
-                                    </div>
-                                </div>
+                        {showWeights && (() => {
+                            const totalWeight = Object.values(dailyWeights).reduce((sum, w) => sum + w, 0);
+                            const isValid = Math.abs(totalWeight - 100) < 0.1; // Allow small floating point difference
 
-                                {/* Summary Cards */}
-                                <div className="grid grid-cols-2 gap-3 mb-4">
-                                    <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                                        <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">Meta da Loja</div>
-                                        <div className="text-xl font-bold text-blue-700 dark:text-blue-300">
-                                            R$ {parseFloat(metaLoja || "0").toLocaleString('pt-BR')}
+                            return (
+                                <div className="p-6 border-2 rounded-xl bg-gradient-to-br from-muted/30 to-muted/10 space-y-4">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="text-lg font-bold">Pesos Diários (Automático: 65% até dia 15)</h3>
+                                        <div className={`text-sm font-bold px-3 py-1 rounded-full ${isValid
+                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                                : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                                            }`}>
+                                            Total: {totalWeight.toFixed(2)}% {isValid ? '✓' : `(falta ${(100 - totalWeight).toFixed(2)}%)`}
                                         </div>
                                     </div>
-                                    <div className="p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                                        <div className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-1">Super Meta</div>
-                                        <div className="text-xl font-bold text-purple-700 dark:text-purple-300">
-                                            R$ {parseFloat(superMetaLoja || "0").toLocaleString('pt-BR')}
-                                        </div>
-                                    </div>
-                                </div>
 
-                                {/* Calendar Grid */}
-                                <div className="grid grid-cols-7 gap-2">
-                                    {/* Header */}
-                                    {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
-                                        <div key={day} className="text-center text-xs font-semibold text-muted-foreground py-2">
-                                            {day}
-                                        </div>
-                                    ))}
-
-                                    {/* Days */}
-                                    {Object.entries(dailyWeights).sort().map(([date, weight]) => {
-                                        const dayNum = parseInt(date.split('-')[2]);
-                                        const totalWeight = Object.values(dailyWeights).reduce((sum, w) => sum + w, 0);
-                                        const metaValue = parseFloat(metaLoja || "0");
-                                        const superMetaValue = parseFloat(superMetaLoja || "0");
-                                        const dailyMeta = totalWeight > 0 ? (metaValue * weight) / totalWeight : 0;
-                                        const dailySuperMeta = totalWeight > 0 ? (superMetaValue * weight) / totalWeight : 0;
-                                        const isFirstHalf = dayNum <= 15;
-
-                                        return (
-                                            <div
-                                                key={date}
-                                                className={`p-3 rounded-lg border-2 transition-all hover:shadow-md ${isFirstHalf
-                                                        ? 'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20 border-blue-300 dark:border-blue-700'
-                                                        : 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/30 dark:to-gray-800/20 border-gray-300 dark:border-gray-700'
-                                                    }`}
-                                            >
-                                                <div className="text-center space-y-1">
-                                                    <div className="text-sm font-bold text-foreground">{dayNum}</div>
-                                                    <Input
-                                                        type="number"
-                                                        step="0.01"
-                                                        value={weight}
-                                                        onChange={e => setDailyWeights(prev => ({ ...prev, [date]: parseFloat(e.target.value) || 0 }))}
-                                                        className="h-7 text-xs p-1 text-center font-semibold border-2"
-                                                    />
-                                                    {metaValue > 0 && (
-                                                        <>
-                                                            <div className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
-                                                                R$ {dailyMeta.toFixed(0)}
-                                                            </div>
-                                                            <div className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">
-                                                                R$ {dailySuperMeta.toFixed(0)}
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                </div>
+                                    {/* Summary Cards */}
+                                    <div className="grid grid-cols-2 gap-3 mb-4">
+                                        <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                                            <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">Meta da Loja</div>
+                                            <div className="text-xl font-bold text-blue-700 dark:text-blue-300">
+                                                R$ {parseFloat(metaLoja || "0").toLocaleString('pt-BR')}
                                             </div>
-                                        );
-                                    })}
-                                </div>
+                                        </div>
+                                        <div className="p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                                            <div className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-1">Super Meta</div>
+                                            <div className="text-xl font-bold text-purple-700 dark:text-purple-300">
+                                                R$ {parseFloat(superMetaLoja || "0").toLocaleString('pt-BR')}
+                                            </div>
+                                        </div>
+                                    </div>
 
-                                {/* Legend */}
-                                <div className="flex gap-4 justify-center text-xs pt-2 border-t">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-4 h-4 rounded bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300"></div>
-                                        <span>Primeira quinzena (65%)</span>
+                                    {/* Calendar Grid */}
+                                    <div className="grid grid-cols-7 gap-2">
+                                        {/* Header */}
+                                        {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
+                                            <div key={day} className="text-center text-xs font-semibold text-muted-foreground py-2">
+                                                {day}
+                                            </div>
+                                        ))}
+
+                                        {/* Days */}
+                                        {Object.entries(dailyWeights).sort().map(([date, weight]) => {
+                                            const dayNum = parseInt(date.split('-')[2]);
+                                            const metaValue = parseFloat(metaLoja || "0");
+                                            const superMetaValue = parseFloat(superMetaLoja || "0");
+                                            const percentage = totalWeight > 0 ? (weight / totalWeight) * 100 : 0;
+                                            const dailyMeta = (metaValue * percentage) / 100;
+                                            const dailySuperMeta = (superMetaValue * percentage) / 100;
+                                            const isFirstHalf = dayNum <= 15;
+
+                                            return (
+                                                <div
+                                                    key={date}
+                                                    className={`p-3 rounded-lg border-2 transition-all hover:shadow-md ${isFirstHalf
+                                                            ? 'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20 border-blue-300 dark:border-blue-700'
+                                                            : 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/30 dark:to-gray-800/20 border-gray-300 dark:border-gray-700'
+                                                        }`}
+                                                >
+                                                    <div className="text-center space-y-1">
+                                                        <div className="text-sm font-bold text-foreground">{dayNum}</div>
+                                                        <Input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={weight}
+                                                            onChange={e => setDailyWeights(prev => ({ ...prev, [date]: parseFloat(e.target.value) || 0 }))}
+                                                            className="h-7 text-xs p-1 text-center font-semibold border-2"
+                                                        />
+                                                        <div className="text-[10px] font-bold text-orange-600 dark:text-orange-400">
+                                                            {percentage.toFixed(2)}%
+                                                        </div>
+                                                        {metaValue > 0 && (
+                                                            <>
+                                                                <div className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                                                                    R$ {dailyMeta.toFixed(0)}
+                                                                </div>
+                                                                <div className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">
+                                                                    R$ {dailySuperMeta.toFixed(0)}
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-4 h-4 rounded bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-300"></div>
-                                        <span>Segunda quinzena (35%)</span>
+
+                                    {/* Legend */}
+                                    <div className="flex gap-4 justify-center text-xs pt-2 border-t">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-4 h-4 rounded bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300"></div>
+                                            <span>Primeira quinzena (65%)</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-4 h-4 rounded bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-300"></div>
+                                            <span>Segunda quinzena (35%)</span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })()}
 
                         <div className="flex justify-end gap-2 pt-4">
                             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
