@@ -179,20 +179,45 @@ function MetasManagementContent() {
             weights[dateStr] = weights[dateStr] * factor;
         }
 
-        // 3. Normalize to sum exactly 100
-        const totalWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
-        const normalizedWeights: Record<string, number> = {};
+        // 3. Normalize to sum exactly 100 using Largest Remainder Method (1 decimal precision)
+        const totalRawWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
+        const targetTotal = 100;
 
-        for (const [date, weight] of Object.entries(weights)) {
-            normalizedWeights[date] = parseFloat(((weight / totalWeight) * 100).toFixed(2));
+        // Prepare items with ideal values and remainders
+        const items = Object.entries(weights).map(([date, rawWeight]) => {
+            const idealValue = (rawWeight / totalRawWeight) * targetTotal;
+            // Floor to 1 decimal place
+            const floorValue = Math.floor(idealValue * 10) / 10;
+            const remainder = idealValue - floorValue;
+            return {
+                date,
+                value: floorValue,
+                remainder
+            };
+        });
+
+        // Calculate current sum and deficit
+        let currentSum = items.reduce((sum, item) => sum + item.value, 0);
+        currentSum = Math.round(currentSum * 10) / 10; // Avoid floating point errors
+
+        // Calculate how many 0.1 units we are missing
+        let deficitSteps = Math.round((targetTotal - currentSum) * 10);
+
+        // Sort by remainder descending to distribute the deficit to those closest to the next 0.1
+        items.sort((a, b) => b.remainder - a.remainder);
+
+        // Distribute the deficit
+        for (let i = 0; i < deficitSteps; i++) {
+            items[i % items.length].value += 0.1;
         }
 
-        // 4. Adjust last day to ensure exact 100% (handle rounding errors)
-        const finalSum = Object.values(normalizedWeights).reduce((sum, w) => sum + w, 0);
-        const lastDate = Object.keys(normalizedWeights).sort().pop()!;
-        normalizedWeights[lastDate] = parseFloat((normalizedWeights[lastDate] + (100 - finalSum)).toFixed(2));
+        // Convert back to Record<string, number>
+        const finalWeights: Record<string, number> = {};
+        items.forEach(item => {
+            finalWeights[item.date] = parseFloat(item.value.toFixed(1));
+        });
 
-        setDailyWeights(normalizedWeights);
+        setDailyWeights(finalWeights);
     };
 
     const handleStoreSelect = (storeId: string) => {
