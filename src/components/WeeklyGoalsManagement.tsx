@@ -700,7 +700,15 @@ const WeeklyGoalsManagement = () => {
                         return acc;
                     }, {} as Record<string, any>)
                 ).map(([key, group]: [string, any]) => {
-                    const weekRange = getWeekRange(group.semana_referencia || "");
+                    // Proteger contra erro ao fazer parse da semana
+                    let weekRange;
+                    try {
+                        weekRange = getWeekRange(group.semana_referencia || "");
+                    } catch (err: any) {
+                        console.error(`Erro ao processar semana ${group.semana_referencia}:`, err);
+                        // Retornar valores padrão se houver erro
+                        weekRange = { start: new Date(), end: new Date() };
+                    }
                     const isCurrentWeek = group.semana_referencia === getCurrentWeekRef();
                     
                     // Contar colaboradoras únicas (pode ter metas duplicadas)
