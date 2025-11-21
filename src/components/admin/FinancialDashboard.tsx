@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { KPICard } from "@/components/KPICard";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, TrendingUp, Clock, Plus, Calendar, Edit } from "lucide-react";
+import { DollarSign, TrendingUp, Clock, Plus, Calendar, Edit, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
@@ -229,6 +229,14 @@ export const FinancialDashboard = () => {
                     onClick={() => navigate("/admin/adiantamentos")}
                 >
                     Gerenciar Adiantamentos
+                </Button>
+                <Button
+                    variant="outline"
+                    className="border-primary/20 hover:bg-primary/10"
+                    onClick={() => navigate("/admin/colaboradores")}
+                >
+                    <UserCheck className="mr-2 h-4 w-4" />
+                    Gerenciar Colaboradoras e Lojas
                 </Button>
             </div>
 

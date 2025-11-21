@@ -161,6 +161,15 @@ const AdminDashboard = () => {
                 <span className="hidden sm:inline">Metas Semanais</span>
                 <span className="sm:hidden">Semanais</span>
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/admin/colaboradores")}
+                className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
+                size="sm"
+              >
+                <span className="hidden sm:inline">Colaboradoras & Lojas</span>
+                <span className="sm:hidden">Perfis</span>
+              </Button>
             </div>
 
             <CommercialDashboard />
