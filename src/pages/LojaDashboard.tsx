@@ -57,8 +57,89 @@ export default function LojaDashboard() {
     }, [profile, navigate]);
 
     const fetchData = async () => {
-        await Promise.all([fetchSales(), fetchColaboradoras()]);
+        await Promise.all([fetchSales(), fetchColaboradoras(), fetchGoals(), fetchMetrics(), fetchColaboradorasPerformance()]);
         setLoading(false);
+    };
+
+    const [goals, setGoals] = useState<any>(null);
+    const [metrics, setMetrics] = useState<any>(null);
+    const [colaboradorasPerformance, setColaboradorasPerformance] = useState<any[]>([]);
+
+    const fetchGoals = async () => {
+        const mesAtual = format(new Date(), 'yyyyMM');
+
+        const { data, error } = await supabase
+            .from('goals')
+            .select('*')
+            .eq('store_id', getStoreId())
+            .eq('mes_referencia', mesAtual)
+            .eq('tipo', 'MENSAL')
+            .is('colaboradora_id', null)
+            .single();
+
+        if (!error && data) {
+            setGoals(data);
+        }
+    };
+
+    const fetchMetrics = async () => {
+        const mesAtual = format(new Date(), 'yyyyMM');
+
+        const { data, error } = await supabase
+            .from('store_metrics')
+            .select('*')
+            .eq('store_id', getStoreId())
+            .eq('mes_referencia', mesAtual)
+            .single();
+
+        if (!error && data) {
+            setMetrics(data);
+        }
+    };
+
+    const fetchColaboradorasPerformance = async () => {
+        const today = format(new Date(), 'yyyy-MM-dd');
+        const mesAtual = format(new Date(), 'yyyyMM');
+
+        // Buscar vendas do dia por colaboradora
+        const { data: salesData, error: salesError } = await supabase
+            .from('sales')
+            .select('colaboradora_id, valor, qtd_pecas')
+            .eq('store_id', getStoreId())
+            .gte('data_venda', `${today}T00:00:00`);
+
+        // Buscar metas individuais
+        const { data: goalsData, error: goalsError } = await supabase
+            .from('goals')
+            .select('colaboradora_id, meta_valor, super_meta_valor')
+            .eq('store_id', getStoreId())
+            .eq('mes_referencia', mesAtual)
+            .eq('tipo', 'INDIVIDUAL');
+
+        if (!salesError && salesData && !goalsError && goalsData) {
+            const performance = colaboradoras.map(colab => {
+                const colabSales = salesData.filter(s => s.colaboradora_id === colab.id);
+                const vendido = colabSales.reduce((sum, s) => sum + Number(s.valor), 0);
+                const qtdPecas = colabSales.reduce((sum, s) => sum + Number(s.qtd_pecas), 0);
+                const ticketMedio = colabSales.length > 0 ? vendido / colabSales.length : 0;
+
+                const goal = goalsData.find(g => g.colaboradora_id === colab.id);
+
+                return {
+                    id: colab.id,
+                    name: colab.name,
+                    vendido,
+                    meta: goal?.meta_valor || 0,
+                    superMeta: goal?.super_meta_valor || 0,
+                    percentual: goal?.meta_valor ? (vendido / goal.meta_valor) * 100 : 0,
+                    qtdVendas: colabSales.length,
+                    qtdPecas,
+                    ticketMedio,
+                };
+            });
+
+            setColaboradorasPerformance(performance);
+        }
     };
 
     const fetchSales = async () => {
@@ -323,6 +404,93 @@ export default function LojaDashboard() {
                     </DialogContent>
                 </Dialog>
             </div>
+
+            {/* KPI Cards - Metas e Métricas */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Meta Mensal */}
+                {goals && (
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">Meta Mensal</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-1">
+                                <p className="text-2xl font-bold">R$ {goals.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                {goals.super_meta_valor && (
+                                    <p className="text-sm text-muted-foreground">
+                                        🏆 Super Meta: R$ {goals.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </p>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Ticket Médio */}
+                {metrics && (
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">Ticket Médio Meta</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-2xl font-bold">R$ {metrics.meta_ticket_medio?.toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground">Hoje: R$ {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.valor, 0) / sales.length).toFixed(2) : '0.00'}</p>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* PA (Peças por Atendimento) */}
+                {metrics && (
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">PA Meta</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-2xl font-bold">{metrics.meta_pa?.toFixed(1)} peças</p>
+                            <p className="text-xs text-muted-foreground">Hoje: {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length).toFixed(1) : '0.0'} peças</p>
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
+
+            {/* Tabela de Performance por Vendedora */}
+            {colaboradorasPerformance.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Performance por Vendedora (Hoje)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Vendedora</TableHead>
+                                    <TableHead>Vendido</TableHead>
+                                    <TableHead>Meta Dia</TableHead>
+                                    <TableHead>%</TableHead>
+                                    <TableHead>Ticket Médio</TableHead>
+                                    <TableHead>Vendas</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {colaboradorasPerformance.map((perf) => (
+                                    <TableRow key={perf.id}>
+                                        <TableCell className="font-medium">{perf.name}</TableCell>
+                                        <TableCell>R$ {perf.vendido.toFixed(2)}</TableCell>
+                                        <TableCell>R$ {perf.meta > 0 ? (perf.meta / 30).toFixed(2) : '0.00'}</TableCell>
+                                        <TableCell>
+                                            <span className={perf.percentual >= 100 ? 'text-green-600 font-bold' : perf.percentual >= 50 ? 'text-yellow-600' : 'text-red-600'}>
+                                                {perf.percentual.toFixed(0)}%
+                                            </span>
+                                        </TableCell>
+                                        <TableCell>R$ {perf.ticketMedio.toFixed(2)}</TableCell>
+                                        <TableCell>{perf.qtdVendas}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            )}
 
             <Card>
                 <CardHeader>
