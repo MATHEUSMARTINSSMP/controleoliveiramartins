@@ -896,7 +896,15 @@ const MetasManagementContent = () => {
                                 return acc;
                             }, {} as Record<string, any>)
                         ).map(([key, group]: [string, any]) => {
-                            const weekRange = getWeekRange(group.semana_referencia || "");
+                            // Proteger contra erro ao fazer parse da semana
+                            let weekRange;
+                            try {
+                                weekRange = getWeekRange(group.semana_referencia || "");
+                            } catch (err: any) {
+                                console.error(`Erro ao processar semana ${group.semana_referencia}:`, err);
+                                // Retornar valores padrão se houver erro
+                                weekRange = { start: new Date(), end: new Date() };
+                            }
                             const isCurrentWeek = group.semana_referencia === getCurrentWeekRef();
                             const totalMeta = group.goals.reduce((sum: number, g: any) => sum + g.meta_valor, 0);
                             const totalSuper = group.goals.reduce((sum: number, g: any) => sum + g.super_meta_valor, 0);
