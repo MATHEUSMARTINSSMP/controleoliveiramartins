@@ -13,13 +13,17 @@ import { Badge } from "@/components/ui/badge";
 
 interface Bonus {
     id: string;
-    name: string;
-    description: string;
+    nome: string;
+    descricao: string | null;
     tipo: string;
+    tipo_condicao: string | null;
+    meta_minima_percentual: number | null;
+    vendas_minimas: number | null;
     valor_bonus: number;
-    condicao_valor: number;
+    descricao_premio: string | null;
     ativo: boolean;
-    store_id: string | null;
+    store_id?: string | null;
+    valor_condicao?: number | null;
     stores?: { name: string };
 }
 
@@ -32,11 +36,14 @@ export default function BonusManagement() {
     const [storeFilter, setStoreFilter] = useState<string>('ALL');
 
     const [formData, setFormData] = useState({
-        name: "",
-        description: "",
-        tipo: "META_PERCENTUAL",
+        nome: "",
+        descricao: "",
+        tipo: "VALOR_FIXO",
+        tipo_condicao: "PERCENTUAL_META",
+        meta_minima_percentual: "",
+        vendas_minimas: "",
         valor_bonus: "",
-        condicao_valor: "",
+        descricao_premio: "",
         store_id: "TODAS",
     });
 
@@ -80,15 +87,28 @@ export default function BonusManagement() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        const payload = {
-            name: formData.name,
-            description: formData.description,
+        // Para bônus semanais, meta_minima_percentual é sempre 100 (atingir 100% da meta)
+        const metaMinimaPercentual = (formData.tipo_condicao === 'META_SEMANAL' || formData.tipo_condicao === 'SUPER_META_SEMANAL') 
+            ? 100 
+            : formData.meta_minima_percentual ? parseFloat(formData.meta_minima_percentual) : null;
+
+        const payload: any = {
+            nome: formData.nome,
+            descricao: formData.descricao || null,
             tipo: formData.tipo,
+            tipo_condicao: formData.tipo_condicao,
+            meta_minima_percentual: metaMinimaPercentual,
+            vendas_minimas: formData.vendas_minimas ? parseFloat(formData.vendas_minimas) : null,
             valor_bonus: parseFloat(formData.valor_bonus),
-            condicao_valor: parseFloat(formData.condicao_valor),
-            store_id: formData.store_id === "TODAS" ? null : formData.store_id,
+            descricao_premio: formData.descricao_premio || null,
+            valor_condicao: null, // Pode ser usado para outras condições no futuro
             ativo: true,
         };
+
+        // Adicionar store_id se não for "TODAS"
+        if (formData.store_id !== "TODAS") {
+            payload.store_id = formData.store_id;
+        }
 
         if (editingBonus) {
             const { error } = await supabase
@@ -120,11 +140,14 @@ export default function BonusManagement() {
     const handleEdit = (bonus: Bonus) => {
         setEditingBonus(bonus);
         setFormData({
-            name: bonus.name,
-            description: bonus.description || "",
-            tipo: bonus.tipo,
+            nome: bonus.nome,
+            descricao: bonus.descricao || "",
+            tipo: bonus.tipo || "VALOR_FIXO",
+            tipo_condicao: bonus.tipo_condicao || "PERCENTUAL_META",
+            meta_minima_percentual: bonus.meta_minima_percentual?.toString() || "",
+            vendas_minimas: bonus.vendas_minimas?.toString() || "",
             valor_bonus: bonus.valor_bonus.toString(),
-            condicao_valor: bonus.condicao_valor.toString(),
+            descricao_premio: bonus.descricao_premio || "",
             store_id: bonus.store_id || "TODAS",
         });
         setDialogOpen(true);
@@ -147,11 +170,14 @@ export default function BonusManagement() {
 
     const resetForm = () => {
         setFormData({
-            name: "",
-            description: "",
-            tipo: "META_PERCENTUAL",
+            nome: "",
+            descricao: "",
+            tipo: "VALOR_FIXO",
+            tipo_condicao: "PERCENTUAL_META",
+            meta_minima_percentual: "",
+            vendas_minimas: "",
             valor_bonus: "",
-            condicao_valor: "",
+            descricao_premio: "",
             store_id: "TODAS",
         });
     };
@@ -203,37 +229,42 @@ export default function BonusManagement() {
                             <CardHeader className="pb-2 p-3 sm:p-6">
                                 <CardTitle className="flex items-center gap-2 text-sm sm:text-lg truncate">
                                     <Gift className="h-3 w-3 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
-                                    <span className="truncate">{bonus.name}</span>
+                                    <span className="truncate">{bonus.nome}</span>
                                 </CardTitle>
                                 <Badge variant={bonus.ativo ? "default" : "destructive"} className="absolute top-2 right-2 text-[10px] sm:text-xs">
                                     {bonus.ativo ? "Ativo" : "Inativo"}
                                 </Badge>
                             </CardHeader>
                             <CardContent className="space-y-2 text-xs sm:text-sm p-3 sm:p-6 pt-0 sm:pt-0">
-                                <p className="text-muted-foreground text-xs sm:text-sm">{bonus.description}</p>
+                                <p className="text-muted-foreground text-xs sm:text-sm">{bonus.descricao || "Sem descrição"}</p>
                                 <div className="grid grid-cols-2 gap-2 mt-2">
                                     <div className="bg-muted p-2 rounded">
                                         <span className="text-[10px] sm:text-xs text-muted-foreground block">Tipo</span>
-                                        <span className="font-medium text-xs sm:text-sm truncate">{bonus.tipo}</span>
+                                        <span className="font-medium text-xs sm:text-sm truncate">{bonus.tipo || "VALOR_FIXO"}</span>
                                     </div>
                                     <div className="bg-muted p-2 rounded">
                                         <span className="text-[10px] sm:text-xs text-muted-foreground block">Valor Bônus</span>
                                         <span className="font-medium text-green-600 text-xs sm:text-sm">
-                                            {bonus.tipo.includes('PERCENTUAL') ? `${bonus.valor_bonus}%` : `R$ ${bonus.valor_bonus}`}
+                                            {bonus.tipo === 'PERCENTUAL' ? `${bonus.valor_bonus}%` : `R$ ${bonus.valor_bonus}`}
                                         </span>
                                     </div>
                                     <div className="bg-muted p-2 rounded col-span-2">
                                         <span className="text-[10px] sm:text-xs text-muted-foreground block">Condição</span>
                                         <span className="font-medium text-xs sm:text-sm">
-                                            {bonus.tipo === 'META_PERCENTUAL' && `Atingir ${bonus.condicao_valor}% da Meta`}
-                                            {bonus.tipo === 'RANKING' && `Ficar em ${bonus.condicao_valor}º Lugar`}
-                                            {bonus.tipo === 'VALOR_FIXO' && `Vender R$ ${bonus.condicao_valor}`}
+                                            {bonus.tipo_condicao === 'PERCENTUAL_META' && bonus.meta_minima_percentual && `Atingir ${bonus.meta_minima_percentual}% da Meta`}
+                                            {bonus.tipo_condicao === 'RANKING' && `Ficar em ${bonus.valor_condicao || bonus.meta_minima_percentual}º Lugar`}
+                                            {bonus.tipo_condicao === 'VALOR_FIXO_VENDAS' && bonus.vendas_minimas && `Vender R$ ${bonus.vendas_minimas}`}
+                                            {bonus.tipo_condicao === 'META_SEMANAL' && `🎯 Atingir 100% da Meta Semanal`}
+                                            {bonus.tipo_condicao === 'SUPER_META_SEMANAL' && `🏆 Atingir 100% da Super Meta Semanal (não cumulativo)`}
+                                            {!bonus.tipo_condicao && bonus.meta_minima_percentual && `Atingir ${bonus.meta_minima_percentual}% da Meta`}
                                         </span>
                                     </div>
                                 </div>
-                                <p className="text-[10px] sm:text-xs text-muted-foreground mt-2">
-                                    <strong>Loja:</strong> {bonus.stores?.name || "Todas"}
-                                </p>
+                                {bonus.stores?.name && (
+                                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-2">
+                                        <strong>Loja:</strong> {bonus.stores.name}
+                                    </p>
+                                )}
                             </CardContent>
                             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-center justify-center bg-black/20 transition-opacity rounded-lg">
                                 <Button size="sm" variant="outline" onClick={() => handleEdit(bonus)} className="mr-2">
@@ -264,9 +295,9 @@ export default function BonusManagement() {
                         <div>
                             <Label className="text-xs sm:text-sm">Nome do Bônus</Label>
                             <Input
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                placeholder="Ex: Bônus Meta Batida"
+                                value={formData.nome}
+                                onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                                placeholder="Ex: Bônus Meta Semanal"
                                 required
                                 className="text-xs sm:text-sm"
                             />
@@ -275,24 +306,32 @@ export default function BonusManagement() {
                         <div>
                             <Label className="text-xs sm:text-sm">Descrição</Label>
                             <Input
-                                value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                placeholder="Ex: Bônus para quem atingir 100% da meta"
+                                value={formData.descricao}
+                                onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+                                placeholder="Ex: Bônus ao atingir meta semanal"
                                 className="text-xs sm:text-sm"
                             />
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <div>
-                                <Label className="text-xs sm:text-sm">Tipo</Label>
-                                <Select value={formData.tipo} onValueChange={(v) => setFormData({ ...formData, tipo: v })}>
+                                <Label className="text-xs sm:text-sm">Tipo de Condição</Label>
+                                <Select value={formData.tipo_condicao} onValueChange={(v) => {
+                                    setFormData({ ...formData, tipo_condicao: v });
+                                    // Para bônus semanais, meta_minima_percentual é sempre 100%
+                                    if (v === 'META_SEMANAL' || v === 'SUPER_META_SEMANAL') {
+                                        setFormData(prev => ({ ...prev, meta_minima_percentual: '100', tipo: 'VALOR_FIXO' }));
+                                    }
+                                }}>
                                     <SelectTrigger className="text-xs sm:text-sm">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="META_PERCENTUAL">Meta Percentual</SelectItem>
+                                        <SelectItem value="PERCENTUAL_META">Meta Percentual</SelectItem>
                                         <SelectItem value="RANKING">Ranking</SelectItem>
-                                        <SelectItem value="VALOR_FIXO">Valor Fixo</SelectItem>
+                                        <SelectItem value="VALOR_FIXO_VENDAS">Valor Fixo de Vendas</SelectItem>
+                                        <SelectItem value="META_SEMANAL">Meta Semanal (Checkpoint 1)</SelectItem>
+                                        <SelectItem value="SUPER_META_SEMANAL">Super Meta Semanal (Checkpoint Final)</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -316,30 +355,51 @@ export default function BonusManagement() {
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                            <div>
-                                <Label className="text-xs sm:text-sm">Condição (Valor/%)</Label>
-                                <Input
-                                    type="number"
-                                    step="0.01"
-                                    value={formData.condicao_valor}
-                                    onChange={(e) => setFormData({ ...formData, condicao_valor: e.target.value })}
-                                    placeholder="Ex: 100 (para 100%)"
-                                    required
-                                    className="text-xs sm:text-sm"
-                                />
-                            </div>
+                            {(formData.tipo_condicao !== 'META_SEMANAL' && formData.tipo_condicao !== 'SUPER_META_SEMANAL') && (
+                                <div>
+                                    <Label className="text-xs sm:text-sm">
+                                        {formData.tipo_condicao === 'PERCENTUAL_META' ? 'Meta Mínima (%)' : 'Condição'}
+                                    </Label>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        value={formData.meta_minima_percentual}
+                                        onChange={(e) => setFormData({ ...formData, meta_minima_percentual: e.target.value })}
+                                        placeholder={formData.tipo_condicao === 'PERCENTUAL_META' ? "Ex: 100 (para 100%)" : "Valor da condição"}
+                                        required={formData.tipo_condicao !== 'META_SEMANAL' && formData.tipo_condicao !== 'SUPER_META_SEMANAL'}
+                                        className="text-xs sm:text-sm"
+                                    />
+                                </div>
+                            )}
 
-                            <div>
-                                <Label className="text-xs sm:text-sm">Valor do Bônus</Label>
+                            <div className={formData.tipo_condicao === 'META_SEMANAL' || formData.tipo_condicao === 'SUPER_META_SEMANAL' ? 'col-span-2' : ''}>
+                                <Label className="text-xs sm:text-sm">
+                                    {formData.tipo_condicao === 'META_SEMANAL' || formData.tipo_condicao === 'SUPER_META_SEMANAL' 
+                                        ? 'Valor do Bônus (R$)' 
+                                        : formData.tipo === 'PERCENTUAL' ? 'Valor do Bônus (%)' : 'Valor do Bônus (R$)'}
+                                </Label>
                                 <Input
                                     type="number"
                                     step="0.01"
                                     value={formData.valor_bonus}
                                     onChange={(e) => setFormData({ ...formData, valor_bonus: e.target.value })}
-                                    placeholder="Ex: 500 ou 10"
+                                    placeholder={
+                                        formData.tipo_condicao === 'META_SEMANAL' 
+                                            ? 'Ex: 50 (bônus ao atingir meta semanal)' 
+                                            : formData.tipo_condicao === 'SUPER_META_SEMANAL'
+                                            ? 'Ex: 150 (bônus ao atingir super meta - não cumulativo)'
+                                            : formData.tipo === 'PERCENTUAL' ? 'Ex: 10 (para 10%)' : 'Ex: 500'
+                                    }
                                     required
                                     className="text-xs sm:text-sm"
                                 />
+                                {(formData.tipo_condicao === 'META_SEMANAL' || formData.tipo_condicao === 'SUPER_META_SEMANAL') && (
+                                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                                        {formData.tipo_condicao === 'META_SEMANAL' 
+                                            ? '💡 Bônus pago quando atingir 100% da meta semanal'
+                                            : '💡 Bônus pago quando atingir 100% da super meta (substitui bônus da meta se atingir super meta)'}
+                                    </p>
+                                )}
                             </div>
                         </div>
 

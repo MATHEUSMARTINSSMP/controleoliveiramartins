@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Target, Zap, TrendingUp, Calendar } from "lucide-react";
+import { Trophy, Target, Zap, TrendingUp, Calendar, Gift } from "lucide-react";
 import { format, startOfWeek, endOfWeek, getWeek, getYear, addWeeks } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/utils";
@@ -27,6 +27,11 @@ interface WeeklyProgress {
     status: 'on-track' | 'ahead' | 'behind';
 }
 
+interface WeeklyBonus {
+    meta_bonus: number | null;
+    super_meta_bonus: number | null;
+}
+
 const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({ 
     storeId, 
     colaboradoraId,
@@ -35,6 +40,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
     const [progress, setProgress] = useState<WeeklyProgress | null>(null);
     const [loading, setLoading] = useState(true);
     const [storeName, setStoreName] = useState<string>("");
+    const [weeklyBonuses, setWeeklyBonuses] = useState<WeeklyBonus>({ meta_bonus: null, super_meta_bonus: null });
 
     useEffect(() => {
         fetchWeeklyProgress();
@@ -105,6 +111,27 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
             const monday = weekRange.start;
             const daysElapsed = Math.floor((hoje.getTime() - monday.getTime()) / (1000 * 60 * 60 * 24)) + 1;
             const daysRemaining = 7 - daysElapsed;
+
+            // Fetch weekly bonuses for the store
+            const { data: bonusesData } = await supabase
+                .from("bonuses")
+                .select("tipo_condicao, valor_bonus")
+                .eq("ativo", true)
+                .or(`store_id.is.null,store_id.eq.${storeId}`)
+                .in("tipo_condicao", ["META_SEMANAL", "SUPER_META_SEMANAL"]);
+
+            let metaBonus = null;
+            let superMetaBonus = null;
+
+            if (bonusesData) {
+                const metaBonusData = bonusesData.find((b: any) => b.tipo_condicao === 'META_SEMANAL');
+                const superMetaBonusData = bonusesData.find((b: any) => b.tipo_condicao === 'SUPER_META_SEMANAL');
+                
+                metaBonus = metaBonusData?.valor_bonus ? parseFloat(metaBonusData.valor_bonus) : null;
+                superMetaBonus = superMetaBonusData?.valor_bonus ? parseFloat(superMetaBonusData.valor_bonus) : null;
+            }
+
+            setWeeklyBonuses({ meta_bonus: metaBonus, super_meta_bonus: superMetaBonus });
 
             // Fetch weekly goal
             let weeklyGoal;
@@ -295,43 +322,146 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                 </div>
             </CardHeader>
             <CardContent className="pt-6 space-y-4">
-                {/* Progress Bars */}
-                <div className="space-y-3">
-                    {/* Main Goal Progress */}
-                    <div>
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-medium">Meta</span>
-                            <span className={`text-lg font-bold ${progress.progress >= 100 ? 'text-green-600' : 'text-primary'}`}>
-                                {progress.progress.toFixed(1)}%
-                            </span>
+                {/* Progress Bars with Bonus Checkpoints */}
+                <div className="space-y-4">
+                    {/* Unified Progress Bar with Checkpoints */}
+                    <div className="relative">
+                        {/* Progress Bar Background */}
+                        <div className="relative h-12 bg-muted rounded-full overflow-hidden border-2 border-muted-foreground/20">
+                            {/* Progress Fill - até meta */}
+                            <div 
+                                className="absolute top-0 left-0 h-full bg-gradient-to-r from-primary via-primary/90 to-primary/80 transition-all duration-500"
+                                style={{ width: `${Math.min((progress.realizado / progress.super_meta_valor) * 100, (progress.meta_valor / progress.super_meta_valor) * 100)}%` }}
+                            />
+                            
+                            {/* Progress Fill - entre meta e super meta (verde) */}
+                            {progress.progress >= 100 && (
+                                <div 
+                                    className="absolute top-0 h-full bg-gradient-to-r from-green-500 via-green-500/90 to-green-500/80 transition-all duration-500"
+                                    style={{ 
+                                        left: `${(progress.meta_valor / progress.super_meta_valor) * 100}%`,
+                                        width: `${Math.min(((progress.realizado - progress.meta_valor) / (progress.super_meta_valor - progress.meta_valor)) * 100, 100) * ((progress.super_meta_valor - progress.meta_valor) / progress.super_meta_valor) * 100}%` 
+                                    }}
+                                />
+                            )}
+
+                            {/* Checkpoint 1: Meta Semanal Marker */}
+                            {weeklyBonuses.meta_bonus !== null && (
+                                <>
+                                    <div 
+                                        className="absolute top-0 h-full w-1 bg-green-500 z-20 shadow-lg"
+                                        style={{ left: `${(progress.meta_valor / progress.super_meta_valor) * 100}%`, transform: 'translateX(-50%)' }}
+                                    />
+                                    {/* Checkpoint Label above */}
+                                    <div 
+                                        className={`absolute -top-10 left-1/2 transform -translate-x-1/2 text-[10px] sm:text-xs font-bold whitespace-nowrap px-2 py-1 rounded shadow-md z-30 ${
+                                            progress.progress >= 100 
+                                                ? progress.superProgress >= 100 
+                                                    ? 'bg-purple-500 text-white border-2 border-purple-700' 
+                                                    : 'bg-green-500 text-white border-2 border-green-700' 
+                                                : 'bg-green-200 text-green-800 border border-green-400'
+                                        }`}
+                                        style={{ left: `${(progress.meta_valor / progress.super_meta_valor) * 100}%` }}
+                                    >
+                                        🎯 Checkpoint 1
+                                        <div className="text-[9px] font-normal mt-0.5">Meta: {formatCurrency(progress.meta_valor, { showSymbol: false })}</div>
+                                        {progress.progress >= 100 && !(progress.superProgress >= 100) && (
+                                            <div className="text-[9px] font-bold mt-0.5 bg-white/20 px-1 rounded">Bônus: R$ {weeklyBonuses.meta_bonus}</div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Checkpoint 2: Super Meta Semanal Marker */}
+                            {weeklyBonuses.super_meta_bonus !== null && (
+                                <>
+                                    <div 
+                                        className="absolute top-0 right-0 h-full w-1 bg-purple-500 z-20 shadow-lg"
+                                    />
+                                    {/* Checkpoint Label above */}
+                                    <div 
+                                        className={`absolute -top-10 right-0 text-[10px] sm:text-xs font-bold whitespace-nowrap px-2 py-1 rounded shadow-md z-30 ${
+                                            progress.superProgress >= 100 
+                                                ? 'bg-purple-500 text-white border-2 border-purple-700' 
+                                                : 'bg-purple-200 text-purple-800 border border-purple-400'
+                                        }`}
+                                    >
+                                        🏆 Checkpoint Final
+                                        <div className="text-[9px] font-normal mt-0.5">Super: {formatCurrency(progress.super_meta_valor, { showSymbol: false })}</div>
+                                        {progress.superProgress >= 100 && (
+                                            <div className="text-[9px] font-bold mt-0.5 bg-white/20 px-1 rounded">Bônus: R$ {weeklyBonuses.super_meta_bonus}</div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Current Position Indicator (vertical line) */}
+                            <div 
+                                className="absolute top-0 h-full w-0.5 bg-foreground z-30 shadow-lg"
+                                style={{ left: `${Math.min((progress.realizado / progress.super_meta_valor) * 100, 100)}%` }}
+                            >
+                                {/* Current value label */}
+                                <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-[9px] sm:text-xs font-bold bg-background border-2 px-2 py-1 rounded shadow-md whitespace-nowrap">
+                                    {formatCurrency(progress.realizado)}
+                                    <div className="text-[8px] font-normal text-muted-foreground mt-0.5">
+                                        {progress.progress.toFixed(1)}% da Meta
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <Progress 
-                            value={Math.min(progress.progress, 100)} 
-                            className="h-4"
-                        />
-                        <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                            <span>{formatCurrency(progress.realizado)}</span>
-                            <span>{formatCurrency(progress.meta_valor)}</span>
+
+                        {/* Scale markers below */}
+                        <div className="flex justify-between text-[9px] sm:text-xs text-muted-foreground mt-10">
+                            <span>R$ 0</span>
+                            {weeklyBonuses.meta_bonus !== null && (
+                                <span className="font-medium">{formatCurrency(progress.meta_valor, { showSymbol: false })}</span>
+                            )}
+                            {weeklyBonuses.super_meta_bonus !== null && (
+                                <span className="font-medium">{formatCurrency(progress.super_meta_valor, { showSymbol: false })}</span>
+                            )}
                         </div>
                     </div>
 
-                    {/* Super Goal Progress */}
-                    <div>
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-medium">Super Meta</span>
-                            <span className={`text-lg font-bold ${progress.superProgress >= 100 ? 'text-purple-600' : 'text-purple-500'}`}>
-                                {progress.superProgress.toFixed(1)}%
-                            </span>
+                    {/* Bonus Summary */}
+                    {(weeklyBonuses.meta_bonus !== null || weeklyBonuses.super_meta_bonus !== null) && (
+                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-3 sm:p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Gift className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                                <span className="text-xs sm:text-sm font-semibold">Bônus Semanais Disponíveis</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm">
+                                {weeklyBonuses.meta_bonus !== null && (
+                                    <div className={`p-2 rounded ${progress.progress >= 100 && !(progress.superProgress >= 100) ? 'bg-green-100 dark:bg-green-900/30 border-2 border-green-500' : 'bg-muted'}`}>
+                                        <div className="font-medium">Checkpoint 1: Meta Semanal</div>
+                                        <div className={`text-lg font-bold ${progress.progress >= 100 && !(progress.superProgress >= 100) ? 'text-green-700' : 'text-muted-foreground'}`}>
+                                            {progress.progress >= 100 && !(progress.superProgress >= 100) ? '✓ ' : ''}R$ {weeklyBonuses.meta_bonus}
+                                        </div>
+                                        {progress.progress >= 100 && !(progress.superProgress >= 100) && (
+                                            <div className="text-[10px] text-green-700 mt-1">✅ Você ganhou este bônus!</div>
+                                        )}
+                                    </div>
+                                )}
+                                {weeklyBonuses.super_meta_bonus !== null && (
+                                    <div className={`p-2 rounded ${progress.superProgress >= 100 ? 'bg-purple-100 dark:bg-purple-900/30 border-2 border-purple-500' : 'bg-muted'}`}>
+                                        <div className="font-medium">Checkpoint Final: Super Meta</div>
+                                        <div className={`text-lg font-bold ${progress.superProgress >= 100 ? 'text-purple-700' : 'text-muted-foreground'}`}>
+                                            {progress.superProgress >= 100 ? '✓ ' : ''}R$ {weeklyBonuses.super_meta_bonus}
+                                        </div>
+                                        {progress.superProgress >= 100 ? (
+                                            <div className="text-[10px] text-purple-700 mt-1">✅ Você ganhou este bônus! (Substitui o bônus da meta)</div>
+                                        ) : (
+                                            <div className="text-[10px] text-muted-foreground mt-1">Não cumulativo: substitui bônus da meta</div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            {progress.superProgress >= 100 && weeklyBonuses.super_meta_bonus !== null && (
+                                <div className="mt-2 p-2 bg-purple-100 dark:bg-purple-900/30 rounded text-xs sm:text-sm text-purple-900 dark:text-purple-100">
+                                    🎉 <strong>Parabéns!</strong> Você atingiu a Super Meta e ganhou <strong>R$ {weeklyBonuses.super_meta_bonus}</strong> (bônus não cumulativo)
+                                </div>
+                            )}
                         </div>
-                        <Progress 
-                            value={Math.min(progress.superProgress, 100)} 
-                            className="h-4 bg-purple-100"
-                        />
-                        <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                            <span>{formatCurrency(progress.realizado)}</span>
-                            <span>{formatCurrency(progress.super_meta_valor)}</span>
-                        </div>
-                    </div>
+                    )}
                 </div>
 
                 {showDetails && (
