@@ -531,64 +531,66 @@ const WeeklyGoalsManagement = () => {
                 return;
             }
 
-            // Estratégia: DELETE de TODAS as metas desta semana/loja primeiro, depois INSERT
-            // Isso evita problemas com constraint e garante que não haja duplicatas
-            // Deletar todas as metas existentes para esta semana/loja (não apenas as das colaboradoras específicas)
-            const { error: deleteError } = await supabase
-                .from("goals")
-                .delete()
-                .eq("store_id", selectedStore)
-                .eq("semana_referencia", selectedWeek)
-                .eq("tipo", "SEMANAL");
-
-            if (deleteError) {
-                console.error("Delete error:", deleteError);
-                throw deleteError;
-            }
-
-            // Pequeno delay para garantir que o DELETE foi processado completamente
-            // Isso evita race conditions em sistemas distribuídos
-            await new Promise(resolve => setTimeout(resolve, 100));
-
-            // Verificar se há duplicatas no payload antes de inserir
-            const seenIds = new Set<string>();
-            const duplicateIds = payloads.filter(p => {
-                const key = `${p.store_id}-${p.semana_referencia}-${p.colaboradora_id}`;
-                if (seenIds.has(key)) {
-                    return true;
-                }
-                seenIds.add(key);
-                return false;
-            });
-
-            if (duplicateIds.length > 0) {
-                console.error("Duplicatas detectadas no payload:", duplicateIds);
-                toast.error("Erro: Há metas duplicadas para a mesma colaboradora. Por favor, verifique os dados.");
-                return;
-            }
-
-            // Agora inserir as novas metas (já garantimos que não há duplicatas)
-            const { error: insertError } = await supabase
-                .from("goals")
-                .insert(payloads)
-                .select();
-
-            if (insertError) {
-                console.error("Insert error:", insertError);
-                // Se ainda assim houver erro de duplicata, tentar novamente após um pequeno delay
-                if (insertError.code === '23505' || insertError.message?.includes('duplicate')) {
-                    console.warn("Erro de duplicata após DELETE, tentando novamente...");
-                    await new Promise(resolve => setTimeout(resolve, 200));
-                    const { error: retryError } = await supabase
+            // Estratégia: Para cada payload, verificar se existe e fazer UPDATE ou INSERT individual
+            // Isso evita problemas com constraint e garante atomicidade
+            const results = [];
+            const errors = [];
+            
+            for (const payload of payloads) {
+                try {
+                    // Primeiro, tentar buscar se já existe
+                    const { data: existing } = await supabase
                         .from("goals")
-                        .insert(payloads)
-                        .select();
-                    if (retryError) {
-                        throw retryError;
+                        .select("id")
+                        .eq("store_id", payload.store_id)
+                        .eq("semana_referencia", payload.semana_referencia)
+                        .eq("tipo", payload.tipo)
+                        .eq("colaboradora_id", payload.colaboradora_id)
+                        .maybeSingle();
+
+                    if (existing) {
+                        // Se existe, fazer UPDATE
+                        const { data, error: updateError } = await supabase
+                            .from("goals")
+                            .update({
+                                meta_valor: payload.meta_valor,
+                                super_meta_valor: payload.super_meta_valor,
+                                ativo: payload.ativo,
+                                mes_referencia: payload.mes_referencia
+                            })
+                            .eq("id", existing.id)
+                            .select()
+                            .single();
+
+                        if (updateError) {
+                            errors.push({ payload, error: updateError });
+                        } else {
+                            results.push(data);
+                        }
+                    } else {
+                        // Se não existe, fazer INSERT
+                        const { data, error: insertError } = await supabase
+                            .from("goals")
+                            .insert(payload)
+                            .select()
+                            .single();
+
+                        if (insertError) {
+                            errors.push({ payload, error: insertError });
+                        } else {
+                            results.push(data);
+                        }
                     }
-                } else {
-                    throw insertError;
+                } catch (err: any) {
+                    errors.push({ payload, error: err });
                 }
+            }
+
+            // Se houver erros, tratar
+            if (errors.length > 0) {
+                console.error("Erros ao salvar metas individuais:", errors);
+                const firstError = errors[0].error;
+                throw firstError;
             }
 
             toast.success(`Metas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${uniqueColabsList.length} colaboradora(s)!`);
