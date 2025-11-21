@@ -565,26 +565,61 @@ const WeeklyGoalsManagement = () => {
             if (upsertError) {
                 console.error("Upsert error:", upsertError);
                 
-                // Se UPSERT falhar (pode acontecer com índices parciais),
-                // usar fallback: DELETE + INSERT
-                if (upsertError.code === '42P10' || upsertError.message?.includes('ON CONFLICT')) {
-                    console.warn("UPSERT não suportado, usando fallback DELETE + INSERT...");
+                // Se UPSERT falhar (pode acontecer com índices parciais ou constraint antigo),
+                // usar fallback: DELETE + INSERT mais robusto
+                if (upsertError.code === '42P10' || upsertError.code === '23505' || 
+                    upsertError.message?.includes('ON CONFLICT') || 
+                    upsertError.message?.includes('unique constraint') ||
+                    upsertError.message?.includes('duplicate key')) {
+                    console.warn("UPSERT não funcionou, usando fallback DELETE + INSERT robusto...");
                     
-                    // Deletar todas as metas existentes para esta semana/loja
-                    const { error: deleteError } = await supabase
+                    // Estratégia mais robusta: deletar individualmente cada meta antes de inserir
+                    // Isso garante que não há race condition ou cache
+                    for (const payload of payloads) {
+                        // Deletar meta específica desta colaboradora/semana/loja
+                        const { error: deleteError } = await supabase
+                            .from("goals")
+                            .delete()
+                            .eq("store_id", payload.store_id)
+                            .eq("semana_referencia", payload.semana_referencia)
+                            .eq("tipo", payload.tipo)
+                            .eq("colaboradora_id", payload.colaboradora_id);
+
+                        if (deleteError) {
+                            console.warn(`Erro ao deletar meta para colaboradora ${payload.colaboradora_id}:`, deleteError);
+                            // Continuar mesmo se houver erro (pode não existir)
+                        }
+                    }
+
+                    // Delay maior para garantir que todos os DELETEs foram processados
+                    await new Promise(resolve => setTimeout(resolve, 300));
+
+                    // Verificar se ainda existem metas antes de inserir (extra safety)
+                    const { data: remainingGoals } = await supabase
                         .from("goals")
-                        .delete()
+                        .select("id, colaboradora_id")
                         .eq("store_id", selectedStore)
                         .eq("semana_referencia", selectedWeek)
                         .eq("tipo", "SEMANAL");
 
-                    if (deleteError) {
-                        console.error("Delete error:", deleteError);
-                        throw deleteError;
+                    if (remainingGoals && remainingGoals.length > 0) {
+                        console.warn(`${remainingGoals.length} metas ainda existem após DELETE, tentando deletar novamente...`);
+                        // Tentar deletar novamente
+                        const colaboradoraIds = payloads.map(p => p.colaboradora_id).filter(Boolean);
+                        const { error: deleteAgainError } = await supabase
+                            .from("goals")
+                            .delete()
+                            .eq("store_id", selectedStore)
+                            .eq("semana_referencia", selectedWeek)
+                            .eq("tipo", "SEMANAL")
+                            .in("colaboradora_id", colaboradoraIds);
+                        
+                        if (deleteAgainError) {
+                            console.error("Erro ao deletar metas novamente:", deleteAgainError);
+                        }
+                        
+                        await new Promise(resolve => setTimeout(resolve, 200));
                     }
-
-                    // Pequeno delay para garantir que o DELETE foi processado
-                    await new Promise(resolve => setTimeout(resolve, 100));
 
                     // Inserir as novas metas
                     const { data: insertData, error: insertError } = await supabase
@@ -594,11 +629,53 @@ const WeeklyGoalsManagement = () => {
 
                     if (insertError) {
                         console.error("Insert error:", insertError);
-                        throw insertError;
+                        
+                        // Se ainda der erro de duplicata, tentar inserir uma por uma
+                        if (insertError.code === '23505' || insertError.message?.includes('duplicate')) {
+                            console.warn("Erro de duplicata no batch insert, tentando individual...");
+                            const individualResults = [];
+                            const individualErrors = [];
+                            
+                            for (const payload of payloads) {
+                                // Deletar novamente antes de inserir
+                                await supabase
+                                    .from("goals")
+                                    .delete()
+                                    .eq("store_id", payload.store_id)
+                                    .eq("semana_referencia", payload.semana_referencia)
+                                    .eq("tipo", payload.tipo)
+                                    .eq("colaboradora_id", payload.colaboradora_id);
+                                
+                                await new Promise(resolve => setTimeout(resolve, 50));
+                                
+                                // Inserir individual
+                                const { data: singleData, error: singleError } = await supabase
+                                    .from("goals")
+                                    .insert(payload)
+                                    .select()
+                                    .single();
+                                
+                                if (singleError) {
+                                    individualErrors.push({ payload, error: singleError });
+                                } else {
+                                    individualResults.push(singleData);
+                                }
+                            }
+                            
+                            if (individualErrors.length > 0) {
+                                console.error("Erros ao inserir individualmente:", individualErrors);
+                                throw individualErrors[0].error;
+                            }
+                            
+                            const successCount = individualResults.length || uniqueColabsList.length;
+                            toast.success(`Metas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${successCount} colaboradora(s)!`);
+                        } else {
+                            throw insertError;
+                        }
+                    } else {
+                        const successCount = insertData?.length || uniqueColabsList.length;
+                        toast.success(`Metas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${successCount} colaboradora(s)!`);
                     }
-
-                    const successCount = insertData?.length || uniqueColabsList.length;
-                    toast.success(`Metas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${successCount} colaboradora(s)!`);
                 } else {
                     // Outro tipo de erro, lançar
                     throw upsertError;
