@@ -295,15 +295,16 @@ function MetasManagementContent() {
                 tipo: "MENSAL",
                 mes_referencia: mesReferencia,
                 store_id: selectedStore,
+                colaboradora_id: null, // Explicitly set null for uniqueness check
                 meta_valor: parseFloat(metaLoja),
                 super_meta_valor: parseFloat(superMetaLoja),
                 ativo: true,
-                daily_weights: dailyWeights // Save weights here
+                daily_weights: dailyWeights
             };
 
             const { data: storeGoalData, error: storeError } = await supabase
                 .from("goals")
-                .upsert(storePayload, { onConflict: 'store_id, mes_referencia, tipo' })
+                .upsert(storePayload, { onConflict: 'store_id, mes_referencia, tipo, colaboradora_id' })
                 .select()
                 .single();
 
@@ -323,7 +324,7 @@ function MetasManagementContent() {
 
             const { error: indError } = await supabase
                 .from("goals")
-                .upsert(individualPayloads, { onConflict: 'store_id, mes_referencia, colaboradora_id, tipo' });
+                .upsert(individualPayloads, { onConflict: 'store_id, mes_referencia, tipo, colaboradora_id' });
 
             if (indError) throw indError;
 
