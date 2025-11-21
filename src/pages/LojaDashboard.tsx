@@ -605,36 +605,25 @@ export default function LojaDashboard() {
                     let matching = allColabs.filter((colab: any) => colab.store_id === currentStoreId);
                     console.log(`[LojaDashboard]   Colaboradoras com store_id ${currentStoreId}:`, matching.length);
                     
+                    // Se não encontrou por store_id, tentar por store_default
                     if (matching.length === 0 && storeNameToUse) {
-                    // Normalizar nome para busca (remover |, vírgulas, espaços extras)
-                    const normalizeName = (name: string) => {
-                        return name
-                            .toLowerCase()
-                            .replace(/[|,]/g, '')
-                            .replace(/\s+/g, ' ')
-                            .trim();
-                    };
+                        // Normalizar nome para busca (remover |, vírgulas, espaços extras)
+                        const normalizeName = (name: string) => {
+                            return name
+                                .toLowerCase()
+                                .replace(/[|,]/g, '')
+                                .replace(/\s+/g, ' ')
+                                .trim();
+                        };
 
-                    const normalizedStoreName = normalizeName(storeName);
-                    console.log('[LojaDashboard]   Nome normalizado para busca:', normalizedStoreName);
-
-                    // Buscar todas as colaboradoras ativas para fazer match flexível
-                    const { data: allColabs, error: allError } = await supabase
-                        .schema("sistemaretiradas")
-                        .from('profiles')
-                        .select('id, name, active, store_id, store_default, role')
-                        .eq('role', 'COLABORADORA')
-                        .eq('active', true)
-                        .order('name');
-                    
-                    if (!allError && allColabs) {
-                        console.log('[LojaDashboard] 🔍 Todas as colaboradoras ativas no sistema:', allColabs.length);
+                        const normalizedStoreName = normalizeName(storeNameToUse);
+                        console.log('[LojaDashboard]   Nome normalizado para busca:', normalizedStoreName);
                         
                         // Primeiro, tentar match exato com store_default
-                        let matching = allColabs.filter((colab: any) => {
+                        matching = allColabs.filter((colab: any) => {
                             if (!colab.store_default) return false;
-                            return colab.store_default === storeName || 
-                                   colab.store_default.toLowerCase() === storeName.toLowerCase();
+                            return colab.store_default === storeNameToUse || 
+                                   colab.store_default.toLowerCase() === storeNameToUse.toLowerCase();
                         });
                         
                         // Se não encontrou, tentar match normalizado
@@ -655,28 +644,23 @@ export default function LojaDashboard() {
                                        normalizedStoreName.includes(normalizedColabStore);
                             });
                         }
-                        
-                        // Se ainda não encontrou, tentar match por store_id (UUID) diretamente na lista
-                        if (matching.length === 0) {
-                            matching = allColabs.filter((colab: any) => colab.store_id === currentStoreId);
-                        }
-                        
-                        console.log(`[LojaDashboard]   Colaboradoras que MATCHAM store_id ${currentStoreId} ou store_default "${storeName}":`, matching.length);
-                        
-                        if (matching.length > 0) {
-                            console.log('[LojaDashboard] ✅ Encontradas colaboradoras:');
-                            matching.forEach((colab: any, idx: number) => {
-                                console.log(`[LojaDashboard]   ${idx + 1}. ${colab.name}: store_id = ${colab.store_id || 'NULL'}, store_default = ${colab.store_default || 'NULL'}`);
-                            });
-                            setColaboradoras(matching);
-                            return;
-                        } else {
-                            // Log detalhado de todas as colaboradoras para debug
-                            console.log('[LojaDashboard] 🔍 Debug: Todas as colaboradoras ativas no sistema:');
-                            allColabs.forEach((colab: any) => {
-                                console.log(`[LojaDashboard]   - ${colab.name}: store_id = ${colab.store_id || 'NULL'}, store_default = ${colab.store_default || 'NULL'}`);
-                            });
-                        }
+                    }
+                    
+                    console.log(`[LojaDashboard]   Colaboradoras que MATCHAM store_id ${currentStoreId} ou store_default "${storeNameToUse || 'N/A'}":`, matching.length);
+                    
+                    if (matching.length > 0) {
+                        console.log('[LojaDashboard] ✅ Encontradas colaboradoras na busca alternativa:');
+                        matching.forEach((colab: any, idx: number) => {
+                            console.log(`[LojaDashboard]   ${idx + 1}. ${colab.name}: store_id = ${colab.store_id || 'NULL'}, store_default = ${colab.store_default || 'NULL'}`);
+                        });
+                        setColaboradoras(matching);
+                        return;
+                    } else {
+                        // Log detalhado de todas as colaboradoras para debug
+                        console.log('[LojaDashboard] 🔍 Debug: Todas as colaboradoras ativas no sistema:');
+                        allColabs.forEach((colab: any) => {
+                            console.log(`[LojaDashboard]   - ${colab.name}: store_id = ${colab.store_id || 'NULL'}, store_default = ${colab.store_default || 'NULL'}`);
+                        });
                     }
                 }
             } else {
