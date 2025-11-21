@@ -1,19 +1,28 @@
--- Migration: Allow LOJA profiles to view colaboradoras from their store
--- This policy allows LOJA profiles to SELECT colaboradoras that belong to their store
--- IMPORTANT: We use SECURITY DEFINER functions to avoid recursion
+-- Migration: Recreate all RLS policies for profiles table from scratch
+-- This removes ALL existing policies and creates new ones to avoid conflicts
 
--- First, drop existing policies if they exist
+-- Step 1: Remove ALL existing policies on profiles table
 DO $$
+DECLARE
+    policy_record RECORD;
 BEGIN
-    DROP POLICY IF EXISTS "LOJA can view colaboradoras from their store" ON sistemaretiradas.profiles;
-    DROP POLICY IF EXISTS "Users can view their own profile" ON sistemaretiradas.profiles;
-    DROP POLICY IF EXISTS "ADMIN can view all profiles" ON sistemaretiradas.profiles;
-    DROP FUNCTION IF EXISTS sistemaretiradas.get_user_role() CASCADE;
-    DROP FUNCTION IF EXISTS sistemaretiradas.is_user_loja() CASCADE;
-    RAISE NOTICE 'Dropped existing policies and functions if they existed';
+    FOR policy_record IN 
+        SELECT policyname 
+        FROM pg_policies 
+        WHERE schemaname = 'sistemaretiradas' 
+        AND tablename = 'profiles'
+    LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON sistemaretiradas.profiles', policy_record.policyname);
+        RAISE NOTICE 'Dropped policy: %', policy_record.policyname;
+    END LOOP;
 END $$;
 
--- Create SECURITY DEFINER function to get user role (bypasses RLS)
+-- Step 2: Remove all existing SECURITY DEFINER functions if they exist
+DROP FUNCTION IF EXISTS sistemaretiradas.get_user_role() CASCADE;
+DROP FUNCTION IF EXISTS sistemaretiradas.is_user_loja() CASCADE;
+DROP FUNCTION IF EXISTS sistemaretiradas.is_user_admin() CASCADE;
+
+-- Step 3: Create SECURITY DEFINER function to get user role (bypasses RLS)
 -- This function can be called inside policies without causing recursion
 CREATE OR REPLACE FUNCTION sistemaretiradas.get_user_role()
 RETURNS TEXT
@@ -35,7 +44,7 @@ BEGIN
 END;
 $$;
 
--- Create SECURITY DEFINER function to check if user is LOJA
+-- Step 4: Create SECURITY DEFINER function to check if user is LOJA
 CREATE OR REPLACE FUNCTION sistemaretiradas.is_user_loja()
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -48,7 +57,7 @@ BEGIN
 END;
 $$;
 
--- Create SECURITY DEFINER function to check if user is ADMIN
+-- Step 5: Create SECURITY DEFINER function to check if user is ADMIN
 CREATE OR REPLACE FUNCTION sistemaretiradas.is_user_admin()
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -61,33 +70,37 @@ BEGIN
 END;
 $$;
 
--- Policy 1: Users can always view their own profile (CRITICAL: avoids recursion)
--- This must come first and is evaluated before other policies
+-- Step 6: Create Policy 1 - Users can view their own profile by ID (CRITICAL for login)
+-- This must come FIRST to avoid recursion
 CREATE POLICY "Users can view their own profile"
 ON sistemaretiradas.profiles
 FOR SELECT
 TO authenticated
 USING (id = auth.uid());
 
--- Policy 2: Users can view their own profile by email (for AuthContext)
+-- Step 7: Create Policy 2 - Users can view their own profile by email (for AuthContext)
 -- This allows AuthContext to fetch profile by email during login
 CREATE POLICY "Users can view own profile by email"
 ON sistemaretiradas.profiles
 FOR SELECT
 TO authenticated
 USING (
-    email = (SELECT email FROM auth.users WHERE id = auth.uid())
-    OR email ILIKE (SELECT email FROM auth.users WHERE id = auth.uid())
+    EXISTS (
+        SELECT 1 
+        FROM auth.users 
+        WHERE id = auth.uid() 
+        AND email = sistemaretiradas.profiles.email
+    )
 );
 
--- Policy 3: ADMIN can view all profiles
+-- Step 8: Create Policy 3 - ADMIN can view all profiles
 CREATE POLICY "ADMIN can view all profiles"
 ON sistemaretiradas.profiles
 FOR SELECT
 TO authenticated
 USING (sistemaretiradas.is_user_admin());
 
--- Policy 4: LOJA can view colaboradoras from their store
+-- Step 9: Create Policy 4 - LOJA can view colaboradoras from their store
 -- Uses SECURITY DEFINER function to avoid recursion
 CREATE POLICY "LOJA can view colaboradoras from their store"
 ON sistemaretiradas.profiles
@@ -99,7 +112,7 @@ USING (
     AND sistemaretiradas.profiles.active = true
     -- AND the requesting user is a LOJA profile (using SECURITY DEFINER function)
     AND sistemaretiradas.is_user_loja()
-    -- AND match by store relationship
+    -- AND match by store relationship (using SECURITY DEFINER to get LOJA profile)
     AND EXISTS (
         SELECT 1 
         FROM sistemaretiradas.profiles loja_profile
@@ -134,13 +147,13 @@ USING (
     )
 );
 
--- Grant necessary permissions
+-- Step 10: Grant necessary permissions
 GRANT SELECT ON sistemaretiradas.profiles TO authenticated;
 GRANT EXECUTE ON FUNCTION sistemaretiradas.get_user_role() TO authenticated;
 GRANT EXECUTE ON FUNCTION sistemaretiradas.is_user_loja() TO authenticated;
 GRANT EXECUTE ON FUNCTION sistemaretiradas.is_user_admin() TO authenticated;
 
--- Comments
+-- Step 11: Add comments for documentation
 COMMENT ON POLICY "Users can view their own profile" ON sistemaretiradas.profiles IS 
 'Allows any authenticated user to view their own profile by ID. This prevents recursion in other policies.';
 
