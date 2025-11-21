@@ -386,8 +386,18 @@ const WeeklyGoalsManagement = () => {
         }
 
         try {
+            // Remover duplicatas baseado em colaboradora_id
+            const uniqueColabs = new Map<string, { id: string; meta: number; superMeta: number }>();
+            colabsWithGoals.forEach(colab => {
+                if (!uniqueColabs.has(colab.id) || (colab.meta > 0 || colab.superMeta > 0)) {
+                    uniqueColabs.set(colab.id, colab);
+                }
+            });
+
+            const uniqueColabsList = Array.from(uniqueColabs.values());
+
             // Create/Update individual weekly goals for each collaborator
-            const payloads = colabsWithGoals.map(colab => ({
+            const payloads = uniqueColabsList.map(colab => ({
                 store_id: selectedStore,
                 semana_referencia: selectedWeek,
                 tipo: "SEMANAL",
@@ -398,30 +408,51 @@ const WeeklyGoalsManagement = () => {
                 mes_referencia: null,
             }));
 
-            // Delete existing weekly goals for this store and week
+            // Primeiro, deletar metas existentes APENAS para as colaboradoras que estamos atualizando
+            const colaboradoraIds = uniqueColabsList.map(c => c.id);
+            
             const { error: deleteError } = await supabase
                 .from("goals")
                 .delete()
                 .eq("store_id", selectedStore)
                 .eq("semana_referencia", selectedWeek)
-                .eq("tipo", "SEMANAL");
+                .eq("tipo", "SEMANAL")
+                .in("colaboradora_id", colaboradoraIds);
 
-            if (deleteError) throw deleteError;
+            if (deleteError) {
+                console.error("Delete error:", deleteError);
+                throw deleteError;
+            }
 
-            // Insert new weekly goals
-            const { error: insertError } = await supabase
+            // Aguardar um momento para garantir que o DELETE foi processado
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            // Inserir novas metas usando UPSERT para garantir que não haja duplicatas
+            const { error: upsertError } = await supabase
                 .from("goals")
-                .insert(payloads);
+                .upsert(payloads, {
+                    onConflict: 'store_id, semana_referencia, tipo, colaboradora_id',
+                    ignoreDuplicates: false
+                });
 
-            if (insertError) throw insertError;
+            if (upsertError) {
+                console.error("Upsert error:", upsertError);
+                throw upsertError;
+            }
 
-            toast.success(`Metas semanais criadas para ${colabsWithGoals.length} colaboradora(s)!`);
+            toast.success(`Metas semanais criadas para ${uniqueColabsList.length} colaboradora(s)!`);
             setDialogOpen(false);
             resetForm();
             fetchWeeklyGoals();
         } catch (err: any) {
             console.error("Error saving weekly goals:", err);
-            toast.error(err.message || "Erro ao salvar metas semanais");
+            
+            // Mensagem de erro mais específica
+            if (err.code === '23505' || err.message?.includes('duplicate key')) {
+                toast.error("Erro: Meta duplicada detectada. Tente novamente ou exclua a meta existente primeiro.");
+            } else {
+                toast.error(err.message || "Erro ao salvar metas semanais");
+            }
         }
     };
 
