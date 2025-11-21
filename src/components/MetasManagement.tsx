@@ -167,6 +167,7 @@ function MetasManagementContent() {
             else sumRest += weight;
         }
 
+
         // 2. Apply 65% curve for first 15 days
         // Formula: (sumFirst15 * Factor) / (sumFirst15 * Factor + sumRest) = 0.65
         // Factor = (0.65 * sumRest) / (0.35 * sumFirst15)
@@ -175,10 +176,23 @@ function MetasManagementContent() {
         for (let day = 1; day <= 15; day++) {
             const date = new Date(year, month, day);
             const dateStr = format(date, "yyyy-MM-dd");
-            weights[dateStr] = parseFloat((weights[dateStr] * factor).toFixed(2));
+            weights[dateStr] = weights[dateStr] * factor;
         }
 
-        setDailyWeights(weights);
+        // 3. Normalize to sum exactly 100
+        const totalWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
+        const normalizedWeights: Record<string, number> = {};
+
+        for (const [date, weight] of Object.entries(weights)) {
+            normalizedWeights[date] = parseFloat(((weight / totalWeight) * 100).toFixed(2));
+        }
+
+        // 4. Adjust last day to ensure exact 100% (handle rounding errors)
+        const finalSum = Object.values(normalizedWeights).reduce((sum, w) => sum + w, 0);
+        const lastDate = Object.keys(normalizedWeights).sort().pop()!;
+        normalizedWeights[lastDate] = parseFloat((normalizedWeights[lastDate] + (100 - finalSum)).toFixed(2));
+
+        setDailyWeights(normalizedWeights);
     };
 
     const handleStoreSelect = (storeId: string) => {
@@ -570,13 +584,12 @@ function MetasManagementContent() {
                                     </div>
 
                                     {/* Total Sum Indicator */}
-                                    <div className={`p-4 rounded-lg border-2 text-center font-bold text-lg ${isValid
-                                        ? 'bg-green-50 border-green-300 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-400'
-                                        : 'bg-orange-50 border-orange-300 text-orange-700 dark:bg-orange-900/20 dark:border-orange-700 dark:text-orange-400'
+                                    <div className={`p-2 rounded-lg border text-center font-semibold text-sm ${isValid
+                                            ? 'bg-green-50 border-green-300 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-400'
+                                            : 'bg-orange-50 border-orange-300 text-orange-700 dark:bg-orange-900/20 dark:border-orange-700 dark:text-orange-400'
                                         }`}>
-                                        Soma Total dos Pesos: {totalWeight.toFixed(2)}% {isValid ? '✓' : `(falta ${(100 - totalWeight).toFixed(2)}%)`}
+                                        Soma Total: {totalWeight.toFixed(2)}% {isValid ? '✓' : `(falta ${(100 - totalWeight).toFixed(2)}%)`}
                                     </div>
-
                                     {/* Legend */}
                                     <div className="flex gap-4 justify-center text-xs pt-2 border-t">
                                         <div className="flex items-center gap-2">
