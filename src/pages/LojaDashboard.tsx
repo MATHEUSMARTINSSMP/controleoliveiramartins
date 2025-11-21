@@ -406,8 +406,8 @@ export default function LojaDashboard() {
         }
 
         try {
-            // Estratégia 1: Buscar por store_id (UUID)
-            console.log('[LojaDashboard] Estratégia 1: Buscando por store_id:', storeId);
+            // Estratégia 1: Buscar por store_id (UUID) - esta é a forma correta
+            console.log('[LojaDashboard] Estratégia 1: Buscando por store_id (UUID):', storeId);
             const { data: dataByStoreId, error: errorByStoreId } = await supabase
                 .schema("sistemaretiradas")
                 .from('profiles')
@@ -417,7 +417,11 @@ export default function LojaDashboard() {
                 .eq('store_id', storeId)
                 .order('name');
 
-            console.log('[LojaDashboard] Resultado por store_id:', { data: dataByStoreId, error: errorByStoreId });
+            console.log('[LojaDashboard] Resultado por store_id:', { 
+                encontradas: dataByStoreId?.length || 0, 
+                error: errorByStoreId,
+                dados: dataByStoreId 
+            });
 
             if (!errorByStoreId && dataByStoreId && dataByStoreId.length > 0) {
                 console.log('[LojaDashboard] ✅ Encontradas', dataByStoreId.length, 'colaboradoras por store_id');
@@ -425,38 +429,23 @@ export default function LojaDashboard() {
                 return;
             }
 
-            // Estratégia 2: Buscar por store_default (UUID)
-            console.log('[LojaDashboard] Estratégia 2: Buscando por store_default (UUID):', storeId);
-            const { data: dataByStoreDefault, error: errorByStoreDefault } = await supabase
-                .schema("sistemaretiradas")
-                .from('profiles')
-                .select('id, name, active, store_id, store_default')
-                .eq('role', 'COLABORADORA')
-                .eq('active', true)
-                .eq('store_default', storeId)
-                .order('name');
-
-            console.log('[LojaDashboard] Resultado por store_default (UUID):', { data: dataByStoreDefault, error: errorByStoreDefault });
-
-            if (!errorByStoreDefault && dataByStoreDefault && dataByStoreDefault.length > 0) {
-                console.log('[LojaDashboard] ✅ Encontradas', dataByStoreDefault.length, 'colaboradoras por store_default (UUID)');
-                setColaboradoras(dataByStoreDefault);
-                return;
-            }
-
-            // Estratégia 3: Buscar por store_default (nome)
+            // Estratégia 2: Buscar por store_default (nome da loja) como fallback
             if (storeName) {
-                console.log('[LojaDashboard] Estratégia 3: Buscando por store_default (nome):', storeName);
+                console.log('[LojaDashboard] Estratégia 2: Buscando por store_default (nome):', storeName);
                 const { data: dataByName, error: errorByName } = await supabase
                     .schema("sistemaretiradas")
                     .from('profiles')
                     .select('id, name, active, store_id, store_default')
                     .eq('role', 'COLABORADORA')
                     .eq('active', true)
-                    .ilike('store_default', storeName)
+                    .eq('store_default', storeName)
                     .order('name');
                 
-                console.log('[LojaDashboard] Resultado por store_default (nome):', { data: dataByName, error: errorByName });
+                console.log('[LojaDashboard] Resultado por store_default (nome):', { 
+                    encontradas: dataByName?.length || 0, 
+                    error: errorByName,
+                    dados: dataByName 
+                });
 
                 if (!errorByName && dataByName && dataByName.length > 0) {
                     console.log('[LojaDashboard] ✅ Encontradas', dataByName.length, 'colaboradoras por store_default (nome)');
@@ -465,35 +454,9 @@ export default function LojaDashboard() {
                 }
             }
 
-            // Estratégia 4: Buscar TODAS as colaboradoras para debug
-            console.log('[LojaDashboard] Estratégia 4: Buscando TODAS as colaboradoras para debug');
-            const { data: allColabs, error: allError } = await supabase
-                .schema("sistemaretiradas")
-                .from('profiles')
-                .select('id, name, active, store_id, store_default, role')
-                .eq('role', 'COLABORADORA')
-                .eq('active', true)
-                .order('name');
-
-            console.log('[LojaDashboard] TODAS as colaboradoras no sistema:', allColabs);
-            console.log('[LojaDashboard] Procurando por storeId:', storeId, 'ou storeName:', storeName);
-
-            if (allColabs && allColabs.length > 0) {
-                const matching = allColabs.filter((colab: any) => {
-                    return colab.store_id === storeId || 
-                           colab.store_default === storeId || 
-                           (storeName && colab.store_default && colab.store_default.toLowerCase().includes(storeName.toLowerCase()));
-                });
-                console.log('[LojaDashboard] Colaboradoras que MATCHAM:', matching);
-                
-                if (matching.length > 0) {
-                    setColaboradoras(matching);
-                    return;
-                }
-            }
-
             // Se não encontrou nenhuma
-            console.warn('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada para a loja. storeId:', storeId, 'storeName:', storeName);
+            console.warn('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada para a loja.');
+            console.warn('[LojaDashboard] Buscando por storeId:', storeId, 'ou storeName:', storeName);
             setColaboradoras([]);
         } catch (error: any) {
             console.error('[LojaDashboard] ❌ Erro ao carregar colaboradoras:', error);
