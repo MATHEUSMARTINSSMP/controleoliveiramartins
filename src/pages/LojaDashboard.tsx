@@ -42,6 +42,8 @@ export default function LojaDashboard() {
     const [colaboradoras, setColaboradoras] = useState<Colaboradora[]>([]);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [storeId, setStoreId] = useState<string | null>(null);
+    const [storeName, setStoreName] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
         colaboradora_id: "",
@@ -75,17 +77,78 @@ export default function LojaDashboard() {
             return;
         }
 
-        // Se for LOJA, carrega dados da loja do perfil
-        if (profile.role === 'LOJA' && profile.store_default) {
-            fetchData();
-        } else if (profile.role === 'LOJA') {
-            // Profile LOJA mas sem store_default, ainda assim pode mostrar a página
-            setLoading(false);
+        // Se for LOJA, precisa identificar o store_id correto
+        if (profile.role === 'LOJA') {
+            identifyStore();
         } else if (profile.role === 'ADMIN') {
             // ADMIN não precisa carregar dados de loja específica aqui
             setLoading(false);
         }
     }, [profile, authLoading, navigate]);
+
+    const identifyStore = async () => {
+        if (!profile) return;
+
+        try {
+            // Primeiro, tentar usar store_id se disponível
+            let targetStoreId = profile.store_id;
+
+            // Se não tiver store_id, tentar usar store_default como UUID
+            if (!targetStoreId && profile.store_default) {
+                // Verificar se store_default é um UUID válido (formato UUID)
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                if (uuidRegex.test(profile.store_default)) {
+                    targetStoreId = profile.store_default;
+                } else {
+                    // Se store_default não é UUID, é o nome da loja - buscar o ID
+                    const { data: storesData } = await supabase
+                        .schema("sistemaretiradas")
+                        .from("stores")
+                        .select("id, name")
+                        .ilike("name", profile.store_default)
+                        .eq("active", true)
+                        .maybeSingle();
+
+                    if (storesData) {
+                        targetStoreId = storesData.id;
+                        setStoreName(storesData.name);
+                    } else {
+                        console.error("Loja não encontrada com nome:", profile.store_default);
+                        toast.error("Loja não encontrada no sistema");
+                        setLoading(false);
+                        return;
+                    }
+                }
+            }
+
+            if (targetStoreId) {
+                // Buscar nome da loja se ainda não tiver
+                if (!storeName) {
+                    const { data: storeData } = await supabase
+                        .schema("sistemaretiradas")
+                        .from("stores")
+                        .select("name")
+                        .eq("id", targetStoreId)
+                        .single();
+
+                    if (storeData) {
+                        setStoreName(storeData.name);
+                    }
+                }
+
+                setStoreId(targetStoreId);
+                fetchData();
+            } else {
+                console.error("Não foi possível identificar o ID da loja");
+                toast.error("Erro ao identificar loja");
+                setLoading(false);
+            }
+        } catch (error: any) {
+            console.error("Erro ao identificar loja:", error);
+            toast.error("Erro ao carregar informações da loja");
+            setLoading(false);
+        }
+    };
 
     const fetchGoals = async () => {
         const mesAtual = format(new Date(), 'yyyyMM');
@@ -325,17 +388,19 @@ export default function LojaDashboard() {
     };
 
     const fetchColaboradoras = async () => {
-        if (!profile?.store_default) return;
+        if (!storeId) return;
 
         const { data, error } = await supabase
+            .schema("sistemaretiradas")
             .from('profiles')
             .select('id, name, active')
             .eq('role', 'COLABORADORA')
-            .eq('store_default', profile.store_default)
+            .eq('store_id', storeId)
             .eq('active', true)
             .order('name');
 
         if (error) {
+            console.error('Erro ao carregar colaboradoras:', error);
             toast.error('Erro ao carregar colaboradoras');
         } else {
             setColaboradoras(data || []);
@@ -343,7 +408,7 @@ export default function LojaDashboard() {
     };
 
     const getStoreId = () => {
-        return profile?.store_default;
+        return storeId || profile?.store_id || null;
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -491,9 +556,9 @@ export default function LojaDashboard() {
         <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <StoreLogo storeId={profile?.store_default} className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" />
+                    <StoreLogo storeId={storeId || profile?.store_id} className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" />
                     <div className="min-w-0 flex-1">
-                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate">{profile?.store_default}</h1>
+                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate">{storeName || profile?.name || "Loja"}</h1>
                         <p className="text-xs sm:text-sm text-muted-foreground">Gestão de Vendas</p>
                     </div>
                 </div>
@@ -749,8 +814,8 @@ export default function LojaDashboard() {
             </div>
 
             {/* Meta Semanal Gamificada */}
-            {profile?.store_default && (
-                <WeeklyGoalProgress storeId={getStoreId()} showDetails={true} />
+            {storeId && (
+                <WeeklyGoalProgress storeId={storeId} showDetails={true} />
             )}
 
             {/* Tabela de Performance por Vendedora */}
