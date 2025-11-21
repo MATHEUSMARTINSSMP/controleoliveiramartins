@@ -132,6 +132,13 @@ const AdminDashboard = () => {
               >
                 Relatórios Detalhados
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/admin/benchmarks")}
+                className="border-primary/20 hover:bg-primary/10"
+              >
+                Gerenciar Benchmarks
+              </Button>
             </div>
 
             <CommercialDashboard />

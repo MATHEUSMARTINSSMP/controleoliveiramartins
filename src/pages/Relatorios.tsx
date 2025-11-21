@@ -5,11 +5,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Download, Trash2, ChevronDown, ChevronRight, Undo2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Download, Trash2, ChevronDown, ChevronRight, Undo2, TrendingUp, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth, subDays, startOfDay } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter, Cell } from 'recharts';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -85,6 +89,13 @@ const Relatorios = () => {
     status: "",
     tipo: "TODOS",
   });
+  const [salesAnalytics, setSalesAnalytics] = useState<any[]>([]);
+  const [storeComparison, setStoreComparison] = useState<any[]>([]);
+  const [benchmarks, setBenchmarks] = useState<Record<string, any>>({});
+  const [dailyTrends, setDailyTrends] = useState<any[]>([]);
+  const [periodFilter, setPeriodFilter] = useState<'last7' | 'last30' | 'month' | 'custom'>('last30');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
 
   useEffect(() => {
     if (!loading && (!profile || profile.role !== "ADMIN")) {
@@ -176,6 +187,9 @@ const Relatorios = () => {
       })) || [];
 
       setAdiantamentos(formattedAdiantamentos);
+      
+      // Buscar dados de analytics e benchmarks para gráficos
+      await fetchAnalyticsData();
     } catch (error: any) {
       toast.error("Erro ao carregar dados");
       console.error(error);
@@ -183,6 +197,112 @@ const Relatorios = () => {
       setLoadingData(false);
     }
   };
+
+  const fetchAnalyticsData = async () => {
+    try {
+      const hoje = new Date();
+      let start: Date;
+      let end: Date = hoje;
+
+      switch (periodFilter) {
+        case 'last7':
+          start = subDays(hoje, 7);
+          break;
+        case 'last30':
+          start = subDays(hoje, 30);
+          break;
+        case 'month':
+          start = startOfMonth(hoje);
+          end = endOfMonth(hoje);
+          break;
+        case 'custom':
+          if (customStartDate && customEndDate) {
+            start = new Date(customStartDate);
+            end = new Date(customEndDate);
+          } else {
+            start = subDays(hoje, 30);
+          }
+          break;
+        default:
+          start = subDays(hoje, 30);
+      }
+
+      const startStr = format(start, 'yyyy-MM-dd');
+      const endStr = format(end, 'yyyy-MM-dd');
+
+      // Buscar benchmarks
+      const { data: benchData } = await supabase
+        .schema('sistemaretiradas')
+        .from('store_benchmarks')
+        .select('*');
+
+      const benchMap: Record<string, any> = {};
+      benchData?.forEach((b: any) => benchMap[b.store_id] = b);
+      setBenchmarks(benchMap);
+
+      // Buscar analytics diários
+      const { data: analyticsData } = await supabase
+        .schema('sistemaretiradas')
+        .from('analytics_daily_performance')
+        .select('*')
+        .gte('data_referencia', startStr)
+        .lte('data_referencia', endStr)
+        .order('data_referencia', { ascending: true });
+
+      if (analyticsData) {
+        // Preparar dados de tendência diária
+        const trendsMap: Record<string, any> = {};
+        analyticsData.forEach((day: any) => {
+          const dateKey = format(new Date(day.data_referencia), 'dd/MM');
+          if (!trendsMap[dateKey]) {
+            trendsMap[dateKey] = { date: dateKey };
+          }
+          trendsMap[dateKey][day.store_name] = day.total_valor;
+        });
+        setDailyTrends(Object.values(trendsMap));
+
+        // Agregar por loja
+        const storeAgg: Record<string, any> = {};
+        analyticsData.forEach((day: any) => {
+          if (!storeAgg[day.store_id]) {
+            storeAgg[day.store_id] = {
+              store_id: day.store_id,
+              store_name: day.store_name,
+              total_vendas: 0,
+              total_valor: 0,
+              total_pecas: 0,
+              ticket_medio: 0,
+              pa: 0,
+              preco_medio: 0
+            };
+          }
+          storeAgg[day.store_id].total_vendas += day.total_vendas;
+          storeAgg[day.store_id].total_valor += day.total_valor;
+          storeAgg[day.store_id].total_pecas += day.total_pecas;
+        });
+
+        const finalStoreData = Object.values(storeAgg).map((s: any) => ({
+          ...s,
+          ticket_medio: s.total_vendas > 0 ? s.total_valor / s.total_vendas : 0,
+          pa: s.total_vendas > 0 ? s.total_pecas / s.total_vendas : 0,
+          preco_medio: s.total_pecas > 0 ? s.total_valor / s.total_pecas : 0,
+          ideal_ticket_medio: benchMap[s.store_id]?.ideal_ticket_medio || 0,
+          ideal_pa: benchMap[s.store_id]?.ideal_pa || 0,
+          ideal_preco_medio: benchMap[s.store_id]?.ideal_preco_medio || 0
+        }));
+
+        setStoreComparison(finalStoreData);
+      }
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (profile) {
+      fetchAnalyticsData();
+    }
+  }, [periodFilter, customStartDate, customEndDate, profile]);
 
   const handleDelete = async () => {
     if (!deleteDialog) return;
@@ -387,6 +507,13 @@ const Relatorios = () => {
             </div>
           </CardHeader>
           <CardContent>
+            <Tabs defaultValue="compras" className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="compras">Compras & Adiantamentos</TabsTrigger>
+                <TabsTrigger value="analytics">Análise Comercial</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="compras" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-4">
               <Select value={filtros.mes} onValueChange={(v) => setFiltros({ ...filtros, mes: v === "TODOS_MESES" ? "" : v })}>
                 <SelectTrigger>
@@ -641,6 +768,187 @@ const Relatorios = () => {
                 )}
               </div>
             )}
+              </TabsContent>
+
+              <TabsContent value="analytics" className="space-y-6">
+                {/* Filtros de Período para Analytics */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Filtros de Período</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div>
+                        <Label>Período</Label>
+                        <Select value={periodFilter} onValueChange={(v: any) => setPeriodFilter(v)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="last7">Últimos 7 dias</SelectItem>
+                            <SelectItem value="last30">Últimos 30 dias</SelectItem>
+                            <SelectItem value="month">Mês Atual</SelectItem>
+                            <SelectItem value="custom">Personalizado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {periodFilter === 'custom' && (
+                        <>
+                          <div>
+                            <Label>Data Início</Label>
+                            <Input
+                              type="date"
+                              value={customStartDate}
+                              onChange={(e) => setCustomStartDate(e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <Label>Data Fim</Label>
+                            <Input
+                              type="date"
+                              value={customEndDate}
+                              onChange={(e) => setCustomEndDate(e.target.value)}
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Gráfico de Evolução Diária */}
+                {dailyTrends.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5" />
+                        Evolução Diária de Vendas por Loja
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={400}>
+                        <LineChart data={dailyTrends}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="date" />
+                          <YAxis />
+                          <Tooltip formatter={(value: any) => `R$ ${Number(value).toLocaleString('pt-BR')}`} />
+                          <Legend />
+                          {Object.keys(dailyTrends[0] || {}).filter(key => key !== 'date').map((storeName, idx) => (
+                            <Line
+                              key={storeName}
+                              type="monotone"
+                              dataKey={storeName}
+                              stroke={`hsl(${idx * 137.5}, 70%, 50%)`}
+                              strokeWidth={2}
+                              name={storeName}
+                            />
+                          ))}
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Comparação de Vendas por Loja */}
+                {storeComparison.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5" />
+                        Comparação de Vendas por Loja
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={400}>
+                        <BarChart data={storeComparison}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="store_name" />
+                          <YAxis />
+                          <Tooltip formatter={(value: any) => `R$ ${Number(value).toLocaleString('pt-BR')}`} />
+                          <Legend />
+                          <Bar dataKey="total_valor" fill="#8884d8" name="Vendas Totais (R$)" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Comparação com Benchmarks */}
+                {storeComparison.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Ticket Médio vs Benchmark */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Ticket Médio vs Meta</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={storeComparison}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="store_name" angle={-45} textAnchor="end" height={100} />
+                            <YAxis />
+                            <Tooltip formatter={(value: any) => `R$ ${Number(value).toFixed(2)}`} />
+                            <Legend />
+                            <Bar dataKey="ticket_medio" fill="#8884d8" name="Real" />
+                            <Bar dataKey="ideal_ticket_medio" fill="#82ca9d" name="Meta" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </CardContent>
+                    </Card>
+
+                    {/* PA vs Benchmark */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">P.A. vs Meta</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={storeComparison}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="store_name" angle={-45} textAnchor="end" height={100} />
+                            <YAxis />
+                            <Tooltip formatter={(value: any) => Number(value).toFixed(2)} />
+                            <Legend />
+                            <Bar dataKey="pa" fill="#8884d8" name="Real" />
+                            <Bar dataKey="ideal_pa" fill="#82ca9d" name="Meta" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </CardContent>
+                    </Card>
+
+                    {/* Preço Médio vs Benchmark */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Preço Médio vs Meta</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={storeComparison}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="store_name" angle={-45} textAnchor="end" height={100} />
+                            <YAxis />
+                            <Tooltip formatter={(value: any) => `R$ ${Number(value).toFixed(2)}`} />
+                            <Legend />
+                            <Bar dataKey="preco_medio" fill="#8884d8" name="Real" />
+                            <Bar dataKey="ideal_preco_medio" fill="#82ca9d" name="Meta" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {storeComparison.length === 0 && (
+                  <Card>
+                    <CardContent className="pt-6">
+                      <p className="text-center text-muted-foreground">
+                        Nenhum dado disponível para o período selecionado.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>

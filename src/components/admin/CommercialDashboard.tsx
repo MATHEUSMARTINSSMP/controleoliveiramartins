@@ -1,9 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Calendar, TrendingUp } from "lucide-react";
 
 // Interfaces
 interface StoreAnalytics {
@@ -30,26 +36,66 @@ interface StoreGoal {
     super_meta_valor: number;
 }
 
+type PeriodFilter = 'today' | 'week' | 'month' | 'custom';
+
 export const CommercialDashboard = () => {
     const [analytics, setAnalytics] = useState<StoreAnalytics[]>([]);
     const [benchmarks, setBenchmarks] = useState<Record<string, StoreBenchmark>>({});
     const [goals, setGoals] = useState<Record<string, StoreGoal>>({});
     const [loading, setLoading] = useState(true);
     const [month, setMonth] = useState(new Date());
+    const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('month');
+    const [customStartDate, setCustomStartDate] = useState<string>('');
+    const [customEndDate, setCustomEndDate] = useState<string>('');
+    const [dailyTrends, setDailyTrends] = useState<any[]>([]);
 
     useEffect(() => {
         fetchData();
-    }, [month]);
+    }, [month, periodFilter, customStartDate, customEndDate]);
+
+    const getDateRange = () => {
+        const hoje = new Date();
+        let start: Date;
+        let end: Date = hoje;
+
+        switch (periodFilter) {
+            case 'today':
+                start = startOfDay(hoje);
+                end = hoje;
+                break;
+            case 'week':
+                start = startOfWeek(hoje, { weekStartsOn: 1 });
+                end = endOfWeek(hoje, { weekStartsOn: 1 });
+                break;
+            case 'month':
+                start = startOfMonth(month);
+                end = endOfMonth(month);
+                break;
+            case 'custom':
+                if (customStartDate && customEndDate) {
+                    start = new Date(customStartDate);
+                    end = new Date(customEndDate);
+                } else {
+                    start = startOfMonth(month);
+                    end = endOfMonth(month);
+                }
+                break;
+            default:
+                start = startOfMonth(month);
+                end = endOfMonth(month);
+        }
+
+        return { start: format(start, 'yyyy-MM-dd'), end: format(end, 'yyyy-MM-dd') };
+    };
 
     const fetchData = async () => {
         setLoading(true);
         try {
-            const start = format(startOfMonth(month), 'yyyy-MM-dd');
-            const end = format(endOfMonth(month), 'yyyy-MM-dd');
+            const { start, end } = getDateRange();
             const monthStr = format(month, 'yyyyMM');
 
             // 1. Fetch Benchmarks
-            const { data: benchData } = await supabase.from('store_benchmarks').select('*');
+            const { data: benchData } = await supabase.schema('sistemaretiradas').from('store_benchmarks').select('*');
             const benchMap: Record<string, StoreBenchmark> = {};
             benchData?.forEach((b: any) => benchMap[b.store_id] = b);
             setBenchmarks(benchMap);
@@ -67,10 +113,12 @@ export const CommercialDashboard = () => {
 
             // 3. Fetch Sales Analytics (Aggregated by Store)
             const { data: dailyData, error } = await supabase
+                .schema('sistemaretiradas')
                 .from('analytics_daily_performance')
                 .select('*')
                 .gte('data_referencia', start)
-                .lte('data_referencia', end);
+                .lte('data_referencia', end)
+                .order('data_referencia', { ascending: true });
 
             if (error) throw error;
 
@@ -106,6 +154,17 @@ export const CommercialDashboard = () => {
 
             setAnalytics(finalAnalytics);
 
+            // Prepare daily trends data for charts
+            const trendsMap: Record<string, any> = {};
+            dailyData?.forEach((day: any) => {
+                const dateKey = format(new Date(day.data_referencia), 'dd/MM');
+                if (!trendsMap[dateKey]) {
+                    trendsMap[dateKey] = { date: dateKey };
+                }
+                trendsMap[dateKey][day.store_name] = day.total_valor;
+            });
+            setDailyTrends(Object.values(trendsMap));
+
         } catch (error) {
             console.error("Error fetching commercial data:", error);
         } finally {
@@ -128,6 +187,121 @@ export const CommercialDashboard = () => {
 
     return (
         <div className="space-y-6">
+            {/* Filtros de Período */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Calendar className="h-5 w-5" />
+                        Filtros de Período
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="md:col-span-1">
+                            <Label>Período</Label>
+                            <Select value={periodFilter} onValueChange={(v: PeriodFilter) => setPeriodFilter(v)}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="today">Hoje</SelectItem>
+                                    <SelectItem value="week">Esta Semana</SelectItem>
+                                    <SelectItem value="month">Este Mês</SelectItem>
+                                    <SelectItem value="custom">Personalizado</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        {periodFilter === 'custom' && (
+                            <>
+                                <div>
+                                    <Label>Data Início</Label>
+                                    <Input
+                                        type="date"
+                                        value={customStartDate}
+                                        onChange={(e) => setCustomStartDate(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Data Fim</Label>
+                                    <Input
+                                        type="date"
+                                        value={customEndDate}
+                                        onChange={(e) => setCustomEndDate(e.target.value)}
+                                    />
+                                </div>
+                            </>
+                        )}
+                        {periodFilter === 'month' && (
+                            <div>
+                                <Label>Mês</Label>
+                                <Input
+                                    type="month"
+                                    value={format(month, 'yyyy-MM')}
+                                    onChange={(e) => {
+                                        const [year, monthNum] = e.target.value.split('-');
+                                        setMonth(new Date(parseInt(year), parseInt(monthNum) - 1));
+                                    }}
+                                />
+                            </div>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Gráfico de Tendência Diária */}
+            {dailyTrends.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5" />
+                            Evolução Diária de Vendas
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <LineChart data={dailyTrends}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="date" />
+                                <YAxis />
+                                <Tooltip formatter={(value: any) => `R$ ${Number(value).toLocaleString('pt-BR')}`} />
+                                <Legend />
+                                {Object.keys(dailyTrends[0] || {}).filter(key => key !== 'date').map((storeName, idx) => (
+                                    <Line
+                                        key={storeName}
+                                        type="monotone"
+                                        dataKey={storeName}
+                                        stroke={`hsl(${idx * 137.5}, 70%, 50%)`}
+                                        strokeWidth={2}
+                                    />
+                                ))}
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Gráfico de Comparação entre Lojas */}
+            {analytics.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Comparação de Vendas por Loja</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={analytics}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="store_name" />
+                                <YAxis />
+                                <Tooltip formatter={(value: any) => `R$ ${Number(value).toLocaleString('pt-BR')}`} />
+                                <Legend />
+                                <Bar dataKey="total_valor" fill="#8884d8" name="Vendas (R$)" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Cards de KPIs por Loja */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {analytics.map(store => {
                     const goal = goals[store.store_id];
