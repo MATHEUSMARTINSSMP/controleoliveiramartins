@@ -13,6 +13,9 @@ DROP POLICY IF EXISTS "Users can view their own goals" ON sistemaretiradas.goals
 DROP POLICY IF EXISTS "ADMIN can manage all goals" ON sistemaretiradas.goals;
 
 -- Policy 1: Allow LOJA profiles to SELECT goals for their store (MENSAL and INDIVIDUAL types)
+-- This policy allows LOJA to view:
+-- - MENSAL goals (where colaboradora_id IS NULL) - store monthly goal
+-- - INDIVIDUAL goals (where colaboradora_id IS NOT NULL) - individual collaborator goals for their store
 CREATE POLICY "LOJA can view goals from their store"
 ON sistemaretiradas.goals
 FOR SELECT
@@ -28,6 +31,7 @@ USING (
     AND
     -- Check if the goal belongs to the LOJA's store
     (
+        -- Match by store_id directly
         store_id = (
             SELECT store_id 
             FROM sistemaretiradas.profiles 
@@ -55,11 +59,55 @@ USING (
         )
     )
     AND
-    -- Allow MENSAL and INDIVIDUAL types
+    -- Allow MENSAL (colaboradora_id IS NULL) and INDIVIDUAL (colaboradora_id IS NOT NULL) types
     tipo IN ('MENSAL', 'INDIVIDUAL')
+    AND
+    -- For INDIVIDUAL goals, ensure the collaborator belongs to the LOJA's store
+    (
+        tipo = 'MENSAL' 
+        OR 
+        (
+            tipo = 'INDIVIDUAL' 
+            AND colaboradora_id IS NOT NULL
+            AND colaboradora_id IN (
+                SELECT c.id 
+                FROM sistemaretiradas.profiles c
+                WHERE c.role = 'COLABORADORA' 
+                AND c.active = true
+                AND (
+                    -- Match by store_id
+                    c.store_id = (
+                        SELECT p.store_id 
+                        FROM sistemaretiradas.profiles p 
+                        WHERE p.id = auth.uid() 
+                        AND p.role = 'LOJA' 
+                        AND p.active = true
+                    )
+                    OR
+                    -- Match by store_default if store_id is null
+                    (
+                        (SELECT p.store_id FROM sistemaretiradas.profiles p WHERE p.id = auth.uid() AND p.role = 'LOJA' AND p.active = true) IS NULL
+                        AND
+                        c.store_id IN (
+                            SELECT s.id 
+                            FROM sistemaretiradas.stores s
+                            INNER JOIN sistemaretiradas.profiles p ON (
+                                LOWER(TRIM(s.name)) = LOWER(TRIM(p.store_default))
+                                OR s.name = p.store_default
+                            )
+                            WHERE p.id = auth.uid() 
+                            AND p.role = 'LOJA' 
+                            AND p.active = true
+                            AND s.active = true
+                        )
+                    )
+                )
+            )
+        )
+    )
 );
 COMMENT ON POLICY "LOJA can view goals from their store" ON sistemaretiradas.goals IS
-'Allows LOJA profiles to view monthly and individual goals for their own store.';
+'Allows LOJA profiles to view monthly (colaboradora_id IS NULL) and individual (colaboradora_id IS NOT NULL) goals for their own store, ensuring individual goals only for collaborators that belong to the LOJA store.';
 
 -- Policy 2: Allow ADMIN to manage all goals
 CREATE POLICY "ADMIN can manage all goals"

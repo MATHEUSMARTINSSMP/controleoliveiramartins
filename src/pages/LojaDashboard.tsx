@@ -471,24 +471,43 @@ export default function LojaDashboard() {
             .gte('data_venda', `${startOfMonth}T00:00:00`);
 
         // Buscar metas individuais
+        console.log('[LojaDashboard] 📡 Buscando metas individuais...');
+        console.log('[LojaDashboard]   storeId:', currentStoreId);
+        console.log('[LojaDashboard]   mes_referencia:', mesAtual);
+        console.log('[LojaDashboard]   tipo: INDIVIDUAL');
+        console.log('[LojaDashboard]   colaboradora_id: NOT NULL (qualquer colaboradora da loja)');
+
         let { data: goalsData, error: goalsError } = await supabase
             .schema("sistemaretiradas")
             .from('goals')
             .select('colaboradora_id, meta_valor, super_meta_valor, daily_weights')
             .eq('store_id', currentStoreId)
             .eq('mes_referencia', mesAtual)
-            .eq('tipo', 'INDIVIDUAL');
+            .eq('tipo', 'INDIVIDUAL')
+            .not('colaboradora_id', 'is', null);
+
+        console.log('[LojaDashboard] 📊 Resultado da busca de metas individuais:');
+        console.log('[LojaDashboard]   Total encontrado:', goalsData?.length || 0);
+        if (goalsError) {
+            console.error('[LojaDashboard]   Erro:', goalsError);
+        }
 
         // Se não encontrar com schema explícito, tentar sem schema
-        if (!goalsData && !goalsError) {
+        if ((!goalsData || goalsData.length === 0) && !goalsError) {
+            console.log('[LojaDashboard] ⚠️ Não encontrou com schema explícito, tentando sem schema...');
             const result = await supabase
                 .from('goals')
                 .select('colaboradora_id, meta_valor, super_meta_valor, daily_weights')
                 .eq('store_id', currentStoreId)
                 .eq('mes_referencia', mesAtual)
-                .eq('tipo', 'INDIVIDUAL');
+                .eq('tipo', 'INDIVIDUAL')
+                .not('colaboradora_id', 'is', null);
             goalsData = result.data;
             goalsError = result.error;
+            console.log('[LojaDashboard] 📊 Resultado sem schema:', goalsData?.length || 0);
+            if (goalsError) {
+                console.error('[LojaDashboard]   Erro sem schema:', goalsError);
+            }
         }
 
         if (salesTodayError) {
@@ -502,10 +521,23 @@ export default function LojaDashboard() {
             console.error('[LojaDashboard]   Erro completo:', JSON.stringify(goalsError, null, 2));
         }
 
+        if (goalsError) {
+            console.error('[LojaDashboard] ❌ Erro ao buscar metas individuais:', goalsError);
+            console.error('[LojaDashboard]   Erro code:', goalsError.code);
+            console.error('[LojaDashboard]   Erro message:', goalsError.message);
+            console.error('[LojaDashboard]   Erro details:', goalsError.details);
+            console.error('[LojaDashboard]   Erro hint:', goalsError.hint);
+        }
+
         if (!goalsError && goalsData) {
             console.log('[LojaDashboard] ✅ Metas individuais encontradas:', goalsData.length);
-            goalsData.forEach(g => {
-                console.log(`[LojaDashboard]   - ${g.colaboradora_id}: R$ ${g.meta_valor}`);
+            goalsData.forEach((g, idx) => {
+                console.log(`[LojaDashboard]   ${idx + 1}. colaboradora_id: ${g.colaboradora_id}, meta: R$ ${g.meta_valor}, super_meta: R$ ${g.super_meta_valor || 0}`);
+            });
+
+            console.log('[LojaDashboard] 📊 Colaboradoras no estado:', colaboradoras.length);
+            colaboradoras.forEach((colab, idx) => {
+                console.log(`[LojaDashboard]   ${idx + 1}. ${colab.name} (id: ${colab.id})`);
             });
 
             const performance = colaboradoras.map(colab => {
@@ -526,6 +558,13 @@ export default function LojaDashboard() {
 
                 // Meta individual
                 const goal = goalsData.find(g => g.colaboradora_id === colab.id);
+                
+                if (goal) {
+                    console.log(`[LojaDashboard]   ✅ Meta encontrada para ${colab.name}: R$ ${goal.meta_valor}`);
+                } else {
+                    console.log(`[LojaDashboard]   ⚠️ Nenhuma meta encontrada para ${colab.name} (id: ${colab.id})`);
+                    console.log(`[LojaDashboard]     IDs de metas disponíveis:`, goalsData.map(g => g.colaboradora_id));
+                }
                 
                 if (goal) {
                     // Calcular meta diária
