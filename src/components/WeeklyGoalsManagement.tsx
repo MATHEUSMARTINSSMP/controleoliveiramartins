@@ -531,69 +531,23 @@ const WeeklyGoalsManagement = () => {
                 return;
             }
 
-            // Estratégia: Para cada payload, verificar se existe e fazer UPDATE ou INSERT individual
-            // Isso evita problemas com constraint e garante atomicidade
-            const results = [];
-            const errors = [];
-            
-            for (const payload of payloads) {
-                try {
-                    // Primeiro, tentar buscar se já existe
-                    const { data: existing } = await supabase
-                        .from("goals")
-                        .select("id")
-                        .eq("store_id", payload.store_id)
-                        .eq("semana_referencia", payload.semana_referencia)
-                        .eq("tipo", payload.tipo)
-                        .eq("colaboradora_id", payload.colaboradora_id)
-                        .maybeSingle();
+            // Usar UPSERT com onConflict correto para metas semanais
+            // A constraint única é baseada em: store_id, semana_referencia, tipo, colaboradora_id
+            // Para metas semanais, não usamos mes_referencia (fica null)
+            const { data: upsertData, error: upsertError } = await supabase
+                .from("goals")
+                .upsert(payloads, { 
+                    onConflict: 'store_id,semana_referencia,tipo,colaboradora_id',
+                    ignoreDuplicates: false
+                })
+                .select();
 
-                    if (existing) {
-                        // Se existe, fazer UPDATE
-                        const { data, error: updateError } = await supabase
-                            .from("goals")
-                            .update({
-                                meta_valor: payload.meta_valor,
-                                super_meta_valor: payload.super_meta_valor,
-                                ativo: payload.ativo,
-                                mes_referencia: payload.mes_referencia
-                            })
-                            .eq("id", existing.id)
-                            .select()
-                            .single();
-
-                        if (updateError) {
-                            errors.push({ payload, error: updateError });
-                        } else {
-                            results.push(data);
-                        }
-                    } else {
-                        // Se não existe, fazer INSERT
-                        const { data, error: insertError } = await supabase
-                            .from("goals")
-                            .insert(payload)
-                            .select()
-                            .single();
-
-                        if (insertError) {
-                            errors.push({ payload, error: insertError });
-                        } else {
-                            results.push(data);
-                        }
-                    }
-                } catch (err: any) {
-                    errors.push({ payload, error: err });
-                }
+            if (upsertError) {
+                console.error("Upsert error:", upsertError);
+                throw upsertError;
             }
 
-            // Se houver erros, tratar
-            if (errors.length > 0) {
-                console.error("Erros ao salvar metas individuais:", errors);
-                const firstError = errors[0].error;
-                throw firstError;
-            }
-
-            toast.success(`Metas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${uniqueColabsList.length} colaboradora(s)!`);
+            toast.success(`Metas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${upsertData?.length || uniqueColabsList.length} colaboradora(s)!`);
             setDialogOpen(false);
             resetForm();
             fetchWeeklyGoals();
