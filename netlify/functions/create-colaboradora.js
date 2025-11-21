@@ -18,9 +18,9 @@ exports.handler = async (event, context) => {
     );
 
     // Extract data from request body
-    const { email, password, name, cpf, limite_total, limite_mensal, store_default } = JSON.parse(event.body);
+    const { email, password, name, cpf, limite_total, limite_mensal, store_default, store_id } = JSON.parse(event.body);
 
-    console.log('[create-colaboradora] Received request:', { email, name, cpf, store_default });
+    console.log('[create-colaboradora] Received request:', { email, name, cpf, store_default, store_id });
 
     // Validate required fields
     if (!email || !password || !name || !cpf || !limite_total || !limite_mensal || !store_default) {
@@ -128,20 +128,27 @@ exports.handler = async (event, context) => {
     // STEP 2: Create/update profile with EXACT same ID
     console.log('[create-colaboradora] Step 2: Creating profile with ID:', userData.user.id);
 
+    const profilePayload = {
+      id: userData.user.id,  // CRITICAL: Must match auth.user.id
+      email: email.toLowerCase(),
+      name: name,
+      cpf: cpf,
+      limite_total: parseFloat(limite_total),
+      limite_mensal: parseFloat(limite_mensal),
+      store_default: store_default,
+      role: 'COLABORADORA',
+      active: true,
+    };
+
+    // Add store_id if provided
+    if (store_id) {
+      profilePayload.store_id = store_id;
+    }
+
     const { data: profileData, error: profileError } = await supabaseAdmin
       .schema('sistemaretiradas')
       .from('profiles')
-      .upsert({
-        id: userData.user.id,  // CRITICAL: Must match auth.user.id
-        email: email.toLowerCase(),
-        name: name,
-        cpf: cpf,
-        limite_total: parseFloat(limite_total),
-        limite_mensal: parseFloat(limite_mensal),
-        store_default: store_default,
-        role: 'COLABORADORA',
-        active: true,
-      }, {
+      .upsert(profilePayload, {
         onConflict: 'id',  // Use ID as conflict key
       })
       .select()

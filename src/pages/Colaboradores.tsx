@@ -136,6 +136,17 @@ const Colaboradores = () => {
           store_default: formData.store,
         };
 
+        // Map store_default to store_id
+        const STORE_IDS: Record<string, string> = {
+          "Loungerie": "5a87e0c2-66ab-4c71-aaae-e3ee85f1cf5b",
+          "Mr. Kitsch": "c6ecd68d-1d73-4c66-9ec5-f0a150e70bb3",
+          "Sacada | Oh, Boy": "cee7d359-0240-4131-87a2-21ae44bd1bb4"
+        };
+
+        if (formData.store && STORE_IDS[formData.store]) {
+          updateData.store_id = STORE_IDS[formData.store];
+        }
+
         const { error } = await supabase
           .schema("sistemaretiradas")
           .from("profiles")
@@ -151,6 +162,13 @@ const Colaboradores = () => {
           return;
         }
 
+        // Map store_default to store_id
+        const STORE_IDS: Record<string, string> = {
+          "Loungerie": "5a87e0c2-66ab-4c71-aaae-e3ee85f1cf5b",
+          "Mr. Kitsch": "c6ecd68d-1d73-4c66-9ec5-f0a150e70bb3",
+          "Sacada | Oh, Boy": "cee7d359-0240-4131-87a2-21ae44bd1bb4"
+        };
+
         // Create new colaboradora via Netlify Function
         const response = await fetch('/.netlify/functions/create-colaboradora', {
           method: 'POST',
@@ -165,6 +183,7 @@ const Colaboradores = () => {
             limite_total: formData.limite_total,
             limite_mensal: formData.limite_mensal,
             store_default: formData.store,
+            store_id: STORE_IDS[formData.store] || null, // Add store_id
           }),
         });
 
