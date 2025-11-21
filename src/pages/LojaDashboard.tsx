@@ -542,8 +542,14 @@ export default function LojaDashboard() {
                                         <TableCell>R$ {perf.vendido.toFixed(2)}</TableCell>
                                         <TableCell>R$ {perf.meta > 0 ? (perf.meta / 30).toFixed(2) : '0.00'}</TableCell>
                                         <TableCell>
-                                            <span className={perf.percentual >= 100 ? 'text-green-600 font-bold' : perf.percentual >= 50 ? 'text-yellow-600' : 'text-red-600'}>
+                                            <span className={
+                                                perf.percentual >= 120 ? 'text-yellow-600 font-bold' : // Dourado/Ouro
+                                                    perf.percentual >= 100 ? 'text-green-600 font-bold' : // Verde
+                                                        perf.percentual >= 90 ? 'text-yellow-500' : // Amarelo
+                                                            'text-red-600' // Vermelho
+                                            }>
                                                 {perf.percentual.toFixed(0)}%
+                                                {perf.percentual >= 120 && ' 🏆'}
                                             </span>
                                         </TableCell>
                                         <TableCell>R$ {perf.ticketMedio.toFixed(2)}</TableCell>
