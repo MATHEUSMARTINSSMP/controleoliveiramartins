@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Progress } from "@/components/ui/progress";
 import { Calendar, ShoppingBag, TrendingUp, Users, Plus, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -406,7 +407,7 @@ export default function LojaDashboard() {
             </div>
 
             {/* KPI Cards - Metas e Métricas */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {/* Meta Mensal */}
                 {goals && (
                     <Card>
@@ -414,7 +415,7 @@ export default function LojaDashboard() {
                             <CardTitle className="text-sm font-medium text-muted-foreground">Meta Mensal</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="space-y-1">
+                            <div className="space-y-2">
                                 <p className="text-2xl font-bold">R$ {goals.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                 {goals.super_meta_valor && (
                                     <p className="text-sm text-muted-foreground">
@@ -426,15 +427,38 @@ export default function LojaDashboard() {
                     </Card>
                 )}
 
+                {/* Faturamento Hoje */}
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">Faturamento Hoje</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-2">
+                            <p className="text-2xl font-bold">R$ {sales.reduce((sum, s) => sum + s.valor, 0).toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground">{sales.length} vendas</p>
+                        </div>
+                    </CardContent>
+                </Card>
+
                 {/* Ticket Médio */}
                 {metrics && (
                     <Card>
                         <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Ticket Médio Meta</CardTitle>
+                            <CardTitle className="text-sm font-medium text-muted-foreground">Ticket Médio</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-2xl font-bold">R$ {metrics.meta_ticket_medio?.toFixed(2)}</p>
-                            <p className="text-xs text-muted-foreground">Hoje: R$ {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.valor, 0) / sales.length).toFixed(2) : '0.00'}</p>
+                            <div className="space-y-2">
+                                <p className="text-2xl font-bold">R$ {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.valor, 0) / sales.length).toFixed(2) : '0.00'}</p>
+                                <div className="flex items-center gap-2">
+                                    <Progress
+                                        value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.length) / metrics.meta_ticket_medio) * 100, 100) : 0}
+                                        className="h-2"
+                                    />
+                                    <span className="text-xs text-muted-foreground">
+                                        Meta: R$ {metrics.meta_ticket_medio?.toFixed(2)}
+                                    </span>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 )}
@@ -443,11 +467,51 @@ export default function LojaDashboard() {
                 {metrics && (
                     <Card>
                         <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">PA Meta</CardTitle>
+                            <CardTitle className="text-sm font-medium text-muted-foreground">PA (Peças/Venda)</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-2xl font-bold">{metrics.meta_pa?.toFixed(1)} peças</p>
-                            <p className="text-xs text-muted-foreground">Hoje: {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length).toFixed(1) : '0.0'} peças</p>
+                            <div className="space-y-2">
+                                <p className="text-2xl font-bold">{sales.length > 0 ? (sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length).toFixed(1) : '0.0'}</p>
+                                <div className="flex items-center gap-2">
+                                    <Progress
+                                        value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length) / metrics.meta_pa) * 100, 100) : 0}
+                                        className="h-2"
+                                    />
+                                    <span className="text-xs text-muted-foreground">
+                                        Meta: {metrics.meta_pa?.toFixed(1)}
+                                    </span>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
+
+            {/* Segunda linha de métricas */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {/* Preço por Peça */}
+                {metrics && (
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">Preço Médio por Peça</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-2">
+                                <p className="text-2xl font-bold">
+                                    R$ {sales.length > 0 ?
+                                        (sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)).toFixed(2) :
+                                        '0.00'}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <Progress
+                                        value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)) / metrics.meta_preco_medio_peca) * 100, 100) : 0}
+                                        className="h-2"
+                                    />
+                                    <span className="text-xs text-muted-foreground">
+                                        Meta: R$ {metrics.meta_preco_medio_peca?.toFixed(2)}
+                                    </span>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 )}
