@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash, UserCheck, Calendar, Check, Store, Calculator, Save, ClipboardList, Edit } from "lucide-react";
+import { Plus, Pencil, Trash, UserCheck, Calendar, Check, Store, Calculator, Save, ClipboardList, Edit, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { format, getDaysInMonth, setDate, isWeekend, getDay } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -73,7 +74,8 @@ interface StoreType {
     name: string;
 }
 
-function MetasManagementContent() {
+const MetasManagement = () => {
+    const navigate = useNavigate();
     const [goals, setGoals] = useState<Goal[]>([]);
     const [stores, setStores] = useState<StoreType[]>([]);
     const [colaboradoras, setColaboradoras] = useState<Colaboradora[]>([]);
@@ -372,11 +374,14 @@ function MetasManagementContent() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-background via-muted/50 to-background p-6 space-y-8">
             <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-                        Gerenciar Metas
-                    </h1>
-                    <p className="text-muted-foreground">Defina metas por loja e distribua entre a equipe</p>
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" onClick={() => navigate('/admin')}>
+                        <ArrowLeft className="h-6 w-6" />
+                    </Button>
+                    <div>
+                        <h1 className="text-3xl font-bold text-primary">Gerenciar Metas</h1>
+                        <p className="text-muted-foreground">Defina metas por loja e distribua entre a equipe</p>
+                    </div>
                 </div>
                 <Button onClick={() => setDialogOpen(true)} className="bg-primary hover:bg-primary/90">
                     <Plus className="mr-2 h-4 w-4" />
