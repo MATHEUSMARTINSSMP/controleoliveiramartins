@@ -128,6 +128,47 @@ exports.handler = async (event, context) => {
     // STEP 2: Create/update profile with EXACT same ID
     console.log('[create-colaboradora] Step 2: Creating profile with ID:', userData.user.id);
 
+    // Buscar store_id automaticamente se não foi fornecido
+    let finalStoreId = store_id;
+    if (!finalStoreId && store_default) {
+      console.log('[create-colaboradora] store_id não fornecido, buscando automaticamente pelo store_default:', store_default);
+      
+      // Normalizar nome para busca flexível
+      const normalizeName = (name) => {
+        return name
+          .toLowerCase()
+          .replace(/[|,]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      };
+      
+      const { data: storesData, error: storesError } = await supabaseAdmin
+        .schema('sistemaretiradas')
+        .from('stores')
+        .select('id, name')
+        .eq('active', true);
+      
+      if (!storesError && storesData && storesData.length > 0) {
+        const normalizedStoreName = normalizeName(store_default);
+        const matchingStore = storesData.find(s => {
+          const normalizedStore = normalizeName(s.name);
+          return normalizedStore === normalizedStoreName || 
+                 s.name === store_default ||
+                 normalizedStore.includes(normalizedStoreName) ||
+                 normalizedStoreName.includes(normalizedStore);
+        });
+        
+        if (matchingStore) {
+          finalStoreId = matchingStore.id;
+          console.log('[create-colaboradora] ✅ store_id encontrado automaticamente:', finalStoreId, 'para loja:', matchingStore.name);
+        } else {
+          console.warn('[create-colaboradora] ⚠️ Nenhuma loja encontrada para store_default:', store_default);
+        }
+      } else if (storesError) {
+        console.error('[create-colaboradora] ❌ Erro ao buscar lojas:', storesError);
+      }
+    }
+
     const profilePayload = {
       id: userData.user.id,  // CRITICAL: Must match auth.user.id
       email: email.toLowerCase(),
@@ -140,9 +181,12 @@ exports.handler = async (event, context) => {
       active: true,
     };
 
-    // Add store_id if provided
-    if (store_id) {
-      profilePayload.store_id = store_id;
+    // Add store_id se encontrado (fornecido ou buscado automaticamente)
+    if (finalStoreId) {
+      profilePayload.store_id = finalStoreId;
+      console.log('[create-colaboradora] ✅ Salvando profile com store_id:', finalStoreId);
+    } else {
+      console.warn('[create-colaboradora] ⚠️ Profile será criado SEM store_id (store_default:', store_default, ')');
     }
 
     const { data: profileData, error: profileError } = await supabaseAdmin

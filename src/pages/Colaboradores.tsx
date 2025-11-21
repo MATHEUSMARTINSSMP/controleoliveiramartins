@@ -188,15 +188,37 @@ const Colaboradores = () => {
           store_default: formData.store,
         };
 
-        // Map store_default to store_id
-        const STORE_IDS: Record<string, string> = {
-          "Loungerie": "5a87e0c2-66ab-4c71-aaae-e3ee85f1cf5b",
-          "Mr. Kitsch": "c6ecd68d-1d73-4c66-9ec5-f0a150e70bb3",
-          "Sacada | Oh, Boy": "cee7d359-0240-4131-87a2-21ae44bd1bb4"
-        };
-
-        if (formData.store && STORE_IDS[formData.store]) {
-          updateData.store_id = STORE_IDS[formData.store];
+        // Buscar store_id dinamicamente da tabela stores
+        if (formData.store) {
+          const { data: storeData } = await supabase
+            .schema("sistemaretiradas")
+            .from("stores")
+            .select("id, name")
+            .eq("active", true);
+          
+          if (storeData) {
+            // Normalizar nome para busca flexível
+            const normalizeName = (name: string) => {
+              return name
+                .toLowerCase()
+                .replace(/[|,]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            };
+            
+            const normalizedStoreName = normalizeName(formData.store);
+            const matchingStore = storeData.find(s => {
+              const normalizedStore = normalizeName(s.name);
+              return normalizedStore === normalizedStoreName || 
+                     s.name === formData.store ||
+                     normalizedStore.includes(normalizedStoreName) ||
+                     normalizedStoreName.includes(normalizedStore);
+            });
+            
+            if (matchingStore) {
+              updateData.store_id = matchingStore.id;
+            }
+          }
         }
 
         const { error } = await supabase
@@ -214,12 +236,39 @@ const Colaboradores = () => {
           return;
         }
 
-        // Map store_default to store_id
-        const STORE_IDS: Record<string, string> = {
-          "Loungerie": "5a87e0c2-66ab-4c71-aaae-e3ee85f1cf5b",
-          "Mr. Kitsch": "c6ecd68d-1d73-4c66-9ec5-f0a150e70bb3",
-          "Sacada | Oh, Boy": "cee7d359-0240-4131-87a2-21ae44bd1bb4"
-        };
+        // Buscar store_id dinamicamente da tabela stores
+        let storeIdToSend: string | null = null;
+        if (formData.store) {
+          const { data: storeData } = await supabase
+            .schema("sistemaretiradas")
+            .from("stores")
+            .select("id, name")
+            .eq("active", true);
+          
+          if (storeData) {
+            // Normalizar nome para busca flexível
+            const normalizeName = (name: string) => {
+              return name
+                .toLowerCase()
+                .replace(/[|,]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            };
+            
+            const normalizedStoreName = normalizeName(formData.store);
+            const matchingStore = storeData.find(s => {
+              const normalizedStore = normalizeName(s.name);
+              return normalizedStore === normalizedStoreName || 
+                     s.name === formData.store ||
+                     normalizedStore.includes(normalizedStoreName) ||
+                     normalizedStoreName.includes(normalizedStore);
+            });
+            
+            if (matchingStore) {
+              storeIdToSend = matchingStore.id;
+            }
+          }
+        }
 
         // Create new colaboradora via Netlify Function
         const response = await fetch('/.netlify/functions/create-colaboradora', {
@@ -235,7 +284,7 @@ const Colaboradores = () => {
             limite_total: formData.limite_total,
             limite_mensal: formData.limite_mensal,
             store_default: formData.store,
-            store_id: STORE_IDS[formData.store] || null, // Add store_id
+            store_id: storeIdToSend, // Add store_id
           }),
         });
 
