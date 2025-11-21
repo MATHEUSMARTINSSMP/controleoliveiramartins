@@ -267,7 +267,7 @@ function MetasManagementContent() {
         try {
             // 1. Create/Update Store Goal
             const storePayload = {
-                tipo: "LOJA",
+                tipo: "MENSAL",
                 mes_referencia: mesReferencia,
                 store_id: selectedStore,
                 meta_valor: parseFloat(metaLoja),
@@ -563,9 +563,13 @@ function MetasManagementContent() {
                                                         <div className="text-sm font-bold text-foreground">{dayNum}</div>
                                                         <Input
                                                             type="number"
-                                                            step="0.01"
+                                                            step="0.1"
                                                             value={weight}
-                                                            onChange={e => setDailyWeights(prev => ({ ...prev, [date]: parseFloat(e.target.value) || 0 }))}
+                                                            onChange={e => {
+                                                                const val = parseFloat(e.target.value) || 0;
+                                                                const rounded = Math.round(val * 10) / 10; // Round to 1 decimal
+                                                                setDailyWeights(prev => ({ ...prev, [date]: rounded }));
+                                                            }}
                                                             className="h-7 text-xs p-1 text-center font-semibold border-2"
                                                         />
                                                         {metaValue > 0 && (
@@ -589,7 +593,7 @@ function MetasManagementContent() {
                                         ? 'bg-green-50 border-green-300 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-400'
                                         : 'bg-orange-50 border-orange-300 text-orange-700 dark:bg-orange-900/20 dark:border-orange-700 dark:text-orange-400'
                                         }`}>
-                                        Soma Total: {totalWeight.toFixed(2)}% {isValid ? '✓' : `(falta ${(100 - totalWeight).toFixed(2)}%)`}
+                                        Soma Total: {totalWeight.toFixed(2)}% {isValid ? '✓' : (totalWeight > 100 ? `(${(totalWeight - 100).toFixed(2)}% a mais)` : `(falta ${(100 - totalWeight).toFixed(2)}%)`)}
                                     </div>
                                     {/* Legend */}
                                     <div className="flex gap-4 justify-center text-xs pt-2 border-t">
