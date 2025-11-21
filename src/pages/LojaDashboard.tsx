@@ -172,7 +172,8 @@ export default function LojaDashboard() {
 
             if (targetStoreId) {
                 // Buscar nome da loja se ainda não tiver
-                if (!storeName) {
+                let finalStoreName = storeName;
+                if (!finalStoreName) {
                     const { data: storeData } = await supabase
                         .schema("sistemaretiradas")
                         .from("stores")
@@ -181,20 +182,28 @@ export default function LojaDashboard() {
                         .single();
 
                     if (storeData) {
-                        console.log('[LojaDashboard] Nome da loja buscado:', storeData.name);
-                        setStoreName(storeData.name);
+                        finalStoreName = storeData.name;
+                        console.log('[LojaDashboard] Nome da loja buscado:', finalStoreName);
+                        setStoreName(finalStoreName);
                     }
                 }
 
                 console.log('[LojaDashboard] 🎯 Definindo storeId:', targetStoreId);
-                console.log('[LojaDashboard] 🎯 storeName:', storeName || 'não definido ainda');
-                setStoreId(targetStoreId);
+                console.log('[LojaDashboard] 🎯 storeName:', finalStoreName || 'não definido ainda');
                 
-                // Pequeno delay para garantir que o estado foi atualizado
-                setTimeout(() => {
-                    console.log('[LojaDashboard] 📡 Chamando fetchData()...');
-                    fetchData();
-                }, 100);
+                // IMPORTANTE: Setar os estados primeiro
+                setStoreId(targetStoreId);
+                if (finalStoreName) {
+                    setStoreName(finalStoreName);
+                }
+                
+                // Aguardar o próximo ciclo de render para garantir que os estados foram atualizados
+                // e então buscar os dados usando uma função que usa o targetStoreId diretamente
+                await new Promise(resolve => setTimeout(resolve, 50));
+                
+                // Criar uma versão de fetchData que usa o targetStoreId diretamente
+                console.log('[LojaDashboard] 📡 Buscando dados com storeId:', targetStoreId);
+                await fetchDataWithStoreId(targetStoreId);
             } else {
                 console.error("[LojaDashboard] ❌ Não foi possível identificar o ID da loja");
                 toast.error("Erro ao identificar loja");
@@ -209,13 +218,18 @@ export default function LojaDashboard() {
 
     const fetchGoals = async () => {
         if (!storeId) return;
+        return fetchGoalsWithStoreId(storeId);
+    };
+
+    const fetchGoalsWithStoreId = async (currentStoreId: string) => {
+        if (!currentStoreId) return;
         
         const mesAtual = format(new Date(), 'yyyyMM');
 
         const { data, error } = await supabase
             .from('goals')
             .select('*')
-            .eq('store_id', storeId)
+            .eq('store_id', currentStoreId)
             .eq('mes_referencia', mesAtual)
             .eq('tipo', 'MENSAL')
             .is('colaboradora_id', null)
@@ -232,7 +246,7 @@ export default function LojaDashboard() {
             const { data: salesToday, error: salesErr } = await supabase
                 .from('sales')
                 .select('valor')
-                .eq('store_id', storeId)
+                .eq('store_id', currentStoreId)
                 .gte('data_venda', `${today}T00:00:00`);
             if (!salesErr && salesToday) {
                 const totalHoje = salesToday.reduce((sum: number, s: any) => sum + Number(s.valor), 0);
@@ -243,12 +257,17 @@ export default function LojaDashboard() {
 
     const fetch7DayHistory = async () => {
         if (!storeId) return;
+        return fetch7DayHistoryWithStoreId(storeId);
+    };
+
+    const fetch7DayHistoryWithStoreId = async (currentStoreId: string) => {
+        if (!currentStoreId) return;
         
         const startDate = format(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
         const { data, error } = await supabase
             .from('sales')
             .select('data_venda, valor, qtd_pecas')
-            .eq('store_id', storeId)
+            .eq('store_id', currentStoreId)
             .gte('data_venda', `${startDate}T00:00:00`)
             .order('data_venda', { ascending: true });
         if (!error && data) {
@@ -269,19 +288,35 @@ export default function LojaDashboard() {
     };
 
     const fetchData = async () => {
+        if (!storeId) {
+            console.warn('[LojaDashboard] ⚠️ fetchData chamado mas storeId não está definido ainda');
+            return;
+        }
+        await fetchDataWithStoreId(storeId);
+    };
+
+    const fetchDataWithStoreId = async (currentStoreId: string) => {
+        if (!currentStoreId) {
+            console.error('[LojaDashboard] ❌ fetchDataWithStoreId chamado sem storeId válido');
+            setLoading(false);
+            return;
+        }
+        
+        console.log('[LojaDashboard] 📡 fetchDataWithStoreId chamado com storeId:', currentStoreId);
+        
         try {
             await Promise.all([
-                fetchSales(),
-                fetchColaboradoras(),
-                fetchGoals(),
-                fetchMetrics(),
-                fetchColaboradorasPerformance(),
-                fetchRankingTop3(),
-                fetchMonthlyRanking(),
-                fetch7DayHistory()
+                fetchSalesWithStoreId(currentStoreId),
+                fetchColaboradorasWithStoreId(currentStoreId),
+                fetchGoalsWithStoreId(currentStoreId),
+                fetchMetricsWithStoreId(currentStoreId),
+                fetchColaboradorasPerformanceWithStoreId(currentStoreId),
+                fetchRankingTop3WithStoreId(currentStoreId),
+                fetchMonthlyRankingWithStoreId(currentStoreId),
+                fetch7DayHistoryWithStoreId(currentStoreId)
             ]);
         } catch (error) {
-            console.error("Error fetching data:", error);
+            console.error("[LojaDashboard] ❌ Error fetching data:", error);
             toast.error("Erro ao carregar dados");
         } finally {
             setLoading(false);
@@ -290,13 +325,18 @@ export default function LojaDashboard() {
 
     const fetchMetrics = async () => {
         if (!storeId) return;
+        return fetchMetricsWithStoreId(storeId);
+    };
+
+    const fetchMetricsWithStoreId = async (currentStoreId: string) => {
+        if (!currentStoreId) return;
         
         const mesAtual = format(new Date(), 'yyyyMM');
 
         const { data, error } = await supabase
             .from('store_metrics')
             .select('*')
-            .eq('store_id', storeId)
+            .eq('store_id', currentStoreId)
             .eq('mes_referencia', mesAtual)
             .single();
 
@@ -306,6 +346,13 @@ export default function LojaDashboard() {
     };
 
     const fetchColaboradorasPerformance = async () => {
+        if (!storeId) return;
+        return fetchColaboradorasPerformanceWithStoreId(storeId);
+    };
+
+    const fetchColaboradorasPerformanceWithStoreId = async (currentStoreId: string) => {
+        if (!currentStoreId) return;
+
         const today = format(new Date(), 'yyyy-MM-dd');
         const mesAtual = format(new Date(), 'yyyyMM');
 
@@ -313,14 +360,14 @@ export default function LojaDashboard() {
         const { data: salesData, error: salesError } = await supabase
             .from('sales')
             .select('colaboradora_id, valor, qtd_pecas')
-            .eq('store_id', storeId)
+            .eq('store_id', currentStoreId)
             .gte('data_venda', `${today}T00:00:00`);
 
         // Buscar metas individuais
         const { data: goalsData, error: goalsError } = await supabase
             .from('goals')
             .select('colaboradora_id, meta_valor, super_meta_valor')
-            .eq('store_id', storeId)
+            .eq('store_id', currentStoreId)
             .eq('mes_referencia', mesAtual)
             .eq('tipo', 'INDIVIDUAL');
 
@@ -352,6 +399,11 @@ export default function LojaDashboard() {
 
     const fetchRankingTop3 = async () => {
         if (!storeId) return;
+        return fetchRankingTop3WithStoreId(storeId);
+    };
+
+    const fetchRankingTop3WithStoreId = async (currentStoreId: string) => {
+        if (!currentStoreId) return;
         
         const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -362,7 +414,7 @@ export default function LojaDashboard() {
                 valor,
                 profiles!inner(name)
             `)
-            .eq('store_id', storeId)
+            .eq('store_id', currentStoreId)
             .gte('data_venda', `${today}T00:00:00`);
 
         if (!error && salesData) {
@@ -393,6 +445,11 @@ export default function LojaDashboard() {
 
     const fetchMonthlyRanking = async () => {
         if (!storeId) return;
+        return fetchMonthlyRankingWithStoreId(storeId);
+    };
+
+    const fetchMonthlyRankingWithStoreId = async (currentStoreId: string) => {
+        if (!currentStoreId) return;
         
         const mesAtual = format(new Date(), 'yyyyMM');
         const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
@@ -404,7 +461,7 @@ export default function LojaDashboard() {
                 valor,
                 profiles!inner(name)
             `)
-            .eq('store_id', storeId)
+            .eq('store_id', currentStoreId)
             .gte('data_venda', `${startOfMonth}T00:00:00`);
 
         if (!error && salesData) {
@@ -433,6 +490,11 @@ export default function LojaDashboard() {
 
     const fetchSales = async () => {
         if (!storeId) return;
+        return fetchSalesWithStoreId(storeId);
+    };
+
+    const fetchSalesWithStoreId = async (currentStoreId: string) => {
+        if (!currentStoreId) return;
 
         const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -442,12 +504,12 @@ export default function LojaDashboard() {
         *,
         colaboradora:profiles!colaboradora_id(name)
       `)
-            .eq('store_id', storeId)
+            .eq('store_id', currentStoreId)
             .gte('data_venda', `${today}T00:00:00`)
             .order('data_venda', { ascending: false });
 
         if (error) {
-            console.error('Erro ao carregar vendas:', error);
+            console.error('[LojaDashboard] Erro ao carregar vendas:', error);
             toast.error('Erro ao carregar vendas');
         } else {
             setSales(data || []);
@@ -459,10 +521,18 @@ export default function LojaDashboard() {
             console.warn('[LojaDashboard] ⚠️ storeId não definido, não é possível buscar colaboradoras');
             return;
         }
+        return fetchColaboradorasWithStoreId(storeId);
+    };
+
+    const fetchColaboradorasWithStoreId = async (currentStoreId: string) => {
+        if (!currentStoreId) {
+            console.warn('[LojaDashboard] ⚠️ fetchColaboradorasWithStoreId chamado sem storeId');
+            return;
+        }
 
         try {
             console.log('[LojaDashboard] 🔍 Buscando colaboradoras...');
-            console.log('[LojaDashboard]   storeId usado na busca:', storeId);
+            console.log('[LojaDashboard]   storeId usado na busca:', currentStoreId);
             console.log('[LojaDashboard]   storeName:', storeName);
             
             // Buscar colaboradoras por store_id (UUID) - esta é a forma correta
@@ -473,7 +543,7 @@ export default function LojaDashboard() {
                 .select('id, name, active, store_id, store_default')
                 .eq('role', 'COLABORADORA')
                 .eq('active', true)
-                .eq('store_id', storeId)
+                .eq('store_id', currentStoreId)
                 .order('name');
 
             if (error) {
@@ -494,7 +564,7 @@ export default function LojaDashboard() {
                 setColaboradoras(data);
             } else {
                 console.log('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada!');
-                console.log('[LojaDashboard]   Buscando com store_id:', storeId);
+                console.log('[LojaDashboard]   Buscando com store_id:', currentStoreId);
                 
                 // Debug: buscar TODAS as colaboradoras para ver o que tem no banco
                 const { data: allColabs, error: allError } = await supabase
@@ -511,8 +581,13 @@ export default function LojaDashboard() {
                         console.log(`[LojaDashboard]   - ${colab.name}: store_id = ${colab.store_id || 'NULL'}, store_default = ${colab.store_default || 'NULL'}`);
                     });
                     
-                    const matching = allColabs.filter((colab: any) => colab.store_id === storeId);
-                    console.log(`[LojaDashboard]   Colaboradoras que MATCHAM store_id ${storeId}:`, matching.length);
+                    const matching = allColabs.filter((colab: any) => colab.store_id === currentStoreId);
+                    console.log(`[LojaDashboard]   Colaboradoras que MATCHAM store_id ${currentStoreId}:`, matching.length);
+                    if (matching.length > 0) {
+                        console.log('[LojaDashboard] ✅ Encontradas colaboradoras no debug!');
+                        setColaboradoras(matching);
+                        return;
+                    }
                 }
                 
                 setColaboradoras([]);
