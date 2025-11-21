@@ -150,10 +150,13 @@ export default function LojaDashboard() {
                         if (matchingStore) {
                             targetStoreId = matchingStore.id;
                             setStoreName(matchingStore.name);
-                            console.log('[LojaDashboard] ✅ Loja encontrada:', matchingStore.name, 'ID:', matchingStore.id);
+                            console.log('[LojaDashboard] ✅ Loja encontrada!');
+                            console.log('[LojaDashboard]   Nome:', matchingStore.name);
+                            console.log('[LojaDashboard]   ID (UUID):', matchingStore.id);
+                            console.log('[LojaDashboard]   store_default do perfil:', profile.store_default);
                         } else {
-                            console.error("Loja não encontrada com nome:", profile.store_default);
-                            console.error("Lojas disponíveis:", allStores.map(s => s.name));
+                            console.error('[LojaDashboard] ❌ Loja não encontrada com nome:', profile.store_default);
+                            console.error('[LojaDashboard] Lojas disponíveis:', allStores.map(s => `${s.name} (${s.id})`));
                             toast.error(`Loja "${profile.store_default}" não encontrada no sistema`);
                             setLoading(false);
                             return;
@@ -178,14 +181,22 @@ export default function LojaDashboard() {
                         .single();
 
                     if (storeData) {
+                        console.log('[LojaDashboard] Nome da loja buscado:', storeData.name);
                         setStoreName(storeData.name);
                     }
                 }
 
+                console.log('[LojaDashboard] 🎯 Definindo storeId:', targetStoreId);
+                console.log('[LojaDashboard] 🎯 storeName:', storeName || 'não definido ainda');
                 setStoreId(targetStoreId);
-                fetchData();
+                
+                // Pequeno delay para garantir que o estado foi atualizado
+                setTimeout(() => {
+                    console.log('[LojaDashboard] 📡 Chamando fetchData()...');
+                    fetchData();
+                }, 100);
             } else {
-                console.error("Não foi possível identificar o ID da loja");
+                console.error("[LojaDashboard] ❌ Não foi possível identificar o ID da loja");
                 toast.error("Erro ao identificar loja");
                 setLoading(false);
             }
@@ -445,13 +456,17 @@ export default function LojaDashboard() {
 
     const fetchColaboradoras = async () => {
         if (!storeId) {
-            console.warn('[LojaDashboard] storeId não definido, não é possível buscar colaboradoras');
+            console.warn('[LojaDashboard] ⚠️ storeId não definido, não é possível buscar colaboradoras');
             return;
         }
 
         try {
+            console.log('[LojaDashboard] 🔍 Buscando colaboradoras...');
+            console.log('[LojaDashboard]   storeId usado na busca:', storeId);
+            console.log('[LojaDashboard]   storeName:', storeName);
+            
             // Buscar colaboradoras por store_id (UUID) - esta é a forma correta
-            // As colaboradoras têm store_id (UUID) que as vincula à loja
+            // As colaboradoras têm store_id (UUID) que as vincula à loja na tabela stores
             const { data, error } = await supabase
                 .schema("sistemaretiradas")
                 .from('profiles')
@@ -462,17 +477,44 @@ export default function LojaDashboard() {
                 .order('name');
 
             if (error) {
-                console.error('[LojaDashboard] Erro ao buscar colaboradoras:', error);
-                toast.error('Erro ao carregar colaboradoras');
+                console.error('[LojaDashboard] ❌ Erro ao buscar colaboradoras:', error);
+                console.error('[LojaDashboard]   Erro completo:', JSON.stringify(error, null, 2));
+                toast.error('Erro ao carregar colaboradoras: ' + (error.message || 'Erro desconhecido'));
                 setColaboradoras([]);
                 return;
             }
 
+            console.log('[LojaDashboard] 📊 Resultado da busca:');
+            console.log('[LojaDashboard]   Total encontrado:', data?.length || 0);
             if (data && data.length > 0) {
-                console.log('[LojaDashboard] ✅ Encontradas', data.length, 'colaboradoras para a loja', storeId);
+                console.log('[LojaDashboard] ✅ Colaboradoras encontradas:');
+                data.forEach((colab, idx) => {
+                    console.log(`[LojaDashboard]   ${idx + 1}. ${colab.name} (id: ${colab.id}, store_id: ${colab.store_id})`);
+                });
                 setColaboradoras(data);
             } else {
-                console.log('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada para a loja', storeId);
+                console.log('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada!');
+                console.log('[LojaDashboard]   Buscando com store_id:', storeId);
+                
+                // Debug: buscar TODAS as colaboradoras para ver o que tem no banco
+                const { data: allColabs, error: allError } = await supabase
+                    .schema("sistemaretiradas")
+                    .from('profiles')
+                    .select('id, name, active, store_id, store_default, role')
+                    .eq('role', 'COLABORADORA')
+                    .eq('active', true)
+                    .order('name');
+                
+                if (!allError && allColabs) {
+                    console.log('[LojaDashboard] 🔍 Debug: Todas as colaboradoras ativas no sistema:');
+                    allColabs.forEach((colab: any) => {
+                        console.log(`[LojaDashboard]   - ${colab.name}: store_id = ${colab.store_id || 'NULL'}, store_default = ${colab.store_default || 'NULL'}`);
+                    });
+                    
+                    const matching = allColabs.filter((colab: any) => colab.store_id === storeId);
+                    console.log(`[LojaDashboard]   Colaboradoras que MATCHAM store_id ${storeId}:`, matching.length);
+                }
+                
                 setColaboradoras([]);
             }
         } catch (error: any) {
