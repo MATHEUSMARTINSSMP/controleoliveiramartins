@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import WeeklyGoalProgress from "@/components/WeeklyGoalProgress";
@@ -35,7 +35,7 @@ interface Colaboradora {
 }
 
 export default function LojaDashboard() {
-    const { profile, loading: authLoading } = useAuth();
+    const { profile, loading: authLoading, signOut } = useAuth();
     const navigate = useNavigate();
 
     const [sales, setSales] = useState<Sale[]>([]);
@@ -64,6 +64,8 @@ export default function LojaDashboard() {
     const [offDayDate, setOffDayDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [dailyGoal, setDailyGoal] = useState<number>(0);
     const [dailyProgress, setDailyProgress] = useState<number>(0);
+    const [monthlyProgress, setMonthlyProgress] = useState<number>(0);
+    const [monthlyRealizado, setMonthlyRealizado] = useState<number>(0);
     const [history7Days, setHistory7Days] = useState<any[]>([]);
 
     useEffect(() => {
@@ -226,6 +228,9 @@ export default function LojaDashboard() {
         if (!currentStoreId) return;
         
         const mesAtual = format(new Date(), 'yyyyMM');
+        const hoje = new Date();
+        const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
+        const today = format(hoje, 'yyyy-MM-dd');
 
         const { data, error } = await supabase
             .from('goals')
@@ -239,11 +244,11 @@ export default function LojaDashboard() {
         if (!error && data) {
             setGoals(data);
             // Calculate daily goal based on days in month
-            const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+            const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
             const daily = Number(data.meta_valor) / daysInMonth;
             setDailyGoal(daily);
+            
             // Compute today's progress from sales data
-            const today = format(new Date(), 'yyyy-MM-dd');
             const { data: salesToday, error: salesErr } = await supabase
                 .from('sales')
                 .select('valor')
@@ -253,7 +258,24 @@ export default function LojaDashboard() {
                 const totalHoje = salesToday.reduce((sum: number, s: any) => sum + Number(s.valor), 0);
                 setDailyProgress((totalHoje / daily) * 100);
             }
+            
+            // Compute monthly progress from sales data
+            const { data: salesMonth, error: monthErr } = await supabase
+                .from('sales')
+                .select('valor')
+                .eq('store_id', currentStoreId)
+                .gte('data_venda', `${startOfMonth}T00:00:00`);
+            if (!monthErr && salesMonth) {
+                const totalMes = salesMonth.reduce((sum: number, s: any) => sum + Number(s.valor), 0);
+                setMonthlyRealizado(totalMes);
+                setMonthlyProgress((totalMes / Number(data.meta_valor)) * 100);
+            }
         }
+    };
+
+    const handleSignOut = async () => {
+        await signOut();
+        navigate('/auth');
     };
 
     const fetch7DayHistory = async () => {
@@ -854,7 +876,8 @@ export default function LojaDashboard() {
                         <p className="text-xs sm:text-sm text-muted-foreground">Gestão de Vendas</p>
                     </div>
                 </div>
-                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                     <DialogTrigger asChild>
                         <Button onClick={resetForm} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
                             <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
@@ -972,6 +995,16 @@ export default function LojaDashboard() {
                         </form>
                     </DialogContent>
                 </Dialog>
+                    <Button
+                        variant="outline"
+                        onClick={handleSignOut}
+                        className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
+                        size="sm"
+                    >
+                        <LogOut className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                        Sair
+                    </Button>
+                </div>
             </div>
 
             {/* KPI Cards - Metas e Métricas */}
@@ -985,6 +1018,15 @@ export default function LojaDashboard() {
                         <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                             <div className="space-y-2">
                                 <p className="text-lg sm:text-2xl font-bold truncate">R$ {goals.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                <p className="text-xs sm:text-sm text-muted-foreground">
+                                    Realizado: R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <Progress value={Math.min(monthlyProgress, 100)} className="h-2 flex-1" />
+                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                        {monthlyProgress.toFixed(0)}%
+                                    </span>
+                                </div>
                                 {goals.super_meta_valor && (
                                     <p className="text-xs sm:text-sm text-muted-foreground truncate">
                                         🏆 Super Meta: R$ {goals.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -1126,6 +1168,7 @@ export default function LojaDashboard() {
                                         <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Meta Dia</TableHead>
                                         <TableHead className="text-xs sm:text-sm">%</TableHead>
                                         <TableHead className="text-xs sm:text-sm hidden md:table-cell">Ticket Médio</TableHead>
+                                        <TableHead className="text-xs sm:text-sm hidden lg:table-cell">PA</TableHead>
                                         <TableHead className="text-xs sm:text-sm">Vendas</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -1145,8 +1188,14 @@ export default function LojaDashboard() {
                                                     {perf.percentual.toFixed(0)}%
                                                     {perf.percentual >= 120 && ' 🏆'}
                                                 </span>
+                                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                    Meta Mensal: R$ {perf.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                </div>
                                             </TableCell>
                                             <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {perf.ticketMedio.toFixed(2)}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
+                                                {perf.qtdVendas > 0 ? (perf.qtdPecas / perf.qtdVendas).toFixed(1) : '0.0'}
+                                            </TableCell>
                                             <TableCell className="text-xs sm:text-sm">{perf.qtdVendas}</TableCell>
                                         </TableRow>
                                     ))}
@@ -1246,6 +1295,7 @@ export default function LojaDashboard() {
                                         <TableHead className="text-xs sm:text-sm">Data</TableHead>
                                         <TableHead className="text-xs sm:text-sm">Vendas</TableHead>
                                         <TableHead className="text-xs sm:text-sm">Peças</TableHead>
+                                        <TableHead className="text-xs sm:text-sm hidden md:table-cell">PA</TableHead>
                                         <TableHead className="text-xs sm:text-sm">Total</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -1255,6 +1305,9 @@ export default function LojaDashboard() {
                                             <TableCell className="text-xs sm:text-sm">{format(new Date(day.day + 'T00:00:00'), 'dd/MM/yyyy')}</TableCell>
                                             <TableCell className="text-xs sm:text-sm">{day.qtdVendas}</TableCell>
                                             <TableCell className="text-xs sm:text-sm">{day.qtdPecas}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm hidden md:table-cell">
+                                                {day.qtdVendas > 0 ? (day.qtdPecas / day.qtdVendas).toFixed(1) : '0.0'}
+                                            </TableCell>
                                             <TableCell className="text-xs sm:text-sm font-medium">R$ {day.total.toFixed(2)}</TableCell>
                                         </TableRow>
                                     ))}
@@ -1285,7 +1338,7 @@ export default function LojaDashboard() {
                             <TableBody>
                                 {sales.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center text-muted-foreground text-xs sm:text-sm py-6">
+                                        <TableCell colSpan={7} className="text-center text-muted-foreground text-xs sm:text-sm py-6">
                                             Nenhuma venda lançada hoje
                                         </TableCell>
                                     </TableRow>
