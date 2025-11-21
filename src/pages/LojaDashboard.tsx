@@ -50,7 +50,7 @@ export default function LojaDashboard() {
     });
 
     useEffect(() => {
-        if (!profile || profile.role !== 'ADMIN') {
+        if (!profile || (profile.role !== 'LOJA' && profile.role !== 'ADMIN')) {
             navigate('/');
             return;
         }

@@ -118,6 +118,11 @@ const ColaboradoraDashboard = () => {
   const [monthlyBreakdown, setMonthlyBreakdown] = useState<MonthlyBreakdown[]>([]);
   const [expandedMonthRow, setExpandedMonthRow] = useState<string | null>(null);
 
+  // Goals and Sales state
+  const [goalData, setGoalData] = useState<any>(null);
+  const [salesData, setSalesData] = useState<any>(null);
+  const [bonuses, setBonuses] = useState<any[]>([]);
+
   // Password dialog
   const [passwordDialog, setPasswordDialog] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ newPassword: "", confirmPassword: "" });
@@ -134,7 +139,8 @@ const ColaboradoraDashboard = () => {
       fetchAdiantamentos(),
       fetchCompras(),
       fetchParcelas(),
-      fetchLojas()
+      fetchLojas(),
+      fetchGoalsAndSales()
     ]);
   };
 
@@ -259,6 +265,70 @@ const ColaboradoraDashboard = () => {
       console.error("Error fetching adiantamentos:", error);
     } else {
       setAdiantamentos(data || []);
+    }
+  };
+
+  const fetchGoalsAndSales = async () => {
+    if (!profile) return;
+
+    try {
+      const mesAtual = format(new Date(), 'yyyyMM');
+      const today = format(new Date(), 'yyyy-MM-dd');
+
+      // Buscar meta individual
+      const { data: goal } = await supabase
+        .from('goals')
+        .select('*')
+        .eq('colaboradora_id', profile.id)
+        .eq('mes_referencia', mesAtual)
+        .eq('tipo', 'INDIVIDUAL')
+        .single();
+
+      // Buscar vendas do mês
+      const { data: sales } = await supabase
+        .from('sales')
+        .select('*')
+        .eq('colaboradora_id', profile.id)
+        .gte('data_venda', `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01T00:00:00`);
+
+      // Buscar vendas de hoje
+      const { data: salesToday } = await supabase
+        .from('sales')
+        .select('*')
+        .eq('colaboradora_id', profile.id)
+        .gte('data_venda', `${today}T00:00:00`);
+
+      // Buscar bônus ativos
+      const { data: bonusesData } = await supabase
+        .from('bonuses')
+        .select('*')
+        .eq('ativo', true)
+        .order('valor_condicao', { ascending: true });
+
+      const totalMes = sales?.reduce((sum, s) => sum + Number(s.valor), 0) || 0;
+      const totalHoje = salesToday?.reduce((sum, s) => sum + Number(s.valor), 0) || 0;
+      const qtdVendasHoje = salesToday?.length || 0;
+      const qtdPecasHoje = salesToday?.reduce((sum, s) => sum + Number(s.qtd_pecas), 0) || 0;
+      const ticketMedioHoje = qtdVendasHoje > 0 ? totalHoje / qtdVendasHoje : 0;
+      const paHoje = qtdVendasHoje > 0 ? qtdPecasHoje / qtdVendasHoje : 0;
+
+      setGoalData({
+        ...goal,
+        realizado: totalMes,
+        percentual: goal ? (totalMes / goal.meta_valor) * 100 : 0,
+      });
+
+      setSalesData({
+        totalHoje,
+        qtdVendasHoje,
+        qtdPecasHoje,
+        ticketMedioHoje,
+        paHoje,
+      });
+
+      setBonuses(bonusesData || []);
+    } catch (error) {
+      console.error('Error fetching goals and sales:', error);
     }
   };
 
@@ -500,13 +570,119 @@ const ColaboradoraDashboard = () => {
           />
         </div>
 
-        <Tabs defaultValue="resumo" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
+        <Tabs defaultValue="metas" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="metas">Minhas Metas</TabsTrigger>
             <TabsTrigger value="resumo">Resumo</TabsTrigger>
             <TabsTrigger value="compras">Compras</TabsTrigger>
             <TabsTrigger value="parcelas">Parcelas</TabsTrigger>
             <TabsTrigger value="adiantamentos">Adiantamentos</TabsTrigger>
           </TabsList>
+
+          {/* ABA METAS */}
+          <TabsContent value="metas" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Card Meta Mensal */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Meta Mensal</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Meta:</span>
+                      <span className="font-bold">R$ {goalData?.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">🏆 Super Meta:</span>
+                      <span className="font-bold text-yellow-600">R$ {goalData?.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Realizado:</span>
+                      <span className="font-bold text-green-600">R$ {goalData?.realizado?.toFixed(2) || '0,00'}</span>
+                    </div>
+                    <div className="pt-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm">Progresso</span>
+                        <span className="text-sm font-bold">{goalData?.percentual?.toFixed(0) || 0}%</span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-primary" style={{ width: `${Math.min(goalData?.percentual || 0, 100)}%` }}></div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Card Métricas */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Minhas Métricas (Hoje)</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Faturamento:</span>
+                    <span className="font-bold">R$ {salesData?.totalHoje?.toFixed(2) || '0,00'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Ticket Médio:</span>
+                    <span className="font-bold">R$ {salesData?.ticketMedioHoje?.toFixed(2) || '0,00'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">PA (Peças/Venda):</span>
+                    <span className="font-bold">{salesData?.paHoje?.toFixed(1) || '0,0'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total de Vendas:</span>
+                    <span className="font-bold">{salesData?.qtdVendasHoje || 0}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Card Progresso de Bônus */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Meus Bônus Disponíveis</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="font-medium">Meta 90%</span>
+                      <span className="text-sm text-muted-foreground">Bônus: 5%</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-yellow-500" style={{ width: '0%' }}></div>
+                    </div>
+                    <span className="text-xs text-muted-foreground">Faltam R$ 9.000,00 para conquistar</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="font-medium">Meta 100%</span>
+                      <span className="text-sm text-muted-foreground">Bônus: 10%</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-green-500" style={{ width: '0%' }}></div>
+                    </div>
+                    <span className="text-xs text-muted-foreground">Faltam R$ 10.000,00 para conquistar</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="font-medium">Super Meta 120%</span>
+                      <span className="text-sm text-muted-foreground">Bônus: 15%</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-yellow-600" style={{ width: '0%' }}></div>
+                    </div>
+                    <span className="text-xs text-muted-foreground">Faltam R$ 12.000,00 para conquistar</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* ABA COMPRAS */}
           <TabsContent value="compras" className="space-y-4">

@@ -16,12 +16,12 @@ const Index = () => {
       if (!profile) {
         console.log("[Index] No profile found, redirecting to /auth");
         navigate("/auth");
-      } else if (profile.store_default && profile.role === "ADMIN") {
-        // Usuário de LOJA (tem store_default definido)
+      } else if (profile.role === "LOJA") {
+        // Usuário de LOJA
         console.log("[Index] Store user detected, redirecting to /loja");
         navigate("/loja");
       } else if (profile.role === "ADMIN") {
-        // ADMIN sem store_default = Oliveira (admin real)
+        // ADMIN real (Oliveira)
         console.log("[Index] Admin role detected, redirecting to /admin");
         navigate("/admin");
       } else {

@@ -7,7 +7,7 @@ interface Profile {
   id: string;
   name: string;
   email: string;
-  role: "ADMIN" | "COLABORADORA";
+  role: "ADMIN" | "LOJA" | "COLABORADORA";
   store_default: string | null;
   active: boolean;
 }
