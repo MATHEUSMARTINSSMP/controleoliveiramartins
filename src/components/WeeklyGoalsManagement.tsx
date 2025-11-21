@@ -233,30 +233,61 @@ const WeeklyGoalsManagement = () => {
     };
 
     const handleSaveWeeklyGoal = async () => {
-        if (!selectedStore || !selectedWeek || weeklyColabGoals.length === 0) {
-            toast.error("Preencha todos os campos obrigatórios");
+        if (!selectedStore) {
+            toast.error("Selecione uma loja");
             return;
         }
 
-        // Validate total
-        const totalMeta = weeklyColabGoals.reduce((sum, c) => sum + c.meta, 0);
-        const totalSuper = weeklyColabGoals.reduce((sum, c) => sum + c.superMeta, 0);
-        const expectedMeta = parseFloat(weeklyMetaValor || "0");
-        const expectedSuper = parseFloat(weeklySuperMetaValor || "0");
+        if (!selectedWeek) {
+            toast.error("Selecione uma semana");
+            return;
+        }
 
-        if (Math.abs(totalMeta - expectedMeta) > 1 || Math.abs(totalSuper - expectedSuper) > 1) {
-            toast.error("A soma das metas individuais não corresponde ao total informado!");
+        // Buscar colaboradoras ativas da loja
+        const activeColabs = colaboradoras.filter(c => c.store_id === selectedStore);
+        if (activeColabs.length === 0) {
+            toast.error("Nenhuma colaboradora ativa encontrada nesta loja");
+            return;
+        }
+
+        // Se colaboradoras não foram carregadas ainda, carregar e distribuir
+        let colabsToSave = [...weeklyColabGoals];
+        if (colabsToSave.length === 0) {
+            // Se temos valores totais, distribuir igualmente
+            if (weeklyMetaValor && weeklySuperMetaValor) {
+                const totalMeta = parseFloat(weeklyMetaValor);
+                const totalSuper = parseFloat(weeklySuperMetaValor);
+                const individualMeta = totalMeta / activeColabs.length;
+                const individualSuper = totalSuper / activeColabs.length;
+                
+                colabsToSave = activeColabs.map(c => ({
+                    id: c.id,
+                    name: c.name,
+                    meta: parseFloat(individualMeta.toFixed(2)),
+                    superMeta: parseFloat(individualSuper.toFixed(2))
+                }));
+            } else {
+                toast.error("Preencha os valores de Meta Total e Super Meta Total primeiro, ou clique em 'Carregar Colaboradoras'");
+                return;
+            }
+        }
+
+        // Filtrar colaboradoras com metas definidas (> 0)
+        const colabsWithGoals = colabsToSave.filter(c => c.meta > 0 || c.superMeta > 0);
+        
+        if (colabsWithGoals.length === 0) {
+            toast.error("Defina pelo menos uma meta para uma colaboradora");
             return;
         }
 
         try {
             // Create/Update individual weekly goals for each collaborator
-            const payloads = weeklyColabGoals.map(colab => ({
+            const payloads = colabsWithGoals.map(colab => ({
                 store_id: selectedStore,
                 semana_referencia: selectedWeek,
                 tipo: "SEMANAL",
-                meta_valor: colab.meta,
-                super_meta_valor: colab.superMeta,
+                meta_valor: colab.meta > 0 ? colab.meta : 0,
+                super_meta_valor: colab.superMeta > 0 ? colab.superMeta : 0,
                 colaboradora_id: colab.id,
                 ativo: true,
                 mes_referencia: null,
@@ -279,7 +310,7 @@ const WeeklyGoalsManagement = () => {
 
             if (insertError) throw insertError;
 
-            toast.success(`Metas semanais criadas para ${weeklyColabGoals.length} colaboradora(s)!`);
+            toast.success(`Metas semanais criadas para ${colabsWithGoals.length} colaboradora(s)!`);
             setDialogOpen(false);
             resetForm();
             fetchWeeklyGoals();
@@ -506,14 +537,11 @@ const WeeklyGoalsManagement = () => {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {getWeekOptions().map((option) => {
-                                        const weekRange = getWeekRange(option.value);
-                                        return (
-                                            <SelectItem key={option.value} value={option.value} className="text-xs sm:text-sm">
-                                                {option.label} - {format(weekRange.start, "dd/MM", { locale: ptBR })} a {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
-                                            </SelectItem>
-                                        );
-                                    })}
+                                    {getWeekOptions().map((option) => (
+                                        <SelectItem key={option.value} value={option.value} className="text-xs sm:text-sm">
+                                            {option.label}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
