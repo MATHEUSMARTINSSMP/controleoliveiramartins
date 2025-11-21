@@ -375,7 +375,7 @@ export default function LojaDashboard() {
     };
 
     const fetchSales = async () => {
-        if (!profile?.store_default) return;
+        if (!storeId) return;
 
         const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -385,13 +385,13 @@ export default function LojaDashboard() {
         *,
         colaboradora:profiles!colaboradora_id(name)
       `)
-            .eq('store_id', getStoreId())
+            .eq('store_id', storeId)
             .gte('data_venda', `${today}T00:00:00`)
             .order('data_venda', { ascending: false });
 
         if (error) {
+            console.error('Erro ao carregar vendas:', error);
             toast.error('Erro ao carregar vendas');
-            console.error(error);
         } else {
             setSales(data || []);
         }
