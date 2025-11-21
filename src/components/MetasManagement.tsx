@@ -181,37 +181,18 @@ function MetasManagementContent() {
         setDailyWeights(weights);
     };
 
-    const handleStoreSelect = async (storeId: string) => {
+    const handleStoreSelect = (storeId: string) => {
         setSelectedStore(storeId);
 
-        // Fetch collaborators who have sales in this store
-        const { data: salesData } = await supabase
-            .from('sales')
-            .select('colaboradora_id')
-            .eq('store_id', storeId);
+        // Filter active collaborators for this store
+        const activeColabs = colaboradoras.filter(c => c.store_id === storeId);
 
-        if (salesData) {
-            // Get unique collaborator IDs
-            const colabIds = [...new Set(salesData.map(s => s.colaboradora_id).filter(Boolean))];
-
-            // Filter collaborators list
-            const activeColabs = colaboradoras.filter(c => colabIds.includes(c.id));
-
-            setColabGoals(activeColabs.map(c => ({
-                id: c.id,
-                name: c.name,
-                meta: 0,
-                superMeta: 0
-            })));
-        } else {
-            // Fallback: show all collaborators if no sales data
-            setColabGoals(colaboradoras.map(c => ({
-                id: c.id,
-                name: c.name,
-                meta: 0,
-                superMeta: 0
-            })));
-        }
+        setColabGoals(activeColabs.map(c => ({
+            id: c.id,
+            name: c.name,
+            meta: 0,
+            superMeta: 0
+        })));
 
         generateWeights();
     };
