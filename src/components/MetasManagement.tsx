@@ -14,6 +14,7 @@ import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StoreLogo } from "@/lib/storeLogo";
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
@@ -717,7 +718,14 @@ const MetasManagementContent = () => {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="ALL">Todas</SelectItem>
-                                    {stores.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                    {stores.map(s => (
+                                        <SelectItem key={s.id} value={s.id}>
+                                            <div className="flex items-center gap-2">
+                                                <StoreLogo storeId={s.id} className="w-4 h-4 object-contain flex-shrink-0" />
+                                                <span>{s.name}</span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -751,9 +759,7 @@ const MetasManagementContent = () => {
                     <Card key={key} className="overflow-hidden border-l-4 border-l-primary">
                         <div className="p-3 sm:p-4 bg-muted/30 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 border-b">
                             <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
-                                <div className="bg-primary/10 p-2 rounded-full flex-shrink-0">
-                                    <Store className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                                </div>
+                                <StoreLogo storeId={group.storeGoal?.store_id || group.individuals[0]?.store_id} className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" />
                                 <div className="min-w-0 flex-1">
                                     <h3 className="font-bold text-base sm:text-lg truncate">{group.store?.name || 'Loja Desconhecida'}</h3>
                                     <p className="text-xs sm:text-sm text-muted-foreground">Referência: {group.month}</p>
@@ -831,9 +837,7 @@ const MetasManagementContent = () => {
                                 >
                                     <div className="p-3 sm:p-4 bg-gradient-to-r from-primary/10 to-purple-500/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b">
                                         <div className="flex items-center gap-2 sm:gap-4 flex-1">
-                                            <div className="bg-primary/10 p-2 rounded-full flex-shrink-0">
-                                                <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                                            </div>
+                                            <StoreLogo storeId={group.goals[0]?.store_id} className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" />
                                             <div className="min-w-0">
                                                 <h3 className="font-bold text-base sm:text-lg">{group.store?.name || 'Loja Desconhecida'}</h3>
                                                 <p className="text-xs sm:text-sm text-muted-foreground">
@@ -889,7 +893,14 @@ const MetasManagementContent = () => {
                                         <SelectValue placeholder="Selecione a Loja" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {stores.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                        {stores.map(s => (
+                                            <SelectItem key={s.id} value={s.id}>
+                                                <div className="flex items-center gap-2">
+                                                    <StoreLogo storeId={s.id} className="w-4 h-4 object-contain flex-shrink-0" />
+                                                    <span>{s.name}</span>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -1139,7 +1150,10 @@ const MetasManagementContent = () => {
                                 <SelectContent>
                                     {stores.map((store) => (
                                         <SelectItem key={store.id} value={store.id}>
-                                            {store.name}
+                                            <div className="flex items-center gap-2">
+                                                <StoreLogo storeId={store.id} className="w-4 h-4 object-contain flex-shrink-0" />
+                                                <span>{store.name}</span>
+                                            </div>
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

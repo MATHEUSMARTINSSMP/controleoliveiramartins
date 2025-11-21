@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { format } from "date-fns";
+import { StoreLogo, getStoreIdFromProfile } from "@/lib/storeLogo";
 import {
   type PeriodFilter,
   type MonthlyBreakdown,
@@ -565,11 +566,17 @@ const ColaboradoraDashboard = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10">
       <header className="bg-card/80 backdrop-blur-lg border-b border-primary/10 sticky top-0 z-50 shadow-[var(--shadow-card)]">
         <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent truncate">
-              Minhas Compras
-            </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground truncate">Bem-vinda, {profile.name}</p>
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <StoreLogo 
+              storeId={getStoreIdFromProfile(profile)} 
+              className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" 
+            />
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent truncate">
+                Minhas Compras
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">Bem-vinda, {profile.name}</p>
+            </div>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
             <Button

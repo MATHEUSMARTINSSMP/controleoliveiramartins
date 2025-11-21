@@ -14,6 +14,7 @@ import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy }
 import { toast } from "sonner";
 import { format } from "date-fns";
 import WeeklyGoalProgress from "@/components/WeeklyGoalProgress";
+import { StoreLogo } from "@/lib/storeLogo";
 
 interface Sale {
     id: string;
@@ -479,9 +480,12 @@ export default function LojaDashboard() {
     return (
         <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
-                <div className="min-w-0 flex-1">
-                    <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate">🏪 {profile?.store_default}</h1>
-                    <p className="text-xs sm:text-sm text-muted-foreground">Gestão de Vendas</p>
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <StoreLogo storeId={profile?.store_default} className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate">{profile?.store_default}</h1>
+                        <p className="text-xs sm:text-sm text-muted-foreground">Gestão de Vendas</p>
+                    </div>
                 </div>
                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                     <DialogTrigger asChild>

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { ShoppingBag, Loader2 } from "lucide-react";
+import { StoreLogo } from "@/lib/storeLogo";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -62,10 +63,11 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
       <Card className="w-full max-w-md backdrop-blur-sm bg-card/95 shadow-[var(--shadow-card)] border-primary/10">
         <CardHeader className="space-y-2">
-          <div className="flex justify-center mb-4">
-            <div className="p-4 rounded-full bg-gradient-to-br from-primary to-accent">
-              <ShoppingBag className="w-8 h-8 text-primary-foreground" />
-            </div>
+          <div className="flex justify-center mb-4 gap-2">
+            {/* Mostrar as 3 logos no login */}
+            <StoreLogo storeId="5a87e0c2-66ab-4c71-aaae-e3ee85f1cf5b" className="w-16 h-16 object-contain" />
+            <StoreLogo storeId="c6ecd68d-1d73-4c66-9ec5-f0a150e70bb3" className="w-16 h-16 object-contain" />
+            <StoreLogo storeId="cee7d359-0240-4131-87a2-21ae44bd1bb4" className="w-16 h-16 object-contain" />
           </div>
           <CardTitle className="text-2xl text-center bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent font-bold">
             Dashboard de Compras

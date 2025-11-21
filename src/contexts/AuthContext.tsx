@@ -9,6 +9,7 @@ interface Profile {
   email: string;
   role: "ADMIN" | "LOJA" | "COLABORADORA";
   store_default: string | null;
+  store_id: string | null;
   active: boolean;
 }
 
