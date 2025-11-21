@@ -225,7 +225,10 @@ export default function LojaDashboard() {
     };
 
     const fetchGoalsWithStoreId = async (currentStoreId: string) => {
-        if (!currentStoreId) return;
+        if (!currentStoreId) {
+            console.error('[LojaDashboard] ❌ fetchGoalsWithStoreId chamado sem storeId');
+            return;
+        }
         
         const mesAtual = format(new Date(), 'yyyyMM');
         const hoje = new Date();
@@ -236,9 +239,11 @@ export default function LojaDashboard() {
         console.log('[LojaDashboard]   storeId:', currentStoreId);
         console.log('[LojaDashboard]   mes_referencia:', mesAtual);
         console.log('[LojaDashboard]   tipo: MENSAL');
-        console.log('[LojaDashboard]   colaboradora_id: null');
+        console.log('[LojaDashboard]   colaboradora_id: null (IS NULL)');
 
-        const { data, error } = await supabase
+        // Tentar buscar com schema explícito primeiro
+        let { data, error } = await supabase
+            .schema("sistemaretiradas")
             .from('goals')
             .select('*')
             .eq('store_id', currentStoreId)
@@ -247,13 +252,40 @@ export default function LojaDashboard() {
             .is('colaboradora_id', null)
             .maybeSingle();
 
+        // Se não encontrar com schema explícito, tentar sem schema
+        if (!data && !error) {
+            console.log('[LojaDashboard] ⚠️ Não encontrou com schema explícito, tentando sem schema...');
+            const result = await supabase
+                .from('goals')
+                .select('*')
+                .eq('store_id', currentStoreId)
+                .eq('mes_referencia', mesAtual)
+                .eq('tipo', 'MENSAL')
+                .is('colaboradora_id', null)
+                .maybeSingle();
+            data = result.data;
+            error = result.error;
+        }
+
         if (error) {
             console.error('[LojaDashboard] ❌ Erro ao buscar meta mensal:', error);
-            console.error('[LojaDashboard]   Erro completo:', JSON.stringify(error, null, 2));
+            console.error('[LojaDashboard]   Erro code:', error.code);
+            console.error('[LojaDashboard]   Erro message:', error.message);
+            console.error('[LojaDashboard]   Erro details:', error.details);
+            console.error('[LojaDashboard]   Erro hint:', error.hint);
+            toast.error(`Erro ao buscar meta mensal: ${error.message}`);
+            setGoals(null);
+            setDailyGoal(0);
+            setDailyProgress(0);
+            setMonthlyRealizado(0);
+            setMonthlyProgress(0);
+            return;
         }
 
         if (data) {
             console.log('[LojaDashboard] ✅ Meta mensal encontrada:', data);
+            console.log('[LojaDashboard]   meta_valor:', data.meta_valor);
+            console.log('[LojaDashboard]   super_meta_valor:', data.super_meta_valor);
             setGoals(data);
             // Calculate daily goal based on days in month
             const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
@@ -262,6 +294,7 @@ export default function LojaDashboard() {
             
             // Compute today's progress from sales data
             const { data: salesToday, error: salesErr } = await supabase
+                .schema("sistemaretiradas")
                 .from('sales')
                 .select('valor')
                 .eq('store_id', currentStoreId)
@@ -275,6 +308,7 @@ export default function LojaDashboard() {
             
             // Compute monthly progress from sales data
             const { data: salesMonth, error: monthErr } = await supabase
+                .schema("sistemaretiradas")
                 .from('sales')
                 .select('valor')
                 .eq('store_id', currentStoreId)
@@ -287,9 +321,14 @@ export default function LojaDashboard() {
                 console.error('[LojaDashboard] ❌ Erro ao buscar vendas do mês:', monthErr);
             }
         } else {
-            console.warn('[LojaDashboard] ⚠️ Meta mensal NÃO encontrada para a loja');
-            console.warn('[LojaDashboard]   storeId:', currentStoreId);
-            console.warn('[LojaDashboard]   mes_referencia:', mesAtual);
+            console.error('[LojaDashboard] ❌ Meta mensal NÃO encontrada para a loja');
+            console.error('[LojaDashboard]   Parâmetros da busca:');
+            console.error('[LojaDashboard]     store_id =', currentStoreId);
+            console.error('[LojaDashboard]     mes_referencia =', mesAtual);
+            console.error('[LojaDashboard]     tipo = MENSAL');
+            console.error('[LojaDashboard]     colaboradora_id IS NULL');
+            console.error('[LojaDashboard]   ⚠️ Verifique se a meta está cadastrada no banco de dados');
+            toast.error(`Meta mensal não encontrada para a loja no mês ${mesAtual}. Verifique se a meta está cadastrada.`);
             setGoals(null);
             setDailyGoal(0);
             setDailyProgress(0);
@@ -432,12 +471,25 @@ export default function LojaDashboard() {
             .gte('data_venda', `${startOfMonth}T00:00:00`);
 
         // Buscar metas individuais
-        const { data: goalsData, error: goalsError } = await supabase
+        let { data: goalsData, error: goalsError } = await supabase
+            .schema("sistemaretiradas")
             .from('goals')
             .select('colaboradora_id, meta_valor, super_meta_valor, daily_weights')
             .eq('store_id', currentStoreId)
             .eq('mes_referencia', mesAtual)
             .eq('tipo', 'INDIVIDUAL');
+
+        // Se não encontrar com schema explícito, tentar sem schema
+        if (!goalsData && !goalsError) {
+            const result = await supabase
+                .from('goals')
+                .select('colaboradora_id, meta_valor, super_meta_valor, daily_weights')
+                .eq('store_id', currentStoreId)
+                .eq('mes_referencia', mesAtual)
+                .eq('tipo', 'INDIVIDUAL');
+            goalsData = result.data;
+            goalsError = result.error;
+        }
 
         if (salesTodayError) {
             console.error('[LojaDashboard] ❌ Erro ao buscar vendas de hoje:', salesTodayError);
@@ -1125,12 +1177,12 @@ export default function LojaDashboard() {
             {/* KPI Cards - Metas e Métricas */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {/* Meta Mensal */}
-                {goals && (
-                    <Card>
-                        <CardHeader className="pb-2 p-3 sm:p-6">
-                            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Meta Mensal</CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                <Card>
+                    <CardHeader className="pb-2 p-3 sm:p-6">
+                        <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Meta Mensal</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                        {goals ? (
                             <div className="space-y-2">
                                 <p className="text-lg sm:text-2xl font-bold truncate">R$ {goals.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                 <p className="text-xs sm:text-sm text-muted-foreground">
@@ -1148,17 +1200,24 @@ export default function LojaDashboard() {
                                     </p>
                                 )}
                             </div>
-                        </CardContent>
-                    </Card>
-                )}
+                        ) : (
+                            <div className="space-y-2">
+                                <p className="text-lg sm:text-2xl font-bold text-muted-foreground">N/A</p>
+                                <p className="text-xs sm:text-sm text-destructive">
+                                    Meta não encontrada. Verifique se está cadastrada.
+                                </p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
 
                 {/* Meta Diária */}
-                {goals && (
-                    <Card>
-                        <CardHeader className="pb-2 p-3 sm:p-6">
-                            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Meta Diária (Hoje)</CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                <Card>
+                    <CardHeader className="pb-2 p-3 sm:p-6">
+                        <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Meta Diária (Hoje)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                        {goals ? (
                             <div className="space-y-2">
                                 <p className="text-lg sm:text-2xl font-bold">R$ {dailyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                 <div className="flex items-center gap-2">
@@ -1168,9 +1227,16 @@ export default function LojaDashboard() {
                                     </span>
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
-                )}
+                        ) : (
+                            <div className="space-y-2">
+                                <p className="text-lg sm:text-2xl font-bold text-muted-foreground">N/A</p>
+                                <p className="text-xs sm:text-sm text-muted-foreground">
+                                    Aguardando meta mensal
+                                </p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
 
                 {/* Faturamento Hoje */}
                 <Card>
