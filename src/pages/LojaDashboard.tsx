@@ -151,12 +151,14 @@ export default function LojaDashboard() {
     };
 
     const fetchGoals = async () => {
+        if (!storeId) return;
+        
         const mesAtual = format(new Date(), 'yyyyMM');
 
         const { data, error } = await supabase
             .from('goals')
             .select('*')
-            .eq('store_id', getStoreId())
+            .eq('store_id', storeId)
             .eq('mes_referencia', mesAtual)
             .eq('tipo', 'MENSAL')
             .is('colaboradora_id', null)
@@ -173,7 +175,7 @@ export default function LojaDashboard() {
             const { data: salesToday, error: salesErr } = await supabase
                 .from('sales')
                 .select('valor')
-                .eq('store_id', getStoreId())
+                .eq('store_id', storeId)
                 .gte('data_venda', `${today}T00:00:00`);
             if (!salesErr && salesToday) {
                 const totalHoje = salesToday.reduce((sum: number, s: any) => sum + Number(s.valor), 0);
@@ -183,11 +185,13 @@ export default function LojaDashboard() {
     };
 
     const fetch7DayHistory = async () => {
+        if (!storeId) return;
+        
         const startDate = format(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
         const { data, error } = await supabase
             .from('sales')
             .select('data_venda, valor, qtd_pecas')
-            .eq('store_id', getStoreId())
+            .eq('store_id', storeId)
             .gte('data_venda', `${startDate}T00:00:00`)
             .order('data_venda', { ascending: true });
         if (!error && data) {
@@ -228,12 +232,14 @@ export default function LojaDashboard() {
     };
 
     const fetchMetrics = async () => {
+        if (!storeId) return;
+        
         const mesAtual = format(new Date(), 'yyyyMM');
 
         const { data, error } = await supabase
             .from('store_metrics')
             .select('*')
-            .eq('store_id', getStoreId())
+            .eq('store_id', storeId)
             .eq('mes_referencia', mesAtual)
             .single();
 
@@ -250,14 +256,14 @@ export default function LojaDashboard() {
         const { data: salesData, error: salesError } = await supabase
             .from('sales')
             .select('colaboradora_id, valor, qtd_pecas')
-            .eq('store_id', getStoreId())
+            .eq('store_id', storeId)
             .gte('data_venda', `${today}T00:00:00`);
 
         // Buscar metas individuais
         const { data: goalsData, error: goalsError } = await supabase
             .from('goals')
             .select('colaboradora_id, meta_valor, super_meta_valor')
-            .eq('store_id', getStoreId())
+            .eq('store_id', storeId)
             .eq('mes_referencia', mesAtual)
             .eq('tipo', 'INDIVIDUAL');
 
@@ -288,6 +294,8 @@ export default function LojaDashboard() {
     };
 
     const fetchRankingTop3 = async () => {
+        if (!storeId) return;
+        
         const today = format(new Date(), 'yyyy-MM-dd');
 
         const { data: salesData, error } = await supabase
@@ -297,7 +305,7 @@ export default function LojaDashboard() {
                 valor,
                 profiles!inner(name)
             `)
-            .eq('store_id', getStoreId())
+            .eq('store_id', storeId)
             .gte('data_venda', `${today}T00:00:00`);
 
         if (!error && salesData) {
@@ -327,6 +335,8 @@ export default function LojaDashboard() {
     };
 
     const fetchMonthlyRanking = async () => {
+        if (!storeId) return;
+        
         const mesAtual = format(new Date(), 'yyyyMM');
         const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
 
@@ -337,7 +347,7 @@ export default function LojaDashboard() {
                 valor,
                 profiles!inner(name)
             `)
-            .eq('store_id', getStoreId())
+            .eq('store_id', storeId)
             .gte('data_venda', `${startOfMonth}T00:00:00`);
 
         if (!error && salesData) {
@@ -407,8 +417,13 @@ export default function LojaDashboard() {
         }
     };
 
+    // getStoreId não é mais necessário - usar storeId diretamente
+    // Mantido apenas para compatibilidade com código existente
     const getStoreId = () => {
-        return storeId || profile?.store_id || null;
+        if (!storeId) {
+            console.warn("storeId não identificado ainda");
+        }
+        return storeId || null;
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -419,9 +434,14 @@ export default function LojaDashboard() {
             return;
         }
 
+        if (!storeId) {
+            toast.error('Erro: ID da loja não identificado');
+            return;
+        }
+
         const { error } = await supabase.from('sales').insert({
             colaboradora_id: formData.colaboradora_id,
-            store_id: getStoreId(),
+            store_id: storeId,
             valor: parseFloat(formData.valor),
             qtd_pecas: parseInt(formData.qtd_pecas),
             data_venda: formData.data_venda,
@@ -525,12 +545,17 @@ export default function LojaDashboard() {
         }
 
         try {
+            if (!storeId) {
+                toast.error('Erro: ID da loja não identificado');
+                return;
+            }
+
             const { error } = await supabase
                 .from('collaborator_off_days')
                 .insert([{
                     colaboradora_id: selectedColabForOffDay,
                     data_folga: offDayDate,
-                    store_id: getStoreId()
+                    store_id: storeId
                 }]);
 
             if (error) throw error;
