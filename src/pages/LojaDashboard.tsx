@@ -35,7 +35,7 @@ interface Colaboradora {
 }
 
 export default function LojaDashboard() {
-    const { profile } = useAuth();
+    const { profile, loading: authLoading } = useAuth();
     const navigate = useNavigate();
 
     const [sales, setSales] = useState<Sale[]>([]);
@@ -65,23 +65,27 @@ export default function LojaDashboard() {
     const [history7Days, setHistory7Days] = useState<any[]>([]);
 
     useEffect(() => {
+        if (authLoading) {
+            // Still loading auth, wait
+            return;
+        }
+
         if (!profile || (profile.role !== 'LOJA' && profile.role !== 'ADMIN')) {
             navigate('/');
             return;
         }
-        // Only fetch data if profile is loaded and it's a LOJA or ADMIN role
-        // The second useEffect below will handle the actual fetchData call based on loading state
-    }, [profile, navigate]);
 
-    useEffect(() => {
-        if (!loading && profile) {
-            // Se for ADMIN, não carrega dados de loja específica automaticamente
-            // Se for LOJA, carrega dados da loja do perfil
-            if (profile.role === 'LOJA' && profile.store_default) {
-                fetchData();
-            }
+        // Se for LOJA, carrega dados da loja do perfil
+        if (profile.role === 'LOJA' && profile.store_default) {
+            fetchData();
+        } else if (profile.role === 'LOJA') {
+            // Profile LOJA mas sem store_default, ainda assim pode mostrar a página
+            setLoading(false);
+        } else if (profile.role === 'ADMIN') {
+            // ADMIN não precisa carregar dados de loja específica aqui
+            setLoading(false);
         }
-    }, [profile, loading]);
+    }, [profile, authLoading, navigate]);
 
     const fetchGoals = async () => {
         const mesAtual = format(new Date(), 'yyyyMM');
@@ -141,17 +145,23 @@ export default function LojaDashboard() {
     };
 
     const fetchData = async () => {
-        await Promise.all([
-            fetchSales(),
-            fetchColaboradoras(),
-            fetchGoals(),
-            fetchMetrics(),
-            fetchColaboradorasPerformance(),
-            fetchRankingTop3(),
-            fetchMonthlyRanking(),
-            fetch7DayHistory()
-        ]);
-        setLoading(false);
+        try {
+            await Promise.all([
+                fetchSales(),
+                fetchColaboradoras(),
+                fetchGoals(),
+                fetchMetrics(),
+                fetchColaboradorasPerformance(),
+                fetchRankingTop3(),
+                fetchMonthlyRanking(),
+                fetch7DayHistory()
+            ]);
+        } catch (error) {
+            console.error("Error fetching data:", error);
+            toast.error("Erro ao carregar dados");
+        } finally {
+            setLoading(false);
+        }
     };
 
     const fetchMetrics = async () => {
