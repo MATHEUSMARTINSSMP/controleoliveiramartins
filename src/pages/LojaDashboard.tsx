@@ -286,10 +286,30 @@ export default function LojaDashboard() {
             console.log('[LojaDashboard] ✅ Meta mensal encontrada:', data);
             console.log('[LojaDashboard]   meta_valor:', data.meta_valor);
             console.log('[LojaDashboard]   super_meta_valor:', data.super_meta_valor);
+            console.log('[LojaDashboard]   daily_weights:', data.daily_weights);
             setGoals(data);
-            // Calculate daily goal based on days in month
+            
+            // Calcular meta diária - usar daily_weights se disponível (igual às metas individuais)
             const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
-            const daily = Number(data.meta_valor) / daysInMonth;
+            let daily = Number(data.meta_valor) / daysInMonth;
+            
+            // Se houver daily_weights, usar o peso do dia atual (igual ao cálculo das metas individuais)
+            const dailyWeights = data.daily_weights || {};
+            if (Object.keys(dailyWeights).length > 0) {
+                const hojePeso = dailyWeights[today] || 0;
+                if (hojePeso > 0) {
+                    daily = (Number(data.meta_valor) * hojePeso) / 100;
+                    console.log('[LojaDashboard] 📊 Meta diária calculada com daily_weights:');
+                    console.log('[LojaDashboard]   Data hoje:', today);
+                    console.log('[LojaDashboard]   Peso do dia:', hojePeso);
+                    console.log('[LojaDashboard]   Meta diária:', daily);
+                } else {
+                    console.log('[LojaDashboard] ⚠️ Peso do dia atual não encontrado nos daily_weights, usando cálculo proporcional');
+                }
+            } else {
+                console.log('[LojaDashboard] 📊 Meta diária calculada proporcionalmente (sem daily_weights)');
+            }
+            
             setDailyGoal(daily);
             
             // Compute today's progress from sales data
