@@ -15,6 +15,7 @@ import SolicitarAdiantamento from "./pages/SolicitarAdiantamento";
 import Lancamentos from "./pages/Lancamentos";
 import Relatorios from "./pages/Relatorios";
 import Colaboradores from "./pages/Colaboradores";
+import LojaDashboard from "./pages/LojaDashboard";
 import Seed from "./pages/Seed";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
@@ -38,8 +39,9 @@ const App = () => (
             <Route path="/admin/novo-adiantamento" element={<NovoAdiantamento />} />
             <Route path="/admin/adiantamentos" element={<Adiantamentos />} />
             <Route path="/admin/lancamentos" element={<Lancamentos />} />
-            <Route path="/admin/relatorios" element={<Relatorios />} />
+            <Route path="/admin/rel atorios" element={<Relatorios />} />
             <Route path="/admin/colaboradores" element={<Colaboradores />} />
+            <Route path="/loja" element={<LojaDashboard />} />
             <Route path="/me" element={<ColaboradoraDashboard />} />
             <Route path="/solicitar-adiantamento" element={<SolicitarAdiantamento />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
