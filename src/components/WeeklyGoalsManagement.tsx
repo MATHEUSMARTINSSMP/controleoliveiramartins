@@ -57,10 +57,6 @@ const WeeklyGoalsManagement = () => {
     const [customMetaEqual, setCustomMetaEqual] = useState<string>("");
     const [customSuperMetaEqual, setCustomSuperMetaEqual] = useState<string>("");
     const [customMetasIndividuais, setCustomMetasIndividuais] = useState<{ id: string; meta: number; superMeta: number }[]>([]);
-    const [customizingGoals, setCustomizingGoals] = useState(false);
-    const [customMetaEqual, setCustomMetaEqual] = useState<string>("");
-    const [customSuperMetaEqual, setCustomSuperMetaEqual] = useState<string>("");
-    const [customMetasIndividuais, setCustomMetasIndividuais] = useState<{ id: string; meta: number; superMeta: number }[]>([]);
 
     useEffect(() => {
         fetchStores();
@@ -441,6 +437,23 @@ const WeeklyGoalsManagement = () => {
         setEditingGoal(goal);
         setSelectedStore(goal.store_id);
         setSelectedWeek(goal.semana_referencia);
+        setCustomizingGoals(false);
+        
+        // Fetch existing weekly goals to populate custom metas
+        const { data: existingGoals } = await supabase
+            .from("goals")
+            .select("colaboradora_id, meta_valor, super_meta_valor")
+            .eq("store_id", goal.store_id)
+            .eq("semana_referencia", goal.semana_referencia)
+            .eq("tipo", "SEMANAL");
+
+        if (existingGoals && existingGoals.length > 0) {
+            setCustomMetasIndividuais(existingGoals.map((g: any) => ({
+                id: g.colaboradora_id,
+                meta: g.meta_valor || 0,
+                superMeta: g.super_meta_valor || 0
+            })));
+        }
         
         // Load suggestions will be triggered by useEffect
         // The dialog will open after suggestions load
@@ -726,16 +739,155 @@ const WeeklyGoalsManagement = () => {
                                     </CardContent>
                                 </Card>
 
-                                {/* Botão Aplicar */}
-                                <Button
-                                    onClick={applySuggestions}
-                                    className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 text-xs sm:text-sm"
-                                    size="sm"
-                                    disabled={colaboradorasAtivas.filter(c => c.active).length === 0 || loadingSuggestions}
-                                >
-                                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                                    Aplicar Sugestão para {colaboradorasAtivas.filter(c => c.active).length} Colaboradora{colaboradorasAtivas.filter(c => c.active).length !== 1 ? 's' : ''} Ativa{colaboradorasAtivas.filter(c => c.active).length !== 1 ? 's' : ''}
-                                </Button>
+                                {/* Botões Aplicar */}
+                                <div className="space-y-2">
+                                    <Button
+                                        onClick={applySuggestions}
+                                        className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 text-xs sm:text-sm"
+                                        size="sm"
+                                        disabled={colaboradorasAtivas.filter(c => c.active).length === 0 || loadingSuggestions}
+                                    >
+                                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                                        Aplicar Sugestão para {colaboradorasAtivas.filter(c => c.active).length} Colaboradora{colaboradorasAtivas.filter(c => c.active).length !== 1 ? 's' : ''} Ativa{colaboradorasAtivas.filter(c => c.active).length !== 1 ? 's' : ''}
+                                    </Button>
+                                    <Button
+                                        onClick={handleStartCustomizing}
+                                        variant="outline"
+                                        className="w-full text-xs sm:text-sm border-2"
+                                        size="sm"
+                                        disabled={colaboradorasAtivas.filter(c => c.active).length === 0 || loadingSuggestions}
+                                    >
+                                        <Calculator className="mr-2 h-4 w-4" />
+                                        Personalizar Meta
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Seção de Personalização */}
+                        {customizingGoals && colaboradorasAtivas.filter(c => c.active).length > 0 && (
+                            <div className="space-y-4 border-t pt-4">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-xs sm:text-sm font-semibold">Personalizar Metas</Label>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setCustomizingGoals(false)}
+                                        className="text-xs h-6"
+                                    >
+                                        ✕ Fechar
+                                    </Button>
+                                </div>
+
+                                {/* Opção: Meta Igual para Todas */}
+                                <Card className="bg-muted/50 border-2">
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="text-sm">Meta Igual para Todas as Colaboradoras</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <div>
+                                                <Label className="text-xs sm:text-sm">Meta (R$) *</Label>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={customMetaEqual}
+                                                    onChange={(e) => setCustomMetaEqual(e.target.value)}
+                                                    placeholder="Ex: 10000.00"
+                                                    className="text-xs sm:text-sm"
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label className="text-xs sm:text-sm">Super Meta (R$) *</Label>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={customSuperMetaEqual}
+                                                    onChange={(e) => setCustomSuperMetaEqual(e.target.value)}
+                                                    placeholder="Ex: 12000.00"
+                                                    className="text-xs sm:text-sm"
+                                                />
+                                            </div>
+                                        </div>
+                                        <Button
+                                            onClick={handleApplyEqualMeta}
+                                            className="w-full text-xs sm:text-sm"
+                                            size="sm"
+                                            disabled={!customMetaEqual || !customSuperMetaEqual}
+                                        >
+                                            Aplicar Meta Igual para {colaboradorasAtivas.filter(c => c.active).length} Colaboradora{colaboradorasAtivas.filter(c => c.active).length !== 1 ? 's' : ''}
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+
+                                {/* Opção: Metas Individuais */}
+                                <Card className="bg-muted/50 border-2">
+                                    <CardHeader className="pb-3">
+                                        <div className="flex items-center justify-between flex-wrap gap-2">
+                                            <CardTitle className="text-sm">Personalizar Meta Individual por Colaboradora</CardTitle>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={applyEqualToAll}
+                                                disabled={!customMetaEqual || !customSuperMetaEqual}
+                                                className="text-xs"
+                                            >
+                                                <Calculator className="h-3 w-3 mr-1" />
+                                                Usar Valores Iguais
+                                            </Button>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="space-y-2">
+                                        <ScrollArea className="h-[250px] sm:h-[300px]">
+                                            <div className="space-y-2">
+                                                {colaboradorasAtivas
+                                                    .filter(c => c.active)
+                                                    .map((colab) => {
+                                                        const customMeta = customMetasIndividuais.find(cm => cm.id === colab.id);
+                                                        return (
+                                                            <div key={colab.id} className="p-3 rounded-lg border bg-background">
+                                                                <div className="mb-2">
+                                                                    <p className="text-xs sm:text-sm font-semibold">{colab.name}</p>
+                                                                </div>
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                                    <div>
+                                                                        <Label className="text-xs">Meta (R$)</Label>
+                                                                        <Input
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            value={customMeta?.meta || 0}
+                                                                            onChange={(e) => updateIndividualMeta(colab.id, 'meta', e.target.value)}
+                                                                            className="text-xs sm:text-sm h-8"
+                                                                        />
+                                                                    </div>
+                                                                    <div>
+                                                                        <Label className="text-xs">Super Meta (R$)</Label>
+                                                                        <Input
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            value={customMeta?.superMeta || 0}
+                                                                            onChange={(e) => updateIndividualMeta(colab.id, 'superMeta', e.target.value)}
+                                                                            className="text-xs sm:text-sm h-8"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                            </div>
+                                        </ScrollArea>
+                                        <Button
+                                            onClick={handleApplyIndividualMetas}
+                                            className="w-full text-xs sm:text-sm"
+                                            size="sm"
+                                            variant="default"
+                                        >
+                                            Aplicar Metas Individuais
+                                        </Button>
+                                    </CardContent>
+                                </Card>
                             </div>
                         )}
 
@@ -762,6 +914,7 @@ const WeeklyGoalsManagement = () => {
                                     className="w-full sm:w-auto text-xs sm:text-sm"
                                     size="sm"
                                 >
+                                    <Trash2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                                     Excluir Meta Semanal
                                 </Button>
                             )}
