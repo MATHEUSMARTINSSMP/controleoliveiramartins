@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash, UserCheck, Calendar, Check, Store, Calculator, Save } from "lucide-react";
+import { Plus, Pencil, Trash, UserCheck, Calendar, Check, Store, Calculator, Save, ClipboardList, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { format, getDaysInMonth, setDate, isWeekend, getDay } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -303,13 +303,13 @@ function MetasManagementContent() {
 
             const { data: storeGoalData, error: storeError } = await supabase
                 .from("goals")
-                .insert([storePayload])
+                .upsert(storePayload, { onConflict: 'store_id, mes_referencia, tipo' })
                 .select()
                 .single();
 
             if (storeError) throw storeError;
 
-            // 2. Create Individual Goals
+            // 2. Create/Update Individual Goals
             const individualPayloads = colabGoals.map(c => ({
                 tipo: "INDIVIDUAL",
                 mes_referencia: mesReferencia,
@@ -323,7 +323,7 @@ function MetasManagementContent() {
 
             const { error: indError } = await supabase
                 .from("goals")
-                .insert(individualPayloads);
+                .upsert(individualPayloads, { onConflict: 'store_id, mes_referencia, colaboradora_id, tipo' });
 
             if (indError) throw indError;
 
@@ -333,6 +333,39 @@ function MetasManagementContent() {
         } catch (error: any) {
             toast.error("Erro ao salvar metas: " + error.message);
         }
+    };
+
+    const handleEdit = (storeId: string, month: string) => {
+        // 1. Find Store Goal
+        const storeGoal = goals.find(g => g.store_id === storeId && g.mes_referencia === month && g.tipo === 'MENSAL');
+        if (!storeGoal) return;
+
+        // 2. Find Individual Goals
+        const individualGoals = goals.filter(g => g.store_id === storeId && g.mes_referencia === month && g.tipo === 'INDIVIDUAL');
+
+        // 3. Populate State
+        setSelectedStore(storeId);
+        setMesReferencia(month);
+        setMetaLoja(storeGoal.meta_valor.toString());
+        setSuperMetaLoja(storeGoal.super_meta_valor.toString());
+        setDailyWeights(storeGoal.daily_weights || {});
+
+        // 4. Map individual goals to colabGoals format
+        // Load collaborators for the store, then merge with existing goals values
+        const activeColabs = colaboradoras.filter(c => c.store_id === storeId);
+
+        const mergedColabs = activeColabs.map(c => {
+            const goal = individualGoals.find(g => g.colaboradora_id === c.id);
+            return {
+                id: c.id,
+                name: c.name,
+                meta: goal ? goal.meta_valor : 0,
+                superMeta: goal ? goal.super_meta_valor : 0
+            };
+        });
+
+        setColabGoals(mergedColabs);
+        setDialogOpen(true);
     };
 
     return (
@@ -371,33 +404,70 @@ function MetasManagementContent() {
             </div>
 
             {/* Goals List */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {goals
-                    .filter(g => storeFilter === 'ALL' || g.store_id === storeFilter)
-                    .filter(g => g.mes_referencia.includes(monthFilter))
-                    .map(goal => (
-                        <Card key={goal.id} className="relative group hover:shadow-md transition-all">
-                            <CardHeader className="pb-2">
-                                <div className="flex justify-between items-start">
-                                    <CardTitle className="text-lg flex items-center gap-2">
-                                        {goal.tipo === 'LOJA' ? <Store className="h-5 w-5 text-blue-500" /> : <UserCheck className="h-5 w-5 text-green-500" />}
-                                        {goal.tipo === 'LOJA' ? goal.stores?.name : goal.profiles?.name}
-                                    </CardTitle>
-                                    <Badge variant={goal.ativo ? "default" : "secondary"}>{goal.mes_referencia}</Badge>
+            {/* Grouped Goals List */}
+            <div className="space-y-6">
+                {Object.entries(
+                    goals
+                        .filter(g => storeFilter === 'ALL' || g.store_id === storeFilter)
+                        .filter(g => g.mes_referencia.includes(monthFilter))
+                        .reduce((acc, goal) => {
+                            const key = `${goal.store_id}-${goal.mes_referencia}`;
+                            if (!acc[key]) acc[key] = { store: goal.stores, month: goal.mes_referencia, storeGoal: null, individuals: [] };
+
+                            if (goal.tipo === 'MENSAL') acc[key].storeGoal = goal;
+                            else if (goal.tipo === 'INDIVIDUAL') acc[key].individuals.push(goal);
+
+                            return acc;
+                        }, {} as Record<string, any>)
+                ).map(([key, group]: [string, any]) => (
+                    <Card key={key} className="overflow-hidden border-l-4 border-l-primary">
+                        <div className="p-4 bg-muted/30 flex justify-between items-center border-b">
+                            <div className="flex items-center gap-4">
+                                <div className="bg-primary/10 p-2 rounded-full">
+                                    <Store className="h-6 w-6 text-primary" />
                                 </div>
-                            </CardHeader>
-                            <CardContent className="text-sm space-y-1">
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Meta:</span>
-                                    <span className="font-semibold">R$ {goal.meta_valor.toLocaleString('pt-BR')}</span>
+                                <div>
+                                    <h3 className="font-bold text-lg">{group.store?.name || 'Loja Desconhecida'}</h3>
+                                    <p className="text-sm text-muted-foreground">Referência: {group.month}</p>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Super Meta:</span>
-                                    <span className="font-semibold text-purple-600">R$ {goal.super_meta_valor.toLocaleString('pt-BR')}</span>
+                            </div>
+
+                            <div className="flex items-center gap-6">
+                                <div className="text-right hidden md:block">
+                                    <p className="text-xs text-muted-foreground">Meta da Loja</p>
+                                    <p className="font-bold text-lg">R$ {group.storeGoal?.meta_valor?.toLocaleString('pt-BR') || '0,00'}</p>
                                 </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                                <Button variant="outline" size="sm" onClick={() => handleEdit(group.storeGoal?.store_id, group.month)}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Editar
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-card">
+                            <h4 className="text-xs font-semibold mb-3 text-muted-foreground flex items-center gap-2 uppercase tracking-wider">
+                                <UserCheck className="h-4 w-4" />
+                                Metas Individuais
+                            </h4>
+                            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                                {group.individuals.map((ind: any) => (
+                                    <div key={ind.id} className="flex justify-between items-center p-3 rounded-lg border bg-background hover:bg-muted/20 transition-colors">
+                                        <span className="font-medium text-sm">{ind.profiles?.name}</span>
+                                        <div className="text-right">
+                                            <div className="font-bold text-sm">R$ {ind.meta_valor.toLocaleString('pt-BR')}</div>
+                                            <div className="text-xs text-purple-600 font-medium">Super: R$ {ind.super_meta_valor.toLocaleString('pt-BR')}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {group.individuals.length === 0 && (
+                                    <div className="col-span-full text-center py-4 text-muted-foreground text-sm italic">
+                                        Nenhuma meta individual definida.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </Card>
+                ))}
             </div>
 
             {/* New Goal Dialog */}
