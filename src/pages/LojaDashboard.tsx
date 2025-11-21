@@ -148,6 +148,68 @@ export default function LojaDashboard() {
             data_venda: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
             observacoes: "",
         });
+        setEditingSaleId(null);
+    };
+
+    const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
+
+    const handleEdit = (sale: Sale) => {
+        setFormData({
+            colaboradora_id: sale.colaboradora_id,
+            valor: sale.valor.toString(),
+            qtd_pecas: sale.qtd_pecas.toString(),
+            data_venda: format(new Date(sale.data_venda), "yyyy-MM-dd'T'HH:mm"),
+            observacoes: sale.observacoes || "",
+        });
+        setEditingSaleId(sale.id);
+        setDialogOpen(true);
+    };
+
+    const handleUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!formData.colaboradora_id || !formData.valor || !formData.qtd_pecas) {
+            toast.error('Preencha todos os campos obrigatórios');
+            return;
+        }
+
+        const { error } = await supabase
+            .from('sales')
+            .update({
+                colaboradora_id: formData.colaboradora_id,
+                valor: parseFloat(formData.valor),
+                qtd_pecas: parseInt(formData.qtd_pecas),
+                data_venda: formData.data_venda,
+                observacoes: formData.observacoes || null,
+            })
+            .eq('id', editingSaleId!);
+
+        if (error) {
+            toast.error('Erro ao atualizar venda');
+            console.error(error);
+        } else {
+            toast.success('Venda atualizada com sucesso!');
+            setDialogOpen(false);
+            resetForm();
+            fetchSales();
+        }
+    };
+
+    const handleDelete = async (saleId: string) => {
+        if (!confirm('Tem certeza que deseja deletar esta venda?')) return;
+
+        const { error } = await supabase
+            .from('sales')
+            .delete()
+            .eq('id', saleId);
+
+        if (error) {
+            toast.error('Erro ao deletar venda');
+            console.error(error);
+        } else {
+            toast.success('Venda deletada com sucesso!');
+            fetchSales();
+        }
     };
 
     const ticketMedio = formData.valor && formData.qtd_pecas
@@ -174,9 +236,9 @@ export default function LojaDashboard() {
                     </DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>Lançar Nova Venda</DialogTitle>
+                            <DialogTitle>{editingSaleId ? 'Editar' : 'Lançar Nova'} Venda</DialogTitle>
                         </DialogHeader>
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                        <form onSubmit={editingSaleId ? handleUpdate : handleSubmit} className="space-y-4">
                             <div className="space-y-2">
                                 <Label htmlFor="colaboradora">Vendedora *</Label>
                                 <Select
@@ -295,10 +357,10 @@ export default function LojaDashboard() {
                                         <TableCell>R$ {(sale.valor / sale.qtd_pecas).toFixed(2)}</TableCell>
                                         <TableCell>
                                             <div className="flex gap-2">
-                                                <Button variant="ghost" size="sm">
+                                                <Button variant="ghost" size="sm" onClick={() => handleEdit(sale)}>
                                                     <Edit className="h-4 w-4" />
                                                 </Button>
-                                                <Button variant="ghost" size="sm" className="text-destructive">
+                                                <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(sale.id)}>
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             </div>
