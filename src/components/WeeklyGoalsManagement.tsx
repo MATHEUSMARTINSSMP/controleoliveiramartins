@@ -114,15 +114,8 @@ const WeeklyGoalsManagement = () => {
 
             if (error) throw error;
             if (data) {
-                // Agrupar por store_id e semana_referencia, pegando apenas um de cada grupo
-                const grouped = data.reduce((acc: any, goal: any) => {
-                    const key = `${goal.store_id}-${goal.semana_referencia}`;
-                    if (!acc[key]) {
-                        acc[key] = goal;
-                    }
-                    return acc;
-                }, {});
-                setWeeklyGoals(Object.values(grouped) as any);
+                // Retornar todas as metas individuais, não agrupar aqui
+                setWeeklyGoals(data as any);
             }
         } catch (err) {
             console.error("Error fetching weekly goals:", err);
@@ -529,6 +522,7 @@ const WeeklyGoalsManagement = () => {
                         if (!acc[key]) {
                             acc[key] = {
                                 store: goal.stores,
+                                store_id: goal.store_id,
                                 semana_referencia: goal.semana_referencia,
                                 goals: []
                             };
@@ -539,8 +533,13 @@ const WeeklyGoalsManagement = () => {
                 ).map(([key, group]: [string, any]) => {
                     const weekRange = getWeekRange(group.semana_referencia || "");
                     const isCurrentWeek = group.semana_referencia === getCurrentWeekRef();
-                    const totalMeta = group.goals.reduce((sum: number, g: any) => sum + g.meta_valor, 0);
-                    const totalSuper = group.goals.reduce((sum: number, g: any) => sum + g.super_meta_valor, 0);
+                    
+                    // Contar colaboradoras únicas (pode ter metas duplicadas)
+                    const uniqueColabs = new Set(group.goals.map((g: any) => g.colaboradora_id).filter((id: any) => id != null));
+                    const colabsCount = uniqueColabs.size;
+                    
+                    const totalMeta = group.goals.reduce((sum: number, g: any) => sum + (g.meta_valor || 0), 0);
+                    const totalSuper = group.goals.reduce((sum: number, g: any) => sum + (g.super_meta_valor || 0), 0);
                     
                     return (
                         <Card 
@@ -565,7 +564,7 @@ const WeeklyGoalsManagement = () => {
                                 </div>
                                 <div className="space-y-2">
                                     <div className="flex justify-between">
-                                        <span className="text-sm text-muted-foreground">Total ({group.goals.length} colaboradora{group.goals.length > 1 ? 's' : ''}):</span>
+                                        <span className="text-sm text-muted-foreground">Total ({colabsCount} colaboradora{colabsCount > 1 ? 's' : ''}):</span>
                                         <span className="font-bold text-primary">
                                             R$ {totalMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                         </span>
