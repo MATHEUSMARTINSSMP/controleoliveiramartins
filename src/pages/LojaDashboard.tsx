@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, ShoppingBag, TrendingUp, Users, Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -56,18 +56,37 @@ export default function LojaDashboard() {
         }
         fetchData();
     }, [profile, navigate]);
-
     // NOTE: fetchData redefined later with extended logic
     const [goals, setGoals] = useState<any>(null);
     const [metrics, setMetrics] = useState<any>(null);
     const [colaboradorasPerformance, setColaboradorasPerformance] = useState<any[]>([]);
     const [rankingTop3, setRankingTop3] = useState<any[]>([]);
+    const [rankingMonthly, setRankingMonthly] = useState<any[]>([]);
     const [offDayDialog, setOffDayDialog] = useState(false);
     const [selectedColabForOffDay, setSelectedColabForOffDay] = useState<string | null>(null);
     const [offDayDate, setOffDayDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [dailyGoal, setDailyGoal] = useState<number>(0);
     const [dailyProgress, setDailyProgress] = useState<number>(0);
     const [history7Days, setHistory7Days] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (!profile || (profile.role !== 'LOJA' && profile.role !== 'ADMIN')) {
+            navigate('/');
+            return;
+        }
+        // Only fetch data if profile is loaded and it's a LOJA or ADMIN role
+        // The second useEffect below will handle the actual fetchData call based on loading state
+    }, [profile, navigate]);
+
+    useEffect(() => {
+        if (!loading && profile) {
+            // Se for ADMIN, não carrega dados de loja específica automaticamente
+            // Se for LOJA, carrega dados da loja do perfil
+            if (profile.role === 'LOJA' && profile.store_default) {
+                fetchData();
+            }
+        }
+    }, [profile, loading]);
 
     const fetchGoals = async () => {
         const mesAtual = format(new Date(), 'yyyyMM');
@@ -127,7 +146,16 @@ export default function LojaDashboard() {
     };
 
     const fetchData = async () => {
-        await Promise.all([fetchSales(), fetchColaboradoras(), fetchGoals(), fetchMetrics(), fetchColaboradorasPerformance(), fetchRankingTop3(), fetch7DayHistory()]);
+        await Promise.all([
+            fetchSales(),
+            fetchColaboradoras(),
+            fetchGoals(),
+            fetchMetrics(),
+            fetchColaboradorasPerformance(),
+            fetchRankingTop3(),
+            fetchMonthlyRanking(),
+            fetch7DayHistory()
+        ]);
         setLoading(false);
     };
 
@@ -230,6 +258,44 @@ export default function LojaDashboard() {
         }
     };
 
+    const fetchMonthlyRanking = async () => {
+        const mesAtual = format(new Date(), 'yyyyMM');
+        const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
+
+        const { data: salesData, error } = await supabase
+            .from('sales')
+            .select(`
+                colaboradora_id,
+                valor,
+                profiles!inner(name)
+            `)
+            .eq('store_id', getStoreId())
+            .gte('data_venda', `${startOfMonth}T00:00:00`);
+
+        if (!error && salesData) {
+            const grouped = salesData.reduce((acc: any, sale: any) => {
+                const id = sale.colaboradora_id;
+                if (!acc[id]) {
+                    acc[id] = {
+                        colaboradora_id: id,
+                        name: sale.profiles.name,
+                        total: 0,
+                        qtdVendas: 0
+                    };
+                }
+                acc[id].total += Number(sale.valor);
+                acc[id].qtdVendas += 1;
+                return acc;
+            }, {});
+
+            const ranking = Object.values(grouped)
+                .sort((a: any, b: any) => b.total - a.total)
+                .slice(0, 3);
+
+            setRankingMonthly(ranking as any[]);
+        }
+    };
+
     const fetchSales = async () => {
         if (!profile?.store_default) return;
 
@@ -272,12 +338,7 @@ export default function LojaDashboard() {
     };
 
     const getStoreId = () => {
-        const storeMap: Record<string, string> = {
-            'Loungerie': '5a87e0c2-66ab-4c71-aaae-e3ee85f1cf5b',
-            'Mr. Kitsch': 'c6ecd68d-1d73-4c66-9ec5-f0a150e70bb3',
-            'Sacada | Oh, Boy': 'cee7d359-0240-4131-87a2-21ae44bd1bb4',
-        };
-        return storeMap[profile?.store_default || ''] || '';
+        return profile?.store_default;
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -459,36 +520,6 @@ export default function LojaDashboard() {
                                 </Select>
                             </div>
 
-                            {/* Ranking Top 3 do Dia */}
-                            <Card className="backdrop-blur-sm bg-card/95 shadow-[var(--shadow-card)] border-primary/10">
-                                <CardHeader>
-                                    <CardTitle className="text-xl bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                                        Ranking Top 3 do Dia
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="grid gap-4">
-                                        {rankingTop3.length === 0 ? (
-                                            <p className="text-muted-foreground text-center">Nenhum dado de ranking disponível.</p>
-                                        ) : (
-                                            rankingTop3.map((item, idx) => (
-                                                <div key={item.colaboradora_id} className="flex items-center gap-4 p-2 bg-muted/30 rounded-lg">
-                                                    <div className={`w-8 h-8 flex items-center justify-center rounded-full ${idx === 0 ? 'bg-yellow-400 text-white' : idx === 1 ? 'bg-gray-400 text-white' : 'bg-orange-600 text-white'}`}>
-                                                        {idx + 1}
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <p className="font-medium">{item.name}</p>
-                                                        <p className="text-sm text-muted-foreground">R$ {Number(item.total).toFixed(2)} ({item.qtdVendas} vendas)</p>
-                                                    </div>
-                                                    <Button variant="ghost" size="sm" onClick={() => handleOpenOffDayDialog(item.colaboradora_id)}>
-                                                        Marcar Folga
-                                                    </Button>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </CardContent>
-                            </Card>
                             {/* Off‑Day Dialog */}
                             <Dialog open={offDayDialog} onOpenChange={(open) => setOffDayDialog(open)}>
                                 <DialogContent>
@@ -594,6 +625,26 @@ export default function LojaDashboard() {
                                         🏆 Super Meta: R$ {goals.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                     </p>
                                 )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Meta Diária */}
+                {goals && (
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">Meta Diária (Hoje)</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-2">
+                                <p className="text-2xl font-bold">R$ {dailyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                <div className="flex items-center gap-2">
+                                    <Progress value={Math.min(dailyProgress, 100)} className="h-2" />
+                                    <span className="text-xs text-muted-foreground">
+                                        {dailyProgress.toFixed(0)}%
+                                    </span>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
@@ -726,6 +777,110 @@ export default function LojaDashboard() {
                                         </TableCell>
                                         <TableCell>R$ {perf.ticketMedio.toFixed(2)}</TableCell>
                                         <TableCell>{perf.qtdVendas}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Rankings Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {/* Ranking Diário */}
+                {rankingTop3.length > 0 && (
+                    <Card className="bg-gradient-to-br from-card to-muted/50 border-primary/10">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                                <Trophy className="h-5 w-5 text-yellow-500" />
+                                Top 3 Vendedoras (Hoje)
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-3">
+                                {rankingTop3.map((item, index) => (
+                                    <div key={item.colaboradora_id} className="flex items-center justify-between p-2 rounded-lg bg-background/50 border border-border/50">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`
+                                                w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
+                                                ${index === 0 ? 'bg-yellow-500 text-yellow-950' :
+                                                    index === 1 ? 'bg-gray-300 text-gray-800' :
+                                                        'bg-amber-700 text-amber-100'}
+                                            `}>
+                                                {index + 1}
+                                            </div>
+                                            <span className="font-medium">{item.name}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-bold text-primary">R$ {item.total.toFixed(2)}</p>
+                                            <p className="text-xs text-muted-foreground">{item.qtdVendas} vendas</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Ranking Mensal */}
+                {rankingMonthly.length > 0 && (
+                    <Card className="bg-gradient-to-br from-card to-muted/50 border-primary/10">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                                <Trophy className="h-5 w-5 text-purple-500" />
+                                Top 3 Vendedoras (Mês)
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-3">
+                                {rankingMonthly.map((item, index) => (
+                                    <div key={item.colaboradora_id} className="flex items-center justify-between p-2 rounded-lg bg-background/50 border border-border/50">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`
+                                                w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
+                                                ${index === 0 ? 'bg-yellow-500 text-yellow-950' :
+                                                    index === 1 ? 'bg-gray-300 text-gray-800' :
+                                                        'bg-amber-700 text-amber-100'}
+                                            `}>
+                                                {index + 1}
+                                            </div>
+                                            <span className="font-medium">{item.name}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-bold text-primary">R$ {item.total.toFixed(2)}</p>
+                                            <p className="text-xs text-muted-foreground">{item.qtdVendas} vendas</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
+
+            {/* Histórico 7 Dias */}
+            {history7Days.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Histórico de Vendas (Últimos 7 Dias)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Data</TableHead>
+                                    <TableHead>Vendas</TableHead>
+                                    <TableHead>Peças</TableHead>
+                                    <TableHead>Total</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {history7Days.map((day) => (
+                                    <TableRow key={day.day}>
+                                        <TableCell>{format(new Date(day.day + 'T00:00:00'), 'dd/MM/yyyy')}</TableCell>
+                                        <TableCell>{day.qtdVendas}</TableCell>
+                                        <TableCell>{day.qtdPecas}</TableCell>
+                                        <TableCell>R$ {day.total.toFixed(2)}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

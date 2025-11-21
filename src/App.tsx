@@ -17,6 +17,7 @@ import Relatorios from "./pages/Relatorios";
 import Colaboradores from "./pages/Colaboradores";
 import LojaDashboard from "./pages/LojaDashboard";
 import MetasManagement from "./components/MetasManagement";
+import BonusManagement from "./components/BonusManagement";
 import Seed from "./pages/Seed";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/admin/relatorios" element={<Relatorios />} />
             <Route path="/admin/colaboradores" element={<Colaboradores />} />
             <Route path="/admin/metas" element={<MetasManagement />} />
+            <Route path="/admin/bonus" element={<BonusManagement />} />
             <Route path="/loja" element={<LojaDashboard />} />
             <Route path="/me" element={<ColaboradoraDashboard />} />
             <Route path="/solicitar-adiantamento" element={<SolicitarAdiantamento />} />

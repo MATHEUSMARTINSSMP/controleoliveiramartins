@@ -7,11 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-
-interface Goal {
+import { Badge } from "@/components/ui/badge"; interface Goal {
     id: string;
     tipo: string;
     mes_referencia: string;
@@ -35,6 +34,8 @@ export default function MetasManagement() {
     const [colaboradoras, setColaboradoras] = useState<any[]>([]);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+    const [storeFilter, setStoreFilter] = useState<string>('');
+    const [colabFilter, setColabFilter] = useState<string>('');
 
     const [formData, setFormData] = useState({
         tipo: "MENSAL",
@@ -193,72 +194,82 @@ export default function MetasManagement() {
 
     return (
         <div className="space-y-4">
-            <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold">Gerenciar Metas</h2>
-                <Button
-                    onClick={() => {
-                        setEditingGoal(null);
-                        resetForm();
-                        setDialogOpen(true);
-                    }}
-                >
+            {/* Filters */}
+            <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                <Select value={storeFilter} onValueChange={setStoreFilter}>
+                    <SelectTrigger className="w-full sm:w-48">
+                        <SelectValue placeholder="Todas as lojas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="">Todas</SelectItem>
+                        {stores.map((store) => (
+                            <SelectItem key={store.id} value={store.id}>
+                                {store.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Select value={colabFilter} onValueChange={setColabFilter}>
+                    <SelectTrigger className="w-full sm:w-48">
+                        <SelectValue placeholder="Todas as colaboradoras" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="">Todas</SelectItem>
+                        {colaboradoras.map((colab) => (
+                            <SelectItem key={colab.id} value={colab.id}>
+                                {colab.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Button className="ml-auto" onClick={() => { setEditingGoal(null); resetForm(); setDialogOpen(true); }}>
                     <Plus className="mr-2 h-4 w-4" />
                     Nova Meta
                 </Button>
             </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Metas Cadastradas</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Tipo</TableHead>
-                                <TableHead>Mês</TableHead>
-                                <TableHead>Loja</TableHead>
-                                <TableHead>Colaboradora</TableHead>
-                                <TableHead>Meta</TableHead>
-                                <TableHead>Super Meta</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Ações</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {goals.map((goal: any) => (
-                                <TableRow key={goal.id}>
-                                    <TableCell>{goal.tipo}</TableCell>
-                                    <TableCell>{goal.mes_referencia}</TableCell>
-                                    <TableCell>{goal.stores?.name || "-"}</TableCell>
-                                    <TableCell>{goal.profiles?.name || "-"}</TableCell>
-                                    <TableCell>R$ {goal.meta_valor?.toLocaleString('pt-BR')}</TableCell>
-                                    <TableCell>R$ {goal.super_meta_valor?.toLocaleString('pt-BR')}</TableCell>
-                                    <TableCell>
-                                        <span className={goal.ativo ? "text-green-600" : "text-red-600"}>
-                                            {goal.ativo ? "Ativa" : "Inativa"}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex gap-2">
-                                            <Button size="sm" variant="outline" onClick={() => handleEdit(goal)}>
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant={goal.ativo ? "destructive" : "default"}
-                                                onClick={() => handleToggleActive(goal.id, goal.ativo)}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+            {/* Cards grid */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {goals
+                    .filter((g) => (storeFilter ? g.store_id === storeFilter : true))
+                    .filter((g) => (colabFilter ? g.colaboradora_id === colabFilter : true))
+                    .map((goal: any) => (
+                        <Card key={goal.id} className="relative group hover:shadow-lg transition-shadow">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                    {goal.tipo === "INDIVIDUAL" ? <UserCheck className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
+                                    {goal.tipo} – {goal.mes_referencia}
+                                </CardTitle>
+                                <Badge variant={goal.ativo ? "default" : "destructive"} className="absolute top-2 right-2">
+                                    {goal.ativo ? "Ativa" : "Inativa"}
+                                </Badge>
+                            </CardHeader>
+                            <CardContent className="space-y-2 text-sm">
+                                <p><strong>Loja:</strong> {goal.stores?.name || "-"}</p>
+                                {goal.colaboradora_id && (
+                                    <p><strong>Colab.:</strong> {goal.profiles?.name || "-"}</p>
+                                )}
+                                <p><strong>Meta:</strong> R$ {goal.meta_valor?.toLocaleString('pt-BR')}</p>
+                                <p><strong>Super Meta:</strong> R$ {goal.super_meta_valor?.toLocaleString('pt-BR')}</p>
+                            </CardContent>
+                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-center justify-center bg-black/20 transition-opacity">
+                                <Button size="sm" variant="outline" onClick={() => handleEdit(goal)} className="mr-2">
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant={goal.ativo ? "destructive" : "default"}
+                                    onClick={() => handleToggleActive(goal.id, goal.ativo)}
+                                >
+                                    {goal.ativo ? <Trash2 className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                                </Button>
+                            </div>
+                        </Card>
+                    ))}
+                {goals.length === 0 && (
+                    <p className="text-center text-muted-foreground col-span-full">Nenhuma meta encontrada.</p>
+                )}
+            </div>
 
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">

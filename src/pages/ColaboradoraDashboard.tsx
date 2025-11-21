@@ -122,6 +122,12 @@ const ColaboradoraDashboard = () => {
   const [goalData, setGoalData] = useState<any>(null);
   const [salesData, setSalesData] = useState<any>(null);
   const [bonuses, setBonuses] = useState<any[]>([]);
+  const [dailyGoal, setDailyGoal] = useState<number>(0);
+  const [dailyProgress, setDailyProgress] = useState<number>(0);
+  const [dailyGoal, setDailyGoal] = useState<number>(0);
+  const [dailyProgress, setDailyProgress] = useState<number>(0);
+  const [history7Days, setHistory7Days] = useState<any[]>([]);
+  const [userRanking, setUserRanking] = useState<number | null>(null);
 
   // Password dialog
   const [passwordDialog, setPasswordDialog] = useState(false);
@@ -327,6 +333,56 @@ const ColaboradoraDashboard = () => {
       });
 
       setBonuses(bonusesData || []);
+
+      // Calculate Daily Goal
+      if (goal) {
+        const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+        const daily = Number(goal.meta_valor) / daysInMonth;
+        setDailyGoal(daily);
+        setDailyProgress((totalHoje / daily) * 100);
+      }
+
+      // Fetch 7-Day History
+      const startDate = format(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
+      const { data: historyData } = await supabase
+        .from('sales')
+        .select('data_venda, valor, qtd_pecas')
+        .eq('colaboradora_id', profile.id)
+        .gte('data_venda', `${startDate}T00:00:00`)
+        .order('data_venda', { ascending: true });
+
+      if (historyData) {
+        const grouped: Record<string, any> = {};
+        historyData.forEach((sale: any) => {
+          const day = sale.data_venda.split('T')[0];
+          if (!grouped[day]) {
+            grouped[day] = { total: 0, qtdVendas: 0, qtdPecas: 0 };
+          }
+          grouped[day].total += Number(sale.valor);
+          grouped[day].qtdVendas += 1;
+          grouped[day].qtdPecas += Number(sale.qtd_pecas);
+        });
+        const result = Object.entries(grouped).map(([day, info]) => ({ day, ...info }));
+        setHistory7Days(result);
+      }
+
+      // Fetch Ranking Position
+      const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
+      const { data: rankingData } = await supabase
+        .from('sales')
+        .select('colaboradora_id, valor')
+        .gte('data_venda', `${startOfMonth}T00:00:00`);
+
+      if (rankingData) {
+        const grouped = rankingData.reduce((acc: any, sale: any) => {
+          acc[sale.colaboradora_id] = (acc[sale.colaboradora_id] || 0) + Number(sale.valor);
+          return acc;
+        }, {});
+        const sortedIds = Object.keys(grouped).sort((a, b) => grouped[b] - grouped[a]);
+        const position = sortedIds.indexOf(profile.id) + 1;
+        setUserRanking(position > 0 ? position : null);
+      }
+
     } catch (error) {
       console.error('Error fetching goals and sales:', error);
     }
@@ -638,7 +694,72 @@ const ColaboradoraDashboard = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Card Meta Diária */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Meta de Hoje</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Meta do Dia:</span>
+                    <span className="font-bold">R$ {dailyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Vendido Hoje:</span>
+                    <span className="font-bold text-green-600">R$ {salesData?.totalHoje?.toFixed(2) || '0,00'}</span>
+                  </div>
+                  <div className="pt-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm">Progresso</span>
+                      <span className="text-sm font-bold">{dailyProgress.toFixed(0)}%</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500" style={{ width: `${Math.min(dailyProgress, 100)}%` }}></div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
+
+            {/* Tabela Histórico 7 Dias */}
+            {history7Days.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Histórico de Vendas (Últimos 7 Dias)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Vendas</TableHead>
+                        <TableHead>Peças</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {history7Days.map((day) => (
+                        <TableRow key={day.day}>
+                          <TableCell>{format(new Date(day.day + 'T00:00:00'), 'dd/MM/yyyy')}</TableCell>
+                          <TableCell>{day.qtdVendas}</TableCell>
+                          <TableCell>{day.qtdPecas}</TableCell>
+                          <TableCell>R$ {day.total.toFixed(2)}</TableCell>
+                          <TableCell>
+                            {day.total >= dailyGoal ? (
+                              <Badge className="bg-green-500 hover:bg-green-600">Atingida</Badge>
+                            ) : (
+                              <Badge variant="destructive">Não Atingida</Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Card Progresso de Bônus */}
             <Card>
@@ -647,38 +768,72 @@ const ColaboradoraDashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="font-medium">Meta 90%</span>
-                      <span className="text-sm text-muted-foreground">Bônus: 5%</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-yellow-500" style={{ width: '0%' }}></div>
-                    </div>
-                    <span className="text-xs text-muted-foreground">Faltam R$ 9.000,00 para conquistar</span>
-                  </div>
+                  {bonuses.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">Nenhum bônus ativo no momento.</p>
+                  ) : (
+                    bonuses.map((bonus) => {
+                      let progress = 0;
+                      let target = bonus.condicao_valor;
+                      let current = 0;
+                      let label = "";
+                      let isCompleted = false;
 
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="font-medium">Meta 100%</span>
-                      <span className="text-sm text-muted-foreground">Bônus: 10%</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-green-500" style={{ width: '0%' }}></div>
-                    </div>
-                    <span className="text-xs text-muted-foreground">Faltam R$ 10.000,00 para conquistar</span>
-                  </div>
+                      if (bonus.tipo === 'META_PERCENTUAL') {
+                        current = goalData?.percentual || 0;
+                        progress = Math.min((current / target) * 100, 100);
+                        label = `${current.toFixed(1)}% de ${target}%`;
+                        isCompleted = current >= target;
+                      } else if (bonus.tipo === 'VALOR_FIXO') {
+                        current = goalData?.realizado || 0;
+                        progress = Math.min((current / target) * 100, 100);
+                        label = `R$ ${current.toFixed(2)} de R$ ${target.toFixed(2)}`;
+                        isCompleted = current >= target;
+                      } else if (bonus.tipo === 'RANKING') {
+                        // For ranking, "progress" is inverse (1st is best)
+                        // This is complex to show as a bar, so we show position
+                        current = userRanking || 999;
+                        isCompleted = current <= target;
+                        label = `Sua posição: ${current}º (Meta: Top ${target})`;
+                        progress = isCompleted ? 100 : 0;
+                      }
 
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="font-medium">Super Meta 120%</span>
-                      <span className="text-sm text-muted-foreground">Bônus: 15%</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-yellow-600" style={{ width: '0%' }}></div>
-                    </div>
-                    <span className="text-xs text-muted-foreground">Faltam R$ 12.000,00 para conquistar</span>
-                  </div>
+                      return (
+                        <div key={bonus.id} className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <span className="font-medium block">{bonus.name}</span>
+                              <span className="text-xs text-muted-foreground">{bonus.description}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-sm font-bold text-green-600 block">
+                                {bonus.tipo.includes('PERCENTUAL') ? `${bonus.valor_bonus}%` : `R$ ${bonus.valor_bonus}`}
+                              </span>
+                              {isCompleted && <Badge className="bg-green-500 h-5 text-[10px]">CONQUISTADO</Badge>}
+                            </div>
+                          </div>
+
+                          {bonus.tipo !== 'RANKING' ? (
+                            <div className="h-2 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className={`h-full ${isCompleted ? 'bg-green-500' : 'bg-primary'}`}
+                                style={{ width: `${progress}%` }}
+                              ></div>
+                            </div>
+                          ) : (
+                            <div className={`text-sm font-medium ${isCompleted ? 'text-green-600' : 'text-muted-foreground'}`}>
+                              {label}
+                            </div>
+                          )}
+
+                          {bonus.tipo !== 'RANKING' && !isCompleted && (
+                            <span className="text-xs text-muted-foreground">
+                              {label}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </CardContent>
             </Card>
