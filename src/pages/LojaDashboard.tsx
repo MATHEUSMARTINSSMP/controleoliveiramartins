@@ -398,17 +398,15 @@ export default function LojaDashboard() {
     };
 
     const fetchColaboradoras = async () => {
-        console.log('[LojaDashboard] fetchColaboradoras chamado. storeId:', storeId, 'storeName:', storeName);
-        
         if (!storeId) {
             console.warn('[LojaDashboard] storeId não definido, não é possível buscar colaboradoras');
             return;
         }
 
         try {
-            // Estratégia 1: Buscar por store_id (UUID) - esta é a forma correta
-            console.log('[LojaDashboard] Estratégia 1: Buscando por store_id (UUID):', storeId);
-            const { data: dataByStoreId, error: errorByStoreId } = await supabase
+            // Buscar colaboradoras por store_id (UUID) - esta é a forma correta
+            // As colaboradoras têm store_id (UUID) que as vincula à loja
+            const { data, error } = await supabase
                 .schema("sistemaretiradas")
                 .from('profiles')
                 .select('id, name, active, store_id, store_default')
@@ -417,47 +415,20 @@ export default function LojaDashboard() {
                 .eq('store_id', storeId)
                 .order('name');
 
-            console.log('[LojaDashboard] Resultado por store_id:', { 
-                encontradas: dataByStoreId?.length || 0, 
-                error: errorByStoreId,
-                dados: dataByStoreId 
-            });
-
-            if (!errorByStoreId && dataByStoreId && dataByStoreId.length > 0) {
-                console.log('[LojaDashboard] ✅ Encontradas', dataByStoreId.length, 'colaboradoras por store_id');
-                setColaboradoras(dataByStoreId);
+            if (error) {
+                console.error('[LojaDashboard] Erro ao buscar colaboradoras:', error);
+                toast.error('Erro ao carregar colaboradoras');
+                setColaboradoras([]);
                 return;
             }
 
-            // Estratégia 2: Buscar por store_default (nome da loja) como fallback
-            if (storeName) {
-                console.log('[LojaDashboard] Estratégia 2: Buscando por store_default (nome):', storeName);
-                const { data: dataByName, error: errorByName } = await supabase
-                    .schema("sistemaretiradas")
-                    .from('profiles')
-                    .select('id, name, active, store_id, store_default')
-                    .eq('role', 'COLABORADORA')
-                    .eq('active', true)
-                    .eq('store_default', storeName)
-                    .order('name');
-                
-                console.log('[LojaDashboard] Resultado por store_default (nome):', { 
-                    encontradas: dataByName?.length || 0, 
-                    error: errorByName,
-                    dados: dataByName 
-                });
-
-                if (!errorByName && dataByName && dataByName.length > 0) {
-                    console.log('[LojaDashboard] ✅ Encontradas', dataByName.length, 'colaboradoras por store_default (nome)');
-                    setColaboradoras(dataByName);
-                    return;
-                }
+            if (data && data.length > 0) {
+                console.log('[LojaDashboard] ✅ Encontradas', data.length, 'colaboradoras para a loja', storeId);
+                setColaboradoras(data);
+            } else {
+                console.log('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada para a loja', storeId);
+                setColaboradoras([]);
             }
-
-            // Se não encontrou nenhuma
-            console.warn('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada para a loja.');
-            console.warn('[LojaDashboard] Buscando por storeId:', storeId, 'ou storeName:', storeName);
-            setColaboradoras([]);
         } catch (error: any) {
             console.error('[LojaDashboard] ❌ Erro ao carregar colaboradoras:', error);
             toast.error('Erro ao carregar colaboradoras: ' + (error.message || 'Erro desconhecido'));
