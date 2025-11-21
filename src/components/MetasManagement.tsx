@@ -235,7 +235,13 @@ function MetasManagementContent() {
     const validateTotal = () => {
         const totalMeta = colabGoals.reduce((sum, c) => sum + c.meta, 0);
         const targetMeta = parseFloat(metaLoja) || 0;
-        return Math.abs(totalMeta - targetMeta) < 1; // Allow small float diff
+        const metasValid = Math.abs(totalMeta - targetMeta) < 1; // Allow small float diff
+
+        // Also validate daily weights sum to 100%
+        const totalWeight = Object.values(dailyWeights).reduce((sum, w) => sum + w, 0);
+        const weightsValid = Math.abs(totalWeight - 100) < 0.1;
+
+        return metasValid && weightsValid;
     };
 
     const handleSave = async () => {
@@ -466,18 +472,33 @@ function MetasManagementContent() {
                         {/* 3. Weights Dialog/Section */}
                         {showWeights && (() => {
                             const totalWeight = Object.values(dailyWeights).reduce((sum, w) => sum + w, 0);
-                            const isValid = Math.abs(totalWeight - 100) < 0.1; // Allow small floating point difference
+                            const isValid = Math.abs(totalWeight - 100) < 0.1;
+
+                            // Calculate quinzena totals
+                            let firstQuinzenaTotal = 0;
+                            let secondQuinzenaTotal = 0;
+                            Object.entries(dailyWeights).forEach(([date, weight]) => {
+                                const dayNum = parseInt(date.split('-')[2]);
+                                if (dayNum <= 15) {
+                                    firstQuinzenaTotal += weight;
+                                } else {
+                                    secondQuinzenaTotal += weight;
+                                }
+                            });
 
                             return (
                                 <div className="p-6 border-2 rounded-xl bg-gradient-to-br from-muted/30 to-muted/10 space-y-4">
                                     <div className="flex justify-between items-center">
                                         <h3 className="text-lg font-bold">Pesos Diários (Automático: 65% até dia 15)</h3>
-                                        <div className={`text-sm font-bold px-3 py-1 rounded-full ${isValid
-                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                                : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-                                            }`}>
-                                            Total: {totalWeight.toFixed(2)}% {isValid ? '✓' : `(falta ${(100 - totalWeight).toFixed(2)}%)`}
-                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => generateWeights()}
+                                            className="gap-2"
+                                        >
+                                            <Calendar className="h-4 w-4" />
+                                            Redefinir Padrão
+                                        </Button>
                                     </div>
 
                                     {/* Summary Cards */}
@@ -519,8 +540,8 @@ function MetasManagementContent() {
                                                 <div
                                                     key={date}
                                                     className={`p-3 rounded-lg border-2 transition-all hover:shadow-md ${isFirstHalf
-                                                            ? 'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20 border-blue-300 dark:border-blue-700'
-                                                            : 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/30 dark:to-gray-800/20 border-gray-300 dark:border-gray-700'
+                                                        ? 'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20 border-blue-300 dark:border-blue-700'
+                                                        : 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/30 dark:to-gray-800/20 border-gray-300 dark:border-gray-700'
                                                         }`}
                                                 >
                                                     <div className="text-center space-y-1">
@@ -532,9 +553,6 @@ function MetasManagementContent() {
                                                             onChange={e => setDailyWeights(prev => ({ ...prev, [date]: parseFloat(e.target.value) || 0 }))}
                                                             className="h-7 text-xs p-1 text-center font-semibold border-2"
                                                         />
-                                                        <div className="text-[10px] font-bold text-orange-600 dark:text-orange-400">
-                                                            {percentage.toFixed(2)}%
-                                                        </div>
                                                         {metaValue > 0 && (
                                                             <>
                                                                 <div className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
@@ -551,15 +569,23 @@ function MetasManagementContent() {
                                         })}
                                     </div>
 
+                                    {/* Total Sum Indicator */}
+                                    <div className={`p-4 rounded-lg border-2 text-center font-bold text-lg ${isValid
+                                        ? 'bg-green-50 border-green-300 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-400'
+                                        : 'bg-orange-50 border-orange-300 text-orange-700 dark:bg-orange-900/20 dark:border-orange-700 dark:text-orange-400'
+                                        }`}>
+                                        Soma Total dos Pesos: {totalWeight.toFixed(2)}% {isValid ? '✓' : `(falta ${(100 - totalWeight).toFixed(2)}%)`}
+                                    </div>
+
                                     {/* Legend */}
                                     <div className="flex gap-4 justify-center text-xs pt-2 border-t">
                                         <div className="flex items-center gap-2">
                                             <div className="w-4 h-4 rounded bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300"></div>
-                                            <span>Primeira quinzena (65%)</span>
+                                            <span>Primeira quinzena ({firstQuinzenaTotal.toFixed(1)}%)</span>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <div className="w-4 h-4 rounded bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-300"></div>
-                                            <span>Segunda quinzena (35%)</span>
+                                            <span>Segunda quinzena ({secondQuinzenaTotal.toFixed(1)}%)</span>
                                         </div>
                                     </div>
                                 </div>
