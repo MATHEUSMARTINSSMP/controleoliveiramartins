@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import WeeklyGoalProgress from "@/components/WeeklyGoalProgress";
@@ -67,6 +67,12 @@ export default function LojaDashboard() {
     const [monthlyProgress, setMonthlyProgress] = useState<number>(0);
     const [monthlyRealizado, setMonthlyRealizado] = useState<number>(0);
     const [history7Days, setHistory7Days] = useState<any[]>([]);
+    const [monthlyDataByDay, setMonthlyDataByDay] = useState<{
+        colaboradoraId: string;
+        colaboradoraName: string;
+        dailySales: Record<string, { valor: number; qtdVendas: number; qtdPecas: number; metaDiaria: number }>;
+        totalMes: number;
+    }[]>([]);
 
     useEffect(() => {
         if (authLoading) {
@@ -389,9 +395,158 @@ export default function LojaDashboard() {
                 grouped[day].qtdVendas += 1;
                 grouped[day].qtdPecas += Number(sale.qtd_pecas);
             });
-            const result = Object.entries(grouped).map(([day, info]) => ({ day, ...info }));
+            const result = Object.entries(grouped).map(([day, info]) => ({ 
+                day, 
+                ...info,
+                ticketMedio: info.qtdVendas > 0 ? info.total / info.qtdVendas : 0
+            }));
             setHistory7Days(result);
         }
+    };
+
+    // Função para buscar dados mensais por colaboradora/dia
+    const fetchMonthlyDataByDayWithStoreId = async (currentStoreId: string) => {
+        if (!currentStoreId) return;
+
+        const hoje = new Date();
+        const mesAtual = format(hoje, 'yyyyMM');
+        const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
+        const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+        const todayStr = format(hoje, 'yyyy-MM-dd');
+
+        // Buscar vendas do mês
+        const { data: salesData, error: salesError } = await supabase
+            .schema("sistemaretiradas")
+            .from('sales')
+            .select('colaboradora_id, valor, qtd_pecas, data_venda, profiles!inner(name)')
+            .eq('store_id', currentStoreId)
+            .gte('data_venda', `${startOfMonth}T00:00:00`)
+            .lte('data_venda', `${todayStr}T23:59:59`);
+
+        if (salesError || !salesData) return;
+
+        // Buscar metas individuais
+        const { data: goalsData } = await supabase
+            .schema("sistemaretiradas")
+            .from('goals')
+            .select('colaboradora_id, meta_valor, daily_weights')
+            .eq('store_id', currentStoreId)
+            .eq('mes_referencia', mesAtual)
+            .eq('tipo', 'INDIVIDUAL')
+            .not('colaboradora_id', 'is', null);
+
+        // Buscar colaboradoras da loja
+        const { data: colaboradorasData } = await supabase
+            .schema("sistemaretiradas")
+            .from('profiles')
+            .select('id, name')
+            .eq('role', 'COLABORADORA')
+            .eq('active', true)
+            .eq('store_id', currentStoreId);
+
+        if (!colaboradorasData) return;
+
+        // Processar dados
+        const colaboradorasMap = new Map(colaboradorasData.map(c => [c.id, c.name]));
+        const goalsMap = new Map((goalsData || []).map((g: any) => [g.colaboradora_id, g]));
+
+        // Agrupar vendas por colaboradora e por dia
+        const monthlyData: Record<string, {
+            colaboradoraName: string;
+            dailySales: Record<string, { valor: number; qtdVendas: number; qtdPecas: number; metaDiaria: number }>;
+            totalMes: number;
+        }> = {};
+
+        colaboradorasData.forEach(colab => {
+            const goal = goalsMap.get(colab.id);
+            monthlyData[colab.id] = {
+                colaboradoraName: colab.name,
+                dailySales: {},
+                totalMes: 0
+            };
+        });
+
+        salesData.forEach(sale => {
+            const colabId = sale.colaboradora_id;
+            const day = sale.data_venda.split('T')[0];
+            
+            if (!monthlyData[colabId]) {
+                monthlyData[colabId] = {
+                    colaboradoraName: sale.profiles?.name || colaboradorasMap.get(colabId) || 'Desconhecida',
+                    dailySales: {},
+                    totalMes: 0
+                };
+            }
+
+            if (!monthlyData[colabId].dailySales[day]) {
+                // Calcular meta diária
+                const goal: any = goalsMap.get(colabId);
+                let metaDiaria = 0;
+                if (goal) {
+                    const dailyWeights = goal.daily_weights || {};
+                    if (Object.keys(dailyWeights).length > 0) {
+                        const dayWeight = dailyWeights[day] || 0;
+                        metaDiaria = (Number(goal.meta_valor) * dayWeight) / 100;
+                    } else {
+                        metaDiaria = Number(goal.meta_valor) / daysInMonth;
+                    }
+                }
+
+                monthlyData[colabId].dailySales[day] = {
+                    valor: 0,
+                    qtdVendas: 0,
+                    qtdPecas: 0,
+                    metaDiaria
+                };
+            }
+
+            monthlyData[colabId].dailySales[day].valor += Number(sale.valor);
+            monthlyData[colabId].dailySales[day].qtdVendas += 1;
+            monthlyData[colabId].dailySales[day].qtdPecas += Number(sale.qtd_pecas);
+            monthlyData[colabId].totalMes += Number(sale.valor);
+        });
+
+        // Converter para array e adicionar colaboradoras sem vendas
+        const result = colaboradorasData.map(colab => {
+            const data = monthlyData[colab.id] || {
+                colaboradoraName: colab.name,
+                dailySales: {},
+                totalMes: 0
+            };
+
+            // Garantir que todas as metas diárias estejam calculadas mesmo sem vendas
+            const goal: any = goalsMap.get(colab.id);
+            if (goal) {
+                const dailyWeights = goal.daily_weights || {};
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
+                    if (dayStr <= todayStr) {
+                        if (!data.dailySales[dayStr]) {
+                            let metaDiaria = 0;
+                            if (Object.keys(dailyWeights).length > 0) {
+                                const dayWeight = dailyWeights[dayStr] || 0;
+                                metaDiaria = (Number(goal.meta_valor) * dayWeight) / 100;
+                            } else {
+                                metaDiaria = Number(goal.meta_valor) / daysInMonth;
+                            }
+                            data.dailySales[dayStr] = {
+                                valor: 0,
+                                qtdVendas: 0,
+                                qtdPecas: 0,
+                                metaDiaria
+                            };
+                        }
+                    }
+                }
+            }
+
+            return {
+                colaboradoraId: colab.id,
+                ...data
+            };
+        });
+
+        setMonthlyDataByDay(result);
     };
 
     const fetchData = async () => {
@@ -426,7 +581,8 @@ export default function LojaDashboard() {
                 fetchColaboradorasPerformanceWithStoreId(currentStoreId, currentStoreName || storeName || undefined),
                 fetchRankingTop3WithStoreId(currentStoreId),
                 fetchMonthlyRankingWithStoreId(currentStoreId),
-                fetch7DayHistoryWithStoreId(currentStoreId)
+                fetch7DayHistoryWithStoreId(currentStoreId),
+                fetchMonthlyDataByDayWithStoreId(currentStoreId)
             ]);
         } catch (error) {
             console.error("[LojaDashboard] ❌ Error fetching data:", error);
@@ -753,6 +909,7 @@ export default function LojaDashboard() {
             .select(`
                 colaboradora_id,
                 valor,
+                qtd_pecas,
                 profiles!inner(name)
             `)
             .eq('store_id', currentStoreId)
@@ -766,17 +923,19 @@ export default function LojaDashboard() {
                         colaboradora_id: id,
                         name: sale.profiles.name,
                         total: 0,
-                        qtdVendas: 0
+                        qtdVendas: 0,
+                        qtdPecas: 0
                     };
                 }
                 acc[id].total += Number(sale.valor);
                 acc[id].qtdVendas += 1;
+                acc[id].qtdPecas += Number(sale.qtd_pecas);
                 return acc;
             }, {});
 
             const ranking = Object.values(grouped)
                 .sort((a: any, b: any) => b.total - a.total)
-                .slice(0, 3);
+                .slice(0, 2); // Apenas Top 2 para Ouro e Prata
 
             setRankingMonthly(ranking as any[]);
         }
@@ -1016,7 +1175,8 @@ export default function LojaDashboard() {
                 fetchGoalsWithStoreId(storeId),
                 fetchRankingTop3WithStoreId(storeId),
                 fetchMonthlyRankingWithStoreId(storeId),
-                fetch7DayHistoryWithStoreId(storeId)
+                fetch7DayHistoryWithStoreId(storeId),
+                fetchMonthlyDataByDayWithStoreId(storeId)
             ]);
         }
     };
@@ -1079,7 +1239,8 @@ export default function LojaDashboard() {
                 fetchGoalsWithStoreId(storeId!),
                 fetchRankingTop3WithStoreId(storeId!),
                 fetchMonthlyRankingWithStoreId(storeId!),
-                fetch7DayHistoryWithStoreId(storeId!)
+                fetch7DayHistoryWithStoreId(storeId!),
+                fetchMonthlyDataByDayWithStoreId(storeId!)
             ]);
         }
     };
@@ -1453,11 +1614,11 @@ export default function LojaDashboard() {
                 <WeeklyGoalProgress storeId={storeId} showDetails={true} />
             )}
 
-            {/* Tabela de Performance por Vendedora */}
+            {/* Tabela de Performance do Dia */}
             {colaboradorasPerformance.length > 0 ? (
                 <Card>
                     <CardHeader className="p-3 sm:p-6">
-                        <CardTitle className="text-base sm:text-lg">Performance por Vendedora</CardTitle>
+                        <CardTitle className="text-base sm:text-lg">Performance do Dia</CardTitle>
                         <p className="text-xs sm:text-sm text-muted-foreground mt-1">Desempenho diário e mensal de cada colaboradora</p>
                     </CardHeader>
                     <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
@@ -1548,118 +1709,7 @@ export default function LojaDashboard() {
                 </Card>
             )}
 
-            {/* Rankings Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
-                {/* Ranking Diário */}
-                {rankingTop3.length > 0 && (
-                    <Card className="bg-gradient-to-br from-card to-muted/50 border-primary/10">
-                        <CardHeader className="pb-2 p-3 sm:p-6">
-                            <CardTitle className="flex items-center gap-2 text-sm sm:text-lg">
-                                <Trophy className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500" />
-                                <span className="hidden sm:inline">Top 3 Vendedoras (Hoje)</span>
-                                <span className="sm:hidden">Top 3 (Hoje)</span>
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                            <div className="space-y-2 sm:space-y-3">
-                                {rankingTop3.map((item, index) => (
-                                    <div key={item.colaboradora_id} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-background/50 border border-border/50">
-                                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                            <div className={`
-                                                w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold flex-shrink-0
-                                                ${index === 0 ? 'bg-yellow-500 text-yellow-950' :
-                                                    index === 1 ? 'bg-gray-300 text-gray-800' :
-                                                        'bg-amber-700 text-amber-100'}
-                                            `}>
-                                                {index + 1}
-                                            </div>
-                                            <span className="font-medium text-xs sm:text-sm truncate">{item.name}</span>
-                                        </div>
-                                        <div className="text-right flex-shrink-0 ml-2">
-                                            <p className="font-bold text-primary text-xs sm:text-sm">R$ {item.total.toFixed(2)}</p>
-                                            <p className="text-[10px] sm:text-xs text-muted-foreground">{item.qtdVendas} vendas</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {/* Ranking Mensal */}
-                {rankingMonthly.length > 0 && (
-                    <Card className="bg-gradient-to-br from-card to-muted/50 border-primary/10">
-                        <CardHeader className="pb-2 p-3 sm:p-6">
-                            <CardTitle className="flex items-center gap-2 text-sm sm:text-lg">
-                                <Trophy className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500" />
-                                <span className="hidden sm:inline">Top 3 Vendedoras (Mês)</span>
-                                <span className="sm:hidden">Top 3 (Mês)</span>
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                            <div className="space-y-2 sm:space-y-3">
-                                {rankingMonthly.map((item, index) => (
-                                    <div key={item.colaboradora_id} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-background/50 border border-border/50">
-                                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                            <div className={`
-                                                w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold flex-shrink-0
-                                                ${index === 0 ? 'bg-yellow-500 text-yellow-950' :
-                                                    index === 1 ? 'bg-gray-300 text-gray-800' :
-                                                        'bg-amber-700 text-amber-100'}
-                                            `}>
-                                                {index + 1}
-                                            </div>
-                                            <span className="font-medium text-xs sm:text-sm truncate">{item.name}</span>
-                                        </div>
-                                        <div className="text-right flex-shrink-0 ml-2">
-                                            <p className="font-bold text-primary text-xs sm:text-sm">R$ {item.total.toFixed(2)}</p>
-                                            <p className="text-[10px] sm:text-xs text-muted-foreground">{item.qtdVendas} vendas</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
-            </div>
-
-            {/* Histórico 7 Dias */}
-            {history7Days.length > 0 && (
-                <Card>
-                    <CardHeader className="p-3 sm:p-6">
-                        <CardTitle className="text-base sm:text-lg">Histórico de Vendas (Últimos 7 Dias)</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="text-xs sm:text-sm">Data</TableHead>
-                                        <TableHead className="text-xs sm:text-sm">Vendas</TableHead>
-                                        <TableHead className="text-xs sm:text-sm">Peças</TableHead>
-                                        <TableHead className="text-xs sm:text-sm hidden md:table-cell">PA</TableHead>
-                                        <TableHead className="text-xs sm:text-sm">Total</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {history7Days.map((day) => (
-                                        <TableRow key={day.day}>
-                                            <TableCell className="text-xs sm:text-sm">{format(new Date(day.day + 'T00:00:00'), 'dd/MM/yyyy')}</TableCell>
-                                            <TableCell className="text-xs sm:text-sm">{day.qtdVendas}</TableCell>
-                                            <TableCell className="text-xs sm:text-sm">{day.qtdPecas}</TableCell>
-                                            <TableCell className="text-xs sm:text-sm hidden md:table-cell">
-                                                {day.qtdVendas > 0 ? (day.qtdPecas / day.qtdVendas).toFixed(1) : '0.0'}
-                                            </TableCell>
-                                            <TableCell className="text-xs sm:text-sm font-medium">R$ {day.total.toFixed(2)}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
-
+            {/* Vendas de Hoje */}
             <Card>
                 <CardHeader className="p-3 sm:p-6">
                     <CardTitle className="text-base sm:text-lg">Vendas de Hoje</CardTitle>
@@ -1710,6 +1760,222 @@ export default function LojaDashboard() {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Ranking Mensal com Pódio (Ouro e Prata) */}
+            {rankingMonthly.length > 0 && (
+                <Card className="bg-gradient-to-br from-card to-muted/50 border-primary/10 overflow-hidden">
+                    <CardHeader className="pb-2 p-3 sm:p-6 bg-gradient-to-r from-primary/5 to-accent/5">
+                        <CardTitle className="flex items-center gap-2 text-sm sm:text-lg">
+                            <Award className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500" />
+                            <span>Pódio Mensal</span>
+                        </CardTitle>
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">Ranking acumulado do mês - Top 2</p>
+                    </CardHeader>
+                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                        <div className="space-y-3 sm:space-y-4">
+                            {rankingMonthly.slice(0, 2).map((item, index) => {
+                                const perf = colaboradorasPerformance.find(p => p.id === item.colaboradora_id);
+                                const isOuro = index === 0;
+                                const isPrata = index === 1;
+                                
+                                return (
+                                    <div 
+                                        key={item.colaboradora_id} 
+                                        className={`
+                                            relative flex items-center justify-between p-3 sm:p-4 rounded-lg border-2
+                                            ${isOuro 
+                                                ? 'bg-gradient-to-r from-yellow-50 to-yellow-100 dark:from-yellow-950/30 dark:to-yellow-900/20 border-yellow-400 shadow-lg shadow-yellow-500/20' 
+                                                : isPrata
+                                                    ? 'bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900/30 dark:to-gray-800/20 border-gray-300 shadow-lg shadow-gray-400/20'
+                                                    : 'bg-background/50 border-border/50'
+                                            }
+                                        `}
+                                        style={isOuro ? { 
+                                            boxShadow: '0 0 20px rgba(234, 179, 8, 0.4), 0 4px 6px rgba(0, 0, 0, 0.1)',
+                                            borderColor: 'rgba(234, 179, 8, 0.6)'
+                                        } : isPrata ? {
+                                            boxShadow: '0 0 20px rgba(156, 163, 175, 0.4), 0 4px 6px rgba(0, 0, 0, 0.1)',
+                                            borderColor: 'rgba(156, 163, 175, 0.6)'
+                                        } : {}}
+                                    >
+                                        <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                                            <div className={`
+                                                w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0
+                                                ${isOuro 
+                                                    ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-yellow-950 shadow-lg' 
+                                                    : isPrata
+                                                        ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-gray-900 shadow-lg'
+                                                        : 'bg-amber-700 text-amber-100'
+                                                }
+                                            `}>
+                                                {isOuro ? '🥇' : isPrata ? '🥈' : index + 1}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <span className="font-bold text-sm sm:text-base truncate block">{item.name}</span>
+                                                {perf && (
+                                                    <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 space-y-0.5">
+                                                        <div className="flex gap-2">
+                                                            <span>Ticket: R$ {perf.ticketMedio.toFixed(2)}</span>
+                                                            <span>PA: {(perf.qtdPecas / Math.max(perf.qtdVendasMes, 1)).toFixed(1)}</span>
+                                                        </div>
+                                                        <div>Vendas: {item.qtdVendas}</div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="text-right flex-shrink-0 ml-2">
+                                            <p className={`font-bold text-lg sm:text-xl ${isOuro ? 'text-yellow-700' : isPrata ? 'text-gray-700' : 'text-primary'}`}>
+                                                R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                            </p>
+                                            {perf && perf.percentualMensal > 0 && (
+                                                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                                                    {perf.percentualMensal.toFixed(0)}% da meta
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Histórico 7 Dias */}
+            {history7Days.length > 0 && (
+                <Card>
+                    <CardHeader className="p-3 sm:p-6">
+                        <CardTitle className="text-base sm:text-lg">Histórico de Vendas (Últimos 7 Dias)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="text-xs sm:text-sm">Data</TableHead>
+                                        <TableHead className="text-xs sm:text-sm">Vendas</TableHead>
+                                        <TableHead className="text-xs sm:text-sm">Peças</TableHead>
+                                        <TableHead className="text-xs sm:text-sm hidden md:table-cell">PA</TableHead>
+                                        <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Ticket Médio</TableHead>
+                                        <TableHead className="text-xs sm:text-sm">Total</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {history7Days.map((day) => (
+                                        <TableRow key={day.day}>
+                                            <TableCell className="text-xs sm:text-sm">{format(new Date(day.day + 'T00:00:00'), 'dd/MM/yyyy')}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm">{day.qtdVendas}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm">{day.qtdPecas}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm hidden md:table-cell">
+                                                {day.qtdVendas > 0 ? (day.qtdPecas / day.qtdVendas).toFixed(1) : '0.0'}
+                                            </TableCell>
+                                            <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
+                                                R$ {day.ticketMedio ? day.ticketMedio.toFixed(2) : (day.qtdVendas > 0 ? (day.total / day.qtdVendas).toFixed(2) : '0.00')}
+                                            </TableCell>
+                                            <TableCell className="text-xs sm:text-sm font-medium">R$ {day.total.toFixed(2)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Tabela Mensal por Colaboradora/Dia */}
+            {monthlyDataByDay.length > 0 && (
+                <Card>
+                    <CardHeader className="p-3 sm:p-6">
+                        <CardTitle className="text-base sm:text-lg">Performance Mensal por Dia</CardTitle>
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">Vendas diárias de cada colaboradora no mês atual</p>
+                    </CardHeader>
+                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="text-xs sm:text-sm sticky left-0 bg-background z-10 font-bold">Vendedora</TableHead>
+                                        {(() => {
+                                            const hoje = new Date();
+                                            const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+                                            const todayStr = format(hoje, 'yyyy-MM-dd');
+                                            const days: string[] = [];
+                                            for (let day = 1; day <= daysInMonth; day++) {
+                                                const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
+                                                if (dayStr <= todayStr) {
+                                                    days.push(dayStr);
+                                                }
+                                            }
+                                            return days.map(dayStr => (
+                                                <TableHead key={dayStr} className="text-xs text-center min-w-[60px]">
+                                                    {format(new Date(dayStr + 'T00:00:00'), 'dd/MM')}
+                                                </TableHead>
+                                            ));
+                                        })()}
+                                        <TableHead className="text-xs sm:text-sm sticky right-0 bg-background z-10 font-bold text-primary">Total</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {monthlyDataByDay
+                                        .sort((a, b) => b.totalMes - a.totalMes)
+                                        .map((data) => {
+                                            const hoje = new Date();
+                                            const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+                                            const todayStr = format(hoje, 'yyyy-MM-dd');
+                                            const days: string[] = [];
+                                            for (let day = 1; day <= daysInMonth; day++) {
+                                                const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
+                                                if (dayStr <= todayStr) {
+                                                    days.push(dayStr);
+                                                }
+                                            }
+
+                                            return (
+                                                <TableRow key={data.colaboradoraId}>
+                                                    <TableCell className="text-xs sm:text-sm font-medium sticky left-0 bg-background z-10 truncate max-w-[120px]">
+                                                        {data.colaboradoraName}
+                                                    </TableCell>
+                                                    {days.map(dayStr => {
+                                                        const dayData = data.dailySales[dayStr] || { valor: 0, metaDiaria: 0 };
+                                                        const bateuMeta = dayData.metaDiaria > 0 && dayData.valor >= dayData.metaDiaria;
+                                                        
+                                                        return (
+                                                            <TableCell 
+                                                                key={dayStr} 
+                                                                className={`
+                                                                    text-xs text-center font-medium
+                                                                    ${bateuMeta 
+                                                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-900 dark:text-green-100' 
+                                                                        : dayData.valor > 0 
+                                                                            ? 'text-foreground' 
+                                                                            : 'text-muted-foreground'
+                                                                    }
+                                                                `}
+                                                                title={dayData.metaDiaria > 0 ? `Meta: R$ ${dayData.metaDiaria.toFixed(2)}` : ''}
+                                                            >
+                                                                {dayData.valor > 0 ? (
+                                                                    <span className="font-semibold">
+                                                                        R$ {dayData.valor.toFixed(0)}
+                                                                        {bateuMeta && ' ✓'}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-muted-foreground">-</span>
+                                                                )}
+                                                            </TableCell>
+                                                        );
+                                                    })}
+                                                    <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-background z-10">
+                                                        R$ {data.totalMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
         </div>
     );
 }
