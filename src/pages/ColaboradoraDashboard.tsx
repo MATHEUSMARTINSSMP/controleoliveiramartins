@@ -124,8 +124,7 @@ const ColaboradoraDashboard = () => {
   const [bonuses, setBonuses] = useState<any[]>([]);
   const [dailyGoal, setDailyGoal] = useState<number>(0);
   const [dailyProgress, setDailyProgress] = useState<number>(0);
-  const [dailyGoal, setDailyGoal] = useState<number>(0);
-  const [dailyProgress, setDailyProgress] = useState<number>(0);
+
   const [history7Days, setHistory7Days] = useState<any[]>([]);
   const [userRanking, setUserRanking] = useState<number | null>(null);
 
