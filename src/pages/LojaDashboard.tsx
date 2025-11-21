@@ -101,20 +101,66 @@ export default function LojaDashboard() {
                     targetStoreId = profile.store_default;
                 } else {
                     // Se store_default não é UUID, é o nome da loja - buscar o ID
-                    const { data: storesData } = await supabase
+                    // Buscar todas as lojas ativas e fazer matching flexível
+                    const { data: allStores, error: storesError } = await supabase
                         .schema("sistemaretiradas")
                         .from("stores")
                         .select("id, name")
-                        .ilike("name", profile.store_default)
-                        .eq("active", true)
-                        .maybeSingle();
+                        .eq("active", true);
 
-                    if (storesData) {
-                        targetStoreId = storesData.id;
-                        setStoreName(storesData.name);
+                    if (storesError) {
+                        console.error("Erro ao buscar lojas:", storesError);
+                        throw storesError;
+                    }
+
+                    if (allStores && allStores.length > 0) {
+                        // Normalizar nomes para comparação (remover espaços, caracteres especiais, etc)
+                        const normalizeName = (name: string) => {
+                            return name
+                                .toLowerCase()
+                                .replace(/[|,]/g, '')
+                                .replace(/\s+/g, ' ')
+                                .trim();
+                        };
+
+                        const normalizedProfileName = normalizeName(profile.store_default || '');
+                        
+                        // Tentar encontrar match exato primeiro
+                        let matchingStore = allStores.find(store => 
+                            store.name === profile.store_default ||
+                            store.name.toLowerCase() === profile.store_default?.toLowerCase()
+                        );
+
+                        // Se não encontrou, tentar match normalizado
+                        if (!matchingStore) {
+                            matchingStore = allStores.find(store => 
+                                normalizeName(store.name) === normalizedProfileName
+                            );
+                        }
+
+                        // Se ainda não encontrou, tentar match parcial
+                        if (!matchingStore) {
+                            matchingStore = allStores.find(store => {
+                                const normalizedStoreName = normalizeName(store.name);
+                                return normalizedStoreName.includes(normalizedProfileName) ||
+                                       normalizedProfileName.includes(normalizedStoreName);
+                            });
+                        }
+
+                        if (matchingStore) {
+                            targetStoreId = matchingStore.id;
+                            setStoreName(matchingStore.name);
+                            console.log('[LojaDashboard] ✅ Loja encontrada:', matchingStore.name, 'ID:', matchingStore.id);
+                        } else {
+                            console.error("Loja não encontrada com nome:", profile.store_default);
+                            console.error("Lojas disponíveis:", allStores.map(s => s.name));
+                            toast.error(`Loja "${profile.store_default}" não encontrada no sistema`);
+                            setLoading(false);
+                            return;
+                        }
                     } else {
-                        console.error("Loja não encontrada com nome:", profile.store_default);
-                        toast.error("Loja não encontrada no sistema");
+                        console.error("Nenhuma loja ativa encontrada no sistema");
+                        toast.error("Nenhuma loja encontrada no sistema");
                         setLoading(false);
                         return;
                     }
