@@ -8,10 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, UserPlus, Trash2, Edit, Mail, Loader2, UserCheck } from "lucide-react";
+import { ArrowLeft, UserPlus, Trash2, Edit, Mail, Loader2, UserCheck, Store } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { normalizeCPF } from "@/lib/cpf";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -40,18 +41,32 @@ interface Colaboradora {
   limite_mensal: number;
   active: boolean;
   store_default: string | null;
+  role?: string;
+}
+
+interface Loja {
+  id: string;
+  name: string;
+  email: string;
+  active: boolean;
+  store_default: string | null;
+  store_name?: string;
+  role?: string;
 }
 
 const Colaboradores = () => {
   const { profile, loading } = useAuth();
   const navigate = useNavigate();
   const [colaboradoras, setColaboradoras] = useState<Colaboradora[]>([]);
+  const [lojas, setLojas] = useState<Loja[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [lojaDialogOpen, setLojaDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false); // Loading state for submit button
   const [deleteDialog, setDeleteDialog] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("colaboradoras");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -66,12 +81,14 @@ const Colaboradores = () => {
     if (!loading && (!profile || profile.role !== "ADMIN")) {
       navigate("/");
     } else if (profile) {
-      fetchColaboradoras();
+      setLoadingData(true);
+      Promise.all([fetchColaboradoras(), fetchLojas()]).finally(() => {
+        setLoadingData(false);
+      });
     }
   }, [profile, loading, navigate]);
 
   const fetchColaboradoras = async () => {
-    setLoadingData(true);
     try {
       const { data, error } = await supabase
         .schema("sistemaretiradas")
@@ -89,8 +106,43 @@ const Colaboradores = () => {
       toast.error("Erro ao carregar colaboradoras: " + (error.message || String(error)));
       console.error("Error fetching colaboradoras:", error);
       setColaboradoras([]);
-    } finally {
-      setLoadingData(false);
+    }
+  };
+
+  const fetchLojas = async () => {
+    try {
+      const { data: lojasData, error: lojasError } = await supabase
+        .schema("sistemaretiradas")
+        .from("profiles")
+        .select("*")
+        .eq("role", "LOJA")
+        .order("name");
+
+      if (lojasError) {
+        throw lojasError;
+      }
+
+      // Buscar nomes das lojas
+      const { data: storesData } = await supabase
+        .schema("sistemaretiradas")
+        .from("stores")
+        .select("id, name")
+        .eq("active", true);
+
+      if (storesData && lojasData) {
+        const storesMap = new Map(storesData.map(s => [s.id, s.name]));
+        const lojasComNomes = lojasData.map((loja: any) => ({
+          ...loja,
+          store_name: storesMap.get(loja.store_default || '') || loja.store_default || 'Não definido'
+        }));
+        setLojas(lojasComNomes);
+      } else {
+        setLojas(lojasData || []);
+      }
+    } catch (error: any) {
+      toast.error("Erro ao carregar lojas: " + (error.message || String(error)));
+      console.error("Error fetching lojas:", error);
+      setLojas([]);
     }
   };
 
@@ -205,9 +257,9 @@ const Colaboradores = () => {
     }
   };
 
-  const handleResetPassword = async (colaboradoraId: string, colaboradoraEmail: string) => {
+  const handleResetPassword = async (userId: string, userEmail: string, userName: string) => {
     try {
-      const newPassword = prompt("Digite a nova senha para a colaboradora (mínimo 6 caracteres):");
+      const newPassword = prompt(`Digite a nova senha para ${userName} (mínimo 6 caracteres):`);
 
       if (!newPassword || newPassword.length < 6) {
         toast.error("Senha inválida. Mínimo 6 caracteres.");
@@ -221,9 +273,9 @@ const Colaboradores = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          user_id: colaboradoraId,
+          user_id: userId,
           new_password: newPassword,
-          email: colaboradoraEmail,
+          email: userEmail,
         }),
       });
 
@@ -257,7 +309,7 @@ const Colaboradores = () => {
     }
   };
 
-  const handleReactivate = async (id: string) => {
+  const handleReactivate = async (id: string, type: "colaboradora" | "loja") => {
     try {
       const { error } = await supabase
         .schema("sistemaretiradas")
@@ -266,10 +318,32 @@ const Colaboradores = () => {
         .eq("id", id);
 
       if (error) throw error;
-      toast.success("Colaboradora reativada com sucesso!");
-      fetchColaboradoras();
+      toast.success(`${type === "loja" ? "Loja" : "Colaboradora"} reativada com sucesso!`);
+      if (type === "loja") {
+        fetchLojas();
+      } else {
+        fetchColaboradoras();
+      }
     } catch (error: any) {
-      toast.error("Erro ao reativar colaboradora: " + error.message);
+      toast.error(`Erro ao reativar ${type === "loja" ? "loja" : "colaboradora"}: ` + error.message);
+    }
+  };
+
+  const handleDeleteLoja = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .schema("sistemaretiradas")
+        .from("profiles")
+        .update({ active: false })
+        .eq("id", id);
+
+      if (error) throw error;
+      toast.success("Loja desativada com sucesso!");
+      fetchLojas();
+    } catch (error: any) {
+      toast.error("Erro ao desativar loja: " + error.message);
+    } finally {
+      setDeleteDialog(null);
     }
   };
 
@@ -291,17 +365,33 @@ const Colaboradores = () => {
 
         <Card className="backdrop-blur-sm bg-card/95 shadow-[var(--shadow-card)] border-primary/10">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-2xl bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                Gerenciar Colaboradoras
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <CardTitle className="text-xl sm:text-2xl bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                Gerenciar Perfis
               </CardTitle>
-              <Button onClick={() => handleOpenDialog()} className="bg-gradient-to-r from-primary to-accent">
-                <UserPlus className="mr-2 h-4 w-4" />
-                Nova Colaboradora
-              </Button>
+              {activeTab === "colaboradoras" ? (
+                <Button onClick={() => handleOpenDialog()} className="bg-gradient-to-r from-primary to-accent text-xs sm:text-sm">
+                  <UserPlus className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                  Nova Colaboradora
+                </Button>
+              ) : null}
             </div>
           </CardHeader>
           <CardContent>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 max-w-[400px] mb-4">
+                <TabsTrigger value="colaboradoras" className="text-xs sm:text-sm">
+                  <UserCheck className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Colaboradoras</span>
+                  <span className="sm:hidden">Colabs</span>
+                </TabsTrigger>
+                <TabsTrigger value="lojas" className="text-xs sm:text-sm">
+                  <Store className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                  Lojas
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="colaboradoras" className="space-y-4">
             {loadingData ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -356,7 +446,7 @@ const Colaboradores = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleResetPassword(colab.id, colab.email)}
+                              onClick={() => handleResetPassword(colab.id, colab.email, colab.name)}
                               className="hover:bg-warning/10 text-warning"
                               title="Resetar Senha"
                             >
@@ -376,7 +466,7 @@ const Colaboradores = () => {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleReactivate(colab.id)}
+                                onClick={() => handleReactivate(colab.id, "colaboradora")}
                                 className="hover:bg-success/10 text-success"
                                 title="Reativar"
                               >
@@ -390,7 +480,85 @@ const Colaboradores = () => {
                   </TableBody>
                 </Table>
               </div>
-            )}
+              </TabsContent>
+
+              <TabsContent value="lojas" className="space-y-4">
+                {lojas.length === 0 && !loadingData ? (
+                  <div className="text-center text-muted-foreground py-12">
+                    Nenhuma loja cadastrada
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-primary/10 overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="font-semibold">Nome</TableHead>
+                          <TableHead className="font-semibold">Email</TableHead>
+                          <TableHead className="font-semibold">Loja</TableHead>
+                          <TableHead className="font-semibold">Status</TableHead>
+                          <TableHead className="font-semibold">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {lojas.map((loja: any) => (
+                          <TableRow key={loja.id} className="hover:bg-muted/50 transition-colors">
+                            <TableCell className="font-medium">{loja.name}</TableCell>
+                            <TableCell>{loja.email}</TableCell>
+                            <TableCell>
+                              <span className="text-xs font-medium px-2 py-1 bg-primary/10 rounded-full">
+                                {loja.store_name || loja.store_default || "-"}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${loja.active
+                                ? "bg-success/10 text-success"
+                                : "bg-muted text-muted-foreground"
+                                }`}>
+                                {loja.active ? "Ativa" : "Inativa"}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleResetPassword(loja.id, loja.email, loja.name)}
+                                  className="hover:bg-warning/10 text-warning"
+                                  title="Resetar Senha"
+                                >
+                                  <Mail className="h-4 w-4" />
+                                </Button>
+                                {loja.active ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setDeleteDialog(`loja_${loja.id}`)}
+                                    className="hover:bg-destructive/10 text-destructive"
+                                    title="Desativar"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleReactivate(loja.id, "loja")}
+                                    className="hover:bg-success/10 text-success"
+                                    title="Reativar"
+                                  >
+                                    <UserCheck className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>
@@ -515,13 +683,22 @@ const Colaboradores = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Desativação</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja desativar esta colaboradora? Ela não poderá mais acessar o sistema.
+              {deleteDialog?.startsWith('loja_')
+                ? "Tem certeza que deseja desativar esta loja? Ela não poderá mais acessar o sistema."
+                : "Tem certeza que deseja desativar esta colaboradora? Ela não poderá mais acessar o sistema."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteDialog && handleDelete(deleteDialog)}
+              onClick={() => {
+                if (deleteDialog?.startsWith('loja_')) {
+                  const lojaId = deleteDialog.replace('loja_', '');
+                  handleDeleteLoja(lojaId);
+                } else if (deleteDialog) {
+                  handleDelete(deleteDialog);
+                }
+              }}
               className="bg-destructive text-destructive-foreground"
             >
               Desativar
