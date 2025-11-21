@@ -186,16 +186,54 @@ const MetasManagementContent = () => {
         }
     };
 
+    // Função auxiliar para ordenar semana_referencia (formato WWYYYY)
+    const sortWeekRef = (a: string, b: string): number => {
+        // Suporta ambos os formatos para migração
+        const parseWeekRef = (ref: string): { year: number; week: number } => {
+            if (ref.length !== 6) return { year: 0, week: 0 };
+            
+            const firstTwo = parseInt(ref.substring(0, 2));
+            if (firstTwo > 50) {
+                // Formato antigo YYYYWW
+                return {
+                    year: parseInt(ref.substring(0, 4)),
+                    week: parseInt(ref.substring(4, 6))
+                };
+            } else {
+                // Formato novo WWYYYY
+                return {
+                    year: parseInt(ref.substring(2, 6)),
+                    week: parseInt(ref.substring(0, 2))
+                };
+            }
+        };
+        
+        const aParsed = parseWeekRef(a);
+        const bParsed = parseWeekRef(b);
+        
+        // Ordenar por ano primeiro, depois por semana
+        if (aParsed.year !== bParsed.year) {
+            return bParsed.year - aParsed.year; // Mais recente primeiro
+        }
+        return bParsed.week - aParsed.week; // Semana mais recente primeiro
+    };
+
     const fetchWeeklyGoals = async () => {
         try {
             const { data, error } = await supabase
                 .from("goals")
                 .select(`*, stores (name)`)
                 .eq("tipo", "SEMANAL")
-                .order("semana_referencia", { ascending: false });
+                .limit(500); // Limitar para performance
 
             if (error) throw error;
-            if (data) setWeeklyGoals(data as any);
+            if (data) {
+                // Ordenar no frontend para garantir ordenação correta com novo formato
+                const sorted = [...data].sort((a: any, b: any) => 
+                    sortWeekRef(a.semana_referencia || "", b.semana_referencia || "")
+                );
+                setWeeklyGoals(sorted as any);
+            }
         } catch (err) {
             console.error("Error fetching weekly goals:", err);
             toast.error("Erro ao carregar metas semanais");
