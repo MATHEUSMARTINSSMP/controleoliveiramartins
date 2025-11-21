@@ -183,14 +183,10 @@ function MetasManagementContent() {
 
     const handleStoreSelect = (storeId: string) => {
         setSelectedStore(storeId);
-        // Filter active collaborators for this store (assuming we had store_id in profiles, but currently we might not have strict link, 
-        // so we'll fetch all and let user filter or just show all for now. 
-        // Ideally profiles should have store_id. If not, we show all active colabs.)
-        // For now, let's assume we show all and user can remove/zero out those not in store, 
-        // OR better: Distribute among ALL active colabs for now as requested "distribui igualmente entre colaboradoras".
 
-        // Initialize colab goals
-        const activeColabs = colaboradoras; // In real app, filter by store if possible
+        // Filter active collaborators for this store
+        const activeColabs = colaboradoras.filter(c => c.store_id === storeId);
+
         setColabGoals(activeColabs.map(c => ({
             id: c.id,
             name: c.name,
