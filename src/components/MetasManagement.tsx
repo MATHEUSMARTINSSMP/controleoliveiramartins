@@ -545,10 +545,11 @@ function MetasManagementContent() {
                                             const dayNum = parseInt(date.split('-')[2]);
                                             const metaValue = parseFloat(metaLoja || "0");
                                             const superMetaValue = parseFloat(superMetaLoja || "0");
-                                            const percentage = totalWeight > 0 ? (weight / totalWeight) * 100 : 0;
-                                            const dailyMeta = (metaValue * percentage) / 100;
-                                            const dailySuperMeta = (superMetaValue * percentage) / 100;
+                                            // weight is already a percentage (e.g., 5.91 means 5.91%)
+                                            const dailyMeta = (metaValue * weight) / 100;
+                                            const dailySuperMeta = (superMetaValue * weight) / 100;
                                             const isFirstHalf = dayNum <= 15;
+
 
                                             return (
                                                 <div
@@ -585,8 +586,8 @@ function MetasManagementContent() {
 
                                     {/* Total Sum Indicator */}
                                     <div className={`p-2 rounded-lg border text-center font-semibold text-sm ${isValid
-                                            ? 'bg-green-50 border-green-300 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-400'
-                                            : 'bg-orange-50 border-orange-300 text-orange-700 dark:bg-orange-900/20 dark:border-orange-700 dark:text-orange-400'
+                                        ? 'bg-green-50 border-green-300 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-400'
+                                        : 'bg-orange-50 border-orange-300 text-orange-700 dark:bg-orange-900/20 dark:border-orange-700 dark:text-orange-400'
                                         }`}>
                                         Soma Total: {totalWeight.toFixed(2)}% {isValid ? '✓' : `(falta ${(100 - totalWeight).toFixed(2)}%)`}
                                     </div>
