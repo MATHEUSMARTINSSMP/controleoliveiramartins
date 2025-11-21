@@ -7,10 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check } from "lucide-react";
+import { Plus, Pencil, Trash, UserCheck, Calendar, ClipboardList, Check } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Badge } from "@/components/ui/badge"; interface Goal {
+import { Badge } from "@/components/ui/badge";
+
+interface Goal {
     id: string;
     tipo: string;
     mes_referencia: string;
@@ -26,6 +28,8 @@ import { Badge } from "@/components/ui/badge"; interface Goal {
     peso_sexta: number;
     peso_sabado: number;
     ativo: boolean;
+    stores?: { name: string };
+    profiles?: { name: string };
 }
 
 export default function MetasManagement() {
@@ -54,23 +58,34 @@ export default function MetasManagement() {
     });
 
     useEffect(() => {
+        console.log("MetasManagement mounted");
         fetchGoals();
         fetchStores();
         fetchColaboradoras();
     }, []);
 
     const fetchGoals = async () => {
-        const { data, error } = await supabase
-            .from("goals")
-            .select(`
-        *,
-        stores (name),
-        profiles (name)
-      `)
-            .order("mes_referencia", { ascending: false });
+        try {
+            const { data, error } = await supabase
+                .from("goals")
+                .select(`
+            *,
+            stores (name),
+            profiles (name)
+          `)
+                .order("mes_referencia", { ascending: false });
 
-        if (!error && data) {
-            setGoals(data as any);
+            if (error) {
+                console.error("Error fetching goals:", error);
+                toast.error("Erro ao carregar metas");
+                return;
+            }
+
+            if (data) {
+                setGoals(data as any);
+            }
+        } catch (err) {
+            console.error("Exception fetching goals:", err);
         }
     };
 
@@ -193,8 +208,12 @@ export default function MetasManagement() {
     };
 
     return (
-        <div className="space-y-4">
-            {/* Filters */}
+        <div className="min-h-screen bg-gradient-to-br from-background via-muted/50 to-background p-6 space-y-8">
+            <div className="flex items-center justify-between">
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+                    Gerenciar Metas
+                </h1>
+            </div>
             <div className="flex flex-col sm:flex-row gap-4 mb-4">
                 <Select value={storeFilter} onValueChange={setStoreFilter}>
                     <SelectTrigger className="w-full sm:w-48">

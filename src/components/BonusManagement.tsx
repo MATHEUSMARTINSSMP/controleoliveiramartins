@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, Gift, Check, Trophy } from "lucide-react";
+import { Plus, Pencil, Trash, Gift, Check, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
@@ -39,21 +39,31 @@ export default function BonusManagement() {
     });
 
     useEffect(() => {
+        console.log("BonusManagement mounted");
         fetchBonuses();
         fetchStores();
     }, []);
 
     const fetchBonuses = async () => {
-        const { data, error } = await supabase
-            .from("bonuses")
-            .select(`
+        try {
+            const { data, error } = await supabase
+                .from("bonuses")
+                .select(`
                 *,
                 stores (name)
             `)
-            .order("created_at", { ascending: false });
+                .order("created_at", { ascending: false });
 
-        if (!error && data) {
-            setBonuses(data as any);
+            if (error) {
+                console.error("Error fetching bonuses:", error);
+                return;
+            }
+
+            if (data) {
+                setBonuses(data as any);
+            }
+        } catch (err) {
+            console.error("Exception fetching bonuses:", err);
         }
     };
 
@@ -145,8 +155,12 @@ export default function BonusManagement() {
     };
 
     return (
-        <div className="space-y-4">
-            {/* Filters */}
+        <div className="min-h-screen bg-gradient-to-br from-background via-muted/50 to-background p-6 space-y-8">
+            <div className="flex items-center justify-between">
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+                    Gerenciar Bônus
+                </h1>
+            </div>
             <div className="flex flex-col sm:flex-row gap-4 mb-4">
                 <Select value={storeFilter} onValueChange={setStoreFilter}>
                     <SelectTrigger className="w-full sm:w-48">
