@@ -1,3 +1,5 @@
+import React from "react";
+
 /**
  * Obtém o caminho da logo baseado no ID da loja
  * @param storeId - ID da loja (pode ser store_id ou store_default que contém o ID)
