@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Calendar, ArrowLeft, Save, Calculator, UserCheck, CheckCircle2 } from "lucide-react";
+import { Calendar, ArrowLeft, Save, Calculator, UserCheck, CheckCircle2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, getWeek, getYear } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -53,6 +53,14 @@ const WeeklyGoalsManagement = () => {
     const [suggestedWeeklySuperMeta, setSuggestedWeeklySuperMeta] = useState<number>(0);
     const [colaboradorasAtivas, setColaboradorasAtivas] = useState<{ id: string; name: string; active: boolean }[]>([]);
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+    const [customizingGoals, setCustomizingGoals] = useState(false);
+    const [customMetaEqual, setCustomMetaEqual] = useState<string>("");
+    const [customSuperMetaEqual, setCustomSuperMetaEqual] = useState<string>("");
+    const [customMetasIndividuais, setCustomMetasIndividuais] = useState<{ id: string; meta: number; superMeta: number }[]>([]);
+    const [customizingGoals, setCustomizingGoals] = useState(false);
+    const [customMetaEqual, setCustomMetaEqual] = useState<string>("");
+    const [customSuperMetaEqual, setCustomSuperMetaEqual] = useState<string>("");
+    const [customMetasIndividuais, setCustomMetasIndividuais] = useState<{ id: string; meta: number; superMeta: number }[]>([]);
 
     useEffect(() => {
         fetchStores();
@@ -258,6 +266,130 @@ const WeeklyGoalsManagement = () => {
         })));
     };
 
+    const handleStartCustomizing = () => {
+        const activeColabs = colaboradorasAtivas.filter(c => c.active);
+        if (activeColabs.length === 0) {
+            toast.error("Selecione pelo menos uma colaboradora para receber a meta semanal");
+            return;
+        }
+
+        // Initialize custom metas with suggestions or empty
+        setCustomMetaEqual(suggestedWeeklyMeta > 0 ? suggestedWeeklyMeta.toFixed(2) : "");
+        setCustomSuperMetaEqual(suggestedWeeklySuperMeta > 0 ? suggestedWeeklySuperMeta.toFixed(2) : "");
+        
+        setCustomMetasIndividuais(activeColabs.map(c => ({
+            id: c.id,
+            meta: suggestedWeeklyMeta > 0 ? suggestedWeeklyMeta : 0,
+            superMeta: suggestedWeeklySuperMeta > 0 ? suggestedWeeklySuperMeta : 0
+        })));
+        
+        setCustomizingGoals(true);
+    };
+
+    const handleApplyEqualMeta = () => {
+        if (!customMetaEqual || !customSuperMetaEqual) {
+            toast.error("Preencha os valores de meta e super meta");
+            return;
+        }
+
+        const activeColabs = colaboradorasAtivas.filter(c => c.active);
+        if (activeColabs.length === 0) {
+            toast.error("Selecione pelo menos uma colaboradora para receber a meta semanal");
+            return;
+        }
+
+        const metaValue = parseFloat(customMetaEqual);
+        const superMetaValue = parseFloat(customSuperMetaEqual);
+
+        if (isNaN(metaValue) || isNaN(superMetaValue) || metaValue <= 0 || superMetaValue <= 0) {
+            toast.error("Valores de meta devem ser maiores que zero");
+            return;
+        }
+
+        handleSaveWeeklyGoals(activeColabs.map(c => ({
+            id: c.id,
+            meta: metaValue,
+            superMeta: superMetaValue
+        })));
+    };
+
+    const handleApplyIndividualMetas = () => {
+        const activeColabs = colaboradorasAtivas.filter(c => c.active);
+        if (activeColabs.length === 0) {
+            toast.error("Selecione pelo menos uma colaboradora para receber a meta semanal");
+            return;
+        }
+
+        const colabsWithMetas = customMetasIndividuais.filter(c => 
+            activeColabs.some(ac => ac.id === c.id) && (c.meta > 0 || c.superMeta > 0)
+        );
+
+        if (colabsWithMetas.length === 0) {
+            toast.error("Defina pelo menos uma meta para uma colaboradora");
+            return;
+        }
+
+        handleSaveWeeklyGoals(colabsWithMetas.map(c => ({
+            id: c.id,
+            meta: c.meta,
+            superMeta: c.superMeta
+        })));
+    };
+
+    const handleDeleteWeeklyGoals = async () => {
+        if (!selectedStore || !selectedWeek) {
+            toast.error("Selecione uma loja e uma semana primeiro");
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from("goals")
+                .delete()
+                .eq("store_id", selectedStore)
+                .eq("semana_referencia", selectedWeek)
+                .eq("tipo", "SEMANAL");
+
+            if (error) throw error;
+
+            toast.success("Metas semanais excluídas com sucesso!");
+            setDialogOpen(false);
+            resetForm();
+            fetchWeeklyGoals();
+        } catch (err: any) {
+            console.error("Error deleting weekly goals:", err);
+            toast.error(err.message || "Erro ao excluir metas semanais");
+        }
+    };
+
+    const updateIndividualMeta = (colabId: string, field: 'meta' | 'superMeta', value: string) => {
+        const numValue = parseFloat(value) || 0;
+        setCustomMetasIndividuais(prev => prev.map(c => 
+            c.id === colabId ? { ...c, [field]: numValue } : c
+        ));
+    };
+
+    const applyEqualToAll = () => {
+        if (!customMetaEqual || !customSuperMetaEqual) {
+            toast.error("Preencha os valores iguais primeiro");
+            return;
+        }
+
+        const metaValue = parseFloat(customMetaEqual);
+        const superMetaValue = parseFloat(customSuperMetaEqual);
+
+        if (isNaN(metaValue) || isNaN(superMetaValue)) {
+            toast.error("Valores inválidos");
+            return;
+        }
+
+        setCustomMetasIndividuais(prev => prev.map(c => ({
+            ...c,
+            meta: metaValue,
+            superMeta: superMetaValue
+        })));
+    };
+
     const handleSaveWeeklyGoals = async (colabsWithGoals: { id: string; meta: number; superMeta: number }[]) => {
         if (!selectedStore || !selectedWeek || colabsWithGoals.length === 0) {
             toast.error("Preencha todos os campos obrigatórios");
@@ -323,6 +455,10 @@ const WeeklyGoalsManagement = () => {
         setSuggestedWeeklyMeta(0);
         setSuggestedWeeklySuperMeta(0);
         setColaboradorasAtivas([]);
+        setCustomizingGoals(false);
+        setCustomMetaEqual("");
+        setCustomSuperMetaEqual("");
+        setCustomMetasIndividuais([]);
     };
 
     // Generate week options (current week and 4 weeks ahead)
@@ -616,7 +752,19 @@ const WeeklyGoalsManagement = () => {
                         )}
 
                         {/* Botões de Ação */}
-                        <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
+                        <div className="flex flex-col sm:flex-row justify-between gap-2 pt-3 sm:pt-4 border-t">
+                            {/* Botão Excluir Meta (apenas se estiver editando e já existir meta) */}
+                            {editingGoal && (
+                                <Button
+                                    type="button"
+                                    variant="destructive"
+                                    onClick={handleDeleteWeeklyGoals}
+                                    className="w-full sm:w-auto text-xs sm:text-sm"
+                                    size="sm"
+                                >
+                                    Excluir Meta Semanal
+                                </Button>
+                            )}
                             <Button
                                 type="button"
                                 variant="outline"
@@ -624,7 +772,7 @@ const WeeklyGoalsManagement = () => {
                                     setDialogOpen(false);
                                     resetForm();
                                 }}
-                                className="w-full sm:w-auto text-xs sm:text-sm"
+                                className="w-full sm:w-auto ml-auto text-xs sm:text-sm"
                                 size="sm"
                             >
                                 Cancelar
