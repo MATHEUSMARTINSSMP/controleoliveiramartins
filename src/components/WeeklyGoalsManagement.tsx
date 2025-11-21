@@ -486,18 +486,33 @@ const WeeklyGoalsManagement = () => {
                 return;
             }
 
-            // Usar UPSERT: se existe, atualiza; se não existe, cria
-            // A constraint única deve ser: store_id, semana_referencia, tipo, colaboradora_id
-            const { error: upsertError, data: upsertData } = await supabase
+            // Estratégia: DELETE das colaboradoras específicas primeiro, depois INSERT
+            // Isso evita problemas com constraint e garante que não haja duplicatas
+            const colaboradoraIds = uniqueColabsList.map(c => c.id);
+            
+            // Deletar metas existentes para essas colaboradoras nesta semana/loja
+            const { error: deleteError } = await supabase
                 .from("goals")
-                .upsert(payloads, {
-                    onConflict: 'store_id, semana_referencia, tipo, colaboradora_id'
-                })
+                .delete()
+                .eq("store_id", selectedStore)
+                .eq("semana_referencia", selectedWeek)
+                .eq("tipo", "SEMANAL")
+                .in("colaboradora_id", colaboradoraIds);
+
+            if (deleteError) {
+                console.error("Delete error:", deleteError);
+                throw deleteError;
+            }
+
+            // Agora inserir as novas metas (já garantimos que não há duplicatas)
+            const { error: insertError } = await supabase
+                .from("goals")
+                .insert(payloads)
                 .select();
 
-            if (upsertError) {
-                console.error("Upsert error:", upsertError);
-                throw upsertError;
+            if (insertError) {
+                console.error("Insert error:", insertError);
+                throw insertError;
             }
 
             toast.success(`Metas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${uniqueColabsList.length} colaboradora(s)!`);
