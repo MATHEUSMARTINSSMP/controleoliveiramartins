@@ -531,26 +531,11 @@ const WeeklyGoalsManagement = () => {
                 return;
             }
 
-            // Estratégia robusta: DELETE de todas as metas desta semana/loja primeiro, depois INSERT
-            // Isso evita problemas com constraint e garante atomicidade
-            // Deletar todas as metas existentes para esta semana/loja
-            const { error: deleteError, count: deleteCount } = await supabase
-                .from("goals")
-                .delete()
-                .eq("store_id", selectedStore)
-                .eq("semana_referencia", selectedWeek)
-                .eq("tipo", "SEMANAL");
-
-            if (deleteError) {
-                console.error("Delete error:", deleteError);
-                throw deleteError;
-            }
-
-            // Pequeno delay para garantir que o DELETE foi processado completamente
-            // Isso evita race conditions em sistemas distribuídos
-            await new Promise(resolve => setTimeout(resolve, 200));
-
-            // Verificar se há duplicatas no payload antes de inserir
+            // Estratégia: UPSERT com onConflict usando o índice único criado
+            // Com o índice idx_goals_weekly_unique, podemos usar UPSERT automaticamente
+            // que atualiza se existe ou insere se não existe, tudo de forma atômica
+            
+            // Primeiro, validar que não há duplicatas no payload
             const seenKeys = new Set<string>();
             const duplicatePayloads = payloads.filter(p => {
                 const key = `${p.store_id}-${p.semana_referencia}-${p.tipo}-${p.colaboradora_id}`;
@@ -567,68 +552,60 @@ const WeeklyGoalsManagement = () => {
                 return;
             }
 
-            // Agora inserir as novas metas (já garantimos que não há duplicatas)
-            // Inserir em batch para melhor performance
-            const { data: insertData, error: insertError } = await supabase
+            // Tentar UPSERT primeiro (com o índice único, deve funcionar)
+            // onConflict: especifica as colunas do índice único
+            const { data: upsertData, error: upsertError } = await supabase
                 .from("goals")
-                .insert(payloads)
+                .upsert(payloads, {
+                    onConflict: 'store_id,semana_referencia,tipo,colaboradora_id',
+                    ignoreDuplicates: false
+                })
                 .select();
 
-            if (insertError) {
-                console.error("Insert error:", insertError);
-                // Se ainda assim houver erro de duplicata (pouco provável após DELETE), 
-                // tentar inserir uma por uma como fallback
-                if (insertError.code === '23505' || insertError.message?.includes('duplicate')) {
-                    console.warn("Erro de duplicata após DELETE, tentando inserir individualmente...");
-                    const individualResults = [];
-                    const individualErrors = [];
+            if (upsertError) {
+                console.error("Upsert error:", upsertError);
+                
+                // Se UPSERT falhar (pode acontecer com índices parciais),
+                // usar fallback: DELETE + INSERT
+                if (upsertError.code === '42P10' || upsertError.message?.includes('ON CONFLICT')) {
+                    console.warn("UPSERT não suportado, usando fallback DELETE + INSERT...");
                     
-                    for (const payload of payloads) {
-                        // Primeiro deletar especificamente esta meta
-                        await supabase
-                            .from("goals")
-                            .delete()
-                            .eq("store_id", payload.store_id)
-                            .eq("semana_referencia", payload.semana_referencia)
-                            .eq("tipo", payload.tipo)
-                            .eq("colaboradora_id", payload.colaboradora_id);
-                        
-                        // Pequeno delay
-                        await new Promise(resolve => setTimeout(resolve, 50));
-                        
-                        // Inserir
-                        const { data: singleData, error: singleError } = await supabase
-                            .from("goals")
-                            .insert(payload)
-                            .select()
-                            .single();
-                        
-                        if (singleError) {
-                            individualErrors.push({ payload, error: singleError });
-                        } else {
-                            individualResults.push(singleData);
-                        }
+                    // Deletar todas as metas existentes para esta semana/loja
+                    const { error: deleteError } = await supabase
+                        .from("goals")
+                        .delete()
+                        .eq("store_id", selectedStore)
+                        .eq("semana_referencia", selectedWeek)
+                        .eq("tipo", "SEMANAL");
+
+                    if (deleteError) {
+                        console.error("Delete error:", deleteError);
+                        throw deleteError;
                     }
-                    
-                    if (individualErrors.length > 0) {
-                        console.error("Erros ao inserir metas individualmente:", individualErrors);
-                        throw individualErrors[0].error;
+
+                    // Pequeno delay para garantir que o DELETE foi processado
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
+                    // Inserir as novas metas
+                    const { data: insertData, error: insertError } = await supabase
+                        .from("goals")
+                        .insert(payloads)
+                        .select();
+
+                    if (insertError) {
+                        console.error("Insert error:", insertError);
+                        throw insertError;
                     }
-                    
-                    // Se chegou aqui, todas foram inseridas com sucesso
-                    if (individualResults.length !== payloads.length) {
-                        throw new Error(`Apenas ${individualResults.length} de ${payloads.length} metas foram inseridas.`);
-                    }
-                    
-                    // Se usou fallback individual, usar individualResults para contagem
-                    const successCount = individualResults.length || uniqueColabsList.length;
+
+                    const successCount = insertData?.length || uniqueColabsList.length;
                     toast.success(`Metas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${successCount} colaboradora(s)!`);
                 } else {
-                    throw insertError;
+                    // Outro tipo de erro, lançar
+                    throw upsertError;
                 }
             } else {
-                // Sucesso: usar insertData para contagem
-                const successCount = insertData?.length || uniqueColabsList.length;
+                // UPSERT funcionou perfeitamente!
+                const successCount = upsertData?.length || uniqueColabsList.length;
                 toast.success(`Metas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${successCount} colaboradora(s)!`);
             }
             setDialogOpen(false);
