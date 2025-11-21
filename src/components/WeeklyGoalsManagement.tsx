@@ -389,14 +389,13 @@ const WeeklyGoalsManagement = () => {
             // Remover duplicatas baseado em colaboradora_id
             const uniqueColabs = new Map<string, { id: string; meta: number; superMeta: number }>();
             colabsWithGoals.forEach(colab => {
-                if (!uniqueColabs.has(colab.id) || (colab.meta > 0 || colab.superMeta > 0)) {
-                    uniqueColabs.set(colab.id, colab);
-                }
+                // Manter apenas uma entrada por colaboradora (a última)
+                uniqueColabs.set(colab.id, colab);
             });
 
             const uniqueColabsList = Array.from(uniqueColabs.values());
 
-            // Create/Update individual weekly goals for each collaborator
+            // Preparar payloads para UPSERT (Create if not exists, Update if exists)
             const payloads = uniqueColabsList.map(colab => ({
                 store_id: selectedStore,
                 semana_referencia: selectedWeek,
@@ -408,31 +407,12 @@ const WeeklyGoalsManagement = () => {
                 mes_referencia: null,
             }));
 
-            // Primeiro, deletar metas existentes APENAS para as colaboradoras que estamos atualizando
-            const colaboradoraIds = uniqueColabsList.map(c => c.id);
-            
-            const { error: deleteError } = await supabase
-                .from("goals")
-                .delete()
-                .eq("store_id", selectedStore)
-                .eq("semana_referencia", selectedWeek)
-                .eq("tipo", "SEMANAL")
-                .in("colaboradora_id", colaboradoraIds);
-
-            if (deleteError) {
-                console.error("Delete error:", deleteError);
-                throw deleteError;
-            }
-
-            // Aguardar um momento para garantir que o DELETE foi processado
-            await new Promise(resolve => setTimeout(resolve, 100));
-
-            // Inserir novas metas usando UPSERT para garantir que não haja duplicatas
+            // Usar UPSERT: se existe, atualiza; se não existe, cria
+            // A constraint única deve ser: store_id, semana_referencia, tipo, colaboradora_id
             const { error: upsertError } = await supabase
                 .from("goals")
                 .upsert(payloads, {
-                    onConflict: 'store_id, semana_referencia, tipo, colaboradora_id',
-                    ignoreDuplicates: false
+                    onConflict: 'store_id, semana_referencia, tipo, colaboradora_id'
                 });
 
             if (upsertError) {
@@ -440,7 +420,7 @@ const WeeklyGoalsManagement = () => {
                 throw upsertError;
             }
 
-            toast.success(`Metas semanais criadas para ${uniqueColabsList.length} colaboradora(s)!`);
+            toast.success(`Metas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${uniqueColabsList.length} colaboradora(s)!`);
             setDialogOpen(false);
             resetForm();
             fetchWeeklyGoals();
@@ -449,7 +429,9 @@ const WeeklyGoalsManagement = () => {
             
             // Mensagem de erro mais específica
             if (err.code === '23505' || err.message?.includes('duplicate key')) {
-                toast.error("Erro: Meta duplicada detectada. Tente novamente ou exclua a meta existente primeiro.");
+                toast.error("Erro: Meta duplicada detectada. Verifique os dados e tente novamente.");
+            } else if (err.code === '23514') {
+                toast.error("Erro de validação: Verifique se os valores estão corretos.");
             } else {
                 toast.error(err.message || "Erro ao salvar metas semanais");
             }
