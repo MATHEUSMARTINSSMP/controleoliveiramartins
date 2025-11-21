@@ -531,11 +531,7 @@ const WeeklyGoalsManagement = () => {
                 return;
             }
 
-            // Estratégia: UPSERT com onConflict usando o índice único criado
-            // Com o índice idx_goals_weekly_unique, podemos usar UPSERT automaticamente
-            // que atualiza se existe ou insere se não existe, tudo de forma atômica
-            
-            // Primeiro, validar que não há duplicatas no payload
+            // Validar que não há duplicatas no payload antes de processar
             const seenKeys = new Set<string>();
             const duplicatePayloads = payloads.filter(p => {
                 const key = `${p.store_id}-${p.semana_referencia}-${p.tipo}-${p.colaboradora_id}`;
