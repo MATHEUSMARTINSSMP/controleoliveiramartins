@@ -118,12 +118,36 @@ const MetasManagementContent = () => {
         const monday = startOfWeek(hoje, { weekStartsOn: 1 });
         const year = getYear(monday);
         const week = getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
-        return `${year}${String(week).padStart(2, '0')}`;
+        // Formato: WWYYYY (ex: 462025 para semana 46 de 2025)
+        return `${String(week).padStart(2, '0')}${year}`;
     }
 
     function getWeekRange(weekRef: string): { start: Date; end: Date } {
-        const year = parseInt(weekRef.substring(0, 4));
-        const week = parseInt(weekRef.substring(4, 6));
+        // Suporta ambos os formatos: WWYYYY (novo) e YYYYWW (antigo - para migração)
+        let week: number, year: number;
+        
+        if (weekRef.length === 6) {
+            // Verificar se é formato antigo (YYYYWW) ou novo (WWYYYY)
+            const firstTwo = parseInt(weekRef.substring(0, 2));
+            if (firstTwo > 50) {
+                // Provavelmente é ano (20xx), formato antigo YYYYWW
+                year = parseInt(weekRef.substring(0, 4));
+                week = parseInt(weekRef.substring(4, 6));
+            } else {
+                // Formato novo WWYYYY
+                week = parseInt(weekRef.substring(0, 2));
+                year = parseInt(weekRef.substring(2, 6));
+            }
+        } else {
+            // Fallback: assumir formato novo se não tiver 6 caracteres
+            week = parseInt(weekRef.substring(0, 2));
+            year = parseInt(weekRef.substring(2, 6));
+        }
+        
+        // Validar valores
+        if (isNaN(week) || isNaN(year) || week < 1 || week > 53 || year < 2000 || year > 2100) {
+            throw new Error(`Formato de semana_referencia inválido: ${weekRef}`);
+        }
         
         // Get first Monday of the year
         const jan1 = new Date(year, 0, 1);
@@ -683,7 +707,7 @@ const MetasManagementContent = () => {
                         <Plus className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                         <span className="hidden sm:inline">Nova Distribuição Mensal</span>
                         <span className="sm:hidden">Nova Mensal</span>
-                    </Button>
+                </Button>
                 ) : (
                     <Button onClick={() => { resetWeeklyForm(); setWeeklyDialogOpen(true); }} className="bg-primary hover:bg-primary/90 text-xs sm:text-sm w-full sm:w-auto" size="sm">
                         <Plus className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
@@ -708,16 +732,16 @@ const MetasManagementContent = () => {
 
                 {/* Mensal Tab */}
                 <TabsContent value="mensal" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
-                    {/* Filters */}
+            {/* Filters */}
                     <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 bg-card p-3 sm:p-4 rounded-lg border shadow-sm">
                         <div className="w-full sm:w-48">
                             <Label className="text-xs sm:text-sm">Filtrar por Loja</Label>
-                            <Select value={storeFilter} onValueChange={setStoreFilter}>
+                    <Select value={storeFilter} onValueChange={setStoreFilter}>
                                 <SelectTrigger className="text-xs sm:text-sm">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="ALL">Todas</SelectItem>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ALL">Todas</SelectItem>
                                     {stores.map(s => (
                                         <SelectItem key={s.id} value={s.id}>
                                             <div className="flex items-center gap-2">
@@ -726,9 +750,9 @@ const MetasManagementContent = () => {
                                             </div>
                                         </SelectItem>
                                     ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        </SelectContent>
+                    </Select>
+                </div>
                         <div className="w-full sm:w-48">
                             <Label className="text-xs sm:text-sm">Mês</Label>
                             <Input 
@@ -737,11 +761,11 @@ const MetasManagementContent = () => {
                                 placeholder="YYYYMM"
                                 className="text-xs sm:text-sm"
                             />
-                        </div>
-                    </div>
+                </div>
+            </div>
 
-                    {/* Goals List */}
-                    <div className="space-y-6">
+            {/* Goals List */}
+            <div className="space-y-6">
                 {Object.entries(
                     goals
                         .filter(g => storeFilter === 'ALL' || g.store_id === storeFilter)
@@ -802,7 +826,7 @@ const MetasManagementContent = () => {
                         </div>
                     </Card>
                 ))}
-                    </div>
+            </div>
                 </TabsContent>
 
                 {/* Semanal Tab */}
@@ -1153,7 +1177,7 @@ const MetasManagementContent = () => {
                                             <div className="flex items-center gap-2">
                                                 <StoreLogo storeId={store.id} className="w-4 h-4 object-contain flex-shrink-0" />
                                                 <span>{store.name}</span>
-                                            </div>
+        </div>
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

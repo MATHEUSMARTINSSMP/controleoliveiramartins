@@ -45,12 +45,36 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
         const monday = startOfWeek(hoje, { weekStartsOn: 1 });
         const year = getYear(monday);
         const week = getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
-        return `${year}${String(week).padStart(2, '0')}`;
+        // Formato: WWYYYY (ex: 462025 para semana 46 de 2025)
+        return `${String(week).padStart(2, '0')}${year}`;
     }
 
     function getWeekRange(weekRef: string): { start: Date; end: Date } {
-        const year = parseInt(weekRef.substring(0, 4));
-        const week = parseInt(weekRef.substring(4, 6));
+        // Suporta ambos os formatos: WWYYYY (novo) e YYYYWW (antigo - para migração)
+        let week: number, year: number;
+        
+        if (weekRef.length === 6) {
+            // Verificar se é formato antigo (YYYYWW) ou novo (WWYYYY)
+            const firstTwo = parseInt(weekRef.substring(0, 2));
+            if (firstTwo > 50) {
+                // Provavelmente é ano (20xx), formato antigo YYYYWW
+                year = parseInt(weekRef.substring(0, 4));
+                week = parseInt(weekRef.substring(4, 6));
+            } else {
+                // Formato novo WWYYYY
+                week = parseInt(weekRef.substring(0, 2));
+                year = parseInt(weekRef.substring(2, 6));
+            }
+        } else {
+            // Fallback: assumir formato novo se não tiver 6 caracteres
+            week = parseInt(weekRef.substring(0, 2));
+            year = parseInt(weekRef.substring(2, 6));
+        }
+        
+        // Validar valores
+        if (isNaN(week) || isNaN(year) || week < 1 || week > 53 || year < 2000 || year > 2100) {
+            throw new Error(`Formato de semana_referencia inválido: ${weekRef}`);
+        }
         
         // Get first Monday of the year
         const jan1 = new Date(year, 0, 1);

@@ -69,12 +69,36 @@ const WeeklyGoalsManagement = () => {
         const monday = startOfWeek(hoje, { weekStartsOn: 1 });
         const year = getYear(monday);
         const week = getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
-        return `${year}${String(week).padStart(2, '0')}`;
+        // Formato: WWYYYY (ex: 462025 para semana 46 de 2025)
+        return `${String(week).padStart(2, '0')}${year}`;
     }
 
     function getWeekRange(weekRef: string): { start: Date; end: Date } {
-        const year = parseInt(weekRef.substring(0, 4));
-        const week = parseInt(weekRef.substring(4, 6));
+        // Suporta ambos os formatos: WWYYYY (novo) e YYYYWW (antigo - para migração)
+        let week: number, year: number;
+        
+        if (weekRef.length === 6) {
+            // Verificar se é formato antigo (YYYYWW) ou novo (WWYYYY)
+            const firstTwo = parseInt(weekRef.substring(0, 2));
+            if (firstTwo > 50) {
+                // Provavelmente é ano (20xx), formato antigo YYYYWW
+                year = parseInt(weekRef.substring(0, 4));
+                week = parseInt(weekRef.substring(4, 6));
+            } else {
+                // Formato novo WWYYYY
+                week = parseInt(weekRef.substring(0, 2));
+                year = parseInt(weekRef.substring(2, 6));
+            }
+        } else {
+            // Fallback: assumir formato novo se não tiver 6 caracteres
+            week = parseInt(weekRef.substring(0, 2));
+            year = parseInt(weekRef.substring(2, 6));
+        }
+        
+        // Validar valores
+        if (isNaN(week) || isNaN(year) || week < 1 || week > 53 || year < 2000 || year > 2100) {
+            throw new Error(`Formato de semana_referencia inválido: ${weekRef}`);
+        }
         
         // Get first Monday of the year
         const jan1 = new Date(year, 0, 1);
@@ -110,7 +134,8 @@ const WeeklyGoalsManagement = () => {
                 .from("goals")
                 .select(`*, stores (name), profiles (name)`)
                 .eq("tipo", "SEMANAL")
-                .order("semana_referencia", { ascending: false });
+                .order("semana_referencia", { ascending: false })
+                .limit(100); // Limitar para evitar problemas de performance
 
             if (error) throw error;
             if (data) {
@@ -197,22 +222,37 @@ const WeeklyGoalsManagement = () => {
             // Load collaborators for the store
             const storeColabs = colaboradoras.filter(c => c.store_id === selectedStore);
             
+            if (storeColabs.length === 0) {
+                toast.warning("Nenhuma colaboradora encontrada para esta loja");
+                setColaboradorasAtivas([]);
+                return;
+            }
+            
             // Check existing weekly goals for this week to see who's already active
-            const { data: existingGoals } = await supabase
+            const { data: existingGoals, error: existingGoalsError } = await supabase
                 .from("goals")
                 .select("colaboradora_id")
                 .eq("store_id", selectedStore)
                 .eq("semana_referencia", selectedWeek)
                 .eq("tipo", "SEMANAL");
 
-            const existingColabIds = new Set(existingGoals?.map(g => g.colaboradora_id) || []);
+            if (existingGoalsError) {
+                console.error("Error fetching existing goals:", existingGoalsError);
+                // Continuar mesmo com erro, apenas não marcar ninguém como ativo
+            }
+
+            const existingColabIds = new Set(
+                existingGoals
+                    ?.filter(g => g.colaboradora_id) // Filtrar nulos
+                    .map(g => g.colaboradora_id) || []
+            );
 
             setColaboradorasAtivas(prev => {
                 // Se já temos colaboradoras carregadas, manter o estado de active
                 const prevMap = new Map(prev.map(c => [c.id, c.active]));
                 return storeColabs.map(c => ({
                     id: c.id,
-                    name: c.name,
+                    name: c.name || "Sem nome",
                     active: prevMap.get(c.id) ?? existingColabIds.has(c.id)
                 }));
             });
@@ -380,40 +420,80 @@ const WeeklyGoalsManagement = () => {
     };
 
     const handleSaveWeeklyGoals = async (colabsWithGoals: { id: string; meta: number; superMeta: number }[]) => {
+        // Validações iniciais
         if (!selectedStore || !selectedWeek || colabsWithGoals.length === 0) {
             toast.error("Preencha todos os campos obrigatórios");
             return;
         }
 
+        // Validar formato da semana
+        if (selectedWeek.length !== 6 || !/^\d{6}$/.test(selectedWeek)) {
+            toast.error("Formato de semana inválido. Por favor, selecione uma semana válida.");
+            return;
+        }
+
+        // Validar IDs das colaboradoras
+        const invalidColabs = colabsWithGoals.filter(c => !c.id || c.id.trim() === '');
+        if (invalidColabs.length > 0) {
+            toast.error("Algumas colaboradoras têm ID inválido. Por favor, recarregue a página.");
+            return;
+        }
+
+        // Validar valores de meta
+        const invalidMetas = colabsWithGoals.filter(c => isNaN(c.meta) || isNaN(c.superMeta) || c.meta < 0 || c.superMeta < 0);
+        if (invalidMetas.length > 0) {
+            toast.error("Algumas metas têm valores inválidos. Verifique se são números positivos.");
+            return;
+        }
+
         try {
-            // Remover duplicatas baseado em colaboradora_id
+            // Remover duplicatas baseado em colaboradora_id (manter a última entrada)
             const uniqueColabs = new Map<string, { id: string; meta: number; superMeta: number }>();
             colabsWithGoals.forEach(colab => {
-                // Manter apenas uma entrada por colaboradora (a última)
-                uniqueColabs.set(colab.id, colab);
+                if (colab.id && (colab.meta > 0 || colab.superMeta > 0)) {
+                    uniqueColabs.set(colab.id, colab);
+                }
             });
 
             const uniqueColabsList = Array.from(uniqueColabs.values());
+
+            if (uniqueColabsList.length === 0) {
+                toast.error("Nenhuma meta válida para salvar. Defina pelo menos uma meta positiva.");
+                return;
+            }
 
             // Preparar payloads para UPSERT (Create if not exists, Update if exists)
             const payloads = uniqueColabsList.map(colab => ({
                 store_id: selectedStore,
                 semana_referencia: selectedWeek,
                 tipo: "SEMANAL",
-                meta_valor: colab.meta > 0 ? colab.meta : 0,
-                super_meta_valor: colab.superMeta > 0 ? colab.superMeta : 0,
+                meta_valor: Math.max(0, colab.meta || 0),
+                super_meta_valor: Math.max(0, colab.superMeta || 0),
                 colaboradora_id: colab.id,
                 ativo: true,
                 mes_referencia: null,
             }));
 
+            // Validar payloads antes de enviar
+            const invalidPayloads = payloads.filter(p => 
+                !p.store_id || !p.semana_referencia || !p.colaboradora_id || 
+                isNaN(p.meta_valor) || isNaN(p.super_meta_valor)
+            );
+            
+            if (invalidPayloads.length > 0) {
+                console.error("Payloads inválidos:", invalidPayloads);
+                toast.error("Dados inválidos detectados. Por favor, tente novamente.");
+                return;
+            }
+
             // Usar UPSERT: se existe, atualiza; se não existe, cria
             // A constraint única deve ser: store_id, semana_referencia, tipo, colaboradora_id
-            const { error: upsertError } = await supabase
+            const { error: upsertError, data: upsertData } = await supabase
                 .from("goals")
                 .upsert(payloads, {
                     onConflict: 'store_id, semana_referencia, tipo, colaboradora_id'
-                });
+                })
+                .select();
 
             if (upsertError) {
                 console.error("Upsert error:", upsertError);
@@ -427,13 +507,19 @@ const WeeklyGoalsManagement = () => {
         } catch (err: any) {
             console.error("Error saving weekly goals:", err);
             
-            // Mensagem de erro mais específica
-            if (err.code === '23505' || err.message?.includes('duplicate key')) {
-                toast.error("Erro: Meta duplicada detectada. Verifique os dados e tente novamente.");
+            // Mensagens de erro mais específicas
+            if (err.code === '23505' || err.message?.includes('duplicate key') || err.message?.includes('unique constraint')) {
+                toast.error("Erro: Meta duplicada detectada. Isso não deveria acontecer. Por favor, recarregue a página e tente novamente.");
             } else if (err.code === '23514') {
-                toast.error("Erro de validação: Verifique se os valores estão corretos.");
+                toast.error("Erro de validação: Verifique se os valores estão dentro dos limites permitidos.");
+            } else if (err.code === '23503') {
+                toast.error("Erro: Loja ou colaboradora não encontrada. Verifique se ainda estão ativas.");
+            } else if (err.code === '23502') {
+                toast.error("Erro: Campos obrigatórios faltando. Por favor, preencha todos os campos.");
+            } else if (err.message?.includes('invalid input syntax')) {
+                toast.error("Erro: Formato de dados inválido. Por favor, verifique os valores inseridos.");
             } else {
-                toast.error(err.message || "Erro ao salvar metas semanais");
+                toast.error(err.message || "Erro ao salvar metas semanais. Tente novamente.");
             }
         }
     };
@@ -485,17 +571,23 @@ const WeeklyGoalsManagement = () => {
         const options = [];
         const hoje = new Date();
         for (let i = -2; i <= 4; i++) {
-            const weekDate = addWeeks(hoje, i);
-            const monday = startOfWeek(weekDate, { weekStartsOn: 1 });
-            const year = getYear(monday);
-            const week = getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
-            const weekRef = `${year}${String(week).padStart(2, '0')}`;
-            const weekRange = getWeekRange(weekRef);
-            
-            options.push({
-                value: weekRef,
-                label: `${format(weekRange.start, "dd/MM", { locale: ptBR })} - ${format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })} (Semana ${week})`
-            });
+            try {
+                const weekDate = addWeeks(hoje, i);
+                const monday = startOfWeek(weekDate, { weekStartsOn: 1 });
+                const year = getYear(monday);
+                const week = getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
+                // Formato novo: WWYYYY
+                const weekRef = `${String(week).padStart(2, '0')}${year}`;
+                const weekRange = getWeekRange(weekRef);
+                
+                options.push({
+                    value: weekRef,
+                    label: `${format(weekRange.start, "dd/MM", { locale: ptBR })} - ${format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })} (Semana ${week})`
+                });
+            } catch (err) {
+                console.error(`Error generating week option for offset ${i}:`, err);
+                // Pular esta semana se houver erro
+            }
         }
         return options;
     };
