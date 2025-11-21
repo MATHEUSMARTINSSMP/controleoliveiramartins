@@ -619,12 +619,18 @@ const WeeklyGoalsManagement = () => {
                     if (individualResults.length !== payloads.length) {
                         throw new Error(`Apenas ${individualResults.length} de ${payloads.length} metas foram inseridas.`);
                     }
+                    
+                    // Se usou fallback individual, usar individualResults para contagem
+                    const successCount = individualResults.length || uniqueColabsList.length;
+                    toast.success(`Metas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${successCount} colaboradora(s)!`);
                 } else {
                     throw insertError;
                 }
+            } else {
+                // Sucesso: usar insertData para contagem
+                const successCount = insertData?.length || uniqueColabsList.length;
+                toast.success(`Metas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${successCount} colaboradora(s)!`);
             }
-
-            toast.success(`Metas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${upsertData?.length || uniqueColabsList.length} colaboradora(s)!`);
             setDialogOpen(false);
             resetForm();
             fetchWeeklyGoals();
