@@ -139,6 +139,13 @@ const AdminDashboard = () => {
               >
                 Gerenciar Benchmarks
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/admin/metas-semanais")}
+                className="border-primary/20 hover:bg-primary/10"
+              >
+                Metas Semanais
+              </Button>
             </div>
 
             <CommercialDashboard />

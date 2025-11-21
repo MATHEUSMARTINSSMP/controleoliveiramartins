@@ -9,9 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash, UserCheck, Calendar, Check, Store, Calculator, Save, ClipboardList, Edit, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
-import { format, getDaysInMonth, setDate, isWeekend, getDay } from "date-fns";
+import { format, getDaysInMonth, setDate, isWeekend, getDay, startOfWeek, endOfWeek, getWeek, getYear, addWeeks } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
@@ -52,7 +54,8 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 interface Goal {
     id: string;
     tipo: string;
-    mes_referencia: string;
+    mes_referencia: string | null;
+    semana_referencia: string | null;
     store_id: string | null;
     colaboradora_id: string | null;
     meta_valor: number;
@@ -99,17 +102,54 @@ const MetasManagementContent = () => {
     const [dailyWeights, setDailyWeights] = useState<Record<string, number>>({});
     const [showWeights, setShowWeights] = useState(false);
 
+    // Weekly goals state
+    const [activeTab, setActiveTab] = useState<'mensal' | 'semanal'>('mensal');
+    const [weeklyGoals, setWeeklyGoals] = useState<Goal[]>([]);
+    const [weeklyDialogOpen, setWeeklyDialogOpen] = useState(false);
+    const [editingWeeklyGoal, setEditingWeeklyGoal] = useState<Goal | null>(null);
+    const [selectedWeek, setSelectedWeek] = useState<string>(getCurrentWeekRef());
+    const [weeklyMetaValor, setWeeklyMetaValor] = useState<string>("");
+    const [weeklySuperMetaValor, setWeeklySuperMetaValor] = useState<string>("");
+
+    function getCurrentWeekRef(): string {
+        const hoje = new Date();
+        const monday = startOfWeek(hoje, { weekStartsOn: 1 });
+        const year = getYear(monday);
+        const week = getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
+        return `${year}${String(week).padStart(2, '0')}`;
+    }
+
+    function getWeekRange(weekRef: string): { start: Date; end: Date } {
+        const year = parseInt(weekRef.substring(0, 4));
+        const week = parseInt(weekRef.substring(4, 6));
+        
+        // Get first Monday of the year
+        const jan1 = new Date(year, 0, 1);
+        const firstMonday = startOfWeek(jan1, { weekStartsOn: 1 });
+        const weekStart = addWeeks(firstMonday, week - 1);
+        const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+        
+        return { start: weekStart, end: weekEnd };
+    }
+
     useEffect(() => {
         fetchGoals();
         fetchStores();
         fetchColaboradoras();
     }, []);
 
+    useEffect(() => {
+        if (activeTab === 'semanal') {
+            fetchWeeklyGoals();
+        }
+    }, [activeTab]);
+
     const fetchGoals = async () => {
         try {
             const { data, error } = await supabase
                 .from("goals")
                 .select(`*, stores (name), profiles (name)`)
+                .in("tipo", ["MENSAL", "INDIVIDUAL"])
                 .order("mes_referencia", { ascending: false });
 
             if (error) throw error;
@@ -117,6 +157,22 @@ const MetasManagementContent = () => {
         } catch (err) {
             console.error("Error fetching goals:", err);
             toast.error("Erro ao carregar metas");
+        }
+    };
+
+    const fetchWeeklyGoals = async () => {
+        try {
+            const { data, error } = await supabase
+                .from("goals")
+                .select(`*, stores (name)`)
+                .eq("tipo", "SEMANAL")
+                .order("semana_referencia", { ascending: false });
+
+            if (error) throw error;
+            if (data) setWeeklyGoals(data as any);
+        } catch (err) {
+            console.error("Error fetching weekly goals:", err);
+            toast.error("Erro ao carregar metas semanais");
         }
     };
 
@@ -371,6 +427,143 @@ const MetasManagementContent = () => {
         setDialogOpen(true);
     };
 
+    const calculateWeeklyGoalFromMonthly = async () => {
+        if (!selectedStore || !selectedWeek) {
+            toast.error("Selecione uma loja e uma semana primeiro");
+            return;
+        }
+
+        try {
+            // Get month from week
+            const weekRange = getWeekRange(selectedWeek);
+            const monthRef = format(weekRange.start, "yyyyMM");
+            
+            // Get monthly goal
+            const { data: monthlyGoal } = await supabase
+                .from("goals")
+                .select("meta_valor, super_meta_valor")
+                .eq("store_id", selectedStore)
+                .eq("tipo", "MENSAL")
+                .eq("mes_referencia", monthRef)
+                .is("colaboradora_id", null)
+                .single();
+
+            if (monthlyGoal) {
+                // Calculate: monthly / 4.33 (average weeks per month)
+                const suggestedMeta = (monthlyGoal.meta_valor / 4.33).toFixed(2);
+                const suggestedSuper = (monthlyGoal.super_meta_valor / 4.33).toFixed(2);
+                
+                setWeeklyMetaValor(suggestedMeta);
+                setWeeklySuperMetaValor(suggestedSuper);
+                toast.success("Metas sugeridas calculadas com base na meta mensal");
+            } else {
+                toast.warning("Meta mensal não encontrada. Defina manualmente.");
+            }
+        } catch (err) {
+            console.error("Error calculating suggested goals:", err);
+            toast.error("Erro ao calcular metas sugeridas");
+        }
+    };
+
+    const handleSaveWeeklyGoal = async () => {
+        if (!selectedStore || !selectedWeek || !weeklyMetaValor || !weeklySuperMetaValor) {
+            toast.error("Preencha todos os campos obrigatórios");
+            return;
+        }
+
+        const payload = {
+            store_id: selectedStore,
+            semana_referencia: selectedWeek,
+            tipo: "SEMANAL",
+            meta_valor: parseFloat(weeklyMetaValor),
+            super_meta_valor: parseFloat(weeklySuperMetaValor),
+            colaboradora_id: null,
+            ativo: true,
+            mes_referencia: null,
+        };
+
+        try {
+            if (editingWeeklyGoal?.id) {
+                const { error } = await supabase
+                    .from("goals")
+                    .update(payload)
+                    .eq("id", editingWeeklyGoal.id);
+
+                if (error) throw error;
+                toast.success("Meta semanal atualizada!");
+            } else {
+                // Check if exists
+                const { data: existing } = await supabase
+                    .from("goals")
+                    .select("id")
+                    .eq("store_id", selectedStore)
+                    .eq("semana_referencia", selectedWeek)
+                    .eq("tipo", "SEMANAL")
+                    .single();
+
+                if (existing) {
+                    const { error } = await supabase
+                        .from("goals")
+                        .update(payload)
+                        .eq("id", existing.id);
+
+                    if (error) throw error;
+                    toast.success("Meta semanal atualizada!");
+                } else {
+                    const { error } = await supabase
+                        .from("goals")
+                        .insert([payload]);
+
+                    if (error) throw error;
+                    toast.success("Meta semanal criada!");
+                }
+            }
+
+            setWeeklyDialogOpen(false);
+            resetWeeklyForm();
+            fetchWeeklyGoals();
+        } catch (err: any) {
+            console.error("Error saving weekly goal:", err);
+            toast.error(err.message || "Erro ao salvar meta semanal");
+        }
+    };
+
+    const handleEditWeekly = (goal: Goal) => {
+        setEditingWeeklyGoal(goal);
+        setSelectedStore(goal.store_id || "");
+        setSelectedWeek(goal.semana_referencia || getCurrentWeekRef());
+        setWeeklyMetaValor(goal.meta_valor.toString());
+        setWeeklySuperMetaValor(goal.super_meta_valor.toString());
+        setWeeklyDialogOpen(true);
+    };
+
+    const resetWeeklyForm = () => {
+        setEditingWeeklyGoal(null);
+        setSelectedStore("");
+        setSelectedWeek(getCurrentWeekRef());
+        setWeeklyMetaValor("");
+        setWeeklySuperMetaValor("");
+    };
+
+    const getWeekOptions = () => {
+        const options = [];
+        const hoje = new Date();
+        for (let i = -2; i <= 4; i++) {
+            const weekDate = addWeeks(hoje, i);
+            const monday = startOfWeek(weekDate, { weekStartsOn: 1 });
+            const year = getYear(monday);
+            const week = getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
+            const weekRef = `${year}${String(week).padStart(2, '0')}`;
+            const weekRange = getWeekRange(weekRef);
+            
+            options.push({
+                value: weekRef,
+                label: `${format(weekRange.start, "dd/MM", { locale: ptBR })} - ${format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })} (Semana ${week})`
+            });
+        }
+        return options;
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-background via-muted/50 to-background p-6 space-y-8">
             <div className="flex items-center justify-between">
@@ -383,35 +576,50 @@ const MetasManagementContent = () => {
                         <p className="text-muted-foreground">Defina metas por loja e distribua entre a equipe</p>
                     </div>
                 </div>
-                <Button onClick={() => setDialogOpen(true)} className="bg-primary hover:bg-primary/90">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Nova Distribuição
-                </Button>
+                {activeTab === 'mensal' ? (
+                    <Button onClick={() => setDialogOpen(true)} className="bg-primary hover:bg-primary/90">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Nova Distribuição Mensal
+                    </Button>
+                ) : (
+                    <Button onClick={() => { resetWeeklyForm(); setWeeklyDialogOpen(true); }} className="bg-primary hover:bg-primary/90">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Nova Meta Semanal
+                    </Button>
+                )}
             </div>
 
-            {/* Filters */}
-            <div className="flex gap-4 bg-card p-4 rounded-lg border shadow-sm">
-                <div className="w-48">
-                    <Label>Filtrar por Loja</Label>
-                    <Select value={storeFilter} onValueChange={setStoreFilter}>
-                        <SelectTrigger>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="ALL">Todas</SelectItem>
-                            {stores.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="w-48">
-                    <Label>Mês</Label>
-                    <Input value={monthFilter} onChange={e => setMonthFilter(e.target.value)} placeholder="YYYYMM" />
-                </div>
-            </div>
+            {/* Tabs */}
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'mensal' | 'semanal')}>
+                <TabsList className="grid w-full max-w-md grid-cols-2">
+                    <TabsTrigger value="mensal">Metas Mensais</TabsTrigger>
+                    <TabsTrigger value="semanal">Metas Semanais</TabsTrigger>
+                </TabsList>
 
-            {/* Goals List */}
-            {/* Grouped Goals List */}
-            <div className="space-y-6">
+                {/* Mensal Tab */}
+                <TabsContent value="mensal" className="space-y-6 mt-6">
+                    {/* Filters */}
+                    <div className="flex gap-4 bg-card p-4 rounded-lg border shadow-sm">
+                        <div className="w-48">
+                            <Label>Filtrar por Loja</Label>
+                            <Select value={storeFilter} onValueChange={setStoreFilter}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ALL">Todas</SelectItem>
+                                    {stores.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="w-48">
+                            <Label>Mês</Label>
+                            <Input value={monthFilter} onChange={e => setMonthFilter(e.target.value)} placeholder="YYYYMM" />
+                        </div>
+                    </div>
+
+                    {/* Goals List */}
+                    <div className="space-y-6">
                 {Object.entries(
                     goals
                         .filter(g => storeFilter === 'ALL' || g.store_id === storeFilter)
@@ -474,9 +682,68 @@ const MetasManagementContent = () => {
                         </div>
                     </Card>
                 ))}
-            </div>
+                    </div>
+                </TabsContent>
 
-            {/* New Goal Dialog */}
+                {/* Semanal Tab */}
+                <TabsContent value="semanal" className="space-y-6 mt-6">
+                    {/* Weekly Goals List */}
+                    <div className="space-y-4">
+                        {weeklyGoals.map((goal) => {
+                            const weekRange = getWeekRange(goal.semana_referencia || "");
+                            const isCurrentWeek = goal.semana_referencia === getCurrentWeekRef();
+                            
+                            return (
+                                <Card 
+                                    key={goal.id} 
+                                    className={`overflow-hidden shadow-md hover:shadow-lg transition-shadow ${
+                                        isCurrentWeek ? 'border-2 border-primary' : ''
+                                    }`}
+                                >
+                                    <div className="p-4 bg-gradient-to-r from-primary/10 to-purple-500/10 flex justify-between items-center border-b">
+                                        <div className="flex items-center gap-4">
+                                            <div className="bg-primary/10 p-2 rounded-full">
+                                                <Calendar className="h-6 w-6 text-primary" />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-lg">{goal.stores?.name || 'Loja Desconhecida'}</h3>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {format(weekRange.start, "dd/MM", { locale: ptBR })} - {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
+                                                </p>
+                                            </div>
+                                            {isCurrentWeek && (
+                                                <Badge className="bg-primary text-primary-foreground">Semana Atual</Badge>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-6">
+                                            <div className="text-right hidden md:block">
+                                                <p className="text-xs text-muted-foreground">Meta Semanal</p>
+                                                <p className="font-bold text-lg">R$ {goal.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</p>
+                                                <p className="text-xs text-purple-600 font-medium">Super: R$ {goal.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</p>
+                                            </div>
+                                            <Button variant="outline" size="sm" onClick={() => handleEditWeekly(goal)}>
+                                                <Edit className="h-4 w-4 mr-2" />
+                                                Editar
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </Card>
+                            );
+                        })}
+                        {weeklyGoals.length === 0 && (
+                            <Card>
+                                <CardContent className="pt-6">
+                                    <div className="text-center text-muted-foreground py-8">
+                                        Nenhuma meta semanal cadastrada. Clique em "Nova Meta Semanal" para começar.
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
+                </TabsContent>
+            </Tabs>
+
+            {/* New Goal Dialog (Mensal) */}
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
@@ -716,6 +983,107 @@ const MetasManagementContent = () => {
                             <Button onClick={handleSave} disabled={!validateTotal()}>
                                 <Save className="mr-2 h-4 w-4" />
                                 Salvar Distribuição
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Weekly Goal Dialog */}
+            <Dialog open={weeklyDialogOpen} onOpenChange={setWeeklyDialogOpen}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {editingWeeklyGoal ? "Editar Meta Semanal" : "Nova Meta Semanal"}
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div>
+                            <Label>Loja *</Label>
+                            <Select value={selectedStore} onValueChange={setSelectedStore}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecione uma loja" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {stores.map((store) => (
+                                        <SelectItem key={store.id} value={store.id}>
+                                            {store.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div>
+                            <Label>Semana * (Segunda a Domingo)</Label>
+                            <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {getWeekOptions().map((option) => (
+                                        <SelectItem key={option.value} value={option.value}>
+                                            {option.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="flex items-end gap-2">
+                            <div className="flex-1">
+                                <Label>Meta (R$) *</Label>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={weeklyMetaValor}
+                                    onChange={(e) => setWeeklyMetaValor(e.target.value)}
+                                    placeholder="Ex: 10000.00"
+                                />
+                            </div>
+                            <div className="flex-1">
+                                <Label>Super Meta (R$) *</Label>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={weeklySuperMetaValor}
+                                    onChange={(e) => setWeeklySuperMetaValor(e.target.value)}
+                                    placeholder="Ex: 12000.00"
+                                />
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={calculateWeeklyGoalFromMonthly}
+                                className="gap-2"
+                                disabled={!selectedStore}
+                            >
+                                <Calculator className="h-4 w-4" />
+                                Sugerir
+                            </Button>
+                        </div>
+
+                        <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <p className="text-sm text-blue-900 dark:text-blue-100">
+                                💡 <strong>Dica:</strong> Use o botão "Sugerir" para calcular automaticamente as metas semanais 
+                                baseadas na meta mensal da loja (mensal ÷ 4.33). Você pode editar os valores sugeridos livremente.
+                            </p>
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-4">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                    setWeeklyDialogOpen(false);
+                                    resetWeeklyForm();
+                                }}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button onClick={handleSaveWeeklyGoal}>
+                                <Save className="mr-2 h-4 w-4" />
+                                {editingWeeklyGoal ? "Atualizar" : "Criar"} Meta Semanal
                             </Button>
                         </div>
                     </div>

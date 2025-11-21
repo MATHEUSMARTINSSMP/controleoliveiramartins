@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import WeeklyGoalProgress from "@/components/WeeklyGoalProgress";
 
 interface Sale {
     id: string;
@@ -732,6 +733,11 @@ export default function LojaDashboard() {
                     </Card>
                 )}
             </div>
+
+            {/* Meta Semanal Gamificada */}
+            {profile?.store_default && (
+                <WeeklyGoalProgress storeId={getStoreId()} showDetails={true} />
+            )}
 
             {/* Tabela de Performance por Vendedora */}
             {colaboradorasPerformance.length > 0 && (

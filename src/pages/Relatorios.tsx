@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Download, Trash2, ChevronDown, ChevronRight, Undo2, TrendingUp, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
-import { format, startOfMonth, endOfMonth, subDays, startOfDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, subDays, startOfDay, startOfWeek, endOfWeek } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter, Cell } from 'recharts';
 import {
@@ -93,7 +93,7 @@ const Relatorios = () => {
   const [storeComparison, setStoreComparison] = useState<any[]>([]);
   const [benchmarks, setBenchmarks] = useState<Record<string, any>>({});
   const [dailyTrends, setDailyTrends] = useState<any[]>([]);
-  const [periodFilter, setPeriodFilter] = useState<'last7' | 'last30' | 'month' | 'custom'>('last30');
+  const [periodFilter, setPeriodFilter] = useState<'today' | 'last7' | 'last30' | 'month' | 'lastMonth' | 'custom'>('last30');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
 
@@ -205,6 +205,10 @@ const Relatorios = () => {
       let end: Date = hoje;
 
       switch (periodFilter) {
+        case 'today':
+          start = startOfDay(hoje);
+          end = hoje;
+          break;
         case 'last7':
           start = subDays(hoje, 7);
           break;
@@ -214,6 +218,11 @@ const Relatorios = () => {
         case 'month':
           start = startOfMonth(hoje);
           end = endOfMonth(hoje);
+          break;
+        case 'lastMonth':
+          const firstDayThisMonth = startOfMonth(hoje);
+          start = startOfMonth(subDays(firstDayThisMonth, 1));
+          end = endOfMonth(subDays(firstDayThisMonth, 1));
           break;
         case 'custom':
           if (customStartDate && customEndDate) {
@@ -785,9 +794,11 @@ const Relatorios = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="today">Hoje</SelectItem>
                             <SelectItem value="last7">Últimos 7 dias</SelectItem>
                             <SelectItem value="last30">Últimos 30 dias</SelectItem>
                             <SelectItem value="month">Mês Atual</SelectItem>
+                            <SelectItem value="lastMonth">Mês Passado</SelectItem>
                             <SelectItem value="custom">Personalizado</SelectItem>
                           </SelectContent>
                         </Select>

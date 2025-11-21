@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash, Gift, Check, Trophy } from "lucide-react";
+import { Plus, Pencil, Trash, Gift, Check, Trophy, ArrowLeft, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
@@ -23,6 +24,7 @@ interface Bonus {
 }
 
 export default function BonusManagement() {
+    const navigate = useNavigate();
     const [bonuses, setBonuses] = useState<Bonus[]>([]);
     const [stores, setStores] = useState<any[]>([]);
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -157,9 +159,20 @@ export default function BonusManagement() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-background via-muted/50 to-background p-6 space-y-8">
             <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-                    Gerenciar Bônus
-                </h1>
+                <div className="flex items-center gap-4">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate("/admin")}
+                        className="gap-2"
+                    >
+                        <ArrowLeft className="h-4 w-4" />
+                        Voltar
+                    </Button>
+                    <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+                        Gerenciar Bônus
+                    </h1>
+                </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-4 mb-4">
                 <Select value={storeFilter} onValueChange={setStoreFilter}>

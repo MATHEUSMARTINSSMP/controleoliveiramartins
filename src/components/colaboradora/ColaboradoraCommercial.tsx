@@ -5,6 +5,7 @@ import { useGoalCalculation } from "@/hooks/useGoalCalculation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Target, TrendingUp, TrendingDown, CheckCircle2, AlertCircle, Zap } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import WeeklyGoalProgress from "@/components/WeeklyGoalProgress";
 
 export const ColaboradoraCommercial = () => {
   const { profile } = useAuth();
@@ -229,6 +230,13 @@ export const ColaboradoraCommercial = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Meta Semanal Gamificada */}
+        <WeeklyGoalProgress 
+          colaboradoraId={profile?.id} 
+          storeId={profile?.store_id} 
+          showDetails={true} 
+        />
       </div>
     </div>
   );

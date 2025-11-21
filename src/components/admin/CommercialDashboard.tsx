@@ -9,7 +9,9 @@ import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, star
 import { ptBR } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Calendar, TrendingUp } from "lucide-react";
+import { Calendar, TrendingUp, DollarSign, ShoppingBag, Package, Eye, EyeOff } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 
 // Interfaces
 interface StoreAnalytics {
@@ -36,6 +38,16 @@ interface StoreGoal {
     super_meta_valor: number;
 }
 
+interface TodaySales {
+    store_id: string;
+    store_name: string;
+    total_vendas: number;
+    total_valor: number;
+    total_pecas: number;
+    ticket_medio: number;
+    pa: number;
+}
+
 type PeriodFilter = 'today' | 'week' | 'month' | 'custom';
 
 export const CommercialDashboard = () => {
@@ -44,14 +56,73 @@ export const CommercialDashboard = () => {
     const [goals, setGoals] = useState<Record<string, StoreGoal>>({});
     const [loading, setLoading] = useState(true);
     const [month, setMonth] = useState(new Date());
-    const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('month');
+    const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('today');
     const [customStartDate, setCustomStartDate] = useState<string>('');
     const [customEndDate, setCustomEndDate] = useState<string>('');
     const [dailyTrends, setDailyTrends] = useState<any[]>([]);
+    const [todaySales, setTodaySales] = useState<TodaySales[]>([]);
+    const [loadingToday, setLoadingToday] = useState(true);
+    const [showByStore, setShowByStore] = useState(true); // Toggle para visualização por loja
+
+    useEffect(() => {
+        fetchTodaySales();
+        fetchData();
+    }, []);
 
     useEffect(() => {
         fetchData();
     }, [month, periodFilter, customStartDate, customEndDate]);
+
+    const fetchTodaySales = async () => {
+        setLoadingToday(true);
+        try {
+            const today = format(new Date(), 'yyyy-MM-dd');
+            
+            // Buscar vendas de hoje por loja
+            const { data: dailyData, error } = await supabase
+                .schema('sistemaretiradas')
+                .from('analytics_daily_performance')
+                .select('*')
+                .eq('data_referencia', today)
+                .order('store_name', { ascending: true });
+
+            if (error) throw error;
+
+            // Agregar por loja
+            const storeAgg: Record<string, TodaySales> = {};
+
+            dailyData?.forEach((day: any) => {
+                if (!storeAgg[day.store_id]) {
+                    storeAgg[day.store_id] = {
+                        store_id: day.store_id,
+                        store_name: day.store_name,
+                        total_vendas: 0,
+                        total_valor: 0,
+                        total_pecas: 0,
+                        ticket_medio: 0,
+                        pa: 0
+                    };
+                }
+
+                storeAgg[day.store_id].total_vendas += day.total_vendas;
+                storeAgg[day.store_id].total_valor += day.total_valor;
+                storeAgg[day.store_id].total_pecas += day.total_pecas;
+            });
+
+            // Calcular KPIs finais
+            const finalTodaySales = Object.values(storeAgg).map(s => ({
+                ...s,
+                ticket_medio: s.total_vendas > 0 ? s.total_valor / s.total_vendas : 0,
+                pa: s.total_vendas > 0 ? s.total_pecas / s.total_vendas : 0
+            }));
+
+            setTodaySales(finalTodaySales);
+        } catch (error) {
+            console.error("Error fetching today's sales:", error);
+        } finally {
+            setLoadingToday(false);
+        }
+    };
 
     const getDateRange = () => {
         const hoje = new Date();
@@ -154,14 +225,15 @@ export const CommercialDashboard = () => {
 
             setAnalytics(finalAnalytics);
 
-            // Prepare daily trends data for charts
+            // Prepare daily trends data for charts (with total)
             const trendsMap: Record<string, any> = {};
             dailyData?.forEach((day: any) => {
                 const dateKey = format(new Date(day.data_referencia), 'dd/MM');
                 if (!trendsMap[dateKey]) {
-                    trendsMap[dateKey] = { date: dateKey };
+                    trendsMap[dateKey] = { date: dateKey, total: 0 };
                 }
                 trendsMap[dateKey][day.store_name] = day.total_valor;
+                trendsMap[dateKey].total += day.total_valor;
             });
             setDailyTrends(Object.values(trendsMap));
 
@@ -181,18 +253,137 @@ export const CommercialDashboard = () => {
         return "text-red-600";
     };
 
-    if (loading) {
+    const todayTotal = todaySales.reduce((sum, store) => sum + store.total_valor, 0);
+    const todayTotalVendas = todaySales.reduce((sum, store) => sum + store.total_vendas, 0);
+    const todayTotalPecas = todaySales.reduce((sum, store) => sum + store.total_pecas, 0);
+
+    if (loading && loadingToday) {
         return <div className="text-center py-10">Carregando dados comerciais...</div>;
     }
 
     return (
         <div className="space-y-6">
-            {/* Filtros de Período */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Calendar className="h-5 w-5" />
-                        Filtros de Período
+            {/* Resumo do Dia - PRINCIPAL */}
+            <Card className="border-2 border-primary/20 shadow-lg">
+                <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5 pb-3">
+                    <CardTitle className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Calendar className="h-6 w-6 text-primary" />
+                            <span className="text-xl">Resumo das Vendas de Hoje</span>
+                            <span className="text-sm font-normal text-muted-foreground">
+                                {format(new Date(), "dd/MM/yyyy", { locale: ptBR })}
+                            </span>
+                        </div>
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6">
+                    {/* Total Geral do Dia */}
+                    <div className="mb-6 p-4 bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg border border-primary/20">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-3 bg-primary/10 rounded-lg">
+                                    <DollarSign className="h-6 w-6 text-primary" />
+                                </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Total do Dia</p>
+                                    <p className="text-2xl font-bold text-primary">
+                                        {formatCurrency(todayTotal)}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="p-3 bg-blue-500/10 rounded-lg">
+                                    <ShoppingBag className="h-6 w-6 text-blue-500" />
+                                </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Total de Vendas</p>
+                                    <p className="text-2xl font-bold text-blue-600">
+                                        {todayTotalVendas}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="p-3 bg-green-500/10 rounded-lg">
+                                    <Package className="h-6 w-6 text-green-500" />
+                                </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Total de Peças</p>
+                                    <p className="text-2xl font-bold text-green-600">
+                                        {todayTotalPecas}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="p-3 bg-orange-500/10 rounded-lg">
+                                    <TrendingUp className="h-6 w-6 text-orange-500" />
+                                </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Ticket Médio</p>
+                                    <p className="text-2xl font-bold text-orange-600">
+                                        {todayTotalVendas > 0 ? formatCurrency(todayTotal / todayTotalVendas) : formatCurrency(0)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Vendas por Loja */}
+                    {loadingToday ? (
+                        <div className="text-center py-6 text-muted-foreground">
+                            Carregando vendas do dia...
+                        </div>
+                    ) : todaySales.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {todaySales.map((store) => (
+                                <Card 
+                                    key={store.store_id} 
+                                    className="border-l-4 border-l-primary shadow-md hover:shadow-lg transition-shadow"
+                                >
+                                    <CardHeader className="pb-2 bg-muted/30">
+                                        <CardTitle className="text-lg">{store.store_name}</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-4 space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Total:</span>
+                                            <span className="text-xl font-bold text-primary">
+                                                {formatCurrency(store.total_valor)}
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2 text-center pt-2 border-t">
+                                            <div>
+                                                <p className="text-xs text-muted-foreground mb-1">Vendas</p>
+                                                <p className="font-semibold">{store.total_vendas}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-muted-foreground mb-1">Peças</p>
+                                                <p className="font-semibold">{store.total_pecas}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-muted-foreground mb-1">TM</p>
+                                                <p className="font-semibold text-xs">
+                                                    {formatCurrency(store.ticket_medio)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                            <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                            <p>Nenhuma venda registrada hoje</p>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Filtros de Período - SECUNDÁRIO */}
+            <Card className="border border-muted">
+                <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                        <Calendar className="h-4 w-4" />
+                        Filtros de Período (Para relatórios detalhados)
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -248,32 +439,98 @@ export const CommercialDashboard = () => {
                 </CardContent>
             </Card>
 
+            {/* Informação sobre relatórios detalhados */}
+            {periodFilter !== 'today' && (
+                <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+                    <CardContent className="pt-6">
+                        <p className="text-sm text-blue-900 dark:text-blue-100">
+                            💡 <strong>Dica:</strong> Para informações mais detalhadas, acesse a página de{" "}
+                            <strong>Relatórios</strong> no menu principal.
+                        </p>
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Gráfico de Tendência Diária */}
             {dailyTrends.length > 0 && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5" />
-                            Evolução Diária de Vendas
-                        </CardTitle>
+                <Card className="shadow-lg border-2 border-primary/10">
+                    <CardHeader className="bg-gradient-to-r from-primary/5 to-purple-500/5">
+                        <div className="flex items-center justify-between">
+                            <CardTitle className="flex items-center gap-2">
+                                <TrendingUp className="h-5 w-5 text-primary" />
+                                Evolução Diária de Vendas
+                            </CardTitle>
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="show-by-store" className="text-sm text-muted-foreground cursor-pointer">
+                                    {showByStore ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                                </Label>
+                                <Switch
+                                    id="show-by-store"
+                                    checked={showByStore}
+                                    onCheckedChange={setShowByStore}
+                                />
+                                <span className="text-sm text-muted-foreground">Por Loja</span>
+                            </div>
+                        </div>
                     </CardHeader>
-                    <CardContent>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={dailyTrends}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="date" />
-                                <YAxis />
-                                <Tooltip formatter={(value: any) => `R$ ${Number(value).toLocaleString('pt-BR')}`} />
-                                <Legend />
-                                {Object.keys(dailyTrends[0] || {}).filter(key => key !== 'date').map((storeName, idx) => (
+                    <CardContent className="pt-6">
+                        <ResponsiveContainer width="100%" height={350}>
+                            <LineChart data={dailyTrends} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                                <defs>
+                                    {Object.keys(dailyTrends[0] || {}).filter(key => key !== 'date').map((storeName, idx) => (
+                                        <linearGradient key={`gradient-${storeName}`} id={`gradient-${idx}`} x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor={`hsl(${idx * 137.5}, 70%, 50%)`} stopOpacity={0.3}/>
+                                            <stop offset="95%" stopColor={`hsl(${idx * 137.5}, 70%, 50%)`} stopOpacity={0}/>
+                                        </linearGradient>
+                                    ))}
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis 
+                                    dataKey="date" 
+                                    stroke="#6b7280"
+                                    style={{ fontSize: '12px' }}
+                                />
+                                <YAxis 
+                                    stroke="#6b7280"
+                                    style={{ fontSize: '12px' }}
+                                    tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                                />
+                                <Tooltip 
+                                    contentStyle={{
+                                        backgroundColor: 'white',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '8px',
+                                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                                    }}
+                                    formatter={(value: any) => [`R$ ${Number(value).toLocaleString('pt-BR')}`, '']}
+                                />
+                                <Legend 
+                                    wrapperStyle={{ paddingTop: '20px' }}
+                                    iconType="line"
+                                />
+                                {showByStore ? (
+                                    Object.keys(dailyTrends[0] || {}).filter(key => key !== 'date').map((storeName, idx) => (
+                                        <Line
+                                            key={storeName}
+                                            type="monotone"
+                                            dataKey={storeName}
+                                            stroke={`hsl(${idx * 137.5}, 70%, 50%)`}
+                                            strokeWidth={3}
+                                            dot={{ r: 4, fill: `hsl(${idx * 137.5}, 70%, 50%)` }}
+                                            activeDot={{ r: 6 }}
+                                        />
+                                    ))
+                                ) : (
                                     <Line
-                                        key={storeName}
                                         type="monotone"
-                                        dataKey={storeName}
-                                        stroke={`hsl(${idx * 137.5}, 70%, 50%)`}
-                                        strokeWidth={2}
+                                        dataKey="total"
+                                        stroke="#8884d8"
+                                        strokeWidth={3}
+                                        dot={{ r: 4 }}
+                                        activeDot={{ r: 6 }}
+                                        name="Total"
                                     />
-                                ))}
+                                )}
                             </LineChart>
                         </ResponsiveContainer>
                     </CardContent>
