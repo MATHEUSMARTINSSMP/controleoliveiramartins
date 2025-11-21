@@ -535,9 +535,8 @@ export default function LojaDashboard() {
             console.log('[LojaDashboard]   storeId usado na busca:', currentStoreId);
             console.log('[LojaDashboard]   storeName:', storeName);
             
-            // Buscar colaboradoras por store_id (UUID) - esta é a forma correta
-            // As colaboradoras têm store_id (UUID) que as vincula à loja na tabela stores
-            const { data, error } = await supabase
+            // Estratégia 1: Buscar colaboradoras por store_id (UUID) - forma preferida
+            let { data, error } = await supabase
                 .schema("sistemaretiradas")
                 .from('profiles')
                 .select('id, name, active, store_id, store_default')
@@ -547,51 +546,104 @@ export default function LojaDashboard() {
                 .order('name');
 
             if (error) {
-                console.error('[LojaDashboard] ❌ Erro ao buscar colaboradoras:', error);
+                console.error('[LojaDashboard] ❌ Erro ao buscar colaboradoras por store_id:', error);
                 console.error('[LojaDashboard]   Erro completo:', JSON.stringify(error, null, 2));
-                toast.error('Erro ao carregar colaboradoras: ' + (error.message || 'Erro desconhecido'));
-                setColaboradoras([]);
-                return;
+                // Continuar para tentar outras estratégias
+                data = null;
             }
 
-            console.log('[LojaDashboard] 📊 Resultado da busca:');
-            console.log('[LojaDashboard]   Total encontrado:', data?.length || 0);
-            if (data && data.length > 0) {
-                console.log('[LojaDashboard] ✅ Colaboradoras encontradas:');
+            // Se não encontrou por store_id, tentar por store_default (nome da loja)
+            if (!data || data.length === 0) {
+                console.log('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada por store_id, tentando por store_default...');
+                console.log('[LojaDashboard]   storeName para busca:', storeName);
+                
+                if (storeName) {
+                    // Normalizar nome para busca (remover |, vírgulas, espaços extras)
+                    const normalizeName = (name: string) => {
+                        return name
+                            .toLowerCase()
+                            .replace(/[|,]/g, '')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                    };
+
+                    const normalizedStoreName = normalizeName(storeName);
+                    console.log('[LojaDashboard]   Nome normalizado para busca:', normalizedStoreName);
+
+                    // Buscar todas as colaboradoras ativas para fazer match flexível
+                    const { data: allColabs, error: allError } = await supabase
+                        .schema("sistemaretiradas")
+                        .from('profiles')
+                        .select('id, name, active, store_id, store_default, role')
+                        .eq('role', 'COLABORADORA')
+                        .eq('active', true)
+                        .order('name');
+                    
+                    if (!allError && allColabs) {
+                        console.log('[LojaDashboard] 🔍 Todas as colaboradoras ativas no sistema:', allColabs.length);
+                        
+                        // Primeiro, tentar match exato com store_default
+                        let matching = allColabs.filter((colab: any) => {
+                            if (!colab.store_default) return false;
+                            return colab.store_default === storeName || 
+                                   colab.store_default.toLowerCase() === storeName.toLowerCase();
+                        });
+                        
+                        // Se não encontrou, tentar match normalizado
+                        if (matching.length === 0) {
+                            matching = allColabs.filter((colab: any) => {
+                                if (!colab.store_default) return false;
+                                const normalizedColabStore = normalizeName(colab.store_default);
+                                return normalizedColabStore === normalizedStoreName;
+                            });
+                        }
+                        
+                        // Se ainda não encontrou, tentar match parcial
+                        if (matching.length === 0) {
+                            matching = allColabs.filter((colab: any) => {
+                                if (!colab.store_default) return false;
+                                const normalizedColabStore = normalizeName(colab.store_default);
+                                return normalizedColabStore.includes(normalizedStoreName) ||
+                                       normalizedStoreName.includes(normalizedColabStore);
+                            });
+                        }
+                        
+                        // Se ainda não encontrou, tentar match por store_id (UUID) diretamente na lista
+                        if (matching.length === 0) {
+                            matching = allColabs.filter((colab: any) => colab.store_id === currentStoreId);
+                        }
+                        
+                        console.log(`[LojaDashboard]   Colaboradoras que MATCHAM store_id ${currentStoreId} ou store_default "${storeName}":`, matching.length);
+                        
+                        if (matching.length > 0) {
+                            console.log('[LojaDashboard] ✅ Encontradas colaboradoras:');
+                            matching.forEach((colab: any, idx: number) => {
+                                console.log(`[LojaDashboard]   ${idx + 1}. ${colab.name}: store_id = ${colab.store_id || 'NULL'}, store_default = ${colab.store_default || 'NULL'}`);
+                            });
+                            setColaboradoras(matching);
+                            return;
+                        } else {
+                            // Log detalhado de todas as colaboradoras para debug
+                            console.log('[LojaDashboard] 🔍 Debug: Todas as colaboradoras ativas no sistema:');
+                            allColabs.forEach((colab: any) => {
+                                console.log(`[LojaDashboard]   - ${colab.name}: store_id = ${colab.store_id || 'NULL'}, store_default = ${colab.store_default || 'NULL'}`);
+                            });
+                        }
+                    }
+                }
+            } else {
+                // Encontrou por store_id - sucesso!
+                console.log('[LojaDashboard] ✅ Colaboradoras encontradas por store_id:');
                 data.forEach((colab, idx) => {
                     console.log(`[LojaDashboard]   ${idx + 1}. ${colab.name} (id: ${colab.id}, store_id: ${colab.store_id})`);
                 });
                 setColaboradoras(data);
-            } else {
-                console.log('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada!');
-                console.log('[LojaDashboard]   Buscando com store_id:', currentStoreId);
-                
-                // Debug: buscar TODAS as colaboradoras para ver o que tem no banco
-                const { data: allColabs, error: allError } = await supabase
-                    .schema("sistemaretiradas")
-                    .from('profiles')
-                    .select('id, name, active, store_id, store_default, role')
-                    .eq('role', 'COLABORADORA')
-                    .eq('active', true)
-                    .order('name');
-                
-                if (!allError && allColabs) {
-                    console.log('[LojaDashboard] 🔍 Debug: Todas as colaboradoras ativas no sistema:');
-                    allColabs.forEach((colab: any) => {
-                        console.log(`[LojaDashboard]   - ${colab.name}: store_id = ${colab.store_id || 'NULL'}, store_default = ${colab.store_default || 'NULL'}`);
-                    });
-                    
-                    const matching = allColabs.filter((colab: any) => colab.store_id === currentStoreId);
-                    console.log(`[LojaDashboard]   Colaboradoras que MATCHAM store_id ${currentStoreId}:`, matching.length);
-                    if (matching.length > 0) {
-                        console.log('[LojaDashboard] ✅ Encontradas colaboradoras no debug!');
-                        setColaboradoras(matching);
-                        return;
-                    }
-                }
-                
-                setColaboradoras([]);
+                return;
             }
+            
+            // Se chegou aqui, não encontrou nenhuma colaboradora
+            console.warn('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada para a loja');
+            setColaboradoras([]);
         } catch (error: any) {
             console.error('[LojaDashboard] ❌ Erro ao carregar colaboradoras:', error);
             toast.error('Erro ao carregar colaboradoras: ' + (error.message || 'Erro desconhecido'));
