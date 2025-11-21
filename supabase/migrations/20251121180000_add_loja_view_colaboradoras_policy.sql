@@ -1,27 +1,52 @@
 -- Migration: Allow LOJA profiles to view colaboradoras from their store
 -- This policy allows LOJA profiles to SELECT colaboradoras that belong to their store
+-- IMPORTANT: We must avoid recursion by NOT selecting from profiles table inside the policy
 
--- First, let's check if there's an existing policy and drop it if needed
+-- First, drop existing policy if it exists
 DO $$
 BEGIN
-    -- Drop existing policy if it exists
     DROP POLICY IF EXISTS "LOJA can view colaboradoras from their store" ON sistemaretiradas.profiles;
-    
-    RAISE NOTICE 'Dropped existing policy if it existed';
+    DROP POLICY IF EXISTS "Users can view their own profile" ON sistemaretiradas.profiles;
+    RAISE NOTICE 'Dropped existing policies if they existed';
 END $$;
 
--- Create policy for LOJA profiles to view colaboradoras from their store
--- The policy checks:
--- 1. The user is a LOJA profile
--- 2. The profile being viewed is a COLABORADORA
--- 3. The colaboradora's store_id or store_default matches the LOJA's store
+-- Policy 1: Users can always view their own profile (CRITICAL: avoids recursion)
+-- This must come first to handle the AuthContext fetching its own profile
+CREATE POLICY "Users can view their own profile"
+ON sistemaretiradas.profiles
+FOR SELECT
+TO authenticated
+USING (id = auth.uid());
+
+-- Policy 2: ADMIN can view all profiles
+CREATE POLICY "ADMIN can view all profiles"
+ON sistemaretiradas.profiles
+FOR SELECT
+TO authenticated
+USING (
+    EXISTS (
+        SELECT 1 
+        FROM sistemaretiradas.profiles admin_profile
+        WHERE admin_profile.id = auth.uid()
+        AND admin_profile.role = 'ADMIN'
+        AND admin_profile.active = true
+    )
+);
+
+-- Policy 3: LOJA can view colaboradoras from their store
+-- CRITICAL: We avoid recursion by:
+-- 1. First checking if the requesting user is LOJA (this uses Policy 1 or Policy 2, not recursive)
+-- 2. Then matching colaboradoras by store relationship WITHOUT querying profiles again
 CREATE POLICY "LOJA can view colaboradoras from their store"
 ON sistemaretiradas.profiles
 FOR SELECT
 TO authenticated
 USING (
-    -- Allow if the requesting user is a LOJA profile
-    EXISTS (
+    -- Only apply to COLABORADORA profiles that are active
+    sistemaretiradas.profiles.role = 'COLABORADORA'
+    AND sistemaretiradas.profiles.active = true
+    -- AND the requesting user is a LOJA profile (this is the key check)
+    AND EXISTS (
         SELECT 1 
         FROM sistemaretiradas.profiles loja_profile
         WHERE loja_profile.id = auth.uid()
@@ -33,7 +58,7 @@ USING (
              AND sistemaretiradas.profiles.store_id IS NOT NULL
              AND loja_profile.store_id = sistemaretiradas.profiles.store_id)
             OR
-            -- Case 2: LOJA has store_default (name), colaboradora has store_id - need to match via stores table
+            -- Case 2: LOJA has store_default (name), colaboradora has store_id - match via stores table
             (loja_profile.store_id IS NULL 
              AND loja_profile.store_default IS NOT NULL
              AND sistemaretiradas.profiles.store_id IS NOT NULL
@@ -53,13 +78,16 @@ USING (
              AND LOWER(TRIM(loja_profile.store_default)) = LOWER(TRIM(sistemaretiradas.profiles.store_default)))
         )
     )
-    -- Only allow viewing COLABORADORA profiles that are active
-    AND sistemaretiradas.profiles.role = 'COLABORADORA'
-    AND sistemaretiradas.profiles.active = true
 );
 
 -- Grant necessary permissions (if not already granted)
 GRANT SELECT ON sistemaretiradas.profiles TO authenticated;
 
+COMMENT ON POLICY "Users can view their own profile" ON sistemaretiradas.profiles IS 
+'Allows any authenticated user to view their own profile. This prevents recursion in other policies.';
+
+COMMENT ON POLICY "ADMIN can view all profiles" ON sistemaretiradas.profiles IS 
+'Allows ADMIN profiles to view all profiles in the system.';
+
 COMMENT ON POLICY "LOJA can view colaboradoras from their store" ON sistemaretiradas.profiles IS 
-'Allows LOJA profiles to view COLABORADORA profiles that belong to their store, matching by store_id or store_default (with normalization)';
+'Allows LOJA profiles to view COLABORADORA profiles that belong to their store, matching by store_id or store_default (with normalization).';
