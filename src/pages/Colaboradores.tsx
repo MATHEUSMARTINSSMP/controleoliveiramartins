@@ -392,94 +392,95 @@ const Colaboradores = () => {
               </TabsList>
 
               <TabsContent value="colaboradoras" className="space-y-4">
-            {loadingData ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : (
-              <div className="rounded-lg border border-primary/10 overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="font-semibold">Nome</TableHead>
-                      <TableHead className="font-semibold">CPF</TableHead>
-                      <TableHead className="font-semibold">Email</TableHead>
-                      <TableHead className="font-semibold">Loja</TableHead>
-                      <TableHead className="font-semibold">Limite Total</TableHead>
-                      <TableHead className="font-semibold">Limite Mensal</TableHead>
-                      <TableHead className="font-semibold">Status</TableHead>
-                      <TableHead className="font-semibold">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {colaboradoras.map((colab) => (
-                      <TableRow key={colab.id} className="hover:bg-muted/50 transition-colors">
-                        <TableCell className="font-medium">{colab.name}</TableCell>
-                        <TableCell>{colab.cpf || "Não informado"}</TableCell>
-                        <TableCell>{colab.email}</TableCell>
-                        <TableCell>
-                          <span className="text-xs font-medium px-2 py-1 bg-primary/10 rounded-full">
-                            {colab.store_default || "-"}
-                          </span>
-                        </TableCell>
-                        <TableCell>{formatCurrency(colab.limite_total)}</TableCell>
-                        <TableCell>{formatCurrency(colab.limite_mensal)}</TableCell>
-                        <TableCell>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${colab.active
-                            ? "bg-success/10 text-success"
-                            : "bg-muted text-muted-foreground"
-                            }`}>
-                            {colab.active ? "Ativa" : "Inativa"}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenDialog(colab)}
-                              className="hover:bg-primary/10"
-                              title="Editar"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleResetPassword(colab.id, colab.email, colab.name)}
-                              className="hover:bg-warning/10 text-warning"
-                              title="Resetar Senha"
-                            >
-                              <Mail className="h-4 w-4" />
-                            </Button>
-                            {colab.active ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setDeleteDialog(colab.id)}
-                                className="hover:bg-destructive/10 text-destructive"
-                                title="Desativar"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleReactivate(colab.id, "colaboradora")}
-                                className="hover:bg-success/10 text-success"
-                                title="Reativar"
-                              >
-                                <UserCheck className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                {loadingData ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-primary/10 overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="font-semibold">Nome</TableHead>
+                          <TableHead className="font-semibold">CPF</TableHead>
+                          <TableHead className="font-semibold">Email</TableHead>
+                          <TableHead className="font-semibold">Loja</TableHead>
+                          <TableHead className="font-semibold">Limite Total</TableHead>
+                          <TableHead className="font-semibold">Limite Mensal</TableHead>
+                          <TableHead className="font-semibold">Status</TableHead>
+                          <TableHead className="font-semibold">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {colaboradoras.map((colab) => (
+                          <TableRow key={colab.id} className="hover:bg-muted/50 transition-colors">
+                            <TableCell className="font-medium">{colab.name}</TableCell>
+                            <TableCell>{colab.cpf || "Não informado"}</TableCell>
+                            <TableCell>{colab.email}</TableCell>
+                            <TableCell>
+                              <span className="text-xs font-medium px-2 py-1 bg-primary/10 rounded-full">
+                                {colab.store_default || "-"}
+                              </span>
+                            </TableCell>
+                            <TableCell>{formatCurrency(colab.limite_total)}</TableCell>
+                            <TableCell>{formatCurrency(colab.limite_mensal)}</TableCell>
+                            <TableCell>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${colab.active
+                                ? "bg-success/10 text-success"
+                                : "bg-muted text-muted-foreground"
+                                }`}>
+                                {colab.active ? "Ativa" : "Inativa"}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenDialog(colab)}
+                                  className="hover:bg-primary/10"
+                                  title="Editar"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleResetPassword(colab.id, colab.email, colab.name)}
+                                  className="hover:bg-warning/10 text-warning"
+                                  title="Resetar Senha"
+                                >
+                                  <Mail className="h-4 w-4" />
+                                </Button>
+                                {colab.active ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setDeleteDialog(colab.id)}
+                                    className="hover:bg-destructive/10 text-destructive"
+                                    title="Desativar"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleReactivate(colab.id, "colaboradora")}
+                                    className="hover:bg-success/10 text-success"
+                                    title="Reativar"
+                                  >
+                                    <UserCheck className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="lojas" className="space-y-4">
