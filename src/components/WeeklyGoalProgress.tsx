@@ -53,27 +53,38 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
         // Suporta ambos os formatos: WWYYYY (novo) e YYYYWW (antigo - para migração)
         let week: number, year: number;
         
-        if (weekRef.length === 6) {
-            // Verificar se é formato antigo (YYYYWW) ou novo (WWYYYY)
-            const firstTwo = parseInt(weekRef.substring(0, 2));
-            if (firstTwo > 50) {
-                // Provavelmente é ano (20xx), formato antigo YYYYWW
-                year = parseInt(weekRef.substring(0, 4));
-                week = parseInt(weekRef.substring(4, 6));
-            } else {
-                // Formato novo WWYYYY
-                week = parseInt(weekRef.substring(0, 2));
-                year = parseInt(weekRef.substring(2, 6));
-            }
-        } else {
-            // Fallback: assumir formato novo se não tiver 6 caracteres
-            week = parseInt(weekRef.substring(0, 2));
+        if (!weekRef || weekRef.length !== 6) {
+            throw new Error(`Formato de semana_referencia inválido: ${weekRef} (deve ter 6 caracteres)`);
+        }
+        
+        // Verificar se é formato antigo (YYYYWW) ou novo (WWYYYY)
+        const firstTwo = parseInt(weekRef.substring(0, 2));
+        const firstFour = parseInt(weekRef.substring(0, 4));
+        
+        // Se começa com 20xx (2000-2099), é formato antigo YYYYWW
+        if (firstTwo === 20 && firstFour >= 2000 && firstFour <= 2099) {
+            // Formato antigo YYYYWW
+            year = firstFour;
+            week = parseInt(weekRef.substring(4, 6));
+        } else if (firstTwo >= 1 && firstTwo <= 53) {
+            // Formato novo WWYYYY (semana entre 1-53)
+            week = firstTwo;
             year = parseInt(weekRef.substring(2, 6));
+        } else {
+            throw new Error(`Formato de semana_referencia inválido: ${weekRef} (não é YYYYWW nem WWYYYY)`);
         }
         
         // Validar valores
-        if (isNaN(week) || isNaN(year) || week < 1 || week > 53 || year < 2000 || year > 2100) {
-            throw new Error(`Formato de semana_referencia inválido: ${weekRef}`);
+        if (isNaN(week) || isNaN(year)) {
+            throw new Error(`Formato de semana_referencia inválido: ${weekRef} (valores não numéricos)`);
+        }
+        
+        if (week < 1 || week > 53) {
+            throw new Error(`Formato de semana_referencia inválido: ${weekRef} (semana ${week} fora do range 1-53)`);
+        }
+        
+        if (year < 2000 || year > 2100) {
+            throw new Error(`Formato de semana_referencia inválido: ${weekRef} (ano ${year} fora do range 2000-2100)`);
         }
         
         // Get first Monday of the year
