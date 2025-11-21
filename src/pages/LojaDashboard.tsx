@@ -49,14 +49,7 @@ export default function LojaDashboard() {
         observacoes: "",
     });
 
-    useEffect(() => {
-        if (!profile || (profile.role !== 'LOJA' && profile.role !== 'ADMIN')) {
-            navigate('/');
-            return;
-        }
-        fetchData();
-    }, [profile, navigate]);
-    // NOTE: fetchData redefined later with extended logic
+
     const [goals, setGoals] = useState<any>(null);
     const [metrics, setMetrics] = useState<any>(null);
     const [colaboradorasPerformance, setColaboradorasPerformance] = useState<any[]>([]);
