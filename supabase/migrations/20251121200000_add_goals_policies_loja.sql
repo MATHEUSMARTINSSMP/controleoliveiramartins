@@ -5,6 +5,79 @@
 -- Enable RLS on the 'goals' table if not already enabled
 ALTER TABLE sistemaretiradas.goals ENABLE ROW LEVEL SECURITY;
 
+-- Step 0: Create helper SECURITY DEFINER function to check if collaborator belongs to LOJA's store
+-- This simplifies the RLS policies and avoids recursion
+CREATE OR REPLACE FUNCTION sistemaretiradas.collaborator_belongs_to_loja_store(collaborator_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = sistemaretiradas, pg_temp
+STABLE
+AS $$
+DECLARE
+    loja_store_id UUID;
+    loja_store_default TEXT;
+    collaborator_store_id UUID;
+    collaborator_store_default TEXT;
+BEGIN
+    -- Get LOJA's store info
+    SELECT p.store_id, p.store_default INTO loja_store_id, loja_store_default
+    FROM sistemaretiradas.profiles p
+    WHERE p.id = auth.uid()
+    AND p.role = 'LOJA'
+    AND p.active = true
+    LIMIT 1;
+    
+    -- If LOJA not found, return false
+    IF loja_store_id IS NULL AND loja_store_default IS NULL THEN
+        RETURN false;
+    END IF;
+    
+    -- Get collaborator's store info
+    SELECT p.store_id, p.store_default INTO collaborator_store_id, collaborator_store_default
+    FROM sistemaretiradas.profiles p
+    WHERE p.id = collaborator_id
+    AND p.role = 'COLABORADORA'
+    AND p.active = true
+    LIMIT 1;
+    
+    -- If collaborator not found, return false
+    IF collaborator_store_id IS NULL AND collaborator_store_default IS NULL THEN
+        RETURN false;
+    END IF;
+    
+    -- Match by store_id (most reliable)
+    IF loja_store_id IS NOT NULL AND collaborator_store_id IS NOT NULL THEN
+        RETURN loja_store_id = collaborator_store_id;
+    END IF;
+    
+    -- Match by store_default if store_id is null
+    IF loja_store_id IS NULL AND loja_store_default IS NOT NULL AND collaborator_store_id IS NOT NULL THEN
+        -- Check if collaborator's store_id matches a store with the LOJA's store_default name
+        RETURN EXISTS (
+            SELECT 1 
+            FROM sistemaretiradas.stores s
+            WHERE s.id = collaborator_store_id
+            AND (
+                s.name = loja_store_default
+                OR LOWER(TRIM(s.name)) = LOWER(TRIM(loja_store_default))
+            )
+        );
+    END IF;
+    
+    -- Match by store_default name (both have names)
+    IF loja_store_default IS NOT NULL AND collaborator_store_default IS NOT NULL THEN
+        RETURN LOWER(TRIM(loja_store_default)) = LOWER(TRIM(collaborator_store_default));
+    END IF;
+    
+    RETURN false;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION sistemaretiradas.collaborator_belongs_to_loja_store(UUID) TO authenticated;
+COMMENT ON FUNCTION sistemaretiradas.collaborator_belongs_to_loja_store(UUID) IS 
+'SECURITY DEFINER function to check if a collaborator belongs to the current LOJA user store. Simplifies RLS policies.';
+
 -- Step 1: Drop ALL existing policies on goals table
 DO $$
 DECLARE
@@ -59,18 +132,14 @@ COMMENT ON POLICY "ADMIN can manage all goals" ON sistemaretiradas.goals IS
 'Allows ADMIN profiles to manage all goals in the system (SELECT, INSERT, UPDATE, DELETE).';
 
 -- Step 3: Create Policy 2 - LOJA can view monthly goals (MENSAL) for their store
+-- Simplified using SECURITY DEFINER function to avoid recursion
 CREATE POLICY "LOJA can view monthly goals"
 ON sistemaretiradas.goals
 FOR SELECT
 TO authenticated
 USING (
     -- User must be LOJA
-    EXISTS (
-        SELECT 1 FROM sistemaretiradas.profiles 
-        WHERE id = auth.uid() 
-        AND role = 'LOJA' 
-        AND active = true
-    )
+    sistemaretiradas.is_user_loja()
     AND
     -- Goal must be MENSAL type with null colaboradora_id (store goal)
     tipo = 'MENSAL'
@@ -78,27 +147,19 @@ USING (
     AND
     -- Goal must belong to LOJA's store
     (
-        store_id = (
-            SELECT store_id 
-            FROM sistemaretiradas.profiles 
-            WHERE id = auth.uid() 
-            AND role = 'LOJA' 
-            AND active = true
-        )
+        store_id = (sistemaretiradas.get_loja_store_info()->>'store_id')::uuid
         OR
         (
-            (SELECT store_id FROM sistemaretiradas.profiles WHERE id = auth.uid() AND role = 'LOJA' AND active = true) IS NULL
+            (sistemaretiradas.get_loja_store_info()->>'store_id')::uuid IS NULL
             AND
             store_id IN (
                 SELECT s.id 
                 FROM sistemaretiradas.stores s
-                INNER JOIN sistemaretiradas.profiles p ON (
-                    LOWER(TRIM(s.name)) = LOWER(TRIM(p.store_default))
-                    OR s.name = p.store_default
+                WHERE (sistemaretiradas.get_loja_store_info()->>'store_default') IS NOT NULL
+                AND (
+                    s.name = sistemaretiradas.get_loja_store_info()->>'store_default'
+                    OR LOWER(TRIM(s.name)) = LOWER(TRIM(sistemaretiradas.get_loja_store_info()->>'store_default'))
                 )
-                WHERE p.id = auth.uid() 
-                AND p.role = 'LOJA' 
-                AND p.active = true
                 AND s.active = true
             )
         )
@@ -108,219 +169,82 @@ COMMENT ON POLICY "LOJA can view monthly goals" ON sistemaretiradas.goals IS
 'Allows LOJA profiles to view monthly goals (MENSAL) for their own store (colaboradora_id IS NULL).';
 
 -- Step 4: Create Policy 3 - LOJA can view individual goals (INDIVIDUAL) for their store's collaborators
+-- Simplified using SECURITY DEFINER function to avoid recursion
 CREATE POLICY "LOJA can view individual goals"
 ON sistemaretiradas.goals
 FOR SELECT
 TO authenticated
 USING (
     -- User must be LOJA
-    EXISTS (
-        SELECT 1 FROM sistemaretiradas.profiles 
-        WHERE id = auth.uid() 
-        AND role = 'LOJA' 
-        AND active = true
-    )
+    sistemaretiradas.is_user_loja()
     AND
     -- Goal must be INDIVIDUAL type with non-null colaboradora_id
     tipo = 'INDIVIDUAL'
     AND colaboradora_id IS NOT NULL
     AND
-    -- Goal must belong to LOJA's store
+    -- Goal store_id must match LOJA's store OR be determined via store_default
     (
-        store_id = (
-            SELECT store_id 
-            FROM sistemaretiradas.profiles 
-            WHERE id = auth.uid() 
-            AND role = 'LOJA' 
-            AND active = true
-        )
+        store_id = (sistemaretiradas.get_loja_store_info()->>'store_id')::uuid
         OR
         (
-            (SELECT store_id FROM sistemaretiradas.profiles WHERE id = auth.uid() AND role = 'LOJA' AND active = true) IS NULL
+            (sistemaretiradas.get_loja_store_info()->>'store_id')::uuid IS NULL
             AND
             store_id IN (
                 SELECT s.id 
                 FROM sistemaretiradas.stores s
-                INNER JOIN sistemaretiradas.profiles p ON (
-                    LOWER(TRIM(s.name)) = LOWER(TRIM(p.store_default))
-                    OR s.name = p.store_default
+                WHERE (sistemaretiradas.get_loja_store_info()->>'store_default') IS NOT NULL
+                AND (
+                    s.name = sistemaretiradas.get_loja_store_info()->>'store_default'
+                    OR LOWER(TRIM(s.name)) = LOWER(TRIM(sistemaretiradas.get_loja_store_info()->>'store_default'))
                 )
-                WHERE p.id = auth.uid() 
-                AND p.role = 'LOJA' 
-                AND p.active = true
                 AND s.active = true
             )
         )
     )
     AND
-    -- Collaborator must belong to LOJA's store
-    colaboradora_id IN (
-        SELECT c.id 
-        FROM sistemaretiradas.profiles c
-        WHERE c.role = 'COLABORADORA' 
-        AND c.active = true
-        AND (
-            -- Match by store_id
-            c.store_id = (
-                SELECT p.store_id 
-                FROM sistemaretiradas.profiles p 
-                WHERE p.id = auth.uid() 
-                AND p.role = 'LOJA' 
-                AND p.active = true
-            )
-            OR
-            -- Match by store_default if store_id is null
-            (
-                (SELECT p.store_id FROM sistemaretiradas.profiles p WHERE p.id = auth.uid() AND p.role = 'LOJA' AND p.active = true) IS NULL
-                AND
-                c.store_id IN (
-                    SELECT s.id 
-                    FROM sistemaretiradas.stores s
-                    INNER JOIN sistemaretiradas.profiles p ON (
-                        LOWER(TRIM(s.name)) = LOWER(TRIM(p.store_default))
-                        OR s.name = p.store_default
-                    )
-                    WHERE p.id = auth.uid() 
-                    AND p.role = 'LOJA' 
-                    AND p.active = true
-                    AND s.active = true
-                )
-            )
-            OR
-            -- Match by store_default name
-            (
-                c.store_default IS NOT NULL
-                AND EXISTS (
-                    SELECT 1 
-                    FROM sistemaretiradas.profiles p
-                    WHERE p.id = auth.uid() 
-                    AND p.role = 'LOJA' 
-                    AND p.active = true
-                    AND (
-                        LOWER(TRIM(c.store_default)) = LOWER(TRIM(p.store_default))
-                        OR
-                        (
-                            SELECT COUNT(*) 
-                            FROM sistemaretiradas.stores s
-                            WHERE s.id = c.store_id
-                            AND (
-                                LOWER(TRIM(s.name)) = LOWER(TRIM(p.store_default))
-                                OR s.name = p.store_default
-                            )
-                        ) > 0
-                    )
-                )
-            )
-        )
-    )
+    -- Collaborator must belong to LOJA's store (using SECURITY DEFINER function)
+    sistemaretiradas.collaborator_belongs_to_loja_store(colaboradora_id)
 );
 COMMENT ON POLICY "LOJA can view individual goals" ON sistemaretiradas.goals IS
 'Allows LOJA profiles to view individual goals (INDIVIDUAL) for collaborators that belong to their store.';
 
 -- Step 5: Create Policy 4 - LOJA can view weekly goals (SEMANAL) for their store's collaborators
+-- Simplified using SECURITY DEFINER function to avoid recursion
 CREATE POLICY "LOJA can view weekly goals"
 ON sistemaretiradas.goals
 FOR SELECT
 TO authenticated
 USING (
     -- User must be LOJA
-    EXISTS (
-        SELECT 1 FROM sistemaretiradas.profiles 
-        WHERE id = auth.uid() 
-        AND role = 'LOJA' 
-        AND active = true
-    )
+    sistemaretiradas.is_user_loja()
     AND
     -- Goal must be SEMANAL type
     tipo = 'SEMANAL'
     AND semana_referencia IS NOT NULL
     AND colaboradora_id IS NOT NULL
     AND
-    -- Goal must belong to LOJA's store
+    -- Goal store_id must match LOJA's store OR be determined via store_default
     (
-        store_id = (
-            SELECT store_id 
-            FROM sistemaretiradas.profiles 
-            WHERE id = auth.uid() 
-            AND role = 'LOJA' 
-            AND active = true
-        )
+        store_id = (sistemaretiradas.get_loja_store_info()->>'store_id')::uuid
         OR
         (
-            (SELECT store_id FROM sistemaretiradas.profiles WHERE id = auth.uid() AND role = 'LOJA' AND active = true) IS NULL
+            (sistemaretiradas.get_loja_store_info()->>'store_id')::uuid IS NULL
             AND
             store_id IN (
                 SELECT s.id 
                 FROM sistemaretiradas.stores s
-                INNER JOIN sistemaretiradas.profiles p ON (
-                    LOWER(TRIM(s.name)) = LOWER(TRIM(p.store_default))
-                    OR s.name = p.store_default
+                WHERE (sistemaretiradas.get_loja_store_info()->>'store_default') IS NOT NULL
+                AND (
+                    s.name = sistemaretiradas.get_loja_store_info()->>'store_default'
+                    OR LOWER(TRIM(s.name)) = LOWER(TRIM(sistemaretiradas.get_loja_store_info()->>'store_default'))
                 )
-                WHERE p.id = auth.uid() 
-                AND p.role = 'LOJA' 
-                AND p.active = true
                 AND s.active = true
             )
         )
     )
     AND
-    -- Collaborator must belong to LOJA's store
-    colaboradora_id IN (
-        SELECT c.id 
-        FROM sistemaretiradas.profiles c
-        WHERE c.role = 'COLABORADORA' 
-        AND c.active = true
-        AND (
-            c.store_id = (
-                SELECT p.store_id 
-                FROM sistemaretiradas.profiles p 
-                WHERE p.id = auth.uid() 
-                AND p.role = 'LOJA' 
-                AND p.active = true
-            )
-            OR
-            (
-                (SELECT p.store_id FROM sistemaretiradas.profiles p WHERE p.id = auth.uid() AND p.role = 'LOJA' AND p.active = true) IS NULL
-                AND
-                c.store_id IN (
-                    SELECT s.id 
-                    FROM sistemaretiradas.stores s
-                    INNER JOIN sistemaretiradas.profiles p ON (
-                        LOWER(TRIM(s.name)) = LOWER(TRIM(p.store_default))
-                        OR s.name = p.store_default
-                    )
-                    WHERE p.id = auth.uid() 
-                    AND p.role = 'LOJA' 
-                    AND p.active = true
-                    AND s.active = true
-                )
-            )
-            OR
-            (
-                c.store_default IS NOT NULL
-                AND EXISTS (
-                    SELECT 1 
-                    FROM sistemaretiradas.profiles p
-                    WHERE p.id = auth.uid() 
-                    AND p.role = 'LOJA' 
-                    AND p.active = true
-                    AND (
-                        LOWER(TRIM(c.store_default)) = LOWER(TRIM(p.store_default))
-                        OR
-                        (
-                            SELECT COUNT(*) 
-                            FROM sistemaretiradas.stores s
-                            WHERE s.id = c.store_id
-                            AND (
-                                LOWER(TRIM(s.name)) = LOWER(TRIM(p.store_default))
-                                OR s.name = p.store_default
-                            )
-                        ) > 0
-                    )
-                )
-            )
-        )
-    )
+    -- Collaborator must belong to LOJA's store (using SECURITY DEFINER function)
+    sistemaretiradas.collaborator_belongs_to_loja_store(colaboradora_id)
 );
 COMMENT ON POLICY "LOJA can view weekly goals" ON sistemaretiradas.goals IS
 'Allows LOJA profiles to view weekly goals (SEMANAL) for collaborators that belong to their store.';

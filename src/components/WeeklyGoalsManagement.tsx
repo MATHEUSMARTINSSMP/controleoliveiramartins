@@ -792,62 +792,100 @@ const WeeklyGoalsManagement = () => {
                 </Button>
             </div>
 
-            {/* Weekly Goals Grid */}
-            <div className="space-y-4">
+            {/* Weekly Goals Grid - Agrupado por Loja, ordenado por data (mais recentes primeiro) */}
+            <div className="space-y-6">
                 {Object.entries(
+                    // Primeiro agrupar por loja
                     weeklyGoals.reduce((acc, goal) => {
-                        const key = `${goal.store_id}-${goal.semana_referencia}`;
-                        if (!acc[key]) {
-                            acc[key] = {
+                        const storeId = goal.store_id;
+                        if (!acc[storeId]) {
+                            acc[storeId] = {
                                 store: goal.stores,
-                                store_id: goal.store_id,
-                                semana_referencia: goal.semana_referencia,
+                                store_id: storeId,
+                                weeks: {} as Record<string, any>
+                            };
+                        }
+                        // Dentro de cada loja, agrupar por semana
+                        const weekKey = goal.semana_referencia;
+                        if (!acc[storeId].weeks[weekKey]) {
+                            acc[storeId].weeks[weekKey] = {
+                                semana_referencia: weekKey,
                                 goals: []
                             };
                         }
-                        acc[key].goals.push(goal);
+                        acc[storeId].weeks[weekKey].goals.push(goal);
                         return acc;
                     }, {} as Record<string, any>)
-                ).map(([key, group]: [string, any]) => {
-                    // Proteger contra erro ao fazer parse da semana
-                    let weekRange;
-                    try {
-                        weekRange = getWeekRange(group.semana_referencia || "");
-                    } catch (err: any) {
-                        console.error(`Erro ao processar semana ${group.semana_referencia}:`, err);
-                        // Retornar valores padrão se houver erro
-                        weekRange = { start: new Date(), end: new Date() };
-                    }
-                    const isCurrentWeek = group.semana_referencia === getCurrentWeekRef();
-                    
-                    // Contar colaboradoras únicas (pode ter metas duplicadas)
-                    const uniqueColabs = new Set(group.goals.map((g: any) => g.colaboradora_id).filter((id: any) => id != null));
-                    const colabsCount = uniqueColabs.size;
-                    
-                    const totalMeta = group.goals.reduce((sum: number, g: any) => sum + (g.meta_valor || 0), 0);
-                    const totalSuper = group.goals.reduce((sum: number, g: any) => sum + (g.super_meta_valor || 0), 0);
+                )
+                // Ordenar por nome da loja
+                .sort(([_, a]: [string, any], [__, b]: [string, any]) => {
+                    const nameA = a.store?.name || '';
+                    const nameB = b.store?.name || '';
+                    return nameA.localeCompare(nameB);
+                })
+                .map(([storeId, storeGroup]: [string, any]) => {
+                    // Para cada loja, ordenar semanas por número da semana (mais recentes primeiro)
+                    const sortedWeeks = Object.entries(storeGroup.weeks)
+                        .sort(([weekRefA, _], [weekRefB, __]) => {
+                            // Converter semana_referencia para número para ordenar
+                            try {
+                                const rangeA = getWeekRange(weekRefA as string);
+                                const rangeB = getWeekRange(weekRefB as string);
+                                // Ordenar por data de início (mais recentes primeiro)
+                                return rangeB.start.getTime() - rangeA.start.getTime();
+                            } catch (err) {
+                                // Se houver erro, manter ordem original
+                                return 0;
+                            }
+                        });
                     
                     return (
-                        <Card 
-                            key={key} 
-                            className={`relative overflow-hidden shadow-md hover:shadow-lg transition-shadow ${
-                                isCurrentWeek ? 'border-2 border-primary' : ''
-                            }`}
-                        >
-                            <CardHeader className="pb-2 bg-gradient-to-r from-primary/10 to-purple-500/10">
-                                <CardTitle className="flex justify-between items-center text-lg">
-                                    <span>{group.store?.name || "Loja desconhecida"}</span>
-                                    {isCurrentWeek && (
-                                        <span className="text-xs font-normal bg-primary text-primary-foreground px-2 py-1 rounded">
-                                            Semana Atual
-                                        </span>
-                                    )}
-                                </CardTitle>
-                            </CardHeader>
+                        <div key={storeId} className="space-y-3">
+                            {/* Título da Loja */}
+                            <h2 className="text-xl font-bold text-primary border-b-2 border-primary pb-2">
+                                {storeGroup.store?.name || "Loja desconhecida"}
+                            </h2>
+                            
+                            {/* Semanas desta loja */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {sortedWeeks.map(([weekKey, weekGroup]: [string, any]) => {
+                                    const group = weekGroup;
+                                    // Proteger contra erro ao fazer parse da semana
+                                    let weekRange;
+                                    try {
+                                        weekRange = getWeekRange(group.semana_referencia || "");
+                                    } catch (err: any) {
+                                        console.error(`Erro ao processar semana ${group.semana_referencia}:`, err);
+                                        // Retornar valores padrão se houver erro
+                                        weekRange = { start: new Date(), end: new Date() };
+                                    }
+                                    const isCurrentWeek = group.semana_referencia === getCurrentWeekRef();
+                                    
+                                    // Contar colaboradoras únicas (pode ter metas duplicadas)
+                                    const uniqueColabs = new Set(group.goals.map((g: any) => g.colaboradora_id).filter((id: any) => id != null));
+                                    const colabsCount = uniqueColabs.size;
+                                    
+                                    const totalMeta = group.goals.reduce((sum: number, g: any) => sum + (g.meta_valor || 0), 0);
+                                    const totalSuper = group.goals.reduce((sum: number, g: any) => sum + (g.super_meta_valor || 0), 0);
+                                    
+                                    return (
+                                        <Card 
+                                            key={weekKey} 
+                                            className={`relative overflow-hidden shadow-md hover:shadow-lg transition-shadow ${
+                                                isCurrentWeek ? 'border-2 border-primary' : ''
+                                            }`}
+                                        >
+                                            <CardHeader className="pb-2 bg-gradient-to-r from-primary/10 to-purple-500/10">
+                                                <CardTitle className="flex justify-between items-center text-lg">
+                                                    <span>{format(weekRange.start, "dd/MM", { locale: ptBR })} - {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}</span>
+                                                    {isCurrentWeek && (
+                                                        <span className="text-xs font-normal bg-primary text-primary-foreground px-2 py-1 rounded">
+                                                            Semana Atual
+                                                        </span>
+                                                    )}
+                                                </CardTitle>
+                                            </CardHeader>
                             <CardContent className="pt-4 space-y-3">
-                                <div className="text-sm text-muted-foreground">
-                                    {format(weekRange.start, "dd/MM", { locale: ptBR })} - {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
-                                </div>
                                 <div className="space-y-2">
                                     <div className="flex justify-between">
                                         <span className="text-sm text-muted-foreground">Total ({colabsCount} colaboradora{colabsCount > 1 ? 's' : ''}):</span>
@@ -872,6 +910,10 @@ const WeeklyGoalsManagement = () => {
                                 </Button>
                             </CardContent>
                         </Card>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     );
                 })}
                 {weeklyGoals.length === 0 && (

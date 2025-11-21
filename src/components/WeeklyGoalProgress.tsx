@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Target, Zap, TrendingUp, Calendar, Gift } from "lucide-react";
-import { format, startOfWeek, endOfWeek, getWeek, getYear, addWeeks } from "date-fns";
+import { format, startOfWeek, endOfWeek, getWeek, getYear, addWeeks, eachDayOfInterval, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/utils";
 
@@ -16,15 +16,20 @@ interface WeeklyGoalProgressProps {
 
 interface WeeklyProgress {
     semana_referencia: string;
-    meta_valor: number;
+    meta_valor: number; // Meta semanal obrigatória (soma das metas diárias da meta mensal)
     super_meta_valor: number;
+    meta_bonus_valor: number | null; // Meta semanal de bônus (opcional)
+    super_meta_bonus_valor: number | null;
     realizado: number;
-    progress: number;
+    progress: number; // Progresso em relação à meta obrigatória
+    progressBonus: number; // Progresso em relação à meta de bônus
     superProgress: number;
     daysElapsed: number;
     daysRemaining: number;
-    projected: number;
+    projected: number; // Projeção para o final da semana
+    projectedByToday: number; // O que deveria ter vendido até hoje (baseado nas metas diárias)
     status: 'on-track' | 'ahead' | 'behind';
+    statusByToday: 'on-track' | 'ahead' | 'behind'; // Status baseado no que deveria ter vendido até hoje
 }
 
 interface WeeklyBonus {
@@ -102,6 +107,32 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
         return { start: weekStart, end: weekEnd };
     }
 
+    // Helper function to calculate weekly goal from monthly goal using daily_weights
+    const calculateWeeklyGoalFromMonthly = (monthlyGoal: number, dailyWeights: Record<string, number>, weekRange: { start: Date; end: Date }): number => {
+        // Obter todos os dias da semana (segunda a domingo)
+        const weekDays = eachDayOfInterval({ start: weekRange.start, end: weekRange.end });
+        
+        let totalWeeklyGoal = 0;
+        
+        weekDays.forEach(day => {
+            const dayKey = format(day, 'yyyy-MM-dd');
+            const dayWeight = dailyWeights[dayKey] || 0;
+            
+            // Calcular meta do dia: (meta_mensal * peso_do_dia) / 100
+            const dayGoal = (monthlyGoal * dayWeight) / 100;
+            totalWeeklyGoal += dayGoal;
+        });
+        
+        // Se não houver daily_weights, dividir igualmente pelos dias do mês
+        if (Object.keys(dailyWeights).length === 0) {
+            const daysInMonth = new Date(weekRange.start.getFullYear(), weekRange.start.getMonth() + 1, 0).getDate();
+            const dailyGoal = monthlyGoal / daysInMonth;
+            totalWeeklyGoal = dailyGoal * 7; // 7 dias da semana
+        }
+        
+        return totalWeeklyGoal;
+    };
+
     const fetchWeeklyProgress = async () => {
         setLoading(true);
         try {
@@ -111,6 +142,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
             const monday = weekRange.start;
             const daysElapsed = Math.floor((hoje.getTime() - monday.getTime()) / (1000 * 60 * 60 * 24)) + 1;
             const daysRemaining = 7 - daysElapsed;
+            const mesAtual = format(hoje, 'yyyyMM');
 
             // Fetch weekly bonuses for the store
             const { data: bonusesData } = await supabase
@@ -133,120 +165,186 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
 
             setWeeklyBonuses({ meta_bonus: metaBonus, super_meta_bonus: superMetaBonus });
 
-            // Fetch weekly goal
-            let weeklyGoal;
+            // Fetch monthly goal (MENSAL) - esta é a meta obrigatória
+            let monthlyGoalData: any = null;
             
             if (colaboradoraId) {
-                // Individual weekly goal for collaborator
+                // Buscar meta individual mensal
                 const { data: goalData } = await supabase
                     .from("goals")
                     .select("*, stores (name)")
                     .eq("store_id", storeId)
                     .eq("colaboradora_id", colaboradoraId)
-                    .eq("semana_referencia", currentWeek)
-                    .eq("tipo", "SEMANAL")
+                    .eq("mes_referencia", mesAtual)
+                    .eq("tipo", "INDIVIDUAL")
                     .single();
-
-                weeklyGoal = goalData;
+                
+                monthlyGoalData = goalData;
                 if (goalData?.stores?.name) {
                     setStoreName(goalData.stores.name);
                 }
-
-                // Fetch individual sales for the week
-                const { data: salesData } = await supabase
-                    .from("sales")
-                    .select("valor")
-                    .eq("colaboradora_id", colaboradoraId)
-                    .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
-                    .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
-
-                const realizado = salesData?.reduce((sum, sale) => sum + parseFloat(sale.valor || '0'), 0) || 0;
-
-                if (weeklyGoal) {
-                    const progressPercent = (realizado / weeklyGoal.meta_valor) * 100;
-                    const superProgressPercent = (realizado / weeklyGoal.super_meta_valor) * 100;
-                    const dailyAverage = daysElapsed > 0 ? realizado / daysElapsed : 0;
-                    const projected = dailyAverage * 7;
-
-                    let status: 'on-track' | 'ahead' | 'behind' = 'on-track';
-                    const expectedByNow = (weeklyGoal.meta_valor / 7) * daysElapsed;
-                    if (realizado >= expectedByNow * 1.1) {
-                        status = 'ahead';
-                    } else if (realizado < expectedByNow * 0.9) {
-                        status = 'behind';
-                    }
-
-                    setProgress({
-                        semana_referencia: currentWeek,
-                        meta_valor: weeklyGoal.meta_valor,
-                        super_meta_valor: weeklyGoal.super_meta_valor,
-                        realizado,
-                        progress: progressPercent,
-                        superProgress: superProgressPercent,
-                        daysElapsed,
-                        daysRemaining,
-                        projected,
-                        status
-                    });
-                }
             } else if (storeId) {
-                // Store weekly goal - aggregate all individual goals
-                const { data: goalsData } = await supabase
+                // Buscar meta mensal da loja
+                const { data: goalData } = await supabase
                     .from("goals")
                     .select("*, stores (name)")
                     .eq("store_id", storeId)
+                    .eq("mes_referencia", mesAtual)
+                    .eq("tipo", "MENSAL")
+                    .is("colaboradora_id", null)
+                    .single();
+                
+                monthlyGoalData = goalData;
+                if (goalData?.stores?.name) {
+                    setStoreName(goalData.stores.name);
+                }
+            }
+
+            // Calcular meta semanal obrigatória baseada na meta mensal (soma das metas diárias)
+            let metaSemanalObrigatoria = 0;
+            let superMetaSemanalObrigatoria = 0;
+            
+            if (monthlyGoalData) {
+                const dailyWeights = monthlyGoalData.daily_weights || {};
+                metaSemanalObrigatoria = calculateWeeklyGoalFromMonthly(
+                    parseFloat(monthlyGoalData.meta_valor || 0),
+                    dailyWeights,
+                    weekRange
+                );
+                superMetaSemanalObrigatoria = calculateWeeklyGoalFromMonthly(
+                    parseFloat(monthlyGoalData.super_meta_valor || 0),
+                    dailyWeights,
+                    weekRange
+                );
+            }
+
+            // Fetch weekly bonus goal (SEMANAL) - meta extra de bônus, se existir
+            let weeklyBonusGoal: any = null;
+            if (colaboradoraId) {
+                const { data: goalData } = await supabase
+                    .from("goals")
+                    .select("*")
+                    .eq("store_id", storeId)
+                    .eq("colaboradora_id", colaboradoraId)
                     .eq("semana_referencia", currentWeek)
                     .eq("tipo", "SEMANAL")
-                    .not("colaboradora_id", "is", null);
-
+                    .single();
+                
+                weeklyBonusGoal = goalData;
+            } else if (storeId) {
+                // Para loja, buscar a primeira meta semanal de bônus (se existir)
+                const { data: goalsData } = await supabase
+                    .from("goals")
+                    .select("*")
+                    .eq("store_id", storeId)
+                    .eq("semana_referencia", currentWeek)
+                    .eq("tipo", "SEMANAL")
+                    .not("colaboradora_id", "is", null)
+                    .limit(1);
+                
                 if (goalsData && goalsData.length > 0) {
-                    // Get store name
-                    if (goalsData[0]?.stores?.name) {
-                        setStoreName(goalsData[0].stores.name);
-                    }
-
-                    // Aggregate goals
-                    const totalMeta = goalsData.reduce((sum, g) => sum + (g.meta_valor || 0), 0);
-                    const totalSuper = goalsData.reduce((sum, g) => sum + (g.super_meta_valor || 0), 0);
-
-                    // Fetch store sales for the week
-                    const { data: salesData } = await supabase
-                        .from("sales")
-                        .select("valor")
-                        .eq("store_id", storeId)
-                        .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
-                        .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
-
-                    const realizado = salesData?.reduce((sum, sale) => sum + parseFloat(sale.valor || '0'), 0) || 0;
-
-                    if (totalMeta > 0) {
-                        const progressPercent = (realizado / totalMeta) * 100;
-                        const superProgressPercent = totalSuper > 0 ? (realizado / totalSuper) * 100 : 0;
-                        const dailyAverage = daysElapsed > 0 ? realizado / daysElapsed : 0;
-                        const projected = dailyAverage * 7;
-
-                        let status: 'on-track' | 'ahead' | 'behind' = 'on-track';
-                        const expectedByNow = (totalMeta / 7) * daysElapsed;
-                        if (realizado >= expectedByNow * 1.1) {
-                            status = 'ahead';
-                        } else if (realizado < expectedByNow * 0.9) {
-                            status = 'behind';
-                        }
-
-                        setProgress({
-                            semana_referencia: currentWeek,
-                            meta_valor: totalMeta,
-                            super_meta_valor: totalSuper,
-                            realizado,
-                            progress: progressPercent,
-                            superProgress: superProgressPercent,
-                            daysElapsed,
-                            daysRemaining,
-                            projected,
-                            status
-                        });
-                    }
+                    weeklyBonusGoal = goalsData[0];
                 }
+            }
+
+            // Fetch sales for the week
+            const salesQuery = colaboradoraId
+                ? supabase
+                    .from("sales")
+                    .select("valor, data_venda")
+                    .eq("colaboradora_id", colaboradoraId)
+                : supabase
+                    .from("sales")
+                    .select("valor, data_venda")
+                    .eq("store_id", storeId);
+
+            const { data: salesData } = await salesQuery
+                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
+                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+
+            const realizado = salesData?.reduce((sum, sale) => sum + parseFloat(sale.valor || '0'), 0) || 0;
+
+            // Calcular o que deveria ter vendido até hoje (baseado nas metas diárias até hoje)
+            let projectedByToday = 0;
+            if (monthlyGoalData) {
+                const dailyWeights = monthlyGoalData.daily_weights || {};
+                const weekDays = eachDayOfInterval({ start: weekRange.start, end: weekRange.end });
+                const daysUpToToday = weekDays.filter(day => day <= hoje);
+                
+                daysUpToToday.forEach(day => {
+                    const dayKey = format(day, 'yyyy-MM-dd');
+                    const dayWeight = dailyWeights[dayKey] || 0;
+                    const dayGoal = (parseFloat(monthlyGoalData.meta_valor || 0) * dayWeight) / 100;
+                    projectedByToday += dayGoal;
+                });
+                
+                // Se não houver daily_weights, calcular proporcionalmente
+                if (Object.keys(dailyWeights).length === 0) {
+                    const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+                    const dailyGoal = parseFloat(monthlyGoalData.meta_valor || 0) / daysInMonth;
+                    projectedByToday = dailyGoal * daysElapsed;
+                }
+            }
+
+            // Projeção para o final da semana (baseada na média diária até agora)
+            const dailyAverage = daysElapsed > 0 ? realizado / daysElapsed : 0;
+            const projected = dailyAverage * 7;
+
+            // Status baseado no que deveria ter vendido até hoje
+            let statusByToday: 'on-track' | 'ahead' | 'behind' = 'on-track';
+            if (projectedByToday > 0) {
+                if (realizado >= projectedByToday * 1.1) {
+                    statusByToday = 'ahead';
+                } else if (realizado < projectedByToday * 0.9) {
+                    statusByToday = 'behind';
+                }
+            }
+
+            // Status baseado na projeção da semana
+            let status: 'on-track' | 'ahead' | 'behind' = 'on-track';
+            if (metaSemanalObrigatoria > 0) {
+                const expectedByWeekEnd = projected;
+                if (expectedByWeekEnd >= metaSemanalObrigatoria * 1.1) {
+                    status = 'ahead';
+                } else if (expectedByWeekEnd < metaSemanalObrigatoria * 0.9) {
+                    status = 'behind';
+                }
+            }
+
+            // Progress calculations
+            const progressPercent = metaSemanalObrigatoria > 0 ? (realizado / metaSemanalObrigatoria) * 100 : 0;
+            const superProgressPercent = superMetaSemanalObrigatoria > 0 ? (realizado / superMetaSemanalObrigatoria) * 100 : 0;
+            const progressBonus = weeklyBonusGoal && weeklyBonusGoal.meta_valor > 0 
+                ? (realizado / parseFloat(weeklyBonusGoal.meta_valor)) * 100 
+                : 0;
+
+            // Usar meta semanal obrigatória OU meta de bônus (a maior)
+            const metaToUse = weeklyBonusGoal && parseFloat(weeklyBonusGoal.meta_valor) > metaSemanalObrigatoria
+                ? parseFloat(weeklyBonusGoal.meta_valor)
+                : metaSemanalObrigatoria;
+            
+            const superMetaToUse = weeklyBonusGoal && parseFloat(weeklyBonusGoal.super_meta_valor || 0) > superMetaSemanalObrigatoria
+                ? parseFloat(weeklyBonusGoal.super_meta_valor || 0)
+                : superMetaSemanalObrigatoria;
+
+            if (metaSemanalObrigatoria > 0 || metaToUse > 0) {
+                setProgress({
+                    semana_referencia: currentWeek,
+                    meta_valor: metaSemanalObrigatoria,
+                    super_meta_valor: superMetaSemanalObrigatoria,
+                    meta_bonus_valor: weeklyBonusGoal ? parseFloat(weeklyBonusGoal.meta_valor || 0) : null,
+                    super_meta_bonus_valor: weeklyBonusGoal ? parseFloat(weeklyBonusGoal.super_meta_valor || 0) : null,
+                    realizado,
+                    progress: progressPercent,
+                    progressBonus,
+                    superProgress: superProgressPercent,
+                    daysElapsed,
+                    daysRemaining,
+                    projected,
+                    projectedByToday,
+                    status,
+                    statusByToday
+                });
             }
         } catch (err) {
             console.error("Error fetching weekly progress:", err);
@@ -275,46 +373,60 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
         );
     }
 
+    const hoje = new Date();
     const weekRange = getWeekRange(progress.semana_referencia);
     const deficit = Math.max(0, progress.meta_valor - progress.realizado);
     const ahead = Math.max(0, progress.realizado - progress.meta_valor);
     const needsDaily = progress.daysRemaining > 0 ? deficit / progress.daysRemaining : 0;
 
-    // Gamification colors and icons
-    const getStatusColor = () => {
-        if (progress.status === 'ahead') return 'text-green-600';
-        if (progress.status === 'behind') return 'text-red-600';
+    // Helper para obter cor do status
+    const getStatusColor = (status: 'on-track' | 'ahead' | 'behind') => {
+        if (status === 'ahead') return 'text-green-600';
+        if (status === 'behind') return 'text-red-600';
         return 'text-yellow-600';
     };
 
-    const getStatusBadge = () => {
-        if (progress.progress >= 100) return { text: 'Meta Batida! 🎉', color: 'bg-green-500', icon: Trophy };
-        if (progress.superProgress >= 100) return { text: 'Super Meta! 🚀', color: 'bg-purple-500', icon: Zap };
-        if (progress.status === 'ahead') return { text: 'À Frente', color: 'bg-green-500', icon: TrendingUp };
-        if (progress.status === 'behind') return { text: 'Atrasado', color: 'bg-red-500', icon: Target };
-        return { text: 'No Ritmo', color: 'bg-yellow-500', icon: Target };
+    // Helper para obter texto do status
+    const getStatusText = (status: 'on-track' | 'ahead' | 'behind') => {
+        if (status === 'ahead') return 'À Frente';
+        if (status === 'behind') return 'Atrasado';
+        return 'No Ritmo';
     };
 
-    const statusBadge = getStatusBadge();
-    const StatusIcon = statusBadge.icon;
+    // Badge principal: se já bateu a meta, mostrar isso. Senão, mostrar status por semana (projeção)
+    const getMainStatusBadge = () => {
+        if (progress.progress >= 100) return { text: 'Meta Batida! 🎉', color: 'bg-green-500', icon: Trophy };
+        if (progress.superProgress >= 100) return { text: 'Super Meta! 🚀', color: 'bg-purple-500', icon: Zap };
+        // Mostrar status baseado na projeção da semana
+        if (progress.status === 'ahead') return { text: 'Projeção: À Frente', color: 'bg-green-500', icon: TrendingUp };
+        if (progress.status === 'behind') return { text: 'Projeção: Atrasado', color: 'bg-red-500', icon: Target };
+        return { text: 'Projeção: No Ritmo', color: 'bg-yellow-500', icon: Target };
+    };
+
+    const mainStatusBadge = getMainStatusBadge();
+    const MainStatusIcon = mainStatusBadge.icon;
+
+    // Usar status até hoje para cor da borda (mais relevante para o dia a dia)
+    const borderColorClass = progress.progress >= 100 
+        ? 'border-green-500' 
+        : progress.statusByToday === 'ahead' 
+            ? 'border-green-300'
+            : progress.statusByToday === 'behind'
+                ? 'border-red-300'
+                : 'border-yellow-300';
 
     return (
-        <Card className={`border-2 shadow-lg overflow-hidden ${
-            progress.progress >= 100 ? 'border-green-500' : 
-            progress.status === 'ahead' ? 'border-green-300' :
-            progress.status === 'behind' ? 'border-red-300' :
-            'border-yellow-300'
-        }`}>
-            <CardHeader className={`bg-gradient-to-r ${statusBadge.color} bg-opacity-10 pb-3`}>
+        <Card className={`border-2 shadow-lg overflow-hidden ${borderColorClass}`}>
+            <CardHeader className={`bg-gradient-to-r ${mainStatusBadge.color} bg-opacity-10 pb-3`}>
                 <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                         <Calendar className="h-5 w-5 text-primary" />
                         <span>Meta Semanal</span>
                         {storeName && <span className="text-sm font-normal text-muted-foreground">({storeName})</span>}
                     </CardTitle>
-                    <Badge className={`${statusBadge.color} text-white`}>
-                        <StatusIcon className="h-3 w-3 mr-1" />
-                        {statusBadge.text}
+                    <Badge className={`${mainStatusBadge.color} text-white`}>
+                        <MainStatusIcon className="h-3 w-3 mr-1" />
+                        {mainStatusBadge.text}
                     </Badge>
                 </div>
                 <div className="text-sm text-muted-foreground mt-1">
@@ -467,7 +579,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                 {showDetails && (
                     <>
                         {/* Stats Grid */}
-                        <div className="grid grid-cols-2 gap-3 pt-4 border-t">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t">
                             <div className="bg-muted/30 p-3 rounded-lg text-center">
                                 <div className="text-xs text-muted-foreground mb-1">Dias Decorridos</div>
                                 <div className="text-xl font-bold">{progress.daysElapsed}/7</div>
@@ -481,6 +593,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                 <div className={`text-lg font-bold ${progress.projected >= progress.meta_valor ? 'text-green-600' : 'text-yellow-600'}`}>
                                     {formatCurrency(progress.projected)}
                                 </div>
+                                <div className="text-[10px] text-muted-foreground mt-1">Baseada na média</div>
                             </div>
                             <div className="bg-muted/30 p-3 rounded-lg text-center">
                                 <div className="text-xs text-muted-foreground mb-1">Média Diária</div>
@@ -490,19 +603,65 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                             </div>
                         </div>
 
-                        {/* Status Message */}
+                        {/* Status até hoje vs o que deveria ter vendido */}
+                        {progress.projectedByToday !== undefined && progress.projectedByToday > 0 && (
+                            <div className={`p-3 sm:p-4 rounded-lg border-2 ${
+                                progress.statusByToday === 'behind' ? 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800' :
+                                progress.statusByToday === 'ahead' ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800' :
+                                'bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-800'
+                            }`}>
+                                <div className="flex items-start gap-2">
+                                    {progress.statusByToday === 'behind' ? (
+                                        <Target className={`h-5 w-5 ${getStatusColor(progress.statusByToday)} mt-0.5 flex-shrink-0`} />
+                                    ) : progress.statusByToday === 'ahead' ? (
+                                        <TrendingUp className={`h-5 w-5 ${getStatusColor(progress.statusByToday)} mt-0.5 flex-shrink-0`} />
+                                    ) : (
+                                        <Target className={`h-5 w-5 ${getStatusColor(progress.statusByToday)} mt-0.5 flex-shrink-0`} />
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                        <p className={`font-semibold ${getStatusColor(progress.statusByToday)}`}>
+                                            Status até {format(hoje, "dd/MM", { locale: ptBR })}: {getStatusText(progress.statusByToday)}
+                                        </p>
+                                        <div className="text-xs sm:text-sm mt-2 space-y-1">
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">Vendido até hoje:</span>
+                                                <span className="font-bold">{formatCurrency(progress.realizado)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">Meta até hoje:</span>
+                                                <span className="font-bold">{formatCurrency(progress.projectedByToday)}</span>
+                                            </div>
+                                            {progress.realizado >= progress.projectedByToday ? (
+                                                <div className="flex justify-between text-green-600 font-bold mt-1 pt-1 border-t">
+                                                    <span>Diferença:</span>
+                                                    <span>+{formatCurrency(progress.realizado - progress.projectedByToday)} 🎉</span>
+                                                </div>
+                                            ) : (
+                                                <div className="flex justify-between text-red-600 font-bold mt-1 pt-1 border-t">
+                                                    <span>Faltando:</span>
+                                                    <span>{formatCurrency(progress.projectedByToday - progress.realizado)}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Status Message - Projeção da Semana */}
                         {progress.progress < 100 && progress.daysRemaining > 0 && (
-                            <div className={`p-4 rounded-lg border-2 ${
-                                progress.status === 'behind' ? 'bg-red-50 border-red-200' :
-                                progress.status === 'ahead' ? 'bg-green-50 border-green-200' :
-                                'bg-yellow-50 border-yellow-200'
+                            <div className={`p-3 sm:p-4 rounded-lg border-2 ${
+                                progress.status === 'behind' ? 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800' :
+                                progress.status === 'ahead' ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800' :
+                                'bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-800'
                             }`}>
                                 {progress.status === 'behind' ? (
                                     <div className="flex items-start gap-2">
-                                        <Target className="h-5 w-5 text-red-600 mt-0.5" />
-                                        <div>
-                                            <p className="font-semibold text-red-900">Você está atrasado</p>
-                                            <p className="text-sm text-red-700 mt-1">
+                                        <Target className={`h-5 w-5 ${getStatusColor(progress.status)} mt-0.5 flex-shrink-0`} />
+                                        <div className="flex-1 min-w-0">
+                                            <p className={`font-semibold ${getStatusColor(progress.status)}`}>Projeção da Semana: Atrasado</p>
+                                            <p className="text-xs sm:text-sm text-red-700 dark:text-red-300 mt-1">
+                                                Com base na média diária atual, a projeção para o final da semana é de <strong>{formatCurrency(progress.projected)}</strong>.
                                                 Faltam <strong>{formatCurrency(deficit)}</strong> para bater a meta semanal.
                                                 Você precisa vender <strong>{formatCurrency(needsDaily)}</strong> por dia nos próximos {progress.daysRemaining} dias.
                                             </p>
@@ -510,21 +669,24 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                     </div>
                                 ) : progress.status === 'ahead' ? (
                                     <div className="flex items-start gap-2">
-                                        <TrendingUp className="h-5 w-5 text-green-600 mt-0.5" />
-                                        <div>
-                                            <p className="font-semibold text-green-900">Parabéns! Você está à frente</p>
-                                            <p className="text-sm text-green-700 mt-1">
-                                                Você já superou a meta em <strong>{formatCurrency(ahead)}</strong>! 
-                                                Continue assim para bater a super meta!
+                                        <TrendingUp className={`h-5 w-5 ${getStatusColor(progress.status)} mt-0.5 flex-shrink-0`} />
+                                        <div className="flex-1 min-w-0">
+                                            <p className={`font-semibold ${getStatusColor(progress.status)}`}>Projeção da Semana: À Frente</p>
+                                            <p className="text-xs sm:text-sm text-green-700 dark:text-green-300 mt-1">
+                                                Com base na média diária atual, a projeção para o final da semana é de <strong>{formatCurrency(progress.projected)}</strong>.
+                                                {progress.progress >= 100 && (
+                                                    <> Você já superou a meta em <strong>{formatCurrency(ahead)}</strong>! Continue assim para bater a super meta!</>
+                                                )}
                                             </p>
                                         </div>
                                     </div>
                                 ) : (
                                     <div className="flex items-start gap-2">
-                                        <Target className="h-5 w-5 text-yellow-600 mt-0.5" />
-                                        <div>
-                                            <p className="font-semibold text-yellow-900">Você está no ritmo</p>
-                                            <p className="text-sm text-yellow-700 mt-1">
+                                        <Target className={`h-5 w-5 ${getStatusColor(progress.status)} mt-0.5 flex-shrink-0`} />
+                                        <div className="flex-1 min-w-0">
+                                            <p className={`font-semibold ${getStatusColor(progress.status)}`}>Projeção da Semana: No Ritmo</p>
+                                            <p className="text-xs sm:text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                                                Com base na média diária atual, a projeção para o final da semana é de <strong>{formatCurrency(progress.projected)}</strong>.
                                                 Mantenha o ritmo atual para bater a meta semanal!
                                             </p>
                                         </div>

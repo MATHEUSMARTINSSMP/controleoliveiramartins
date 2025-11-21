@@ -403,7 +403,7 @@ export default function LojaDashboard() {
                 fetchColaboradorasWithStoreId(currentStoreId, currentStoreName || storeName || undefined),
                 fetchGoalsWithStoreId(currentStoreId),
                 fetchMetricsWithStoreId(currentStoreId),
-                fetchColaboradorasPerformanceWithStoreId(currentStoreId),
+                fetchColaboradorasPerformanceWithStoreId(currentStoreId, currentStoreName || storeName || undefined),
                 fetchRankingTop3WithStoreId(currentStoreId),
                 fetchMonthlyRankingWithStoreId(currentStoreId),
                 fetch7DayHistoryWithStoreId(currentStoreId)
@@ -440,10 +440,10 @@ export default function LojaDashboard() {
 
     const fetchColaboradorasPerformance = async () => {
         if (!storeId) return;
-        return fetchColaboradorasPerformanceWithStoreId(storeId);
+        return fetchColaboradorasPerformanceWithStoreId(storeId, storeName || undefined);
     };
 
-    const fetchColaboradorasPerformanceWithStoreId = async (currentStoreId: string) => {
+    const fetchColaboradorasPerformanceWithStoreId = async (currentStoreId: string, currentStoreName?: string | null) => {
         if (!currentStoreId) return;
 
         const hoje = new Date();
@@ -455,6 +455,27 @@ export default function LojaDashboard() {
         console.log('[LojaDashboard] 📡 Buscando desempenho das colaboradoras...');
         console.log('[LojaDashboard]   storeId:', currentStoreId);
         console.log('[LojaDashboard]   mes_referencia:', mesAtual);
+
+        // Buscar colaboradoras diretamente se não estiverem no estado (evita race condition)
+        let colaboradorasToUse = colaboradoras;
+        if (colaboradorasToUse.length === 0) {
+            console.log('[LojaDashboard] ⚠️ Colaboradoras não estão no estado ainda, buscando diretamente...');
+            const { data: colabsData, error: colabsError } = await supabase
+                .schema("sistemaretiradas")
+                .from('profiles')
+                .select('id, name, active, store_id, store_default')
+                .eq('role', 'COLABORADORA')
+                .eq('active', true)
+                .eq('store_id', currentStoreId)
+                .order('name');
+            
+            if (!colabsError && colabsData && colabsData.length > 0) {
+                colaboradorasToUse = colabsData;
+                console.log('[LojaDashboard] ✅ Colaboradoras encontradas diretamente:', colaboradorasToUse.length);
+            } else {
+                console.warn('[LojaDashboard] ⚠️ Não foi possível buscar colaboradoras diretamente');
+            }
+        }
 
         // Buscar vendas do dia por colaboradora
         const { data: salesToday, error: salesTodayError } = await supabase
@@ -529,18 +550,27 @@ export default function LojaDashboard() {
             console.error('[LojaDashboard]   Erro hint:', goalsError.hint);
         }
 
-        if (!goalsError && goalsData) {
-            console.log('[LojaDashboard] ✅ Metas individuais encontradas:', goalsData.length);
-            goalsData.forEach((g, idx) => {
-                console.log(`[LojaDashboard]   ${idx + 1}. colaboradora_id: ${g.colaboradora_id}, meta: R$ ${g.meta_valor}, super_meta: R$ ${g.super_meta_valor || 0}`);
-            });
+        // Processar performance mesmo se não houver metas individuais (para mostrar vendas)
+        if (colaboradorasToUse.length > 0) {
+            if (!goalsError && goalsData && goalsData.length > 0) {
+                console.log('[LojaDashboard] ✅ Metas individuais encontradas:', goalsData.length);
+                goalsData.forEach((g, idx) => {
+                    console.log(`[LojaDashboard]   ${idx + 1}. colaboradora_id: ${g.colaboradora_id}, meta: R$ ${g.meta_valor}, super_meta: R$ ${g.super_meta_valor || 0}`);
+                });
+            } else {
+                if (goalsError) {
+                    console.warn('[LojaDashboard] ⚠️ Erro ao buscar metas individuais, mas continuando com processamento das vendas');
+                } else {
+                    console.warn('[LojaDashboard] ⚠️ Nenhuma meta individual encontrada, mas continuando com processamento das vendas');
+                }
+            }
 
-            console.log('[LojaDashboard] 📊 Colaboradoras no estado:', colaboradoras.length);
-            colaboradoras.forEach((colab, idx) => {
+            console.log('[LojaDashboard] 📊 Colaboradoras para processar:', colaboradorasToUse.length);
+            colaboradorasToUse.forEach((colab, idx) => {
                 console.log(`[LojaDashboard]   ${idx + 1}. ${colab.name} (id: ${colab.id})`);
             });
 
-            const performance = colaboradoras.map(colab => {
+            const performance = colaboradorasToUse.map(colab => {
                 // Vendas do dia
                 const colabSalesToday = salesToday?.filter(s => s.colaboradora_id === colab.id) || [];
                 const vendidoHoje = colabSalesToday.reduce((sum, s) => sum + Number(s.valor), 0);
@@ -563,7 +593,9 @@ export default function LojaDashboard() {
                     console.log(`[LojaDashboard]   ✅ Meta encontrada para ${colab.name}: R$ ${goal.meta_valor}`);
                 } else {
                     console.log(`[LojaDashboard]   ⚠️ Nenhuma meta encontrada para ${colab.name} (id: ${colab.id})`);
-                    console.log(`[LojaDashboard]     IDs de metas disponíveis:`, goalsData.map(g => g.colaboradora_id));
+                    if (goalsData && goalsData.length > 0) {
+                        console.log(`[LojaDashboard]     IDs de metas disponíveis:`, goalsData.map(g => g.colaboradora_id));
+                    }
                 }
                 
                 if (goal) {
@@ -625,9 +657,16 @@ export default function LojaDashboard() {
 
             // Filtrar apenas colaboradoras com meta ou com vendas
             const performanceFiltered = performance.filter(p => p.meta > 0 || p.vendido > 0 || p.vendidoMes > 0);
+            console.log('[LojaDashboard] 📊 Performance filtrada:', performanceFiltered.length, 'colaboradoras');
+            performanceFiltered.forEach((p, idx) => {
+                console.log(`[LojaDashboard]   ${idx + 1}. ${p.name}: meta=R$ ${p.meta}, vendido hoje=R$ ${p.vendido}, vendido mês=R$ ${p.vendidoMes}`);
+            });
             setColaboradorasPerformance(performanceFiltered);
         } else {
-            console.warn('[LojaDashboard] ⚠️ Não foi possível buscar metas individuais ou vendas');
+            console.warn('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada para processar performance');
+            if (goalsError) {
+                console.error('[LojaDashboard] ❌ Erro ao buscar metas individuais:', goalsError);
+            }
             setColaboradorasPerformance([]);
         }
     };
@@ -950,7 +989,15 @@ export default function LojaDashboard() {
             toast.success('Venda lançada com sucesso!');
             setDialogOpen(false);
             resetForm();
-            fetchSales();
+            // Atualizar todos os dados automaticamente
+            await Promise.all([
+                fetchSalesWithStoreId(storeId),
+                fetchColaboradorasPerformanceWithStoreId(storeId, storeName || undefined),
+                fetchGoalsWithStoreId(storeId),
+                fetchRankingTop3WithStoreId(storeId),
+                fetchMonthlyRankingWithStoreId(storeId),
+                fetch7DayHistoryWithStoreId(storeId)
+            ]);
         }
     };
 
@@ -1005,7 +1052,15 @@ export default function LojaDashboard() {
             toast.success('Venda atualizada com sucesso!');
             setDialogOpen(false);
             resetForm();
-            fetchSales();
+            // Atualizar todos os dados automaticamente
+            await Promise.all([
+                fetchSalesWithStoreId(storeId!),
+                fetchColaboradorasPerformanceWithStoreId(storeId!, storeName || undefined),
+                fetchGoalsWithStoreId(storeId!),
+                fetchRankingTop3WithStoreId(storeId!),
+                fetchMonthlyRankingWithStoreId(storeId!),
+                fetch7DayHistoryWithStoreId(storeId!)
+            ]);
         }
     };
 
@@ -1214,36 +1269,39 @@ export default function LojaDashboard() {
             </div>
 
             {/* KPI Cards - Metas e Métricas */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                 {/* Meta Mensal */}
-                <Card>
-                    <CardHeader className="pb-2 p-3 sm:p-6">
-                        <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Meta Mensal</CardTitle>
+                <Card className="flex flex-col h-full">
+                    <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
+                        <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Meta Mensal</CardTitle>
                     </CardHeader>
-                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                    <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
                         {goals ? (
-                            <div className="space-y-2">
-                                <p className="text-lg sm:text-2xl font-bold truncate">R$ {goals.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                            <div className="space-y-3 w-full">
+                                <p className="text-xl sm:text-3xl font-bold text-primary">R$ {goals.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                 <p className="text-xs sm:text-sm text-muted-foreground">
                                     Realizado: R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </p>
-                                <div className="flex items-center gap-2">
-                                    <Progress value={Math.min(monthlyProgress, 100)} className="h-2 flex-1" />
-                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                        {monthlyProgress.toFixed(0)}%
-                                    </span>
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-3 justify-between">
+                                        <Progress value={Math.min(monthlyProgress, 100)} className="h-3 flex-1" />
+                                        <span className="text-sm font-semibold text-primary whitespace-nowrap min-w-[45px] text-right">
+                                            {monthlyProgress.toFixed(0)}%
+                                        </span>
+                                    </div>
+                                    {goals.super_meta_valor && (
+                                        <p className="text-xs sm:text-sm text-muted-foreground flex items-center justify-center gap-1">
+                                            <span>🏆</span>
+                                            <span>Super Meta: R$ {goals.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                        </p>
+                                    )}
                                 </div>
-                                {goals.super_meta_valor && (
-                                    <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                                        🏆 Super Meta: R$ {goals.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                    </p>
-                                )}
                             </div>
                         ) : (
                             <div className="space-y-2">
-                                <p className="text-lg sm:text-2xl font-bold text-muted-foreground">N/A</p>
+                                <p className="text-xl sm:text-2xl font-bold text-muted-foreground">N/A</p>
                                 <p className="text-xs sm:text-sm text-destructive">
-                                    Meta não encontrada. Verifique se está cadastrada.
+                                    Meta não encontrada
                                 </p>
                             </div>
                         )}
@@ -1251,24 +1309,24 @@ export default function LojaDashboard() {
                 </Card>
 
                 {/* Meta Diária */}
-                <Card>
-                    <CardHeader className="pb-2 p-3 sm:p-6">
-                        <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Meta Diária (Hoje)</CardTitle>
+                <Card className="flex flex-col h-full">
+                    <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
+                        <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Meta Diária (Hoje)</CardTitle>
                     </CardHeader>
-                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                    <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
                         {goals ? (
-                            <div className="space-y-2">
-                                <p className="text-lg sm:text-2xl font-bold">R$ {dailyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                <div className="flex items-center gap-2">
-                                    <Progress value={Math.min(dailyProgress, 100)} className="h-2 flex-1" />
-                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            <div className="space-y-3 w-full">
+                                <p className="text-xl sm:text-3xl font-bold text-primary">R$ {dailyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                <div className="flex items-center gap-3 justify-between">
+                                    <Progress value={Math.min(dailyProgress, 100)} className="h-3 flex-1" />
+                                    <span className="text-sm font-semibold text-primary whitespace-nowrap min-w-[45px] text-right">
                                         {dailyProgress.toFixed(0)}%
                                     </span>
                                 </div>
                             </div>
                         ) : (
                             <div className="space-y-2">
-                                <p className="text-lg sm:text-2xl font-bold text-muted-foreground">N/A</p>
+                                <p className="text-xl sm:text-2xl font-bold text-muted-foreground">N/A</p>
                                 <p className="text-xs sm:text-sm text-muted-foreground">
                                     Aguardando meta mensal
                                 </p>
@@ -1278,35 +1336,37 @@ export default function LojaDashboard() {
                 </Card>
 
                 {/* Faturamento Hoje */}
-                <Card>
-                    <CardHeader className="pb-2 p-3 sm:p-6">
-                        <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Faturamento Hoje</CardTitle>
+                <Card className="flex flex-col h-full">
+                    <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
+                        <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Faturamento Hoje</CardTitle>
                     </CardHeader>
-                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                        <div className="space-y-2">
-                            <p className="text-lg sm:text-2xl font-bold">R$ {sales.reduce((sum, s) => sum + s.valor, 0).toFixed(2)}</p>
-                            <p className="text-xs text-muted-foreground">{sales.length} vendas</p>
+                    <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
+                        <div className="space-y-2 w-full">
+                            <p className="text-xl sm:text-3xl font-bold text-primary">R$ {sales.reduce((sum, s) => sum + s.valor, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">{sales.length} {sales.length === 1 ? 'venda' : 'vendas'}</p>
                         </div>
                     </CardContent>
                 </Card>
 
                 {/* Ticket Médio */}
                 {metrics && (
-                    <Card>
-                        <CardHeader className="pb-2 p-3 sm:p-6">
-                            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Ticket Médio</CardTitle>
+                    <Card className="flex flex-col h-full">
+                        <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
+                            <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Ticket Médio</CardTitle>
                         </CardHeader>
-                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                            <div className="space-y-2">
-                                <p className="text-lg sm:text-2xl font-bold">R$ {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.valor, 0) / sales.length).toFixed(2) : '0.00'}</p>
-                                <div className="flex items-center gap-2">
-                                    <Progress
-                                        value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.length) / metrics.meta_ticket_medio) * 100, 100) : 0}
-                                        className="h-2 flex-1"
-                                    />
-                                    <span className="text-xs text-muted-foreground whitespace-nowrap truncate">
-                                        Meta: R$ {metrics.meta_ticket_medio?.toFixed(2)}
-                                    </span>
+                        <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
+                            <div className="space-y-3 w-full">
+                                <p className="text-xl sm:text-3xl font-bold text-primary">R$ {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.valor, 0) / sales.length).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</p>
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-3 justify-between">
+                                        <Progress
+                                            value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.length) / metrics.meta_ticket_medio) * 100, 100) : 0}
+                                            className="h-3 flex-1"
+                                        />
+                                    </div>
+                                    <p className="text-xs sm:text-sm text-muted-foreground">
+                                        Meta: R$ {metrics.meta_ticket_medio?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </p>
                                 </div>
                             </div>
                         </CardContent>
@@ -1315,51 +1375,52 @@ export default function LojaDashboard() {
 
                 {/* PA (Peças por Atendimento) */}
                 {metrics && (
-                    <Card>
-                        <CardHeader className="pb-2 p-3 sm:p-6">
-                            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">PA (Peças/Venda)</CardTitle>
+                    <Card className="flex flex-col h-full">
+                        <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
+                            <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">PA (Peças/Venda)</CardTitle>
                         </CardHeader>
-                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                            <div className="space-y-2">
-                                <p className="text-lg sm:text-2xl font-bold">{sales.length > 0 ? (sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length).toFixed(1) : '0.0'}</p>
-                                <div className="flex items-center gap-2">
-                                    <Progress
-                                        value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length) / metrics.meta_pa) * 100, 100) : 0}
-                                        className="h-2 flex-1"
-                                    />
-                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
+                            <div className="space-y-3 w-full">
+                                <p className="text-xl sm:text-3xl font-bold text-primary">{sales.length > 0 ? (sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length).toFixed(1) : '0,0'}</p>
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-3 justify-between">
+                                        <Progress
+                                            value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length) / metrics.meta_pa) * 100, 100) : 0}
+                                            className="h-3 flex-1"
+                                        />
+                                    </div>
+                                    <p className="text-xs sm:text-sm text-muted-foreground">
                                         Meta: {metrics.meta_pa?.toFixed(1)}
-                                    </span>
+                                    </p>
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
                 )}
-            </div>
 
-            {/* Segunda linha de métricas */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                {/* Preço por Peça */}
+                {/* Preço Médio por Peça */}
                 {metrics && (
-                    <Card>
-                        <CardHeader className="pb-2 p-3 sm:p-6">
-                            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Preço Médio por Peça</CardTitle>
+                    <Card className="flex flex-col h-full">
+                        <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
+                            <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Preço Médio por Peça</CardTitle>
                         </CardHeader>
-                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                            <div className="space-y-2">
-                                <p className="text-lg sm:text-2xl font-bold">
+                        <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
+                            <div className="space-y-3 w-full">
+                                <p className="text-xl sm:text-3xl font-bold text-primary">
                                     R$ {sales.length > 0 ?
-                                        (sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)).toFixed(2) :
-                                        '0.00'}
+                                        (sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) :
+                                        '0,00'}
                                 </p>
-                                <div className="flex items-center gap-2">
-                                    <Progress
-                                        value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)) / metrics.meta_preco_medio_peca) * 100, 100) : 0}
-                                        className="h-2 flex-1"
-                                    />
-                                    <span className="text-xs text-muted-foreground whitespace-nowrap truncate">
-                                        Meta: R$ {metrics.meta_preco_medio_peca?.toFixed(2)}
-                                    </span>
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-3 justify-between">
+                                        <Progress
+                                            value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)) / metrics.meta_preco_medio_peca) * 100, 100) : 0}
+                                            className="h-3 flex-1"
+                                        />
+                                    </div>
+                                    <p className="text-xs sm:text-sm text-muted-foreground">
+                                        Meta: R$ {metrics.meta_preco_medio_peca?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </p>
                                 </div>
                             </div>
                         </CardContent>
