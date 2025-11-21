@@ -398,40 +398,55 @@ export default function LojaDashboard() {
     };
 
     const fetchColaboradoras = async () => {
-        if (!storeId) return;
+        console.log('[LojaDashboard] fetchColaboradoras chamado. storeId:', storeId, 'storeName:', storeName);
+        
+        if (!storeId) {
+            console.warn('[LojaDashboard] storeId não definido, não é possível buscar colaboradoras');
+            return;
+        }
 
         try {
-            // Buscar colaboradoras que pertencem a esta loja
-            // Elas podem estar vinculadas por store_id OU por store_default (que pode ser o nome ou ID)
-            let query = supabase
+            // Estratégia 1: Buscar por store_id (UUID)
+            console.log('[LojaDashboard] Estratégia 1: Buscando por store_id:', storeId);
+            const { data: dataByStoreId, error: errorByStoreId } = await supabase
                 .schema("sistemaretiradas")
                 .from('profiles')
                 .select('id, name, active, store_id, store_default')
                 .eq('role', 'COLABORADORA')
-                .eq('active', true);
-
-            // Tentar buscar por store_id primeiro
-            const { data: dataByStoreId, error: errorByStoreId } = await query
+                .eq('active', true)
                 .eq('store_id', storeId)
                 .order('name');
 
+            console.log('[LojaDashboard] Resultado por store_id:', { data: dataByStoreId, error: errorByStoreId });
+
             if (!errorByStoreId && dataByStoreId && dataByStoreId.length > 0) {
+                console.log('[LojaDashboard] ✅ Encontradas', dataByStoreId.length, 'colaboradoras por store_id');
                 setColaboradoras(dataByStoreId);
                 return;
             }
 
-            // Se não encontrou por store_id, tentar por store_default (UUID)
-            const { data: dataByStoreDefault, error: errorByStoreDefault } = await query
+            // Estratégia 2: Buscar por store_default (UUID)
+            console.log('[LojaDashboard] Estratégia 2: Buscando por store_default (UUID):', storeId);
+            const { data: dataByStoreDefault, error: errorByStoreDefault } = await supabase
+                .schema("sistemaretiradas")
+                .from('profiles')
+                .select('id, name, active, store_id, store_default')
+                .eq('role', 'COLABORADORA')
+                .eq('active', true)
                 .eq('store_default', storeId)
                 .order('name');
 
+            console.log('[LojaDashboard] Resultado por store_default (UUID):', { data: dataByStoreDefault, error: errorByStoreDefault });
+
             if (!errorByStoreDefault && dataByStoreDefault && dataByStoreDefault.length > 0) {
+                console.log('[LojaDashboard] ✅ Encontradas', dataByStoreDefault.length, 'colaboradoras por store_default (UUID)');
                 setColaboradoras(dataByStoreDefault);
                 return;
             }
 
-            // Se ainda não encontrou e temos o nome da loja, tentar buscar pelo nome
+            // Estratégia 3: Buscar por store_default (nome)
             if (storeName) {
+                console.log('[LojaDashboard] Estratégia 3: Buscando por store_default (nome):', storeName);
                 const { data: dataByName, error: errorByName } = await supabase
                     .schema("sistemaretiradas")
                     .from('profiles')
@@ -441,17 +456,47 @@ export default function LojaDashboard() {
                     .ilike('store_default', storeName)
                     .order('name');
                 
+                console.log('[LojaDashboard] Resultado por store_default (nome):', { data: dataByName, error: errorByName });
+
                 if (!errorByName && dataByName && dataByName.length > 0) {
+                    console.log('[LojaDashboard] ✅ Encontradas', dataByName.length, 'colaboradoras por store_default (nome)');
                     setColaboradoras(dataByName);
                     return;
                 }
             }
 
-            // Se não encontrou nenhuma, pode ser que não existam colaboradoras para esta loja
-            console.log('Nenhuma colaboradora encontrada para a loja:', storeId, storeName);
+            // Estratégia 4: Buscar TODAS as colaboradoras para debug
+            console.log('[LojaDashboard] Estratégia 4: Buscando TODAS as colaboradoras para debug');
+            const { data: allColabs, error: allError } = await supabase
+                .schema("sistemaretiradas")
+                .from('profiles')
+                .select('id, name, active, store_id, store_default, role')
+                .eq('role', 'COLABORADORA')
+                .eq('active', true)
+                .order('name');
+
+            console.log('[LojaDashboard] TODAS as colaboradoras no sistema:', allColabs);
+            console.log('[LojaDashboard] Procurando por storeId:', storeId, 'ou storeName:', storeName);
+
+            if (allColabs && allColabs.length > 0) {
+                const matching = allColabs.filter((colab: any) => {
+                    return colab.store_id === storeId || 
+                           colab.store_default === storeId || 
+                           (storeName && colab.store_default && colab.store_default.toLowerCase().includes(storeName.toLowerCase()));
+                });
+                console.log('[LojaDashboard] Colaboradoras que MATCHAM:', matching);
+                
+                if (matching.length > 0) {
+                    setColaboradoras(matching);
+                    return;
+                }
+            }
+
+            // Se não encontrou nenhuma
+            console.warn('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada para a loja. storeId:', storeId, 'storeName:', storeName);
             setColaboradoras([]);
         } catch (error: any) {
-            console.error('Erro ao carregar colaboradoras:', error);
+            console.error('[LojaDashboard] ❌ Erro ao carregar colaboradoras:', error);
             toast.error('Erro ao carregar colaboradoras: ' + (error.message || 'Erro desconhecido'));
             setColaboradoras([]);
         }
