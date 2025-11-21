@@ -232,6 +232,12 @@ export default function LojaDashboard() {
         const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
         const today = format(hoje, 'yyyy-MM-dd');
 
+        console.log('[LojaDashboard] 📡 Buscando meta mensal da loja...');
+        console.log('[LojaDashboard]   storeId:', currentStoreId);
+        console.log('[LojaDashboard]   mes_referencia:', mesAtual);
+        console.log('[LojaDashboard]   tipo: MENSAL');
+        console.log('[LojaDashboard]   colaboradora_id: null');
+
         const { data, error } = await supabase
             .from('goals')
             .select('*')
@@ -239,9 +245,15 @@ export default function LojaDashboard() {
             .eq('mes_referencia', mesAtual)
             .eq('tipo', 'MENSAL')
             .is('colaboradora_id', null)
-            .single();
+            .maybeSingle();
 
-        if (!error && data) {
+        if (error) {
+            console.error('[LojaDashboard] ❌ Erro ao buscar meta mensal:', error);
+            console.error('[LojaDashboard]   Erro completo:', JSON.stringify(error, null, 2));
+        }
+
+        if (data) {
+            console.log('[LojaDashboard] ✅ Meta mensal encontrada:', data);
             setGoals(data);
             // Calculate daily goal based on days in month
             const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
@@ -257,6 +269,8 @@ export default function LojaDashboard() {
             if (!salesErr && salesToday) {
                 const totalHoje = salesToday.reduce((sum: number, s: any) => sum + Number(s.valor), 0);
                 setDailyProgress((totalHoje / daily) * 100);
+            } else if (salesErr) {
+                console.error('[LojaDashboard] ❌ Erro ao buscar vendas de hoje:', salesErr);
             }
             
             // Compute monthly progress from sales data
@@ -269,7 +283,18 @@ export default function LojaDashboard() {
                 const totalMes = salesMonth.reduce((sum: number, s: any) => sum + Number(s.valor), 0);
                 setMonthlyRealizado(totalMes);
                 setMonthlyProgress((totalMes / Number(data.meta_valor)) * 100);
+            } else if (monthErr) {
+                console.error('[LojaDashboard] ❌ Erro ao buscar vendas do mês:', monthErr);
             }
+        } else {
+            console.warn('[LojaDashboard] ⚠️ Meta mensal NÃO encontrada para a loja');
+            console.warn('[LojaDashboard]   storeId:', currentStoreId);
+            console.warn('[LojaDashboard]   mes_referencia:', mesAtual);
+            setGoals(null);
+            setDailyGoal(0);
+            setDailyProgress(0);
+            setMonthlyRealizado(0);
+            setMonthlyProgress(0);
         }
     };
 
@@ -382,47 +407,137 @@ export default function LojaDashboard() {
     const fetchColaboradorasPerformanceWithStoreId = async (currentStoreId: string) => {
         if (!currentStoreId) return;
 
-        const today = format(new Date(), 'yyyy-MM-dd');
-        const mesAtual = format(new Date(), 'yyyyMM');
+        const hoje = new Date();
+        const today = format(hoje, 'yyyy-MM-dd');
+        const mesAtual = format(hoje, 'yyyyMM');
+        const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
+        const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+
+        console.log('[LojaDashboard] 📡 Buscando desempenho das colaboradoras...');
+        console.log('[LojaDashboard]   storeId:', currentStoreId);
+        console.log('[LojaDashboard]   mes_referencia:', mesAtual);
 
         // Buscar vendas do dia por colaboradora
-        const { data: salesData, error: salesError } = await supabase
+        const { data: salesToday, error: salesTodayError } = await supabase
             .from('sales')
             .select('colaboradora_id, valor, qtd_pecas')
             .eq('store_id', currentStoreId)
             .gte('data_venda', `${today}T00:00:00`);
 
+        // Buscar vendas do mês por colaboradora
+        const { data: salesMonth, error: salesMonthError } = await supabase
+            .from('sales')
+            .select('colaboradora_id, valor, qtd_pecas')
+            .eq('store_id', currentStoreId)
+            .gte('data_venda', `${startOfMonth}T00:00:00`);
+
         // Buscar metas individuais
         const { data: goalsData, error: goalsError } = await supabase
             .from('goals')
-            .select('colaboradora_id, meta_valor, super_meta_valor')
+            .select('colaboradora_id, meta_valor, super_meta_valor, daily_weights')
             .eq('store_id', currentStoreId)
             .eq('mes_referencia', mesAtual)
             .eq('tipo', 'INDIVIDUAL');
 
-        if (!salesError && salesData && !goalsError && goalsData) {
-            const performance = colaboradoras.map(colab => {
-                const colabSales = salesData.filter(s => s.colaboradora_id === colab.id);
-                const vendido = colabSales.reduce((sum, s) => sum + Number(s.valor), 0);
-                const qtdPecas = colabSales.reduce((sum, s) => sum + Number(s.qtd_pecas), 0);
-                const ticketMedio = colabSales.length > 0 ? vendido / colabSales.length : 0;
+        if (salesTodayError) {
+            console.error('[LojaDashboard] ❌ Erro ao buscar vendas de hoje:', salesTodayError);
+        }
+        if (salesMonthError) {
+            console.error('[LojaDashboard] ❌ Erro ao buscar vendas do mês:', salesMonthError);
+        }
+        if (goalsError) {
+            console.error('[LojaDashboard] ❌ Erro ao buscar metas individuais:', goalsError);
+            console.error('[LojaDashboard]   Erro completo:', JSON.stringify(goalsError, null, 2));
+        }
 
-                const goal = goalsData.find(g => g.colaboradora_id === colab.id);
-
-                return {
-                    id: colab.id,
-                    name: colab.name,
-                    vendido,
-                    meta: goal?.meta_valor || 0,
-                    superMeta: goal?.super_meta_valor || 0,
-                    percentual: goal?.meta_valor ? (vendido / goal.meta_valor) * 100 : 0,
-                    qtdVendas: colabSales.length,
-                    qtdPecas,
-                    ticketMedio,
-                };
+        if (!goalsError && goalsData) {
+            console.log('[LojaDashboard] ✅ Metas individuais encontradas:', goalsData.length);
+            goalsData.forEach(g => {
+                console.log(`[LojaDashboard]   - ${g.colaboradora_id}: R$ ${g.meta_valor}`);
             });
 
-            setColaboradorasPerformance(performance);
+            const performance = colaboradoras.map(colab => {
+                // Vendas do dia
+                const colabSalesToday = salesToday?.filter(s => s.colaboradora_id === colab.id) || [];
+                const vendidoHoje = colabSalesToday.reduce((sum, s) => sum + Number(s.valor), 0);
+                const qtdPecasHoje = colabSalesToday.reduce((sum, s) => sum + Number(s.qtd_pecas), 0);
+                const qtdVendasHoje = colabSalesToday.length;
+                
+                // Vendas do mês
+                const colabSalesMonth = salesMonth?.filter(s => s.colaboradora_id === colab.id) || [];
+                const vendidoMes = colabSalesMonth.reduce((sum, s) => sum + Number(s.valor), 0);
+                const qtdPecasMes = colabSalesMonth.reduce((sum, s) => sum + Number(s.qtd_pecas), 0);
+                const qtdVendasMes = colabSalesMonth.length;
+
+                // Ticket médio do dia
+                const ticketMedio = qtdVendasHoje > 0 ? vendidoHoje / qtdVendasHoje : 0;
+
+                // Meta individual
+                const goal = goalsData.find(g => g.colaboradora_id === colab.id);
+                
+                if (goal) {
+                    // Calcular meta diária
+                    let metaDiaria = Number(goal.meta_valor) / daysInMonth;
+                    const dailyWeights = goal.daily_weights || {};
+                    if (Object.keys(dailyWeights).length > 0) {
+                        const hojePeso = dailyWeights[today] || 0;
+                        metaDiaria = (Number(goal.meta_valor) * hojePeso) / 100;
+                    }
+                    
+                    // Progresso do dia
+                    const progressoDia = metaDiaria > 0 ? (vendidoHoje / metaDiaria) * 100 : 0;
+                    
+                    // Progresso mensal
+                    const progressoMensal = Number(goal.meta_valor) > 0 ? (vendidoMes / Number(goal.meta_valor)) * 100 : 0;
+                    
+                    // Quanto falta para a meta mensal
+                    const faltaMensal = Math.max(0, Number(goal.meta_valor) - vendidoMes);
+
+                    return {
+                        id: colab.id,
+                        name: colab.name,
+                        vendido: vendidoHoje,
+                        vendidoMes,
+                        meta: Number(goal.meta_valor),
+                        metaDiaria,
+                        superMeta: Number(goal.super_meta_valor) || 0,
+                        percentual: progressoDia, // Percentual do dia
+                        percentualMensal: progressoMensal, // Percentual do mês
+                        faltaMensal,
+                        qtdVendas: qtdVendasHoje,
+                        qtdVendasMes,
+                        qtdPecas: qtdPecasHoje,
+                        qtdPecasMes,
+                        ticketMedio,
+                    };
+                } else {
+                    // Sem meta individual
+                    return {
+                        id: colab.id,
+                        name: colab.name,
+                        vendido: vendidoHoje,
+                        vendidoMes,
+                        meta: 0,
+                        metaDiaria: 0,
+                        superMeta: 0,
+                        percentual: 0,
+                        percentualMensal: 0,
+                        faltaMensal: 0,
+                        qtdVendas: qtdVendasHoje,
+                        qtdVendasMes,
+                        qtdPecas: qtdPecasHoje,
+                        qtdPecasMes,
+                        ticketMedio,
+                    };
+                }
+            });
+
+            // Filtrar apenas colaboradoras com meta ou com vendas
+            const performanceFiltered = performance.filter(p => p.meta > 0 || p.vendido > 0 || p.vendidoMes > 0);
+            setColaboradorasPerformance(performanceFiltered);
+        } else {
+            console.warn('[LojaDashboard] ⚠️ Não foi possível buscar metas individuais ou vendas');
+            setColaboradorasPerformance([]);
         }
     };
 
@@ -1153,10 +1268,11 @@ export default function LojaDashboard() {
             )}
 
             {/* Tabela de Performance por Vendedora */}
-            {colaboradorasPerformance.length > 0 && (
+            {colaboradorasPerformance.length > 0 ? (
                 <Card>
                     <CardHeader className="p-3 sm:p-6">
-                        <CardTitle className="text-base sm:text-lg">Performance por Vendedora (Hoje)</CardTitle>
+                        <CardTitle className="text-base sm:text-lg">Performance por Vendedora</CardTitle>
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">Desempenho diário e mensal de cada colaboradora</p>
                     </CardHeader>
                     <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                         <div className="overflow-x-auto">
@@ -1164,9 +1280,9 @@ export default function LojaDashboard() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="text-xs sm:text-sm">Vendedora</TableHead>
-                                        <TableHead className="text-xs sm:text-sm">Vendido</TableHead>
+                                        <TableHead className="text-xs sm:text-sm">Vendido Hoje</TableHead>
                                         <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Meta Dia</TableHead>
-                                        <TableHead className="text-xs sm:text-sm">%</TableHead>
+                                        <TableHead className="text-xs sm:text-sm">% Dia</TableHead>
                                         <TableHead className="text-xs sm:text-sm hidden md:table-cell">Ticket Médio</TableHead>
                                         <TableHead className="text-xs sm:text-sm hidden lg:table-cell">PA</TableHead>
                                         <TableHead className="text-xs sm:text-sm">Vendas</TableHead>
@@ -1176,32 +1292,72 @@ export default function LojaDashboard() {
                                     {colaboradorasPerformance.map((perf) => (
                                         <TableRow key={perf.id}>
                                             <TableCell className="font-medium text-xs sm:text-sm truncate max-w-[120px]">{perf.name}</TableCell>
-                                            <TableCell className="text-xs sm:text-sm font-medium">R$ {perf.vendido.toFixed(2)}</TableCell>
-                                            <TableCell className="text-xs sm:text-sm hidden sm:table-cell">R$ {perf.meta > 0 ? (perf.meta / 30).toFixed(2) : '0.00'}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm font-medium">
+                                                R$ {perf.vendido.toFixed(2)}
+                                                {perf.vendidoMes > 0 && (
+                                                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                        Mês: R$ {perf.vendidoMes.toFixed(2)}
+                                                    </div>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-xs sm:text-sm hidden sm:table-cell">
+                                                R$ {perf.metaDiaria > 0 ? perf.metaDiaria.toFixed(2) : '0.00'}
+                                                {perf.meta > 0 && (
+                                                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                        Mensal: R$ {perf.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    </div>
+                                                )}
+                                            </TableCell>
                                             <TableCell className="text-xs sm:text-sm">
-                                                <span className={
-                                                    perf.percentual >= 120 ? 'text-yellow-600 font-bold' :
-                                                        perf.percentual >= 100 ? 'text-green-600 font-bold' :
-                                                            perf.percentual >= 90 ? 'text-yellow-500' :
-                                                                'text-red-600'
-                                                }>
-                                                    {perf.percentual.toFixed(0)}%
-                                                    {perf.percentual >= 120 && ' 🏆'}
-                                                </span>
-                                                <div className="text-[10px] text-muted-foreground mt-0.5">
-                                                    Meta Mensal: R$ {perf.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                </div>
+                                                {perf.meta > 0 ? (
+                                                    <>
+                                                        <span className={
+                                                            perf.percentual >= 120 ? 'text-yellow-600 font-bold' :
+                                                                perf.percentual >= 100 ? 'text-green-600 font-bold' :
+                                                                    perf.percentual >= 90 ? 'text-yellow-500' :
+                                                                        'text-red-600'
+                                                        }>
+                                                            {perf.percentual.toFixed(0)}%
+                                                            {perf.percentual >= 120 && ' 🏆'}
+                                                        </span>
+                                                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                            Mês: {perf.percentualMensal.toFixed(0)}%
+                                                        </div>
+                                                        {perf.faltaMensal > 0 && (
+                                                            <div className="text-[10px] text-orange-600 mt-0.5">
+                                                                Falta: R$ {perf.faltaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <span className="text-muted-foreground">Sem meta</span>
+                                                )}
                                             </TableCell>
                                             <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {perf.ticketMedio.toFixed(2)}</TableCell>
                                             <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
                                                 {perf.qtdVendas > 0 ? (perf.qtdPecas / perf.qtdVendas).toFixed(1) : '0.0'}
                                             </TableCell>
-                                            <TableCell className="text-xs sm:text-sm">{perf.qtdVendas}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm">
+                                                {perf.qtdVendas}
+                                                {perf.qtdVendasMes > 0 && (
+                                                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                        Mês: {perf.qtdVendasMes}
+                                                    </div>
+                                                )}
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
                             </Table>
                         </div>
+                    </CardContent>
+                </Card>
+            ) : colaboradoras.length > 0 && (
+                <Card>
+                    <CardContent className="p-6 text-center">
+                        <p className="text-sm text-muted-foreground">
+                            Nenhuma meta individual encontrada para as colaboradoras desta loja no mês atual.
+                        </p>
                     </CardContent>
                 </Card>
             )}
