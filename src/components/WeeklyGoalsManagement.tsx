@@ -507,7 +507,7 @@ const WeeklyGoalsManagement = () => {
                 return;
             }
 
-            // Preparar payloads para UPSERT (Create if not exists, Update if exists)
+            // Preparar payloads para inserção (DELETE + INSERT garante atualização se existir)
             const payloads = uniqueColabsList.map(colab => ({
                 store_id: selectedStore,
                 semana_referencia: selectedWeek,
@@ -553,12 +553,16 @@ const WeeklyGoalsManagement = () => {
             }
 
             // IMPORTANTE: Índices parciais (com WHERE) não funcionam com ON CONFLICT no PostgreSQL
-            // Por isso, usamos sempre DELETE + INSERT robusto, que é mais confiável
+            // Por isso, usamos sempre DELETE + INSERT, que é mais confiável e robusto
             // O índice único idx_goals_weekly_unique garante que não haverá duplicatas após DELETE
             
-            // Estratégia robusta: deletar individualmente cada meta antes de inserir
-            // Isso garante que não há race condition, cache ou dados residuais
-            console.log(`Iniciando salvamento de ${payloads.length} meta(s) para semana ${selectedWeek}...`);
+            // Estratégia: DELETE individual + INSERT em batch
+            // 1. Deletar individualmente cada meta antes de inserir (garante limpeza completa)
+            // 2. Verificar se ainda existem metas residuais
+            // 3. DELETE em massa se necessário
+            // 4. INSERT em batch
+            // 5. Fallback: INSERT individual se batch falhar
+            console.log(`💾 Salvando ${payloads.length} meta(s) para semana ${selectedWeek}...`);
             
             for (const payload of payloads) {
                 // Deletar meta específica desta colaboradora/semana/loja
