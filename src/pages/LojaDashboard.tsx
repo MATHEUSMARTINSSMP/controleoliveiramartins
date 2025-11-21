@@ -536,6 +536,11 @@ export default function LojaDashboard() {
             console.log('[LojaDashboard]   storeName:', storeName);
             
             // Estratégia 1: Buscar colaboradoras por store_id (UUID) - forma preferida
+            console.log('[LojaDashboard] 📡 Executando query Supabase:');
+            console.log('[LojaDashboard]   Schema: sistemaretiradas');
+            console.log('[LojaDashboard]   Table: profiles');
+            console.log('[LojaDashboard]   Filters: role=COLABORADORA, active=true, store_id=' + currentStoreId);
+            
             let { data, error } = await supabase
                 .schema("sistemaretiradas")
                 .from('profiles')
@@ -548,8 +553,22 @@ export default function LojaDashboard() {
             if (error) {
                 console.error('[LojaDashboard] ❌ Erro ao buscar colaboradoras por store_id:', error);
                 console.error('[LojaDashboard]   Erro completo:', JSON.stringify(error, null, 2));
+                console.error('[LojaDashboard]   Erro code:', error.code);
+                console.error('[LojaDashboard]   Erro message:', error.message);
+                console.error('[LojaDashboard]   Erro details:', error.details);
                 // Continuar para tentar outras estratégias
                 data = null;
+            } else {
+                console.log('[LojaDashboard] 📊 Resultado da query Supabase:');
+                console.log('[LojaDashboard]   Total de registros retornados:', data?.length || 0);
+                if (data && data.length > 0) {
+                    console.log('[LojaDashboard]   Dados retornados:');
+                    data.forEach((colab, idx) => {
+                        console.log(`[LojaDashboard]     ${idx + 1}. ${colab.name} - store_id: ${colab.store_id}`);
+                    });
+                } else {
+                    console.log('[LojaDashboard]   ⚠️ Query retornou 0 resultados (mas não houve erro)');
+                }
             }
 
             // Se não encontrou por store_id, tentar por store_default (nome da loja)
