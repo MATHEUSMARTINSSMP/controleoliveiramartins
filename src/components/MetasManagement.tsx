@@ -74,7 +74,7 @@ interface StoreType {
     name: string;
 }
 
-const MetasManagement = () => {
+const MetasManagementContent = () => {
     const navigate = useNavigate();
     const [goals, setGoals] = useState<Goal[]>([]);
     const [stores, setStores] = useState<StoreType[]>([]);
