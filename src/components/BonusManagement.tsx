@@ -27,7 +27,7 @@ export default function BonusManagement() {
     const [stores, setStores] = useState<any[]>([]);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingBonus, setEditingBonus] = useState<Bonus | null>(null);
-    const [storeFilter, setStoreFilter] = useState<string>('');
+    const [storeFilter, setStoreFilter] = useState<string>('ALL');
 
     const [formData, setFormData] = useState({
         name: "",
@@ -167,7 +167,7 @@ export default function BonusManagement() {
                         <SelectValue placeholder="Todas as lojas" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="">Todas</SelectItem>
+                        <SelectItem value="ALL">Todas</SelectItem>
                         {stores.map((store) => (
                             <SelectItem key={store.id} value={store.id}>
                                 {store.name}
@@ -184,7 +184,7 @@ export default function BonusManagement() {
             {/* Cards grid */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {bonuses
-                    .filter((b) => (storeFilter ? b.store_id === storeFilter : true))
+                    .filter((b) => (storeFilter && storeFilter !== "ALL" ? b.store_id === storeFilter : true))
                     .map((bonus) => (
                         <Card key={bonus.id} className="relative group hover:shadow-lg transition-shadow">
                             <CardHeader className="pb-2">

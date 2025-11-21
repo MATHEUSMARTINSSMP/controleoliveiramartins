@@ -73,8 +73,8 @@ function MetasManagementContent() {
     const [colaboradoras, setColaboradoras] = useState<any[]>([]);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
-    const [storeFilter, setStoreFilter] = useState<string>('');
-    const [colabFilter, setColabFilter] = useState<string>('');
+    const [storeFilter, setStoreFilter] = useState<string>('ALL');
+    const [colabFilter, setColabFilter] = useState<string>('ALL');
 
     const [formData, setFormData] = useState({
         tipo: "MENSAL",
@@ -255,7 +255,7 @@ function MetasManagementContent() {
                         <SelectValue placeholder="Todas as lojas" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="">Todas</SelectItem>
+                        <SelectItem value="ALL">Todas</SelectItem>
                         {stores.map((store) => (
                             <SelectItem key={store.id} value={store.id}>
                                 {store.name}
@@ -268,7 +268,7 @@ function MetasManagementContent() {
                         <SelectValue placeholder="Todas as colaboradoras" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="">Todas</SelectItem>
+                        <SelectItem value="ALL">Todas</SelectItem>
                         {colaboradoras.map((colab) => (
                             <SelectItem key={colab.id} value={colab.id}>
                                 {colab.name}
@@ -285,8 +285,8 @@ function MetasManagementContent() {
             {/* Cards grid */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {goals
-                    .filter((g) => (storeFilter ? g.store_id === storeFilter : true))
-                    .filter((g) => (colabFilter ? g.colaboradora_id === colabFilter : true))
+                    .filter((g) => (storeFilter && storeFilter !== "ALL" ? g.store_id === storeFilter : true))
+                    .filter((g) => (colabFilter && colabFilter !== "ALL" ? g.colaboradora_id === colabFilter : true))
                     .map((goal: any) => (
                         <Card key={goal.id} className="relative group hover:shadow-lg transition-shadow">
                             <CardHeader className="pb-2">
