@@ -400,17 +400,35 @@ export default function LojaDashboard() {
     const fetchColaboradoras = async () => {
         if (!storeId) return;
 
+        // Buscar colaboradoras que pertencem a esta loja
+        // Elas podem estar vinculadas por store_id OU por store_default (que pode ser o nome ou ID)
         const { data, error } = await supabase
             .schema("sistemaretiradas")
             .from('profiles')
-            .select('id, name, active')
+            .select('id, name, active, store_id, store_default')
             .eq('role', 'COLABORADORA')
-            .eq('store_id', storeId)
             .eq('active', true)
+            .or(`store_id.eq.${storeId},store_default.eq.${storeId}`)
             .order('name');
 
         if (error) {
             console.error('Erro ao carregar colaboradoras:', error);
+            // Tentar busca alternativa: buscar pelo nome da loja também
+            if (storeName) {
+                const { data: altData, error: altError } = await supabase
+                    .schema("sistemaretiradas")
+                    .from('profiles')
+                    .select('id, name, active, store_id, store_default')
+                    .eq('role', 'COLABORADORA')
+                    .eq('active', true)
+                    .ilike('store_default', storeName)
+                    .order('name');
+                
+                if (!altError && altData) {
+                    setColaboradoras(altData || []);
+                    return;
+                }
+            }
             toast.error('Erro ao carregar colaboradoras');
         } else {
             setColaboradoras(data || []);
