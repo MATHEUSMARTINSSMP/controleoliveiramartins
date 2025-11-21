@@ -400,22 +400,39 @@ export default function LojaDashboard() {
     const fetchColaboradoras = async () => {
         if (!storeId) return;
 
-        // Buscar colaboradoras que pertencem a esta loja
-        // Elas podem estar vinculadas por store_id OU por store_default (que pode ser o nome ou ID)
-        const { data, error } = await supabase
-            .schema("sistemaretiradas")
-            .from('profiles')
-            .select('id, name, active, store_id, store_default')
-            .eq('role', 'COLABORADORA')
-            .eq('active', true)
-            .or(`store_id.eq.${storeId},store_default.eq.${storeId}`)
-            .order('name');
+        try {
+            // Buscar colaboradoras que pertencem a esta loja
+            // Elas podem estar vinculadas por store_id OU por store_default (que pode ser o nome ou ID)
+            let query = supabase
+                .schema("sistemaretiradas")
+                .from('profiles')
+                .select('id, name, active, store_id, store_default')
+                .eq('role', 'COLABORADORA')
+                .eq('active', true);
 
-        if (error) {
-            console.error('Erro ao carregar colaboradoras:', error);
-            // Tentar busca alternativa: buscar pelo nome da loja também
+            // Tentar buscar por store_id primeiro
+            const { data: dataByStoreId, error: errorByStoreId } = await query
+                .eq('store_id', storeId)
+                .order('name');
+
+            if (!errorByStoreId && dataByStoreId && dataByStoreId.length > 0) {
+                setColaboradoras(dataByStoreId);
+                return;
+            }
+
+            // Se não encontrou por store_id, tentar por store_default (UUID)
+            const { data: dataByStoreDefault, error: errorByStoreDefault } = await query
+                .eq('store_default', storeId)
+                .order('name');
+
+            if (!errorByStoreDefault && dataByStoreDefault && dataByStoreDefault.length > 0) {
+                setColaboradoras(dataByStoreDefault);
+                return;
+            }
+
+            // Se ainda não encontrou e temos o nome da loja, tentar buscar pelo nome
             if (storeName) {
-                const { data: altData, error: altError } = await supabase
+                const { data: dataByName, error: errorByName } = await supabase
                     .schema("sistemaretiradas")
                     .from('profiles')
                     .select('id, name, active, store_id, store_default')
@@ -424,14 +441,19 @@ export default function LojaDashboard() {
                     .ilike('store_default', storeName)
                     .order('name');
                 
-                if (!altError && altData) {
-                    setColaboradoras(altData || []);
+                if (!errorByName && dataByName && dataByName.length > 0) {
+                    setColaboradoras(dataByName);
                     return;
                 }
             }
-            toast.error('Erro ao carregar colaboradoras');
-        } else {
-            setColaboradoras(data || []);
+
+            // Se não encontrou nenhuma, pode ser que não existam colaboradoras para esta loja
+            console.log('Nenhuma colaboradora encontrada para a loja:', storeId, storeName);
+            setColaboradoras([]);
+        } catch (error: any) {
+            console.error('Erro ao carregar colaboradoras:', error);
+            toast.error('Erro ao carregar colaboradoras: ' + (error.message || 'Erro desconhecido'));
+            setColaboradoras([]);
         }
     };
 
