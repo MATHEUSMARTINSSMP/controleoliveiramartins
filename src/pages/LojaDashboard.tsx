@@ -203,7 +203,8 @@ export default function LojaDashboard() {
                 
                 // Criar uma versão de fetchData que usa o targetStoreId diretamente
                 console.log('[LojaDashboard] 📡 Buscando dados com storeId:', targetStoreId);
-                await fetchDataWithStoreId(targetStoreId);
+                console.log('[LojaDashboard] 📡 Buscando dados com storeName:', finalStoreName || storeName);
+                await fetchDataWithStoreId(targetStoreId, finalStoreName || storeName || undefined);
             } else {
                 console.error("[LojaDashboard] ❌ Não foi possível identificar o ID da loja");
                 toast.error("Erro ao identificar loja");
@@ -295,7 +296,7 @@ export default function LojaDashboard() {
         await fetchDataWithStoreId(storeId);
     };
 
-    const fetchDataWithStoreId = async (currentStoreId: string) => {
+    const fetchDataWithStoreId = async (currentStoreId: string, currentStoreName?: string) => {
         if (!currentStoreId) {
             console.error('[LojaDashboard] ❌ fetchDataWithStoreId chamado sem storeId válido');
             setLoading(false);
@@ -303,11 +304,17 @@ export default function LojaDashboard() {
         }
         
         console.log('[LojaDashboard] 📡 fetchDataWithStoreId chamado com storeId:', currentStoreId);
+        console.log('[LojaDashboard] 📡 fetchDataWithStoreId chamado com storeName:', currentStoreName || 'não fornecido');
+        
+        // Garantir que storeName está disponível
+        if (currentStoreName && !storeName) {
+            setStoreName(currentStoreName);
+        }
         
         try {
             await Promise.all([
                 fetchSalesWithStoreId(currentStoreId),
-                fetchColaboradorasWithStoreId(currentStoreId),
+                fetchColaboradorasWithStoreId(currentStoreId, currentStoreName || storeName || undefined),
                 fetchGoalsWithStoreId(currentStoreId),
                 fetchMetricsWithStoreId(currentStoreId),
                 fetchColaboradorasPerformanceWithStoreId(currentStoreId),
@@ -524,16 +531,19 @@ export default function LojaDashboard() {
         return fetchColaboradorasWithStoreId(storeId);
     };
 
-    const fetchColaboradorasWithStoreId = async (currentStoreId: string) => {
+    const fetchColaboradorasWithStoreId = async (currentStoreId: string, currentStoreName?: string | null) => {
         if (!currentStoreId) {
             console.warn('[LojaDashboard] ⚠️ fetchColaboradorasWithStoreId chamado sem storeId');
             return;
         }
 
+        // Usar currentStoreName se fornecido, senão usar storeName do estado
+        const storeNameToUse = currentStoreName || storeName;
+        
         try {
             console.log('[LojaDashboard] 🔍 Buscando colaboradoras...');
             console.log('[LojaDashboard]   storeId usado na busca:', currentStoreId);
-            console.log('[LojaDashboard]   storeName:', storeName);
+            console.log('[LojaDashboard]   storeName:', storeNameToUse || 'NULL');
             
             // Estratégia 1: Buscar colaboradoras por store_id (UUID) - forma preferida
             console.log('[LojaDashboard] 📡 Executando query Supabase:');
@@ -571,12 +581,31 @@ export default function LojaDashboard() {
                 }
             }
 
-            // Se não encontrou por store_id, tentar por store_default (nome da loja)
+            // Se não encontrou por store_id, tentar buscar TODAS e filtrar no cliente
             if (!data || data.length === 0) {
-                console.log('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada por store_id, tentando por store_default...');
-                console.log('[LojaDashboard]   storeName para busca:', storeName);
+                console.log('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada por store_id, tentando busca alternativa...');
+                console.log('[LojaDashboard]   storeName para busca:', storeNameToUse || 'NULL');
                 
-                if (storeName) {
+                // Estratégia alternativa: Buscar TODAS as colaboradoras e filtrar no cliente
+                console.log('[LojaDashboard] 🔄 Tentando buscar TODAS as colaboradoras e filtrar no cliente...');
+                const { data: allColabs, error: allError } = await supabase
+                    .schema("sistemaretiradas")
+                    .from('profiles')
+                    .select('id, name, active, store_id, store_default, role')
+                    .eq('role', 'COLABORADORA')
+                    .eq('active', true)
+                    .order('name');
+                
+                if (allError) {
+                    console.error('[LojaDashboard] ❌ Erro ao buscar todas as colaboradoras:', allError);
+                } else if (allColabs) {
+                    console.log('[LojaDashboard] 📊 Total de colaboradoras ativas no sistema:', allColabs.length);
+                    
+                    // Filtrar por store_id primeiro
+                    let matching = allColabs.filter((colab: any) => colab.store_id === currentStoreId);
+                    console.log(`[LojaDashboard]   Colaboradoras com store_id ${currentStoreId}:`, matching.length);
+                    
+                    if (matching.length === 0 && storeNameToUse) {
                     // Normalizar nome para busca (remover |, vírgulas, espaços extras)
                     const normalizeName = (name: string) => {
                         return name
