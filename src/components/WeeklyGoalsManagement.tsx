@@ -7,10 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Calendar, ArrowLeft, Save, Calculator } from "lucide-react";
+import { Calendar, ArrowLeft, Save, Calculator, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, getWeek, getYear } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface WeeklyGoal {
     id?: string;
@@ -27,10 +28,17 @@ interface Store {
     name: string;
 }
 
+interface Colaboradora {
+    id: string;
+    name: string;
+    store_id?: string;
+}
+
 const WeeklyGoalsManagement = () => {
     const navigate = useNavigate();
     const [weeklyGoals, setWeeklyGoals] = useState<WeeklyGoal[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
+    const [colaboradoras, setColaboradoras] = useState<Colaboradora[]>([]);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingGoal, setEditingGoal] = useState<WeeklyGoal | null>(null);
     const [loading, setLoading] = useState(true);
@@ -38,11 +46,13 @@ const WeeklyGoalsManagement = () => {
     // Form states
     const [selectedStore, setSelectedStore] = useState<string>("");
     const [selectedWeek, setSelectedWeek] = useState<string>(getCurrentWeekRef());
-    const [metaValor, setMetaValor] = useState<string>("");
-    const [superMetaValor, setSuperMetaValor] = useState<string>("");
+    const [weeklyMetaValor, setWeeklyMetaValor] = useState<string>("");
+    const [weeklySuperMetaValor, setWeeklySuperMetaValor] = useState<string>("");
+    const [weeklyColabGoals, setWeeklyColabGoals] = useState<{ id: string, name: string, meta: number, superMeta: number }[]>([]);
 
     useEffect(() => {
         fetchStores();
+        fetchColaboradoras();
         fetchWeeklyGoals();
     }, []);
 
@@ -75,18 +85,36 @@ const WeeklyGoalsManagement = () => {
         if (data) setStores(data);
     };
 
+    const fetchColaboradoras = async () => {
+        const { data } = await supabase
+            .schema("sistemaretiradas")
+            .from("profiles")
+            .select("id, name, store_id")
+            .eq("role", "COLABORADORA")
+            .eq("active", true);
+        if (data) setColaboradoras(data || []);
+    };
+
     const fetchWeeklyGoals = async () => {
         setLoading(true);
         try {
             const { data, error } = await supabase
                 .from("goals")
-                .select(`*, stores (name)`)
+                .select(`*, stores (name), profiles (name)`)
                 .eq("tipo", "SEMANAL")
                 .order("semana_referencia", { ascending: false });
 
             if (error) throw error;
             if (data) {
-                setWeeklyGoals(data as any);
+                // Agrupar por store_id e semana_referencia, pegando apenas um de cada grupo
+                const grouped = data.reduce((acc: any, goal: any) => {
+                    const key = `${goal.store_id}-${goal.semana_referencia}`;
+                    if (!acc[key]) {
+                        acc[key] = goal;
+                    }
+                    return acc;
+                }, {});
+                setWeeklyGoals(Object.values(grouped) as any);
             }
         } catch (err) {
             console.error("Error fetching weekly goals:", err);
@@ -96,36 +124,76 @@ const WeeklyGoalsManagement = () => {
         }
     };
 
-    const calculateSuggestedGoals = async () => {
-        if (!selectedStore) {
-            toast.error("Selecione uma loja primeiro");
+    const calculateWeeklyGoalFromMonthly = async () => {
+        if (!selectedStore || !selectedWeek) {
+            toast.error("Selecione uma loja e uma semana primeiro");
             return;
         }
 
         try {
-            // Get monthly goal for the same month as the week
+            // Get active collaborators for the store
+            const activeColabs = colaboradoras.filter(c => c.store_id === selectedStore);
+            
+            if (activeColabs.length === 0) {
+                toast.error("Nenhuma colaboradora ativa encontrada nesta loja");
+                return;
+            }
+
+            // Get month from week
             const weekRange = getWeekRange(selectedWeek);
             const monthRef = format(weekRange.start, "yyyyMM");
             
-            const { data: monthlyGoal } = await supabase
+            // Get monthly individual goals
+            const { data: monthlyGoals } = await supabase
                 .from("goals")
-                .select("meta_valor, super_meta_valor")
+                .select("colaboradora_id, meta_valor, super_meta_valor")
                 .eq("store_id", selectedStore)
-                .eq("tipo", "MENSAL")
-                .eq("mes_referencia", monthRef)
-                .is("colaboradora_id", null)
-                .single();
+                .eq("tipo", "INDIVIDUAL")
+                .eq("mes_referencia", monthRef);
 
-            if (monthlyGoal) {
-                // Calculate: monthly / 4.33 (average weeks per month)
-                const suggestedMeta = (monthlyGoal.meta_valor / 4.33).toFixed(2);
-                const suggestedSuper = (monthlyGoal.super_meta_valor / 4.33).toFixed(2);
+            if (monthlyGoals && monthlyGoals.length > 0) {
+                // Calculate weekly goals per collaborator
+                const colabGoalsData = activeColabs.map(colab => {
+                    const monthlyGoal = monthlyGoals.find(g => g.colaboradora_id === colab.id);
+                    if (monthlyGoal) {
+                        // Calculate: monthly / 4.33 (average weeks per month)
+                        const weeklyMeta = monthlyGoal.meta_valor / 4.33;
+                        const weeklySuper = monthlyGoal.super_meta_valor / 4.33;
+                        return {
+                            id: colab.id,
+                            name: colab.name,
+                            meta: parseFloat(weeklyMeta.toFixed(2)),
+                            superMeta: parseFloat(weeklySuper.toFixed(2))
+                        };
+                    } else {
+                        return {
+                            id: colab.id,
+                            name: colab.name,
+                            meta: 0,
+                            superMeta: 0
+                        };
+                    }
+                });
+
+                setWeeklyColabGoals(colabGoalsData);
                 
-                setMetaValor(suggestedMeta);
-                setSuperMetaValor(suggestedSuper);
-                toast.success("Metas sugeridas calculadas com base na meta mensal");
+                // Calculate total
+                const totalMeta = colabGoalsData.reduce((sum, c) => sum + c.meta, 0);
+                const totalSuper = colabGoalsData.reduce((sum, c) => sum + c.superMeta, 0);
+                
+                setWeeklyMetaValor(totalMeta.toFixed(2));
+                setWeeklySuperMetaValor(totalSuper.toFixed(2));
+                
+                toast.success(`Metas sugeridas para ${activeColabs.length} colaboradora(s) baseadas nas metas mensais`);
             } else {
-                toast.warning("Meta mensal não encontrada. Defina manualmente.");
+                toast.warning("Metas mensais individuais não encontradas. Defina manualmente.");
+                // Initialize with empty goals
+                setWeeklyColabGoals(activeColabs.map(c => ({
+                    id: c.id,
+                    name: c.name,
+                    meta: 0,
+                    superMeta: 0
+                })));
             }
         } catch (err) {
             console.error("Error calculating suggested goals:", err);
@@ -133,79 +201,135 @@ const WeeklyGoalsManagement = () => {
         }
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleWeeklyColabChange = (id: string, field: 'meta' | 'superMeta', value: string) => {
+        const numValue = parseFloat(value) || 0;
+        setWeeklyColabGoals(prev => prev.map(c => {
+            if (c.id !== id) return c;
+            if (field === 'meta') {
+                // Recalculate super meta proportionally
+                const ratio = parseFloat(weeklySuperMetaValor) / parseFloat(weeklyMetaValor || '1');
+                return { ...c, meta: numValue, superMeta: parseFloat((numValue * ratio).toFixed(2)) };
+            } else {
+                return { ...c, superMeta: numValue };
+            }
+        }));
+    };
 
-        if (!selectedStore || !selectedWeek || !metaValor || !superMetaValor) {
+    const distributeWeeklyGoals = () => {
+        if (!weeklyMetaValor || !weeklySuperMetaValor || weeklyColabGoals.length === 0) return;
+
+        const totalMeta = parseFloat(weeklyMetaValor);
+        const totalSuper = parseFloat(weeklySuperMetaValor);
+        const count = weeklyColabGoals.length;
+
+        const individualMeta = totalMeta / count;
+        const individualSuper = totalSuper / count;
+
+        setWeeklyColabGoals(weeklyColabGoals.map(c => ({
+            ...c,
+            meta: parseFloat(individualMeta.toFixed(2)),
+            superMeta: parseFloat(individualSuper.toFixed(2))
+        })));
+    };
+
+    const handleSaveWeeklyGoal = async () => {
+        if (!selectedStore || !selectedWeek || weeklyColabGoals.length === 0) {
             toast.error("Preencha todos os campos obrigatórios");
             return;
         }
 
-        const payload = {
-            store_id: selectedStore,
-            semana_referencia: selectedWeek,
-            tipo: "SEMANAL",
-            meta_valor: parseFloat(metaValor),
-            super_meta_valor: parseFloat(superMetaValor),
-            colaboradora_id: null, // Semanal goals are for the store, not individual
-            ativo: true,
-            mes_referencia: null, // Not used for weekly goals
-        };
+        // Validate total
+        const totalMeta = weeklyColabGoals.reduce((sum, c) => sum + c.meta, 0);
+        const totalSuper = weeklyColabGoals.reduce((sum, c) => sum + c.superMeta, 0);
+        const expectedMeta = parseFloat(weeklyMetaValor || "0");
+        const expectedSuper = parseFloat(weeklySuperMetaValor || "0");
+
+        if (Math.abs(totalMeta - expectedMeta) > 1 || Math.abs(totalSuper - expectedSuper) > 1) {
+            toast.error("A soma das metas individuais não corresponde ao total informado!");
+            return;
+        }
 
         try {
-            if (editingGoal?.id) {
-                const { error } = await supabase
-                    .from("goals")
-                    .update(payload)
-                    .eq("id", editingGoal.id);
+            // Create/Update individual weekly goals for each collaborator
+            const payloads = weeklyColabGoals.map(colab => ({
+                store_id: selectedStore,
+                semana_referencia: selectedWeek,
+                tipo: "SEMANAL",
+                meta_valor: colab.meta,
+                super_meta_valor: colab.superMeta,
+                colaboradora_id: colab.id,
+                ativo: true,
+                mes_referencia: null,
+            }));
 
-                if (error) throw error;
-                toast.success("Meta semanal atualizada!");
-            } else {
-                // Check if weekly goal already exists
-                const { data: existing } = await supabase
-                    .from("goals")
-                    .select("id")
-                    .eq("store_id", selectedStore)
-                    .eq("semana_referencia", selectedWeek)
-                    .eq("tipo", "SEMANAL")
-                    .single();
+            // Delete existing weekly goals for this store and week
+            const { error: deleteError } = await supabase
+                .from("goals")
+                .delete()
+                .eq("store_id", selectedStore)
+                .eq("semana_referencia", selectedWeek)
+                .eq("tipo", "SEMANAL");
 
-                if (existing) {
-                    // Update existing
-                    const { error } = await supabase
-                        .from("goals")
-                        .update(payload)
-                        .eq("id", existing.id);
+            if (deleteError) throw deleteError;
 
-                    if (error) throw error;
-                    toast.success("Meta semanal atualizada!");
-                } else {
-                    // Insert new
-                    const { error } = await supabase
-                        .from("goals")
-                        .insert([payload]);
+            // Insert new weekly goals
+            const { error: insertError } = await supabase
+                .from("goals")
+                .insert(payloads);
 
-                    if (error) throw error;
-                    toast.success("Meta semanal criada!");
-                }
-            }
+            if (insertError) throw insertError;
 
+            toast.success(`Metas semanais criadas para ${weeklyColabGoals.length} colaboradora(s)!`);
             setDialogOpen(false);
             resetForm();
             fetchWeeklyGoals();
         } catch (err: any) {
-            console.error("Error saving weekly goal:", err);
-            toast.error(err.message || "Erro ao salvar meta semanal");
+            console.error("Error saving weekly goals:", err);
+            toast.error(err.message || "Erro ao salvar metas semanais");
         }
     };
 
-    const handleEdit = (goal: WeeklyGoal) => {
+    const handleEditWeekly = async (goal: WeeklyGoal) => {
         setEditingGoal(goal);
         setSelectedStore(goal.store_id);
         setSelectedWeek(goal.semana_referencia);
-        setMetaValor(goal.meta_valor.toString());
-        setSuperMetaValor(goal.super_meta_valor.toString());
+
+        // Fetch all weekly goals for this store and week
+        const { data: weeklyGoalsData } = await supabase
+            .from("goals")
+            .select("*, profiles (name)")
+            .eq("store_id", goal.store_id)
+            .eq("semana_referencia", goal.semana_referencia)
+            .eq("tipo", "SEMANAL");
+
+        if (weeklyGoalsData && weeklyGoalsData.length > 0) {
+            const colabGoalsData = weeklyGoalsData.map((g: any) => ({
+                id: g.colaboradora_id,
+                name: g.profiles?.name || "Colaboradora desconhecida",
+                meta: g.meta_valor,
+                superMeta: g.super_meta_valor
+            }));
+
+            setWeeklyColabGoals(colabGoalsData);
+
+            const totalMeta = colabGoalsData.reduce((sum, c) => sum + c.meta, 0);
+            const totalSuper = colabGoalsData.reduce((sum, c) => sum + c.superMeta, 0);
+            
+            setWeeklyMetaValor(totalMeta.toFixed(2));
+            setWeeklySuperMetaValor(totalSuper.toFixed(2));
+        } else {
+            // If no goals found, load active collaborators
+            const activeColabs = colaboradoras.filter(c => c.store_id === goal.store_id);
+            setWeeklyColabGoals(activeColabs.map(c => ({
+                id: c.id,
+                name: c.name,
+                meta: 0,
+                superMeta: 0
+            })));
+            setWeeklyMetaValor("");
+            setWeeklySuperMetaValor("");
+        }
+
         setDialogOpen(true);
     };
 
@@ -213,8 +337,9 @@ const WeeklyGoalsManagement = () => {
         setEditingGoal(null);
         setSelectedStore("");
         setSelectedWeek(getCurrentWeekRef());
-        setMetaValor("");
-        setSuperMetaValor("");
+        setWeeklyMetaValor("");
+        setWeeklySuperMetaValor("");
+        setWeeklyColabGoals([]);
     };
 
     // Generate week options (current week and 4 weeks ahead)
@@ -265,21 +390,36 @@ const WeeklyGoalsManagement = () => {
             </div>
 
             {/* Weekly Goals Grid */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {weeklyGoals.map((goal) => {
-                    const weekRange = getWeekRange(goal.semana_referencia);
-                    const isCurrentWeek = goal.semana_referencia === getCurrentWeekRef();
+            <div className="space-y-4">
+                {Object.entries(
+                    weeklyGoals.reduce((acc, goal) => {
+                        const key = `${goal.store_id}-${goal.semana_referencia}`;
+                        if (!acc[key]) {
+                            acc[key] = {
+                                store: goal.stores,
+                                semana_referencia: goal.semana_referencia,
+                                goals: []
+                            };
+                        }
+                        acc[key].goals.push(goal);
+                        return acc;
+                    }, {} as Record<string, any>)
+                ).map(([key, group]: [string, any]) => {
+                    const weekRange = getWeekRange(group.semana_referencia || "");
+                    const isCurrentWeek = group.semana_referencia === getCurrentWeekRef();
+                    const totalMeta = group.goals.reduce((sum: number, g: any) => sum + g.meta_valor, 0);
+                    const totalSuper = group.goals.reduce((sum: number, g: any) => sum + g.super_meta_valor, 0);
                     
                     return (
                         <Card 
-                            key={goal.id} 
+                            key={key} 
                             className={`relative overflow-hidden shadow-md hover:shadow-lg transition-shadow ${
                                 isCurrentWeek ? 'border-2 border-primary' : ''
                             }`}
                         >
                             <CardHeader className="pb-2 bg-gradient-to-r from-primary/10 to-purple-500/10">
                                 <CardTitle className="flex justify-between items-center text-lg">
-                                    <span>{goal.stores?.name || "Loja desconhecida"}</span>
+                                    <span>{group.store?.name || "Loja desconhecida"}</span>
                                     {isCurrentWeek && (
                                         <span className="text-xs font-normal bg-primary text-primary-foreground px-2 py-1 rounded">
                                             Semana Atual
@@ -293,15 +433,15 @@ const WeeklyGoalsManagement = () => {
                                 </div>
                                 <div className="space-y-2">
                                     <div className="flex justify-between">
-                                        <span className="text-sm text-muted-foreground">Meta:</span>
+                                        <span className="text-sm text-muted-foreground">Total ({group.goals.length} colaboradora{group.goals.length > 1 ? 's' : ''}):</span>
                                         <span className="font-bold text-primary">
-                                            R$ {goal.meta_valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                            R$ {totalMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                         </span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-sm text-muted-foreground">Super Meta:</span>
+                                        <span className="text-sm text-muted-foreground">Super Meta Total:</span>
                                         <span className="font-bold text-purple-600">
-                                            R$ {goal.super_meta_valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                            R$ {totalSuper.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                         </span>
                                     </div>
                                 </div>
@@ -309,7 +449,7 @@ const WeeklyGoalsManagement = () => {
                                     variant="outline"
                                     size="sm"
                                     className="w-full"
-                                    onClick={() => handleEdit(goal)}
+                                    onClick={() => handleEditWeekly(group.goals[0])}
                                 >
                                     Editar
                                 </Button>
@@ -318,7 +458,7 @@ const WeeklyGoalsManagement = () => {
                     );
                 })}
                 {weeklyGoals.length === 0 && (
-                    <div className="col-span-full text-center py-10 text-muted-foreground">
+                    <div className="text-center py-10 text-muted-foreground">
                         Nenhuma meta semanal cadastrada. Clique em "Nova Meta Semanal" para começar.
                     </div>
                 )}
@@ -326,17 +466,22 @@ const WeeklyGoalsManagement = () => {
 
             {/* Dialog */}
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>
+                        <DialogTitle className="text-base sm:text-lg">
                             {editingGoal ? "Editar Meta Semanal" : "Nova Meta Semanal"}
                         </DialogTitle>
                     </DialogHeader>
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-3 sm:space-y-4 py-3 sm:py-4">
                         <div>
-                            <Label>Loja *</Label>
-                            <Select value={selectedStore} onValueChange={setSelectedStore}>
-                                <SelectTrigger>
+                            <Label className="text-xs sm:text-sm">Loja *</Label>
+                            <Select value={selectedStore} onValueChange={(value) => {
+                                setSelectedStore(value);
+                                setWeeklyColabGoals([]);
+                                setWeeklyMetaValor("");
+                                setWeeklySuperMetaValor("");
+                            }}>
+                                <SelectTrigger className="text-xs sm:text-sm">
                                     <SelectValue placeholder="Selecione uma loja" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -350,64 +495,180 @@ const WeeklyGoalsManagement = () => {
                         </div>
 
                         <div>
-                            <Label>Semana *</Label>
-                            <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-                                <SelectTrigger>
+                            <Label className="text-xs sm:text-sm">Semana * (Segunda a Domingo)</Label>
+                            <Select value={selectedWeek} onValueChange={(value) => {
+                                setSelectedWeek(value);
+                                setWeeklyColabGoals([]);
+                                setWeeklyMetaValor("");
+                                setWeeklySuperMetaValor("");
+                            }}>
+                                <SelectTrigger className="text-xs sm:text-sm">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {getWeekOptions().map((option) => (
-                                        <SelectItem key={option.value} value={option.value}>
-                                            {option.label}
-                                        </SelectItem>
-                                    ))}
+                                    {getWeekOptions().map((option) => {
+                                        const weekRange = getWeekRange(option.value);
+                                        return (
+                                            <SelectItem key={option.value} value={option.value} className="text-xs sm:text-sm">
+                                                {option.label} - {format(weekRange.start, "dd/MM", { locale: ptBR })} a {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
+                                            </SelectItem>
+                                        );
+                                    })}
                                 </SelectContent>
                             </Select>
                         </div>
+                        
+                        {selectedStore && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                    const activeColabs = colaboradoras.filter(c => c.store_id === selectedStore);
+                                    if (activeColabs.length === 0) {
+                                        toast.error("Nenhuma colaboradora ativa encontrada nesta loja");
+                                        return;
+                                    }
+                                    setWeeklyColabGoals(activeColabs.map(c => ({
+                                        id: c.id,
+                                        name: c.name,
+                                        meta: 0,
+                                        superMeta: 0
+                                    })));
+                                }}
+                                className="w-full text-xs sm:text-sm"
+                                size="sm"
+                            >
+                                <UserCheck className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                                <span className="hidden sm:inline">Carregar Colaboradoras da Loja</span>
+                                <span className="sm:hidden">Carregar Colaboradoras</span>
+                            </Button>
+                        )}
 
-                        <div className="flex items-end gap-2">
-                            <div className="flex-1">
-                                <Label>Meta (R$) *</Label>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 sm:gap-2">
+                            <div className="flex-1 w-full sm:w-auto">
+                                <Label className="text-xs sm:text-sm">Meta Total (R$) *</Label>
                                 <Input
                                     type="number"
                                     step="0.01"
-                                    value={metaValor}
-                                    onChange={(e) => setMetaValor(e.target.value)}
+                                    value={weeklyMetaValor}
+                                    onChange={(e) => setWeeklyMetaValor(e.target.value)}
                                     placeholder="Ex: 10000.00"
-                                    required
+                                    className="text-xs sm:text-sm"
                                 />
                             </div>
-                            <div className="flex-1">
-                                <Label>Super Meta (R$) *</Label>
+                            <div className="flex-1 w-full sm:w-auto">
+                                <Label className="text-xs sm:text-sm">Super Meta Total (R$) *</Label>
                                 <Input
                                     type="number"
                                     step="0.01"
-                                    value={superMetaValor}
-                                    onChange={(e) => setSuperMetaValor(e.target.value)}
+                                    value={weeklySuperMetaValor}
+                                    onChange={(e) => setWeeklySuperMetaValor(e.target.value)}
                                     placeholder="Ex: 12000.00"
-                                    required
+                                    className="text-xs sm:text-sm"
                                 />
                             </div>
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={calculateSuggestedGoals}
-                                className="gap-2"
-                                disabled={!selectedStore}
+                                onClick={calculateWeeklyGoalFromMonthly}
+                                className="gap-2 w-full sm:w-auto text-xs sm:text-sm"
+                                size="sm"
+                                disabled={!selectedStore || !selectedWeek}
                             >
-                                <Calculator className="h-4 w-4" />
+                                <Calculator className="h-3 w-3 sm:h-4 sm:w-4" />
                                 Sugerir
                             </Button>
                         </div>
 
+                        {/* Cálculo simples */}
+                        {weeklyColabGoals.length > 0 && (
+                            <div className="bg-purple-50 dark:bg-purple-950 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-sm">
+                                    <div>
+                                        <p className="font-semibold text-purple-900 dark:text-purple-100">
+                                            Número de colaboradoras: <span className="text-purple-600 dark:text-purple-400">{weeklyColabGoals.length}</span>
+                                        </p>
+                                        <p className="text-purple-700 dark:text-purple-300 text-xs mt-1">
+                                            Meta individual: R$ {(parseFloat(weeklyMetaValor || "0") / weeklyColabGoals.length).toFixed(2)}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-semibold text-purple-900 dark:text-purple-100">
+                                            Total: <span className="text-purple-600 dark:text-purple-400">R$ {weeklyColabGoals.reduce((sum, c) => sum + c.meta, 0).toFixed(2)}</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
                             <p className="text-sm text-blue-900 dark:text-blue-100">
-                                💡 <strong>Dica:</strong> Use o botão "Sugerir" para calcular automaticamente as metas semanais 
-                                baseadas na meta mensal da loja (mensal ÷ 4.33). Você pode editar os valores sugeridos.
+                                💡 <strong>Dica:</strong> As metas semanais são calculadas por colaboradora. Use o botão "Sugerir" para calcular automaticamente 
+                                baseadas nas metas mensais individuais (mensal ÷ 4.33). Você pode editar livremente.
                             </p>
                         </div>
 
-                        <div className="flex justify-end gap-2 pt-4">
+                        {/* Distribuição Individual */}
+                        {weeklyColabGoals.length > 0 && (
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <Label className="text-base font-semibold">Metas Individuais</Label>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={distributeWeeklyGoals}
+                                        disabled={!weeklyMetaValor || !weeklySuperMetaValor}
+                                    >
+                                        <Calculator className="h-3 w-3 mr-1" />
+                                        Distribuir Igualmente
+                                    </Button>
+                                </div>
+                                <div className="border rounded-lg overflow-hidden max-h-[300px] overflow-y-auto">
+                                    <div className="bg-muted p-2 grid grid-cols-12 gap-2 font-medium text-xs sticky top-0 z-10">
+                                        <div className="col-span-4 sm:col-span-5">Colaboradora</div>
+                                        <div className="col-span-4">Meta</div>
+                                        <div className="col-span-4">Super Meta</div>
+                                    </div>
+                                    {weeklyColabGoals.map((colab) => (
+                                        <div key={colab.id} className="p-2 grid grid-cols-12 gap-2 items-center border-b hover:bg-muted/20">
+                                            <div className="col-span-4 sm:col-span-5 font-medium text-sm truncate">{colab.name}</div>
+                                            <div className="col-span-4">
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={colab.meta}
+                                                    onChange={(e) => handleWeeklyColabChange(colab.id, 'meta', e.target.value)}
+                                                    className="h-8 text-sm"
+                                                />
+                                            </div>
+                                            <div className="col-span-4">
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={colab.superMeta}
+                                                    onChange={(e) => handleWeeklyColabChange(colab.id, 'superMeta', e.target.value)}
+                                                    className="h-8 text-sm text-purple-700"
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <div className="p-2 bg-muted/50 flex justify-between items-center border-t text-xs sm:text-sm">
+                                        <span className="font-semibold">Total:</span>
+                                        <div className="flex gap-3">
+                                            <span className="text-primary font-bold">
+                                                Meta: R$ {weeklyColabGoals.reduce((s, c) => s + c.meta, 0).toFixed(2)}
+                                            </span>
+                                            <span className="text-purple-600 font-bold">
+                                                Super: R$ {weeklyColabGoals.reduce((s, c) => s + c.superMeta, 0).toFixed(2)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4">
                             <Button
                                 type="button"
                                 variant="outline"
@@ -415,15 +676,17 @@ const WeeklyGoalsManagement = () => {
                                     setDialogOpen(false);
                                     resetForm();
                                 }}
+                                className="w-full sm:w-auto text-xs sm:text-sm"
+                                size="sm"
                             >
                                 Cancelar
                             </Button>
-                            <Button type="submit">
-                                <Save className="mr-2 h-4 w-4" />
+                            <Button onClick={handleSaveWeeklyGoal} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
+                                <Save className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                                 {editingGoal ? "Atualizar" : "Criar"} Meta Semanal
                             </Button>
                         </div>
-                    </form>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>
