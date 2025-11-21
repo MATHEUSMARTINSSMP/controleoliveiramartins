@@ -835,7 +835,8 @@ export default function LojaDashboard() {
         }
     };
 
-    const ticketMedio = formData.valor && formData.qtd_pecas
+    // Preço Médio por Peça = Valor Total / Quantidade de Peças
+    const precoMedioPeca = formData.valor && formData.qtd_pecas
         ? (parseFloat(formData.valor) / parseInt(formData.qtd_pecas)).toFixed(2)
         : "0,00";
 
@@ -936,7 +937,7 @@ export default function LojaDashboard() {
 
                             <div className="p-3 bg-muted rounded-lg">
                                 <p className="text-sm font-medium">
-                                    💡 Ticket Médio Calculado: <span className="text-primary">R$ {ticketMedio}</span>
+                                    💡 Preço Médio por Peça: <span className="text-primary">R$ {precoMedioPeca}</span>
                                 </p>
                             </div>
 
@@ -1277,7 +1278,7 @@ export default function LojaDashboard() {
                                     <TableHead className="text-xs sm:text-sm">Vendedora</TableHead>
                                     <TableHead className="text-xs sm:text-sm">Valor</TableHead>
                                     <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Peças</TableHead>
-                                    <TableHead className="text-xs sm:text-sm hidden md:table-cell">Ticket</TableHead>
+                                    <TableHead className="text-xs sm:text-sm hidden md:table-cell">Valor/Venda</TableHead>
                                     <TableHead className="text-xs sm:text-sm">Ações</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -1295,7 +1296,7 @@ export default function LojaDashboard() {
                                             <TableCell className="text-xs sm:text-sm font-medium truncate max-w-[100px]">{sale.colaboradora.name}</TableCell>
                                             <TableCell className="text-xs sm:text-sm font-medium">R$ {sale.valor.toFixed(2)}</TableCell>
                                             <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{sale.qtd_pecas}</TableCell>
-                                            <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {(sale.valor / sale.qtd_pecas).toFixed(2)}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {sale.valor.toFixed(2)}</TableCell>
                                             <TableCell>
                                                 <div className="flex gap-1 sm:gap-2">
                                                     <Button variant="ghost" size="sm" onClick={() => handleEdit(sale)} className="h-8 w-8 p-0">
