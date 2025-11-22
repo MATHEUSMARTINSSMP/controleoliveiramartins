@@ -14,18 +14,24 @@ WHERE schemaname = 'sistemaretiradas'
   AND policyname LIKE '%ADMIN%';
 
 -- 2. Criar função auxiliar para verificar se o usuário é ADMIN (se não existir)
+-- IMPORTANTE: SECURITY DEFINER para evitar recursão no RLS
 CREATE OR REPLACE FUNCTION sistemaretiradas.is_user_admin()
 RETURNS BOOLEAN AS $$
+DECLARE
+    user_role text;
 BEGIN
-    RETURN EXISTS (
-        SELECT 1
-        FROM sistemaretiradas.profiles
-        WHERE id = auth.uid()
-          AND role = 'ADMIN'
-          AND active = true
-    );
+    -- Buscar role do usuário diretamente, sem passar pelo RLS (SECURITY DEFINER)
+    SELECT role INTO user_role
+    FROM sistemaretiradas.profiles
+    WHERE id = auth.uid()
+      AND active = true
+    LIMIT 1;
+    
+    -- Retornar true se role for 'ADMIN'
+    RETURN COALESCE(user_role = 'ADMIN', false);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, public, sistemaretiradas;
 
 -- 3. Dropar políticas de UPDATE existentes (se houver conflito)
 DROP POLICY IF EXISTS "ADMIN can update all profiles" ON sistemaretiradas.profiles;
