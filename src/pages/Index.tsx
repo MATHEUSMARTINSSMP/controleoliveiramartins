@@ -40,7 +40,7 @@ const Index = () => {
           <ShoppingBag className="w-16 h-16 text-primary-foreground" />
         </div>
         <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-2">
-          Dashboard de Compras
+          Dashboard de Gestão
         </h1>
         <p className="text-muted-foreground">Carregando...</p>
       </div>

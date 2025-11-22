@@ -70,7 +70,7 @@ const Auth = () => {
             <StoreLogo storeId="cee7d359-0240-4131-87a2-21ae44bd1bb4" className="w-16 h-16 object-contain" />
           </div>
           <CardTitle className="text-2xl text-center bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent font-bold">
-            Dashboard de Compras
+            Dashboard de Gestão
           </CardTitle>
           <CardDescription className="text-center">
             {isLogin ? "Entre com suas credenciais" : "Crie sua conta"}

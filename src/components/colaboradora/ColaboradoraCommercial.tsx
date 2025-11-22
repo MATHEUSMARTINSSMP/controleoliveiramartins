@@ -230,8 +230,10 @@ export const ColaboradoraCommercial = () => {
             </div>
           </CardContent>
         </Card>
+      </div>
 
-        {/* Meta Semanal Gamificada */}
+      {/* Meta Semanal Gamificada - Separada para não encavalada */}
+      <div className="mt-6">
         <WeeklyGoalProgress 
           colaboradoraId={profile?.id} 
           storeId={profile?.store_id} 

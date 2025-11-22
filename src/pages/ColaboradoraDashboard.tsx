@@ -573,10 +573,9 @@ const ColaboradoraDashboard = () => {
               className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" 
             />
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent truncate">
-                Minhas Compras
-              </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground truncate">Bem-vinda, {profile.name}</p>
+              <p className="text-base sm:text-lg font-semibold text-foreground truncate">
+                Bem-vinda, {profile.name?.split(' ')[0] || profile.name}
+              </p>
             </div>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
