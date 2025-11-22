@@ -457,8 +457,8 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                             </div>
 
                             {/* Single Progress Bar Container - com padding extra para labels */}
-                            <div className="relative pb-8 overflow-visible">
-                                <div className="relative h-8 bg-muted rounded-full border-2 border-muted-foreground/20 mb-2 overflow-visible">
+                            <div className="relative pb-8 overflow-x-hidden">
+                                <div className="relative h-8 bg-muted rounded-full border-2 border-muted-foreground/20 mb-2 overflow-hidden">
                                 {/* Progress Fill - até meta ou realizado (o que for menor) */}
                                 <div 
                                     className="absolute top-0 left-0 h-full bg-gradient-to-r from-primary via-primary/90 to-primary/80 transition-all duration-500 rounded-full"
@@ -486,36 +486,14 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
 
                                 {/* Checkpoint 1: Meta Semanal Marker (proporcional) */}
                                 {progress.meta_valor > 0 && (
-                                    <>
-                                        <div 
-                                            className="absolute top-0 h-full w-1 bg-green-600 z-20 shadow-lg"
-                                            style={{ 
-                                                left: `${(progress.meta_valor / progress.super_meta_valor) * 100}%`,
-                                                transform: 'translateX(-50%)'
-                                            }}
-                                            title={`Meta Semanal: ${formatCurrency(progress.meta_valor)}`}
-                                        />
-                                        {/* Label above checkpoint */}
-                                        <div 
-                                            className={`absolute top-0 left-1/2 transform -translate-x-1/2 text-[10px] sm:text-xs font-bold whitespace-nowrap px-2 py-1 rounded shadow-md z-30 ${
-                                                progress.realizado >= progress.meta_valor 
-                                                    ? progress.realizado >= progress.super_meta_valor
-                                                        ? 'bg-purple-500 text-white border-2 border-purple-700' 
-                                                        : 'bg-green-500 text-white border-2 border-green-700' 
-                                                    : 'bg-green-200 text-green-800 border border-green-400'
-                                            }`}
-                                            style={{ 
-                                                left: `${(progress.meta_valor / progress.super_meta_valor) * 100}%`,
-                                                top: '-2rem',
-                                                transform: 'translateX(-50%)'
-                                            }}
-                                        >
-                                            🎯 Meta Semanal
-                                            <div className="text-[9px] font-normal mt-0.5 whitespace-nowrap">
-                                                {formatCurrency(progress.meta_valor, { showSymbol: false })}
-                                            </div>
-                                        </div>
-                                    </>
+                                    <div 
+                                        className="absolute top-0 h-full w-1 bg-green-600 z-20 shadow-lg"
+                                        style={{ 
+                                            left: `${(progress.meta_valor / progress.super_meta_valor) * 100}%`,
+                                            transform: 'translateX(-50%)'
+                                        }}
+                                        title={`Meta Semanal: ${formatCurrency(progress.meta_valor)}`}
+                                    />
                                 )}
 
                                 {/* Checkpoint 2: Super Meta Marker (final) */}
@@ -524,23 +502,51 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                     style={{ right: '0' }}
                                     title={`Super Meta: ${formatCurrency(progress.super_meta_valor)}`}
                                 />
-                                {/* Label above checkpoint - garantir que não saia do container */}
+                            </div>
+                            
+                            {/* Labels acima da barra - fora do container da barra para não sair */}
+                            <div className="relative h-8 mb-2">
+                                {/* Label Super Meta acima */}
+                                {progress.meta_valor > 0 && (
+                                    <div 
+                                        className={`absolute text-[10px] sm:text-xs font-bold whitespace-nowrap px-1.5 py-0.5 sm:px-2 sm:py-1 rounded shadow-md ${
+                                            progress.realizado >= progress.meta_valor 
+                                                ? progress.realizado >= progress.super_meta_valor
+                                                    ? 'bg-purple-500 text-white border-2 border-purple-700' 
+                                                    : 'bg-green-500 text-white border-2 border-green-700' 
+                                                : 'bg-green-200 text-green-800 border border-green-400'
+                                        }`}
+                                        style={{ 
+                                            left: `${Math.min((progress.meta_valor / progress.super_meta_valor) * 100, 95)}%`,
+                                            top: '0',
+                                            transform: 'translateX(-50%)',
+                                            maxWidth: '45%'
+                                        }}
+                                    >
+                                        🎯 Meta
+                                        <div className="text-[9px] font-normal mt-0.5 whitespace-nowrap">
+                                            {formatCurrency(progress.meta_valor, { showSymbol: false, maximumFractionDigits: 0 })}
+                                        </div>
+                                    </div>
+                                )}
+                                {/* Label Super Meta acima - garantir que não ultrapasse */}
                                 <div 
-                                    className={`absolute text-[10px] sm:text-xs font-bold whitespace-nowrap px-1.5 py-0.5 sm:px-2 sm:py-1 rounded shadow-md z-30 ${
+                                    className={`absolute text-[10px] sm:text-xs font-bold whitespace-nowrap px-1.5 py-0.5 sm:px-2 sm:py-1 rounded shadow-md ${
                                         progress.realizado >= progress.super_meta_valor 
                                             ? 'bg-purple-500 text-white border-2 border-purple-700' 
                                             : 'bg-purple-200 text-purple-800 border border-purple-400'
                                     }`}
                                     style={{ 
                                         right: '0',
-                                        top: '-2rem',
+                                        top: '0',
                                         transform: 'translateX(0)',
-                                        maxWidth: '100%'
+                                        maxWidth: '45%',
+                                        textAlign: 'right'
                                     }}
                                 >
                                     <span className="hidden sm:inline">🏆 </span>Super
                                     <div className="text-[9px] font-normal mt-0.5 whitespace-nowrap">
-                                        {formatCurrency(progress.super_meta_valor, { showSymbol: false })}
+                                        {formatCurrency(progress.super_meta_valor, { showSymbol: false, maximumFractionDigits: 0 })}
                                     </div>
                                 </div>
 
@@ -549,8 +555,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                     className="absolute top-1/2 h-6 w-1 bg-foreground z-30 shadow-xl"
                                     style={{ 
                                         left: `${Math.min((progress.realizado / progress.super_meta_valor) * 100, 100)}%`,
-                                        transform: 'translate(-50%, -50%)',
-                                        maxWidth: 'calc(100% - 2px)' // Garantir que não ultrapasse o container
+                                        transform: 'translate(-50%, -50%)'
                                     }}
                                 >
                                     {/* Current value label below - ajustar para não sair */}
@@ -558,10 +563,11 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                         className="absolute top-full text-[10px] sm:text-xs font-bold bg-background border-2 px-2 py-1 rounded shadow-md whitespace-nowrap mt-2"
                                         style={{
                                             left: '50%',
-                                            transform: `${Math.min((progress.realizado / progress.super_meta_valor) * 100, 100) >= 90 ? 'translateX(-100%)' : Math.min((progress.realizado / progress.super_meta_valor) * 100, 100) <= 10 ? 'translateX(0)' : 'translateX(-50%)'}`
+                                            transform: `${Math.min((progress.realizado / progress.super_meta_valor) * 100, 100) >= 90 ? 'translateX(-100%)' : Math.min((progress.realizado / progress.super_meta_valor) * 100, 100) <= 10 ? 'translateX(0)' : 'translateX(-50%)'}`,
+                                            maxWidth: 'calc(100vw - 2rem)'
                                         }}
                                     >
-                                        {formatCurrency(progress.realizado)}
+                                        {formatCurrency(progress.realizado, { maximumFractionDigits: 0 })}
                                     </div>
                                 </div>
                             </div>

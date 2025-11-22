@@ -446,43 +446,43 @@ const Colaboradores = () => {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-primary/10 overflow-hidden">
+                  <div className="rounded-lg border border-primary/10 overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/50">
-                          <TableHead className="font-semibold">Nome</TableHead>
-                          <TableHead className="font-semibold">CPF</TableHead>
-                          <TableHead className="font-semibold">Email</TableHead>
-                          <TableHead className="font-semibold">Loja</TableHead>
-                          <TableHead className="font-semibold">Limite Total</TableHead>
-                          <TableHead className="font-semibold">Limite Mensal</TableHead>
-                          <TableHead className="font-semibold">Status</TableHead>
-                          <TableHead className="font-semibold">Ações</TableHead>
+                          <TableHead className="font-semibold text-xs sm:text-sm sticky left-0 bg-muted/50 z-10 min-w-[150px]">Nome</TableHead>
+                          <TableHead className="font-semibold text-xs sm:text-sm hidden sm:table-cell">CPF</TableHead>
+                          <TableHead className="font-semibold text-xs sm:text-sm hidden md:table-cell min-w-[180px]">Email</TableHead>
+                          <TableHead className="font-semibold text-xs sm:text-sm">Loja</TableHead>
+                          <TableHead className="font-semibold text-xs sm:text-sm hidden lg:table-cell">Limite Total</TableHead>
+                          <TableHead className="font-semibold text-xs sm:text-sm hidden lg:table-cell">Limite Mensal</TableHead>
+                          <TableHead className="font-semibold text-xs sm:text-sm">Status</TableHead>
+                          <TableHead className="font-semibold text-xs sm:text-sm sticky right-0 bg-muted/50 z-10">Ações</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {colaboradoras.map((colab) => (
                           <TableRow key={colab.id} className="hover:bg-muted/50 transition-colors">
-                            <TableCell className="font-medium">{colab.name}</TableCell>
-                            <TableCell>{colab.cpf || "Não informado"}</TableCell>
-                            <TableCell>{colab.email}</TableCell>
-                            <TableCell>
-                              <span className="text-xs font-medium px-2 py-1 bg-primary/10 rounded-full">
+                            <TableCell className="font-medium text-xs sm:text-sm sticky left-0 bg-background z-10 min-w-[150px]">{colab.name}</TableCell>
+                            <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{colab.cpf || "Não informado"}</TableCell>
+                            <TableCell className="text-xs sm:text-sm hidden md:table-cell min-w-[180px] truncate">{colab.email}</TableCell>
+                            <TableCell className="text-xs sm:text-sm">
+                              <span className="text-xs font-medium px-2 py-1 bg-primary/10 rounded-full whitespace-nowrap">
                                 {colab.store_default || "-"}
                               </span>
                             </TableCell>
-                            <TableCell>{formatCurrency(colab.limite_total)}</TableCell>
-                            <TableCell>{formatCurrency(colab.limite_mensal)}</TableCell>
-                            <TableCell>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${colab.active
+                            <TableCell className="text-xs sm:text-sm hidden lg:table-cell">{formatCurrency(colab.limite_total)}</TableCell>
+                            <TableCell className="text-xs sm:text-sm hidden lg:table-cell">{formatCurrency(colab.limite_mensal)}</TableCell>
+                            <TableCell className="text-xs sm:text-sm">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${colab.active
                                 ? "bg-success/10 text-success"
                                 : "bg-muted text-muted-foreground"
                                 }`}>
                                 {colab.active ? "Ativa" : "Inativa"}
                               </span>
                             </TableCell>
-                            <TableCell>
-                              <div className="flex gap-2">
+                            <TableCell className="sticky right-0 bg-background z-10">
+                              <div className="flex gap-1 sm:gap-2">
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -552,23 +552,23 @@ const Colaboradores = () => {
                       <TableBody>
                         {lojas.map((loja: any) => (
                           <TableRow key={loja.id} className="hover:bg-muted/50 transition-colors">
-                            <TableCell className="font-medium">{loja.name}</TableCell>
-                            <TableCell>{loja.email}</TableCell>
-                            <TableCell>
-                              <span className="text-xs font-medium px-2 py-1 bg-primary/10 rounded-full">
+                            <TableCell className="font-medium text-xs sm:text-sm sticky left-0 bg-background z-10 min-w-[150px]">{loja.name}</TableCell>
+                            <TableCell className="text-xs sm:text-sm hidden md:table-cell min-w-[180px] truncate">{loja.email}</TableCell>
+                            <TableCell className="text-xs sm:text-sm">
+                              <span className="text-xs font-medium px-2 py-1 bg-primary/10 rounded-full whitespace-nowrap">
                                 {loja.store_name || loja.store_default || "-"}
                               </span>
                             </TableCell>
-                            <TableCell>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${loja.active
+                            <TableCell className="text-xs sm:text-sm">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${loja.active
                                 ? "bg-success/10 text-success"
                                 : "bg-muted text-muted-foreground"
                                 }`}>
                                 {loja.active ? "Ativa" : "Inativa"}
                               </span>
                             </TableCell>
-                            <TableCell>
-                              <div className="flex gap-2">
+                            <TableCell className="sticky right-0 bg-background z-10">
+                              <div className="flex gap-1 sm:gap-2">
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -614,46 +614,48 @@ const Colaboradores = () => {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-base sm:text-lg">
               {editMode ? "Editar Colaboradora" : "Nova Colaboradora"}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs sm:text-sm">
               {editMode
                 ? "Atualize as informações da colaboradora"
                 : "Preencha os dados para criar uma nova colaboradora"}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-3 sm:space-y-4 py-3 sm:py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Nome Completo *</Label>
+              <Label htmlFor="name" className="text-xs sm:text-sm">Nome Completo *</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Digite o nome"
+                className="text-xs sm:text-sm"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cpf">CPF *</Label>
+              <Label htmlFor="cpf" className="text-xs sm:text-sm">CPF *</Label>
               <Input
                 id="cpf"
                 value={formData.cpf}
                 onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
                 placeholder="000.000.000-00"
                 disabled={editMode}
+                className="text-xs sm:text-sm"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="store">Loja *</Label>
+              <Label htmlFor="store" className="text-xs sm:text-sm">Loja *</Label>
               <Select
                 value={formData.store}
                 onValueChange={(value) => setFormData({ ...formData, store: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="text-xs sm:text-sm">
                   <SelectValue placeholder="Selecione a loja" />
                 </SelectTrigger>
                 <SelectContent>
@@ -664,60 +666,64 @@ const Colaboradores = () => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
+              <Label htmlFor="email" className="text-xs sm:text-sm">Email *</Label>
               <Input
                 id="email"
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="email@exemplo.com"
+                className="text-xs sm:text-sm"
                 required
               />
             </div>
             {!editMode && (
               <div className="space-y-2">
-                <Label htmlFor="password">Senha Inicial *</Label>
+                <Label htmlFor="password" className="text-xs sm:text-sm">Senha Inicial *</Label>
                 <Input
                   id="password"
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder="Mínimo 6 caracteres"
+                  className="text-xs sm:text-sm"
                   required
                 />
               </div>
             )}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-2">
-                <Label htmlFor="limite_total">Limite Total (R$)</Label>
+                <Label htmlFor="limite_total" className="text-xs sm:text-sm">Limite Total (R$)</Label>
                 <Input
                   id="limite_total"
                   type="number"
                   step="0.01"
                   value={formData.limite_total}
                   onChange={(e) => setFormData({ ...formData, limite_total: e.target.value })}
+                  className="text-xs sm:text-sm"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="limite_mensal">Limite Mensal (R$)</Label>
+                <Label htmlFor="limite_mensal" className="text-xs sm:text-sm">Limite Mensal (R$)</Label>
                 <Input
                   id="limite_mensal"
                   type="number"
                   step="0.01"
                   value={formData.limite_mensal}
                   onChange={(e) => setFormData({ ...formData, limite_mensal: e.target.value })}
+                  className="text-xs sm:text-sm"
                 />
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isSubmitting}>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isSubmitting} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
               Cancelar
             </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
+            <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
               {isSubmitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
                   Criando...
                 </>
               ) : (
@@ -729,17 +735,17 @@ const Colaboradores = () => {
       </Dialog>
 
       <AlertDialog open={!!deleteDialog} onOpenChange={() => setDeleteDialog(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-[95vw] sm:max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Desativação</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-base sm:text-lg">Confirmar Desativação</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs sm:text-sm">
               {deleteDialog?.startsWith('loja_')
                 ? "Tem certeza que deseja desativar esta loja? Ela não poderá mais acessar o sistema."
                 : "Tem certeza que deseja desativar esta colaboradora? Ela não poderá mais acessar o sistema."}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+            <AlertDialogCancel className="w-full sm:w-auto text-xs sm:text-sm">Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (deleteDialog?.startsWith('loja_')) {
@@ -749,7 +755,7 @@ const Colaboradores = () => {
                   handleDelete(deleteDialog);
                 }
               }}
-              className="bg-destructive text-destructive-foreground"
+              className="bg-destructive text-destructive-foreground w-full sm:w-auto text-xs sm:text-sm"
             >
               Desativar
             </AlertDialogAction>
