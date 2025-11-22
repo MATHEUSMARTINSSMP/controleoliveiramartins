@@ -449,7 +449,7 @@ export default function LojaDashboard() {
         const { data: salesData, error: salesError } = await supabase
             .schema("sistemaretiradas")
             .from('sales')
-            .select('colaboradora_id, valor, qtd_pecas, data_venda, profiles!inner(name)')
+            .select('colaboradora_id, valor, qtd_pecas, data_venda')
             .eq('store_id', currentStoreId)
             .gte('data_venda', `${startOfMonth}T00:00:00`)
             .lte('data_venda', `${todayStr}T23:59:59`);
@@ -460,6 +460,13 @@ export default function LojaDashboard() {
         }
 
         console.log('[LojaDashboard] ✅ Vendas encontradas:', salesData?.length || 0);
+        if (salesData && salesData.length > 0) {
+            console.log('[LojaDashboard]   Primeiras vendas:', salesData.slice(0, 3).map((s: any) => ({
+                colaboradora_id: s.colaboradora_id,
+                valor: s.valor,
+                data: s.data_venda
+            })));
+        }
 
         // Buscar metas individuais
         console.log('[LojaDashboard] 📡 Buscando metas individuais...');
@@ -501,14 +508,20 @@ export default function LojaDashboard() {
 
         // Processar vendas, se houver
         if (salesData && salesData.length > 0) {
+            console.log('[LojaDashboard] 🔄 Processando vendas...');
             salesData.forEach(sale => {
                 const colabId = sale.colaboradora_id;
-                const day = sale.data_venda.split('T')[0];
+                const day = sale.data_venda ? sale.data_venda.split('T')[0] : null;
+                
+                if (!day) {
+                    console.warn('[LojaDashboard] ⚠️ Venda sem data_venda:', sale);
+                    return;
+                }
                 
                 // Se a colaboradora não estiver no monthlyData, adicionar (caso não tenha sido encontrada antes)
                 if (!monthlyData[colabId]) {
                     monthlyData[colabId] = {
-                        colaboradoraName: (sale.profiles as any)?.name || colaboradorasMap.get(colabId) || 'Desconhecida',
+                        colaboradoraName: colaboradorasMap.get(colabId) || 'Desconhecida',
                         dailySales: {},
                         totalMes: 0
                     };
@@ -1948,18 +1961,18 @@ export default function LojaDashboard() {
 
             {/* Tabela Mensal por Colaboradora/Dia */}
             {(colaboradoras.length > 0 || monthlyDataByDay.length > 0) && (
-                <Card>
+            <Card>
                     <CardHeader className="p-3 sm:p-6">
                         <CardTitle className="text-base sm:text-lg">Performance Mensal por Dia</CardTitle>
                         <p className="text-xs sm:text-sm text-muted-foreground mt-1">Vendas diárias de cada colaboradora no mês atual</p>
-                    </CardHeader>
+                </CardHeader>
                     <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                         {monthlyDataByDay.length > 0 ? (
                             <div className="overflow-x-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="text-xs sm:text-sm sticky left-0 bg-background z-10 font-bold">Vendedora</TableHead>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                            <TableHead className="text-xs sm:text-sm sticky left-0 bg-background z-10 font-bold min-w-[140px]">Vendedora</TableHead>
                                             {(() => {
                                                 const hoje = new Date();
                                                 const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
@@ -1977,10 +1990,10 @@ export default function LojaDashboard() {
                                                     </TableHead>
                                                 ));
                                             })()}
-                                            <TableHead className="text-xs sm:text-sm sticky right-0 bg-background z-10 font-bold text-primary">Total</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
+                                            <TableHead className="text-xs sm:text-sm sticky right-0 bg-background z-10 font-bold text-primary min-w-[120px]">Total</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
                                         {monthlyDataByDay
                                             .sort((a, b) => b.totalMes - a.totalMes)
                                             .map((data) => {
@@ -1997,9 +2010,9 @@ export default function LojaDashboard() {
 
                                                 return (
                                                     <TableRow key={data.colaboradoraId}>
-                                                        <TableCell className="text-xs sm:text-sm font-medium sticky left-0 bg-background z-10 truncate max-w-[120px]">
+                                                        <TableCell className="text-xs sm:text-sm font-medium sticky left-0 bg-background z-10 min-w-[140px]">
                                                             {data.colaboradoraName}
-                                                        </TableCell>
+                                    </TableCell>
                                                         {days.map(dayStr => {
                                                             const dayData = data.dailySales[dayStr] || { valor: 0, metaDiaria: 0 };
                                                             const bateuMeta = dayData.metaDiaria > 0 && dayData.valor >= dayData.metaDiaria;
@@ -2029,12 +2042,58 @@ export default function LojaDashboard() {
                                                                 </TableCell>
                                                             );
                                                         })}
-                                                        <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-background z-10">
+                                                        <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-background z-10 min-w-[120px] text-right">
                                                             R$ {data.totalMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                         </TableCell>
                                                     </TableRow>
                                                 );
                                             })}
+                                            {/* Linha de Total da Loja */}
+                                            <TableRow className="bg-primary/5 font-bold border-t-2 border-primary">
+                                                <TableCell className="text-xs sm:text-sm font-bold sticky left-0 bg-primary/5 z-10 min-w-[140px]">
+                                                    TOTAL DA LOJA
+                                                </TableCell>
+                                                {(() => {
+                                                    const hoje = new Date();
+                                                    const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+                                                    const todayStr = format(hoje, 'yyyy-MM-dd');
+                                                    const days: string[] = [];
+                                                    for (let day = 1; day <= daysInMonth; day++) {
+                                                        const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
+                                                        if (dayStr <= todayStr) {
+                                                            days.push(dayStr);
+                                                        }
+                                                    }
+                                                    
+                                                    // Calcular total por dia e total geral
+                                                    const totalGeral = monthlyDataByDay.reduce((sum, data) => sum + data.totalMes, 0);
+                                                    const totalPorDia: Record<string, number> = {};
+                                                    
+                                                    days.forEach(dayStr => {
+                                                        const totalDia = monthlyDataByDay.reduce((sum, data) => {
+                                                            const dayData = data.dailySales[dayStr] || { valor: 0 };
+                                                            return sum + dayData.valor;
+                                                        }, 0);
+                                                        totalPorDia[dayStr] = totalDia;
+                                                    });
+                                                    
+                                                    return days.map(dayStr => (
+                                                        <TableCell 
+                                                            key={dayStr} 
+                                                            className="text-xs text-center font-bold text-primary"
+                                                        >
+                                                            {totalPorDia[dayStr] > 0 ? (
+                                                                `R$ ${totalPorDia[dayStr].toFixed(0)}`
+                                                            ) : (
+                                                                <span className="text-muted-foreground">-</span>
+                                                            )}
+                                                        </TableCell>
+                                                    ));
+                                                })()}
+                                                <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-primary/5 z-10 min-w-[120px] text-right">
+                                                    R$ {monthlyDataByDay.reduce((sum, data) => sum + data.totalMes, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                </TableCell>
+                                            </TableRow>
                                     </TableBody>
                                 </Table>
                             </div>
@@ -2045,8 +2104,8 @@ export default function LojaDashboard() {
                                 </p>
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                </CardContent>
+            </Card>
             )}
         </div>
     );
