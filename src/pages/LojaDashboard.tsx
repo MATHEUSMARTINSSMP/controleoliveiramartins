@@ -701,7 +701,7 @@ export default function LojaDashboard() {
                 monthlyData[colabId].dailySales[day].qtdPecas += Number(sale.qtd_pecas || 0);
                 monthlyData[colabId].totalMes += valorVenda;
                 
-                // Log para colaboradoras desativadas (colabInfo já foi definido acima)
+                // Log para colaboradoras desativadas (colabInfo já foi definido acima na linha 635)
                 if (colabInfo && !colabInfo.active) {
                     console.log(`[LojaDashboard] ✅ Venda processada para colaboradora DESATIVADA "${colabInfo.name}": R$ ${valorVenda.toFixed(2)} no dia ${day}, totalMes agora: R$ ${monthlyData[colabId].totalMes.toFixed(2)}`);
                 }

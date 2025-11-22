@@ -506,8 +506,6 @@ const MetasManagementContent = () => {
                 }
             }
 
-            if (indError) throw indError;
-
             toast.success("Metas criadas com sucesso!");
             setDialogOpen(false);
             fetchGoals();
