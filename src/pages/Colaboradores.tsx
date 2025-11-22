@@ -90,7 +90,33 @@ const Colaboradores = () => {
 
   const fetchColaboradoras = async () => {
     try {
+      console.log("[fetchColaboradoras] ========== INÍCIO DA BUSCA ==========");
       console.log("[fetchColaboradoras] Buscando colaboradoras...");
+      
+      // Verificar contexto de autenticação
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      console.log("[fetchColaboradoras] Auth User ID:", authUser?.id);
+      console.log("[fetchColaboradoras] Profile atual:", profile);
+      console.log("[fetchColaboradoras] Profile role:", profile?.role);
+      console.log("[fetchColaboradoras] Profile active:", profile?.active);
+      console.log("[fetchColaboradoras] É ADMIN?", profile?.role === 'ADMIN' && profile?.active === true);
+      
+      // Testar a função is_user_admin() via RPC se possível
+      try {
+        const { data: isAdminResult, error: rpcError } = await supabase
+          .schema("sistemaretiradas")
+          .rpc('is_user_admin');
+        
+        if (rpcError) {
+          console.warn("[fetchColaboradoras] ⚠️ Erro ao chamar is_user_admin() via RPC:", rpcError);
+        } else {
+          console.log("[fetchColaboradoras] Resultado de is_user_admin() via RPC:", isAdminResult);
+        }
+      } catch (rpcErr: any) {
+        console.warn("[fetchColaboradoras] ⚠️ Exceção ao chamar is_user_admin() via RPC:", rpcErr);
+      }
+      
+      console.log("[fetchColaboradoras] Executando query SELECT...");
       
       const { data, error } = await supabase
         .schema("sistemaretiradas")
@@ -99,11 +125,30 @@ const Colaboradores = () => {
         .eq("role", "COLABORADORA")
         .order("name");
 
+      console.log("[fetchColaboradoras] Erro da query (se houver):", error);
+      console.log("[fetchColaboradoras] Código do erro:", error?.code);
+      console.log("[fetchColaboradoras] Mensagem do erro:", error?.message);
+      console.log("[fetchColaboradoras] Detalhes do erro:", error?.details);
+      console.log("[fetchColaboradoras] Hint do erro:", error?.hint);
+
       if (error) {
-        console.error("[fetchColaboradoras] Erro na query:", error);
+        console.error("[fetchColaboradoras] ❌ Erro na query:", error);
+        
+        // Se for erro de permissão RLS
+        if (error.code === '42501' || error.message?.includes('permission denied') || error.message?.includes('row-level security')) {
+          console.error("[fetchColaboradoras] ❌ ERRO DE RLS! A política 'ADMIN can view all profiles' pode não estar funcionando.");
+          console.error("[fetchColaboradoras] Isso indica que is_user_admin() está retornando false.");
+          console.error("[fetchColaboradoras] Verifique:");
+          console.error("[fetchColaboradoras] 1. Se o usuário está logado como ADMIN");
+          console.error("[fetchColaboradoras] 2. Se o profile do usuário tem active = true");
+          console.error("[fetchColaboradoras] 3. Se a função is_user_admin() está funcionando corretamente");
+          toast.error("Erro de permissão RLS. Verifique o console para detalhes.");
+        }
+        
         throw error;
       }
 
+      console.log("[fetchColaboradoras] ✅ Query executada com sucesso!");
       console.log("[fetchColaboradoras] Colaboradoras encontradas:", data?.length || 0);
       console.log("[fetchColaboradoras] Dados completos:", data);
       
@@ -354,9 +399,10 @@ const Colaboradores = () => {
 
   const handleDelete = async (id: string) => {
     try {
+      console.log("[handleDelete] ========== INÍCIO DO PROCESSO DE DESATIVAÇÃO ==========");
       console.log("[handleDelete] Desativando colaboradora ID:", id);
       console.log("[handleDelete] Profile atual:", profile);
-      console.log("[handleDelete] Role:", profile?.role);
+      console.log("[handleDelete] Role do profile:", profile?.role);
       
       // Verificar se o usuário é ADMIN
       if (profile?.role !== 'ADMIN') {
@@ -364,7 +410,50 @@ const Colaboradores = () => {
         return;
       }
       
-      // Primeiro, verificar o estado atual
+      // TESTE 1: Verificar auth.uid() diretamente
+      console.log("[handleDelete] --- TESTE 1: Verificando auth.uid() ---");
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      console.log("[handleDelete] Auth User ID:", authUser?.id);
+      console.log("[handleDelete] Profile ID:", profile?.id);
+      console.log("[handleDelete] IDs correspondem?", authUser?.id === profile?.id);
+      
+      // TESTE 2: Chamar is_user_admin() via RPC (se disponível)
+      console.log("[handleDelete] --- TESTE 2: Testando is_user_admin() via RPC ---");
+      try {
+        const { data: isAdminResult, error: rpcError } = await supabase
+          .schema("sistemaretiradas")
+          .rpc('is_user_admin');
+        
+        if (rpcError) {
+          console.warn("[handleDelete] ⚠️ Erro ao chamar is_user_admin() via RPC:", rpcError);
+          console.warn("[handleDelete] Isso é normal se a função não estiver exposta como RPC");
+        } else {
+          console.log("[handleDelete] Resultado de is_user_admin() via RPC:", isAdminResult);
+          console.log("[handleDelete] É ADMIN (via RPC)?", isAdminResult === true);
+        }
+      } catch (rpcErr: any) {
+        console.warn("[handleDelete] ⚠️ Exceção ao chamar is_user_admin() via RPC:", rpcErr);
+      }
+      
+      // TESTE 3: Verificar se o profile do usuário está ativo e é ADMIN
+      console.log("[handleDelete] --- TESTE 3: Verificando profile do usuário ---");
+      const { data: currentUserProfile, error: profileError } = await supabase
+        .schema("sistemaretiradas")
+        .from("profiles")
+        .select("id, name, role, active")
+        .eq("id", authUser?.id || profile?.id)
+        .single();
+      
+      if (profileError) {
+        console.error("[handleDelete] ❌ Erro ao buscar profile do usuário:", profileError);
+      } else {
+        console.log("[handleDelete] Profile do usuário encontrado:", currentUserProfile);
+        console.log("[handleDelete] Role:", currentUserProfile?.role);
+        console.log("[handleDelete] Active:", currentUserProfile?.active);
+        console.log("[handleDelete] É ADMIN e está ativo?", currentUserProfile?.role === 'ADMIN' && currentUserProfile?.active === true);
+      }
+      
+      // Primeiro, verificar o estado atual da colaboradora a ser desativada
       const { data: currentData, error: checkError } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
@@ -378,6 +467,27 @@ const Colaboradores = () => {
       }
       
       console.log("[handleDelete] Estado atual da colaboradora:", currentData);
+      console.log("[handleDelete] Estado atual - active:", currentData?.active);
+      console.log("[handleDelete] Estado atual - active (tipo):", typeof currentData?.active);
+      
+      // TESTE 4: Verificar se podemos fazer SELECT na colaboradora antes do UPDATE
+      console.log("[handleDelete] --- TESTE 4: Verificando permissões RLS de SELECT ---");
+      const { data: selectTest, error: selectError } = await supabase
+        .schema("sistemaretiradas")
+        .from("profiles")
+        .select("id, name, active, role")
+        .eq("id", id)
+        .single();
+      
+      if (selectError) {
+        console.error("[handleDelete] ❌ Erro ao fazer SELECT na colaboradora (problema de RLS?):", selectError);
+      } else {
+        console.log("[handleDelete] ✅ SELECT funcionou. Dados:", selectTest);
+      }
+      
+      // TESTE 5: Tentar UPDATE
+      console.log("[handleDelete] --- TESTE 5: Executando UPDATE ---");
+      console.log("[handleDelete] Tentando atualizar active = false para colaboradora ID:", id);
       
       // Tentar update com .select() para verificar quantas linhas foram afetadas
       const { data: updateData, error: updateError, count } = await supabase
@@ -389,6 +499,7 @@ const Colaboradores = () => {
       
       console.log("[handleDelete] Dados retornados pelo UPDATE:", updateData);
       console.log("[handleDelete] Count de linhas afetadas:", count);
+      console.log("[handleDelete] Erro do UPDATE (se houver):", updateError);
 
       if (updateError) {
         console.error("[handleDelete] ❌ Erro ao atualizar:", updateError);
