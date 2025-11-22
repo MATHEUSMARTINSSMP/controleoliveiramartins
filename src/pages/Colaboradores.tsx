@@ -90,6 +90,8 @@ const Colaboradores = () => {
 
   const fetchColaboradoras = async () => {
     try {
+      console.log("[fetchColaboradoras] Buscando colaboradoras...");
+      
       const { data, error } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
@@ -98,13 +100,23 @@ const Colaboradores = () => {
         .order("name");
 
       if (error) {
+        console.error("[fetchColaboradoras] Erro na query:", error);
         throw error;
       }
 
-      setColaboradoras(data || []);
+      console.log("[fetchColaboradoras] Colaboradoras encontradas:", data?.length || 0);
+      console.log("[fetchColaboradoras] Dados completos:", data);
+      
+      // Garantir que active seja sempre boolean
+      const colaboradorasNormalizadas = (data || []).map(colab => ({
+        ...colab,
+        active: colab.active === true || colab.active === 'true' || colab.active === 1
+      }));
+
+      setColaboradoras(colaboradorasNormalizadas);
     } catch (error: any) {
       toast.error("Erro ao carregar colaboradoras: " + (error.message || String(error)));
-      console.error("Error fetching colaboradoras:", error);
+      console.error("[fetchColaboradoras] Erro completo:", error);
       setColaboradoras([]);
     }
   };
@@ -342,16 +354,31 @@ const Colaboradores = () => {
 
   const handleDelete = async (id: string) => {
     try {
-      const { error } = await supabase
+      console.log("[handleDelete] Desativando colaboradora ID:", id);
+      
+      const { data, error } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
         .update({ active: false })
-        .eq("id", id);
+        .eq("id", id)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("[handleDelete] Erro ao desativar:", error);
+        throw error;
+      }
+
+      console.log("[handleDelete] Colaboradora desativada com sucesso. Dados retornados:", data);
+      
       toast.success("Colaboradora desativada com sucesso!");
-      fetchColaboradoras();
+      
+      // Aguardar um pouco antes de recarregar para garantir que o banco foi atualizado
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Recarregar lista de colaboradoras
+      await fetchColaboradoras();
     } catch (error: any) {
+      console.error("[handleDelete] Erro completo:", error);
       toast.error("Erro ao desativar colaboradora: " + error.message);
     } finally {
       setDeleteDialog(null);
@@ -360,20 +387,34 @@ const Colaboradores = () => {
 
   const handleReactivate = async (id: string, type: "colaboradora" | "loja") => {
     try {
-      const { error } = await supabase
+      console.log("[handleReactivate] Reativando", type, "ID:", id);
+      
+      const { data, error } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
         .update({ active: true })
-        .eq("id", id);
+        .eq("id", id)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("[handleReactivate] Erro ao reativar:", error);
+        throw error;
+      }
+
+      console.log("[handleReactivate] Reativada com sucesso. Dados:", data);
+      
       toast.success(`${type === "loja" ? "Loja" : "Colaboradora"} reativada com sucesso!`);
+      
+      // Aguardar um pouco antes de recarregar
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       if (type === "loja") {
-        fetchLojas();
+        await fetchLojas();
       } else {
-        fetchColaboradoras();
+        await fetchColaboradoras();
       }
     } catch (error: any) {
+      console.error("[handleReactivate] Erro completo:", error);
       toast.error(`Erro ao reativar ${type === "loja" ? "loja" : "colaboradora"}: ` + error.message);
     }
   };
@@ -474,11 +515,12 @@ const Colaboradores = () => {
                             <TableCell className="text-xs sm:text-sm hidden lg:table-cell">{formatCurrency(colab.limite_total)}</TableCell>
                             <TableCell className="text-xs sm:text-sm hidden lg:table-cell">{formatCurrency(colab.limite_mensal)}</TableCell>
                             <TableCell className="text-xs sm:text-sm">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${colab.active
-                                ? "bg-success/10 text-success"
-                                : "bg-muted text-muted-foreground"
-                                }`}>
-                                {colab.active ? "Ativa" : "Inativa"}
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                                (colab.active === true || colab.active === 'true' || colab.active === 1)
+                                  ? "bg-success/10 text-success"
+                                  : "bg-muted text-muted-foreground"
+                              }`}>
+                                {(colab.active === true || colab.active === 'true' || colab.active === 1) ? "Ativa" : "Inativa"}
                               </span>
                             </TableCell>
                             <TableCell className="sticky right-0 bg-background z-10">
@@ -501,7 +543,7 @@ const Colaboradores = () => {
                                 >
                                   <Mail className="h-4 w-4" />
                                 </Button>
-                                {colab.active ? (
+                                {(colab.active === true || colab.active === 'true' || colab.active === 1) ? (
                                   <Button
                                     variant="ghost"
                                     size="sm"
