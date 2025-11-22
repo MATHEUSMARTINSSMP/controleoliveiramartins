@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,7 @@ import { ShoppingBag, Loader2 } from "lucide-react";
 import { StoreLogo } from "@/lib/storeLogo";
 
 const Auth = () => {
+  const { profile, loading: authLoading } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -18,6 +20,20 @@ const Auth = () => {
     name: "",
   });
   const navigate = useNavigate();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!authLoading && profile) {
+      // User is already logged in, redirect to appropriate dashboard
+      if (profile.role === "LOJA") {
+        navigate("/loja");
+      } else if (profile.role === "ADMIN") {
+        navigate("/admin");
+      } else {
+        navigate("/me");
+      }
+    }
+  }, [profile, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,12 +46,15 @@ const Auth = () => {
           password: formData.password,
         });
         if (error) throw error;
+        
         toast.success("Login realizado com sucesso!");
 
-        // Wait for AuthContext to process the session and fetch profile
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Give AuthContext a moment to process the auth state change
+        // The Index page will handle waiting for profile to load
+        await new Promise(resolve => setTimeout(resolve, 300));
 
-        navigate("/"); // Redirect to Index which will handle profile-based routing
+        // Navigate to home, Index will handle the routing after profile loads
+        navigate("/home", { replace: true });
       } else {
         const { error } = await supabase.auth.signUp({
           email: formData.email,
@@ -50,11 +69,10 @@ const Auth = () => {
         });
         if (error) throw error;
         toast.success("Cadastro realizado com sucesso!");
-        navigate("/");
+        navigate("/home", { replace: true });
       }
     } catch (error: any) {
       toast.error(error.message || "Erro ao processar solicitação");
-    } finally {
       setLoading(false);
     }
   };

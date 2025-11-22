@@ -1558,7 +1558,14 @@ export default function LojaDashboard() {
         : "0,00";
 
     if (loading) {
-        return <div className="flex items-center justify-center h-screen">Carregando...</div>;
+        return (
+            <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10">
+                <div className="mb-6">
+                    <img src="/elevea.png" alt="EleveaOne" className="h-20 w-auto animate-pulse" />
+                </div>
+                <p className="text-muted-foreground">Carregando...</p>
+            </div>
+        );
     }
 
     return (

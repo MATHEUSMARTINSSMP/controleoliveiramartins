@@ -262,7 +262,10 @@ const Lancamentos = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10">
+        <div className="mb-6">
+          <img src="/elevea.png" alt="EleveaOne" className="h-20 w-auto animate-pulse" />
+        </div>
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
