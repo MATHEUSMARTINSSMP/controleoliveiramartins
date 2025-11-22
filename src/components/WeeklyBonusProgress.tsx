@@ -279,64 +279,7 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
                 </div>
             </CardHeader>
             <CardContent className="pt-6 space-y-6">
-                {/* Meta Semanal */}
-                {weeklyBonuses.meta_bonus !== null && (
-                    <div className="space-y-4">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-4 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border-2 border-green-200 dark:border-green-800">
-                            <div className="flex items-center gap-2">
-                                <Target className="h-5 w-5 text-green-600 flex-shrink-0" />
-                                <h3 className="font-bold text-base sm:text-lg">Meta Semanal</h3>
-                            </div>
-                            <Badge className="bg-green-500 text-white text-sm sm:text-base px-3 py-1.5 ml-auto shadow-md">
-                                <Gift className="h-4 w-4 mr-1.5" />
-                                Prêmio: R$ {weeklyBonuses.meta_bonus}
-                            </Badge>
-                        </div>
-
-                        {metaAtingidas.length > 0 && (
-                            <div className="bg-green-50 dark:bg-green-950/20 border-2 border-green-300 dark:border-green-800 rounded-lg p-4 space-y-2">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                    <span className="font-semibold text-green-900 dark:text-green-100">Atingido:</span>
-                                </div>
-                                {metaAtingidas.map(colab => (
-                                    <div key={colab.colaboradoraId} className="flex items-center justify-between bg-white dark:bg-gray-900 p-3 rounded-lg border border-green-200 dark:border-green-800 shadow-sm">
-                                        <div className="flex items-center gap-2">
-                                            <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-                                            <span className="font-semibold text-sm sm:text-base">{colab.colaboradoraName}</span>
-                                        </div>
-                                        <Badge className="bg-green-500 text-white text-sm px-3 py-1 shadow-md">
-                                            <Trophy className="h-3 w-3 mr-1.5" />
-                                            R$ {weeklyBonuses.meta_bonus}
-                                        </Badge>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {metaFaltam.length > 0 && (
-                            <div className="bg-yellow-50 dark:bg-yellow-950/20 border-2 border-yellow-300 dark:border-yellow-800 rounded-lg p-4 space-y-2">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <XCircle className="h-5 w-5 text-yellow-600" />
-                                    <span className="font-semibold text-yellow-900 dark:text-yellow-100">Falta:</span>
-                                </div>
-                                {metaFaltam.map(colab => (
-                                    <div key={colab.colaboradoraId} className="flex items-center justify-between bg-white dark:bg-gray-900 p-3 rounded-lg border border-yellow-200 dark:border-yellow-800 shadow-sm">
-                                        <div className="flex items-center gap-2">
-                                            <XCircle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
-                                            <span className="font-semibold text-sm sm:text-base">{colab.colaboradoraName}</span>
-                                        </div>
-                                        <span className="text-sm sm:text-base font-bold text-yellow-700 dark:text-yellow-300">
-                                            Faltam R$ {colab.faltaMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Super Meta Semanal */}
+                {/* Super Meta Semanal - PRIMEIRO */}
                 {weeklyBonuses.super_meta_bonus !== null && (
                     <div className="space-y-4">
                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-4 p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg border-2 border-purple-200 dark:border-purple-800">
@@ -360,7 +303,10 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
                                     <div key={colab.colaboradoraId} className="flex items-center justify-between bg-white dark:bg-gray-900 p-3 rounded-lg border border-purple-200 dark:border-purple-800 shadow-sm">
                                         <div className="flex items-center gap-2">
                                             <CheckCircle2 className="h-5 w-5 text-purple-600 flex-shrink-0" />
-                                            <span className="font-semibold text-sm sm:text-base">{colab.colaboradoraName}</span>
+                                            <div className="flex flex-col">
+                                                <span className="font-semibold text-sm sm:text-base">{colab.colaboradoraName}</span>
+                                                <span className="text-xs text-purple-600 font-medium">🎉 Parabéns!</span>
+                                            </div>
                                         </div>
                                         <Badge className="bg-purple-500 text-white text-sm px-3 py-1 shadow-md">
                                             <Trophy className="h-3 w-3 mr-1.5" />
@@ -385,6 +331,66 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
                                         </div>
                                         <span className="text-sm sm:text-base font-bold text-orange-700 dark:text-orange-300">
                                             Faltam R$ {colab.faltaSuperMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Meta Semanal - SEGUNDO */}
+                {weeklyBonuses.meta_bonus !== null && (
+                    <div className="space-y-4">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-4 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border-2 border-green-200 dark:border-green-800">
+                            <div className="flex items-center gap-2">
+                                <Target className="h-5 w-5 text-green-600 flex-shrink-0" />
+                                <h3 className="font-bold text-base sm:text-lg">Meta Semanal</h3>
+                            </div>
+                            <Badge className="bg-green-500 text-white text-sm sm:text-base px-3 py-1.5 ml-auto shadow-md">
+                                <Gift className="h-4 w-4 mr-1.5" />
+                                Prêmio: R$ {weeklyBonuses.meta_bonus}
+                            </Badge>
+                        </div>
+
+                        {metaAtingidas.length > 0 && (
+                            <div className="bg-green-50 dark:bg-green-950/20 border-2 border-green-300 dark:border-green-800 rounded-lg p-4 space-y-2">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                    <span className="font-semibold text-green-900 dark:text-green-100">Atingido:</span>
+                                </div>
+                                {metaAtingidas.map(colab => (
+                                    <div key={colab.colaboradoraId} className="flex items-center justify-between bg-white dark:bg-gray-900 p-3 rounded-lg border border-green-200 dark:border-green-800 shadow-sm">
+                                        <div className="flex items-center gap-2">
+                                            <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
+                                            <div className="flex flex-col">
+                                                <span className="font-semibold text-sm sm:text-base">{colab.colaboradoraName}</span>
+                                                <span className="text-xs text-green-600 font-medium">🎉 Parabéns!</span>
+                                            </div>
+                                        </div>
+                                        <Badge className="bg-green-500 text-white text-sm px-3 py-1 shadow-md">
+                                            <Trophy className="h-3 w-3 mr-1.5" />
+                                            R$ {weeklyBonuses.meta_bonus}
+                                        </Badge>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {metaFaltam.length > 0 && (
+                            <div className="bg-yellow-50 dark:bg-yellow-950/20 border-2 border-yellow-300 dark:border-yellow-800 rounded-lg p-4 space-y-2">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <XCircle className="h-5 w-5 text-yellow-600" />
+                                    <span className="font-semibold text-yellow-900 dark:text-yellow-100">Falta:</span>
+                                </div>
+                                {metaFaltam.map(colab => (
+                                    <div key={colab.colaboradoraId} className="flex items-center justify-between bg-white dark:bg-gray-900 p-3 rounded-lg border border-yellow-200 dark:border-yellow-800 shadow-sm">
+                                        <div className="flex items-center gap-2">
+                                            <XCircle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
+                                            <span className="font-semibold text-sm sm:text-base">{colab.colaboradoraName}</span>
+                                        </div>
+                                        <span className="text-sm sm:text-base font-bold text-yellow-700 dark:text-yellow-300">
+                                            Faltam R$ {colab.faltaMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                         </span>
                                     </div>
                                 ))}

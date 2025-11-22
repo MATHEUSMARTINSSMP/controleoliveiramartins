@@ -543,46 +543,6 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                         </div>
                     </div>
 
-                    {/* Bonus Summary */}
-                    {(weeklyBonuses.meta_bonus !== null || weeklyBonuses.super_meta_bonus !== null) && (
-                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-3 sm:p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Gift className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                                <span className="text-xs sm:text-sm font-semibold">Bônus Semanais Disponíveis</span>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm">
-                                {weeklyBonuses.meta_bonus !== null && (
-                                    <div className={`p-2 rounded ${progress.progress >= 100 && !(progress.superProgress >= 100) ? 'bg-green-100 dark:bg-green-900/30 border-2 border-green-500' : 'bg-muted'}`}>
-                                        <div className="font-medium">Checkpoint 1: Meta Semanal</div>
-                                        <div className={`text-lg font-bold ${progress.progress >= 100 && !(progress.superProgress >= 100) ? 'text-green-700' : 'text-muted-foreground'}`}>
-                                            {progress.progress >= 100 && !(progress.superProgress >= 100) ? '✓ ' : ''}R$ {weeklyBonuses.meta_bonus}
-                                        </div>
-                                        {progress.progress >= 100 && !(progress.superProgress >= 100) && (
-                                            <div className="text-[10px] text-green-700 mt-1">✅ Você ganhou este bônus!</div>
-                                        )}
-                                    </div>
-                                )}
-                                {weeklyBonuses.super_meta_bonus !== null && (
-                                    <div className={`p-2 rounded ${progress.superProgress >= 100 ? 'bg-purple-100 dark:bg-purple-900/30 border-2 border-purple-500' : 'bg-muted'}`}>
-                                        <div className="font-medium">Checkpoint Final: Super Meta</div>
-                                        <div className={`text-lg font-bold ${progress.superProgress >= 100 ? 'text-purple-700' : 'text-muted-foreground'}`}>
-                                            {progress.superProgress >= 100 ? '✓ ' : ''}R$ {weeklyBonuses.super_meta_bonus}
-                                        </div>
-                                        {progress.superProgress >= 100 ? (
-                                            <div className="text-[10px] text-purple-700 mt-1">✅ Você ganhou este bônus! (Substitui o bônus da meta)</div>
-                                        ) : (
-                                            <div className="text-[10px] text-muted-foreground mt-1">Não cumulativo: substitui bônus da meta</div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                            {progress.superProgress >= 100 && weeklyBonuses.super_meta_bonus !== null && (
-                                <div className="mt-2 p-2 bg-purple-100 dark:bg-purple-900/30 rounded text-xs sm:text-sm text-purple-900 dark:text-purple-100">
-                                    🎉 <strong>Parabéns!</strong> Você atingiu a Super Meta e ganhou <strong>R$ {weeklyBonuses.super_meta_bonus}</strong> (bônus não cumulativo)
-                                </div>
-                            )}
-                        </div>
-                    )}
                 </div>
 
                 {showDetails && (
