@@ -623,24 +623,6 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                             </div>
                             </div>
 
-                            {/* Status Messages */}
-                            <div className="space-y-2">
-                                {progress.realizado >= progress.super_meta_valor && weeklyBonuses.super_meta_bonus !== null && (
-                                    <div className="text-xs sm:text-sm text-purple-700 dark:text-purple-400 font-medium bg-purple-50 dark:bg-purple-950/20 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
-                                        🏆 <strong>Super Meta atingida!</strong> Bônus: R$ {weeklyBonuses.super_meta_bonus}
-                                    </div>
-                                )}
-                                {progress.realizado >= progress.meta_valor && progress.realizado < progress.super_meta_valor && weeklyBonuses.meta_bonus !== null && (
-                                    <div className="text-xs sm:text-sm text-green-700 dark:text-green-400 font-medium bg-green-50 dark:bg-green-950/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
-                                        ✅ <strong>Meta atingida!</strong> Bônus: R$ {weeklyBonuses.meta_bonus}
-                                        {weeklyBonuses.super_meta_bonus !== null && (
-                                            <div className="mt-1 text-xs text-muted-foreground">
-                                                Faltam {formatCurrency(progress.super_meta_valor - progress.realizado)} para a Super Meta (R$ {weeklyBonuses.super_meta_bonus})
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
                         </div>
                     ) : (
                         <div className="space-y-2">
