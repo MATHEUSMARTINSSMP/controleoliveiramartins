@@ -75,14 +75,14 @@ const Index = () => {
       // If user has session but no profile yet, wait a bit more
       if (!profile) {
         console.log("[Index] User has session but no profile yet, waiting...");
-        // Give a bit more time for profile to load (max 5 seconds)
+        // Give more time for profile to load (max 10 seconds to match fetchProfile timeout)
         const profileTimeout = setTimeout(() => {
           if (!redirectAttempted.current && !profile) {
-            console.log("[Index] Still no profile after 5s timeout, redirecting to login");
+            console.log("[Index] Still no profile after 10s timeout, redirecting to login");
             redirectAttempted.current = true;
             navigate("/", { replace: true });
           }
-        }, 5000);
+        }, 10000);
 
         return () => {
           clearTimeout(profileTimeout);

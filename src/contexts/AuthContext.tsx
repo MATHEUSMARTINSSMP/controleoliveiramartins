@@ -71,29 +71,56 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       // Fetch directly by ID - this is the fastest way since userId = profile.id
-      // No need to get email or do multiple queries
+      console.log("[AuthContext] Starting profile query for userId:", userId);
       const queryStartTime = Date.now();
-      const { data, error } = await supabase
+      
+      // Create a promise with timeout
+      const queryPromise = supabase
         .schema("sistemaretiradas")
         .from("profiles")
         .select("*")
         .eq("id", userId)
         .maybeSingle();
 
+      // Race between query and timeout
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Query timeout after 5 seconds")), 5000)
+      );
+
+      let queryResult;
+      try {
+        queryResult = await Promise.race([queryPromise, timeoutPromise]);
+      } catch (timeoutError: any) {
+        if (timeoutError.message === "Query timeout after 5 seconds") {
+          console.error("[AuthContext] ❌ Query timed out after 5 seconds!");
+          console.error("[AuthContext] This suggests a network issue or RLS problem");
+          throw new Error("Query timeout - profile fetch took too long");
+        }
+        throw timeoutError;
+      }
+
+      const { data, error } = queryResult as any;
       const queryTime = Date.now() - queryStartTime;
-      console.log(`[AuthContext] Profile query took ${queryTime}ms`);
+      console.log(`[AuthContext] Profile query completed in ${queryTime}ms`);
 
       if (error) {
         console.error("[AuthContext] Error fetching profile:", error);
+        console.error("[AuthContext] Error code:", error.code);
+        console.error("[AuthContext] Error message:", error.message);
+        console.error("[AuthContext] Error details:", JSON.stringify(error, null, 2));
         throw error;
       }
 
       if (!data) {
         console.error("[AuthContext] ❌ NO PROFILE FOUND for userId:", userId);
+        console.error("[AuthContext] This could mean:");
+        console.error("[AuthContext] 1. Profile doesn't exist in database");
+        console.error("[AuthContext] 2. RLS is blocking access");
+        console.error("[AuthContext] 3. Profile ID doesn't match userId");
         throw new Error("Profile not found");
       }
 
-      console.log("[AuthContext] ✅ PROFILE FOUND! Role:", data.role);
+      console.log("[AuthContext] ✅ PROFILE FOUND! Role:", data.role, "Name:", data.name);
 
       // Set profile and clear timeout
       if (safetyTimeoutRef.current) {
