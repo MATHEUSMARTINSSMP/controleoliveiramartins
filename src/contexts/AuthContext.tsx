@@ -32,26 +32,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const currentUserIdRef = useRef<string | null>(null);
 
   const fetchProfile = useCallback(async (userId: string) => {
-    // Prevent duplicate calls for the same user
+    // If already fetching for the same user, wait for it to complete
     if (isFetchingProfileRef.current && currentUserIdRef.current === userId) {
-      console.log("[AuthContext] Already fetching profile for this user, skipping...");
-      return;
+      console.log("[AuthContext] Already fetching profile for this user, waiting for result...");
+      // Wait up to 5 seconds for the current fetch to complete
+      let attempts = 0;
+      while (isFetchingProfileRef.current && attempts < 50) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+      // If still fetching after waiting, proceed anyway
+      if (isFetchingProfileRef.current && currentUserIdRef.current === userId) {
+        console.log("[AuthContext] Still fetching after wait, proceeding with new fetch");
+      } else {
+        // Fetch completed, return
+        return;
+      }
     }
 
-    // If fetching for a different user, wait a bit
+    // If fetching for a different user, wait a bit for it to finish
     if (isFetchingProfileRef.current && currentUserIdRef.current !== userId) {
       console.log("[AuthContext] Waiting for previous fetch to complete...");
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
-    if (isFetchingProfileRef.current && currentUserIdRef.current === userId) {
-      return;
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
 
     console.log("[AuthContext] Fetching profile for userId:", userId);
     isFetchingProfileRef.current = true;
     currentUserIdRef.current = userId;
     setLoading(true);
+
+    // Safety timeout: if fetch takes more than 8 seconds, force completion
+    const safetyTimeout = setTimeout(() => {
+      if (isFetchingProfileRef.current && currentUserIdRef.current === userId) {
+        console.error("[AuthContext] ⚠️ Safety timeout reached, forcing loading to false");
+        isFetchingProfileRef.current = false;
+        currentUserIdRef.current = null;
+        setLoading(false);
+        // Don't set profile to null here, let it keep what it had
+      }
+    }, 8000);
 
     try {
       // Get user email from auth
@@ -60,6 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (!userEmail) {
         console.error("[AuthContext] No email found for user");
+        clearTimeout(safetyTimeout);
         setProfile(null);
         setLoading(false);
         isFetchingProfileRef.current = false;
@@ -78,6 +98,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) {
         console.error("[AuthContext] Error fetching profile by email:", error);
+        clearTimeout(safetyTimeout);
         setProfile(null);
         setLoading(false);
         isFetchingProfileRef.current = false;
@@ -88,6 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!data) {
         console.error("[AuthContext] ❌ NO PROFILE FOUND for email:", userEmail);
         console.error("[AuthContext] This means the profile doesn't exist or email doesn't match");
+        clearTimeout(safetyTimeout);
         setProfile(null);
         setLoading(false);
         isFetchingProfileRef.current = false;
@@ -107,6 +129,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.error("[AuthContext] Profile ID:", data.id);
         console.error("[AuthContext] Auth User ID:", userId);
         console.error("[AuthContext] This will cause RLS to block access!");
+        clearTimeout(safetyTimeout);
         setProfile(null);
         setLoading(false);
         isFetchingProfileRef.current = false;
@@ -115,13 +138,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       console.log("[AuthContext] Setting profile state...");
+      clearTimeout(safetyTimeout);
       setProfile(data);
       setLoading(false);
     } catch (error) {
       console.error("[AuthContext] Error in fetchProfile:", error);
+      clearTimeout(safetyTimeout);
       setProfile(null);
       setLoading(false);
     } finally {
+      clearTimeout(safetyTimeout);
       isFetchingProfileRef.current = false;
       if (currentUserIdRef.current === userId) {
         currentUserIdRef.current = null;
@@ -143,13 +169,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          // Skip if we're already fetching for this user
-          if (isFetchingProfileRef.current && currentUserIdRef.current === session.user.id) {
-            console.log("[AuthContext] Already fetching profile for this user, skipping...");
-            return;
-          }
-
-          // Reset loading state and fetch profile
+          // Reset loading state and fetch profile (fetchProfile will handle duplicates)
           setLoading(true);
           await fetchProfile(session.user.id);
         } else {

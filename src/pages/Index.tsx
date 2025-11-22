@@ -17,9 +17,21 @@ const Index = () => {
 
     console.log("[Index] Effect triggered - loading:", loading, "profile:", profile, "user:", user);
 
+    // Maximum timeout to prevent infinite loading (10 seconds)
+    const maxTimeout = setTimeout(() => {
+      if (!redirectAttempted.current) {
+        console.log("[Index] ⚠️ Maximum timeout reached, forcing redirect");
+        redirectAttempted.current = true;
+        if (!profile) {
+          navigate("/auth", { replace: true });
+        }
+      }
+    }, 10000);
+
     // Only redirect when loading is complete
     if (!loading) {
       console.log("[Index] Not loading anymore");
+      clearTimeout(maxTimeout);
 
       // Check if user has active session
       const hasSession = user !== null;
@@ -34,16 +46,19 @@ const Index = () => {
       // If user has session but no profile yet, wait a bit more
       if (!profile) {
         console.log("[Index] User has session but no profile yet, waiting...");
-        // Give a bit more time for profile to load
-        const timeout = setTimeout(() => {
-          if (!profile) {
+        // Give a bit more time for profile to load (max 3 seconds)
+        const profileTimeout = setTimeout(() => {
+          if (!redirectAttempted.current && !profile) {
             console.log("[Index] Still no profile after timeout, redirecting to /auth");
             redirectAttempted.current = true;
             navigate("/auth", { replace: true });
           }
-        }, 2000);
+        }, 3000);
 
-        return () => clearTimeout(timeout);
+        return () => {
+          clearTimeout(profileTimeout);
+          clearTimeout(maxTimeout);
+        };
       }
 
       // Profile loaded, redirect based on role
@@ -60,6 +75,10 @@ const Index = () => {
     } else {
       console.log("[Index] Still loading, waiting...");
     }
+
+    return () => {
+      clearTimeout(maxTimeout);
+    };
   }, [profile, loading, user, navigate]);
 
   // Reset redirect flag when user/profile changes significantly
@@ -72,8 +91,8 @@ const Index = () => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10">
       <div className="text-center">
-        <div className="mb-8 flex justify-center">
-          <img src="/elevea.png" alt="EleveaOne" className="h-20 w-auto animate-pulse" />
+        <div className="mb-6 flex justify-center">
+          <img src="/elevea.png" alt="EleveaOne" className="h-16 w-auto animate-pulse max-w-[200px]" />
         </div>
         <div className="inline-block p-6 rounded-full bg-gradient-to-br from-primary to-accent mb-6 animate-pulse">
           <ShoppingBag className="w-16 h-16 text-primary-foreground" />

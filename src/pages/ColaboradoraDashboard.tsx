@@ -554,8 +554,8 @@ const ColaboradoraDashboard = () => {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10">
         <div className="text-center">
-          <div className="mb-8 flex justify-center">
-            <img src="/elevea.png" alt="EleveaOne" className="h-20 w-auto animate-pulse" />
+          <div className="mb-6 flex justify-center">
+            <img src="/elevea.png" alt="EleveaOne" className="h-16 w-auto animate-pulse max-w-[200px]" />
           </div>
           <div className="inline-block p-6 rounded-full bg-gradient-to-br from-primary to-accent mb-6 animate-pulse">
             <ShoppingBag className="w-16 h-16 text-primary-foreground" />

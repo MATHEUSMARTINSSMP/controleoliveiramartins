@@ -1560,8 +1560,8 @@ export default function LojaDashboard() {
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10">
-                <div className="mb-6">
-                    <img src="/elevea.png" alt="EleveaOne" className="h-20 w-auto animate-pulse" />
+                <div className="mb-6 flex justify-center">
+                    <img src="/elevea.png" alt="EleveaOne" className="h-16 w-auto animate-pulse max-w-[200px]" />
                 </div>
                 <p className="text-muted-foreground">Carregando...</p>
             </div>
