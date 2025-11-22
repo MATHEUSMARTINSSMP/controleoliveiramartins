@@ -247,22 +247,59 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                 }
             }
 
-            // Fetch sales for the week
+            // Fetch sales for the week (incluindo colaboradoras desativadas até a data de desativação)
             const salesQuery = colaboradoraId
                 ? supabase
                     .from("sales")
-                    .select("valor, data_venda")
+                    .select("valor, data_venda, colaboradora_id")
                     .eq("colaboradora_id", colaboradoraId)
                 : supabase
                     .from("sales")
-                    .select("valor, data_venda")
+                    .select("valor, data_venda, colaboradora_id")
                     .eq("store_id", storeId);
 
             const { data: salesData } = await salesQuery
                 .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
                 .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
 
-            const realizado = salesData?.reduce((sum, sale) => sum + parseFloat(sale.valor || '0'), 0) || 0;
+            // Buscar informações de desativação das colaboradoras (se for loja)
+            let deactivationMap = new Map<string, string | null>();
+            if (!colaboradoraId && storeId) {
+                const { data: colaboradorasInfo } = await supabase
+                    .from("profiles")
+                    .select("id, active, updated_at")
+                    .eq("role", "COLABORADORA")
+                    .eq("store_id", storeId);
+                
+                colaboradorasInfo?.forEach((colab: any) => {
+                    if (!colab.active && colab.updated_at) {
+                        deactivationMap.set(colab.id, format(new Date(colab.updated_at), "yyyy-MM-dd"));
+                    }
+                });
+            }
+
+            // Filtrar vendas: incluir apenas vendas até a data de desativação (se desativada)
+            let filteredSales = salesData || [];
+            if (deactivationMap.size > 0) {
+                filteredSales = salesData?.filter((sale: any) => {
+                    const colabId = sale.colaboradora_id;
+                    const saleDate = sale.data_venda ? sale.data_venda.split("T")[0] : null;
+                    const deactivationDate = deactivationMap.get(colabId);
+                    
+                    // Se colaboradora foi desativada e venda é depois do dia da desativação, não incluir
+                    // (incluir vendas do próprio dia da desativação, pois ela pode ter vendido nesse dia)
+                    if (deactivationDate && saleDate) {
+                        const saleDay = new Date(saleDate).setHours(0, 0, 0, 0);
+                        const deactivationDay = new Date(deactivationDate).setHours(0, 0, 0, 0);
+                        if (saleDay > deactivationDay) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }) || [];
+            }
+
+            const realizado = filteredSales.reduce((sum, sale) => sum + parseFloat(sale.valor || '0'), 0);
 
             // Calcular o que deveria ter vendido até hoje (baseado nas metas diárias até hoje)
             let projectedByToday = 0;

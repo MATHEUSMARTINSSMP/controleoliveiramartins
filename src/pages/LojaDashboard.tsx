@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import WeeklyGoalProgress from "@/components/WeeklyGoalProgress";
 import WeeklyBonusProgress from "@/components/WeeklyBonusProgress";
+import { TrophiesGallery } from "@/components/loja/TrophiesGallery";
 import { StoreLogo } from "@/lib/storeLogo";
 
 interface Sale {
@@ -326,14 +327,52 @@ export default function LojaDashboard() {
             setGoals(data);
             
             // Compute monthly progress from sales data (precisamos disso para calcular meta dinâmica)
+            // Incluir vendas de colaboradoras desativadas até a data de desativação
             const { data: salesMonth, error: monthErr } = await supabase
                 .schema("sistemaretiradas")
                 .from('sales')
-                .select('valor')
+                .select('valor, colaboradora_id, data_venda')
                 .eq('store_id', currentStoreId)
                 .gte('data_venda', `${startOfMonth}T00:00:00`);
             
-            const totalMes = !monthErr && salesMonth ? salesMonth.reduce((sum: number, s: any) => sum + Number(s.valor), 0) : 0;
+            // Buscar informações de desativação das colaboradoras
+            const { data: colaboradorasInfo } = await supabase
+                .schema("sistemaretiradas")
+                .from('profiles')
+                .select('id, active, updated_at')
+                .eq('role', 'COLABORADORA')
+                .eq('store_id', currentStoreId);
+            
+            // Criar mapa de datas de desativação
+            const deactivationMap = new Map<string, string | null>();
+            colaboradorasInfo?.forEach((colab: any) => {
+                if (!colab.active && colab.updated_at) {
+                    deactivationMap.set(colab.id, format(new Date(colab.updated_at), 'yyyy-MM-dd'));
+                }
+            });
+            
+            // Filtrar vendas: incluir apenas vendas até a data de desativação (se desativada)
+            let totalMes = 0;
+            if (!monthErr && salesMonth) {
+                salesMonth.forEach((sale: any) => {
+                    const colabId = sale.colaboradora_id;
+                    const saleDate = sale.data_venda ? sale.data_venda.split('T')[0] : null;
+                    const deactivationDate = deactivationMap.get(colabId);
+                    
+                    // Se colaboradora foi desativada e venda é depois do dia da desativação, não incluir
+                    // (incluir vendas do próprio dia da desativação, pois ela pode ter vendido nesse dia)
+                    if (deactivationDate && saleDate) {
+                        // Comparar apenas a data (sem hora), então > significa dia seguinte
+                        const saleDay = new Date(saleDate).setHours(0, 0, 0, 0);
+                        const deactivationDay = new Date(deactivationDate).setHours(0, 0, 0, 0);
+                        if (saleDay > deactivationDay) {
+                            return;
+                        }
+                    }
+                    
+                    totalMes += Number(sale.valor || 0);
+                });
+            }
             setMonthlyRealizado(totalMes);
             setMonthlyProgress((totalMes / Number(data.meta_valor)) * 100);
             
@@ -358,14 +397,34 @@ export default function LojaDashboard() {
             setDailyGoal(daily);
             
             // Compute today's progress from sales data
+            // Incluir vendas de colaboradoras desativadas apenas se foram até hoje (se desativadas hoje ou antes)
             const { data: salesToday, error: salesErr } = await supabase
                 .schema("sistemaretiradas")
                 .from('sales')
-                .select('valor')
+                .select('valor, colaboradora_id, data_venda')
                 .eq('store_id', currentStoreId)
                 .gte('data_venda', `${today}T00:00:00`);
+            
+            let totalHoje = 0;
             if (!salesErr && salesToday) {
-                const totalHoje = salesToday.reduce((sum: number, s: any) => sum + Number(s.valor), 0);
+                salesToday.forEach((sale: any) => {
+                    const colabId = sale.colaboradora_id;
+                    const saleDate = sale.data_venda ? sale.data_venda.split('T')[0] : null;
+                    const deactivationDate = deactivationMap.get(colabId);
+                    
+                    // Se colaboradora foi desativada e venda é depois do dia da desativação, não incluir
+                    // (incluir vendas do próprio dia da desativação, pois ela pode ter vendido nesse dia)
+                    if (deactivationDate && saleDate) {
+                        // Comparar apenas a data (sem hora), então > significa dia seguinte
+                        const saleDay = new Date(saleDate).setHours(0, 0, 0, 0);
+                        const deactivationDay = new Date(deactivationDate).setHours(0, 0, 0, 0);
+                        if (saleDay > deactivationDay) {
+                            return;
+                        }
+                    }
+                    
+                    totalHoje += Number(sale.valor || 0);
+                });
                 setDailyProgress((totalHoje / daily) * 100);
             } else if (salesErr) {
                 console.error('[LojaDashboard] ❌ Erro ao buscar vendas de hoje:', salesErr);
@@ -444,14 +503,13 @@ export default function LojaDashboard() {
         const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
         const todayStr = format(hoje, 'yyyy-MM-dd');
 
-        // Buscar colaboradoras da loja PRIMEIRO (necessário para processar)
-        console.log('[LojaDashboard] 📡 Buscando colaboradoras da loja...');
+        // Buscar TODAS as colaboradoras da loja (ativas e desativadas) - PRIMEIRO (necessário para processar)
+        console.log('[LojaDashboard] 📡 Buscando colaboradoras da loja (ativas e desativadas)...');
         const { data: colaboradorasData, error: colaboradorasError } = await supabase
             .schema("sistemaretiradas")
             .from('profiles')
-            .select('id, name')
+            .select('id, name, active, updated_at')
             .eq('role', 'COLABORADORA')
-            .eq('active', true)
             .eq('store_id', currentStoreId);
 
         if (colaboradorasError) {
@@ -509,7 +567,7 @@ export default function LojaDashboard() {
 
         console.log('[LojaDashboard] ✅ Metas encontradas:', goalsData?.length || 0);
 
-        // Processar dados
+        // Processar dados (usar name direto do colaboradorasData, já que agora temos todos os campos)
         const colaboradorasMap = new Map(colaboradorasData.map(c => [c.id, c.name]));
         const goalsMap = new Map((goalsData || []).map((g: any) => [g.colaboradora_id, g]));
 
@@ -529,6 +587,18 @@ export default function LojaDashboard() {
             };
         });
 
+        // Criar mapa de colaboradoras com data de desativação
+        const colaboradorasMapWithDeactivation = new Map(
+            colaboradorasData.map(c => [
+                c.id, 
+                {
+                    name: c.name,
+                    active: c.active,
+                    deactivationDate: c.active ? null : (c.updated_at ? format(new Date(c.updated_at), 'yyyy-MM-dd') : null)
+                }
+            ])
+        );
+
         // Processar vendas, se houver
         if (salesData && salesData.length > 0) {
             console.log('[LojaDashboard] 🔄 Processando vendas...');
@@ -541,10 +611,22 @@ export default function LojaDashboard() {
                     return;
                 }
                 
+                // Verificar se colaboradora foi desativada antes desta venda
+                const colabInfo: any = colaboradorasMapWithDeactivation.get(colabId);
+                if (colabInfo && !colabInfo.active && colabInfo.deactivationDate) {
+                    // Se a venda é depois do dia da desativação, ignorar
+                    // (incluir vendas do próprio dia da desativação, pois ela pode ter vendido nesse dia)
+                    const saleDay = new Date(day).setHours(0, 0, 0, 0);
+                    const deactivationDay = new Date(colabInfo.deactivationDate).setHours(0, 0, 0, 0);
+                    if (saleDay > deactivationDay) {
+                        return;
+                    }
+                }
+                
                 // Se a colaboradora não estiver no monthlyData, adicionar (caso não tenha sido encontrada antes)
                 if (!monthlyData[colabId]) {
                     monthlyData[colabId] = {
-                        colaboradoraName: colaboradorasMap.get(colabId) || 'Desconhecida',
+                        colaboradoraName: colabInfo?.name || colaboradorasMap.get(colabId) || 'Desconhecida',
                         dailySales: {},
                         totalMes: 0
                     };
@@ -600,7 +682,7 @@ export default function LojaDashboard() {
             });
         }
 
-        // Converter para array e adicionar colaboradoras sem vendas
+        // Converter para array - incluir TODAS as colaboradoras (ativas e desativadas)
         const result = colaboradorasData.map(colab => {
             const data = monthlyData[colab.id] || {
                 colaboradoraName: colab.name,
@@ -1307,6 +1389,22 @@ export default function LojaDashboard() {
             toast.success('Venda lançada com sucesso!');
             setDialogOpen(false);
             resetForm();
+            
+            // Verificar e criar troféus automaticamente
+            if (formData.colaboradora_id) {
+                const hoje = new Date();
+                const monday = startOfWeek(hoje, { weekStartsOn: 1 });
+                const week = getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
+                const year = getYear(monday);
+                const semanaRef = `${String(week).padStart(2, '0')}${year}`;
+                
+                // Verificar troféus mensais e semanais em background (não bloquear UI)
+                Promise.all([
+                    checkAndCreateMonthlyTrophies(formData.colaboradora_id, storeId),
+                    checkAndCreateWeeklyTrophies(formData.colaboradora_id, storeId, semanaRef)
+                ]).catch(err => console.error('Erro ao verificar troféus:', err));
+            }
+            
             // Atualizar todos os dados automaticamente
             await Promise.all([
                 fetchSalesWithStoreId(storeId),
@@ -1371,6 +1469,22 @@ export default function LojaDashboard() {
             toast.success('Venda atualizada com sucesso!');
             setDialogOpen(false);
             resetForm();
+            
+            // Verificar e criar troféus automaticamente
+            if (formData.colaboradora_id && storeId) {
+                const hoje = new Date();
+                const monday = startOfWeek(hoje, { weekStartsOn: 1 });
+                const week = getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
+                const year = getYear(monday);
+                const semanaRef = `${String(week).padStart(2, '0')}${year}`;
+                
+                // Verificar troféus mensais e semanais em background (não bloquear UI)
+                Promise.all([
+                    checkAndCreateMonthlyTrophies(formData.colaboradora_id, storeId),
+                    checkAndCreateWeeklyTrophies(formData.colaboradora_id, storeId, semanaRef)
+                ]).catch(err => console.error('Erro ao verificar troféus:', err));
+            }
+            
             // Atualizar todos os dados automaticamente
             await Promise.all([
                 fetchSalesWithStoreId(storeId!),
@@ -1589,7 +1703,8 @@ export default function LojaDashboard() {
             </div>
 
             {/* KPI Cards - Metas e Métricas */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 max-w-7xl mx-auto">
+            {/* Primeiros 3 Cards Centralizados */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-4xl mx-auto mb-4 sm:mb-6">
                 {/* Meta Mensal */}
                 <Card className="flex flex-col h-full">
                     <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
@@ -1667,9 +1782,12 @@ export default function LojaDashboard() {
                         </div>
                     </CardContent>
                 </Card>
+            </div>
 
-                {/* Ticket Médio */}
-                {metrics && (
+            {/* Cards Adicionais - Ticket Médio, PA, Preço Médio */}
+            {metrics && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-5xl mx-auto">
+                    {/* Ticket Médio */}
                     <Card className="flex flex-col h-full">
                         <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
                             <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Ticket Médio</CardTitle>
@@ -1679,8 +1797,8 @@ export default function LojaDashboard() {
                                 <p className="text-xl sm:text-3xl font-bold text-primary">R$ {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.valor, 0) / sales.length).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</p>
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-3 justify-between">
-                                    <Progress
-                                        value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.length) / metrics.meta_ticket_medio) * 100, 100) : 0}
+                                        <Progress
+                                            value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.length) / metrics.meta_ticket_medio) * 100, 100) : 0}
                                             className="h-3 flex-1"
                                         />
                                     </div>
@@ -1691,10 +1809,8 @@ export default function LojaDashboard() {
                             </div>
                         </CardContent>
                     </Card>
-                )}
 
-                {/* PA (Peças por Atendimento) */}
-                {metrics && (
+                    {/* PA (Peças por Atendimento) */}
                     <Card className="flex flex-col h-full">
                         <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
                             <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">PA (Peças/Venda)</CardTitle>
@@ -1716,10 +1832,8 @@ export default function LojaDashboard() {
                             </div>
                         </CardContent>
                     </Card>
-                )}
 
-                {/* Preço Médio por Peça */}
-                {metrics && (
+                    {/* Preço Médio por Peça */}
                     <Card className="flex flex-col h-full">
                         <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
                             <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Preço Médio por Peça</CardTitle>
@@ -1745,8 +1859,8 @@ export default function LojaDashboard() {
                             </div>
                         </CardContent>
                     </Card>
-                )}
-            </div>
+                </div>
+            )}
 
             {/* Planejamento do Dia - Cards por Vendedora */}
             {colaboradorasPerformance.length > 0 && (
@@ -1797,6 +1911,11 @@ export default function LojaDashboard() {
             {/* Bônus Semanal Individual por Colaboradora */}
             {storeId && colaboradoras.length > 0 && (
                 <WeeklyBonusProgress storeId={storeId} colaboradoras={colaboradoras.map(c => ({ id: c.id, name: c.name }))} />
+            )}
+
+            {/* Galeria de Troféus */}
+            {storeId && (
+                <TrophiesGallery storeId={storeId} limit={50} />
             )}
 
             {/* Tabela de Performance do Dia */}

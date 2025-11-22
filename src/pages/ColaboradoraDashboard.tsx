@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ColaboradoraCommercial } from "@/components/colaboradora/ColaboradoraCommercial";
+import { Achievements } from "@/components/colaboradora/Achievements";
 import {
   DollarSign,
   Calendar,
@@ -660,6 +661,12 @@ const ColaboradoraDashboard = () => {
           {/* ABA METAS */}
           <TabsContent value="metas" className="space-y-4">
             <ColaboradoraCommercial />
+            {profile && (
+              <Achievements 
+                colaboradoraId={profile.id} 
+                storeId={profile.store_id || getStoreIdFromProfile(profile) || ''} 
+              />
+            )}
           </TabsContent>
 
           {/* ABA COMPRAS */}
