@@ -701,18 +701,15 @@ export default function LojaDashboard() {
             });
         }
 
-        // Converter para array - incluir TODAS as colaboradoras (ativas e desativadas)
-        // IMPORTANTE: Incluir todas, mesmo sem vendas ou metas, para aparecer no calendário
+        // Converter para array - incluir colaboradoras
+        // IMPORTANTE: Colaboradoras ATIVAS aparecem sempre
+        // Colaboradoras DESATIVADAS aparecem apenas se tiverem vendas no mês
         const result = colaboradorasData.map(colab => {
             const data = monthlyData[colab.id] || {
                 colaboradoraName: colab.name,
                 dailySales: {},
                 totalMes: 0
             };
-            
-            // Garantir que colaboradora desativada também seja incluída
-            // Se ela tem vendas antes da desativação, elas já foram processadas acima
-            // Mas precisamos garantir que ela apareça no resultado mesmo sem vendas
 
             // Garantir que todas as metas diárias estejam calculadas mesmo sem vendas
             const goal: any = goalsMap.get(colab.id);
@@ -785,11 +782,27 @@ export default function LojaDashboard() {
             };
         });
 
-        // Filtrar apenas colaboradoras que existem no result (não deveria ser necessário, mas por segurança)
-        // IMPORTANTE: Incluir TODAS, mesmo sem vendas, para aparecer no calendário
+        // Filtrar resultado
+        // IMPORTANTE: Colaboradoras ATIVAS aparecem sempre
+        // Colaboradoras DESATIVADAS aparecem apenas se tiverem vendas REAIS (valor > 0) no mês
         const resultFiltered = result.filter(item => {
             const colab = colaboradorasData.find(c => c.id === item.colaboradoraId);
-            return colab !== undefined; // Todas devem estar presentes
+            if (!colab) return false;
+            
+            // Se for colaboradora ativa, sempre incluir
+            if (colab.active) return true;
+            
+            // Se for desativada, verificar se tem vendas reais no mês
+            // Verificar se há vendas com valor > 0
+            const hasRealSales = item.totalMes > 0 || 
+                Object.values(item.dailySales).some((dayData: any) => dayData.valor > 0);
+            
+            if (!hasRealSales) {
+                console.log(`[LojaDashboard] ⏭️ Colaboradora desativada "${item.colaboradoraName}" sem vendas no mês, não incluindo no calendário`);
+                return false;
+            }
+            
+            return true;
         });
 
         console.log('[LojaDashboard] ✅ Dados mensais processados:', resultFiltered.length, 'colaboradoras');
