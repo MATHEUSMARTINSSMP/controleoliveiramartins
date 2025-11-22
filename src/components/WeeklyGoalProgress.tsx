@@ -436,12 +436,161 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
             <CardContent className="pt-6 space-y-4 overflow-visible">
                 {/* Progress Bars with Bonus Checkpoints */}
                 <div className="space-y-4">
-                    {/* Simplified Progress Bar with Checkpoints */}
-                    <div className="space-y-4">
-                        {/* Progress Bar - Meta Semanal */}
+                    {/* Single Unified Progress Bar with Checkpoints */}
+                    {progress.super_meta_valor > 0 ? (
+                        <div className="space-y-3">
+                            {/* Header with labels */}
+                            <div className="flex items-center justify-between text-xs sm:text-sm">
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                                        <span className="text-muted-foreground">Meta Semanal: {formatCurrency(progress.meta_valor)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                                        <span className="text-muted-foreground">Super Meta: {formatCurrency(progress.super_meta_valor)}</span>
+                                    </div>
+                                </div>
+                                <span className="text-muted-foreground font-semibold">
+                                    Vendido: {formatCurrency(progress.realizado)}
+                                </span>
+                            </div>
+
+                            {/* Single Progress Bar */}
+                            <div className="relative h-8 bg-muted rounded-full overflow-visible border-2 border-muted-foreground/20">
+                                {/* Progress Fill - até meta ou realizado (o que for menor) */}
+                                <div 
+                                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-primary via-primary/90 to-primary/80 transition-all duration-500 rounded-full"
+                                    style={{ 
+                                        width: `${Math.min(
+                                            (progress.realizado / progress.super_meta_valor) * 100, 
+                                            (progress.meta_valor / progress.super_meta_valor) * 100
+                                        )}%` 
+                                    }}
+                                />
+                                
+                                {/* Progress Fill - entre meta e super meta (verde) */}
+                                {progress.realizado > progress.meta_valor && (
+                                    <div 
+                                        className="absolute top-0 h-full bg-gradient-to-r from-green-500 via-green-500/90 to-green-500/80 transition-all duration-500 rounded-full"
+                                        style={{ 
+                                            left: `${(progress.meta_valor / progress.super_meta_valor) * 100}%`,
+                                            width: `${Math.min(
+                                                ((progress.realizado - progress.meta_valor) / (progress.super_meta_valor - progress.meta_valor)) * 100,
+                                                100 - ((progress.meta_valor / progress.super_meta_valor) * 100)
+                                            ) * ((progress.super_meta_valor - progress.meta_valor) / progress.super_meta_valor) * 100}%` 
+                                        }}
+                                    />
+                                )}
+
+                                {/* Checkpoint 1: Meta Semanal Marker (proporcional) */}
+                                {progress.meta_valor > 0 && (
+                                    <>
+                                        <div 
+                                            className="absolute top-0 h-full w-1 bg-green-600 z-20 shadow-lg"
+                                            style={{ 
+                                                left: `${(progress.meta_valor / progress.super_meta_valor) * 100}%`,
+                                                transform: 'translateX(-50%)'
+                                            }}
+                                            title={`Meta Semanal: ${formatCurrency(progress.meta_valor)}`}
+                                        />
+                                        {/* Label above checkpoint */}
+                                        <div 
+                                            className={`absolute top-0 left-1/2 transform -translate-x-1/2 text-[10px] sm:text-xs font-bold whitespace-nowrap px-2 py-1 rounded shadow-md z-30 ${
+                                                progress.realizado >= progress.meta_valor 
+                                                    ? progress.realizado >= progress.super_meta_valor
+                                                        ? 'bg-purple-500 text-white border-2 border-purple-700' 
+                                                        : 'bg-green-500 text-white border-2 border-green-700' 
+                                                    : 'bg-green-200 text-green-800 border border-green-400'
+                                            }`}
+                                            style={{ 
+                                                left: `${(progress.meta_valor / progress.super_meta_valor) * 100}%`,
+                                                top: '-2rem',
+                                                transform: 'translateX(-50%)'
+                                            }}
+                                        >
+                                            🎯 Meta Semanal
+                                            <div className="text-[9px] font-normal mt-0.5 whitespace-nowrap">
+                                                {formatCurrency(progress.meta_valor, { showSymbol: false })}
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
+                                {/* Checkpoint 2: Super Meta Marker (final) */}
+                                <div 
+                                    className="absolute top-0 right-0 h-full w-1 bg-purple-600 z-20 shadow-lg rounded-r-full"
+                                    title={`Super Meta: ${formatCurrency(progress.super_meta_valor)}`}
+                                />
+                                {/* Label above checkpoint */}
+                                <div 
+                                    className={`absolute top-0 right-0 transform translate-x-1/2 text-[10px] sm:text-xs font-bold whitespace-nowrap px-2 py-1 rounded shadow-md z-30 ${
+                                        progress.realizado >= progress.super_meta_valor 
+                                            ? 'bg-purple-500 text-white border-2 border-purple-700' 
+                                            : 'bg-purple-200 text-purple-800 border border-purple-400'
+                                    }`}
+                                    style={{ 
+                                        top: '-2rem',
+                                        transform: 'translateX(50%)'
+                                    }}
+                                >
+                                    🏆 Super Meta
+                                    <div className="text-[9px] font-normal mt-0.5 whitespace-nowrap">
+                                        {formatCurrency(progress.super_meta_valor, { showSymbol: false })}
+                                    </div>
+                                </div>
+
+                                {/* Current Position Indicator */}
+                                <div 
+                                    className="absolute top-1/2 h-6 w-1 bg-foreground z-30 shadow-xl transform -translate-y-1/2"
+                                    style={{ 
+                                        left: `${Math.min((progress.realizado / progress.super_meta_valor) * 100, 100)}%`,
+                                        transform: 'translate(-50%, -50%)'
+                                    }}
+                                >
+                                    {/* Current value label below */}
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 text-[10px] sm:text-xs font-bold bg-background border-2 px-2 py-1 rounded shadow-md whitespace-nowrap mt-2">
+                                        {formatCurrency(progress.realizado)}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Scale markers below */}
+                            <div className="flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground px-1">
+                                <span>R$ 0</span>
+                                {progress.meta_valor > 0 && (
+                                    <span className="font-medium text-green-600">
+                                        Meta: {formatCurrency(progress.meta_valor, { showSymbol: false })}
+                                    </span>
+                                )}
+                                <span className="font-medium text-purple-600">
+                                    Super: {formatCurrency(progress.super_meta_valor, { showSymbol: false })}
+                                </span>
+                            </div>
+
+                            {/* Status Messages */}
+                            <div className="space-y-2">
+                                {progress.realizado >= progress.super_meta_valor && weeklyBonuses.super_meta_bonus !== null && (
+                                    <div className="text-xs sm:text-sm text-purple-700 dark:text-purple-400 font-medium bg-purple-50 dark:bg-purple-950/20 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
+                                        🏆 <strong>Super Meta atingida!</strong> Bônus: R$ {weeklyBonuses.super_meta_bonus}
+                                    </div>
+                                )}
+                                {progress.realizado >= progress.meta_valor && progress.realizado < progress.super_meta_valor && weeklyBonuses.meta_bonus !== null && (
+                                    <div className="text-xs sm:text-sm text-green-700 dark:text-green-400 font-medium bg-green-50 dark:bg-green-950/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
+                                        ✅ <strong>Meta atingida!</strong> Bônus: R$ {weeklyBonuses.meta_bonus}
+                                        {weeklyBonuses.super_meta_bonus !== null && (
+                                            <div className="mt-1 text-xs text-muted-foreground">
+                                                Faltam {formatCurrency(progress.super_meta_valor - progress.realizado)} para a Super Meta (R$ {weeklyBonuses.super_meta_bonus})
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
                         <div className="space-y-2">
                             <div className="flex items-center justify-between text-xs sm:text-sm">
-                                <span className="font-semibold text-green-700 dark:text-green-400">Meta Semanal</span>
+                                <span className="font-semibold">Meta Semanal</span>
                                 <span className="text-muted-foreground">
                                     {formatCurrency(progress.realizado)} / {formatCurrency(progress.meta_valor)}
                                 </span>
@@ -449,87 +598,11 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                             <div className="relative h-6 bg-muted rounded-full overflow-hidden border border-muted-foreground/20">
                                 <Progress 
                                     value={Math.min(progress.progress, 100)} 
-                                    className={`h-full ${
-                                        progress.progress >= 100 
-                                            ? progress.superProgress >= 100 
-                                                ? 'bg-purple-500' 
-                                                : 'bg-green-500' 
-                                            : 'bg-primary'
-                                    }`}
-                                />
-                                {/* Checkpoint Marker */}
-                                <div 
-                                    className="absolute top-0 h-full w-0.5 bg-green-600 z-10 shadow-md"
-                                    style={{ left: '100%' }}
-                                    title={`Meta: ${formatCurrency(progress.meta_valor)}`}
-                                />
-                                {/* Current Position */}
-                                <div 
-                                    className="absolute top-1/2 h-4 w-0.5 bg-foreground z-20 shadow-lg transform -translate-y-1/2"
-                                    style={{ left: `${Math.min(progress.progress, 100)}%` }}
+                                    className="h-full"
                                 />
                             </div>
-                            <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                <span>0%</span>
-                                <span className="font-medium">{progress.progress.toFixed(0)}%</span>
-                                <span>100%</span>
-                            </div>
-                            {progress.progress >= 100 && progress.superProgress < 100 && weeklyBonuses.meta_bonus !== null && (
-                                <div className="text-xs text-green-700 dark:text-green-400 font-medium bg-green-50 dark:bg-green-950/20 p-2 rounded">
-                                    ✅ Meta atingida! Bônus: R$ {weeklyBonuses.meta_bonus}
-                                </div>
-                            )}
                         </div>
-
-                        {/* Progress Bar - Super Meta Semanal */}
-                        {progress.super_meta_valor > 0 && (
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between text-xs sm:text-sm">
-                                    <span className="font-semibold text-purple-700 dark:text-purple-400">Super Meta Semanal</span>
-                                    <span className="text-muted-foreground">
-                                        {formatCurrency(progress.realizado)} / {formatCurrency(progress.super_meta_valor)}
-                                    </span>
-                                </div>
-                                <div className="relative h-6 bg-muted rounded-full overflow-hidden border border-muted-foreground/20">
-                                    <Progress 
-                                        value={Math.min(progress.superProgress, 100)} 
-                                        className={`h-full ${
-                                            progress.superProgress >= 100 
-                                                ? 'bg-purple-500' 
-                                                : progress.progress >= 100 
-                                                    ? 'bg-green-500' 
-                                                    : 'bg-primary'
-                                        }`}
-                                    />
-                                    {/* Checkpoint Marker */}
-                                    <div 
-                                        className="absolute top-0 right-0 h-full w-0.5 bg-purple-600 z-10 shadow-md"
-                                        title={`Super Meta: ${formatCurrency(progress.super_meta_valor)}`}
-                                    />
-                                    {/* Current Position */}
-                                    <div 
-                                        className="absolute top-1/2 h-4 w-0.5 bg-foreground z-20 shadow-lg transform -translate-y-1/2"
-                                        style={{ left: `${Math.min(progress.superProgress, 100)}%` }}
-                                    />
-                                </div>
-                                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                    <span>0%</span>
-                                    <span className="font-medium">{progress.superProgress.toFixed(0)}%</span>
-                                    <span>100%</span>
-                                </div>
-                                {progress.superProgress >= 100 && weeklyBonuses.super_meta_bonus !== null && (
-                                    <div className="text-xs text-purple-700 dark:text-purple-400 font-medium bg-purple-50 dark:bg-purple-950/20 p-2 rounded">
-                                        🏆 Super Meta atingida! Bônus: R$ {weeklyBonuses.super_meta_bonus}
-                                    </div>
-                                )}
-                                {progress.progress >= 100 && progress.superProgress < 100 && weeklyBonuses.super_meta_bonus !== null && (
-                                    <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                                        Faltam {formatCurrency(progress.super_meta_valor - progress.realizado)} para a Super Meta (R$ {weeklyBonuses.super_meta_bonus})
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                    )}
 
                 </div>
 
