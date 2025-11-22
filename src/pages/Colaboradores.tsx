@@ -379,19 +379,19 @@ const Colaboradores = () => {
       
       console.log("[handleDelete] Estado atual da colaboradora:", currentData);
       
-      // Tentar update sem .select() primeiro para ver se o erro é no SELECT ou no UPDATE
-      // Usar count() para ver quantas linhas foram afetadas
-      const { error: updateError, count } = await supabase
+      // Tentar update com .select() para verificar quantas linhas foram afetadas
+      const { data: updateData, error: updateError, count } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
         .update({ active: false })
         .eq("id", id)
-        .select('id', { count: 'exact', head: true });
+        .select("id, active", { count: 'exact' });
       
+      console.log("[handleDelete] Dados retornados pelo UPDATE:", updateData);
       console.log("[handleDelete] Count de linhas afetadas:", count);
 
       if (updateError) {
-        console.error("[handleDelete] Erro ao atualizar (sem SELECT):", updateError);
+        console.error("[handleDelete] ❌ Erro ao atualizar:", updateError);
         console.error("[handleDelete] Código do erro:", updateError.code);
         console.error("[handleDelete] Mensagem:", updateError.message);
         console.error("[handleDelete] Detalhes:", updateError.details);
@@ -399,14 +399,44 @@ const Colaboradores = () => {
         
         // Verificar se é erro de RLS
         if (updateError.code === '42501' || updateError.message?.includes('permission denied')) {
-          toast.error("Erro de permissão: Verifique as políticas RLS no Supabase. Você precisa de permissão UPDATE na tabela profiles.");
+          toast.error("Erro de permissão RLS: A política 'ADMIN can update all profiles' pode não estar funcionando. Execute VERIFICAR_FUNCAO_IS_USER_ADMIN.sql no Supabase.");
         } else {
           toast.error("Erro ao desativar colaboradora: " + updateError.message);
         }
         throw updateError;
       }
 
-      console.log("[handleDelete] Update executado sem erros. Linhas afetadas:", count);
+      // Verificar se o UPDATE realmente afetou linhas
+      if (count === 0) {
+        console.error("[handleDelete] ❌ ATENÇÃO: UPDATE executado mas NENHUMA linha foi afetada (count = 0)!");
+        console.error("[handleDelete] Isso indica que:");
+        console.error("[handleDelete] 1. A política RLS está bloqueando o UPDATE");
+        console.error("[handleDelete] 2. A função is_user_admin() pode estar retornando false");
+        console.error("[handleDelete] 3. Execute VERIFICAR_FUNCAO_IS_USER_ADMIN.sql no Supabase para verificar");
+        toast.error("Nenhuma linha foi atualizada. A função is_user_admin() pode não estar retornando true. Execute VERIFICAR_FUNCAO_IS_USER_ADMIN.sql no Supabase.");
+        return;
+      }
+
+      if (!updateData || updateData.length === 0) {
+        console.error("[handleDelete] ❌ ATENÇÃO: UPDATE executado mas nenhum dado foi retornado!");
+        console.error("[handleDelete] Isso pode indicar que o RLS está bloqueando o SELECT após o UPDATE");
+      } else {
+        console.log("[handleDelete] ✅ UPDATE executado com sucesso!");
+        console.log("[handleDelete] Dados atualizados:", updateData);
+        
+        // Verificar se active foi realmente alterado nos dados retornados
+        const updatedProfile = updateData[0];
+        const isStillActive = updatedProfile?.active === true || updatedProfile?.active === 'true' || updatedProfile?.active === 1;
+        
+        if (isStillActive) {
+          console.error("[handleDelete] ❌ ATENÇÃO: O UPDATE retornou active = true!");
+          console.error("[handleDelete] Isso pode indicar um problema com o tipo de dados do campo active");
+        } else {
+          console.log("[handleDelete] ✅ Campo active foi atualizado para false");
+        }
+      }
+
+      console.log("[handleDelete] Update executado. Linhas afetadas:", count);
       
       // Aguardar um pouco para garantir que o banco foi atualizado
       await new Promise(resolve => setTimeout(resolve, 500));
