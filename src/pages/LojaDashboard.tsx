@@ -406,7 +406,13 @@ export default function LojaDashboard() {
 
     // Função para buscar dados mensais por colaboradora/dia
     const fetchMonthlyDataByDayWithStoreId = async (currentStoreId: string) => {
-        if (!currentStoreId) return;
+        if (!currentStoreId) {
+            console.warn('[LojaDashboard] ⚠️ fetchMonthlyDataByDayWithStoreId chamado sem storeId');
+            return;
+        }
+
+        console.log('[LojaDashboard] 📊 Buscando dados mensais por colaboradora/dia...');
+        console.log('[LojaDashboard]   storeId:', currentStoreId);
 
         const hoje = new Date();
         const mesAtual = format(hoje, 'yyyyMM');
@@ -414,7 +420,31 @@ export default function LojaDashboard() {
         const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
         const todayStr = format(hoje, 'yyyy-MM-dd');
 
+        // Buscar colaboradoras da loja PRIMEIRO (necessário para processar)
+        console.log('[LojaDashboard] 📡 Buscando colaboradoras da loja...');
+        const { data: colaboradorasData, error: colaboradorasError } = await supabase
+            .schema("sistemaretiradas")
+            .from('profiles')
+            .select('id, name')
+            .eq('role', 'COLABORADORA')
+            .eq('active', true)
+            .eq('store_id', currentStoreId);
+
+        if (colaboradorasError) {
+            console.error('[LojaDashboard] ❌ Erro ao buscar colaboradoras:', colaboradorasError);
+            return;
+        }
+
+        if (!colaboradorasData || colaboradorasData.length === 0) {
+            console.warn('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada para a loja');
+            setMonthlyDataByDay([]);
+            return;
+        }
+
+        console.log('[LojaDashboard] ✅ Colaboradoras encontradas:', colaboradorasData.length);
+
         // Buscar vendas do mês
+        console.log('[LojaDashboard] 📡 Buscando vendas do mês...');
         const { data: salesData, error: salesError } = await supabase
             .schema("sistemaretiradas")
             .from('sales')
@@ -423,10 +453,16 @@ export default function LojaDashboard() {
             .gte('data_venda', `${startOfMonth}T00:00:00`)
             .lte('data_venda', `${todayStr}T23:59:59`);
 
-        if (salesError || !salesData) return;
+        if (salesError) {
+            console.error('[LojaDashboard] ❌ Erro ao buscar vendas:', salesError);
+            // Continuar mesmo com erro de vendas, para mostrar colaboradoras sem vendas
+        }
+
+        console.log('[LojaDashboard] ✅ Vendas encontradas:', salesData?.length || 0);
 
         // Buscar metas individuais
-        const { data: goalsData } = await supabase
+        console.log('[LojaDashboard] 📡 Buscando metas individuais...');
+        const { data: goalsData, error: goalsError } = await supabase
             .schema("sistemaretiradas")
             .from('goals')
             .select('colaboradora_id, meta_valor, daily_weights')
@@ -435,16 +471,12 @@ export default function LojaDashboard() {
             .eq('tipo', 'INDIVIDUAL')
             .not('colaboradora_id', 'is', null);
 
-        // Buscar colaboradoras da loja
-        const { data: colaboradorasData } = await supabase
-            .schema("sistemaretiradas")
-            .from('profiles')
-            .select('id, name')
-            .eq('role', 'COLABORADORA')
-            .eq('active', true)
-            .eq('store_id', currentStoreId);
+        if (goalsError) {
+            console.error('[LojaDashboard] ❌ Erro ao buscar metas:', goalsError);
+            // Continuar mesmo com erro de metas
+        }
 
-        if (!colaboradorasData) return;
+        console.log('[LojaDashboard] ✅ Metas encontradas:', goalsData?.length || 0);
 
         // Processar dados
         const colaboradorasMap = new Map(colaboradorasData.map(c => [c.id, c.name]));
@@ -457,8 +489,8 @@ export default function LojaDashboard() {
             totalMes: number;
         }> = {};
 
+        // Inicializar todas as colaboradoras no monthlyData (mesmo sem vendas)
         colaboradorasData.forEach(colab => {
-            const goal = goalsMap.get(colab.id);
             monthlyData[colab.id] = {
                 colaboradoraName: colab.name,
                 dailySales: {},
@@ -466,45 +498,50 @@ export default function LojaDashboard() {
             };
         });
 
-        salesData.forEach(sale => {
-            const colabId = sale.colaboradora_id;
-            const day = sale.data_venda.split('T')[0];
-            
-            if (!monthlyData[colabId]) {
-                monthlyData[colabId] = {
-                    colaboradoraName: sale.profiles?.name || colaboradorasMap.get(colabId) || 'Desconhecida',
-                    dailySales: {},
-                    totalMes: 0
-                };
-            }
-
-            if (!monthlyData[colabId].dailySales[day]) {
-                // Calcular meta diária
-                const goal: any = goalsMap.get(colabId);
-                let metaDiaria = 0;
-                if (goal) {
-                    const dailyWeights = goal.daily_weights || {};
-                    if (Object.keys(dailyWeights).length > 0) {
-                        const dayWeight = dailyWeights[day] || 0;
-                        metaDiaria = (Number(goal.meta_valor) * dayWeight) / 100;
-                    } else {
-                        metaDiaria = Number(goal.meta_valor) / daysInMonth;
-                    }
+        // Processar vendas, se houver
+        if (salesData && salesData.length > 0) {
+            salesData.forEach(sale => {
+                const colabId = sale.colaboradora_id;
+                const day = sale.data_venda.split('T')[0];
+                
+                // Se a colaboradora não estiver no monthlyData, adicionar (caso não tenha sido encontrada antes)
+                if (!monthlyData[colabId]) {
+                    monthlyData[colabId] = {
+                        colaboradoraName: (sale.profiles as any)?.name || colaboradorasMap.get(colabId) || 'Desconhecida',
+                        dailySales: {},
+                        totalMes: 0
+                    };
                 }
 
-                monthlyData[colabId].dailySales[day] = {
-                    valor: 0,
-                    qtdVendas: 0,
-                    qtdPecas: 0,
-                    metaDiaria
-                };
-            }
+                // Inicializar dia se não existir
+                if (!monthlyData[colabId].dailySales[day]) {
+                    // Calcular meta diária
+                    const goal: any = goalsMap.get(colabId);
+                    let metaDiaria = 0;
+                    if (goal) {
+                        const dailyWeights = goal.daily_weights || {};
+                        if (Object.keys(dailyWeights).length > 0) {
+                            const dayWeight = dailyWeights[day] || 0;
+                            metaDiaria = (Number(goal.meta_valor) * dayWeight) / 100;
+                        } else {
+                            metaDiaria = Number(goal.meta_valor) / daysInMonth;
+                        }
+                    }
 
-            monthlyData[colabId].dailySales[day].valor += Number(sale.valor);
-            monthlyData[colabId].dailySales[day].qtdVendas += 1;
-            monthlyData[colabId].dailySales[day].qtdPecas += Number(sale.qtd_pecas);
-            monthlyData[colabId].totalMes += Number(sale.valor);
-        });
+                    monthlyData[colabId].dailySales[day] = {
+                        valor: 0,
+                        qtdVendas: 0,
+                        qtdPecas: 0,
+                        metaDiaria
+                    };
+                }
+
+                monthlyData[colabId].dailySales[day].valor += Number(sale.valor || 0);
+                monthlyData[colabId].dailySales[day].qtdVendas += 1;
+                monthlyData[colabId].dailySales[day].qtdPecas += Number(sale.qtd_pecas || 0);
+                monthlyData[colabId].totalMes += Number(sale.valor || 0);
+            });
+        }
 
         // Converter para array e adicionar colaboradoras sem vendas
         const result = colaboradorasData.map(colab => {
@@ -538,12 +575,33 @@ export default function LojaDashboard() {
                         }
                     }
                 }
+            } else {
+                // Mesmo sem meta, criar entradas para os dias até hoje (sem meta diária)
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
+                    if (dayStr <= todayStr) {
+                        if (!data.dailySales[dayStr]) {
+                            data.dailySales[dayStr] = {
+                                valor: 0,
+                                qtdVendas: 0,
+                                qtdPecas: 0,
+                                metaDiaria: 0
+                            };
+                        }
+                    }
+                }
             }
 
             return {
                 colaboradoraId: colab.id,
                 ...data
             };
+        });
+
+        console.log('[LojaDashboard] ✅ Dados mensais processados:', result.length, 'colaboradoras');
+        result.forEach((item, idx) => {
+            const daysWithData = Object.keys(item.dailySales).length;
+            console.log(`[LojaDashboard]   ${idx + 1}. ${item.colaboradoraName}: ${daysWithData} dias com dados, Total: R$ ${item.totalMes.toFixed(2)}`);
         });
 
         setMonthlyDataByDay(result);
@@ -573,7 +631,7 @@ export default function LojaDashboard() {
         }
         
         try {
-            await Promise.all([
+        await Promise.all([
                 fetchSalesWithStoreId(currentStoreId),
                 fetchColaboradorasWithStoreId(currentStoreId, currentStoreName || storeName || undefined),
                 fetchGoalsWithStoreId(currentStoreId),
@@ -588,7 +646,7 @@ export default function LojaDashboard() {
             console.error("[LojaDashboard] ❌ Error fetching data:", error);
             toast.error("Erro ao carregar dados");
         } finally {
-            setLoading(false);
+        setLoading(false);
         }
     };
 
@@ -792,9 +850,9 @@ export default function LojaDashboard() {
                     // Quanto falta para a meta mensal
                     const faltaMensal = Math.max(0, Number(goal.meta_valor) - vendidoMes);
 
-                    return {
-                        id: colab.id,
-                        name: colab.name,
+                return {
+                    id: colab.id,
+                    name: colab.name,
                         vendido: vendidoHoje,
                         vendidoMes,
                         meta: Number(goal.meta_valor),
@@ -807,8 +865,8 @@ export default function LojaDashboard() {
                         qtdVendasMes,
                         qtdPecas: qtdPecasHoje,
                         qtdPecasMes,
-                        ticketMedio,
-                    };
+                    ticketMedio,
+                };
                 } else {
                     // Sem meta individual
                     return {
@@ -999,14 +1057,14 @@ export default function LojaDashboard() {
             
             let { data, error } = await supabase
                 .schema("sistemaretiradas")
-                .from('profiles')
+            .from('profiles')
                 .select('id, name, active, store_id, store_default')
-                .eq('role', 'COLABORADORA')
-                .eq('active', true)
+            .eq('role', 'COLABORADORA')
+            .eq('active', true)
                 .eq('store_id', currentStoreId)
-                .order('name');
+            .order('name');
 
-            if (error) {
+        if (error) {
                 console.error('[LojaDashboard] ❌ Erro ao buscar colaboradoras por store_id:', error);
                 console.error('[LojaDashboard]   Erro completo:', JSON.stringify(error, null, 2));
                 console.error('[LojaDashboard]   Erro code:', error.code);
@@ -1014,7 +1072,7 @@ export default function LojaDashboard() {
                 console.error('[LojaDashboard]   Erro details:', error.details);
                 // Continuar para tentar outras estratégias
                 data = null;
-            } else {
+        } else {
                 console.log('[LojaDashboard] 📊 Resultado da query Supabase:');
                 console.log('[LojaDashboard]   Total de registros retornados:', data?.length || 0);
                 if (data && data.length > 0) {
@@ -1316,10 +1374,10 @@ export default function LojaDashboard() {
                     <div className="min-w-0 flex-1">
                         <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate">{storeName || profile?.name || "Loja"}</h1>
                         <p className="text-xs sm:text-sm text-muted-foreground">Gestão de Vendas</p>
-                    </div>
+                </div>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
-                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                     <DialogTrigger asChild>
                         <Button onClick={resetForm} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
                             <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
@@ -1455,7 +1513,7 @@ export default function LojaDashboard() {
                 <Card className="flex flex-col h-full">
                     <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
                         <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Meta Mensal</CardTitle>
-                    </CardHeader>
+                        </CardHeader>
                     <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
                         {goals ? (
                             <div className="space-y-3 w-full">
@@ -1463,20 +1521,20 @@ export default function LojaDashboard() {
                                 <p className="text-xs sm:text-sm text-muted-foreground">
                                     Realizado: R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </p>
-                                <div className="space-y-2">
+                            <div className="space-y-2">
                                     <div className="flex items-center gap-3 justify-between">
                                         <Progress value={Math.min(monthlyProgress, 100)} className="h-3 flex-1" />
                                         <span className="text-sm font-semibold text-primary whitespace-nowrap min-w-[45px] text-right">
                                             {monthlyProgress.toFixed(0)}%
                                         </span>
                                     </div>
-                                    {goals.super_meta_valor && (
+                                {goals.super_meta_valor && (
                                         <p className="text-xs sm:text-sm text-muted-foreground flex items-center justify-center gap-1">
                                             <span>🏆</span>
                                             <span>Super Meta: R$ {goals.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                        </p>
-                                    )}
-                                </div>
+                                    </p>
+                                )}
+                            </div>
                             </div>
                         ) : (
                             <div className="space-y-2">
@@ -1486,14 +1544,14 @@ export default function LojaDashboard() {
                                 </p>
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
 
                 {/* Meta Diária */}
                 <Card className="flex flex-col h-full">
                     <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
                         <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Meta Diária (Hoje)</CardTitle>
-                    </CardHeader>
+                        </CardHeader>
                     <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
                         {goals ? (
                             <div className="space-y-3 w-full">
@@ -1513,8 +1571,8 @@ export default function LojaDashboard() {
                                 </p>
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
 
                 {/* Faturamento Hoje */}
                 <Card className="flex flex-col h-full">
@@ -1540,8 +1598,8 @@ export default function LojaDashboard() {
                                 <p className="text-xl sm:text-3xl font-bold text-primary">R$ {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.valor, 0) / sales.length).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</p>
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-3 justify-between">
-                                        <Progress
-                                            value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.length) / metrics.meta_ticket_medio) * 100, 100) : 0}
+                                    <Progress
+                                        value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.length) / metrics.meta_ticket_medio) * 100, 100) : 0}
                                             className="h-3 flex-1"
                                         />
                                     </div>
@@ -1565,10 +1623,10 @@ export default function LojaDashboard() {
                                 <p className="text-xl sm:text-3xl font-bold text-primary">{sales.length > 0 ? (sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length).toFixed(1) : '0,0'}</p>
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-3 justify-between">
-                                        <Progress
-                                            value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length) / metrics.meta_pa) * 100, 100) : 0}
+                                    <Progress
+                                        value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length) / metrics.meta_pa) * 100, 100) : 0}
                                             className="h-3 flex-1"
-                                        />
+                                    />
                                     </div>
                                     <p className="text-xs sm:text-sm text-muted-foreground">
                                         Meta: {metrics.meta_pa?.toFixed(1)}
@@ -1594,8 +1652,8 @@ export default function LojaDashboard() {
                                 </p>
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-3 justify-between">
-                                        <Progress
-                                            value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)) / metrics.meta_preco_medio_peca) * 100, 100) : 0}
+                                    <Progress
+                                        value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)) / metrics.meta_preco_medio_peca) * 100, 100) : 0}
                                             className="h-3 flex-1"
                                         />
                                     </div>
@@ -1623,9 +1681,9 @@ export default function LojaDashboard() {
                     </CardHeader>
                     <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                         <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
                                         <TableHead className="text-xs sm:text-sm">Vendedora</TableHead>
                                         <TableHead className="text-xs sm:text-sm">Vendido Hoje</TableHead>
                                         <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Meta Dia</TableHead>
@@ -1633,11 +1691,11 @@ export default function LojaDashboard() {
                                         <TableHead className="text-xs sm:text-sm hidden md:table-cell">Ticket Médio</TableHead>
                                         <TableHead className="text-xs sm:text-sm hidden lg:table-cell">PA</TableHead>
                                         <TableHead className="text-xs sm:text-sm">Vendas</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {colaboradorasPerformance.map((perf) => (
-                                        <TableRow key={perf.id}>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {colaboradorasPerformance.map((perf) => (
+                                    <TableRow key={perf.id}>
                                             <TableCell className="font-medium text-xs sm:text-sm truncate max-w-[120px]">{perf.name}</TableCell>
                                             <TableCell className="text-xs sm:text-sm font-medium">
                                                 R$ {perf.vendido.toFixed(2)}
@@ -1658,15 +1716,15 @@ export default function LojaDashboard() {
                                             <TableCell className="text-xs sm:text-sm">
                                                 {perf.meta > 0 ? (
                                                     <>
-                                                        <span className={
+                                            <span className={
                                                             perf.percentual >= 120 ? 'text-yellow-600 font-bold' :
                                                                 perf.percentual >= 100 ? 'text-green-600 font-bold' :
                                                                     perf.percentual >= 90 ? 'text-yellow-500' :
                                                                         'text-red-600'
-                                                        }>
-                                                            {perf.percentual.toFixed(0)}%
-                                                            {perf.percentual >= 120 && ' 🏆'}
-                                                        </span>
+                                            }>
+                                                {perf.percentual.toFixed(0)}%
+                                                {perf.percentual >= 120 && ' 🏆'}
+                                            </span>
                                                         <div className="text-[10px] text-muted-foreground mt-0.5">
                                                             Mês: {perf.percentualMensal.toFixed(0)}%
                                                         </div>
@@ -1679,7 +1737,7 @@ export default function LojaDashboard() {
                                                 ) : (
                                                     <span className="text-muted-foreground">Sem meta</span>
                                                 )}
-                                            </TableCell>
+                                        </TableCell>
                                             <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {perf.ticketMedio.toFixed(2)}</TableCell>
                                             <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
                                                 {perf.qtdVendas > 0 ? (perf.qtdPecas / perf.qtdVendas).toFixed(1) : '0.0'}
@@ -1692,10 +1750,10 @@ export default function LojaDashboard() {
                                                     </div>
                                                 )}
                                             </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
                         </div>
                     </CardContent>
                 </Card>
@@ -1713,7 +1771,7 @@ export default function LojaDashboard() {
             <Card>
                 <CardHeader className="p-3 sm:p-6">
                     <CardTitle className="text-base sm:text-lg">Vendas de Hoje</CardTitle>
-                </CardHeader>
+                        </CardHeader>
                 <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                     <div className="overflow-x-auto">
                         <Table>
@@ -1750,27 +1808,27 @@ export default function LojaDashboard() {
                                                     <Button variant="ghost" size="sm" className="text-destructive h-8 w-8 p-0" onClick={() => handleDelete(sale.id)}>
                                                         <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                                                     </Button>
-                                                </div>
+                                            </div>
                                             </TableCell>
                                         </TableRow>
                                     ))
                                 )}
                             </TableBody>
                         </Table>
-                    </div>
-                </CardContent>
-            </Card>
+                            </div>
+                        </CardContent>
+                    </Card>
 
             {/* Ranking Mensal com Pódio (Ouro e Prata) */}
-            {rankingMonthly.length > 0 && (
+                {rankingMonthly.length > 0 && (
                 <Card className="bg-gradient-to-br from-card to-muted/50 border-primary/10 overflow-hidden">
                     <CardHeader className="pb-2 p-3 sm:p-6 bg-gradient-to-r from-primary/5 to-accent/5">
                         <CardTitle className="flex items-center gap-2 text-sm sm:text-lg">
                             <Award className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500" />
                             <span>Pódio Mensal</span>
-                        </CardTitle>
+                            </CardTitle>
                         <p className="text-xs sm:text-sm text-muted-foreground mt-1">Ranking acumulado do mês - Top 2</p>
-                    </CardHeader>
+                        </CardHeader>
                     <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                         <div className="space-y-3 sm:space-y-4">
                             {rankingMonthly.slice(0, 2).map((item, index) => {
@@ -1817,11 +1875,11 @@ export default function LojaDashboard() {
                                                         <div className="flex gap-2">
                                                             <span>Ticket: R$ {perf.ticketMedio.toFixed(2)}</span>
                                                             <span>PA: {(perf.qtdPecas / Math.max(perf.qtdVendasMes, 1)).toFixed(1)}</span>
-                                                        </div>
+                                        </div>
                                                         <div>Vendas: {item.qtdVendas}</div>
-                                                    </div>
+                                        </div>
                                                 )}
-                                            </div>
+                                    </div>
                                         </div>
                                         <div className="text-right flex-shrink-0 ml-2">
                                             <p className={`font-bold text-lg sm:text-xl ${isOuro ? 'text-yellow-700' : isPrata ? 'text-gray-700' : 'text-primary'}`}>
@@ -1836,10 +1894,10 @@ export default function LojaDashboard() {
                                     </div>
                                 );
                             })}
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
             {/* Histórico 7 Dias */}
             {history7Days.length > 0 && (
@@ -1849,20 +1907,20 @@ export default function LojaDashboard() {
                     </CardHeader>
                     <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                         <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
                                         <TableHead className="text-xs sm:text-sm">Data</TableHead>
                                         <TableHead className="text-xs sm:text-sm">Vendas</TableHead>
                                         <TableHead className="text-xs sm:text-sm">Peças</TableHead>
                                         <TableHead className="text-xs sm:text-sm hidden md:table-cell">PA</TableHead>
                                         <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Ticket Médio</TableHead>
                                         <TableHead className="text-xs sm:text-sm">Total</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {history7Days.map((day) => (
-                                        <TableRow key={day.day}>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {history7Days.map((day) => (
+                                    <TableRow key={day.day}>
                                             <TableCell className="text-xs sm:text-sm">{format(new Date(day.day + 'T00:00:00'), 'dd/MM/yyyy')}</TableCell>
                                             <TableCell className="text-xs sm:text-sm">{day.qtdVendas}</TableCell>
                                             <TableCell className="text-xs sm:text-sm">{day.qtdPecas}</TableCell>
@@ -1873,17 +1931,17 @@ export default function LojaDashboard() {
                                                 R$ {day.ticketMedio ? day.ticketMedio.toFixed(2) : (day.qtdVendas > 0 ? (day.total / day.qtdVendas).toFixed(2) : '0.00')}
                                             </TableCell>
                                             <TableCell className="text-xs sm:text-sm font-medium">R$ {day.total.toFixed(2)}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
                         </div>
                     </CardContent>
                 </Card>
             )}
 
             {/* Tabela Mensal por Colaboradora/Dia */}
-            {monthlyDataByDay.length > 0 && (
+            {monthlyDataByDay.length > 0 ? (
                 <Card>
                     <CardHeader className="p-3 sm:p-6">
                         <CardTitle className="text-base sm:text-lg">Performance Mensal por Dia</CardTitle>
@@ -1891,9 +1949,9 @@ export default function LojaDashboard() {
                     </CardHeader>
                     <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                         <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
                                         <TableHead className="text-xs sm:text-sm sticky left-0 bg-background z-10 font-bold">Vendedora</TableHead>
                                         {(() => {
                                             const hoje = new Date();
@@ -1913,9 +1971,9 @@ export default function LojaDashboard() {
                                             ));
                                         })()}
                                         <TableHead className="text-xs sm:text-sm sticky right-0 bg-background z-10 font-bold text-primary">Total</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
                                     {monthlyDataByDay
                                         .sort((a, b) => b.totalMes - a.totalMes)
                                         .map((data) => {
@@ -1934,7 +1992,7 @@ export default function LojaDashboard() {
                                                 <TableRow key={data.colaboradoraId}>
                                                     <TableCell className="text-xs sm:text-sm font-medium sticky left-0 bg-background z-10 truncate max-w-[120px]">
                                                         {data.colaboradoraName}
-                                                    </TableCell>
+                                    </TableCell>
                                                     {days.map(dayStr => {
                                                         const dayData = data.dailySales[dayStr] || { valor: 0, metaDiaria: 0 };
                                                         const bateuMeta = dayData.metaDiaria > 0 && dayData.valor >= dayData.metaDiaria;
@@ -1966,13 +2024,21 @@ export default function LojaDashboard() {
                                                     })}
                                                     <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-background z-10">
                                                         R$ {data.totalMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                    </TableCell>
-                                                </TableRow>
+                                        </TableCell>
+                                    </TableRow>
                                             );
                                         })}
-                                </TableBody>
-                            </Table>
+                        </TableBody>
+                    </Table>
                         </div>
+                    </CardContent>
+                </Card>
+            ) : (
+                <Card>
+                    <CardContent className="p-6 text-center">
+                        <p className="text-sm text-muted-foreground">
+                            Nenhuma colaboradora encontrada para exibir o calendário mensal.
+                        </p>
                     </CardContent>
                 </Card>
             )}
