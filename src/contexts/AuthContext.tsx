@@ -30,6 +30,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const isFetchingProfileRef = useRef(false);
   const currentUserIdRef = useRef<string | null>(null);
+  const lastLoadedUserIdRef = useRef<string | null>(null);
   const safetyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchProfile = useCallback(async (userId: string) => {
@@ -128,6 +129,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         safetyTimeoutRef.current = null;
       }
       
+      // Track the last loaded user ID to prevent duplicate fetches
+      lastLoadedUserIdRef.current = userId;
       setProfile(data);
       setLoading(false);
     } catch (error) {
@@ -154,9 +157,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         console.log("[AuthContext] Auth state changed:", event);
         
-        // Skip INITIAL_SESSION - we'll handle it in getSession() to avoid duplicates
-        if (event === 'INITIAL_SESSION') {
-          console.log("[AuthContext] INITIAL_SESSION event - will be handled by getSession()");
+        // Skip INITIAL_SESSION and TOKEN_REFRESHED - they don't need profile refetch
+        if (event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+          console.log("[AuthContext] Event", event, "- skipping profile fetch (session still valid)");
+          // Just update session/user but don't fetch profile again
+          setSession(session);
+          setUser(session?.user ?? null);
+          return;
+        }
+
+        // Handle SIGNED_OUT
+        if (event === 'SIGNED_OUT') {
+          console.log("[AuthContext] User signed out");
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          isFetchingProfileRef.current = false;
+          currentUserIdRef.current = null;
+          lastLoadedUserIdRef.current = null;
           return;
         }
 
@@ -168,22 +187,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const expiresAt = new Date(session.expires_at * 1000);
           const now = new Date();
           if (expiresAt > now) {
-            // Reset loading state and fetch profile (fetchProfile will handle duplicates)
-            console.log("[AuthContext] Valid session user detected, fetching profile");
-            setLoading(true);
-            await fetchProfile(session.user.id);
+            // Only fetch profile if:
+            // 1. We don't already have a profile loaded for this user ID
+            // 2. We're not already fetching for this user ID
+            const userId = session.user.id;
+            if (lastLoadedUserIdRef.current === userId) {
+              console.log("[AuthContext] Profile already loaded for this user, skipping fetch");
+              setLoading(false);
+            } else if (isFetchingProfileRef.current && currentUserIdRef.current === userId) {
+              console.log("[AuthContext] Already fetching profile for this user, skipping duplicate call");
+            } else {
+              console.log("[AuthContext] Valid session user detected, fetching profile");
+              setLoading(true);
+              await fetchProfile(userId);
+            }
           } else {
             console.log("[AuthContext] Session expired, clearing profile");
             setProfile(null);
             setLoading(false);
             isFetchingProfileRef.current = false;
             currentUserIdRef.current = null;
+            lastLoadedUserIdRef.current = null;
           }
         } else {
           setProfile(null);
           setLoading(false);
           isFetchingProfileRef.current = false;
           currentUserIdRef.current = null;
+          lastLoadedUserIdRef.current = null;
         }
       }
     );
@@ -225,13 +256,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           console.log("[AuthContext] Initial session check - session expired or about to expire");
           setLoading(false);
           setProfile(null);
-          // Sign out expired session
-          await supabase.auth.signOut();
+          lastLoadedUserIdRef.current = null;
+          // Don't sign out automatically - let user session expire naturally
+          // Automatic signOut can cause login/logout loops
         }
       } else {
         console.log("[AuthContext] Initial session check - no valid user session found");
         setLoading(false);
         setProfile(null);
+        lastLoadedUserIdRef.current = null;
       }
     });
 
@@ -246,6 +279,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     setSession(null);
     setProfile(null);
+    isFetchingProfileRef.current = false;
+    currentUserIdRef.current = null;
+    lastLoadedUserIdRef.current = null;
   };
 
   return (
