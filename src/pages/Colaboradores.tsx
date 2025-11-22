@@ -380,11 +380,15 @@ const Colaboradores = () => {
       console.log("[handleDelete] Estado atual da colaboradora:", currentData);
       
       // Tentar update sem .select() primeiro para ver se o erro é no SELECT ou no UPDATE
+      // Usar count() para ver quantas linhas foram afetadas
       const { error: updateError, count } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
         .update({ active: false })
-        .eq("id", id);
+        .eq("id", id)
+        .select('id', { count: 'exact', head: true });
+      
+      console.log("[handleDelete] Count de linhas afetadas:", count);
 
       if (updateError) {
         console.error("[handleDelete] Erro ao atualizar (sem SELECT):", updateError);
