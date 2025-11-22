@@ -23,7 +23,7 @@ const Index = () => {
         console.log("[Index] ⚠️ Maximum timeout reached, forcing redirect");
         redirectAttempted.current = true;
         if (!profile) {
-          navigate("/auth", { replace: true });
+          navigate("/", { replace: true });
         }
       }
     }, 10000);
@@ -37,9 +37,9 @@ const Index = () => {
       const hasSession = user !== null;
 
       if (!hasSession) {
-        console.log("[Index] No session found, redirecting to /auth");
+        console.log("[Index] No session found, redirecting to /");
         redirectAttempted.current = true;
-        navigate("/auth", { replace: true });
+        navigate("/", { replace: true });
         return;
       }
 
@@ -49,9 +49,9 @@ const Index = () => {
         // Give a bit more time for profile to load (max 3 seconds)
         const profileTimeout = setTimeout(() => {
           if (!redirectAttempted.current && !profile) {
-            console.log("[Index] Still no profile after timeout, redirecting to /auth");
+            console.log("[Index] Still no profile after timeout, redirecting to /");
             redirectAttempted.current = true;
-            navigate("/auth", { replace: true });
+            navigate("/", { replace: true });
           }
         }, 3000);
 

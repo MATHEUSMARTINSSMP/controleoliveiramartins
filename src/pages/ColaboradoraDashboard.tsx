@@ -499,7 +499,7 @@ const ColaboradoraDashboard = () => {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/auth");
+    navigate("/");
   };
 
   const getStatusBadge = (status: string) => {

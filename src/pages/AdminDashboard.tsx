@@ -21,7 +21,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (!loading) {
       if (!profile) {
-        navigate("/auth");
+        navigate("/");
       } else if (profile.role !== "ADMIN") {
         navigate("/me");
       }
@@ -56,7 +56,7 @@ const AdminDashboard = () => {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/auth");
+    navigate("/");
   };
 
   if (loading || !profile) {

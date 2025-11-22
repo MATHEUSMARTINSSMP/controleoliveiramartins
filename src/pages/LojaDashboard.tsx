@@ -448,7 +448,7 @@ export default function LojaDashboard() {
 
     const handleSignOut = async () => {
         await signOut();
-        navigate('/auth');
+        navigate('/');
     };
 
     const fetch7DayHistory = async () => {

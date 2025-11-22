@@ -41,7 +41,7 @@ const ForgotPassword = () => {
 
       if (data && data.success) {
         toast.success('Email de recuperação enviado com sucesso! Verifique sua caixa de entrada.');
-        setTimeout(() => navigate('/auth'), 3000);
+        setTimeout(() => navigate('/'), 3000);
       } else {
         const errorMsg = data?.message || data?.error || 'Usuário não encontrado';
         toast.error(errorMsg);
@@ -91,7 +91,7 @@ const ForgotPassword = () => {
               type="button"
               variant="ghost"
               className="w-full"
-              onClick={() => navigate('/auth')}
+              onClick={() => navigate('/')}
               disabled={loading}
             >
               Voltar para Login
