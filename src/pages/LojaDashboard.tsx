@@ -1941,104 +1941,104 @@ export default function LojaDashboard() {
             )}
 
             {/* Tabela Mensal por Colaboradora/Dia */}
-            {monthlyDataByDay.length > 0 ? (
+            {(colaboradoras.length > 0 || monthlyDataByDay.length > 0) && (
                 <Card>
                     <CardHeader className="p-3 sm:p-6">
                         <CardTitle className="text-base sm:text-lg">Performance Mensal por Dia</CardTitle>
                         <p className="text-xs sm:text-sm text-muted-foreground mt-1">Vendas diárias de cada colaboradora no mês atual</p>
                     </CardHeader>
                     <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                        <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                        <TableHead className="text-xs sm:text-sm sticky left-0 bg-background z-10 font-bold">Vendedora</TableHead>
-                                        {(() => {
-                                            const hoje = new Date();
-                                            const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
-                                            const todayStr = format(hoje, 'yyyy-MM-dd');
-                                            const days: string[] = [];
-                                            for (let day = 1; day <= daysInMonth; day++) {
-                                                const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
-                                                if (dayStr <= todayStr) {
-                                                    days.push(dayStr);
+                        {monthlyDataByDay.length > 0 ? (
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="text-xs sm:text-sm sticky left-0 bg-background z-10 font-bold">Vendedora</TableHead>
+                                            {(() => {
+                                                const hoje = new Date();
+                                                const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+                                                const todayStr = format(hoje, 'yyyy-MM-dd');
+                                                const days: string[] = [];
+                                                for (let day = 1; day <= daysInMonth; day++) {
+                                                    const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
+                                                    if (dayStr <= todayStr) {
+                                                        days.push(dayStr);
+                                                    }
                                                 }
-                                            }
-                                            return days.map(dayStr => (
-                                                <TableHead key={dayStr} className="text-xs text-center min-w-[60px]">
-                                                    {format(new Date(dayStr + 'T00:00:00'), 'dd/MM')}
-                                                </TableHead>
-                                            ));
-                                        })()}
-                                        <TableHead className="text-xs sm:text-sm sticky right-0 bg-background z-10 font-bold text-primary">Total</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                                    {monthlyDataByDay
-                                        .sort((a, b) => b.totalMes - a.totalMes)
-                                        .map((data) => {
-                                            const hoje = new Date();
-                                            const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
-                                            const todayStr = format(hoje, 'yyyy-MM-dd');
-                                            const days: string[] = [];
-                                            for (let day = 1; day <= daysInMonth; day++) {
-                                                const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
-                                                if (dayStr <= todayStr) {
-                                                    days.push(dayStr);
+                                                return days.map(dayStr => (
+                                                    <TableHead key={dayStr} className="text-xs text-center min-w-[60px]">
+                                                        {format(new Date(dayStr + 'T00:00:00'), 'dd/MM')}
+                                                    </TableHead>
+                                                ));
+                                            })()}
+                                            <TableHead className="text-xs sm:text-sm sticky right-0 bg-background z-10 font-bold text-primary">Total</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {monthlyDataByDay
+                                            .sort((a, b) => b.totalMes - a.totalMes)
+                                            .map((data) => {
+                                                const hoje = new Date();
+                                                const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+                                                const todayStr = format(hoje, 'yyyy-MM-dd');
+                                                const days: string[] = [];
+                                                for (let day = 1; day <= daysInMonth; day++) {
+                                                    const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
+                                                    if (dayStr <= todayStr) {
+                                                        days.push(dayStr);
+                                                    }
                                                 }
-                                            }
 
-                                            return (
-                                                <TableRow key={data.colaboradoraId}>
-                                                    <TableCell className="text-xs sm:text-sm font-medium sticky left-0 bg-background z-10 truncate max-w-[120px]">
-                                                        {data.colaboradoraName}
-                                    </TableCell>
-                                                    {days.map(dayStr => {
-                                                        const dayData = data.dailySales[dayStr] || { valor: 0, metaDiaria: 0 };
-                                                        const bateuMeta = dayData.metaDiaria > 0 && dayData.valor >= dayData.metaDiaria;
-                                                        
-                                                        return (
-                                                            <TableCell 
-                                                                key={dayStr} 
-                                                                className={`
-                                                                    text-xs text-center font-medium
-                                                                    ${bateuMeta 
-                                                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-900 dark:text-green-100' 
-                                                                        : dayData.valor > 0 
-                                                                            ? 'text-foreground' 
-                                                                            : 'text-muted-foreground'
-                                                                    }
-                                                                `}
-                                                                title={dayData.metaDiaria > 0 ? `Meta: R$ ${dayData.metaDiaria.toFixed(2)}` : ''}
-                                                            >
-                                                                {dayData.valor > 0 ? (
-                                                                    <span className="font-semibold">
-                                                                        R$ {dayData.valor.toFixed(0)}
-                                                                        {bateuMeta && ' ✓'}
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="text-muted-foreground">-</span>
-                                                                )}
-                                                            </TableCell>
-                                                        );
-                                                    })}
-                                                    <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-background z-10">
-                                                        R$ {data.totalMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                        </TableCell>
-                                    </TableRow>
-                                            );
-                                        })}
-                        </TableBody>
-                    </Table>
-                        </div>
-                    </CardContent>
-                </Card>
-            ) : (
-                <Card>
-                    <CardContent className="p-6 text-center">
-                        <p className="text-sm text-muted-foreground">
-                            Nenhuma colaboradora encontrada para exibir o calendário mensal.
-                        </p>
+                                                return (
+                                                    <TableRow key={data.colaboradoraId}>
+                                                        <TableCell className="text-xs sm:text-sm font-medium sticky left-0 bg-background z-10 truncate max-w-[120px]">
+                                                            {data.colaboradoraName}
+                                                        </TableCell>
+                                                        {days.map(dayStr => {
+                                                            const dayData = data.dailySales[dayStr] || { valor: 0, metaDiaria: 0 };
+                                                            const bateuMeta = dayData.metaDiaria > 0 && dayData.valor >= dayData.metaDiaria;
+                                                            
+                                                            return (
+                                                                <TableCell 
+                                                                    key={dayStr} 
+                                                                    className={`
+                                                                        text-xs text-center font-medium
+                                                                        ${bateuMeta 
+                                                                            ? 'bg-green-100 dark:bg-green-900/30 text-green-900 dark:text-green-100' 
+                                                                            : dayData.valor > 0 
+                                                                                ? 'text-foreground' 
+                                                                                : 'text-muted-foreground'
+                                                                        }
+                                                                    `}
+                                                                    title={dayData.metaDiaria > 0 ? `Meta: R$ ${dayData.metaDiaria.toFixed(2)}` : ''}
+                                                                >
+                                                                    {dayData.valor > 0 ? (
+                                                                        <span className="font-semibold">
+                                                                            R$ {dayData.valor.toFixed(0)}
+                                                                            {bateuMeta && ' ✓'}
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="text-muted-foreground">-</span>
+                                                                    )}
+                                                                </TableCell>
+                                                            );
+                                                        })}
+                                                        <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-background z-10">
+                                                            R$ {data.totalMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        ) : (
+                            <div className="text-center py-6">
+                                <p className="text-sm text-muted-foreground">
+                                    Carregando dados mensais...
+                                </p>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             )}
