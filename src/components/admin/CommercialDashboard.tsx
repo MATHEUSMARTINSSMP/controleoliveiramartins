@@ -76,9 +76,11 @@ export const CommercialDashboard = () => {
     const [loadingSummary, setLoadingSummary] = useState(false);
 
     useEffect(() => {
+        // Only fetch once on mount
         fetchTodaySales();
         fetchData();
         fetchSalesSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {

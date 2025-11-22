@@ -146,13 +146,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let mounted = true;
-    let initialSessionChecked = false;
+    let profileFetchedForInitialSession = false;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
 
         console.log("[AuthContext] Auth state changed:", event);
+        
+        // Skip INITIAL_SESSION - we'll handle it in getSession() to avoid duplicates
+        if (event === 'INITIAL_SESSION') {
+          console.log("[AuthContext] INITIAL_SESSION event - will be handled by getSession()");
+          return;
+        }
+
         setSession(session);
         setUser(session?.user ?? null);
 
@@ -181,11 +188,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    // Initial session check
+    // Initial session check - this is the ONLY place we fetch profile on mount
     supabase.auth.getSession().then(async ({ data: { session }, error }) => {
       if (!mounted) return;
-
-      initialSessionChecked = true;
       
       // If there's an error getting session, just set loading to false
       if (error) {
@@ -208,8 +213,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Add 5 minute buffer to avoid fetching for sessions about to expire
         const bufferTime = 5 * 60 * 1000; // 5 minutes
         if (expiresAt.getTime() > (now.getTime() + bufferTime)) {
-          console.log("[AuthContext] Initial session check - valid user session found, fetching profile");
-          await fetchProfile(session.user.id);
+          // Only fetch if not already fetching
+          if (!isFetchingProfileRef.current || currentUserIdRef.current !== session.user.id) {
+            console.log("[AuthContext] Initial session check - fetching profile");
+            profileFetchedForInitialSession = true;
+            await fetchProfile(session.user.id);
+          } else {
+            console.log("[AuthContext] Initial session check - profile already being fetched, skipping");
+          }
         } else {
           console.log("[AuthContext] Initial session check - session expired or about to expire");
           setLoading(false);
