@@ -10,8 +10,15 @@ const Index = () => {
   const redirectAttempted = useRef(false);
 
   useEffect(() => {
-    // Prevent multiple redirects
+    // Prevent multiple redirects - if already redirected, don't run again
     if (redirectAttempted.current) {
+      console.log("[Index] Redirect already attempted, skipping effect");
+      return;
+    }
+
+    // Don't do anything while still loading auth
+    if (loading) {
+      console.log("[Index] Still loading auth, waiting...");
       return;
     }
 
@@ -90,16 +97,18 @@ const Index = () => {
         };
       }
 
-      // Profile loaded, redirect based on role
-      console.log("[Index] Profile loaded, redirecting based on role:", profile.role);
-      redirectAttempted.current = true;
+      // Profile loaded, redirect based on role (only once)
+      if (!redirectAttempted.current) {
+        console.log("[Index] Profile loaded, redirecting based on role:", profile.role);
+        redirectAttempted.current = true;
 
-      if (profile.role === "LOJA") {
-        navigate("/loja", { replace: true });
-      } else if (profile.role === "ADMIN") {
-        navigate("/admin", { replace: true });
-      } else {
-        navigate("/me", { replace: true });
+        if (profile.role === "LOJA") {
+          navigate("/loja", { replace: true });
+        } else if (profile.role === "ADMIN") {
+          navigate("/admin", { replace: true });
+        } else {
+          navigate("/me", { replace: true });
+        }
       }
     } else {
       console.log("[Index] Still loading, waiting...");
@@ -110,12 +119,12 @@ const Index = () => {
     };
   }, [profile, loading, user, navigate]);
 
-  // Reset redirect flag when user/profile changes significantly
+  // Reset redirect flag only when user is explicitly null (not during loading)
   useEffect(() => {
-    if (!loading && user === null) {
+    if (!loading && user === null && !profile) {
       redirectAttempted.current = false;
     }
-  }, [user, loading]);
+  }, [user, loading, profile]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10">

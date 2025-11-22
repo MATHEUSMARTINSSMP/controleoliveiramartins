@@ -21,16 +21,17 @@ const Auth = () => {
   });
   const navigate = useNavigate();
 
-  // Redirect if already logged in
+  // Redirect if already logged in (only redirect once)
   useEffect(() => {
     if (!authLoading && profile) {
       // User is already logged in, redirect to appropriate dashboard
+      console.log("[Auth] User already logged in, redirecting to dashboard");
       if (profile.role === "LOJA") {
-        navigate("/loja");
+        navigate("/loja", { replace: true });
       } else if (profile.role === "ADMIN") {
-        navigate("/admin");
+        navigate("/admin", { replace: true });
       } else {
-        navigate("/me");
+        navigate("/me", { replace: true });
       }
     }
   }, [profile, authLoading, navigate]);

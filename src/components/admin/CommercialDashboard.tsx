@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -74,20 +74,38 @@ export const CommercialDashboard = () => {
         stores: TodaySales[];
     } | null>(null);
     const [loadingSummary, setLoadingSummary] = useState(false);
+    const hasMountedRef = useRef(false);
+    const lastFetchParamsRef = useRef<string>('');
 
     useEffect(() => {
         // Only fetch once on mount
-        fetchTodaySales();
-        fetchData();
-        fetchSalesSummary();
+        if (!hasMountedRef.current) {
+            hasMountedRef.current = true;
+            fetchTodaySales();
+            fetchData();
+            fetchSalesSummary();
+        }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
+        // Skip on initial mount (already handled above)
+        if (!hasMountedRef.current) return;
+        
+        // Prevent duplicate calls with same params
+        const paramsKey = `${month.getTime()}-${periodFilter}-${customStartDate}-${customEndDate}`;
+        if (lastFetchParamsRef.current === paramsKey) {
+            return;
+        }
+        lastFetchParamsRef.current = paramsKey;
+        
         fetchData();
     }, [month, periodFilter, customStartDate, customEndDate]);
 
     useEffect(() => {
+        // Skip on initial mount (already handled above)
+        if (!hasMountedRef.current) return;
+        
         fetchSalesSummary();
     }, [quickFilter]);
 

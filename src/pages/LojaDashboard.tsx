@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -76,6 +76,11 @@ export default function LojaDashboard() {
         totalMes: number;
     }[]>([]);
 
+    // Refs para prevenir múltiplas chamadas
+    const isIdentifyingStoreRef = useRef(false);
+    const isFetchingDataRef = useRef(false);
+    const lastFetchedStoreIdRef = useRef<string | null>(null);
+
     useEffect(() => {
         if (authLoading) {
             // Still loading auth, wait
@@ -87,8 +92,9 @@ export default function LojaDashboard() {
             return;
         }
 
-        // Se for LOJA, precisa identificar o store_id correto
-        if (profile.role === 'LOJA') {
+        // Se for LOJA, precisa identificar o store_id correto (apenas uma vez)
+        if (profile.role === 'LOJA' && !isIdentifyingStoreRef.current) {
+            isIdentifyingStoreRef.current = true;
             identifyStore();
         } else if (profile.role === 'ADMIN') {
             // ADMIN não precisa carregar dados de loja específica aqui
@@ -510,7 +516,20 @@ export default function LojaDashboard() {
             .from('profiles')
             .select('id, name, active, updated_at')
             .eq('role', 'COLABORADORA')
-            .eq('store_id', currentStoreId);
+            .eq('store_id', currentStoreId)
+            .order('name', { ascending: true });
+        
+        // Log para debug
+        if (colaboradorasData) {
+            const ativas = colaboradorasData.filter(c => c.active).length;
+            const desativadas = colaboradorasData.filter(c => !c.active).length;
+            console.log('[LojaDashboard] 📊 Colaboradoras encontradas:', {
+                total: colaboradorasData.length,
+                ativas,
+                desativadas,
+                desativadas_lista: colaboradorasData.filter(c => !c.active).map(c => ({ id: c.id, name: c.name, updated_at: c.updated_at }))
+            });
+        }
 
         if (colaboradorasError) {
             console.error('[LojaDashboard] ❌ Erro ao buscar colaboradoras:', colaboradorasError);
@@ -683,12 +702,17 @@ export default function LojaDashboard() {
         }
 
         // Converter para array - incluir TODAS as colaboradoras (ativas e desativadas)
+        // IMPORTANTE: Incluir todas, mesmo sem vendas ou metas, para aparecer no calendário
         const result = colaboradorasData.map(colab => {
             const data = monthlyData[colab.id] || {
                 colaboradoraName: colab.name,
                 dailySales: {},
                 totalMes: 0
             };
+            
+            // Garantir que colaboradora desativada também seja incluída
+            // Se ela tem vendas antes da desativação, elas já foram processadas acima
+            // Mas precisamos garantir que ela apareça no resultado mesmo sem vendas
 
             // Garantir que todas as metas diárias estejam calculadas mesmo sem vendas
             const goal: any = goalsMap.get(colab.id);
@@ -755,17 +779,31 @@ export default function LojaDashboard() {
 
             return {
                 colaboradoraId: colab.id,
+                colaboradoraName: colab.name,
+                active: colab.active,
                 ...data
             };
         });
 
-        console.log('[LojaDashboard] ✅ Dados mensais processados:', result.length, 'colaboradoras');
-        result.forEach((item, idx) => {
+        // Filtrar apenas colaboradoras que existem no result (não deveria ser necessário, mas por segurança)
+        // IMPORTANTE: Incluir TODAS, mesmo sem vendas, para aparecer no calendário
+        const resultFiltered = result.filter(item => {
+            const colab = colaboradorasData.find(c => c.id === item.colaboradoraId);
+            return colab !== undefined; // Todas devem estar presentes
+        });
+
+        console.log('[LojaDashboard] ✅ Dados mensais processados:', resultFiltered.length, 'colaboradoras');
+        console.log('[LojaDashboard] 📊 Breakdown:');
+        const ativasCount = resultFiltered.filter(r => colaboradorasData.find(c => c.id === r.colaboradoraId)?.active).length;
+        const desativadasCount = resultFiltered.filter(r => !colaboradorasData.find(c => c.id === r.colaboradoraId)?.active).length;
+        console.log('[LojaDashboard]   - Ativas:', ativasCount);
+        console.log('[LojaDashboard]   - Desativadas:', desativadasCount);
+        resultFiltered.forEach((item, idx) => {
             const daysWithData = Object.keys(item.dailySales).length;
             console.log(`[LojaDashboard]   ${idx + 1}. ${item.colaboradoraName}: ${daysWithData} dias com dados, Total: R$ ${item.totalMes.toFixed(2)}`);
         });
 
-        setMonthlyDataByDay(result);
+        setMonthlyDataByDay(resultFiltered);
     };
 
     const fetchData = async () => {
@@ -782,7 +820,22 @@ export default function LojaDashboard() {
             setLoading(false);
             return;
         }
-        
+
+        // Prevenir múltiplas chamadas com o mesmo storeId
+        if (isFetchingDataRef.current && lastFetchedStoreIdRef.current === currentStoreId) {
+            console.log('[LojaDashboard] ⚠️ fetchDataWithStoreId já está sendo executado para este storeId, ignorando chamada duplicada');
+            return;
+        }
+
+        // Se já foi buscado recentemente para este storeId, não buscar novamente
+        if (lastFetchedStoreIdRef.current === currentStoreId && storeId === currentStoreId) {
+            console.log('[LojaDashboard] ⚠️ Dados já foram buscados para este storeId, ignorando chamada duplicada');
+            return;
+        }
+
+        isFetchingDataRef.current = true;
+        lastFetchedStoreIdRef.current = currentStoreId;
+
         console.log('[LojaDashboard] 📡 fetchDataWithStoreId chamado com storeId:', currentStoreId);
         console.log('[LojaDashboard] 📡 fetchDataWithStoreId chamado com storeName:', currentStoreName || 'não fornecido');
         
@@ -807,7 +860,8 @@ export default function LojaDashboard() {
             console.error("[LojaDashboard] ❌ Error fetching data:", error);
             toast.error("Erro ao carregar dados");
         } finally {
-        setLoading(false);
+            setLoading(false);
+            isFetchingDataRef.current = false;
         }
     };
 

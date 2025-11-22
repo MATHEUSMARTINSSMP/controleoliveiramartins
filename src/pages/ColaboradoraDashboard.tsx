@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -134,9 +134,11 @@ const ColaboradoraDashboard = () => {
   // Password dialog
   const [passwordDialog, setPasswordDialog] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ newPassword: "", confirmPassword: "" });
+  const hasFetchedDataRef = useRef(false);
 
   useEffect(() => {
-    if (!loading && profile) {
+    if (!loading && profile && !hasFetchedDataRef.current) {
+      hasFetchedDataRef.current = true;
       fetchAllData();
     }
   }, [profile, loading]);
