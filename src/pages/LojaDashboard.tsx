@@ -14,6 +14,7 @@ import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, 
 import { toast } from "sonner";
 import { format } from "date-fns";
 import WeeklyGoalProgress from "@/components/WeeklyGoalProgress";
+import WeeklyBonusProgress from "@/components/WeeklyBonusProgress";
 import { StoreLogo } from "@/lib/storeLogo";
 
 interface Sale {
@@ -1670,6 +1671,11 @@ export default function LojaDashboard() {
             {/* Meta Semanal Gamificada */}
             {storeId && (
                 <WeeklyGoalProgress storeId={storeId} showDetails={true} />
+            )}
+
+            {/* Bônus Semanal Individual por Colaboradora */}
+            {storeId && colaboradoras.length > 0 && (
+                <WeeklyBonusProgress storeId={storeId} colaboradoras={colaboradoras.map(c => ({ id: c.id, name: c.name }))} />
             )}
 
             {/* Tabela de Performance do Dia */}
