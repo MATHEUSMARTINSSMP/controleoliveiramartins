@@ -355,31 +355,95 @@ const Colaboradores = () => {
   const handleDelete = async (id: string) => {
     try {
       console.log("[handleDelete] Desativando colaboradora ID:", id);
+      console.log("[handleDelete] Profile atual:", profile);
+      console.log("[handleDelete] Role:", profile?.role);
       
-      const { data, error } = await supabase
+      // Verificar se o usuário é ADMIN
+      if (profile?.role !== 'ADMIN') {
+        toast.error("Apenas administradores podem desativar colaboradoras");
+        return;
+      }
+      
+      // Primeiro, verificar o estado atual
+      const { data: currentData, error: checkError } = await supabase
+        .schema("sistemaretiradas")
+        .from("profiles")
+        .select("id, name, active")
+        .eq("id", id)
+        .single();
+      
+      if (checkError) {
+        console.error("[handleDelete] Erro ao verificar estado atual:", checkError);
+        throw checkError;
+      }
+      
+      console.log("[handleDelete] Estado atual da colaboradora:", currentData);
+      
+      // Tentar update sem .select() primeiro para ver se o erro é no SELECT ou no UPDATE
+      const { error: updateError, count } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
         .update({ active: false })
-        .eq("id", id)
-        .select();
+        .eq("id", id);
 
-      if (error) {
-        console.error("[handleDelete] Erro ao desativar:", error);
-        throw error;
+      if (updateError) {
+        console.error("[handleDelete] Erro ao atualizar (sem SELECT):", updateError);
+        console.error("[handleDelete] Código do erro:", updateError.code);
+        console.error("[handleDelete] Mensagem:", updateError.message);
+        console.error("[handleDelete] Detalhes:", updateError.details);
+        console.error("[handleDelete] Hint:", updateError.hint);
+        
+        // Verificar se é erro de RLS
+        if (updateError.code === '42501' || updateError.message?.includes('permission denied')) {
+          toast.error("Erro de permissão: Verifique as políticas RLS no Supabase. Você precisa de permissão UPDATE na tabela profiles.");
+        } else {
+          toast.error("Erro ao desativar colaboradora: " + updateError.message);
+        }
+        throw updateError;
       }
 
-      console.log("[handleDelete] Colaboradora desativada com sucesso. Dados retornados:", data);
+      console.log("[handleDelete] Update executado sem erros. Linhas afetadas:", count);
       
-      toast.success("Colaboradora desativada com sucesso!");
+      // Aguardar um pouco para garantir que o banco foi atualizado
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Aguardar um pouco antes de recarregar para garantir que o banco foi atualizado
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Agora verificar se realmente foi atualizado (usando query separada)
+      const { data: verifyData, error: verifyError } = await supabase
+        .schema("sistemaretiradas")
+        .from("profiles")
+        .select("id, name, active")
+        .eq("id", id)
+        .single();
+      
+      if (verifyError) {
+        console.error("[handleDelete] Erro ao verificar após update:", verifyError);
+        toast.error("Update executado, mas não foi possível verificar o resultado: " + verifyError.message);
+      } else {
+        console.log("[handleDelete] Estado após update:", verifyData);
+        
+        // Verificar se active foi realmente alterado
+        const isStillActive = verifyData?.active === true || verifyData?.active === 'true' || verifyData?.active === 1;
+        if (isStillActive) {
+          console.error("[handleDelete] ❌ ATENÇÃO: A colaboradora AINDA está ativa após o update!");
+          console.error("[handleDelete] Isso pode indicar:");
+          console.error("[handleDelete] 1. Um TRIGGER que reverte a mudança");
+          console.error("[handleDelete] 2. Uma CONSTRAINT que impede a desativação");
+          console.error("[handleDelete] 3. Um problema de RLS que está bloqueando o update");
+          console.error("[handleDelete] Execute as queries em DIAGNOSTICO_DESATIVACAO.sql no Supabase para investigar");
+          toast.error("A colaboradora não foi desativada. Pode haver uma constraint ou trigger impedindo. Verifique DIAGNOSTICO_DESATIVACAO.sql");
+        } else {
+          console.log("[handleDelete] ✅ Colaboradora desativada com sucesso!");
+          toast.success("Colaboradora desativada com sucesso!");
+        }
+      }
       
       // Recarregar lista de colaboradoras
       await fetchColaboradoras();
     } catch (error: any) {
       console.error("[handleDelete] Erro completo:", error);
-      toast.error("Erro ao desativar colaboradora: " + error.message);
+      if (!error.message?.includes('permission denied')) {
+        toast.error("Erro ao desativar colaboradora: " + (error.message || String(error)));
+      }
     } finally {
       setDeleteDialog(null);
     }
