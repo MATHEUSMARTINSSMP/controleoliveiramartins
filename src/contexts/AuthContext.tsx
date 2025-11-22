@@ -35,17 +35,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // If already fetching for the same user, wait for it to complete
     if (isFetchingProfileRef.current && currentUserIdRef.current === userId) {
       console.log("[AuthContext] Already fetching profile for this user, waiting for result...");
-      // Wait up to 5 seconds for the current fetch to complete
+      // Wait up to 6 seconds for the current fetch to complete
       let attempts = 0;
-      while (isFetchingProfileRef.current && attempts < 50) {
+      while (isFetchingProfileRef.current && attempts < 60) {
         await new Promise(resolve => setTimeout(resolve, 100));
         attempts++;
       }
-      // If still fetching after waiting, proceed anyway
+      // After waiting, check if still fetching
       if (isFetchingProfileRef.current && currentUserIdRef.current === userId) {
-        console.log("[AuthContext] Still fetching after wait, proceeding with new fetch");
+        console.log("[AuthContext] Still fetching after wait (6s), forcing completion and retrying...");
+        // Force clear the flags and set loading to false
+        isFetchingProfileRef.current = false;
+        currentUserIdRef.current = null;
+        setLoading(false);
+        // Wait a moment before retrying
+        await new Promise(resolve => setTimeout(resolve, 500));
       } else {
-        // Fetch completed, return
+        // Fetch completed, return - loading should already be false
+        console.log("[AuthContext] Fetch completed while waiting, returning");
         return;
       }
     }
@@ -61,16 +68,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     currentUserIdRef.current = userId;
     setLoading(true);
 
-    // Safety timeout: if fetch takes more than 8 seconds, force completion
+    // Safety timeout: if fetch takes more than 5 seconds, force completion
     const safetyTimeout = setTimeout(() => {
       if (isFetchingProfileRef.current && currentUserIdRef.current === userId) {
-        console.error("[AuthContext] ⚠️ Safety timeout reached, forcing loading to false");
+        console.error("[AuthContext] ⚠️ Safety timeout reached (5s), forcing loading to false");
         isFetchingProfileRef.current = false;
         currentUserIdRef.current = null;
         setLoading(false);
         // Don't set profile to null here, let it keep what it had
       }
-    }, 8000);
+    }, 5000);
 
     try {
       // Get user email from auth
@@ -87,14 +94,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      console.log("[AuthContext] Searching for profile with email (case-insensitive):", userEmail);
+      console.log("[AuthContext] Searching for profile with email:", userEmail);
 
-      const { data, error } = await supabase
+      // Try exact match first (faster), then case-insensitive if not found
+      let { data, error } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
         .select("*")
-        .ilike("email", userEmail) // Case-insensitive search
+        .eq("email", userEmail)
         .maybeSingle();
+
+      // If exact match not found, try case-insensitive
+      if (!data && !error) {
+        console.log("[AuthContext] Exact match not found, trying case-insensitive search...");
+        const result = await supabase
+          .schema("sistemaretiradas")
+          .from("profiles")
+          .select("*")
+          .ilike("email", userEmail)
+          .maybeSingle();
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) {
         console.error("[AuthContext] Error fetching profile by email:", error);

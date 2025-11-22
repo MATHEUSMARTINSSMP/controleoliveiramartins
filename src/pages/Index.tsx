@@ -17,16 +17,45 @@ const Index = () => {
 
     console.log("[Index] Effect triggered - loading:", loading, "profile:", profile, "user:", user);
 
-    // Maximum timeout to prevent infinite loading (10 seconds)
-    const maxTimeout = setTimeout(() => {
-      if (!redirectAttempted.current) {
-        console.log("[Index] ⚠️ Maximum timeout reached, forcing redirect");
-        redirectAttempted.current = true;
-        if (!profile) {
+    // Monitor for stuck loading state
+    // If loading is true for more than 12 seconds with a user but no profile, force redirect
+    if (loading && user && !profile) {
+      const stuckLoadingTimeout = setTimeout(() => {
+        if (!redirectAttempted.current && loading && user && !profile) {
+          console.error("[Index] ⚠️ Loading stuck for 12s with user but no profile, forcing redirect to login");
+          redirectAttempted.current = true;
           navigate("/", { replace: true });
         }
+      }, 12000);
+
+      return () => clearTimeout(stuckLoadingTimeout);
+    }
+
+    // Maximum timeout to prevent infinite loading (15 seconds)
+    // Force redirect even if loading is still true
+    const maxTimeout = setTimeout(() => {
+      if (!redirectAttempted.current) {
+        console.log("[Index] ⚠️ Maximum timeout reached (15s), forcing redirect");
+        redirectAttempted.current = true;
+        if (user && !profile) {
+          // User has session but no profile after 15s - redirect to login
+          console.log("[Index] User session exists but profile not loaded, redirecting to login");
+          navigate("/", { replace: true });
+        } else if (!user) {
+          // No user session - redirect to login
+          navigate("/", { replace: true });
+        } else if (profile) {
+          // Profile loaded - redirect to dashboard
+          if (profile.role === "LOJA") {
+            navigate("/loja", { replace: true });
+          } else if (profile.role === "ADMIN") {
+            navigate("/admin", { replace: true });
+          } else {
+            navigate("/me", { replace: true });
+          }
+        }
       }
-    }, 10000);
+    }, 15000);
 
     // Only redirect when loading is complete
     if (!loading) {
@@ -46,14 +75,14 @@ const Index = () => {
       // If user has session but no profile yet, wait a bit more
       if (!profile) {
         console.log("[Index] User has session but no profile yet, waiting...");
-        // Give a bit more time for profile to load (max 3 seconds)
+        // Give a bit more time for profile to load (max 5 seconds)
         const profileTimeout = setTimeout(() => {
           if (!redirectAttempted.current && !profile) {
-            console.log("[Index] Still no profile after timeout, redirecting to /");
+            console.log("[Index] Still no profile after 5s timeout, redirecting to login");
             redirectAttempted.current = true;
             navigate("/", { replace: true });
           }
-        }, 3000);
+        }, 5000);
 
         return () => {
           clearTimeout(profileTimeout);

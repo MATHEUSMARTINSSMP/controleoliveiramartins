@@ -39,6 +39,12 @@ const Auth = () => {
     e.preventDefault();
     setLoading(true);
 
+    // Safety timeout: reset loading after 10 seconds maximum
+    const safetyTimeout = setTimeout(() => {
+      console.warn("[Auth] Safety timeout reached, resetting loading state");
+      setLoading(false);
+    }, 10000);
+
     try {
       if (isLogin) {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -48,6 +54,10 @@ const Auth = () => {
         if (error) throw error;
         
         toast.success("Login realizado com sucesso!");
+        clearTimeout(safetyTimeout);
+        
+        // Reset loading before navigation
+        setLoading(false);
 
         // Give AuthContext a moment to process the auth state change
         // The Index page will handle waiting for profile to load
@@ -69,9 +79,15 @@ const Auth = () => {
         });
         if (error) throw error;
         toast.success("Cadastro realizado com sucesso!");
+        clearTimeout(safetyTimeout);
+        
+        // Reset loading before navigation
+        setLoading(false);
+        
         navigate("/home", { replace: true });
       }
     } catch (error: any) {
+      clearTimeout(safetyTimeout);
       toast.error(error.message || "Erro ao processar solicitação");
       setLoading(false);
     }
