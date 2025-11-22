@@ -231,6 +231,35 @@ export default function LojaDashboard() {
         return fetchGoalsWithStoreId(storeId);
     };
 
+    // Função auxiliar para calcular meta diária dinâmica
+    const calculateDynamicDailyGoal = (
+        metaMensal: number,
+        vendidoMes: number,
+        today: string,
+        dailyWeights: Record<string, number> | null,
+        daysInMonth: number
+    ): number => {
+        // Calcular dias restantes do mês (incluindo o dia de hoje)
+        const hoje = new Date(today);
+        const daysRemaining = daysInMonth - hoje.getDate() + 1; // +1 para incluir hoje
+        
+        // Meta fixa (baseada em daily_weights ou proporcional)
+        let metaFixa = metaMensal / daysInMonth;
+        if (dailyWeights && Object.keys(dailyWeights).length > 0) {
+            const hojePeso = dailyWeights[today] || 0;
+            if (hojePeso > 0) {
+                metaFixa = (metaMensal * hojePeso) / 100;
+            }
+        }
+        
+        // Meta dinâmica: (o que falta) / dias restantes
+        const faltaParaMeta = Math.max(0, metaMensal - vendidoMes);
+        const metaDinamica = daysRemaining > 0 ? faltaParaMeta / daysRemaining : 0;
+        
+        // A meta diária é o maior entre a meta dinâmica e a meta fixa (piso)
+        return Math.max(metaDinamica, metaFixa);
+    };
+
     const fetchGoalsWithStoreId = async (currentStoreId: string) => {
         if (!currentStoreId) {
             console.error('[LojaDashboard] ❌ fetchGoalsWithStoreId chamado sem storeId');
@@ -296,26 +325,35 @@ export default function LojaDashboard() {
             console.log('[LojaDashboard]   daily_weights:', data.daily_weights);
             setGoals(data);
             
-            // Calcular meta diária - usar daily_weights se disponível (igual às metas individuais)
-            const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
-            let daily = Number(data.meta_valor) / daysInMonth;
+            // Compute monthly progress from sales data (precisamos disso para calcular meta dinâmica)
+            const { data: salesMonth, error: monthErr } = await supabase
+                .schema("sistemaretiradas")
+                .from('sales')
+                .select('valor')
+                .eq('store_id', currentStoreId)
+                .gte('data_venda', `${startOfMonth}T00:00:00`);
             
-            // Se houver daily_weights, usar o peso do dia atual (igual ao cálculo das metas individuais)
+            const totalMes = !monthErr && salesMonth ? salesMonth.reduce((sum: number, s: any) => sum + Number(s.valor), 0) : 0;
+            setMonthlyRealizado(totalMes);
+            setMonthlyProgress((totalMes / Number(data.meta_valor)) * 100);
+            
+            // Calcular meta diária DINÂMICA
+            const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
             const dailyWeights = data.daily_weights || {};
-            if (Object.keys(dailyWeights).length > 0) {
-                const hojePeso = dailyWeights[today] || 0;
-                if (hojePeso > 0) {
-                    daily = (Number(data.meta_valor) * hojePeso) / 100;
-                    console.log('[LojaDashboard] 📊 Meta diária calculada com daily_weights:');
-                    console.log('[LojaDashboard]   Data hoje:', today);
-                    console.log('[LojaDashboard]   Peso do dia:', hojePeso);
-                    console.log('[LojaDashboard]   Meta diária:', daily);
-                } else {
-                    console.log('[LojaDashboard] ⚠️ Peso do dia atual não encontrado nos daily_weights, usando cálculo proporcional');
-                }
-            } else {
-                console.log('[LojaDashboard] 📊 Meta diária calculada proporcionalmente (sem daily_weights)');
-            }
+            const daily = calculateDynamicDailyGoal(
+                Number(data.meta_valor),
+                totalMes,
+                today,
+                Object.keys(dailyWeights).length > 0 ? dailyWeights : null,
+                daysInMonth
+            );
+            
+            console.log('[LojaDashboard] 📊 Meta diária calculada dinamicamente:');
+            console.log('[LojaDashboard]   Meta mensal:', Number(data.meta_valor));
+            console.log('[LojaDashboard]   Vendido no mês:', totalMes);
+            console.log('[LojaDashboard]   Faltando:', Math.max(0, Number(data.meta_valor) - totalMes));
+            console.log('[LojaDashboard]   Dias restantes:', daysInMonth - hoje.getDate() + 1);
+            console.log('[LojaDashboard]   Meta diária dinâmica:', daily);
             
             setDailyGoal(daily);
             
@@ -331,21 +369,6 @@ export default function LojaDashboard() {
                 setDailyProgress((totalHoje / daily) * 100);
             } else if (salesErr) {
                 console.error('[LojaDashboard] ❌ Erro ao buscar vendas de hoje:', salesErr);
-            }
-            
-            // Compute monthly progress from sales data
-            const { data: salesMonth, error: monthErr } = await supabase
-                .schema("sistemaretiradas")
-                .from('sales')
-                .select('valor')
-                .eq('store_id', currentStoreId)
-                .gte('data_venda', `${startOfMonth}T00:00:00`);
-            if (!monthErr && salesMonth) {
-                const totalMes = salesMonth.reduce((sum: number, s: any) => sum + Number(s.valor), 0);
-                setMonthlyRealizado(totalMes);
-                setMonthlyProgress((totalMes / Number(data.meta_valor)) * 100);
-            } else if (monthErr) {
-                console.error('[LojaDashboard] ❌ Erro ao buscar vendas do mês:', monthErr);
             }
         } else {
             console.error('[LojaDashboard] ❌ Meta mensal NÃO encontrada para a loja');
@@ -847,13 +870,15 @@ export default function LojaDashboard() {
                 }
                 
                 if (goal) {
-                    // Calcular meta diária
-                    let metaDiaria = Number(goal.meta_valor) / daysInMonth;
+                    // Calcular meta diária DINÂMICA
                     const dailyWeights = goal.daily_weights || {};
-                    if (Object.keys(dailyWeights).length > 0) {
-                        const hojePeso = dailyWeights[today] || 0;
-                        metaDiaria = (Number(goal.meta_valor) * hojePeso) / 100;
-                    }
+                    const metaDiaria = calculateDynamicDailyGoal(
+                        Number(goal.meta_valor),
+                        vendidoMes,
+                        today,
+                        Object.keys(dailyWeights).length > 0 ? dailyWeights : null,
+                        daysInMonth
+                    );
                     
                     // Progresso do dia
                     const progressoDia = metaDiaria > 0 ? (vendidoHoje / metaDiaria) * 100 : 0;
