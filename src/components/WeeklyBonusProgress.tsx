@@ -317,212 +317,61 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
                     )}
                 </div>
             </CardHeader>
-            <CardContent className="pt-6 space-y-6">
-                {/* Cards Individuais por Colaboradora */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {collaboratorProgress
-                        .sort((a, b) => {
-                            // Ordenar: Super Meta primeiro, Meta segundo, Nenhuma terceiro
-                            if (a.bateuSuperMeta && !b.bateuSuperMeta) return -1;
-                            if (!a.bateuSuperMeta && b.bateuSuperMeta) return 1;
-                            if (a.bateuMeta && !b.bateuMeta) return -1;
-                            if (!a.bateuMeta && b.bateuMeta) return 1;
-                            return b.realizado - a.realizado;
-                        })
-                        .map((colab) => {
-                            // Determinar cor baseado no status
-                            let borderColor = 'border-gray-200 dark:border-gray-800';
-                            let bgColor = 'bg-white dark:bg-gray-900';
-                            let statusBadge = null;
-                            
-                            if (colab.bateuSuperMeta) {
-                                borderColor = 'border-purple-400 dark:border-purple-800';
-                                bgColor = 'bg-purple-50/50 dark:bg-purple-950/20';
-                                statusBadge = (
-                                    <Badge className="bg-purple-500 text-white text-xs">
-                                        <Trophy className="h-3 w-3 mr-1" />
-                                        Super Meta
-                                    </Badge>
-                                );
-                            } else if (colab.bateuMeta) {
-                                borderColor = 'border-green-400 dark:border-green-800';
-                                bgColor = 'bg-green-50/50 dark:bg-green-950/20';
-                                statusBadge = (
-                                    <Badge className="bg-green-500 text-white text-xs">
+            <CardContent className="pt-6 space-y-4">
+                {/* Super Meta Semanal - ROXO */}
+                {superMetaAtingidas.length > 0 && weeklyBonuses.super_meta_bonus !== null && (
+                    <div className="bg-purple-50 dark:bg-purple-950/20 border-2 border-purple-400 dark:border-purple-800 rounded-lg p-4 sm:p-6">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Trophy className="h-5 w-5 text-purple-600" />
+                            <span className="font-bold text-base sm:text-lg">Super Meta Semanal - Prêmio: R$ {weeklyBonuses.super_meta_bonus}</span>
+                        </div>
+                        <div className="space-y-2">
+                            {superMetaAtingidas.map(colab => (
+                                <div key={colab.colaboradoraId} className="flex items-center justify-between bg-white dark:bg-gray-900 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
+                                    <span className="text-sm sm:text-base font-semibold">{colab.colaboradoraName}</span>
+                                    <Badge className="bg-purple-500 text-white">
                                         <CheckCircle2 className="h-3 w-3 mr-1" />
-                                        Meta
+                                        ATINGIDO
                                     </Badge>
-                                );
-                            }
-
-                            // Calcular quanto falta para o próximo checkpoint
-                            let proximoCheckpoint = null;
-                            let faltaProximoCheckpoint = null;
-                            
-                            if (!colab.bateuMeta && colab.metaValor > 0) {
-                                proximoCheckpoint = `Meta Semanal (R$ ${weeklyBonuses.meta_bonus})`;
-                                faltaProximoCheckpoint = colab.faltaMeta;
-                            } else if (colab.bateuMeta && !colab.bateuSuperMeta && colab.superMetaValor > 0) {
-                                proximoCheckpoint = `Super Meta (R$ ${weeklyBonuses.super_meta_bonus})`;
-                                faltaProximoCheckpoint = colab.faltaSuperMeta;
-                            }
-
-                            return (
-                                <Card 
-                                    key={colab.colaboradoraId} 
-                                    className={`${borderColor} ${bgColor} border-2`}
-                                >
-                                    <CardHeader className="pb-2 p-3">
-                                        <div className="flex items-center justify-between">
-                                            <CardTitle className="text-sm font-semibold truncate flex-1">
-                                                {colab.colaboradoraName}
-                                            </CardTitle>
-                                            {statusBadge}
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="p-3 pt-0 space-y-3">
-                                        {/* Meta do Dia */}
-                                        <div className="space-y-1">
-                                            <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                                <span>Meta do Dia</span>
-                                                <span className="font-medium">R$ {colab.metaDiaria.toFixed(2)}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Progress 
-                                                    value={Math.min(colab.progressDiario, 100)} 
-                                                    className="h-2 flex-1"
-                                                />
-                                                <span className="text-xs font-semibold whitespace-nowrap">
-                                                    {colab.progressDiario.toFixed(0)}%
-                                                </span>
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                Vendido hoje: R$ {colab.realizadoHoje.toFixed(2)}
-                                            </div>
-                                        </div>
-
-                                        {/* Progresso Semanal */}
-                                        <div className="space-y-2 pt-2 border-t">
-                                            <div className="flex items-center justify-between text-xs">
-                                                <span className="text-muted-foreground">Progresso Semanal</span>
-                                                <span className="font-semibold">
-                                                    R$ {colab.realizado.toFixed(2)} / R$ {colab.metaValor.toFixed(2)}
-                                                </span>
-                                            </div>
-                                            
-                                            {/* Barra de Progresso com Checkpoints */}
-                                            <div className="relative">
-                                                <Progress 
-                                                    value={Math.min(colab.progressMeta, 100)} 
-                                                    className={`h-3 ${
-                                                        colab.bateuSuperMeta 
-                                                            ? 'bg-purple-200 dark:bg-purple-900' 
-                                                            : colab.bateuMeta 
-                                                                ? 'bg-green-200 dark:bg-green-900' 
-                                                                : ''
-                                                    }`}
-                                                />
-                                                {/* Checkpoint 1: Meta Semanal */}
-                                                {colab.metaValor > 0 && colab.superMetaValor > 0 && (
-                                                    <div 
-                                                        className="absolute top-0 h-3 w-0.5 bg-green-500 z-10"
-                                                        style={{ left: `${(colab.metaValor / colab.superMetaValor) * 100}%` }}
-                                                        title={`Meta Semanal: R$ ${colab.metaValor.toFixed(2)}`}
-                                                    />
-                                                )}
-                                                {/* Checkpoint 2: Super Meta */}
-                                                {colab.superMetaValor > 0 && (
-                                                    <div 
-                                                        className="absolute top-0 right-0 h-3 w-0.5 bg-purple-500 z-10"
-                                                        title={`Super Meta: R$ ${colab.superMetaValor.toFixed(2)}`}
-                                                    />
-                                                )}
-                                            </div>
-
-                                            {/* Informação do próximo checkpoint */}
-                                            {proximoCheckpoint && faltaProximoCheckpoint !== null && (
-                                                <div className="text-xs bg-muted/50 p-2 rounded">
-                                                    <div className="text-muted-foreground mb-0.5">Próximo Checkpoint:</div>
-                                                    <div className="font-semibold">{proximoCheckpoint}</div>
-                                                    <div className="text-muted-foreground mt-1">
-                                                        Faltam: <span className="font-bold text-primary">R$ {faltaProximoCheckpoint.toFixed(2)}</span>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Mensagem de parabéns */}
-                                            {(colab.bateuMeta || colab.bateuSuperMeta) && (
-                                                <div className={`text-xs p-2 rounded text-center font-medium ${
-                                                    colab.bateuSuperMeta 
-                                                        ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-900 dark:text-purple-100' 
-                                                        : 'bg-green-100 dark:bg-green-900/30 text-green-900 dark:text-green-100'
-                                                }`}>
-                                                    🎉 Parabéns! Você atingiu a {colab.bateuSuperMeta ? 'Super Meta' : 'Meta Semanal'}!
-                                                </div>
-                                            )}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            );
-                        })}
-                </div>
-
-                {/* Resumo por Status */}
-                {(superMetaAtingidas.length > 0 || metaAtingidas.length > 0 || nenhumaAtingida.length > 0) && (
-                    <div className="space-y-3 pt-4 border-t">
-                        {/* Super Meta Atingida */}
-                        {superMetaAtingidas.length > 0 && weeklyBonuses.super_meta_bonus !== null && (
-                            <div className="bg-purple-50 dark:bg-purple-950/20 border-2 border-purple-300 dark:border-purple-800 rounded-lg p-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Trophy className="h-5 w-5 text-purple-600" />
-                                    <span className="font-bold text-base">Super Meta Semanal - Prêmio: R$ {weeklyBonuses.super_meta_bonus}</span>
                                 </div>
-                                <div className="flex flex-wrap gap-2">
-                                    {superMetaAtingidas.map(colab => (
-                                        <Badge key={colab.colaboradoraId} className="bg-purple-500 text-white">
-                                            {colab.colaboradoraName} 🎉
-                                        </Badge>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                            ))}
+                        </div>
+                    </div>
+                )}
 
-                        {/* Meta Atingida */}
-                        {metaAtingidas.length > 0 && weeklyBonuses.meta_bonus !== null && (
-                            <div className="bg-green-50 dark:bg-green-950/20 border-2 border-green-300 dark:border-green-800 rounded-lg p-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Target className="h-5 w-5 text-green-600" />
-                                    <span className="font-bold text-base">Meta Semanal - Prêmio: R$ {weeklyBonuses.meta_bonus}</span>
+                {/* Meta Semanal - VERDE */}
+                {metaAtingidas.length > 0 && weeklyBonuses.meta_bonus !== null && (
+                    <div className="bg-green-50 dark:bg-green-950/20 border-2 border-green-400 dark:border-green-800 rounded-lg p-4 sm:p-6">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Target className="h-5 w-5 text-green-600" />
+                            <span className="font-bold text-base sm:text-lg">Meta Semanal - Prêmio: R$ {weeklyBonuses.meta_bonus}</span>
+                        </div>
+                        <div className="space-y-2">
+                            {metaAtingidas.map(colab => (
+                                <div key={colab.colaboradoraId} className="flex items-center justify-between bg-white dark:bg-gray-900 p-3 rounded-lg border border-green-200 dark:border-green-800">
+                                    <span className="text-sm sm:text-base font-semibold">{colab.colaboradoraName}</span>
+                                    <span className="text-sm sm:text-base font-bold text-green-700 dark:text-green-400">
+                                        Falta R$ {colab.faltaSuperMeta.toFixed(2)} para Super Meta Semanal
+                                    </span>
                                 </div>
-                                <div className="flex flex-wrap gap-2">
-                                    {metaAtingidas.map(colab => (
-                                        <Badge key={colab.colaboradoraId} className="bg-green-500 text-white">
-                                            {colab.colaboradoraName} 🎉
-                                        </Badge>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                            ))}
+                        </div>
+                    </div>
+                )}
 
-                        {/* Nenhuma Meta Atingida */}
-                        {nenhumaAtingida.length > 0 && (
-                            <div className="bg-gray-50 dark:bg-gray-950/20 border-2 border-gray-300 dark:border-gray-800 rounded-lg p-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Target className="h-5 w-5 text-gray-600" />
-                                    <span className="font-bold text-base">Em Progresso</span>
+                {/* Nenhuma Meta Atingida - SEM COR */}
+                {nenhumaAtingida.length > 0 && (
+                    <div className="bg-gray-50 dark:bg-gray-950/20 border-2 border-gray-300 dark:border-gray-800 rounded-lg p-4 sm:p-6">
+                        <div className="space-y-2">
+                            {nenhumaAtingida.map(colab => (
+                                <div key={colab.colaboradoraId} className="flex items-center justify-between bg-white dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-800">
+                                    <span className="text-sm sm:text-base font-semibold">{colab.colaboradoraName}</span>
+                                    <span className="text-sm sm:text-base font-bold text-muted-foreground">
+                                        Falta R$ {colab.faltaMeta.toFixed(2)} para atingir a Meta Semanal
+                                    </span>
                                 </div>
-                                <div className="space-y-2">
-                                    {nenhumaAtingida.map(colab => (
-                                        <div key={colab.colaboradoraId} className="flex items-center justify-between bg-white dark:bg-gray-900 p-2 rounded">
-                                            <span className="text-sm font-medium">{colab.colaboradoraName}</span>
-                                            <span className="text-sm font-bold text-muted-foreground">
-                                                Faltam R$ {colab.faltaMeta.toFixed(2)}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                            ))}
+                        </div>
                     </div>
                 )}
             </CardContent>

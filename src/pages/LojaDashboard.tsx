@@ -1681,6 +1681,47 @@ export default function LojaDashboard() {
                 )}
             </div>
 
+            {/* Planejamento do Dia - Cards por Vendedora */}
+            {colaboradorasPerformance.length > 0 && (
+                <div className="max-w-7xl mx-auto">
+                    <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Planejamento do Dia</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                        {colaboradorasPerformance.map((perf) => (
+                            <Card key={perf.id} className="flex flex-col h-full">
+                                <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
+                                    <CardTitle className="text-sm sm:text-base font-semibold">{perf.name}</CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col justify-center space-y-3">
+                                    {/* Meta do Dia */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between text-xs sm:text-sm">
+                                            <span className="text-muted-foreground">Meta do Dia</span>
+                                            <span className="font-semibold">R$ {perf.metaDiaria > 0 ? perf.metaDiaria.toFixed(2) : '0.00'}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs sm:text-sm">
+                                            <span className="text-muted-foreground">Vendido:</span>
+                                            <span className="font-bold text-primary">R$ {perf.vendido.toFixed(2)}</span>
+                                        </div>
+                                        {/* Progresso */}
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                <Progress 
+                                                    value={Math.min(perf.percentual, 100)} 
+                                                    className="h-2 sm:h-3 flex-1"
+                                                />
+                                                <span className="text-xs sm:text-sm font-semibold whitespace-nowrap min-w-[45px] text-right">
+                                                    {perf.percentual.toFixed(0)}%
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Meta Semanal Gamificada */}
             {storeId && (
                 <WeeklyGoalProgress storeId={storeId} showDetails={true} />
