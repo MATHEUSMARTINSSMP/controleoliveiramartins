@@ -1,28 +1,49 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="COM" />
     <title>CONTROLE OLIVEIRA MARTINS</title>
-    <meta name="description" content="Lovable Generated Project">
-    <meta name="author" content="Lovable" />
-
+    <meta name="description" content="Sistema de controle de vendas e metas para lojas">
+    <meta name="author" content="Controle Oliveira Martins" />
     
+    <!-- Favicon e ícones para PWA/iOS -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
     
+    <!-- Manifest para PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Meta tags para compartilhamento -->
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
-
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@lovable_dev" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
     <meta property="og:title" content="CONTROLE OLIVEIRA MARTINS">
-  <meta name="twitter:title" content="CONTROLE OLIVEIRA MARTINS">
-  <meta property="og:description" content="Lovable Generated Project">
-  <meta name="twitter:description" content="Lovable Generated Project">
+    <meta property="og:description" content="Sistema de controle de vendas e metas para lojas">
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CONTROLE OLIVEIRA MARTINS">
+    <meta name="twitter:description" content="Sistema de controle de vendas e metas para lojas">
+    
+    <!-- Meta tags para mobile -->
+    <meta name="theme-color" content="#000000" />
+    <meta name="mobile-web-app-capable" content="yes" />
 </head>
 
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- Service Worker para PWA -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('Service Worker registrado:', reg))
+            .catch(err => console.log('Erro ao registrar Service Worker:', err));
+        });
+      }
+    </script>
   </body>
 </html>

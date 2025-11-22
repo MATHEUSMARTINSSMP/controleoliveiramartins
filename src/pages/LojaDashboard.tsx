@@ -552,16 +552,36 @@ export default function LojaDashboard() {
 
                 // Inicializar dia se não existir
                 if (!monthlyData[colabId].dailySales[day]) {
-                    // Calcular meta diária
                     const goal: any = goalsMap.get(colabId);
                     let metaDiaria = 0;
                     if (goal) {
-                        const dailyWeights = goal.daily_weights || {};
-                        if (Object.keys(dailyWeights).length > 0) {
-                            const dayWeight = dailyWeights[day] || 0;
-                            metaDiaria = (Number(goal.meta_valor) * dayWeight) / 100;
+                        // Para o dia de hoje, usar cálculo dinâmico. Para dias passados, usar meta fixa.
+                        if (day === todayStr) {
+                            // Calcular vendas do mês até ontem para este colaborador
+                            const vendasMesAteOntem = salesData
+                                ?.filter((s: any) => {
+                                    const saleDay = s.data_venda ? s.data_venda.split('T')[0] : null;
+                                    return s.colaboradora_id === colabId && saleDay && saleDay < todayStr;
+                                })
+                                .reduce((sum: number, s: any) => sum + Number(s.valor || 0), 0) || 0;
+                            
+                            const dailyWeights = goal.daily_weights || {};
+                            metaDiaria = calculateDynamicDailyGoal(
+                                Number(goal.meta_valor),
+                                vendasMesAteOntem,
+                                todayStr,
+                                Object.keys(dailyWeights).length > 0 ? dailyWeights : null,
+                                daysInMonth
+                            );
                         } else {
-                            metaDiaria = Number(goal.meta_valor) / daysInMonth;
+                            // Para dias passados, usar meta fixa (daily_weights ou proporcional)
+                            const dailyWeights = goal.daily_weights || {};
+                            if (Object.keys(dailyWeights).length > 0) {
+                                const dayWeight = dailyWeights[day] || 0;
+                                metaDiaria = (Number(goal.meta_valor) * dayWeight) / 100;
+                            } else {
+                                metaDiaria = Number(goal.meta_valor) / daysInMonth;
+                            }
                         }
                     }
 
@@ -591,18 +611,40 @@ export default function LojaDashboard() {
             // Garantir que todas as metas diárias estejam calculadas mesmo sem vendas
             const goal: any = goalsMap.get(colab.id);
             if (goal) {
+                // Calcular vendas do mês para este colaborador (para cálculo dinâmico do dia de hoje)
+                const vendasMesColab = salesData
+                    ?.filter((s: any) => {
+                        const saleDay = s.data_venda ? s.data_venda.split('T')[0] : null;
+                        return s.colaboradora_id === colab.id && saleDay && saleDay < todayStr;
+                    })
+                    .reduce((sum: number, s: any) => sum + Number(s.valor || 0), 0) || 0;
+                
                 const dailyWeights = goal.daily_weights || {};
                 for (let day = 1; day <= daysInMonth; day++) {
                     const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
                     if (dayStr <= todayStr) {
                         if (!data.dailySales[dayStr]) {
                             let metaDiaria = 0;
-                            if (Object.keys(dailyWeights).length > 0) {
-                                const dayWeight = dailyWeights[dayStr] || 0;
-                                metaDiaria = (Number(goal.meta_valor) * dayWeight) / 100;
+                            
+                            // Para o dia de hoje, usar cálculo dinâmico. Para dias passados, usar meta fixa.
+                            if (dayStr === todayStr) {
+                                metaDiaria = calculateDynamicDailyGoal(
+                                    Number(goal.meta_valor),
+                                    vendasMesColab,
+                                    todayStr,
+                                    Object.keys(dailyWeights).length > 0 ? dailyWeights : null,
+                                    daysInMonth
+                                );
                             } else {
-                                metaDiaria = Number(goal.meta_valor) / daysInMonth;
+                                // Para dias passados, usar meta fixa (daily_weights ou proporcional)
+                                if (Object.keys(dailyWeights).length > 0) {
+                                    const dayWeight = dailyWeights[dayStr] || 0;
+                                    metaDiaria = (Number(goal.meta_valor) * dayWeight) / 100;
+                                } else {
+                                    metaDiaria = Number(goal.meta_valor) / daysInMonth;
+                                }
                             }
+                            
                             data.dailySales[dayStr] = {
                                 valor: 0,
                                 qtdVendas: 0,
@@ -2110,8 +2152,8 @@ export default function LojaDashboard() {
                                                         })}
                                                         <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-background z-10 min-w-[120px] text-right">
                                                             R$ {data.totalMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                        </TableCell>
-                                                    </TableRow>
+                                        </TableCell>
+                                    </TableRow>
                                                 );
                                             })}
                                             {/* Linha de Total da Loja */}
@@ -2160,8 +2202,8 @@ export default function LojaDashboard() {
                                                     R$ {monthlyDataByDay.reduce((sum, data) => sum + data.totalMes, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                 </TableCell>
                                             </TableRow>
-                                    </TableBody>
-                                </Table>
+                        </TableBody>
+                    </Table>
                             </div>
                         ) : (
                             <div className="text-center py-6">

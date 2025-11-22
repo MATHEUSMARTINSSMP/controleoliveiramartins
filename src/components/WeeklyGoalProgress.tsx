@@ -440,24 +440,25 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                     {progress.super_meta_valor > 0 ? (
                         <div className="space-y-3">
                             {/* Header with labels */}
-                            <div className="flex items-center justify-between text-xs sm:text-sm">
-                                <div className="flex items-center gap-4">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs sm:text-sm">
+                                <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                                     <div className="flex items-center gap-2">
-                                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                                        <span className="text-muted-foreground">Meta Semanal: {formatCurrency(progress.meta_valor)}</span>
+                                        <div className="w-3 h-3 rounded-full bg-green-500 flex-shrink-0"></div>
+                                        <span className="text-muted-foreground text-xs">Meta: {formatCurrency(progress.meta_valor)}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-                                        <span className="text-muted-foreground">Super Meta: {formatCurrency(progress.super_meta_valor)}</span>
+                                        <div className="w-3 h-3 rounded-full bg-purple-500 flex-shrink-0"></div>
+                                        <span className="text-muted-foreground text-xs">Super: {formatCurrency(progress.super_meta_valor)}</span>
                                     </div>
                                 </div>
-                                <span className="text-muted-foreground font-semibold">
+                                <span className="text-muted-foreground font-semibold text-xs">
                                     Vendido: {formatCurrency(progress.realizado)}
                                 </span>
                             </div>
 
-                            {/* Single Progress Bar */}
-                            <div className="relative h-8 bg-muted rounded-full overflow-visible border-2 border-muted-foreground/20">
+                            {/* Single Progress Bar Container - com padding extra para labels */}
+                            <div className="relative pb-8 overflow-visible">
+                                <div className="relative h-8 bg-muted rounded-full border-2 border-muted-foreground/20 mb-2 overflow-visible">
                                 {/* Progress Fill - até meta ou realizado (o que for menor) */}
                                 <div 
                                     className="absolute top-0 left-0 h-full bg-gradient-to-r from-primary via-primary/90 to-primary/80 transition-all duration-500 rounded-full"
@@ -520,52 +521,63 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                 {/* Checkpoint 2: Super Meta Marker (final) */}
                                 <div 
                                     className="absolute top-0 right-0 h-full w-1 bg-purple-600 z-20 shadow-lg rounded-r-full"
+                                    style={{ right: '0' }}
                                     title={`Super Meta: ${formatCurrency(progress.super_meta_valor)}`}
                                 />
-                                {/* Label above checkpoint */}
+                                {/* Label above checkpoint - garantir que não saia do container */}
                                 <div 
-                                    className={`absolute top-0 right-0 transform translate-x-1/2 text-[10px] sm:text-xs font-bold whitespace-nowrap px-2 py-1 rounded shadow-md z-30 ${
+                                    className={`absolute text-[10px] sm:text-xs font-bold whitespace-nowrap px-1.5 py-0.5 sm:px-2 sm:py-1 rounded shadow-md z-30 ${
                                         progress.realizado >= progress.super_meta_valor 
                                             ? 'bg-purple-500 text-white border-2 border-purple-700' 
                                             : 'bg-purple-200 text-purple-800 border border-purple-400'
                                     }`}
                                     style={{ 
+                                        right: '0',
                                         top: '-2rem',
-                                        transform: 'translateX(50%)'
+                                        transform: 'translateX(0)',
+                                        maxWidth: '100%'
                                     }}
                                 >
-                                    🏆 Super Meta
+                                    <span className="hidden sm:inline">🏆 </span>Super
                                     <div className="text-[9px] font-normal mt-0.5 whitespace-nowrap">
                                         {formatCurrency(progress.super_meta_valor, { showSymbol: false })}
                                     </div>
                                 </div>
 
-                                {/* Current Position Indicator */}
+                                {/* Current Position Indicator - garantir que não ultrapasse o container */}
                                 <div 
-                                    className="absolute top-1/2 h-6 w-1 bg-foreground z-30 shadow-xl transform -translate-y-1/2"
+                                    className="absolute top-1/2 h-6 w-1 bg-foreground z-30 shadow-xl"
                                     style={{ 
                                         left: `${Math.min((progress.realizado / progress.super_meta_valor) * 100, 100)}%`,
-                                        transform: 'translate(-50%, -50%)'
+                                        transform: 'translate(-50%, -50%)',
+                                        maxWidth: 'calc(100% - 2px)' // Garantir que não ultrapasse o container
                                     }}
                                 >
-                                    {/* Current value label below */}
-                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 text-[10px] sm:text-xs font-bold bg-background border-2 px-2 py-1 rounded shadow-md whitespace-nowrap mt-2">
+                                    {/* Current value label below - ajustar para não sair */}
+                                    <div 
+                                        className="absolute top-full text-[10px] sm:text-xs font-bold bg-background border-2 px-2 py-1 rounded shadow-md whitespace-nowrap mt-2"
+                                        style={{
+                                            left: '50%',
+                                            transform: `${Math.min((progress.realizado / progress.super_meta_valor) * 100, 100) >= 90 ? 'translateX(-100%)' : Math.min((progress.realizado / progress.super_meta_valor) * 100, 100) <= 10 ? 'translateX(0)' : 'translateX(-50%)'}`
+                                        }}
+                                    >
                                         {formatCurrency(progress.realizado)}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Scale markers below */}
-                            <div className="flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground px-1">
-                                <span>R$ 0</span>
+                            {/* Scale markers below - garantir que não ultrapassem o container */}
+                            <div className="flex items-center justify-between text-[9px] sm:text-xs text-muted-foreground px-1 gap-1">
+                                <span className="flex-shrink-0 text-xs">R$ 0</span>
                                 {progress.meta_valor > 0 && (
-                                    <span className="font-medium text-green-600">
-                                        Meta: {formatCurrency(progress.meta_valor, { showSymbol: false })}
+                                    <span className="font-medium text-green-600 flex-shrink-0 text-center text-[9px] sm:text-xs hidden sm:inline">
+                                        Meta: {formatCurrency(progress.meta_valor, { showSymbol: false, maximumFractionDigits: 0 })}
                                     </span>
                                 )}
-                                <span className="font-medium text-purple-600">
-                                    Super: {formatCurrency(progress.super_meta_valor, { showSymbol: false })}
+                                <span className="font-medium text-purple-600 flex-shrink-0 text-right text-[9px] sm:text-xs">
+                                    Super: {formatCurrency(progress.super_meta_valor, { showSymbol: false, maximumFractionDigits: 0 })}
                                 </span>
+                            </div>
                             </div>
 
                             {/* Status Messages */}
