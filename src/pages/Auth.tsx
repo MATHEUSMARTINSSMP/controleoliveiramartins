@@ -39,11 +39,12 @@ const Auth = () => {
     e.preventDefault();
     setLoading(true);
 
-    // Safety timeout: reset loading after 10 seconds maximum
+    // Safety timeout: reset loading after 15 seconds maximum
+    // Give more time for fetchProfile to complete (it has 6s timeout)
     const safetyTimeout = setTimeout(() => {
-      console.warn("[Auth] Safety timeout reached, resetting loading state");
+      console.warn("[Auth] Safety timeout reached (15s), resetting loading state");
       setLoading(false);
-    }, 10000);
+    }, 15000);
 
     try {
       if (isLogin) {

@@ -35,53 +35,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchProfile = useCallback(async (userId: string) => {
     // Validate userId before proceeding
     if (!userId || typeof userId !== 'string' || userId.trim() === '') {
-      console.warn("[AuthContext] Invalid userId provided to fetchProfile:", userId);
+      console.warn("[AuthContext] Invalid userId provided to fetchProfile");
       setLoading(false);
-      isFetchingProfileRef.current = false;
-      currentUserIdRef.current = null;
       return;
     }
 
-    // Double-check that we have a valid session before proceeding
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user?.id || session.user.id !== userId) {
-      console.warn("[AuthContext] Session invalid or user ID mismatch, skipping fetchProfile");
-      setLoading(false);
-      setProfile(null);
-      isFetchingProfileRef.current = false;
-      currentUserIdRef.current = null;
-      return;
-    }
-
-    // If already fetching for the same user, wait for it to complete
+    // Prevent duplicate calls for the same user
     if (isFetchingProfileRef.current && currentUserIdRef.current === userId) {
-      console.log("[AuthContext] Already fetching profile for this user, waiting for result...");
-      // Wait up to 6 seconds for the current fetch to complete
-      let attempts = 0;
-      while (isFetchingProfileRef.current && attempts < 60) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        attempts++;
-      }
-      // After waiting, check if still fetching
-      if (isFetchingProfileRef.current && currentUserIdRef.current === userId) {
-        console.log("[AuthContext] Still fetching after wait (6s), forcing completion and retrying...");
-        // Force clear the flags and set loading to false
-        isFetchingProfileRef.current = false;
-        currentUserIdRef.current = null;
-        setLoading(false);
-        // Wait a moment before retrying
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } else {
-        // Fetch completed, return - loading should already be false
-        console.log("[AuthContext] Fetch completed while waiting, returning");
-        return;
-      }
-    }
-
-    // If fetching for a different user, wait a bit for it to finish
-    if (isFetchingProfileRef.current && currentUserIdRef.current !== userId) {
-      console.log("[AuthContext] Waiting for previous fetch to complete...");
-      await new Promise(resolve => setTimeout(resolve, 200));
+      console.log("[AuthContext] Already fetching profile for this user, skipping duplicate call");
+      return;
     }
 
     console.log("[AuthContext] Fetching profile for userId:", userId);
@@ -96,143 +58,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     currentUserIdRef.current = userId;
     setLoading(true);
 
-    // Safety timeout: if fetch takes more than 6 seconds, force completion
-    // Only create timeout if we have a valid session
-    // Only log as warning, not error, to avoid confusing console errors
-    // Store timeout in ref so we can clear it if needed
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
-    if (currentSession?.user?.id === userId) {
-      safetyTimeoutRef.current = setTimeout(() => {
-        if (isFetchingProfileRef.current && currentUserIdRef.current === userId) {
-          console.warn("[AuthContext] ⚠️ Profile fetch timeout (6s), forcing loading to false. This may indicate a slow query or network issue.");
-          isFetchingProfileRef.current = false;
-          currentUserIdRef.current = null;
-          setLoading(false);
-          safetyTimeoutRef.current = null;
-          // Don't set profile to null here, let it keep what it had
-        }
-      }, 6000);
-    } else {
-      console.warn("[AuthContext] Session invalid during fetchProfile, aborting");
-      isFetchingProfileRef.current = false;
-      currentUserIdRef.current = null;
-      setLoading(false);
-      return;
-    }
-
-    try {
-      // Get user email from auth
-      const { data: { user } } = await supabase.auth.getUser();
-      const userEmail = user?.email;
-
-      if (!userEmail) {
-        console.error("[AuthContext] No email found for user");
-        if (safetyTimeoutRef.current) {
-          clearTimeout(safetyTimeoutRef.current);
-          safetyTimeoutRef.current = null;
-        }
-        setProfile(null);
-        setLoading(false);
+    // Safety timeout: if fetch takes more than 8 seconds, force completion
+    safetyTimeoutRef.current = setTimeout(() => {
+      if (isFetchingProfileRef.current && currentUserIdRef.current === userId) {
+        console.warn("[AuthContext] ⚠️ Profile fetch timeout (8s)");
         isFetchingProfileRef.current = false;
         currentUserIdRef.current = null;
-        return;
+        setLoading(false);
+        safetyTimeoutRef.current = null;
       }
+    }, 8000);
 
-      console.log("[AuthContext] Searching for profile with email:", userEmail);
+    try {
+      // Fetch directly by ID - this is the fastest way since userId = profile.id
+      // No need to get email or do multiple queries
       const queryStartTime = Date.now();
-
-      // Try exact match first (faster), then case-insensitive if not found
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
         .select("*")
-        .eq("email", userEmail)
+        .eq("id", userId)
         .maybeSingle();
 
       const queryTime = Date.now() - queryStartTime;
-      console.log(`[AuthContext] Exact match query took ${queryTime}ms`);
-
-      // If exact match not found, try case-insensitive
-      if (!data && !error) {
-        console.log("[AuthContext] Exact match not found, trying case-insensitive search...");
-        const caseInsensitiveStartTime = Date.now();
-        const result = await supabase
-          .schema("sistemaretiradas")
-          .from("profiles")
-          .select("*")
-          .ilike("email", userEmail)
-          .maybeSingle();
-        
-        const caseInsensitiveTime = Date.now() - caseInsensitiveStartTime;
-        console.log(`[AuthContext] Case-insensitive query took ${caseInsensitiveTime}ms`);
-        
-        data = result.data;
-        error = result.error;
-      }
+      console.log(`[AuthContext] Profile query took ${queryTime}ms`);
 
       if (error) {
-        console.error("[AuthContext] Error fetching profile by email:", error);
-        if (safetyTimeoutRef.current) {
-          clearTimeout(safetyTimeoutRef.current);
-          safetyTimeoutRef.current = null;
-        }
-        setProfile(null);
-        setLoading(false);
-        isFetchingProfileRef.current = false;
-        currentUserIdRef.current = null;
-        return;
+        console.error("[AuthContext] Error fetching profile:", error);
+        throw error;
       }
 
       if (!data) {
-        console.error("[AuthContext] ❌ NO PROFILE FOUND for email:", userEmail);
-        console.error("[AuthContext] This means the profile doesn't exist or email doesn't match");
-        if (safetyTimeoutRef.current) {
-          clearTimeout(safetyTimeoutRef.current);
-          safetyTimeoutRef.current = null;
-        }
-        setProfile(null);
-        setLoading(false);
-        isFetchingProfileRef.current = false;
-        currentUserIdRef.current = null;
-        return;
+        console.error("[AuthContext] ❌ NO PROFILE FOUND for userId:", userId);
+        throw new Error("Profile not found");
       }
 
-      console.log("[AuthContext] ✅ PROFILE FOUND!");
-      console.log("[AuthContext] Profile ID:", data.id);
-      console.log("[AuthContext] Auth User ID:", userId);
-      console.log("[AuthContext] IDs match:", data.id === userId);
-      console.log("[AuthContext] User role:", data.role);
+      console.log("[AuthContext] ✅ PROFILE FOUND! Role:", data.role);
 
-      // Critical: Profile ID MUST match auth user ID for RLS
-      if (data.id !== userId) {
-        console.error("[AuthContext] ❌ CRITICAL: ID MISMATCH!");
-        console.error("[AuthContext] Profile ID:", data.id);
-        console.error("[AuthContext] Auth User ID:", userId);
-        console.error("[AuthContext] This will cause RLS to block access!");
-        if (safetyTimeoutRef.current) {
-          clearTimeout(safetyTimeoutRef.current);
-          safetyTimeoutRef.current = null;
-        }
-        setProfile(null);
-        setLoading(false);
-        isFetchingProfileRef.current = false;
-        currentUserIdRef.current = null;
-        return;
-      }
-
-      console.log("[AuthContext] Setting profile state...");
+      // Set profile and clear timeout
       if (safetyTimeoutRef.current) {
         clearTimeout(safetyTimeoutRef.current);
         safetyTimeoutRef.current = null;
       }
+      
       setProfile(data);
       setLoading(false);
     } catch (error) {
       console.error("[AuthContext] Error in fetchProfile:", error);
-      if (safetyTimeoutRef.current) {
-        clearTimeout(safetyTimeoutRef.current);
-        safetyTimeoutRef.current = null;
-      }
       setProfile(null);
       setLoading(false);
     } finally {
@@ -241,10 +113,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         safetyTimeoutRef.current = null;
       }
       isFetchingProfileRef.current = false;
-      if (currentUserIdRef.current === userId) {
-        currentUserIdRef.current = null;
-      }
-      console.log("[AuthContext] Profile fetch completed, loading set to false");
+      currentUserIdRef.current = null;
     }
   }, []);
 
