@@ -604,6 +604,7 @@ export default function LojaDashboard() {
                 dailySales: {},
                 totalMes: 0
             };
+            console.log(`[LojaDashboard] 🔄 Inicializando colaboradora ${colab.active ? 'ATIVA' : 'DESATIVADA'} "${colab.name}" (id: ${colab.id})`);
         });
 
         // Criar mapa de colaboradoras com data de desativação
@@ -694,10 +695,17 @@ export default function LojaDashboard() {
                     };
                 }
 
-                monthlyData[colabId].dailySales[day].valor += Number(sale.valor || 0);
+                const valorVenda = Number(sale.valor || 0);
+                monthlyData[colabId].dailySales[day].valor += valorVenda;
                 monthlyData[colabId].dailySales[day].qtdVendas += 1;
                 monthlyData[colabId].dailySales[day].qtdPecas += Number(sale.qtd_pecas || 0);
-                monthlyData[colabId].totalMes += Number(sale.valor || 0);
+                monthlyData[colabId].totalMes += valorVenda;
+                
+                // Log para colaboradoras desativadas
+                const colabInfo = colaboradorasMapWithDeactivation.get(colabId);
+                if (colabInfo && !colabInfo.active) {
+                    console.log(`[LojaDashboard] ✅ Venda processada para colaboradora DESATIVADA "${colabInfo.name}": R$ ${valorVenda.toFixed(2)} no dia ${day}, totalMes agora: R$ ${monthlyData[colabId].totalMes.toFixed(2)}`);
+                }
             });
         }
 
@@ -787,22 +795,29 @@ export default function LojaDashboard() {
         // Colaboradoras DESATIVADAS aparecem apenas se tiverem vendas REAIS (valor > 0) no mês
         const resultFiltered = result.filter(item => {
             const colab = colaboradorasData.find(c => c.id === item.colaboradoraId);
-            if (!colab) return false;
-            
-            // Se for colaboradora ativa, sempre incluir
-            if (colab.active) return true;
-            
-            // Se for desativada, verificar se tem vendas reais no mês
-            // Verificar se há vendas com valor > 0
-            const hasRealSales = item.totalMes > 0 || 
-                Object.values(item.dailySales).some((dayData: any) => dayData.valor > 0);
-            
-            if (!hasRealSales) {
-                console.log(`[LojaDashboard] ⏭️ Colaboradora desativada "${item.colaboradoraName}" sem vendas no mês, não incluindo no calendário`);
+            if (!colab) {
+                console.log(`[LojaDashboard] ⚠️ Colaboradora não encontrada no map para ${item.colaboradoraId}`);
                 return false;
             }
             
-            return true;
+            // Se for colaboradora ativa, sempre incluir
+            if (colab.active) {
+                console.log(`[LojaDashboard] ✅ Colaboradora ATIVA "${item.colaboradoraName}" incluída no calendário`);
+                return true;
+            }
+            
+            // Se for desativada, verificar se tem vendas reais no mês
+            // Verificar se há vendas com valor > 0 em qualquer dia
+            const hasRealSales = item.totalMes > 0 || 
+                Object.values(item.dailySales).some((dayData: any) => dayData.valor > 0);
+            
+            if (hasRealSales) {
+                console.log(`[LojaDashboard] ✅ Colaboradora DESATIVADA "${item.colaboradoraName}" com vendas no mês (R$ ${item.totalMes.toFixed(2)}), incluindo no calendário`);
+                return true;
+            } else {
+                console.log(`[LojaDashboard] ⏭️ Colaboradora desativada "${item.colaboradoraName}" sem vendas no mês (totalMes: ${item.totalMes}, dias com vendas: ${Object.values(item.dailySales).filter((d: any) => d.valor > 0).length}), não incluindo no calendário`);
+                return false;
+            }
         });
 
         console.log('[LojaDashboard] ✅ Dados mensais processados:', resultFiltered.length, 'colaboradoras');
@@ -1032,7 +1047,25 @@ export default function LojaDashboard() {
                 console.log(`[LojaDashboard]   ${idx + 1}. ${colab.name} (id: ${colab.id})`);
             });
 
-            const performance = colaboradorasToUse.map(colab => {
+            const performance = colaboradorasToUse
+                // Filtrar colaboradoras desativadas e sem meta ANTES de processar
+                .filter(colab => {
+                    // Garantir que colaboradora está ativa
+                    if (!colab.active) {
+                        console.log(`[LojaDashboard] ⏭️ Colaboradora desativada "${colab.name}" excluída do Planejamento do Dia`);
+                        return false;
+                    }
+                    
+                    // Verificar se tem meta lançada
+                    const goal = goalsData?.find(g => g.colaboradora_id === colab.id);
+                    if (!goal) {
+                        console.log(`[LojaDashboard] ⏭️ Colaboradora "${colab.name}" sem meta lançada, excluída do Planejamento do Dia`);
+                        return false;
+                    }
+                    
+                    return true;
+                })
+                .map(colab => {
                 // Vendas do dia
                 const colabSalesToday = salesToday?.filter(s => s.colaboradora_id === colab.id) || [];
                 const vendidoHoje = colabSalesToday.reduce((sum, s) => sum + Number(s.valor), 0);
@@ -1048,16 +1081,18 @@ export default function LojaDashboard() {
                 // Ticket médio do dia
                 const ticketMedio = qtdVendasHoje > 0 ? vendidoHoje / qtdVendasHoje : 0;
 
-                // Meta individual
-                const goal = goalsData.find(g => g.colaboradora_id === colab.id);
+                // Meta individual (já verificamos que existe no filter acima)
+                const goal = goalsData?.find(g => g.colaboradora_id === colab.id);
                 
                 if (goal) {
                     console.log(`[LojaDashboard]   ✅ Meta encontrada para ${colab.name}: R$ ${goal.meta_valor}`);
                 } else {
+                    // Não deve chegar aqui devido ao filter, mas mantemos para segurança
                     console.log(`[LojaDashboard]   ⚠️ Nenhuma meta encontrada para ${colab.name} (id: ${colab.id})`);
                     if (goalsData && goalsData.length > 0) {
                         console.log(`[LojaDashboard]     IDs de metas disponíveis:`, goalsData.map(g => g.colaboradora_id));
                     }
+                    return null; // Retornar null para ser filtrado depois
                 }
                 
                 if (goal) {
@@ -1098,29 +1133,31 @@ export default function LojaDashboard() {
                     ticketMedio,
                 };
                 } else {
-                    // Sem meta individual
-                    return {
-                        id: colab.id,
-                        name: colab.name,
-                        vendido: vendidoHoje,
-                        vendidoMes,
-                        meta: 0,
-                        metaDiaria: 0,
-                        superMeta: 0,
-                        percentual: 0,
-                        percentualMensal: 0,
-                        faltaMensal: 0,
-                        qtdVendas: qtdVendasHoje,
-                        qtdVendasMes,
-                        qtdPecas: qtdPecasHoje,
-                        qtdPecasMes,
-                        ticketMedio,
-                    };
+                    // Sem meta individual - não deve chegar aqui devido ao filter, mas retorna null para ser filtrado
+                    return null;
                 }
-            });
+            })
+            // Filtrar nulls (colaboradoras sem meta ou desativadas)
+            .filter(p => p !== null) as Array<{
+                id: string;
+                name: string;
+                vendido: number;
+                vendidoMes: number;
+                meta: number;
+                metaDiaria: number;
+                superMeta: number;
+                percentual: number;
+                percentualMensal: number;
+                faltaMensal: number;
+                qtdVendas: number;
+                qtdVendasMes: number;
+                qtdPecas: number;
+                qtdPecasMes: number;
+                ticketMedio: number;
+            }>;
 
-            // Filtrar apenas colaboradoras com meta ou com vendas
-            const performanceFiltered = performance.filter(p => p.meta > 0 || p.vendido > 0 || p.vendidoMes > 0);
+            // Filtro adicional: apenas colaboradoras com meta lançada (dupla verificação)
+            const performanceFiltered = performance.filter(p => p.meta > 0 && p.metaDiaria > 0);
             console.log('[LojaDashboard] 📊 Performance filtrada:', performanceFiltered.length, 'colaboradoras');
             performanceFiltered.forEach((p, idx) => {
                 console.log(`[LojaDashboard]   ${idx + 1}. ${p.name}: meta=R$ ${p.meta}, vendido hoje=R$ ${p.vendido}, vendido mês=R$ ${p.vendidoMes}`);
