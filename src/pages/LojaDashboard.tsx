@@ -701,8 +701,7 @@ export default function LojaDashboard() {
                 monthlyData[colabId].dailySales[day].qtdPecas += Number(sale.qtd_pecas || 0);
                 monthlyData[colabId].totalMes += valorVenda;
                 
-                // Log para colaboradoras desativadas
-                const colabInfo = colaboradorasMapWithDeactivation.get(colabId);
+                // Log para colaboradoras desativadas (colabInfo já foi definido acima)
                 if (colabInfo && !colabInfo.active) {
                     console.log(`[LojaDashboard] ✅ Venda processada para colaboradora DESATIVADA "${colabInfo.name}": R$ ${valorVenda.toFixed(2)} no dia ${day}, totalMes agora: R$ ${monthlyData[colabId].totalMes.toFixed(2)}`);
                 }
@@ -1994,6 +1993,14 @@ export default function LojaDashboard() {
                                             <span className="text-muted-foreground">Vendido:</span>
                                             <span className="font-bold text-primary">R$ {perf.vendido.toFixed(2)}</span>
                                         </div>
+                                        {perf.metaDiaria > 0 && (
+                                            <div className="flex items-center justify-between text-xs sm:text-sm">
+                                                <span className="text-muted-foreground">Falta:</span>
+                                                <span className={`font-semibold ${perf.vendido >= perf.metaDiaria ? 'text-green-600' : 'text-orange-600'}`}>
+                                                    R$ {Math.max(0, perf.metaDiaria - perf.vendido).toFixed(2)}
+                                                </span>
+                                            </div>
+                                        )}
                                         {/* Progresso */}
                                         <div className="space-y-1">
                                             <div className="flex items-center gap-2">
@@ -2403,8 +2410,8 @@ export default function LojaDashboard() {
                                                         }
                                                     }
                                                     
-                                                    // Calcular total por dia e total geral
-                                                    const totalGeral = monthlyDataByDay.reduce((sum, data) => sum + data.totalMes, 0);
+                                                    // Calcular total por dia
+                                                    // IMPORTANTE: Para total geral, usar monthlyRealizado que já inclui vendas de colaboradoras desativadas
                                                     const totalPorDia: Record<string, number> = {};
                                                     
                                                     days.forEach(dayStr => {
@@ -2429,7 +2436,8 @@ export default function LojaDashboard() {
                                                     ));
                                                 })()}
                                                 <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-primary/5 z-10 min-w-[120px] text-right">
-                                                    R$ {monthlyDataByDay.reduce((sum, data) => sum + data.totalMes, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    {/* Usar monthlyRealizado que já inclui vendas de colaboradoras desativadas até a data de desativação */}
+                                                    R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                 </TableCell>
                                             </TableRow>
                         </TableBody>

@@ -166,57 +166,62 @@ export const ColaboradoraCommercial = () => {
         </CardContent>
       </Card>
 
-      {/* Super Meta & Ritmo */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="shadow-md border-purple-200">
-          <CardHeader className="bg-gradient-to-r from-purple-50 to-purple-100/50">
-            <CardTitle className="flex items-center gap-2 text-purple-700">
-              <Zap className="h-5 w-5" />
-              Super Meta
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6 space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Meta Super</span>
-                <span className="text-xl font-bold text-purple-600">
-                  {formatCurrency(calculation.superMetaMensal)}
-                </span>
+      {/* Super Meta & Ritmo Necessário - Card Unificado */}
+      <Card className="shadow-md border-purple-200">
+        <CardHeader className="bg-gradient-to-r from-purple-50 to-purple-100/50">
+          <CardTitle className="flex items-center gap-2 text-purple-700">
+            <Zap className="h-5 w-5" />
+            Super Meta & Ritmo Necessário
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Super Meta */}
+            <div className="space-y-4">
+              <div className="pb-3 border-b">
+                <h3 className="text-sm font-semibold text-purple-700 mb-3">Super Meta</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Meta Super</span>
+                    <span className="text-xl font-bold text-purple-600">
+                      {formatCurrency(calculation.superMetaMensal)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Falta</span>
+                    <span className="text-lg font-semibold">
+                      {formatCurrency(Math.max(0, calculation.superMetaMensal - calculation.realizadoMensal))}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Falta</span>
-                <span className="text-lg font-semibold">
-                  {formatCurrency(calculation.superMetaMensal - calculation.realizadoMensal)}
-                </span>
-              </div>
-            </div>
-            <div className="pt-2 border-t">
-              <div className="text-sm text-muted-foreground mb-2">Necessário por dia</div>
-              <div className="text-xl font-bold text-purple-600">
-                {formatCurrency(calculation.ritmoSuperMeta)}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle>Ritmo Necessário</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6 space-y-4">
-            <div className="space-y-3">
               <div>
-                <div className="text-sm text-muted-foreground mb-1">Para bater a meta</div>
-                <div className="text-2xl font-bold text-primary">
-                  {formatCurrency(calculation.ritmoNecessario)}/dia
+                <div className="text-sm text-muted-foreground mb-2">Necessário por dia</div>
+                <div className="text-2xl font-bold text-purple-600">
+                  {formatCurrency(calculation.ritmoSuperMeta)}
                 </div>
               </div>
-              <div className="pt-2 border-t">
-                <div className="text-sm text-muted-foreground mb-1">
-                  Dias úteis restantes
-                </div>
-                <div className="text-xl font-semibold">
-                  {calculation.diasUteisRestantes} dias
+            </div>
+
+            {/* Ritmo Necessário */}
+            <div className="space-y-4">
+              <div className="pb-3 border-b">
+                <h3 className="text-sm font-semibold text-primary mb-3">Ritmo Necessário</h3>
+                <div className="space-y-2">
+                  <div>
+                    <div className="text-sm text-muted-foreground mb-1">Para bater a meta</div>
+                    <div className="text-2xl font-bold text-primary">
+                      {formatCurrency(calculation.ritmoNecessario)}/dia
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <div className="text-sm text-muted-foreground mb-1">
+                      Dias úteis restantes
+                    </div>
+                    <div className="text-xl font-semibold">
+                      {calculation.diasUteisRestantes} dias
+                    </div>
+                  </div>
                 </div>
               </div>
               {calculation.deficit > 0 && (
@@ -228,9 +233,9 @@ export const ColaboradoraCommercial = () => {
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Meta Semanal Gamificada - Separada para não encavalada */}
       <div className="mt-6">

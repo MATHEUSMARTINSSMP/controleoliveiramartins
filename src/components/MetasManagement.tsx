@@ -435,13 +435,37 @@ const MetasManagementContent = () => {
                 daily_weights: dailyWeights
             };
 
-            const { data: storeGoalData, error: storeError } = await supabase
+            // 1. Verificar se meta da loja já existe
+            const { data: existingStoreGoal } = await supabase
                 .from("goals")
-                .upsert(storePayload, { onConflict: 'store_id, mes_referencia, tipo, colaboradora_id' })
-                .select()
-                .single();
+                .select("id")
+                .eq("store_id", selectedStore)
+                .eq("mes_referencia", mesReferencia)
+                .eq("tipo", "MENSAL")
+                .is("colaboradora_id", null)
+                .maybeSingle();
 
-            if (storeError) throw storeError;
+            let storeGoalData;
+            if (existingStoreGoal) {
+                // UPDATE
+                const { data, error } = await supabase
+                    .from("goals")
+                    .update(storePayload)
+                    .eq("id", existingStoreGoal.id)
+                    .select()
+                    .single();
+                if (error) throw error;
+                storeGoalData = data;
+            } else {
+                // INSERT
+                const { data, error } = await supabase
+                    .from("goals")
+                    .insert(storePayload)
+                    .select()
+                    .single();
+                if (error) throw error;
+                storeGoalData = data;
+            }
 
             // 2. Create/Update Individual Goals
             const individualPayloads = colabGoals.map(c => ({
@@ -455,9 +479,32 @@ const MetasManagementContent = () => {
                 daily_weights: dailyWeights // Inherit weights
             }));
 
-            const { error: indError } = await supabase
-                .from("goals")
-                .upsert(individualPayloads, { onConflict: 'store_id, mes_referencia, tipo, colaboradora_id' });
+            // Para metas individuais, fazer UPDATE ou INSERT individualmente
+            for (const payload of individualPayloads) {
+                const { data: existingGoal } = await supabase
+                    .from("goals")
+                    .select("id")
+                    .eq("store_id", payload.store_id)
+                    .eq("mes_referencia", payload.mes_referencia)
+                    .eq("tipo", payload.tipo)
+                    .eq("colaboradora_id", payload.colaboradora_id)
+                    .maybeSingle();
+
+                if (existingGoal) {
+                    // UPDATE
+                    const { error } = await supabase
+                        .from("goals")
+                        .update(payload)
+                        .eq("id", existingGoal.id);
+                    if (error) throw error;
+                } else {
+                    // INSERT
+                    const { error } = await supabase
+                        .from("goals")
+                        .insert(payload);
+                    if (error) throw error;
+                }
+            }
 
             if (indError) throw indError;
 
