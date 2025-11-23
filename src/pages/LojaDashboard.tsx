@@ -2020,28 +2020,28 @@ export default function LojaDashboard() {
 
             {/* KPI Cards - Metas e Métricas */}
             {/* Primeiros 3 Cards Centralizados */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-4xl mx-auto mb-4 sm:mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto mb-6 sm:mb-8">
                 {/* Meta Mensal */}
                 <Card className="flex flex-col h-full">
-                    <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
-                        <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Meta Mensal</CardTitle>
+                    <CardHeader className="pb-4 p-5 sm:p-8 text-center border-b">
+                        <CardTitle className="text-base sm:text-lg font-semibold text-muted-foreground">Meta Mensal</CardTitle>
                         </CardHeader>
-                    <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
+                    <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
                         {goals ? (
-                            <div className="space-y-3 w-full">
-                                <p className="text-xl sm:text-3xl font-bold text-primary">R$ {goals.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                <p className="text-xs sm:text-sm text-muted-foreground">
+                            <div className="space-y-4 w-full">
+                                <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {goals.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                <p className="text-sm sm:text-base text-muted-foreground">
                                     Realizado: R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </p>
-                            <div className="space-y-2">
-                                    <div className="flex items-center gap-3 justify-between">
-                                        <Progress value={Math.min(monthlyProgress, 100)} className="h-3 flex-1" />
-                                        <span className="text-sm font-semibold text-primary whitespace-nowrap min-w-[45px] text-right">
+                            <div className="space-y-3">
+                                    <div className="flex items-center gap-4 justify-between">
+                                        <Progress value={Math.min(monthlyProgress, 100)} className="h-4 flex-1" />
+                                        <span className="text-base font-semibold text-primary whitespace-nowrap min-w-[50px] text-right">
                                             {monthlyProgress.toFixed(0)}%
                                         </span>
                                     </div>
                                 {goals.super_meta_valor && (
-                                        <p className="text-xs sm:text-sm text-muted-foreground flex items-center justify-center gap-1">
+                                        <p className="text-sm sm:text-base text-muted-foreground flex items-center justify-center gap-1.5">
                                             <span>🏆</span>
                                             <span>Super Meta: R$ {goals.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                     </p>
@@ -2049,9 +2049,9 @@ export default function LojaDashboard() {
                             </div>
                             </div>
                         ) : (
-                            <div className="space-y-2">
-                                <p className="text-xl sm:text-2xl font-bold text-muted-foreground">N/A</p>
-                                <p className="text-xs sm:text-sm text-destructive">
+                            <div className="space-y-3">
+                                <p className="text-2xl sm:text-3xl font-bold text-muted-foreground">N/A</p>
+                                <p className="text-sm sm:text-base text-destructive">
                                     Meta não encontrada
                                 </p>
                             </div>
@@ -2061,24 +2061,24 @@ export default function LojaDashboard() {
 
                 {/* Meta Diária */}
                 <Card className="flex flex-col h-full">
-                    <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
-                        <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Meta Diária (Hoje)</CardTitle>
+                    <CardHeader className="pb-4 p-5 sm:p-8 text-center border-b">
+                        <CardTitle className="text-base sm:text-lg font-semibold text-muted-foreground">Meta Diária (Hoje)</CardTitle>
                         </CardHeader>
-                    <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
+                    <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
                         {goals ? (
-                            <div className="space-y-3 w-full">
-                                <p className="text-xl sm:text-3xl font-bold text-primary">R$ {dailyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                <div className="flex items-center gap-3 justify-between">
-                                    <Progress value={Math.min(dailyProgress, 100)} className="h-3 flex-1" />
-                                    <span className="text-sm font-semibold text-primary whitespace-nowrap min-w-[45px] text-right">
+                            <div className="space-y-4 w-full">
+                                <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {dailyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                <div className="flex items-center gap-4 justify-between">
+                                    <Progress value={Math.min(dailyProgress, 100)} className="h-4 flex-1" />
+                                    <span className="text-base font-semibold text-primary whitespace-nowrap min-w-[50px] text-right">
                                         {dailyProgress.toFixed(0)}%
                                     </span>
                                 </div>
                             </div>
                         ) : (
-                            <div className="space-y-2">
-                                <p className="text-xl sm:text-2xl font-bold text-muted-foreground">N/A</p>
-                                <p className="text-xs sm:text-sm text-muted-foreground">
+                            <div className="space-y-3">
+                                <p className="text-2xl sm:text-3xl font-bold text-muted-foreground">N/A</p>
+                                <p className="text-sm sm:text-base text-muted-foreground">
                                     Aguardando meta mensal
                                 </p>
                             </div>
@@ -2088,13 +2088,13 @@ export default function LojaDashboard() {
 
                 {/* Faturamento Hoje */}
                 <Card className="flex flex-col h-full">
-                    <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
-                        <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Faturamento Hoje</CardTitle>
+                    <CardHeader className="pb-4 p-5 sm:p-8 text-center border-b">
+                        <CardTitle className="text-base sm:text-lg font-semibold text-muted-foreground">Faturamento Hoje</CardTitle>
                     </CardHeader>
-                    <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
-                        <div className="space-y-2 w-full">
-                            <p className="text-xl sm:text-3xl font-bold text-primary">R$ {sales.reduce((sum, s) => sum + s.valor, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                            <p className="text-xs sm:text-sm text-muted-foreground">{sales.length} {sales.length === 1 ? 'venda' : 'vendas'}</p>
+                    <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
+                        <div className="space-y-3 w-full">
+                            <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {sales.reduce((sum, s) => sum + s.valor, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                            <p className="text-sm sm:text-base text-muted-foreground">{sales.length} {sales.length === 1 ? 'venda' : 'vendas'}</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -2180,27 +2180,27 @@ export default function LojaDashboard() {
 
             {/* Planejamento do Dia - Cards por Vendedora */}
             {colaboradorasPerformance.length > 0 && (
-                <div className="w-full max-w-[1080px] mx-auto">
-                    <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6 text-center">Planejamento do Dia</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 justify-items-center">
+                <div className="w-full max-w-6xl mx-auto">
+                    <h2 className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8 text-center">Planejamento do Dia</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 justify-items-center">
                         {colaboradorasPerformance.map((perf) => (
-                            <Card key={perf.id} className="flex flex-col w-full max-w-[320px] h-[240px]">
-                                <CardHeader className="pb-3 p-4 text-center border-b">
-                                    <CardTitle className="text-sm font-semibold line-clamp-2 leading-tight min-h-[3rem]">{perf.name}</CardTitle>
+                            <Card key={perf.id} className="flex flex-col w-full max-w-[380px] h-[280px]">
+                                <CardHeader className="pb-4 p-5 sm:p-6 text-center border-b">
+                                    <CardTitle className="text-base font-semibold line-clamp-2 leading-tight min-h-[3.5rem]">{perf.name}</CardTitle>
                                 </CardHeader>
-                                <CardContent className="p-4 pt-4 flex-1 flex flex-col justify-center space-y-2.5">
+                                <CardContent className="p-5 sm:p-6 pt-5 sm:pt-6 flex-1 flex flex-col justify-center space-y-3">
                                     {/* Meta do Dia */}
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between text-sm">
+                                    <div className="space-y-2.5">
+                                        <div className="flex items-center justify-between text-base">
                                             <span className="text-muted-foreground">Meta do Dia</span>
                                             <span className="font-semibold">R$ {perf.metaDiaria > 0 ? perf.metaDiaria.toFixed(2) : '0.00'}</span>
                                         </div>
-                                        <div className="flex items-center justify-between text-sm">
+                                        <div className="flex items-center justify-between text-base">
                                             <span className="text-muted-foreground">Vendido:</span>
                                             <span className="font-bold text-primary">R$ {perf.vendido.toFixed(2)}</span>
                                         </div>
                                         {perf.metaDiaria > 0 && (
-                                            <div className="flex items-center justify-between text-sm">
+                                            <div className="flex items-center justify-between text-base">
                                                 <span className="text-muted-foreground">Falta:</span>
                                                 <span className={`font-semibold ${perf.vendido >= perf.metaDiaria ? 'text-green-600' : 'text-orange-600'}`}>
                                                     R$ {Math.max(0, perf.metaDiaria - perf.vendido).toFixed(2)}
@@ -2208,13 +2208,13 @@ export default function LojaDashboard() {
                                             </div>
                                         )}
                                         {/* Progresso */}
-                                        <div className="space-y-1 pt-1.5">
-                                            <div className="flex items-center gap-2">
+                                        <div className="space-y-1.5 pt-2">
+                                            <div className="flex items-center gap-3">
                                                 <Progress 
                                                     value={Math.min(perf.percentual, 100)} 
-                                                    className="h-2.5 flex-1"
+                                                    className="h-3 flex-1"
                                                 />
-                                                <span className="text-sm font-semibold whitespace-nowrap min-w-[45px] text-right">
+                                                <span className="text-base font-semibold whitespace-nowrap min-w-[50px] text-right">
                                                     {perf.percentual.toFixed(0)}%
                                                 </span>
                                             </div>
