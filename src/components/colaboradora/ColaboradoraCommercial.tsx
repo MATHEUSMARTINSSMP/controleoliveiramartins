@@ -166,7 +166,7 @@ export const ColaboradoraCommercial = () => {
         </CardContent>
       </Card>
 
-      {/* Super Meta & Ritmo Necessário - Card Unificado */}
+      {/* Super Meta & Ritmo Necessário - Card Reorganizado */}
       <Card className="shadow-md border-purple-200">
         <CardHeader className="bg-gradient-to-r from-purple-50 to-purple-100/50">
           <CardTitle className="flex items-center gap-2 text-purple-700">
@@ -175,63 +175,83 @@ export const ColaboradoraCommercial = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Super Meta */}
-            <div className="space-y-4">
-              <div className="pb-3 border-b">
-                <h3 className="text-sm font-semibold text-purple-700 mb-3">Super Meta</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Meta Super</span>
-                    <span className="text-xl font-bold text-purple-600">
-                      {formatCurrency(calculation.superMetaMensal)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Falta</span>
-                    <span className="text-lg font-semibold">
-                      {formatCurrency(Math.max(0, calculation.superMetaMensal - calculation.realizadoMensal))}
-                    </span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Super Meta - Card Interno */}
+            <div className="space-y-4 p-4 bg-gradient-to-br from-purple-50 to-purple-100/30 rounded-lg border border-purple-200">
+              <div className="flex items-center gap-2 mb-4">
+                <Target className="h-5 w-5 text-purple-600" />
+                <h3 className="text-base font-bold text-purple-700">Super Meta</h3>
+              </div>
+              
+              <div className="space-y-4">
+                {/* Meta Super */}
+                <div className="p-3 bg-white/60 rounded-lg border border-purple-100">
+                  <div className="text-xs text-muted-foreground mb-1">Meta Super</div>
+                  <div className="text-2xl font-bold text-purple-600">
+                    {formatCurrency(calculation.superMetaMensal)}
                   </div>
                 </div>
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground mb-2">Necessário por dia</div>
-                <div className="text-2xl font-bold text-purple-600">
-                  {formatCurrency(calculation.ritmoSuperMeta)}
+
+                {/* Falta */}
+                <div className="p-3 bg-white/60 rounded-lg border border-purple-100">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs text-muted-foreground">Falta para Super Meta</span>
+                  </div>
+                  <div className="text-xl font-bold text-purple-700">
+                    {formatCurrency(Math.max(0, calculation.superMetaMensal - calculation.realizadoMensal))}
+                  </div>
+                </div>
+
+                {/* Necessário por dia - Destaque */}
+                <div className="p-4 bg-purple-600 rounded-lg border-2 border-purple-700 shadow-md">
+                  <div className="text-xs text-purple-100 mb-2 font-medium">Necessário por dia</div>
+                  <div className="text-3xl font-bold text-white">
+                    {formatCurrency(calculation.ritmoSuperMeta)}
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Ritmo Necessário */}
-            <div className="space-y-4">
-              <div className="pb-3 border-b">
-                <h3 className="text-sm font-semibold text-primary mb-3">Ritmo Necessário</h3>
-                <div className="space-y-2">
-                  <div>
-                    <div className="text-sm text-muted-foreground mb-1">Para bater a meta</div>
-                    <div className="text-2xl font-bold text-primary">
-                      {formatCurrency(calculation.ritmoNecessario)}/dia
-                    </div>
-                  </div>
-                  <div className="pt-2 border-t">
-                    <div className="text-sm text-muted-foreground mb-1">
-                      Dias úteis restantes
-                    </div>
-                    <div className="text-xl font-semibold">
-                      {calculation.diasUteisRestantes} dias
-                    </div>
-                  </div>
-                </div>
+            {/* Ritmo Necessário - Card Interno */}
+            <div className="space-y-4 p-4 bg-gradient-to-br from-orange-50 to-orange-100/30 rounded-lg border border-orange-200">
+              <div className="flex items-center gap-2 mb-4">
+                <TrendingUp className="h-5 w-5 text-orange-600" />
+                <h3 className="text-base font-bold text-orange-700">Ritmo Necessário</h3>
               </div>
-              {calculation.deficit > 0 && (
-                <div className="p-3 bg-red-50 rounded-lg border border-red-200">
-                  <div className="text-xs text-red-600 font-medium mb-1">Déficit</div>
-                  <div className="text-lg font-bold text-red-700">
-                    {formatCurrency(calculation.deficit)}
+              
+              <div className="space-y-4">
+                {/* Para bater a meta - Destaque */}
+                <div className="p-4 bg-orange-600 rounded-lg border-2 border-orange-700 shadow-md">
+                  <div className="text-xs text-orange-100 mb-2 font-medium">Para bater a meta</div>
+                  <div className="text-3xl font-bold text-white">
+                    {formatCurrency(calculation.ritmoNecessario)}/dia
                   </div>
                 </div>
-              )}
+
+                {/* Dias úteis restantes */}
+                <div className="p-3 bg-white/60 rounded-lg border border-orange-100">
+                  <div className="text-xs text-muted-foreground mb-1">Dias úteis restantes</div>
+                  <div className="text-2xl font-bold text-orange-700">
+                    {calculation.diasUteisRestantes} dias
+                  </div>
+                </div>
+
+                {/* Déficit - Se houver */}
+                {calculation.deficit > 0 && (
+                  <div className="p-4 bg-red-100 rounded-lg border-2 border-red-300 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertCircle className="h-4 w-4 text-red-600" />
+                      <div className="text-xs font-semibold text-red-700 uppercase tracking-wide">Déficit</div>
+                    </div>
+                    <div className="text-2xl font-bold text-red-700">
+                      {formatCurrency(calculation.deficit)}
+                    </div>
+                    <div className="text-xs text-red-600 mt-1">
+                      Valor necessário para recuperar o atraso
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </CardContent>
