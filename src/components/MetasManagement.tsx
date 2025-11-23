@@ -418,6 +418,17 @@ const MetasManagementContent = () => {
         }));
     };
 
+    const handleToggleRecebeMeta = (id: string, recebeMeta: boolean) => {
+        setColabGoals(prev => prev.map(c => {
+            if (c.id !== id) return c;
+            // Se desativar, zerar as metas
+            if (!recebeMeta) {
+                return { ...c, recebeMeta: false, meta: 0, superMeta: 0 };
+            }
+            return { ...c, recebeMeta: true };
+        }));
+    };
+
     const validateTotal = () => {
         // Considerar apenas colaboradoras que recebem meta
         const colabsComMeta = colabGoals.filter(c => c.recebeMeta);
