@@ -204,7 +204,10 @@ export function formatParabensMessage(params: {
   valor: number;
   storeName?: string;
 }): string {
-  const { colaboradoraName, valor, storeName } = params;
+  const { colaboradoraName, valor } = params;
+  
+  // Extrair apenas o primeiro nome
+  const primeiroNome = colaboradoraName.split(' ')[0];
   
   const valorFormatado = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -212,7 +215,7 @@ export function formatParabensMessage(params: {
   }).format(valor);
 
   let message = `🎉 *Parabéns!*\n\n`;
-  message += `Parabéns, ${colaboradoraName}! 🎊\n\n`;
+  message += `Parabéns, ${primeiroNome}! 🎊\n\n`;
   message += `Você acabou de realizar uma venda de ${valorFormatado}!\n\n`;
   message += `Continue assim! Estamos muito orgulhosos do seu trabalho. 💪\n\n`;
   message += `Sistema EleveaOne 📊`;
