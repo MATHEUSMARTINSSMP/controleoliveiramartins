@@ -366,12 +366,24 @@ export const WhatsAppNotificationConfig = () => {
       }
 
       if (toInsert.length > 0) {
-        const { error } = await supabase
-          .schema('sistemaretiradas')
-          .from('whatsapp_notification_config')
-          .insert(toInsert);
+        // Inserir um por um para melhor tratamento de erros de duplicata
+        for (const item of toInsert) {
+          const { error } = await supabase
+            .schema('sistemaretiradas')
+            .from('whatsapp_notification_config')
+            .insert(item);
 
-        if (error) throw error;
+          if (error) {
+            // Se for erro de duplicata, ignorar (já existe)
+            if (error.code === '23505') {
+              console.warn('⚠️ Registro já existe, ignorando:', item);
+              // Não fazer nada, o registro já existe
+            } else {
+              console.error('❌ Erro ao inserir registro:', item, error);
+              throw error;
+            }
+          }
+        }
       }
 
       toast.success('Configurações salvas com sucesso!');
