@@ -184,6 +184,7 @@ const MetasManagementContent = () => {
     const fetchGoals = async () => {
         try {
             const { data, error } = await supabase
+                .schema("sistemaretiradas")
                 .from("goals")
                 .select(`*, stores (name), profiles (name)`)
                 .in("tipo", ["MENSAL", "INDIVIDUAL"])
@@ -232,6 +233,7 @@ const MetasManagementContent = () => {
     const fetchWeeklyGoals = async () => {
         try {
             const { data, error } = await supabase
+                .schema("sistemaretiradas")
                 .from("goals")
                 .select(`*, stores (name)`)
                 .eq("tipo", "SEMANAL")
@@ -437,6 +439,7 @@ const MetasManagementContent = () => {
 
             // 1. Verificar se meta da loja já existe
             const { data: existingStoreGoal } = await supabase
+                .schema("sistemaretiradas")
                 .from("goals")
                 .select("id")
                 .eq("store_id", selectedStore)
@@ -447,23 +450,31 @@ const MetasManagementContent = () => {
 
             let storeGoalData;
             if (existingStoreGoal) {
-                // UPDATE
+                // UPDATE - Se existe, atualizar
                 const { data, error } = await supabase
+                    .schema("sistemaretiradas")
                     .from("goals")
                     .update(storePayload)
                     .eq("id", existingStoreGoal.id)
                     .select()
                     .single();
-                if (error) throw error;
+                if (error) {
+                    console.error("Erro ao atualizar meta da loja:", error);
+                    throw error;
+                }
                 storeGoalData = data;
             } else {
-                // INSERT
+                // INSERT - Se não existe, criar
                 const { data, error } = await supabase
+                    .schema("sistemaretiradas")
                     .from("goals")
                     .insert(storePayload)
                     .select()
                     .single();
-                if (error) throw error;
+                if (error) {
+                    console.error("Erro ao criar meta da loja:", error);
+                    throw error;
+                }
                 storeGoalData = data;
             }
 
@@ -482,6 +493,7 @@ const MetasManagementContent = () => {
             // Para metas individuais, fazer UPDATE ou INSERT individualmente
             for (const payload of individualPayloads) {
                 const { data: existingGoal } = await supabase
+                    .schema("sistemaretiradas")
                     .from("goals")
                     .select("id")
                     .eq("store_id", payload.store_id)
@@ -491,18 +503,26 @@ const MetasManagementContent = () => {
                     .maybeSingle();
 
                 if (existingGoal) {
-                    // UPDATE
+                    // UPDATE - Se existe, atualizar
                     const { error } = await supabase
+                        .schema("sistemaretiradas")
                         .from("goals")
                         .update(payload)
                         .eq("id", existingGoal.id);
-                    if (error) throw error;
+                    if (error) {
+                        console.error(`Erro ao atualizar meta individual para colaboradora ${payload.colaboradora_id}:`, error);
+                        throw error;
+                    }
                 } else {
-                    // INSERT
+                    // INSERT - Se não existe, criar
                     const { error } = await supabase
+                        .schema("sistemaretiradas")
                         .from("goals")
                         .insert(payload);
-                    if (error) throw error;
+                    if (error) {
+                        console.error(`Erro ao criar meta individual para colaboradora ${payload.colaboradora_id}:`, error);
+                        throw error;
+                    }
                 }
             }
 
@@ -568,6 +588,7 @@ const MetasManagementContent = () => {
             
             // Get monthly individual goals
             const { data: monthlyGoals } = await supabase
+                .schema("sistemaretiradas")
                 .from("goals")
                 .select("colaboradora_id, meta_valor, super_meta_valor")
                 .eq("store_id", selectedStore)
@@ -687,6 +708,7 @@ const MetasManagementContent = () => {
 
             // Delete existing weekly goals for this store and week
             const { error: deleteError } = await supabase
+                .schema("sistemaretiradas")
                 .from("goals")
                 .delete()
                 .eq("store_id", selectedStore)
@@ -697,6 +719,7 @@ const MetasManagementContent = () => {
 
             // Insert new weekly goals
             const { error: insertError } = await supabase
+                .schema("sistemaretiradas")
                 .from("goals")
                 .insert(payloads);
 
@@ -719,6 +742,7 @@ const MetasManagementContent = () => {
 
         // Fetch all weekly goals for this store and week
         const { data: weeklyGoalsData } = await supabase
+            .schema("sistemaretiradas")
             .from("goals")
             .select("*, profiles (name)")
             .eq("store_id", goal.store_id)
