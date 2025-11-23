@@ -76,11 +76,17 @@ exports.handler = async (event, context) => {
     // Enviar via Webhook n8n
     // Formato esperado: { siteSlug, customerId, phoneNumber, message }
     // Header de autenticação: x-app-key (não Authorization)
+    // IMPORTANTE: Escapar a mensagem como string JSON para que funcione no n8n
+    // Quando o n8n usar {{ $json.message }} no JSON body, ele precisa receber
+    // uma string já escapada (com \n como \\n) para não quebrar o JSON
+    const messageEscaped = JSON.stringify(message); // Adiciona aspas e escapa \n, etc.
+    const messageSafe = messageEscaped.slice(1, -1); // Remove as aspas externas, mantém escapes
+    
     const payload = {
       siteSlug: siteSlug,
       customerId: customerId,
       phoneNumber: normalizedPhone, // Número COM DDI 55 (ex: 5596981032928)
-      message: message,
+      message: messageSafe, // Mensagem já escapada para uso direto no JSON do n8n
     };
 
     console.log('📦 Payload enviado:', JSON.stringify(payload, null, 2));

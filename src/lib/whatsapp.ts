@@ -100,29 +100,27 @@ export function formatVendaMessage(params: {
     currency: 'BRL',
   }).format(valor);
 
-  // Formatar mensagem com separadores visuais que funcionam em uma linha
-  // O n8n tem problemas com \n quando usa {{ $json.message }} no JSON body
-  // Usar separadores alternativos para melhor legibilidade
-  let message = `🛒 *Nova Venda Lançada*`;
+  // Formatar mensagem com quebras de linha usando \n
+  // A Netlify Function vai escapar corretamente a mensagem antes de enviar para o n8n
+  // Isso permite que o n8n use {{ $json.message }} sem quebrar o JSON
+  let message = `🛒 *Nova Venda Lançada*\n\n`;
   
-  message += ` • *Colaboradora:* ${colaboradoraName}`;
+  message += `*Colaboradora:* ${colaboradoraName}\n`;
   
   if (storeName) {
-    message += ` • *Loja:* ${storeName}`;
+    message += `*Loja:* ${storeName}\n`;
   }
   
-  message += ` • *Valor:* ${valorFormatado}`;
-  message += ` • *Quantidade de Peças:* ${qtdPecas}`;
-  message += ` • *Data:* ${dataFormatada}`;
+  message += `*Valor:* ${valorFormatado}\n`;
+  message += `*Quantidade de Peças:* ${qtdPecas}\n`;
+  message += `*Data:* ${dataFormatada}\n`;
   
-  // Adicionar observações se houver (em uma linha, sem quebras)
+  // Adicionar observações se houver
   if (observacoes && observacoes.trim()) {
-    // Substituir quebras de linha por espaços para manter tudo em uma linha
-    const obsLimpa = observacoes.trim().replace(/[\n\r]+/g, ' ').replace(/\s+/g, ' ');
-    message += ` • *Observações:* ${obsLimpa}`;
+    message += `\n*Observações:*\n${observacoes.trim()}\n`;
   }
   
-  message += ` • Sistema EleveaOne 📊`;
+  message += `\nSistema EleveaOne 📊`;
 
   return message;
 }
