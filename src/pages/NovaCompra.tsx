@@ -276,7 +276,20 @@ const NovaCompra = () => {
     // Concatenar todos os itens
     const itemsDescricao = items.map(item => item.item).filter(i => i).join(", ");
     const totalVenda = items.reduce((sum, item) => sum + (parseFloat(item.preco_venda) || 0), 0);
-    const totalDesconto = items.reduce((sum, item) => sum + (parseFloat(item.desconto_beneficio) || 0), 0);
+    
+    // Calcular total de desconto considerando tipo (financeiro ou percentual)
+    const totalDesconto = items.reduce((sum, item) => {
+      const venda = parseFloat(item.preco_venda) || 0;
+      const descontoValor = parseFloat(item.desconto_beneficio) || 0;
+      
+      if (item.tipo_desconto === "percentual") {
+        // Desconto percentual: calcular valor em R$
+        return sum + ((venda * descontoValor) / 100);
+      } else {
+        // Desconto financeiro: usar valor direto
+        return sum + descontoValor;
+      }
+    }, 0);
 
     // Criar compra
     const { data: purchase, error: purchaseError } = await supabase
