@@ -53,7 +53,7 @@ export const Achievements: React.FC<AchievementsProps> = ({ colaboradoraId, stor
       }
 
       // Converter dados da tabela para o formato Achievement
-      const achievementsList: Achievement[] = (trophiesData || []).map((trophy: any) => ({
+      const allAchievements: Achievement[] = (trophiesData || []).map((trophy: any) => ({
         id: trophy.id,
         type: trophy.tipo,
         mes_referencia: trophy.mes_referencia || undefined,
@@ -64,7 +64,48 @@ export const Achievements: React.FC<AchievementsProps> = ({ colaboradoraId, stor
         percentual: Number(trophy.percentual)
       }));
 
-      setAchievements(achievementsList);
+      // Filtrar: se tiver META e SUPER_META na mesma semana/mês, mostrar apenas SUPER_META
+      const filteredAchievements: Achievement[] = [];
+      const groupedByPeriod = new Map<string, Achievement[]>();
+
+      // Agrupar por período (semana ou mês)
+      allAchievements.forEach((achievement) => {
+        const periodKey = achievement.semana_referencia 
+          ? `SEMANA_${achievement.semana_referencia}`
+          : `MES_${achievement.mes_referencia}`;
+        
+        if (!groupedByPeriod.has(periodKey)) {
+          groupedByPeriod.set(periodKey, []);
+        }
+        groupedByPeriod.get(periodKey)!.push(achievement);
+      });
+
+      // Para cada período, escolher apenas a maior conquista
+      groupedByPeriod.forEach((achievementsInPeriod) => {
+        // Ordenar por prioridade: SUPER_META > META
+        const priorityOrder = {
+          'SUPER_META_SEMANAL': 1,
+          'META_SEMANAL': 2,
+          'SUPER_META_MENSAL': 3,
+          'META_MENSAL': 4
+        };
+
+        achievementsInPeriod.sort((a, b) => {
+          const priorityA = priorityOrder[a.type] || 999;
+          const priorityB = priorityOrder[b.type] || 999;
+          return priorityA - priorityB;
+        });
+
+        // Adicionar apenas o primeiro (maior conquista)
+        filteredAchievements.push(achievementsInPeriod[0]);
+      });
+
+      // Ordenar por data de conquista (mais recente primeiro)
+      filteredAchievements.sort((a, b) => 
+        new Date(b.data_conquista).getTime() - new Date(a.data_conquista).getTime()
+      );
+
+      setAchievements(filteredAchievements);
     } catch (error) {
       console.error("Erro ao buscar conquistas:", error);
       setAchievements([]);
