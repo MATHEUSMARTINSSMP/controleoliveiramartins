@@ -99,18 +99,20 @@ export function formatVendaMessage(params: {
     currency: 'BRL',
   }).format(valor);
 
-  let message = `🛒 *Nova Venda Lançada*\n\n`;
-  message += `*Colaboradora:* ${colaboradoraName}\n`;
+  // Formatar mensagem em uma linha (sem quebras de linha)
+  // O formato que funcionou no webhook n8n era tudo em uma linha com espaços
+  let message = `🛒 *Nova Venda Lançada* `;
+  message += `*Colaboradora:* ${colaboradoraName} `;
   
   if (storeName) {
-    message += `*Loja:* ${storeName}\n`;
+    message += `*Loja:* ${storeName} `;
   }
   
-  message += `*Valor:* ${valorFormatado}\n`;
-  message += `*Quantidade de Peças:* ${qtdPecas}\n`;
-  message += `*Data:* ${dataFormatada}\n\n`;
+  message += `*Valor:* ${valorFormatado} `;
+  message += `*Quantidade de Peças:* ${qtdPecas} `;
+  message += `*Data:* ${dataFormatada} `;
   message += `Sistema EleveaOne 📊`;
 
-  return message;
+  return message.trim();
 }
 
