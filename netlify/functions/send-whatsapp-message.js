@@ -63,10 +63,11 @@ exports.handler = async (event, context) => {
     };
 
     const normalizedPhone = normalizePhone(phone);
-    const webhookUrl = process.env.WHATSAPP_WEBHOOK_URL || 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send';
-    const webhookAuth = process.env.WHATSAPP_WEBHOOK_AUTH || '#mmP220411';
-    const siteSlug = process.env.WHATSAPP_SITE_SLUG || 'elevea';
-    const customerId = process.env.WHATSAPP_CUSTOMER_ID || 'mathmartins@gmail.com';
+    // Usando EXATAMENTE as mesmas credenciais do teste que funcionou
+    const webhookUrl = 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send';
+    const webhookAuth = '#mmP220411';
+    const siteSlug = 'elevea';
+    const customerId = 'mathmartins@gmail.com';
 
     console.log('📱 Enviando mensagem WhatsApp via Webhook n8n para:', normalizedPhone);
     console.log('📱 Webhook URL:', webhookUrl);
@@ -88,13 +89,19 @@ exports.handler = async (event, context) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'x-app-key': webhookAuth, // Header de autenticação: x-app-key (não Authorization)
+        'X-APP-KEY': webhookAuth, // Header de autenticação: X-APP-KEY (exatamente como no teste)
       },
       body: JSON.stringify(payload),
     });
 
-    const responseData = await response.json();
+    // Tentar ler resposta como JSON, mas tratar caso não seja
+    let responseData;
+    const responseText = await response.text();
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (e) {
+      responseData = { message: responseText };
+    }
 
     if (!response.ok) {
       throw new Error(responseData.message || `HTTP ${response.status}`);

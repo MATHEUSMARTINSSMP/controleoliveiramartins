@@ -66,6 +66,33 @@ A função Netlify usa um webhook n8n que busca as credenciais UAZAPI do banco d
 - Customer ID: `mathmartins@gmail.com` (usado para buscar credenciais no banco)
 - Site Slug: `elevea` (usado para buscar credenciais no banco)
 
+**⚠️ IMPORTANTE - Configuração CORS no webhook n8n:**
+
+O webhook n8n precisa estar configurado para aceitar requisições da origem do seu site. No painel de configuração do webhook n8n:
+
+1. **Allowed Origins (CORS)**: Adicione a URL do seu site Netlify
+   - Exemplo: `https://controleoliveiramartins.netlify.app` ou `https://eleveaagencia.netlify.app`
+   - Para aceitar múltiplas origens, adicione cada uma separadamente
+   - Para desenvolvimento local, também adicione: `http://localhost:8888` (Netlify Dev)
+
+2. **Response Headers**: Configure os seguintes headers:
+   - `Access-Control-Allow-Origin`: URL do seu site (ou `*` para permitir todas)
+   - `Access-Control-Allow-Methods`: `POST, OPTIONS`
+   - `Access-Control-Allow-Headers`: `Content-Type, X-APP-KEY`
+
+**Como verificar qual é a URL do seu site:**
+- Acesse o Netlify Dashboard → Site Settings → Domain management
+- Ou verifique a URL no navegador quando acessar o site em produção
+
+**Exemplo de configuração no webhook n8n:**
+```
+Allowed Origins (CORS): *
+Response Headers:
+  - Access-Control-Allow-Origin: https://seu-site.netlify.app
+  - Access-Control-Allow-Methods: POST, OPTIONS
+  - Access-Control-Allow-Headers: Content-Type, X-APP-KEY
+```
+
 **O webhook n8n executa esta query no PostgreSQL:**
 ```sql
 SELECT
@@ -133,6 +160,9 @@ Sistema EleveaOne 📊
 ### Mensagem não está sendo enviada
 
 1. **Verifique o console do navegador**: Procure por erros relacionados ao WhatsApp
+   - Erro CORS: Se aparecer "CORS policy" ou "Access-Control-Allow-Origin", o webhook n8n não está configurado para aceitar requisições da origem do seu site
+   - **Solução**: Adicione a URL do seu site nas configurações CORS do webhook n8n (veja seção "Configurar Webhook n8n" acima)
+
 2. **Verifique se há destinatários cadastrados**: Execute no Supabase:
    ```sql
    SELECT wr.*, p.name as admin_name
@@ -141,6 +171,7 @@ Sistema EleveaOne 📊
    WHERE wr.active = true AND p.role = 'ADMIN' AND p.active = true;
    ```
    - Se não houver resultados, adicione destinatários na tabela `whatsapp_recipients`
+
 3. **Verifique as credenciais no banco**: Execute no Supabase:
    ```sql
    SELECT * FROM elevea.whatsapp_credentials
@@ -149,9 +180,35 @@ Sistema EleveaOne 📊
      AND status = 'active';
    ```
    - O webhook n8n precisa encontrar estas credenciais para funcionar
+
 4. **Verifique as variáveis de ambiente no Netlify** (opcional): Certifique-se de que as variáveis estão configuradas ou que os valores padrão no código estão corretos
+
 5. **Teste a função Netlify diretamente**: Use o Netlify Dev local ou faça uma requisição direta para `.netlify/functions/send-whatsapp-message`
-6. **Verifique o webhook n8n**: Confira se o workflow do n8n está ativo e funcionando corretamente
+
+6. **Verifique o webhook n8n**:
+   - Confira se o workflow do n8n está ativo e funcionando corretamente
+   - **Verifique as configurações CORS**: O webhook deve aceitar requisições da origem do seu site
+   - Verifique se o header `X-APP-KEY` está configurado corretamente
+
+### Erro CORS (Cross-Origin Resource Sharing)
+
+**Sintomas:**
+- Erro no console: `Access to fetch at '...' from origin '...' has been blocked by CORS policy`
+- Requisição não chega ao webhook n8n
+
+**Solução:**
+1. Acesse o painel de configuração do webhook n8n
+2. Adicione a URL do seu site Netlify no campo "Allowed Origins (CORS)"
+3. Certifique-se de que os Response Headers estão configurados corretamente:
+   - `Access-Control-Allow-Origin`: URL do seu site
+   - `Access-Control-Allow-Methods`: `POST, OPTIONS`
+   - `Access-Control-Allow-Headers`: `Content-Type, X-APP-KEY`
+4. Para permitir desenvolvimento local, também adicione: `http://localhost:8888`
+
+**URLs comuns do Netlify:**
+- `https://controleoliveiramartins.netlify.app`
+- `https://eleveaagencia.netlify.app`
+- `https://[seu-site].netlify.app`
 
 ### Erro ao normalizar telefone
 

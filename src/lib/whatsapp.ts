@@ -22,32 +22,49 @@ export async function sendWhatsAppMessage({
   message,
 }: SendWhatsAppParams): Promise<SendWhatsAppResponse> {
   try {
+    console.log('📱 [sendWhatsAppMessage] Iniciando envio de WhatsApp...');
+    console.log('📱 [sendWhatsAppMessage] Telefone:', phone);
+    console.log('📱 [sendWhatsAppMessage] Mensagem (primeiros 100 chars):', message.substring(0, 100));
+    
     // Detectar se está em desenvolvimento ou produção
     const isDevelopment = import.meta.env.DEV;
     const baseUrl = isDevelopment
       ? 'http://localhost:8888' // Netlify Dev local
       : window.location.origin; // Produção
 
-    const response = await fetch(`${baseUrl}/.netlify/functions/send-whatsapp-message`, {
+    const functionUrl = `${baseUrl}/.netlify/functions/send-whatsapp-message`;
+    console.log('📱 [sendWhatsAppMessage] URL da função Netlify:', functionUrl);
+    console.log('📱 [sendWhatsAppMessage] Ambiente:', isDevelopment ? 'DESENVOLVIMENTO' : 'PRODUÇÃO');
+
+    const payload = {
+      phone,
+      message,
+    };
+
+    console.log('📱 [sendWhatsAppMessage] Enviando requisição para Netlify Function...');
+    const response = await fetch(functionUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        phone,
-        message,
-      }),
+      body: JSON.stringify(payload),
     });
 
+    console.log('📱 [sendWhatsAppMessage] Resposta recebida. Status:', response.status, response.statusText);
+
     const data = await response.json();
+    console.log('📱 [sendWhatsAppMessage] Dados da resposta:', data);
 
     if (!response.ok) {
+      console.error('📱 [sendWhatsAppMessage] ❌ Erro na resposta:', data);
       throw new Error(data.error || 'Erro ao enviar mensagem WhatsApp');
     }
 
+    console.log('📱 [sendWhatsAppMessage] ✅ Mensagem enviada com sucesso!');
     return data;
   } catch (error: any) {
-    console.error('Erro ao enviar mensagem WhatsApp:', error);
+    console.error('📱 [sendWhatsAppMessage] ❌ Erro ao enviar mensagem WhatsApp:', error);
+    console.error('📱 [sendWhatsAppMessage] Stack:', error.stack);
     return {
       success: false,
       error: error.message || String(error),

@@ -1492,14 +1492,25 @@ export default function LojaDashboard() {
             console.error(error);
         } else {
             // PRIORIDADE 1: Salvar venda (já salvo acima)
+            // IMPORTANTE: Salvar dados da venda ANTES de resetar o form
+            const vendaData = {
+                colaboradora_id: formData.colaboradora_id,
+                valor: formData.valor,
+                qtd_pecas: formData.qtd_pecas,
+                data_venda: formData.data_venda,
+            };
+
             toast.success('Venda lançada com sucesso!');
             setDialogOpen(false);
-            resetForm();
+            resetForm(); // Resetar form após salvar os dados
             
             // PRIORIDADE 2: Enviar WhatsApp em background (não bloqueia UI)
             // Buscar dados para enviar WhatsApp para os administradores
             // Buscar nome da colaboradora e destinatários WhatsApp de todos os admins ativos
-            if (formData.colaboradora_id) {
+            if (vendaData.colaboradora_id) {
+                console.log('📱 Iniciando processo de envio de WhatsApp...');
+                console.log('📱 Dados da venda:', vendaData);
+                
                 // Executar tudo em background sem bloquear a UI
                 (async () => {
                     try {
@@ -1509,7 +1520,7 @@ export default function LojaDashboard() {
                             supabase
                                 .from('profiles')
                                 .select('name')
-                                .eq('id', formData.colaboradora_id)
+                                .eq('id', vendaData.colaboradora_id)
                                 .single(),
                             // Buscar IDs dos admins ativos
                             supabase
@@ -1519,18 +1530,35 @@ export default function LojaDashboard() {
                                 .eq('active', true)
                         ]);
 
+                        if (colaboradoraResult.error) {
+                            console.error('❌ Erro ao buscar colaboradora:', colaboradoraResult.error);
+                            return;
+                        }
+
+                        if (adminsResult.error) {
+                            console.error('❌ Erro ao buscar admins:', adminsResult.error);
+                            return;
+                        }
+
                         const colaboradoraName = colaboradoraResult.data?.name || 'Desconhecida';
+                        console.log('📱 Colaboradora:', colaboradoraName);
+                        console.log('📱 Admins encontrados:', adminsResult.data?.length || 0);
                         
                         // Segundo: buscar destinatários WhatsApp dos admins encontrados
                         let adminPhones: string[] = [];
                         if (adminsResult.data && adminsResult.data.length > 0) {
                             const adminIds = adminsResult.data.map((admin: any) => admin.id);
                             
-                            const { data: recipientsData } = await supabase
+                            const { data: recipientsData, error: recipientsError } = await supabase
                                 .from('whatsapp_recipients')
                                 .select('phone')
                                 .eq('active', true)
                                 .in('admin_id', adminIds);
+
+                            if (recipientsError) {
+                                console.error('❌ Erro ao buscar destinatários WhatsApp:', recipientsError);
+                                return;
+                            }
 
                             // Extrair lista de números dos destinatários
                             if (recipientsData && recipientsData.length > 0) {
@@ -1547,16 +1575,22 @@ export default function LojaDashboard() {
                             }
                         }
 
+                        console.log('📱 Destinatários WhatsApp encontrados:', adminPhones.length);
+                        if (adminPhones.length > 0) {
+                            console.log('📱 Números:', adminPhones);
+                        }
+
                         // Enviar mensagem WhatsApp para todos os números em background
                         if (adminPhones.length > 0) {
                             const message = formatVendaMessage({
                                 colaboradoraName,
-                                valor: parseFloat(formData.valor),
-                                qtdPecas: parseInt(formData.qtd_pecas),
+                                valor: parseFloat(vendaData.valor),
+                                qtdPecas: parseInt(vendaData.qtd_pecas),
                                 storeName: storeName || undefined,
-                                dataVenda: formData.data_venda,
+                                dataVenda: vendaData.data_venda,
                             });
 
+                            console.log('📱 Mensagem formatada:', message);
                             console.log(`📱 Enviando WhatsApp para ${adminPhones.length} destinatário(s)...`);
 
                             // Enviar para todos os números em paralelo (não bloqueia)
@@ -1582,17 +1616,20 @@ export default function LojaDashboard() {
                                 console.error('❌ Erro geral ao enviar WhatsApp:', err);
                             });
                         } else {
-                            console.log('⚠️ Nenhum destinatário WhatsApp ativo encontrado. Mensagem não será enviada.');
+                            console.warn('⚠️ Nenhum destinatário WhatsApp ativo encontrado. Mensagem não será enviada.');
+                            console.warn('⚠️ Verifique se há destinatários cadastrados na tabela whatsapp_recipients para os admins ativos.');
                         }
                     } catch (err) {
                         console.error('❌ Erro ao buscar dados para WhatsApp:', err);
                         // Não mostrar erro ao usuário, apenas log
                     }
                 })();
+            } else {
+                console.log('⚠️ Nenhuma colaboradora selecionada. WhatsApp não será enviado.');
             }
             
             // Verificar e criar troféus automaticamente
-            if (formData.colaboradora_id) {
+            if (vendaData.colaboradora_id) {
                 const hoje = new Date();
                 const monday = startOfWeek(hoje, { weekStartsOn: 1 });
                 const week = getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
@@ -1601,8 +1638,8 @@ export default function LojaDashboard() {
                 
                 // Verificar troféus mensais e semanais em background (não bloquear UI)
                 Promise.all([
-                    checkAndCreateMonthlyTrophies(formData.colaboradora_id, storeId),
-                    checkAndCreateWeeklyTrophies(formData.colaboradora_id, storeId, semanaRef)
+                    checkAndCreateMonthlyTrophies(vendaData.colaboradora_id, storeId),
+                    checkAndCreateWeeklyTrophies(vendaData.colaboradora_id, storeId, semanaRef)
                 ]).catch(err => console.error('Erro ao verificar troféus:', err));
             }
             
