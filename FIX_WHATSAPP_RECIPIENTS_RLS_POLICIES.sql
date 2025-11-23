@@ -32,9 +32,9 @@ USING (
   EXISTS (
     SELECT 1
     FROM sistemaretiradas.profiles p
-    JOIN sistemaretiradas.stores s ON s.id = p.store_default
+    JOIN sistemaretiradas.stores s ON s.id = p.store_default::uuid
     WHERE p.id = auth.uid()
-    AND p.role = 'LOJA'
+    AND p.role::text = 'LOJA'
     AND p.store_default IS NOT NULL
     AND s.admin_id IS NOT NULL
     AND s.admin_id = sistemaretiradas.whatsapp_recipients.admin_id
