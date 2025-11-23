@@ -183,19 +183,49 @@ export default function SolicitarAdiantamento() {
 
         // Buscar destinatários WhatsApp configurados para ADIANTAMENTO
         console.log('📱 [3/5] Buscando destinatários WhatsApp para ADIANTAMENTO...');
+        console.log('📱 [3/5] Admin ID:', storeData.admin_id);
+        console.log('📱 [3/5] Store ID da colaboradora:', colaboradoraData.store_id);
+        
+        // Primeiro, buscar TODOS os registros de ADIANTAMENTO para este admin (sem filtro de store_id ou active)
+        const { data: allRecipients, error: allRecipientsError } = await supabase
+          .schema('sistemaretiradas')
+          .from('whatsapp_notification_config')
+          .select('*')
+          .eq('admin_id', storeData.admin_id)
+          .eq('notification_type', 'ADIANTAMENTO');
+        
+        if (allRecipientsError) {
+          console.error('❌ Erro ao buscar todos os destinatários:', allRecipientsError);
+        } else {
+          console.log('📱 [3/5] Total de registros ADIANTAMENTO para este admin:', allRecipients?.length || 0);
+          if (allRecipients && allRecipients.length > 0) {
+            console.log('📱 [3/5] Registros encontrados:', allRecipients.map(r => ({
+              id: r.id,
+              phone: r.phone,
+              store_id: r.store_id,
+              active: r.active
+            })));
+          }
+        }
+        
+        // Agora buscar com filtros corretos
         const { data: recipientsAllStores, error: recipientsAllError } = await supabase
           .schema('sistemaretiradas')
           .from('whatsapp_notification_config')
           .select('phone')
           .eq('admin_id', storeData.admin_id)
           .eq('notification_type', 'ADIANTAMENTO')
-          .eq('active', true)
           .is('store_id', null);
         
         if (recipientsAllError) {
           console.error('❌ Erro ao buscar destinatários (todas as lojas):', recipientsAllError);
+          console.error('❌ Código do erro:', recipientsAllError.code);
+          console.error('❌ Mensagem do erro:', recipientsAllError.message);
         } else {
-          console.log('📱 [3/5] Destinatários (todas as lojas):', recipientsAllStores?.length || 0);
+          console.log('📱 [3/5] Destinatários (todas as lojas - store_id IS NULL):', recipientsAllStores?.length || 0);
+          if (recipientsAllStores && recipientsAllStores.length > 0) {
+            console.log('📱 [3/5] Números (todas as lojas):', recipientsAllStores.map(r => r.phone));
+          }
         }
         
         const { data: recipientsThisStore, error: recipientsStoreError } = await supabase
@@ -204,13 +234,17 @@ export default function SolicitarAdiantamento() {
           .select('phone')
           .eq('admin_id', storeData.admin_id)
           .eq('notification_type', 'ADIANTAMENTO')
-          .eq('active', true)
           .eq('store_id', colaboradoraData.store_id);
         
         if (recipientsStoreError) {
           console.error('❌ Erro ao buscar destinatários (loja específica):', recipientsStoreError);
+          console.error('❌ Código do erro:', recipientsStoreError.code);
+          console.error('❌ Mensagem do erro:', recipientsStoreError.message);
         } else {
-          console.log('📱 [3/5] Destinatários (loja específica):', recipientsThisStore?.length || 0);
+          console.log('📱 [3/5] Destinatários (loja específica - store_id = ' + colaboradoraData.store_id + '):', recipientsThisStore?.length || 0);
+          if (recipientsThisStore && recipientsThisStore.length > 0) {
+            console.log('📱 [3/5] Números (loja específica):', recipientsThisStore.map(r => r.phone));
+          }
         }
         
         // Combinar resultados e remover duplicatas
