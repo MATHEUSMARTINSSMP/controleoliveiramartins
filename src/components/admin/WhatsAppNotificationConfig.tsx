@@ -61,6 +61,23 @@ export const WhatsAppNotificationConfig = () => {
     }
   }, [profile]);
 
+  const normalizePhone = (phone: string): string => {
+    // Remove tudo que não é número
+    let cleaned = phone.replace(/\D/g, '');
+    
+    // Se começar com 55 (DDI do Brasil), remover
+    if (cleaned.startsWith('55')) {
+      cleaned = cleaned.substring(2);
+    }
+    
+    // Se começar com 0, remover
+    if (cleaned.startsWith('0')) {
+      cleaned = cleaned.substring(1);
+    }
+    
+    return cleaned;
+  };
+
   const fetchStores = async () => {
     if (!profile) return;
     
@@ -95,7 +112,15 @@ export const WhatsAppNotificationConfig = () => {
         .order('notification_type', { ascending: true })
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro ao buscar configurações:', error);
+        throw error;
+      }
+
+      console.log('📱 [fetchConfigs] Dados recebidos do banco:', data?.length || 0, 'registros');
+      if (data && data.length > 0) {
+        console.log('📱 [fetchConfigs] Primeiro registro:', data[0]);
+      }
 
       // Agrupar por tipo de notificação e telefone
       // Agrupar registros com mesmo telefone e tipo, coletando todas as lojas
@@ -137,11 +162,21 @@ export const WhatsAppNotificationConfig = () => {
         return acc;
       }, {} as Record<string, NotificationRecipient[]>);
 
+      console.log('📱 [fetchConfigs] Agrupado por tipo:', {
+        VENDA: grouped['VENDA']?.length || 0,
+        ADIANTAMENTO: grouped['ADIANTAMENTO']?.length || 0,
+        PARABENS: grouped['PARABENS']?.length || 0,
+      });
+
       // Atualizar configs com dados do banco
-      setConfigs(prev => prev.map(config => ({
-        ...config,
-        recipients: grouped[config.type] || []
-      })));
+      setConfigs(prev => prev.map(config => {
+        const recipients = grouped[config.type] || [];
+        console.log(`📱 [fetchConfigs] Config ${config.type}: ${recipients.length} recipients`);
+        return {
+          ...config,
+          recipients
+        };
+      }));
 
     } catch (error: any) {
       console.error('Erro ao buscar configurações:', error);
@@ -206,23 +241,6 @@ export const WhatsAppNotificationConfig = () => {
       }
       return config;
     }));
-  };
-
-  const normalizePhone = (phone: string): string => {
-    // Remove tudo que não é número
-    let cleaned = phone.replace(/\D/g, '');
-    
-    // Se começar com 55 (DDI do Brasil), remover
-    if (cleaned.startsWith('55')) {
-      cleaned = cleaned.substring(2);
-    }
-    
-    // Se começar com 0, remover
-    if (cleaned.startsWith('0')) {
-      cleaned = cleaned.substring(1);
-    }
-    
-    return cleaned;
   };
 
   const validatePhone = (phone: string): boolean => {
