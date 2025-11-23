@@ -3,24 +3,15 @@
 -- Data: 2025-11-23
 
 -- ============================================
--- 1. VINCULAR LOJA "Mr. Kitsch" AO ADMIN
+-- 1. VINCULAR TODAS AS LOJAS AO ADMIN
 -- ============================================
 
--- Vincular a loja "Mr. Kitsch" ao admin existente
+-- Vincular todas as 3 lojas ao admin existente
+-- Admin: Administrador Sistema (ID: 7391610a-f83b-4727-875f-81299b8bfa68)
 UPDATE sistemaretiradas.stores
 SET admin_id = '7391610a-f83b-4727-875f-81299b8bfa68'  -- ID do Administrador Sistema
-WHERE name = 'Mr. Kitsch' 
+WHERE name IN ('Mr. Kitsch', 'Loungerie', 'Sacada | Oh, Boy')
   AND admin_id IS NULL;
-
--- ============================================
--- 2. VINCULAR OUTRAS LOJAS (OPCIONAL)
--- ============================================
-
--- Se quiser vincular outras lojas ao mesmo admin, descomente e ajuste:
--- UPDATE sistemaretiradas.stores
--- SET admin_id = '7391610a-f83b-4727-875f-81299b8bfa68'
--- WHERE name IN ('Loungerie', 'Sacada | Oh, Boy')
---   AND admin_id IS NULL;
 
 -- ============================================
 -- 3. VERIFICAÇÃO
