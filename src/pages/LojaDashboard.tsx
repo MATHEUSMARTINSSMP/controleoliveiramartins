@@ -2186,7 +2186,7 @@ export default function LojaDashboard() {
                         {colaboradorasPerformance.map((perf) => (
                             <Card key={perf.id} className="flex flex-col w-full max-w-[380px] h-[280px]">
                                 <CardHeader className="pb-4 p-5 sm:p-6 text-center border-b">
-                                    <CardTitle className="text-base font-semibold line-clamp-2 leading-tight min-h-[3.5rem]">{perf.name}</CardTitle>
+                                    <CardTitle className="text-lg font-semibold leading-snug min-h-[3.5rem]">{perf.name}</CardTitle>
                                 </CardHeader>
                                 <CardContent className="p-5 sm:p-6 pt-5 sm:pt-6 flex-1 flex flex-col justify-center space-y-3">
                                     {/* Meta do Dia */}
