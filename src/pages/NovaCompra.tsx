@@ -55,6 +55,7 @@ const NovaCompra = () => {
       item: "",
       preco_venda: "",
       desconto_beneficio: "",
+      tipo_desconto: "financeiro" as "financeiro" | "percentual",
     },
   ]);
   const [formData, setFormData] = useState({
@@ -163,7 +164,7 @@ const NovaCompra = () => {
   };
 
   const addItem = () => {
-    setItems([...items, { item: "", preco_venda: "", desconto_beneficio: "" }]);
+    setItems([...items, { item: "", preco_venda: "", desconto_beneficio: "", tipo_desconto: "financeiro" }]);
   };
 
   const removeItem = (index: number) => {
@@ -181,7 +182,17 @@ const NovaCompra = () => {
   const calcularPrecoFinal = () => {
     return items.reduce((total, item) => {
       const venda = parseFloat(item.preco_venda) || 0;
-      const desconto = parseFloat(item.desconto_beneficio) || 0;
+      const descontoValor = parseFloat(item.desconto_beneficio) || 0;
+      
+      let desconto = 0;
+      if (item.tipo_desconto === "percentual") {
+        // Desconto percentual: calcular baseado no preço de venda
+        desconto = (venda * descontoValor) / 100;
+      } else {
+        // Desconto financeiro: usar o valor direto
+        desconto = descontoValor;
+      }
+      
       return total + Math.max(venda - desconto, 0);
     }, 0).toFixed(2);
   };
@@ -434,7 +445,16 @@ const NovaCompra = () => {
 
                 {items.map((item, index) => {
                   const venda = parseFloat(item.preco_venda) || 0;
-                  const desconto = parseFloat(item.desconto_beneficio) || 0;
+                  const descontoValor = parseFloat(item.desconto_beneficio) || 0;
+                  
+                  // Calcular desconto baseado no tipo
+                  let desconto = 0;
+                  if (item.tipo_desconto === "percentual") {
+                    desconto = (venda * descontoValor) / 100;
+                  } else {
+                    desconto = descontoValor;
+                  }
+                  
                   const subtotal = Math.max(venda - desconto, 0);
 
                   return (
@@ -474,16 +494,45 @@ const NovaCompra = () => {
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">Desconto (R$)</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={item.desconto_beneficio}
-                            onChange={(e) => updateItem(index, "desconto_beneficio", e.target.value)}
-                            required
-                          />
+                          <Label className="text-xs">Tipo de Desconto</Label>
+                          <Select
+                            value={item.tipo_desconto}
+                            onValueChange={(value: "financeiro" | "percentual") => {
+                              updateItem(index, "tipo_desconto", value);
+                              // Limpar desconto ao mudar tipo
+                              updateItem(index, "desconto_beneficio", "");
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="financeiro">Financeiro (R$)</SelectItem>
+                              <SelectItem value="percentual">Percentual (%)</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">
+                          Desconto {item.tipo_desconto === "percentual" ? "(%)" : "(R$)"}
+                        </Label>
+                        <Input
+                          type="number"
+                          step={item.tipo_desconto === "percentual" ? "0.1" : "0.01"}
+                          min="0"
+                          max={item.tipo_desconto === "percentual" ? "100" : undefined}
+                          value={item.desconto_beneficio}
+                          onChange={(e) => updateItem(index, "desconto_beneficio", e.target.value)}
+                          required
+                          placeholder={item.tipo_desconto === "percentual" ? "Ex: 10" : "Ex: 50.00"}
+                        />
+                        {item.tipo_desconto === "percentual" && descontoValor > 0 && venda > 0 && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Desconto: {formatCurrency(desconto)}
+                          </p>
+                        )}
                       </div>
 
                       {(venda > 0 || desconto > 0) && (
