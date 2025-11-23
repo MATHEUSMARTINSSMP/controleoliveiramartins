@@ -2261,25 +2261,18 @@ export default function LojaDashboard() {
                                     value={formData.observacoes}
                                     onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
                                     onKeyDown={(e) => {
-                                        // Permitir Enter para nova linha, mas prevenir submit
-                                        // Shift+Enter = nova linha (comportamento padrão)
-                                        // Enter sozinho = nova linha (prevenir submit)
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                            e.preventDefault();
-                                            // Adicionar nova linha manualmente
-                                            const textarea = e.currentTarget;
-                                            const start = textarea.selectionStart;
-                                            const end = textarea.selectionEnd;
-                                            const value = textarea.value;
-                                            const newValue = value.substring(0, start) + '\n' + value.substring(end);
-                                            setFormData({ ...formData, observacoes: newValue });
-                                            // Reposicionar cursor após a nova linha
-                                            setTimeout(() => {
-                                                textarea.selectionStart = textarea.selectionEnd = start + 1;
-                                            }, 0);
+                                        // Prevenir submit do formulário ao pressionar Enter
+                                        // O textarea já adiciona nova linha automaticamente
+                                        if (e.key === 'Enter' && e.ctrlKey) {
+                                            // Ctrl+Enter = enviar formulário
+                                            return;
+                                        }
+                                        if (e.key === 'Enter') {
+                                            // Enter sozinho = apenas nova linha (não enviar)
+                                            e.stopPropagation();
                                         }
                                     }}
-                                    placeholder="Observações opcionais (pressione Enter para nova linha)"
+                                    placeholder="Observações opcionais (pressione Enter para nova linha, Ctrl+Enter para enviar)"
                                     rows={4}
                                     className="resize-y"
                                 />
