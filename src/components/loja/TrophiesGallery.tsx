@@ -70,7 +70,36 @@ export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit
         data_conquista: trophy.data_conquista
       }));
 
-      setTrophies(trophiesList);
+      // Filtrar: se há troféu de super meta, remover troféu de meta normal da mesma colaboradora e referência
+      const filteredTrophies = trophiesList.filter(trophy => {
+        // Se é uma super meta, sempre mostrar
+        if (trophy.tipo.includes('SUPER')) {
+          return true;
+        }
+        
+        // Se é uma meta normal, verificar se existe super meta para a mesma colaboradora e referência
+        const hasSuperMeta = trophiesList.some(t => {
+          // Verificar se é super meta do mesmo tipo (mensal ou semanal)
+          const isSameType = 
+            (trophy.tipo === 'META_MENSAL' && t.tipo === 'SUPER_META_MENSAL') ||
+            (trophy.tipo === 'META_SEMANAL' && t.tipo === 'SUPER_META_SEMANAL');
+          
+          // Verificar se é da mesma colaboradora
+          const isSameColaboradora = t.colaboradora_id === trophy.colaboradora_id;
+          
+          // Verificar se é da mesma referência
+          const isSameReference = 
+            (trophy.mes_referencia && t.mes_referencia === trophy.mes_referencia) ||
+            (trophy.semana_referencia && t.semana_referencia === trophy.semana_referencia);
+          
+          return isSameType && isSameColaboradora && isSameReference;
+        });
+        
+        // Se existe super meta, não mostrar a meta normal
+        return !hasSuperMeta;
+      });
+
+      setTrophies(filteredTrophies);
     } catch (error) {
       console.error("Erro ao buscar troféus:", error);
       setTrophies([]);
