@@ -581,13 +581,20 @@ const NovaCompra = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="parcelas">Nº Parcelas *</Label>
+                  <Label htmlFor="parcelas">Nº Parcelas * (máximo 3x)</Label>
                   <Input
                     id="parcelas"
                     type="number"
                     min="1"
+                    max="3"
                     value={formData.num_parcelas}
-                    onChange={(e) => setFormData({ ...formData, num_parcelas: e.target.value })}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Limitar a 3 parcelas
+                      const numValue = parseInt(value) || 1;
+                      const limitedValue = Math.min(Math.max(numValue, 1), 3);
+                      setFormData({ ...formData, num_parcelas: limitedValue.toString() });
+                    }}
                     required
                   />
                 </div>
