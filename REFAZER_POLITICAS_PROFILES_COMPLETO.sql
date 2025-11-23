@@ -22,11 +22,41 @@ BEGIN
 END $$;
 
 -- ============================================
--- 2. REMOVER FUNÇÕES EXISTENTES (SE HOUVER)
+-- 2. REMOVER/CRIAR FUNÇÕES NECESSÁRIAS
 -- ============================================
 
+-- Remover apenas check_is_admin se existir (vamos recriar)
 DROP FUNCTION IF EXISTS sistemaretiradas.check_is_admin(UUID);
-DROP FUNCTION IF EXISTS sistemaretiradas.is_user_admin();
+
+-- NÃO remover is_user_admin() porque ela pode estar sendo usada por outras tabelas
+-- (como whatsapp_recipients). Se não existir, não faz nada.
+
+-- Verificar se is_user_admin existe e criar/recriar se necessário
+DO $$
+BEGIN
+    -- Se a função não existir, criar
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM pg_proc p
+        JOIN pg_namespace n ON p.pronamespace = n.oid
+        WHERE n.nspname = 'sistemaretiradas'
+        AND p.proname = 'is_user_admin'
+    ) THEN
+        -- Criar função is_user_admin (pode ser usada por outras tabelas)
+        CREATE OR REPLACE FUNCTION sistemaretiradas.is_user_admin()
+        RETURNS BOOLEAN AS $$
+        BEGIN
+          RETURN EXISTS (
+            SELECT 1
+            FROM sistemaretiradas.profiles
+            WHERE id = auth.uid()
+            AND role = 'ADMIN'
+            AND active = true
+          );
+        END;
+        $$ LANGUAGE plpgsql SECURITY DEFINER;
+    END IF;
+END $$;
 
 -- ============================================
 -- 3. HABILITAR RLS
@@ -45,10 +75,28 @@ CREATE OR REPLACE FUNCTION sistemaretiradas.check_is_admin(user_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
   -- Esta função bypassa RLS porque é SECURITY DEFINER
+  -- Aceita UUID como parâmetro para flexibilidade
   RETURN EXISTS (
     SELECT 1
     FROM sistemaretiradas.profiles
     WHERE id = user_id
+    AND role = 'ADMIN'
+    AND active = true
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Garantir que a função is_user_admin também existe (usa auth.uid() internamente)
+-- Esta pode ser usada por outras tabelas (como whatsapp_recipients)
+CREATE OR REPLACE FUNCTION sistemaretiradas.is_user_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+  -- Esta função bypassa RLS porque é SECURITY DEFINER
+  -- Usa auth.uid() diretamente (sem parâmetro)
+  RETURN EXISTS (
+    SELECT 1
+    FROM sistemaretiradas.profiles
+    WHERE id = auth.uid()
     AND role = 'ADMIN'
     AND active = true
   );
