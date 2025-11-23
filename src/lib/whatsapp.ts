@@ -82,8 +82,10 @@ export function formatVendaMessage(params: {
   storeName?: string;
   dataVenda?: string;
   observacoes?: string | null;
+  totalDia?: number;
+  totalMes?: number;
 }): string {
-  const { colaboradoraName, valor, qtdPecas, storeName, dataVenda, observacoes } = params;
+  const { colaboradoraName, valor, qtdPecas, storeName, dataVenda, observacoes, totalDia, totalMes } = params;
   
   const dataFormatada = dataVenda
     ? new Date(dataVenda).toLocaleDateString('pt-BR', {
@@ -114,6 +116,23 @@ export function formatVendaMessage(params: {
   message += `*Valor:* ${valorFormatado}\n`;
   message += `*Quantidade de Peças:* ${qtdPecas}\n`;
   message += `*Data:* ${dataFormatada}\n`;
+  
+  // Adicionar totais se disponíveis
+  if (totalDia !== undefined && totalDia !== null) {
+    const totalDiaFormatado = new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(totalDia);
+    message += `*Total Vendido (Hoje):* ${totalDiaFormatado}\n`;
+  }
+  
+  if (totalMes !== undefined && totalMes !== null) {
+    const totalMesFormatado = new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(totalMes);
+    message += `*Total Mês:* ${totalMesFormatado}\n`;
+  }
   
   // Adicionar observações se houver
   if (observacoes && observacoes.trim()) {

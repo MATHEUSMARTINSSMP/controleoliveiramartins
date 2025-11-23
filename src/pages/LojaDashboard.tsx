@@ -1617,6 +1617,29 @@ export default function LojaDashboard() {
 
                         // Enviar mensagem WhatsApp para todos os números em background
                         if (adminPhones.length > 0) {
+                            console.log('📱 [4/4] Buscando totais da loja...');
+                            
+                            // Buscar total do dia (todas as vendas do dia da loja)
+                            const hoje = new Date();
+                            const hojeStr = format(hoje, 'yyyy-MM-dd');
+                            
+                            const { data: vendasHoje, error: vendasHojeError } = await supabase
+                                .schema('sistemaretiradas')
+                                .from('sales')
+                                .select('valor')
+                                .eq('store_id', storeId)
+                                .gte('data_venda', `${hojeStr}T00:00:00`)
+                                .lte('data_venda', `${hojeStr}T23:59:59`);
+                            
+                            let totalDia = 0;
+                            if (!vendasHojeError && vendasHoje) {
+                                totalDia = vendasHoje.reduce((sum: number, v: any) => sum + parseFloat(v.valor || 0), 0);
+                            }
+                            
+                            // Usar monthlyRealizado do estado (já calculado anteriormente)
+                            console.log('📱 [4/4] Total do dia:', totalDia);
+                            console.log('📱 [4/4] Total do mês:', monthlyRealizado);
+                            
                             console.log('📱 [4/4] Formatando mensagem...');
                             const message = formatVendaMessage({
                                 colaboradoraName,
@@ -1625,6 +1648,8 @@ export default function LojaDashboard() {
                                 storeName: storeNameFromDb || storeName || undefined,
                                 dataVenda: vendaData.data_venda,
                                 observacoes: vendaData.observacoes || null,
+                                totalDia: totalDia,
+                                totalMes: monthlyRealizado || undefined,
                             });
 
                             console.log('📱 [4/4] Mensagem formatada:', message);
@@ -2156,8 +2181,8 @@ export default function LojaDashboard() {
             {/* Planejamento do Dia - Cards por Vendedora */}
             {colaboradorasPerformance.length > 0 && (
                 <div className="max-w-7xl mx-auto">
-                    <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Planejamento do Dia</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                    <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6 text-center">Planejamento do Dia</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 justify-items-center">
                         {colaboradorasPerformance.map((perf) => (
                             <Card key={perf.id} className="flex flex-col h-full">
                                 <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
