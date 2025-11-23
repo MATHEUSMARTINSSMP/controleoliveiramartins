@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, Save, Phone, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,7 +17,7 @@ interface Store {
 interface NotificationRecipient {
   id?: string;
   phone: string;
-  store_id?: string | null; // null = todas as lojas do admin
+  store_ids: string[]; // Array de IDs de lojas selecionadas
   active: boolean;
 }
 
@@ -97,17 +97,42 @@ export const WhatsAppNotificationConfig = () => {
 
       if (error) throw error;
 
-      // Agrupar por tipo de notificação
-      const grouped = (data || []).reduce((acc, item) => {
+      // Agrupar por tipo de notificação e telefone
+      // Agrupar registros com mesmo telefone e tipo, coletando todas as lojas
+      const groupedByPhone = (data || []).reduce((acc, item) => {
         const type = item.notification_type as 'VENDA' | 'ADIANTAMENTO' | 'PARABENS';
+        const normalizedPhone = normalizePhone(item.phone);
+        const key = `${type}-${normalizedPhone}`;
+        
+        if (!acc[key]) {
+          acc[key] = {
+            phone: normalizedPhone,
+            store_ids: [] as string[],
+            ids: [] as string[],
+            active: item.active
+          };
+        }
+        
+        if (item.store_id && !acc[key].store_ids.includes(item.store_id)) {
+          acc[key].store_ids.push(item.store_id);
+        }
+        if (!acc[key].ids.includes(item.id)) {
+          acc[key].ids.push(item.id);
+        }
+        
+        return acc;
+      }, {} as Record<string, { phone: string; store_ids: string[]; ids: string[]; active: boolean }>);
+
+      // Converter para formato de recipients
+      const grouped = Object.entries(groupedByPhone).reduce((acc, [key, value]) => {
+        const type = key.split('-')[0] as 'VENDA' | 'ADIANTAMENTO' | 'PARABENS';
         if (!acc[type]) {
           acc[type] = [];
         }
         acc[type].push({
-          id: item.id,
-          phone: item.phone,
-          store_id: item.store_id || null,
-          active: item.active
+          phone: value.phone,
+          store_ids: value.store_ids,
+          active: value.active
         });
         return acc;
       }, {} as Record<string, NotificationRecipient[]>);
@@ -131,7 +156,7 @@ export const WhatsAppNotificationConfig = () => {
       if (config.type === type) {
         return {
           ...config,
-          recipients: [...config.recipients, { phone: '', store_id: null, active: true }]
+          recipients: [...config.recipients, { phone: '', store_ids: [], active: true }]
         };
       }
       return config;
@@ -149,16 +174,34 @@ export const WhatsAppNotificationConfig = () => {
     }));
   };
 
-  const updateRecipient = (
+  const updateRecipientPhone = (
     type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS',
     index: number,
-    field: 'phone' | 'store_id',
-    value: string | null
+    value: string
   ) => {
     setConfigs(prev => prev.map(config => {
       if (config.type === type) {
         const newRecipients = [...config.recipients];
-        newRecipients[index] = { ...newRecipients[index], [field]: value };
+        newRecipients[index] = { ...newRecipients[index], phone: value };
+        return { ...config, recipients: newRecipients };
+      }
+      return config;
+    }));
+  };
+
+  const toggleStoreSelection = (
+    type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS',
+    index: number,
+    storeId: string
+  ) => {
+    setConfigs(prev => prev.map(config => {
+      if (config.type === type) {
+        const newRecipients = [...config.recipients];
+        const currentStoreIds = newRecipients[index].store_ids || [];
+        const newStoreIds = currentStoreIds.includes(storeId)
+          ? currentStoreIds.filter(id => id !== storeId)
+          : [...currentStoreIds, storeId];
+        newRecipients[index] = { ...newRecipients[index], store_ids: newStoreIds };
         return { ...config, recipients: newRecipients };
       }
       return config;
@@ -194,7 +237,7 @@ export const WhatsAppNotificationConfig = () => {
 
     setSaving(true);
     try {
-      // Validar todos os números
+      // Validar todos os números e lojas
       for (const config of configs) {
         for (const recipient of config.recipients) {
           if (!recipient.phone.trim()) {
@@ -213,6 +256,12 @@ export const WhatsAppNotificationConfig = () => {
             setSaving(false);
             return;
           }
+          // Validar que pelo menos uma loja foi selecionada
+          if (!recipient.store_ids || recipient.store_ids.length === 0) {
+            toast.error(`Selecione pelo menos uma loja em "${config.label}"`);
+            setSaving(false);
+            return;
+          }
         }
       }
 
@@ -228,13 +277,12 @@ export const WhatsAppNotificationConfig = () => {
         throw fetchError;
       }
 
-      // Criar mapa usando telefone normalizado + store_id para comparação correta
+      // Criar mapa de registros existentes por tipo, telefone e loja
       const existingMap = new Map(
         (existingConfigs || []).map(item => {
           const normalized = normalizePhone(item.phone);
-          const storeKey = item.store_id || 'ALL';
           return [
-            `${item.notification_type}-${normalized}-${storeKey}`,
+            `${item.notification_type}-${normalized}-${item.store_id || 'NULL'}`,
             { ...item, normalizedPhone: normalized }
           ];
         })
@@ -244,45 +292,46 @@ export const WhatsAppNotificationConfig = () => {
       const toInsert: any[] = [];
       const toUpdate: any[] = [];
       const toDelete: string[] = [];
+      const currentKeys = new Set<string>();
 
       // Processar cada tipo de notificação
       for (const config of configs) {
-        const currentPhones = new Set<string>();
-
         for (const recipient of config.recipients) {
           const normalizedPhone = normalizePhone(recipient.phone);
-          const storeKey = recipient.store_id || 'ALL';
-          const key = `${config.type}-${normalizedPhone}-${storeKey}`;
-          currentPhones.add(`${normalizedPhone}-${storeKey}`);
+          
+          // Para cada loja selecionada, criar/atualizar um registro
+          for (const storeId of recipient.store_ids) {
+            const key = `${config.type}-${normalizedPhone}-${storeId}`;
+            currentKeys.add(key);
 
-          if (existingMap.has(key)) {
-            // UPDATE
-            const existing = existingMap.get(key)!;
-            toUpdate.push({
-              id: existing.id,
-              phone: normalizedPhone,
-              store_id: recipient.store_id || null,
-              active: true
-            });
-          } else {
-            // INSERT
-            toInsert.push({
-              admin_id: profile.id,
-              notification_type: config.type,
-              phone: normalizedPhone,
-              store_id: recipient.store_id || null,
-              active: true
-            });
+            if (existingMap.has(key)) {
+              // UPDATE - manter registro existente
+              const existing = existingMap.get(key)!;
+              toUpdate.push({
+                id: existing.id,
+                phone: normalizedPhone,
+                store_id: storeId,
+                active: true
+              });
+            } else {
+              // INSERT - novo registro para esta combinação telefone+loja
+              toInsert.push({
+                admin_id: profile.id,
+                notification_type: config.type,
+                phone: normalizedPhone,
+                store_id: storeId,
+                active: true
+              });
+            }
           }
         }
 
-        // Identificar números a deletar (existem no banco mas não estão na lista atual)
+        // Identificar registros a deletar (existem no banco mas não estão na lista atual)
         for (const existing of existingConfigs || []) {
           if (existing.notification_type === config.type) {
             const normalizedExisting = normalizePhone(existing.phone);
-            const existingStoreKey = existing.store_id || 'ALL';
-            const existingKey = `${normalizedExisting}-${existingStoreKey}`;
-            if (!currentPhones.has(existingKey)) {
+            const existingKey = `${existing.notification_type}-${normalizedExisting}-${existing.store_id || 'NULL'}`;
+            if (!currentKeys.has(existingKey)) {
               toDelete.push(existing.id);
             }
           }
@@ -374,58 +423,66 @@ export const WhatsAppNotificationConfig = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {config.recipients.map((recipient, index) => (
-              <div key={index} className="flex gap-2 items-end">
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor={`${config.type}-phone-${index}`}>
-                    Número WhatsApp *
-                  </Label>
-                  <Input
-                    id={`${config.type}-phone-${index}`}
-                    type="tel"
-                    placeholder="96981113307"
-                    value={recipient.phone}
-                    onChange={(e) => updateRecipient(config.type, index, 'phone', e.target.value)}
-                    className="placeholder:text-muted-foreground/50"
-                  />
-                  <p className="text-xs text-muted-foreground/70">
-                    Formato: apenas números (10-11 dígitos). Ex: 96981113307 ou 5596981113307
-                  </p>
-                </div>
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor={`${config.type}-store-${index}`}>
-                    Loja {config.type === 'PARABENS' ? '*' : '(opcional)'}
-                  </Label>
-                  <Select
-                    value={recipient.store_id || 'ALL'}
-                    onValueChange={(value) => updateRecipient(config.type, index, 'store_id', value === 'ALL' ? null : value)}
+              <div key={index} className="space-y-4 p-4 border rounded-lg">
+                <div className="flex gap-3 items-start">
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor={`${config.type}-phone-${index}`}>
+                      Número WhatsApp *
+                    </Label>
+                    <Input
+                      id={`${config.type}-phone-${index}`}
+                      type="tel"
+                      placeholder="96981113307"
+                      value={recipient.phone}
+                      onChange={(e) => updateRecipientPhone(config.type, index, e.target.value)}
+                      className="placeholder:text-muted-foreground/50"
+                    />
+                    <p className="text-xs text-muted-foreground/70">
+                      Formato: apenas números (10-11 dígitos). Ex: 96981113307 ou 5596981113307
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => removeRecipient(config.type, index)}
+                    className="mt-8"
+                    title="Remover número"
                   >
-                    <SelectTrigger id={`${config.type}-store-${index}`}>
-                      <SelectValue placeholder="Selecione a loja" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">Todas as lojas</SelectItem>
-                      {stores.map((store) => (
-                        <SelectItem key={store.id} value={store.id}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  <Label>
+                    Lojas * (selecione uma ou mais)
+                  </Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-3 border rounded-md bg-muted/30">
+                    {stores.map((store) => (
+                      <div key={store.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`${config.type}-store-${index}-${store.id}`}
+                          checked={recipient.store_ids?.includes(store.id) || false}
+                          onCheckedChange={() => toggleStoreSelection(config.type, index, store.id)}
+                        />
+                        <Label
+                          htmlFor={`${config.type}-store-${index}-${store.id}`}
+                          className="text-sm font-normal cursor-pointer"
+                        >
                           {store.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                  {(!recipient.store_ids || recipient.store_ids.length === 0) && (
+                    <p className="text-xs text-destructive">
+                      Selecione pelo menos uma loja
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground/70">
                     {config.type === 'PARABENS' 
-                      ? 'Selecione a loja que receberá os parabéns após cada venda'
-                      : 'Deixe "Todas as lojas" para receber de todas, ou selecione uma específica'}
+                      ? 'Selecione as lojas que receberão os parabéns após cada venda'
+                      : 'Selecione as lojas que receberão notificações deste tipo'}
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => removeRecipient(config.type, index)}
-                  className="mb-0"
-                  title="Remover número"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
               </div>
             ))}
 
