@@ -108,7 +108,6 @@ export const WhatsAppNotificationConfig = () => {
         .from('whatsapp_notification_config')
         .select('*')
         .eq('admin_id', profile.id)
-        .eq('active', true)
         .order('notification_type', { ascending: true })
         .order('created_at', { ascending: true });
 
@@ -138,8 +137,12 @@ export const WhatsAppNotificationConfig = () => {
           };
         }
         
-        if (item.store_id && !acc[key].store_ids.includes(item.store_id)) {
-          acc[key].store_ids.push(item.store_id);
+        // Adicionar store_id se existir e não estiver duplicado
+        if (item.store_id) {
+          const storeIdStr = String(item.store_id);
+          if (!acc[key].store_ids.includes(storeIdStr)) {
+            acc[key].store_ids.push(storeIdStr);
+          }
         }
         if (!acc[key].ids.includes(item.id)) {
           acc[key].ids.push(item.id);
