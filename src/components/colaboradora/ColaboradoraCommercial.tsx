@@ -166,12 +166,12 @@ export const ColaboradoraCommercial = () => {
         </CardContent>
       </Card>
 
-      {/* Super Meta & Ritmo Necessário - Card Reorganizado */}
+      {/* Super Meta Mensal - Card Reorganizado */}
       <Card className="shadow-md border-purple-200">
         <CardHeader className="bg-gradient-to-r from-purple-50 to-purple-100/50">
           <CardTitle className="flex items-center gap-2 text-purple-700">
             <Zap className="h-5 w-5" />
-            Super Meta & Ritmo Necessário
+            Super Meta Mensal
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
