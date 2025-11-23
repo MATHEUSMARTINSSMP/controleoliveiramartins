@@ -144,3 +144,74 @@ export function formatVendaMessage(params: {
   return message;
 }
 
+/**
+ * Formata mensagem de solicitação de adiantamento (notificação para administrador)
+ */
+export function formatAdiantamentoMessage(params: {
+  colaboradoraName: string;
+  valor: number;
+  mesCompetencia: string;
+  observacoes?: string | null;
+  storeName?: string;
+}): string {
+  const { colaboradoraName, valor, mesCompetencia, observacoes, storeName } = params;
+  
+  const valorFormatado = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(valor);
+
+  // Formatar mês de competência (YYYYMM -> MM/YYYY)
+  const mes = mesCompetencia.slice(4, 6);
+  const ano = mesCompetencia.slice(0, 4);
+  const mesFormatado = `${mes}/${ano}`;
+
+  let message = `💰 *Nova Solicitação de Adiantamento*\n\n`;
+  
+  message += `*Colaboradora:* ${colaboradoraName}\n`;
+  
+  if (storeName) {
+    message += `*Loja:* ${storeName}\n`;
+  }
+  
+  message += `*Valor Solicitado:* ${valorFormatado}\n`;
+  message += `*Mês de Competência:* ${mesFormatado}\n`;
+  
+  if (observacoes && observacoes.trim()) {
+    message += `\n*Observações:*\n${observacoes.trim()}\n`;
+  }
+  
+  message += `\nSistema EleveaOne 📊`;
+
+  return message;
+}
+
+/**
+ * Formata mensagem de parabéns após venda (notificação para loja/colaboradora)
+ */
+export function formatParabensMessage(params: {
+  colaboradoraName: string;
+  valor: number;
+  storeName?: string;
+}): string {
+  const { colaboradoraName, valor, storeName } = params;
+  
+  const valorFormatado = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(valor);
+
+  let message = `🎉 *Parabéns!*\n\n`;
+  message += `Parabéns, ${colaboradoraName}! 🎊\n\n`;
+  message += `Você acabou de realizar uma venda de ${valorFormatado}!\n`;
+  
+  if (storeName) {
+    message += `\n*Loja:* ${storeName}\n`;
+  }
+  
+  message += `\nContinue assim! 💪\n\n`;
+  message += `Sistema EleveaOne 📊`;
+
+  return message;
+}
+

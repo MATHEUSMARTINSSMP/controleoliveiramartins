@@ -1571,8 +1571,8 @@ export default function LojaDashboard() {
                         console.log('📱 [2/4] Loja:', storeNameFromDb);
                         console.log('📱 [2/4] Admin ID da loja:', storeAdminId);
                         
-                        // Segundo: buscar destinatários WhatsApp do admin da loja
-                        console.log('📱 [2/4] Buscando destinatários WhatsApp...');
+                        // Segundo: buscar destinatários WhatsApp do admin da loja (tipo VENDA)
+                        console.log('📱 [2/4] Buscando destinatários WhatsApp para notificação de VENDA...');
                         let adminPhones: string[] = [];
                         
                         if (storeAdminId) {
@@ -1580,10 +1580,11 @@ export default function LojaDashboard() {
                             
                             const { data: recipientsData, error: recipientsError } = await supabase
                                 .schema('sistemaretiradas')
-                                .from('whatsapp_recipients')
+                                .from('whatsapp_notification_config')
                                 .select('phone')
-                                .eq('active', true)
-                                .eq('admin_id', storeAdminId);
+                                .eq('admin_id', storeAdminId)
+                                .eq('notification_type', 'VENDA')
+                                .eq('active', true);
 
                             console.log('📱 [2/4] Resultado da busca de destinatários:', { recipientsData, recipientsError });
 
@@ -1615,7 +1616,7 @@ export default function LojaDashboard() {
                             console.log('📱 [3/4] Números:', adminPhones);
                         } else {
                             console.warn('⚠️ [3/4] NENHUM destinatário WhatsApp encontrado!');
-                            console.warn('⚠️ [3/4] Verifique se há registros na tabela whatsapp_recipients para os admins ativos.');
+                            console.warn('⚠️ [3/4] Verifique se há números configurados em "Configurações > Notificações WhatsApp" para o tipo "VENDA".');
                         }
 
                         // Enviar mensagem WhatsApp para todos os números em background
@@ -1682,7 +1683,48 @@ export default function LojaDashboard() {
                             });
                         } else {
                             console.warn('⚠️ Nenhum destinatário WhatsApp ativo encontrado. Mensagem não será enviada.');
-                            console.warn('⚠️ Verifique se há destinatários cadastrados na tabela whatsapp_recipients para os admins ativos.');
+                            console.warn('⚠️ Verifique se há números configurados em "Configurações > Notificações WhatsApp" para o tipo "VENDA".');
+                        }
+                        
+                        // Enviar mensagem de parabéns para a loja (tipo PARABENS)
+                        // Buscar destinatários para PARABENS
+                        if (storeAdminId && colaboradoraName) {
+                            console.log('📱 [PARABENS] Buscando destinatários para notificação de PARABENS...');
+                            
+                            const { data: parabensRecipients } = await supabase
+                                .schema('sistemaretiradas')
+                                .from('whatsapp_notification_config')
+                                .select('phone')
+                                .eq('admin_id', storeAdminId)
+                                .eq('notification_type', 'PARABENS')
+                                .eq('active', true);
+                            
+                            if (parabensRecipients && parabensRecipients.length > 0) {
+                                const { formatParabensMessage } = await import('@/lib/whatsapp');
+                                
+                                const parabensMessage = formatParabensMessage({
+                                    colaboradoraName,
+                                    valor: parseFloat(vendaData.valor),
+                                    storeName: storeNameFromDb || storeName || undefined,
+                                });
+                                
+                                // Enviar para todos os destinatários de PARABENS
+                                Promise.all(
+                                    parabensRecipients.map((recipient: any) => {
+                                        const cleanedPhone = recipient.phone.replace(/\D/g, '');
+                                        return sendWhatsAppMessage({
+                                            phone: cleanedPhone,
+                                            message: parabensMessage,
+                                        }).catch(err => {
+                                            console.error(`❌ Erro ao enviar parabéns para ${cleanedPhone}:`, err);
+                                        });
+                                    })
+                                ).then(() => {
+                                    console.log('📱 [PARABENS] Mensagens de parabéns enviadas!');
+                                });
+                            } else {
+                                console.log('📱 [PARABENS] Nenhum destinatário configurado para PARABENS. Mensagem não será enviada.');
+                            }
                         }
                     } catch (err: any) {
                         console.error('❌ Erro ao buscar dados para WhatsApp:', err);

@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AlertCircle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { formatCurrency } from "@/lib/utils";
+import { sendWhatsAppMessage, formatAdiantamentoMessage } from "@/lib/whatsapp";
 
 export default function SolicitarAdiantamento() {
   const navigate = useNavigate();
@@ -107,12 +108,15 @@ export default function SolicitarAdiantamento() {
 
     setLoading(true);
 
-    const { error } = await supabase.schema("sistemaretiradas").from("adiantamentos").insert({
+    // Salvar dados antes de resetar
+    const adiantamentoData = {
       colaboradora_id: profile.id,
       valor: parseFloat(formData.valor),
       mes_competencia: formData.mes_competencia,
       observacoes: formData.observacoes || null,
-    } as any);
+    };
+
+    const { error } = await supabase.schema("sistemaretiradas").from("adiantamentos").insert(adiantamentoData as any);
 
     if (error) {
       toast({
@@ -120,14 +124,85 @@ export default function SolicitarAdiantamento() {
         description: error.message,
         variant: "destructive",
       });
-    } else {
-      toast({
-        title: "Solicitação enviada com sucesso!",
-        description: "Aguarde a aprovação do administrador",
-      });
-      navigate("/me");
+      setLoading(false);
+      return;
     }
 
+    // Enviar notificação WhatsApp em background (não bloqueia UI)
+    (async () => {
+      try {
+        console.log('📱 [SolicitarAdiantamento] Iniciando processo de envio de WhatsApp...');
+        
+        // Buscar loja da colaboradora
+        const { data: colaboradoraData } = await supabase
+          .schema('sistemaretiradas')
+          .from('profiles')
+          .select('store_id, name')
+          .eq('id', profile.id)
+          .single();
+
+        if (!colaboradoraData?.store_id) {
+          console.warn('⚠️ Colaboradora não tem loja associada');
+          return;
+        }
+
+        // Buscar admin_id da loja
+        const { data: storeData } = await supabase
+          .schema('sistemaretiradas')
+          .from('stores')
+          .select('admin_id, name')
+          .eq('id', colaboradoraData.store_id)
+          .single();
+
+        if (!storeData?.admin_id) {
+          console.warn('⚠️ Loja não tem admin_id configurado');
+          return;
+        }
+
+        // Buscar destinatários WhatsApp configurados para ADIANTAMENTO
+        const { data: recipientsData } = await supabase
+          .schema('sistemaretiradas')
+          .from('whatsapp_notification_config')
+          .select('phone')
+          .eq('admin_id', storeData.admin_id)
+          .eq('notification_type', 'ADIANTAMENTO')
+          .eq('active', true);
+
+        if (!recipientsData || recipientsData.length === 0) {
+          console.warn('⚠️ Nenhum destinatário WhatsApp configurado para notificações de adiantamento');
+          return;
+        }
+
+        // Formatar mensagem
+        const message = formatAdiantamentoMessage({
+          colaboradoraName: colaboradoraData.name || 'Colaboradora',
+          valor: adiantamentoData.valor,
+          mesCompetencia: adiantamentoData.mes_competencia,
+          observacoes: adiantamentoData.observacoes,
+          storeName: storeData.name,
+        });
+
+        // Enviar para todos os destinatários
+        const sendPromises = recipientsData.map(recipient => {
+          const cleanedPhone = recipient.phone.replace(/\D/g, '');
+          return sendWhatsAppMessage({
+            phone: cleanedPhone,
+            message,
+          });
+        });
+
+        await Promise.all(sendPromises);
+        console.log('📱 [SolicitarAdiantamento] ✅ Notificações enviadas com sucesso!');
+      } catch (err) {
+        console.error('❌ Erro no processo de envio de WhatsApp:', err);
+      }
+    })();
+
+    toast({
+      title: "Solicitação enviada com sucesso!",
+      description: "Aguarde a aprovação do administrador",
+    });
+    navigate("/me");
     setLoading(false);
   };
 

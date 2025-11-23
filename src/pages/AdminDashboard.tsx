@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, KeyRound } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { LogOut, KeyRound, Bell, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CommercialDashboard } from "@/components/admin/CommercialDashboard";
 import { FinancialDashboard } from "@/components/admin/FinancialDashboard";
 import { StorePerformanceReports } from "@/components/admin/StorePerformanceReports";
+import { WhatsAppNotificationConfig } from "@/components/admin/WhatsAppNotificationConfig";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +20,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const [passwordDialog, setPasswordDialog] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [pendingAdiantamentos, setPendingAdiantamentos] = useState(0);
 
   useEffect(() => {
     if (!loading) {
@@ -25,9 +28,34 @@ const AdminDashboard = () => {
         navigate("/");
       } else if (profile.role !== "ADMIN") {
         navigate("/me");
+      } else {
+        // Buscar adiantamentos pendentes
+        fetchPendingAdiantamentos();
+        // Atualizar a cada 30 segundos
+        const interval = setInterval(fetchPendingAdiantamentos, 30000);
+        return () => clearInterval(interval);
       }
     }
   }, [profile, loading, navigate]);
+
+  const fetchPendingAdiantamentos = async () => {
+    try {
+      const { data, error } = await supabase
+        .schema("sistemaretiradas")
+        .from("adiantamentos")
+        .select("id")
+        .eq("status", "PENDENTE");
+
+      if (error) {
+        console.error("Erro ao buscar adiantamentos pendentes:", error);
+        return;
+      }
+
+      setPendingAdiantamentos(data?.length || 0);
+    } catch (error) {
+      console.error("Erro ao buscar adiantamentos pendentes:", error);
+    }
+  };
 
   const handleChangePassword = async () => {
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
@@ -81,7 +109,26 @@ const AdminDashboard = () => {
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground truncate">Bem-vindo, {profile.name}</p>
           </div>
-          <div className="flex gap-2 w-full sm:w-auto">
+          <div className="flex gap-2 w-full sm:w-auto items-center">
+            {/* Badge de notificação de adiantamentos pendentes */}
+            {pendingAdiantamentos > 0 && (
+              <Button
+                variant="outline"
+                onClick={() => navigate("/admin/adiantamentos")}
+                className="border-orange-500/50 bg-orange-50 hover:bg-orange-100 text-orange-700 hover:text-orange-800 text-xs sm:text-sm flex-1 sm:flex-initial relative"
+                size="sm"
+              >
+                <Bell className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Adiantamentos</span>
+                <span className="sm:hidden">Adiant.</span>
+                <Badge 
+                  variant="destructive" 
+                  className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs font-bold animate-pulse"
+                >
+                  {pendingAdiantamentos > 99 ? '99+' : pendingAdiantamentos}
+                </Badge>
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => setPasswordDialog(true)}
@@ -107,7 +154,7 @@ const AdminDashboard = () => {
 
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         <Tabs defaultValue="comercial" className="space-y-4 sm:space-y-6">
-          <TabsList className="grid w-full grid-cols-2 max-w-[400px] bg-muted/50 p-1 rounded-xl">
+          <TabsList className="grid w-full grid-cols-3 max-w-[600px] bg-muted/50 p-1 rounded-xl">
             <TabsTrigger value="comercial" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <span className="hidden sm:inline">Comercial & Metas</span>
               <span className="sm:hidden">Comercial</span>
@@ -115,6 +162,10 @@ const AdminDashboard = () => {
             <TabsTrigger value="financeiro" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <span className="hidden sm:inline">Financeiro & RH</span>
               <span className="sm:hidden">Financeiro</span>
+            </TabsTrigger>
+            <TabsTrigger value="configuracoes" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <span className="hidden sm:inline">Configurações</span>
+              <span className="sm:hidden">Config</span>
             </TabsTrigger>
           </TabsList>
 
@@ -184,6 +235,10 @@ const AdminDashboard = () => {
 
           <TabsContent value="financeiro" className="animate-in fade-in-50 duration-500">
             <FinancialDashboard />
+          </TabsContent>
+
+          <TabsContent value="configuracoes" className="animate-in fade-in-50 duration-500">
+            <WhatsAppNotificationConfig />
           </TabsContent>
         </Tabs>
       </main>
