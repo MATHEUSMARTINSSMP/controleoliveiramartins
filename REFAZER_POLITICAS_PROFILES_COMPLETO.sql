@@ -29,34 +29,7 @@ END $$;
 DROP FUNCTION IF EXISTS sistemaretiradas.check_is_admin(UUID);
 
 -- NÃO remover is_user_admin() porque ela pode estar sendo usada por outras tabelas
--- (como whatsapp_recipients). Se não existir, não faz nada.
-
--- Verificar se is_user_admin existe e criar/recriar se necessário
-DO $$
-BEGIN
-    -- Se a função não existir, criar
-    IF NOT EXISTS (
-        SELECT 1 
-        FROM pg_proc p
-        JOIN pg_namespace n ON p.pronamespace = n.oid
-        WHERE n.nspname = 'sistemaretiradas'
-        AND p.proname = 'is_user_admin'
-    ) THEN
-        -- Criar função is_user_admin (pode ser usada por outras tabelas)
-        CREATE OR REPLACE FUNCTION sistemaretiradas.is_user_admin()
-        RETURNS BOOLEAN AS $$
-        BEGIN
-          RETURN EXISTS (
-            SELECT 1
-            FROM sistemaretiradas.profiles
-            WHERE id = auth.uid()
-            AND role = 'ADMIN'
-            AND active = true
-          );
-        END;
-        $$ LANGUAGE plpgsql SECURITY DEFINER;
-    END IF;
-END $$;
+-- (como whatsapp_recipients). Vamos apenas recriar se necessário.
 
 -- ============================================
 -- 3. HABILITAR RLS
