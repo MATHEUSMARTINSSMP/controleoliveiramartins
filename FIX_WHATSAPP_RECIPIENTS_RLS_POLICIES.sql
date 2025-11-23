@@ -32,7 +32,7 @@ USING (
   EXISTS (
     SELECT 1
     FROM sistemaretiradas.profiles p
-    JOIN sistemaretiradas.stores s ON s.id = p.store_default::uuid
+    JOIN sistemaretiradas.stores s ON s.id::text = p.store_default::text
     WHERE p.id = auth.uid()
     AND p.role::text = 'LOJA'
     AND p.store_default IS NOT NULL
