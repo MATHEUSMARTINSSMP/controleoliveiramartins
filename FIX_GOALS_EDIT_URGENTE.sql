@@ -66,20 +66,41 @@ USING (
     )
 );
 
--- 3. Verificar se há constraint check que pode estar causando problema
--- Vamos verificar e, se necessário, remover/adjustar constraints problemáticos
+-- 3. Verificar e remover constraints check problemáticos
+-- O erro "goals_meta_valor_check" indica que há um constraint validando meta_valor
 DO $$
 BEGIN
-    -- Verificar se existe constraint goals_check
+    -- Remover constraint goals_check se existir
     IF EXISTS (
         SELECT 1 FROM pg_constraint 
         WHERE conname = 'goals_check' 
         AND conrelid = 'sistemaretiradas.goals'::regclass
     ) THEN
-        -- Remover constraint se existir (pode estar causando o erro)
         ALTER TABLE sistemaretiradas.goals DROP CONSTRAINT IF EXISTS goals_check;
         RAISE NOTICE 'Constraint goals_check removido';
     END IF;
+
+    -- Remover constraint goals_meta_valor_check se existir
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'goals_meta_valor_check' 
+        AND conrelid = 'sistemaretiradas.goals'::regclass
+    ) THEN
+        ALTER TABLE sistemaretiradas.goals DROP CONSTRAINT IF EXISTS goals_meta_valor_check;
+        RAISE NOTICE 'Constraint goals_meta_valor_check removido';
+    END IF;
+
+    -- Remover qualquer outro constraint check relacionado a meta_valor ou super_meta_valor
+    FOR r IN (
+        SELECT conname 
+        FROM pg_constraint 
+        WHERE conrelid = 'sistemaretiradas.goals'::regclass
+        AND contype = 'c'
+        AND (conname LIKE '%meta_valor%' OR conname LIKE '%goals%check%')
+    ) LOOP
+        EXECUTE format('ALTER TABLE sistemaretiradas.goals DROP CONSTRAINT IF EXISTS %I', r.conname);
+        RAISE NOTICE 'Constraint % removido', r.conname;
+    END LOOP;
 END $$;
 
 -- 4. Garantir que RLS está habilitado

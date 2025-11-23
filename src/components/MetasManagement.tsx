@@ -14,6 +14,7 @@ import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { StoreLogo } from "@/lib/storeLogo";
 
 // Error Boundary Component
@@ -97,7 +98,7 @@ const MetasManagementContent = () => {
     const [superMetaLoja, setSuperMetaLoja] = useState<string>("");
 
     // Distribution state
-    const [colabGoals, setColabGoals] = useState<{ id: string, name: string, meta: number, superMeta: number }[]>([]);
+    const [colabGoals, setColabGoals] = useState<{ id: string, name: string, meta: number, superMeta: number, recebeMeta: boolean }[]>([]);
 
     // Daily weights state
     const [dailyWeights, setDailyWeights] = useState<Record<string, number>>({});
@@ -365,7 +366,8 @@ const MetasManagementContent = () => {
             id: c.id,
             name: c.name,
             meta: 0,
-            superMeta: 0
+            superMeta: 0,
+            recebeMeta: true // Por padrão, todas recebem meta
         })));
 
         generateWeights();
@@ -376,18 +378,28 @@ const MetasManagementContent = () => {
 
         const meta = parseFloat(metaLoja);
         const superMeta = parseFloat(superMetaLoja);
-        const count = colabGoals.length;
+        // Contar apenas colaboradoras que recebem meta
+        const count = colabGoals.filter(c => c.recebeMeta).length;
 
-        if (count === 0) return;
+        if (count === 0) {
+            toast.error("Nenhuma colaboradora marcada para receber meta!");
+            return;
+        }
 
         const individualMeta = meta / count;
         const individualSuperMeta = superMeta / count;
 
-        setColabGoals(colabGoals.map(c => ({
-            ...c,
-            meta: parseFloat(individualMeta.toFixed(2)),
-            superMeta: parseFloat(individualSuperMeta.toFixed(2))
-        })));
+        setColabGoals(colabGoals.map(c => {
+            // Só distribuir para colaboradoras que recebem meta
+            if (!c.recebeMeta) {
+                return { ...c, meta: 0, superMeta: 0 };
+            }
+            return {
+                ...c,
+                meta: parseFloat(individualMeta.toFixed(2)),
+                superMeta: parseFloat(individualSuperMeta.toFixed(2))
+            };
+        }));
     };
 
     const handleColabChange = (id: string, field: 'meta' | 'superMeta', value: string) => {
@@ -407,7 +419,9 @@ const MetasManagementContent = () => {
     };
 
     const validateTotal = () => {
-        const totalMeta = colabGoals.reduce((sum, c) => sum + c.meta, 0);
+        // Considerar apenas colaboradoras que recebem meta
+        const colabsComMeta = colabGoals.filter(c => c.recebeMeta);
+        const totalMeta = colabsComMeta.reduce((sum, c) => sum + c.meta, 0);
         const targetMeta = parseFloat(metaLoja) || 0;
         const metasValid = Math.abs(totalMeta - targetMeta) < 1; // Allow small float diff
 
@@ -478,17 +492,19 @@ const MetasManagementContent = () => {
                 storeGoalData = data;
             }
 
-            // 2. Create/Update Individual Goals
-            const individualPayloads = colabGoals.map(c => ({
-                tipo: "INDIVIDUAL",
-                mes_referencia: mesReferencia,
-                store_id: selectedStore,
-                colaboradora_id: c.id,
-                meta_valor: c.meta,
-                super_meta_valor: c.superMeta,
-                ativo: true,
-                daily_weights: dailyWeights // Inherit weights
-            }));
+            // 2. Create/Update Individual Goals - APENAS para colaboradoras que recebem meta
+            const individualPayloads = colabGoals
+                .filter(c => c.recebeMeta) // Filtrar apenas as que recebem meta
+                .map(c => ({
+                    tipo: "INDIVIDUAL",
+                    mes_referencia: mesReferencia,
+                    store_id: selectedStore,
+                    colaboradora_id: c.id,
+                    meta_valor: c.meta,
+                    super_meta_valor: c.superMeta,
+                    ativo: true,
+                    daily_weights: dailyWeights // Inherit weights
+                }));
 
             // Para metas individuais, fazer UPDATE ou INSERT individualmente
             for (const payload of individualPayloads) {
@@ -526,6 +542,33 @@ const MetasManagementContent = () => {
                 }
             }
 
+            // 3. Remover metas de colaboradoras que não recebem mais meta
+            const colabsSemMeta = colabGoals.filter(c => !c.recebeMeta);
+            for (const colab of colabsSemMeta) {
+                const { data: existingGoal } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("goals")
+                    .select("id")
+                    .eq("store_id", selectedStore)
+                    .eq("mes_referencia", mesReferencia)
+                    .eq("tipo", "INDIVIDUAL")
+                    .eq("colaboradora_id", colab.id)
+                    .maybeSingle();
+
+                if (existingGoal) {
+                    // DELETE - Remover meta se existe
+                    const { error } = await supabase
+                        .schema("sistemaretiradas")
+                        .from("goals")
+                        .delete()
+                        .eq("id", existingGoal.id);
+                    if (error) {
+                        console.error(`Erro ao remover meta individual para colaboradora ${colab.id}:`, error);
+                        // Não lançar erro aqui, apenas logar
+                    }
+                }
+            }
+
             toast.success("Metas criadas com sucesso!");
             setDialogOpen(false);
             fetchGoals();
@@ -559,7 +602,8 @@ const MetasManagementContent = () => {
                 id: c.id,
                 name: c.name,
                 meta: goal ? goal.meta_valor : 0,
-                superMeta: goal ? goal.super_meta_valor : 0
+                superMeta: goal ? goal.super_meta_valor : 0,
+                recebeMeta: !!goal // Se tem meta, recebe meta
             };
         });
 
@@ -1096,14 +1140,22 @@ const MetasManagementContent = () => {
                         {/* 2. Distribution List */}
                         <div className="border rounded-lg overflow-hidden">
                             <div className="bg-muted p-2 sm:p-3 grid grid-cols-12 gap-2 font-medium text-xs sm:text-sm">
-                                <div className="col-span-5 sm:col-span-4">Colaboradora</div>
+                                <div className="col-span-1 flex items-center justify-center">Recebe</div>
+                                <div className="col-span-4 sm:col-span-3">Colaboradora</div>
                                 <div className="col-span-3 sm:col-span-4">Meta Individual</div>
                                 <div className="col-span-4">Super Meta</div>
                             </div>
                             <ScrollArea className="h-[250px] sm:h-[300px]">
                                 {colabGoals.map(colab => (
-                                    <div key={colab.id} className="p-2 sm:p-3 grid grid-cols-12 gap-2 items-center border-b hover:bg-muted/20">
-                                        <div className="col-span-5 sm:col-span-4 font-medium text-xs sm:text-sm truncate">{colab.name}</div>
+                                    <div key={colab.id} className={`p-2 sm:p-3 grid grid-cols-12 gap-2 items-center border-b hover:bg-muted/20 ${!colab.recebeMeta ? 'opacity-50' : ''}`}>
+                                        <div className="col-span-1 flex items-center justify-center">
+                                            <Switch
+                                                checked={colab.recebeMeta}
+                                                onCheckedChange={(checked) => handleToggleRecebeMeta(colab.id, checked)}
+                                                className="scale-75 sm:scale-100"
+                                            />
+                                        </div>
+                                        <div className="col-span-4 sm:col-span-3 font-medium text-xs sm:text-sm truncate">{colab.name}</div>
                                         <div className="col-span-3 sm:col-span-4">
                                             <div className="relative">
                                                 <span className="absolute left-2 top-2 text-[10px] sm:text-xs text-muted-foreground">R$</span>
@@ -1112,6 +1164,7 @@ const MetasManagementContent = () => {
                                                     value={colab.meta}
                                                     onChange={e => handleColabChange(colab.id, 'meta', e.target.value)}
                                                     className="pl-6 h-7 sm:h-8 text-xs sm:text-sm"
+                                                    disabled={!colab.recebeMeta}
                                                 />
                                             </div>
                                         </div>
@@ -1123,6 +1176,7 @@ const MetasManagementContent = () => {
                                                     value={colab.superMeta}
                                                     onChange={e => handleColabChange(colab.id, 'superMeta', e.target.value)}
                                                     className="pl-6 h-7 sm:h-8 text-xs sm:text-sm text-purple-700 font-medium"
+                                                    disabled={!colab.recebeMeta}
                                                 />
                                             </div>
                                         </div>
@@ -1133,10 +1187,10 @@ const MetasManagementContent = () => {
                                 <span className="font-semibold text-xs sm:text-sm">Total Distribuído:</span>
                                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
                                     <span className={`text-xs sm:text-sm ${validateTotal() ? "text-green-600 font-bold" : "text-red-600 font-bold"}`}>
-                                        Meta: R$ {colabGoals.reduce((s, c) => s + c.meta, 0).toLocaleString('pt-BR')}
+                                        Meta: R$ {colabGoals.filter(c => c.recebeMeta).reduce((s, c) => s + c.meta, 0).toLocaleString('pt-BR')}
                                     </span>
                                     <span className="text-xs sm:text-sm text-purple-600 font-bold">
-                                        Super: R$ {colabGoals.reduce((s, c) => s + c.superMeta, 0).toLocaleString('pt-BR')}
+                                        Super: R$ {colabGoals.filter(c => c.recebeMeta).reduce((s, c) => s + c.superMeta, 0).toLocaleString('pt-BR')}
                                     </span>
                                 </div>
                             </div>
