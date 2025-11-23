@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CommercialDashboard } from "@/components/admin/CommercialDashboard";
 import { FinancialDashboard } from "@/components/admin/FinancialDashboard";
+import { StorePerformanceReports } from "@/components/admin/StorePerformanceReports";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -176,6 +177,9 @@ const AdminDashboard = () => {
             </div>
 
             <CommercialDashboard />
+            
+            {/* Relatórios de Performance por Loja */}
+            <StorePerformanceReports />
           </TabsContent>
 
           <TabsContent value="financeiro" className="animate-in fade-in-50 duration-500">
