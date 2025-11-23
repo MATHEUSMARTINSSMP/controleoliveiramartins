@@ -10,7 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award, Download, FileSpreadsheet, FileText } from "lucide-react";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
 import { format, startOfWeek, getWeek, getYear } from "date-fns";
 import WeeklyGoalProgress from "@/components/WeeklyGoalProgress";
@@ -2516,8 +2519,34 @@ export default function LojaDashboard() {
             {(colaboradoras.length > 0 || monthlyDataByDay.length > 0) && (
             <Card>
                     <CardHeader className="p-3 sm:p-6">
-                        <CardTitle className="text-base sm:text-lg">Performance Mensal por Dia</CardTitle>
-                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">Vendas diárias de cada colaboradora no mês atual</p>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div>
+                                <CardTitle className="text-base sm:text-lg">Performance Mensal por Dia</CardTitle>
+                                <p className="text-xs sm:text-sm text-muted-foreground mt-1">Vendas diárias de cada colaboradora no mês atual</p>
+                            </div>
+                            {monthlyDataByDay.length > 0 && (
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleExportXLS}
+                                        className="text-xs sm:text-sm"
+                                    >
+                                        <FileSpreadsheet className="h-4 w-4 mr-2" />
+                                        Exportar XLS
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleExportPDF}
+                                        className="text-xs sm:text-sm"
+                                    >
+                                        <FileText className="h-4 w-4 mr-2" />
+                                        Exportar PDF
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
                 </CardHeader>
                     <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                         {monthlyDataByDay.length > 0 ? (
