@@ -29,6 +29,7 @@ FOR SELECT
 TO authenticated
 USING (
   -- Permitir se o usuário é LOJA E o admin_id do recipient é o admin da loja do usuário
+  -- IMPORTANTE: Verificar se store_default é UUID antes de fazer JOIN
   EXISTS (
     SELECT 1
     FROM sistemaretiradas.profiles p
@@ -36,6 +37,8 @@ USING (
     WHERE p.id = auth.uid()
     AND p.role::text = 'LOJA'
     AND p.store_default IS NOT NULL
+    -- Verificar se store_default é um UUID válido (não é nome de loja)
+    AND p.store_default::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
     AND s.admin_id IS NOT NULL
     AND s.admin_id = sistemaretiradas.whatsapp_recipients.admin_id
   )
