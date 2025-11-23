@@ -2182,9 +2182,9 @@ export default function LojaDashboard() {
             {colaboradorasPerformance.length > 0 && (
                 <div className="max-w-4xl mx-auto">
                     <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6 text-center">Planejamento do Dia</h2>
-                    <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 justify-items-center">
                         {colaboradorasPerformance.map((perf) => (
-                            <Card key={perf.id} className="flex flex-col w-[320px] h-[240px]">
+                            <Card key={perf.id} className="flex flex-col w-full max-w-[320px] h-[240px]">
                                 <CardHeader className="pb-3 p-4 text-center border-b">
                                     <CardTitle className="text-sm font-semibold line-clamp-2 leading-tight min-h-[3rem]">{perf.name}</CardTitle>
                                 </CardHeader>
