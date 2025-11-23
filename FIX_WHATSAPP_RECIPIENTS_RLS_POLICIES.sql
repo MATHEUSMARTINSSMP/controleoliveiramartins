@@ -22,6 +22,7 @@ ORDER BY policyname;
 
 -- Política que permite que usuários LOJA vejam recipients do admin da sua loja
 -- A lógica: usuário LOJA -> busca admin_id da sua loja -> vê recipients desse admin
+-- ⚠️ IMPORTANTE: Esta política NÃO deve substituir as políticas existentes, apenas adicionar permissão
 CREATE POLICY "LOJA users can view admin recipients"
 ON sistemaretiradas.whatsapp_recipients
 FOR SELECT
@@ -34,14 +35,10 @@ USING (
     JOIN sistemaretiradas.stores s ON s.id = p.store_default
     WHERE p.id = auth.uid()
     AND p.role = 'LOJA'
+    AND p.store_default IS NOT NULL
+    AND s.admin_id IS NOT NULL
     AND s.admin_id = sistemaretiradas.whatsapp_recipients.admin_id
   )
-  OR
-  -- Permitir se o usuário é ADMIN (política existente continua funcionando)
-  sistemaretiradas.is_user_admin()
-  OR
-  -- Permitir se o usuário é o próprio admin (política existente continua funcionando)
-  admin_id = auth.uid()
 );
 
 -- ============================================
