@@ -1512,8 +1512,10 @@ export default function LojaDashboard() {
                 console.log('📱 Dados da venda:', vendaData);
                 
                 // Executar tudo em background sem bloquear a UI
+                // IMPORTANTE: Não usar await aqui para não bloquear a UI
                 (async () => {
                     try {
+                        console.log('📱 ✅ Função assíncrona iniciada!');
                         console.log('📱 [1/4] Iniciando busca de dados...');
                         
                         // Primeiro: buscar nome da colaboradora e IDs dos admins ativos
@@ -1637,9 +1639,15 @@ export default function LojaDashboard() {
                         console.error('❌ Erro ao buscar dados para WhatsApp:', err);
                         console.error('❌ Stack trace:', err?.stack);
                         console.error('❌ Mensagem:', err?.message);
+                        console.error('❌ Erro completo:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
                         // Não mostrar erro ao usuário, apenas log
                     }
-                })();
+                })().catch((err: any) => {
+                    // Catch adicional para capturar erros não tratados na função assíncrona
+                    console.error('❌ Erro não capturado na função assíncrona:', err);
+                    console.error('❌ Stack trace:', err?.stack);
+                    console.error('❌ Mensagem:', err?.message);
+                });
             } else {
                 console.log('⚠️ Nenhuma colaboradora selecionada. WhatsApp não será enviado.');
                 console.log('⚠️ vendaData.colaboradora_id:', vendaData.colaboradora_id);
