@@ -91,26 +91,46 @@ exports.handler = async (event, context) => {
 
     console.log('📦 Payload enviado:', JSON.stringify(payload, null, 2));
 
+    // Headers exatos conforme documentação e testes
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-app-key': webhookAuth, // Header em minúsculas conforme especificação
+    };
+
+    console.log('📦 Headers enviados:', JSON.stringify(headers, null, 2));
+    console.log('📦 URL:', webhookUrl);
+    console.log('📦 Payload completo:', JSON.stringify(payload, null, 2));
+
     const response = await fetch(webhookUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-APP-KEY': webhookAuth, // Header de autenticação: X-APP-KEY (exatamente como no teste)
-      },
+      headers: headers,
       body: JSON.stringify(payload),
     });
+
+    // Log detalhado da resposta
+    console.log('📥 Status da resposta:', response.status, response.statusText);
+    console.log('📥 Headers da resposta:', Object.fromEntries(response.headers.entries()));
 
     // Tentar ler resposta como JSON, mas tratar caso não seja
     let responseData;
     const responseText = await response.text();
+    console.log('📥 Corpo da resposta (raw):', responseText);
+    
     try {
       responseData = JSON.parse(responseText);
+      console.log('📥 Corpo da resposta (parsed):', JSON.stringify(responseData, null, 2));
     } catch (e) {
-      responseData = { message: responseText };
+      console.warn('⚠️ Resposta não é JSON válido:', e);
+      responseData = { message: responseText, raw: responseText };
     }
 
     if (!response.ok) {
-      throw new Error(responseData.message || `HTTP ${response.status}`);
+      console.error('❌ Erro na resposta do webhook:', {
+        status: response.status,
+        statusText: response.statusText,
+        data: responseData
+      });
+      throw new Error(responseData.message || responseData.error || `HTTP ${response.status}: ${response.statusText}`);
     }
 
     console.log('✅ Mensagem WhatsApp enviada com sucesso:', responseData);
