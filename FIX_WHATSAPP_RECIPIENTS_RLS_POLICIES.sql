@@ -17,7 +17,14 @@ WHERE schemaname = 'sistemaretiradas'
 ORDER BY policyname;
 
 -- ============================================
--- 2. ADICIONAR POLÍTICA PARA USUÁRIOS LOJA
+-- 2. REMOVER POLÍTICA EXISTENTE (SE HOUVER)
+-- ============================================
+
+-- Remover política existente se já foi criada antes
+DROP POLICY IF EXISTS "LOJA users can view admin recipients" ON sistemaretiradas.whatsapp_recipients;
+
+-- ============================================
+-- 3. ADICIONAR POLÍTICA PARA USUÁRIOS LOJA
 -- ============================================
 
 -- Política que permite que usuários LOJA vejam recipients do admin da sua loja
@@ -45,7 +52,7 @@ USING (
 );
 
 -- ============================================
--- 3. VERIFICAR POLÍTICAS APÓS ALTERAÇÃO
+-- 4. VERIFICAR POLÍTICAS APÓS ALTERAÇÃO
 -- ============================================
 
 SELECT 
@@ -59,7 +66,7 @@ WHERE schemaname = 'sistemaretiradas'
 ORDER BY policyname;
 
 -- ============================================
--- 4. TESTE MANUAL (OPCIONAL)
+-- 5. TESTE MANUAL (OPCIONAL)
 -- ============================================
 
 -- Teste 1: Usuário LOJA deve ver recipients do admin da sua loja
