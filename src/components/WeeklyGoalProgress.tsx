@@ -542,8 +542,8 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                             </div>
                             
                             {/* Labels acima da barra - fora do container da barra para não sair */}
-                            <div className="relative h-8 mb-2">
-                                {/* Label Super Meta acima */}
+                            <div className="relative h-12 mb-2">
+                                {/* Label Meta acima */}
                                 {progress.meta_valor > 0 && (
                                     <div 
                                         className={`absolute text-[10px] sm:text-xs font-bold whitespace-nowrap px-1.5 py-0.5 sm:px-2 sm:py-1 rounded shadow-md ${
@@ -554,10 +554,11 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                                 : 'bg-green-200 text-green-800 border border-green-400'
                                         }`}
                                         style={{ 
-                                            left: `${Math.min((progress.meta_valor / progress.super_meta_valor) * 100, 95)}%`,
+                                            left: `${Math.min((progress.meta_valor / progress.super_meta_valor) * 100, 85)}%`,
                                             top: '0',
                                             transform: 'translateX(-50%)',
-                                            maxWidth: '45%'
+                                            maxWidth: '40%',
+                                            zIndex: 10
                                         }}
                                     >
                                         🎯 Meta
@@ -566,7 +567,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                         </div>
                                     </div>
                                 )}
-                                {/* Label Super Meta acima - garantir que não ultrapasse */}
+                                {/* Label Super Meta acima - garantir espaçamento da Meta */}
                                 <div 
                                     className={`absolute text-[10px] sm:text-xs font-bold whitespace-nowrap px-1.5 py-0.5 sm:px-2 sm:py-1 rounded shadow-md ${
                                         progress.realizado >= progress.super_meta_valor 
@@ -577,8 +578,9 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                         right: '0',
                                         top: '0',
                                         transform: 'translateX(0)',
-                                        maxWidth: '45%',
-                                        textAlign: 'right'
+                                        maxWidth: '40%',
+                                        textAlign: 'right',
+                                        zIndex: 10
                                     }}
                                 >
                                     <span className="hidden sm:inline">🏆 </span>Super
