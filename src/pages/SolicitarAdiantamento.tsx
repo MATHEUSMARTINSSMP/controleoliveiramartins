@@ -132,36 +132,58 @@ export default function SolicitarAdiantamento() {
     (async () => {
       try {
         console.log('📱 [SolicitarAdiantamento] Iniciando processo de envio de WhatsApp...');
+        console.log('📱 [SolicitarAdiantamento] Dados do adiantamento:', adiantamentoData);
         
         // Buscar loja da colaboradora
-        const { data: colaboradoraData } = await supabase
+        console.log('📱 [1/5] Buscando dados da colaboradora...');
+        const { data: colaboradoraData, error: colaboradoraError } = await supabase
           .schema('sistemaretiradas')
           .from('profiles')
           .select('store_id, name')
           .eq('id', profile.id)
           .single();
 
-        if (!colaboradoraData?.store_id) {
-          console.warn('⚠️ Colaboradora não tem loja associada');
+        if (colaboradoraError) {
+          console.error('❌ Erro ao buscar colaboradora:', colaboradoraError);
           return;
         }
 
+        if (!colaboradoraData?.store_id) {
+          console.warn('⚠️ [1/5] Colaboradora não tem loja associada');
+          console.warn('⚠️ [1/5] Colaboradora ID:', profile.id);
+          return;
+        }
+
+        console.log('📱 [1/5] Colaboradora encontrada:', colaboradoraData.name);
+        console.log('📱 [1/5] Store ID:', colaboradoraData.store_id);
+
         // Buscar admin_id da loja
-        const { data: storeData } = await supabase
+        console.log('📱 [2/5] Buscando admin_id da loja...');
+        const { data: storeData, error: storeError } = await supabase
           .schema('sistemaretiradas')
           .from('stores')
           .select('admin_id, name')
           .eq('id', colaboradoraData.store_id)
           .single();
 
-        if (!storeData?.admin_id) {
-          console.warn('⚠️ Loja não tem admin_id configurado');
+        if (storeError) {
+          console.error('❌ Erro ao buscar loja:', storeError);
           return;
         }
 
+        if (!storeData?.admin_id) {
+          console.warn('⚠️ [2/5] Loja não tem admin_id configurado');
+          console.warn('⚠️ [2/5] Loja ID:', colaboradoraData.store_id);
+          console.warn('⚠️ [2/5] Configure o admin_id da loja na tabela stores');
+          return;
+        }
+
+        console.log('📱 [2/5] Loja encontrada:', storeData.name);
+        console.log('📱 [2/5] Admin ID:', storeData.admin_id);
+
         // Buscar destinatários WhatsApp configurados para ADIANTAMENTO
-        // Buscar números onde store_id IS NULL (todas as lojas) OU store_id = loja da colaboradora
-        const { data: recipientsAllStores } = await supabase
+        console.log('📱 [3/5] Buscando destinatários WhatsApp para ADIANTAMENTO...');
+        const { data: recipientsAllStores, error: recipientsAllError } = await supabase
           .schema('sistemaretiradas')
           .from('whatsapp_notification_config')
           .select('phone')
@@ -170,7 +192,13 @@ export default function SolicitarAdiantamento() {
           .eq('active', true)
           .is('store_id', null);
         
-        const { data: recipientsThisStore } = await supabase
+        if (recipientsAllError) {
+          console.error('❌ Erro ao buscar destinatários (todas as lojas):', recipientsAllError);
+        } else {
+          console.log('📱 [3/5] Destinatários (todas as lojas):', recipientsAllStores?.length || 0);
+        }
+        
+        const { data: recipientsThisStore, error: recipientsStoreError } = await supabase
           .schema('sistemaretiradas')
           .from('whatsapp_notification_config')
           .select('phone')
@@ -178,6 +206,12 @@ export default function SolicitarAdiantamento() {
           .eq('notification_type', 'ADIANTAMENTO')
           .eq('active', true)
           .eq('store_id', colaboradoraData.store_id);
+        
+        if (recipientsStoreError) {
+          console.error('❌ Erro ao buscar destinatários (loja específica):', recipientsStoreError);
+        } else {
+          console.log('📱 [3/5] Destinatários (loja específica):', recipientsThisStore?.length || 0);
+        }
         
         // Combinar resultados e remover duplicatas
         const recipientsData = [
@@ -187,12 +221,19 @@ export default function SolicitarAdiantamento() {
           index === self.findIndex(t => t.phone === item.phone)
         );
 
+        console.log('📱 [3/5] Total de destinatários únicos:', recipientsData.length);
+        if (recipientsData.length > 0) {
+          console.log('📱 [3/5] Números:', recipientsData.map(r => r.phone));
+        }
+
         if (!recipientsData || recipientsData.length === 0) {
-          console.warn('⚠️ Nenhum destinatário WhatsApp configurado para notificações de adiantamento');
+          console.warn('⚠️ [3/5] Nenhum destinatário WhatsApp configurado para notificações de adiantamento');
+          console.warn('⚠️ [3/5] Verifique se há números configurados em "Configurações > Notificações WhatsApp" para o tipo "ADIANTAMENTO"');
           return;
         }
 
         // Formatar mensagem
+        console.log('📱 [4/5] Formatando mensagem...');
         const message = formatAdiantamentoMessage({
           colaboradoraName: colaboradoraData.name || 'Colaboradora',
           valor: adiantamentoData.valor,
@@ -201,19 +242,38 @@ export default function SolicitarAdiantamento() {
           storeName: storeData.name,
         });
 
+        console.log('📱 [4/5] Mensagem formatada:', message);
+
         // Enviar para todos os destinatários
-        const sendPromises = recipientsData.map(recipient => {
+        console.log('📱 [5/5] Enviando WhatsApp para', recipientsData.length, 'destinatário(s)...');
+        const sendPromises = recipientsData.map((recipient, index) => {
           const cleanedPhone = recipient.phone.replace(/\D/g, '');
+          console.log(`📱 [5/5] Enviando para destinatário ${index + 1}/${recipientsData.length}: ${cleanedPhone}`);
           return sendWhatsAppMessage({
             phone: cleanedPhone,
             message,
+          }).then(result => {
+            if (result.success) {
+              console.log(`✅ [5/5] WhatsApp enviado com sucesso para ${cleanedPhone}`);
+            } else {
+              console.warn(`⚠️ [5/5] Falha ao enviar WhatsApp para ${cleanedPhone}:`, result.error);
+            }
+            return result;
+          }).catch(err => {
+            console.error(`❌ [5/5] Erro ao enviar WhatsApp para ${cleanedPhone}:`, err);
+            return { success: false, error: err };
           });
         });
 
-        await Promise.all(sendPromises);
-        console.log('📱 [SolicitarAdiantamento] ✅ Notificações enviadas com sucesso!');
+        const results = await Promise.all(sendPromises);
+        const successCount = results.filter(r => r.success).length;
+        const failCount = results.filter(r => !r.success).length;
+        
+        console.log('📱 [SolicitarAdiantamento] ✅ Processo concluído!');
+        console.log(`📱 [SolicitarAdiantamento] Sucessos: ${successCount}, Falhas: ${failCount}`);
       } catch (err) {
         console.error('❌ Erro no processo de envio de WhatsApp:', err);
+        console.error('❌ Stack:', err instanceof Error ? err.stack : 'N/A');
       }
     })();
 
