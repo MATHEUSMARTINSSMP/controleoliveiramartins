@@ -2338,7 +2338,9 @@ export default function LojaDashboard() {
                                     sales.map((sale) => (
                                         <TableRow key={sale.id}>
                                             <TableCell className="text-xs sm:text-sm">{format(new Date(sale.data_venda), 'HH:mm')}</TableCell>
-                                            <TableCell className="text-xs sm:text-sm font-medium truncate max-w-[100px]">{sale.colaboradora.name}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm font-medium truncate max-w-[100px]">
+                                                {sale.colaboradora?.name || 'Colaboradora não encontrada'}
+                                            </TableCell>
                                             <TableCell className="text-xs sm:text-sm font-medium">R$ {sale.valor.toFixed(2)}</TableCell>
                                             <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{sale.qtd_pecas}</TableCell>
                                             <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {sale.valor.toFixed(2)}</TableCell>
