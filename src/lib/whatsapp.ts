@@ -100,27 +100,29 @@ export function formatVendaMessage(params: {
     currency: 'BRL',
   }).format(valor);
 
-  // Formatar mensagem com quebras de linha usando \n
-  // O JSON.stringify() vai escapar corretamente os \n para o formato JSON válido
-  // O WhatsApp suporta \n para quebras de linha na mensagem
-  let message = `🛒 *Nova Venda Lançada*\n\n`;
+  // Formatar mensagem com separadores visuais que funcionam em uma linha
+  // O n8n tem problemas com \n quando usa {{ $json.message }} no JSON body
+  // Usar separadores alternativos para melhor legibilidade
+  let message = `🛒 *Nova Venda Lançada*`;
   
-  message += `*Colaboradora:* ${colaboradoraName}\n`;
+  message += ` • *Colaboradora:* ${colaboradoraName}`;
   
   if (storeName) {
-    message += `*Loja:* ${storeName}\n`;
+    message += ` • *Loja:* ${storeName}`;
   }
   
-  message += `*Valor:* ${valorFormatado}\n`;
-  message += `*Quantidade de Peças:* ${qtdPecas}\n`;
-  message += `*Data:* ${dataFormatada}\n`;
+  message += ` • *Valor:* ${valorFormatado}`;
+  message += ` • *Quantidade de Peças:* ${qtdPecas}`;
+  message += ` • *Data:* ${dataFormatada}`;
   
-  // Adicionar observações se houver
+  // Adicionar observações se houver (em uma linha, sem quebras)
   if (observacoes && observacoes.trim()) {
-    message += `\n*Observações:*\n${observacoes.trim()}\n`;
+    // Substituir quebras de linha por espaços para manter tudo em uma linha
+    const obsLimpa = observacoes.trim().replace(/[\n\r]+/g, ' ').replace(/\s+/g, ' ');
+    message += ` • *Observações:* ${obsLimpa}`;
   }
   
-  message += `\nSistema EleveaOne 📊`;
+  message += ` • Sistema EleveaOne 📊`;
 
   return message;
 }
