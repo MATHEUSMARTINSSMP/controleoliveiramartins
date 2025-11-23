@@ -139,12 +139,25 @@ export const WhatsAppNotificationConfig = () => {
 
   const normalizePhone = (phone: string): string => {
     // Remove tudo que não é número
-    return phone.replace(/\D/g, '');
+    let cleaned = phone.replace(/\D/g, '');
+    
+    // Se começar com 55 (DDI do Brasil), remover
+    if (cleaned.startsWith('55')) {
+      cleaned = cleaned.substring(2);
+    }
+    
+    // Se começar com 0, remover
+    if (cleaned.startsWith('0')) {
+      cleaned = cleaned.substring(1);
+    }
+    
+    return cleaned;
   };
 
   const validatePhone = (phone: string): boolean => {
     const normalized = normalizePhone(phone);
-    // Deve ter entre 10 e 11 dígitos (sem DDI)
+    // Deve ter entre 10 e 11 dígitos (sem DDI, sem 0 inicial)
+    // Aceita: 96981032928 (11 dígitos) ou 6981032928 (10 dígitos)
     return normalized.length >= 10 && normalized.length <= 11;
   };
 
@@ -161,8 +174,14 @@ export const WhatsAppNotificationConfig = () => {
             setSaving(false);
             return;
           }
+          const normalizedPhone = normalizePhone(recipient.phone);
           if (!validatePhone(recipient.phone)) {
-            toast.error(`Número de telefone inválido em "${config.label}". Use apenas números (10-11 dígitos).`);
+            toast.error(
+              `Número de telefone inválido em "${config.label}". ` +
+              `Digite apenas números (10-11 dígitos). ` +
+              `Você digitou: ${normalizedPhone.length} dígito(s). ` +
+              `Exemplos: 96981113307 ou 5596981113307`
+            );
             setSaving(false);
             return;
           }
@@ -322,10 +341,14 @@ export const WhatsAppNotificationConfig = () => {
                   <Input
                     id={`${config.type}-phone-${index}`}
                     type="tel"
-                    placeholder="96981113307 (apenas números)"
+                    placeholder="96981113307"
                     value={recipient.phone}
                     onChange={(e) => updateRecipient(config.type, index, 'phone', e.target.value)}
+                    className="placeholder:text-muted-foreground/50"
                   />
+                  <p className="text-xs text-muted-foreground/70">
+                    Formato: apenas números (10-11 dígitos). Ex: 96981113307 ou 5596981113307
+                  </p>
                 </div>
                 <div className="flex-1 space-y-2">
                   <Label htmlFor={`${config.type}-name-${index}`}>
