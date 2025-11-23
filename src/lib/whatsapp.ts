@@ -100,8 +100,9 @@ export function formatVendaMessage(params: {
     currency: 'BRL',
   }).format(valor);
 
-  // Formatar mensagem com quebras de linha para melhor legibilidade
-  // WhatsApp suporta \n para quebras de linha
+  // Formatar mensagem com quebras de linha usando \n
+  // O JSON.stringify() vai escapar corretamente os \n para o formato JSON válido
+  // O WhatsApp suporta \n para quebras de linha na mensagem
   let message = `🛒 *Nova Venda Lançada*\n\n`;
   
   message += `*Colaboradora:* ${colaboradoraName}\n`;
