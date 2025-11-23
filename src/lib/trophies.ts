@@ -158,6 +158,53 @@ export async function getColaboradoraTrophies(
 }
 
 /**
+ * Verifica e cria troféus semanais para todas as colaboradoras de uma loja
+ * Útil para garantir que todos os troféus sejam criados, não apenas quando uma venda é lançada
+ */
+export async function checkAndCreateWeeklyTrophiesForAllColaboradoras(
+  storeId: string,
+  semanaReferencia: string
+): Promise<number> {
+  try {
+    // Buscar todas as colaboradoras ativas da loja
+    const { data: colaboradoras, error: colabError } = await supabase
+      .schema("sistemaretiradas")
+      .from("profiles")
+      .select("id")
+      .eq("role", "COLABORADORA")
+      .eq("active", true)
+      .eq("store_id", storeId);
+
+    if (colabError) {
+      console.error('Erro ao buscar colaboradoras:', colabError);
+      return 0;
+    }
+
+    if (!colaboradoras || colaboradoras.length === 0) {
+      console.log('Nenhuma colaboradora encontrada para a loja');
+      return 0;
+    }
+
+    console.log(`🏆 Verificando troféus semanais para ${colaboradoras.length} colaboradoras...`);
+
+    // Verificar troféus para cada colaboradora
+    const promises = colaboradoras.map(colab =>
+      checkAndCreateWeeklyTrophies(colab.id, storeId, semanaReferencia)
+    );
+
+    const results = await Promise.all(promises);
+    const totalCreated = results.reduce((sum, count) => sum + count, 0);
+
+    console.log(`🏆 Total de troféus criados: ${totalCreated}`);
+
+    return totalCreated;
+  } catch (error) {
+    console.error('Erro ao verificar troféus para todas as colaboradoras:', error);
+    return 0;
+  }
+}
+
+/**
  * Busca troféus de uma loja (galeria)
  */
 export async function getStoreTrophies(

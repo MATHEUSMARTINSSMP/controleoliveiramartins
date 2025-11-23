@@ -3,9 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Award, Calendar, Sparkles, Users } from "lucide-react";
-import { format } from "date-fns";
+import { format, startOfWeek, getWeek, getYear } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/utils";
+import { checkAndCreateWeeklyTrophiesForAllColaboradoras } from "@/lib/trophies";
 
 interface TrophyData {
   id: string;
@@ -38,6 +39,17 @@ export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit
   const fetchTrophies = async () => {
     setLoading(true);
     try {
+      // Primeiro: verificar e criar troféus para todas as colaboradoras da loja
+      // Isso garante que todos os troféus sejam criados, não apenas quando uma venda é lançada
+      const hoje = new Date();
+      const monday = startOfWeek(hoje, { weekStartsOn: 1 });
+      const week = getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
+      const year = getYear(monday);
+      const semanaRef = `${String(week).padStart(2, '0')}${year}`;
+      
+      console.log(`🏆 [TrophiesGallery] Verificando troféus para semana ${semanaRef}...`);
+      await checkAndCreateWeeklyTrophiesForAllColaboradoras(storeId, semanaRef);
+      
       // Buscar troféus da loja com informações da colaboradora
       const { data: trophiesData, error } = await supabase
         .schema("sistemaretiradas")
