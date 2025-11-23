@@ -1518,52 +1518,67 @@ export default function LojaDashboard() {
                         console.log('📱 ✅ Função assíncrona iniciada!');
                         console.log('📱 [1/4] Iniciando busca de dados...');
                         
-                        // Primeiro: buscar nome da colaboradora e IDs dos admins ativos
-                        console.log('📱 [1/4] Buscando colaboradora e admins...');
-                        const [colaboradoraResult, adminsResult] = await Promise.all([
+                        // Primeiro: buscar nome da colaboradora e admin da loja atual
+                        console.log('📱 [1/4] Buscando colaboradora e admin da loja...');
+                        console.log('📱 [1/4] Store ID:', storeId);
+                        
+                        const [colaboradoraResult, storeResult] = await Promise.all([
                             // Buscar nome da colaboradora
                             supabase
+                                .schema('sistemaretiradas')
                                 .from('profiles')
                                 .select('name')
                                 .eq('id', vendaData.colaboradora_id)
                                 .single(),
-                            // Buscar IDs dos admins ativos
-                            supabase
-                                .from('profiles')
-                                .select('id')
-                                .eq('role', 'ADMIN')
-                                .eq('active', true)
+                            // Buscar admin_id da loja atual
+                            storeId ? supabase
+                                .schema('sistemaretiradas')
+                                .from('stores')
+                                .select('admin_id, name')
+                                .eq('id', storeId)
+                                .single()
+                                : Promise.resolve({ data: null, error: null })
                         ]);
 
                         console.log('📱 [1/4] Resultado da busca de colaboradora:', colaboradoraResult);
-                        console.log('📱 [1/4] Resultado da busca de admins:', adminsResult);
+                        console.log('📱 [1/4] Resultado da busca da loja:', storeResult);
 
                         if (colaboradoraResult.error) {
                             console.error('❌ Erro ao buscar colaboradora:', colaboradoraResult.error);
                             return;
                         }
 
-                        if (adminsResult.error) {
-                            console.error('❌ Erro ao buscar admins:', adminsResult.error);
+                        if (!storeId) {
+                            console.error('❌ Store ID não identificado. Não é possível buscar admin da loja.');
+                            return;
+                        }
+
+                        if (storeResult.error) {
+                            console.error('❌ Erro ao buscar loja:', storeResult.error);
                             return;
                         }
 
                         const colaboradoraName = colaboradoraResult.data?.name || 'Desconhecida';
-                        console.log('📱 [2/4] Colaboradora encontrada:', colaboradoraName);
-                        console.log('📱 [2/4] Admins encontrados:', adminsResult.data?.length || 0);
+                        const storeAdminId = storeResult.data?.admin_id || null;
+                        const storeNameFromDb = storeResult.data?.name || storeName || 'Loja';
                         
-                        // Segundo: buscar destinatários WhatsApp dos admins encontrados
+                        console.log('📱 [2/4] Colaboradora encontrada:', colaboradoraName);
+                        console.log('📱 [2/4] Loja:', storeNameFromDb);
+                        console.log('📱 [2/4] Admin ID da loja:', storeAdminId);
+                        
+                        // Segundo: buscar destinatários WhatsApp do admin da loja
                         console.log('📱 [2/4] Buscando destinatários WhatsApp...');
                         let adminPhones: string[] = [];
-                        if (adminsResult.data && adminsResult.data.length > 0) {
-                            const adminIds = adminsResult.data.map((admin: any) => admin.id);
-                            console.log('📱 [2/4] IDs dos admins:', adminIds);
+                        
+                        if (storeAdminId) {
+                            console.log('📱 [2/4] Buscando destinatários para o admin:', storeAdminId);
                             
                             const { data: recipientsData, error: recipientsError } = await supabase
+                                .schema('sistemaretiradas')
                                 .from('whatsapp_recipients')
                                 .select('phone')
                                 .eq('active', true)
-                                .in('admin_id', adminIds);
+                                .eq('admin_id', storeAdminId);
 
                             console.log('📱 [2/4] Resultado da busca de destinatários:', { recipientsData, recipientsError });
 
@@ -1585,6 +1600,9 @@ export default function LojaDashboard() {
                                     }
                                 });
                             }
+                        } else {
+                            console.warn('⚠️ [2/4] Loja não tem admin_id configurado!');
+                            console.warn('⚠️ [2/4] Configure o admin_id da loja na tabela stores.');
                         }
 
                         console.log('📱 [3/4] Destinatários WhatsApp encontrados:', adminPhones.length);
@@ -1602,7 +1620,7 @@ export default function LojaDashboard() {
                                 colaboradoraName,
                                 valor: parseFloat(vendaData.valor),
                                 qtdPecas: parseInt(vendaData.qtd_pecas),
-                                storeName: storeName || undefined,
+                                storeName: storeNameFromDb || storeName || undefined,
                                 dataVenda: vendaData.data_venda,
                             });
 
