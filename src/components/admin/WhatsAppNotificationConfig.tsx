@@ -99,10 +99,34 @@ export const WhatsAppNotificationConfig = () => {
   };
 
   const fetchConfigs = async () => {
-    if (!profile) return;
+    if (!profile) {
+      console.warn('⚠️ [fetchConfigs] Profile não encontrado');
+      return;
+    }
+
+    console.log('📱 [fetchConfigs] Iniciando busca...');
+    console.log('📱 [fetchConfigs] Profile ID:', profile.id);
+    console.log('📱 [fetchConfigs] Profile Role:', profile.role);
 
     setLoading(true);
     try {
+      // Primeiro, tentar buscar sem filtro para ver se há dados
+      const { data: allData, error: allError } = await supabase
+        .schema('sistemaretiradas')
+        .from('whatsapp_notification_config')
+        .select('*')
+        .limit(10);
+
+      console.log('📱 [fetchConfigs] Teste sem filtro - Total de registros na tabela:', allData?.length || 0);
+      if (allData && allData.length > 0) {
+        console.log('📱 [fetchConfigs] Exemplo de registro (sem filtro):', allData[0]);
+        console.log('📱 [fetchConfigs] Admin IDs encontrados:', [...new Set(allData.map(d => d.admin_id))]);
+      }
+      if (allError) {
+        console.error('❌ Erro ao buscar sem filtro:', allError);
+      }
+
+      // Agora buscar com filtro do admin
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('whatsapp_notification_config')
@@ -113,12 +137,18 @@ export const WhatsAppNotificationConfig = () => {
 
       if (error) {
         console.error('❌ Erro ao buscar configurações:', error);
+        console.error('❌ Código do erro:', error.code);
+        console.error('❌ Mensagem do erro:', error.message);
+        console.error('❌ Detalhes do erro:', JSON.stringify(error, null, 2));
         throw error;
       }
 
-      console.log('📱 [fetchConfigs] Dados recebidos do banco:', data?.length || 0, 'registros');
+      console.log('📱 [fetchConfigs] Dados recebidos do banco (com filtro admin_id):', data?.length || 0, 'registros');
       if (data && data.length > 0) {
         console.log('📱 [fetchConfigs] Primeiro registro:', data[0]);
+        console.log('📱 [fetchConfigs] Todos os registros:', data);
+      } else {
+        console.warn('⚠️ [fetchConfigs] Nenhum registro encontrado para admin_id:', profile.id);
       }
 
       // Agrupar por tipo de notificação e telefone
