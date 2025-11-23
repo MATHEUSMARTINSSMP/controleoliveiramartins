@@ -611,6 +611,49 @@ const MetasManagementContent = () => {
         setDialogOpen(true);
     };
 
+    const handleDelete = async (storeId: string, month: string) => {
+        // Confirmar exclusão
+        if (!confirm(`Tem certeza que deseja excluir todas as metas mensais de ${month}? Esta ação não pode ser desfeita.`)) {
+            return;
+        }
+
+        try {
+            // Buscar todas as metas (mensal e individuais) para esta loja e mês
+            const { data: goalsToDelete } = await supabase
+                .schema("sistemaretiradas")
+                .from("goals")
+                .select("id")
+                .eq("store_id", storeId)
+                .eq("mes_referencia", month)
+                .in("tipo", ["MENSAL", "INDIVIDUAL"]);
+
+            if (!goalsToDelete || goalsToDelete.length === 0) {
+                toast.error("Nenhuma meta encontrada para excluir");
+                return;
+            }
+
+            // Deletar todas as metas
+            const { error } = await supabase
+                .schema("sistemaretiradas")
+                .from("goals")
+                .delete()
+                .eq("store_id", storeId)
+                .eq("mes_referencia", month)
+                .in("tipo", ["MENSAL", "INDIVIDUAL"]);
+
+            if (error) {
+                console.error("Erro ao excluir metas:", error);
+                throw error;
+            }
+
+            toast.success("Metas excluídas com sucesso!");
+            fetchGoals(); // Recarregar lista
+        } catch (error: any) {
+            console.error("Erro ao excluir metas:", error);
+            toast.error("Erro ao excluir metas: " + error.message);
+        }
+    };
+
     const calculateWeeklyGoalFromMonthly = async () => {
         if (!selectedStore || !selectedWeek) {
             toast.error("Selecione uma loja e uma semana primeiro");
@@ -957,10 +1000,21 @@ const MetasManagementContent = () => {
                                     <p className="text-xs text-muted-foreground hidden sm:block">Meta da Loja</p>
                                     <p className="font-bold text-sm sm:text-lg">R$ {group.storeGoal?.meta_valor?.toLocaleString('pt-BR') || '0,00'}</p>
                                 </div>
-                                <Button variant="outline" size="sm" onClick={() => handleEdit(group.storeGoal?.store_id, group.month)} className="flex-shrink-0 text-xs sm:text-sm">
-                                    <Edit className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-                                    <span className="hidden sm:inline">Editar</span>
-                                </Button>
+                                <div className="flex items-center gap-2">
+                                    <Button variant="outline" size="sm" onClick={() => handleEdit(group.storeGoal?.store_id, group.month)} className="flex-shrink-0 text-xs sm:text-sm">
+                                        <Edit className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                                        <span className="hidden sm:inline">Editar</span>
+                                    </Button>
+                                    <Button 
+                                        variant="destructive" 
+                                        size="sm" 
+                                        onClick={() => handleDelete(group.storeGoal?.store_id || group.individuals[0]?.store_id, group.month)} 
+                                        className="flex-shrink-0 text-xs sm:text-sm"
+                                    >
+                                        <Trash className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                                        <span className="hidden sm:inline">Excluir</span>
+                                    </Button>
+                                </div>
                             </div>
                         </div>
 
