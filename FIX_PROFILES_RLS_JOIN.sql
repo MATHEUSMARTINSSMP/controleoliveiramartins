@@ -8,6 +8,8 @@
 
 -- Política que permite ver perfis de COLABORADORAS quando fazendo joins
 -- Isso é necessário para que queries como sales JOIN profiles funcionem
+-- ⚠️ IMPORTANTE: Esta política NÃO verifica se o usuário é admin para evitar recursão
+-- Ela permite que qualquer usuário autenticado veja perfis de colaboradoras
 CREATE POLICY "profiles_select_colaboradoras_for_joins"
 ON sistemaretiradas.profiles
 FOR SELECT
@@ -18,15 +20,6 @@ USING (
   OR
   -- Permitir ver próprio perfil
   id = auth.uid()
-  OR
-  -- Permitir que admins vejam todos os perfis (se a função check_is_admin existir)
-  (EXISTS (
-    SELECT 1
-    FROM sistemaretiradas.profiles p
-    WHERE p.id = auth.uid()
-    AND p.role = 'ADMIN'
-    AND p.active = true
-  ))
 );
 
 -- ============================================
