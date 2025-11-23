@@ -25,7 +25,7 @@ interface TrophiesGalleryProps {
   limit?: number;
 }
 
-export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit = 50 }) => {
+export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit = 200 }) => {
   const [trophies, setTrophies] = useState<TrophyData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -56,6 +56,14 @@ export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit
         return;
       }
 
+      console.log(`🏆 [TrophiesGallery] Total de troféus retornados do banco: ${trophiesData?.length || 0}`);
+      console.log(`🏆 [TrophiesGallery] Troféus por tipo:`, 
+        trophiesData?.reduce((acc: any, t: any) => {
+          acc[t.tipo] = (acc[t.tipo] || 0) + 1;
+          return acc;
+        }, {}) || {}
+      );
+
       // Converter dados para o formato TrophyData
       const trophiesList: TrophyData[] = (trophiesData || []).map((trophy: any) => ({
         id: trophy.id,
@@ -69,6 +77,11 @@ export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit
         percentual: Number(trophy.percentual),
         data_conquista: trophy.data_conquista
       }));
+
+      console.log(`🏆 [TrophiesGallery] Troféus convertidos: ${trophiesList.length}`);
+      console.log(`🏆 [TrophiesGallery] Colaboradoras únicas:`, 
+        new Set(trophiesList.map(t => t.colaboradora_id)).size
+      );
 
       // Filtrar: se há troféu de super meta, remover troféu de meta normal da mesma colaboradora e referência
       const filteredTrophies = trophiesList.filter(trophy => {
@@ -98,6 +111,19 @@ export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit
         // Se existe super meta, não mostrar a meta normal
         return !hasSuperMeta;
       });
+
+      console.log(`🏆 [TrophiesGallery] Troféus após filtro: ${filteredTrophies.length}`);
+      console.log(`🏆 [TrophiesGallery] Colaboradoras únicas após filtro:`, 
+        new Set(filteredTrophies.map(t => t.colaboradora_id)).size
+      );
+      console.log(`🏆 [TrophiesGallery] Detalhes dos troféus filtrados:`, 
+        filteredTrophies.map(t => ({
+          colaboradora: t.colaboradora_name,
+          tipo: t.tipo,
+          semana: t.semana_referencia,
+          mes: t.mes_referencia
+        }))
+      );
 
       setTrophies(filteredTrophies);
     } catch (error) {
