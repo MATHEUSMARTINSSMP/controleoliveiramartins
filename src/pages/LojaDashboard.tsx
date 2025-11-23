@@ -1864,6 +1864,198 @@ export default function LojaDashboard() {
         }
     };
 
+    // Função para preparar dados da tabela para exportação
+    const prepareTableData = () => {
+        const hoje = new Date();
+        const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+        const todayStr = format(hoje, 'yyyy-MM-dd');
+        const days: string[] = [];
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
+            if (dayStr <= todayStr) {
+                days.push(dayStr);
+            }
+        }
+
+        // Calcular total por dia
+        const totalPorDia: Record<string, number> = {};
+        days.forEach(dayStr => {
+            const totalDia = monthlyDataByDay.reduce((sum, data) => {
+                const dayData = data.dailySales[dayStr] || { valor: 0 };
+                return sum + dayData.valor;
+            }, 0);
+            totalPorDia[dayStr] = totalDia;
+        });
+
+        // Preparar cabeçalhos
+        const headers = [
+            'Vendedora',
+            ...days.map(dayStr => format(new Date(dayStr + 'T00:00:00'), 'dd/MM')),
+            'Total'
+        ];
+
+        // Preparar linhas de dados
+        const rows: any[] = [];
+        
+        // Linhas das colaboradoras (ordenadas por total)
+        [...monthlyDataByDay].sort((a, b) => b.totalMes - a.totalMes).forEach(data => {
+            const row = [
+                data.colaboradoraName,
+                ...days.map(dayStr => {
+                    const dayData = data.dailySales[dayStr] || { valor: 0 };
+                    return dayData.valor > 0 ? dayData.valor.toFixed(2) : '-';
+                }),
+                data.totalMes.toFixed(2)
+            ];
+            rows.push(row);
+        });
+
+        // Linha de total
+        rows.push([
+            'TOTAL DA LOJA',
+            ...days.map(dayStr => totalPorDia[dayStr] > 0 ? totalPorDia[dayStr].toFixed(2) : '-'),
+            monthlyRealizado.toFixed(2)
+        ]);
+
+        return { headers, rows, days };
+    };
+
+    // Função para exportar em XLS
+    const handleExportXLS = () => {
+        try {
+            const { headers, rows } = prepareTableData();
+            
+            // Criar workbook e worksheet
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+            // Definir larguras das colunas
+            const colWidths = [
+                { wch: 25 }, // Vendedora
+                ...headers.slice(1, -1).map(() => ({ wch: 10 })), // Dias
+                { wch: 15 } // Total
+            ];
+            ws['!cols'] = colWidths;
+
+            // Aplicar bordas em todas as células
+            const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+            for (let R = range.s.r; R <= range.e.r; ++R) {
+                for (let C = range.s.c; C <= range.e.c; ++C) {
+                    const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+                    if (!ws[cellAddress]) {
+                        ws[cellAddress] = { t: 's', v: '' };
+                    }
+                    if (!ws[cellAddress].s) {
+                        ws[cellAddress].s = {};
+                    }
+                    ws[cellAddress].s.border = {
+                        top: { style: 'thin' },
+                        bottom: { style: 'thin' },
+                        left: { style: 'thin' },
+                        right: { style: 'thin' }
+                    };
+                    
+                    // Estilizar cabeçalho
+                    if (R === 0) {
+                        ws[cellAddress].s.font = { bold: true };
+                        ws[cellAddress].s.alignment = { horizontal: 'center', vertical: 'center' };
+                    }
+                }
+            }
+
+            // Estilizar linha de total (negrito e fundo)
+            const lastRow = rows.length;
+            for (let C = 0; C <= headers.length - 1; ++C) {
+                const cellAddress = XLSX.utils.encode_cell({ r: lastRow, c: C });
+                if (ws[cellAddress] && ws[cellAddress].s) {
+                    ws[cellAddress].s.font = { ...ws[cellAddress].s.font, bold: true };
+                    ws[cellAddress].s.fill = { fgColor: { rgb: 'E0E0E0' } };
+                }
+            }
+
+            XLSX.utils.book_append_sheet(wb, ws, 'Performance Mensal');
+
+            // Nome do arquivo
+            const mesAtual = format(new Date(), 'yyyy-MM');
+            const nomeArquivo = `Performance_Mensal_${storeName || 'Loja'}_${mesAtual}.xlsx`;
+
+            // Salvar arquivo
+            XLSX.writeFile(wb, nomeArquivo);
+            
+            toast.success('Exportação XLS realizada com sucesso!');
+        } catch (error) {
+            console.error('Erro ao exportar XLS:', error);
+            toast.error('Erro ao exportar arquivo XLS');
+        }
+    };
+
+    // Função para exportar em PDF
+    const handleExportPDF = () => {
+        try {
+            const { headers, rows } = prepareTableData();
+            
+            const doc = new jsPDF('landscape', 'mm', 'a4');
+            
+            // Título
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Performance Mensal por Dia', 14, 15);
+            
+            // Subtítulo
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            const mesAtual = format(new Date(), 'MM/yyyy');
+            doc.text(`${storeName || 'Loja'} - ${mesAtual}`, 14, 22);
+
+            // Preparar dados para autoTable
+            const tableData = rows.map(row => row);
+
+            // Criar tabela com bordas
+            autoTable(doc, {
+                head: [headers],
+                body: tableData,
+                startY: 28,
+                styles: {
+                    fontSize: 8,
+                    cellPadding: 2,
+                    lineColor: [0, 0, 0],
+                    lineWidth: 0.1,
+                },
+                headStyles: {
+                    fillColor: [240, 240, 240],
+                    textColor: [0, 0, 0],
+                    fontStyle: 'bold',
+                    halign: 'center',
+                },
+                bodyStyles: {
+                    halign: 'center',
+                },
+                columnStyles: {
+                    0: { halign: 'left', cellWidth: 50 }, // Vendedora
+                    [headers.length - 1]: { halign: 'right', cellWidth: 30, fontStyle: 'bold' }, // Total
+                },
+                theme: 'grid',
+                didParseCell: (data) => {
+                    // Estilizar linha de total
+                    if (data.row.index === tableData.length - 1) {
+                        data.cell.styles.fillColor = [224, 224, 224];
+                        data.cell.styles.fontStyle = 'bold';
+                    }
+                },
+                margin: { top: 28, left: 14, right: 14 },
+            });
+
+            // Salvar arquivo
+            const nomeArquivo = `Performance_Mensal_${storeName || 'Loja'}_${format(new Date(), 'yyyy-MM')}.pdf`;
+            doc.save(nomeArquivo);
+            
+            toast.success('Exportação PDF realizada com sucesso!');
+        } catch (error) {
+            console.error('Erro ao exportar PDF:', error);
+            toast.error('Erro ao exportar arquivo PDF');
+        }
+    };
+
     // Preço Médio por Peça = Valor Total / Quantidade de Peças
     const precoMedioPeca = formData.valor && formData.qtd_pecas
         ? (parseFloat(formData.valor) / parseInt(formData.qtd_pecas)).toFixed(2)
