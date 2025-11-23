@@ -2184,23 +2184,23 @@ export default function LojaDashboard() {
                     <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6 text-center">Planejamento do Dia</h2>
                     <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
                         {colaboradorasPerformance.map((perf) => (
-                            <Card key={perf.id} className="flex flex-col w-[280px] h-[210px]">
-                                <CardHeader className="pb-2 p-3.5 text-center border-b">
-                                    <CardTitle className="text-xs font-semibold line-clamp-2 leading-tight min-h-[2.5rem]">{perf.name}</CardTitle>
+                            <Card key={perf.id} className="flex flex-col w-[320px] h-[240px]">
+                                <CardHeader className="pb-3 p-4 text-center border-b">
+                                    <CardTitle className="text-sm font-semibold line-clamp-2 leading-tight min-h-[3rem]">{perf.name}</CardTitle>
                                 </CardHeader>
-                                <CardContent className="p-3.5 pt-3.5 flex-1 flex flex-col justify-center space-y-2">
+                                <CardContent className="p-4 pt-4 flex-1 flex flex-col justify-center space-y-2.5">
                                     {/* Meta do Dia */}
-                                    <div className="space-y-1.5">
-                                        <div className="flex items-center justify-between text-xs">
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between text-sm">
                                             <span className="text-muted-foreground">Meta do Dia</span>
                                             <span className="font-semibold">R$ {perf.metaDiaria > 0 ? perf.metaDiaria.toFixed(2) : '0.00'}</span>
                                         </div>
-                                        <div className="flex items-center justify-between text-xs">
+                                        <div className="flex items-center justify-between text-sm">
                                             <span className="text-muted-foreground">Vendido:</span>
                                             <span className="font-bold text-primary">R$ {perf.vendido.toFixed(2)}</span>
                                         </div>
                                         {perf.metaDiaria > 0 && (
-                                            <div className="flex items-center justify-between text-xs">
+                                            <div className="flex items-center justify-between text-sm">
                                                 <span className="text-muted-foreground">Falta:</span>
                                                 <span className={`font-semibold ${perf.vendido >= perf.metaDiaria ? 'text-green-600' : 'text-orange-600'}`}>
                                                     R$ {Math.max(0, perf.metaDiaria - perf.vendido).toFixed(2)}
@@ -2208,13 +2208,13 @@ export default function LojaDashboard() {
                                             </div>
                                         )}
                                         {/* Progresso */}
-                                        <div className="space-y-1 pt-1">
+                                        <div className="space-y-1 pt-1.5">
                                             <div className="flex items-center gap-2">
                                                 <Progress 
                                                     value={Math.min(perf.percentual, 100)} 
-                                                    className="h-2 flex-1"
+                                                    className="h-2.5 flex-1"
                                                 />
-                                                <span className="text-xs font-semibold whitespace-nowrap min-w-[40px] text-right">
+                                                <span className="text-sm font-semibold whitespace-nowrap min-w-[45px] text-right">
                                                     {perf.percentual.toFixed(0)}%
                                                 </span>
                                             </div>
