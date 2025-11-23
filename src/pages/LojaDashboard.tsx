@@ -51,6 +51,7 @@ export default function LojaDashboard() {
     const [loading, setLoading] = useState(true);
     const [storeId, setStoreId] = useState<string | null>(null);
     const [storeName, setStoreName] = useState<string | null>(null);
+    const [salesDateFilter, setSalesDateFilter] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
 
     const [formData, setFormData] = useState({
         colaboradora_id: "",
@@ -1272,13 +1273,22 @@ export default function LojaDashboard() {
 
     const fetchSales = async () => {
         if (!storeId) return;
-        return fetchSalesWithStoreId(storeId);
+        return fetchSalesWithStoreId(storeId, salesDateFilter);
     };
 
-    const fetchSalesWithStoreId = async (currentStoreId: string) => {
+    // Atualizar vendas quando o filtro de data mudar
+    useEffect(() => {
+        if (storeId && salesDateFilter) {
+            fetchSalesWithStoreId(storeId, salesDateFilter);
+        }
+    }, [salesDateFilter, storeId]);
+
+    const fetchSalesWithStoreId = async (currentStoreId: string, filterDate?: string) => {
         if (!currentStoreId) return;
 
-        const today = format(new Date(), 'yyyy-MM-dd');
+        const filterDateToUse = filterDate || salesDateFilter;
+        const startOfDay = `${filterDateToUse}T00:00:00`;
+        const endOfDay = `${filterDateToUse}T23:59:59`;
 
         const { data, error } = await supabase
             .schema("sistemaretiradas")
@@ -1288,7 +1298,8 @@ export default function LojaDashboard() {
         colaboradora:profiles!colaboradora_id(name)
       `)
             .eq('store_id', currentStoreId)
-            .gte('data_venda', `${today}T00:00:00`)
+            .gte('data_venda', startOfDay)
+            .lte('data_venda', endOfDay)
             .order('data_venda', { ascending: false });
 
         if (error) {
@@ -1761,7 +1772,7 @@ export default function LojaDashboard() {
             
             // Atualizar todos os dados automaticamente
             await Promise.all([
-                fetchSalesWithStoreId(storeId),
+                fetchSalesWithStoreId(storeId, salesDateFilter),
                 fetchColaboradorasPerformanceWithStoreId(storeId, storeName || undefined),
                 fetchGoalsWithStoreId(storeId),
                 fetchRankingTop3WithStoreId(storeId),
@@ -1841,7 +1852,7 @@ export default function LojaDashboard() {
             
             // Atualizar todos os dados automaticamente
             await Promise.all([
-                fetchSalesWithStoreId(storeId!),
+                fetchSalesWithStoreId(storeId!, salesDateFilter),
                 fetchColaboradorasPerformanceWithStoreId(storeId!, storeName || undefined),
                 fetchGoalsWithStoreId(storeId!),
                 fetchRankingTop3WithStoreId(storeId!),
@@ -2574,11 +2585,36 @@ export default function LojaDashboard() {
                 </Card>
             )}
 
-            {/* Vendas de Hoje */}
+            {/* Vendas */}
             <Card>
                 <CardHeader className="p-3 sm:p-6">
-                    <CardTitle className="text-base sm:text-lg">Vendas de Hoje</CardTitle>
-                        </CardHeader>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <CardTitle className="text-base sm:text-lg">Vendas</CardTitle>
+                        <div className="flex items-center gap-2">
+                            <Label htmlFor="sales-date-filter" className="text-xs sm:text-sm whitespace-nowrap">
+                                Filtrar por data:
+                            </Label>
+                            <Input
+                                id="sales-date-filter"
+                                type="date"
+                                value={salesDateFilter}
+                                onChange={(e) => setSalesDateFilter(e.target.value)}
+                                className="w-auto text-xs sm:text-sm"
+                                max={format(new Date(), 'yyyy-MM-dd')}
+                            />
+                            {salesDateFilter !== format(new Date(), 'yyyy-MM-dd') && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setSalesDateFilter(format(new Date(), 'yyyy-MM-dd'))}
+                                    className="text-xs"
+                                >
+                                    Hoje
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </CardHeader>
                 <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                     <div className="overflow-x-auto">
                         <Table>
@@ -2596,13 +2632,21 @@ export default function LojaDashboard() {
                                 {sales.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={7} className="text-center text-muted-foreground text-xs sm:text-sm py-6">
-                                            Nenhuma venda lançada hoje
+                                            {salesDateFilter === format(new Date(), 'yyyy-MM-dd') 
+                                                ? 'Nenhuma venda lançada hoje'
+                                                : `Nenhuma venda encontrada para ${format(new Date(salesDateFilter), 'dd/MM/yyyy')}`
+                                            }
                                         </TableCell>
                                     </TableRow>
                                 ) : (
                                     sales.map((sale) => (
                                         <TableRow key={sale.id}>
-                                            <TableCell className="text-xs sm:text-sm">{format(new Date(sale.data_venda), 'HH:mm')}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm">
+                                                {salesDateFilter === format(new Date(), 'yyyy-MM-dd')
+                                                    ? format(new Date(sale.data_venda), 'HH:mm')
+                                                    : format(new Date(sale.data_venda), 'dd/MM/yyyy HH:mm')
+                                                }
+                                            </TableCell>
                                             <TableCell className="text-xs sm:text-sm font-medium truncate max-w-[100px]">
                                                 {sale.colaboradora?.name || 'Colaboradora não encontrada'}
                                             </TableCell>
