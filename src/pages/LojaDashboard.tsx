@@ -1278,6 +1278,7 @@ export default function LojaDashboard() {
         const today = format(new Date(), 'yyyy-MM-dd');
 
         const { data, error } = await supabase
+            .schema("sistemaretiradas")
             .from('sales')
             .select(`
         *,
