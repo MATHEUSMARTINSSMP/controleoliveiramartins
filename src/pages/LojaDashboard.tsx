@@ -12,11 +12,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Progress } from "@/components/ui/progress";
 import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, startOfWeek, getWeek, getYear } from "date-fns";
 import WeeklyGoalProgress from "@/components/WeeklyGoalProgress";
 import WeeklyBonusProgress from "@/components/WeeklyBonusProgress";
 import { TrophiesGallery } from "@/components/loja/TrophiesGallery";
 import { StoreLogo } from "@/lib/storeLogo";
+import { sendWhatsAppMessage, formatVendaMessage } from "@/lib/whatsapp";
+import { checkAndCreateMonthlyTrophies, checkAndCreateWeeklyTrophies } from "@/lib/trophies";
 
 interface Sale {
     id: string;
@@ -1489,9 +1491,105 @@ export default function LojaDashboard() {
             toast.error('Erro ao lançar venda');
             console.error(error);
         } else {
+            // PRIORIDADE 1: Salvar venda (já salvo acima)
             toast.success('Venda lançada com sucesso!');
             setDialogOpen(false);
             resetForm();
+            
+            // PRIORIDADE 2: Enviar WhatsApp em background (não bloqueia UI)
+            // Buscar dados para enviar WhatsApp para os administradores
+            // Buscar nome da colaboradora e destinatários WhatsApp de todos os admins ativos
+            if (formData.colaboradora_id) {
+                // Executar tudo em background sem bloquear a UI
+                (async () => {
+                    try {
+                        // Primeiro: buscar nome da colaboradora e IDs dos admins ativos
+                        const [colaboradoraResult, adminsResult] = await Promise.all([
+                            // Buscar nome da colaboradora
+                            supabase
+                                .from('profiles')
+                                .select('name')
+                                .eq('id', formData.colaboradora_id)
+                                .single(),
+                            // Buscar IDs dos admins ativos
+                            supabase
+                                .from('profiles')
+                                .select('id')
+                                .eq('role', 'ADMIN')
+                                .eq('active', true)
+                        ]);
+
+                        const colaboradoraName = colaboradoraResult.data?.name || 'Desconhecida';
+                        
+                        // Segundo: buscar destinatários WhatsApp dos admins encontrados
+                        let adminPhones: string[] = [];
+                        if (adminsResult.data && adminsResult.data.length > 0) {
+                            const adminIds = adminsResult.data.map((admin: any) => admin.id);
+                            
+                            const { data: recipientsData } = await supabase
+                                .from('whatsapp_recipients')
+                                .select('phone')
+                                .eq('active', true)
+                                .in('admin_id', adminIds);
+
+                            // Extrair lista de números dos destinatários
+                            if (recipientsData && recipientsData.length > 0) {
+                                recipientsData.forEach((recipient: any) => {
+                                    if (recipient.phone) {
+                                        // Normalizar: remover caracteres não numéricos
+                                        // A função Netlify adicionará o DDI 55 se necessário
+                                        const cleaned = recipient.phone.replace(/\D/g, '');
+                                        if (cleaned && !adminPhones.includes(cleaned)) {
+                                            adminPhones.push(cleaned);
+                                        }
+                                    }
+                                });
+                            }
+                        }
+
+                        // Enviar mensagem WhatsApp para todos os números em background
+                        if (adminPhones.length > 0) {
+                            const message = formatVendaMessage({
+                                colaboradoraName,
+                                valor: parseFloat(formData.valor),
+                                qtdPecas: parseInt(formData.qtd_pecas),
+                                storeName: storeName || undefined,
+                                dataVenda: formData.data_venda,
+                            });
+
+                            console.log(`📱 Enviando WhatsApp para ${adminPhones.length} destinatário(s)...`);
+
+                            // Enviar para todos os números em paralelo (não bloqueia)
+                            Promise.all(
+                                adminPhones.map(phone => 
+                                    sendWhatsAppMessage({
+                                        phone,
+                                        message,
+                                    }).then(result => {
+                                        if (result.success) {
+                                            console.log(`✅ WhatsApp enviado com sucesso para ${phone}`);
+                                        } else {
+                                            console.warn(`⚠️ Falha ao enviar WhatsApp para ${phone}:`, result.error);
+                                        }
+                                    }).catch(err => {
+                                        console.error(`❌ Erro ao enviar WhatsApp para ${phone}:`, err);
+                                        // Não mostrar erro ao usuário, apenas log
+                                    })
+                                )
+                            ).then(() => {
+                                console.log('📱 Processo de envio de WhatsApp concluído');
+                            }).catch(err => {
+                                console.error('❌ Erro geral ao enviar WhatsApp:', err);
+                            });
+                        } else {
+                            console.log('⚠️ Nenhum destinatário WhatsApp ativo encontrado. Mensagem não será enviada.');
+                        }
+                    } catch (err) {
+                        console.error('❌ Erro ao buscar dados para WhatsApp:', err);
+                        // Não mostrar erro ao usuário, apenas log
+                    }
+                })();
+            }
             
             // Verificar e criar troféus automaticamente
             if (formData.colaboradora_id) {
