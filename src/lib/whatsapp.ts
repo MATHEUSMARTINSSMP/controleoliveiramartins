@@ -166,6 +166,15 @@ export function formatAdiantamentoMessage(params: {
   const ano = mesCompetencia.slice(0, 4);
   const mesFormatado = `${mes}/${ano}`;
 
+  // Formatar data/hora atual
+  const dataAtual = new Date().toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
   let message = `💰 *Nova Solicitação de Adiantamento*\n\n`;
   
   message += `*Colaboradora:* ${colaboradoraName}\n`;
@@ -176,6 +185,7 @@ export function formatAdiantamentoMessage(params: {
   
   message += `*Valor Solicitado:* ${valorFormatado}\n`;
   message += `*Mês de Competência:* ${mesFormatado}\n`;
+  message += `*Data da Solicitação:* ${dataAtual}\n`;
   
   if (observacoes && observacoes.trim()) {
     message += `\n*Observações:*\n${observacoes.trim()}\n`;
