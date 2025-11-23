@@ -1514,7 +1514,10 @@ export default function LojaDashboard() {
                 // Executar tudo em background sem bloquear a UI
                 (async () => {
                     try {
+                        console.log('📱 [1/4] Iniciando busca de dados...');
+                        
                         // Primeiro: buscar nome da colaboradora e IDs dos admins ativos
+                        console.log('📱 [1/4] Buscando colaboradora e admins...');
                         const [colaboradoraResult, adminsResult] = await Promise.all([
                             // Buscar nome da colaboradora
                             supabase
@@ -1530,6 +1533,9 @@ export default function LojaDashboard() {
                                 .eq('active', true)
                         ]);
 
+                        console.log('📱 [1/4] Resultado da busca de colaboradora:', colaboradoraResult);
+                        console.log('📱 [1/4] Resultado da busca de admins:', adminsResult);
+
                         if (colaboradoraResult.error) {
                             console.error('❌ Erro ao buscar colaboradora:', colaboradoraResult.error);
                             return;
@@ -1541,19 +1547,23 @@ export default function LojaDashboard() {
                         }
 
                         const colaboradoraName = colaboradoraResult.data?.name || 'Desconhecida';
-                        console.log('📱 Colaboradora:', colaboradoraName);
-                        console.log('📱 Admins encontrados:', adminsResult.data?.length || 0);
+                        console.log('📱 [2/4] Colaboradora encontrada:', colaboradoraName);
+                        console.log('📱 [2/4] Admins encontrados:', adminsResult.data?.length || 0);
                         
                         // Segundo: buscar destinatários WhatsApp dos admins encontrados
+                        console.log('📱 [2/4] Buscando destinatários WhatsApp...');
                         let adminPhones: string[] = [];
                         if (adminsResult.data && adminsResult.data.length > 0) {
                             const adminIds = adminsResult.data.map((admin: any) => admin.id);
+                            console.log('📱 [2/4] IDs dos admins:', adminIds);
                             
                             const { data: recipientsData, error: recipientsError } = await supabase
                                 .from('whatsapp_recipients')
                                 .select('phone')
                                 .eq('active', true)
                                 .in('admin_id', adminIds);
+
+                            console.log('📱 [2/4] Resultado da busca de destinatários:', { recipientsData, recipientsError });
 
                             if (recipientsError) {
                                 console.error('❌ Erro ao buscar destinatários WhatsApp:', recipientsError);
@@ -1575,13 +1585,17 @@ export default function LojaDashboard() {
                             }
                         }
 
-                        console.log('📱 Destinatários WhatsApp encontrados:', adminPhones.length);
+                        console.log('📱 [3/4] Destinatários WhatsApp encontrados:', adminPhones.length);
                         if (adminPhones.length > 0) {
-                            console.log('📱 Números:', adminPhones);
+                            console.log('📱 [3/4] Números:', adminPhones);
+                        } else {
+                            console.warn('⚠️ [3/4] NENHUM destinatário WhatsApp encontrado!');
+                            console.warn('⚠️ [3/4] Verifique se há registros na tabela whatsapp_recipients para os admins ativos.');
                         }
 
                         // Enviar mensagem WhatsApp para todos os números em background
                         if (adminPhones.length > 0) {
+                            console.log('📱 [4/4] Formatando mensagem...');
                             const message = formatVendaMessage({
                                 colaboradoraName,
                                 valor: parseFloat(vendaData.valor),
@@ -1590,8 +1604,8 @@ export default function LojaDashboard() {
                                 dataVenda: vendaData.data_venda,
                             });
 
-                            console.log('📱 Mensagem formatada:', message);
-                            console.log(`📱 Enviando WhatsApp para ${adminPhones.length} destinatário(s)...`);
+                            console.log('📱 [4/4] Mensagem formatada:', message);
+                            console.log(`📱 [4/4] Enviando WhatsApp para ${adminPhones.length} destinatário(s)...`);
 
                             // Enviar para todos os números em paralelo (não bloqueia)
                             Promise.all(
@@ -1619,13 +1633,16 @@ export default function LojaDashboard() {
                             console.warn('⚠️ Nenhum destinatário WhatsApp ativo encontrado. Mensagem não será enviada.');
                             console.warn('⚠️ Verifique se há destinatários cadastrados na tabela whatsapp_recipients para os admins ativos.');
                         }
-                    } catch (err) {
+                    } catch (err: any) {
                         console.error('❌ Erro ao buscar dados para WhatsApp:', err);
+                        console.error('❌ Stack trace:', err?.stack);
+                        console.error('❌ Mensagem:', err?.message);
                         // Não mostrar erro ao usuário, apenas log
                     }
                 })();
             } else {
                 console.log('⚠️ Nenhuma colaboradora selecionada. WhatsApp não será enviado.');
+                console.log('⚠️ vendaData.colaboradora_id:', vendaData.colaboradora_id);
             }
             
             // Verificar e criar troféus automaticamente
