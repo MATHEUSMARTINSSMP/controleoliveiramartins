@@ -160,13 +160,32 @@ export default function SolicitarAdiantamento() {
         }
 
         // Buscar destinatários WhatsApp configurados para ADIANTAMENTO
-        const { data: recipientsData } = await supabase
+        // Buscar números onde store_id IS NULL (todas as lojas) OU store_id = loja da colaboradora
+        const { data: recipientsAllStores } = await supabase
           .schema('sistemaretiradas')
           .from('whatsapp_notification_config')
           .select('phone')
           .eq('admin_id', storeData.admin_id)
           .eq('notification_type', 'ADIANTAMENTO')
-          .eq('active', true);
+          .eq('active', true)
+          .is('store_id', null);
+        
+        const { data: recipientsThisStore } = await supabase
+          .schema('sistemaretiradas')
+          .from('whatsapp_notification_config')
+          .select('phone')
+          .eq('admin_id', storeData.admin_id)
+          .eq('notification_type', 'ADIANTAMENTO')
+          .eq('active', true)
+          .eq('store_id', colaboradoraData.store_id);
+        
+        // Combinar resultados e remover duplicatas
+        const recipientsData = [
+          ...(recipientsAllStores || []),
+          ...(recipientsThisStore || [])
+        ].filter((item, index, self) => 
+          index === self.findIndex(t => t.phone === item.phone)
+        );
 
         if (!recipientsData || recipientsData.length === 0) {
           console.warn('⚠️ Nenhum destinatário WhatsApp configurado para notificações de adiantamento');

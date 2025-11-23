@@ -4,14 +4,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Save, Phone, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
+interface Store {
+  id: string;
+  name: string;
+}
+
 interface NotificationRecipient {
   id?: string;
   phone: string;
-  name?: string;
+  store_id?: string | null; // null = todas as lojas do admin
   active: boolean;
 }
 
@@ -26,6 +32,7 @@ export const WhatsAppNotificationConfig = () => {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [stores, setStores] = useState<Store[]>([]);
   const [configs, setConfigs] = useState<NotificationConfig[]>([
     {
       type: 'VENDA',
@@ -49,9 +56,30 @@ export const WhatsAppNotificationConfig = () => {
 
   useEffect(() => {
     if (profile && profile.role === 'ADMIN') {
+      fetchStores();
       fetchConfigs();
     }
   }, [profile]);
+
+  const fetchStores = async () => {
+    if (!profile) return;
+    
+    try {
+      const { data, error } = await supabase
+        .schema('sistemaretiradas')
+        .from('stores')
+        .select('id, name')
+        .eq('admin_id', profile.id)
+        .eq('active', true)
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      setStores(data || []);
+    } catch (error: any) {
+      console.error('Erro ao buscar lojas:', error);
+      toast.error('Erro ao carregar lojas');
+    }
+  };
 
   const fetchConfigs = async () => {
     if (!profile) return;
@@ -78,7 +106,7 @@ export const WhatsAppNotificationConfig = () => {
         acc[type].push({
           id: item.id,
           phone: item.phone,
-          name: item.name || '',
+          store_id: item.store_id || null,
           active: item.active
         });
         return acc;
@@ -103,7 +131,7 @@ export const WhatsAppNotificationConfig = () => {
       if (config.type === type) {
         return {
           ...config,
-          recipients: [...config.recipients, { phone: '', name: '', active: true }]
+          recipients: [...config.recipients, { phone: '', store_id: null, active: true }]
         };
       }
       return config;
@@ -124,8 +152,8 @@ export const WhatsAppNotificationConfig = () => {
   const updateRecipient = (
     type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS',
     index: number,
-    field: 'phone' | 'name',
-    value: string
+    field: 'phone' | 'store_id',
+    value: string | null
   ) => {
     setConfigs(prev => prev.map(config => {
       if (config.type === type) {
@@ -189,17 +217,27 @@ export const WhatsAppNotificationConfig = () => {
       }
 
       // Buscar configurações existentes
-      const { data: existingConfigs } = await supabase
+      const { data: existingConfigs, error: fetchError } = await supabase
         .schema('sistemaretiradas')
         .from('whatsapp_notification_config')
         .select('*')
         .eq('admin_id', profile.id);
 
+      if (fetchError) {
+        console.error('Erro ao buscar configurações existentes:', fetchError);
+        throw fetchError;
+      }
+
+      // Criar mapa usando telefone normalizado + store_id para comparação correta
       const existingMap = new Map(
-        (existingConfigs || []).map(item => [
-          `${item.notification_type}-${item.phone}`,
-          item
-        ])
+        (existingConfigs || []).map(item => {
+          const normalized = normalizePhone(item.phone);
+          const storeKey = item.store_id || 'ALL';
+          return [
+            `${item.notification_type}-${normalized}-${storeKey}`,
+            { ...item, normalizedPhone: normalized }
+          ];
+        })
       );
 
       // Preparar operações: INSERT, UPDATE, DELETE
@@ -213,8 +251,9 @@ export const WhatsAppNotificationConfig = () => {
 
         for (const recipient of config.recipients) {
           const normalizedPhone = normalizePhone(recipient.phone);
-          const key = `${config.type}-${normalizedPhone}`;
-          currentPhones.add(normalizedPhone);
+          const storeKey = recipient.store_id || 'ALL';
+          const key = `${config.type}-${normalizedPhone}-${storeKey}`;
+          currentPhones.add(`${normalizedPhone}-${storeKey}`);
 
           if (existingMap.has(key)) {
             // UPDATE
@@ -222,7 +261,7 @@ export const WhatsAppNotificationConfig = () => {
             toUpdate.push({
               id: existing.id,
               phone: normalizedPhone,
-              name: recipient.name?.trim() || null,
+              store_id: recipient.store_id || null,
               active: true
             });
           } else {
@@ -231,7 +270,7 @@ export const WhatsAppNotificationConfig = () => {
               admin_id: profile.id,
               notification_type: config.type,
               phone: normalizedPhone,
-              name: recipient.name?.trim() || null,
+              store_id: recipient.store_id || null,
               active: true
             });
           }
@@ -241,7 +280,9 @@ export const WhatsAppNotificationConfig = () => {
         for (const existing of existingConfigs || []) {
           if (existing.notification_type === config.type) {
             const normalizedExisting = normalizePhone(existing.phone);
-            if (!currentPhones.has(normalizedExisting)) {
+            const existingStoreKey = existing.store_id || 'ALL';
+            const existingKey = `${normalizedExisting}-${existingStoreKey}`;
+            if (!currentPhones.has(existingKey)) {
               toDelete.push(existing.id);
             }
           }
@@ -266,7 +307,7 @@ export const WhatsAppNotificationConfig = () => {
             .from('whatsapp_notification_config')
             .update({
               phone: item.phone,
-              name: item.name,
+              store_id: item.store_id,
               active: item.active
             })
             .eq('id', item.id);
@@ -351,22 +392,37 @@ export const WhatsAppNotificationConfig = () => {
                   </p>
                 </div>
                 <div className="flex-1 space-y-2">
-                  <Label htmlFor={`${config.type}-name-${index}`}>
-                    Nome (opcional)
+                  <Label htmlFor={`${config.type}-store-${index}`}>
+                    Loja {config.type === 'PARABENS' ? '*' : '(opcional)'}
                   </Label>
-                  <Input
-                    id={`${config.type}-name-${index}`}
-                    type="text"
-                    placeholder="Ex: Admin Principal"
-                    value={recipient.name || ''}
-                    onChange={(e) => updateRecipient(config.type, index, 'name', e.target.value)}
-                  />
+                  <Select
+                    value={recipient.store_id || 'ALL'}
+                    onValueChange={(value) => updateRecipient(config.type, index, 'store_id', value === 'ALL' ? null : value)}
+                  >
+                    <SelectTrigger id={`${config.type}-store-${index}`}>
+                      <SelectValue placeholder="Selecione a loja" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Todas as lojas</SelectItem>
+                      {stores.map((store) => (
+                        <SelectItem key={store.id} value={store.id}>
+                          {store.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground/70">
+                    {config.type === 'PARABENS' 
+                      ? 'Selecione a loja que receberá os parabéns após cada venda'
+                      : 'Deixe "Todas as lojas" para receber de todas, ou selecione uma específica'}
+                  </p>
                 </div>
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={() => removeRecipient(config.type, index)}
                   className="mb-0"
+                  title="Remover número"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>

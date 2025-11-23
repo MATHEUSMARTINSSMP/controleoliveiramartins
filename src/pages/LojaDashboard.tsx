@@ -1589,13 +1589,32 @@ export default function LojaDashboard() {
                         if (storeAdminId) {
                             console.log('📱 [2/4] Buscando destinatários para o admin:', storeAdminId);
                             
-                            const { data: recipientsData, error: recipientsError } = await supabase
+                            // Buscar destinatários: store_id IS NULL (todas as lojas) OU store_id = loja atual
+                            const { data: recipientsAllStores } = await supabase
                                 .schema('sistemaretiradas')
                                 .from('whatsapp_notification_config')
                                 .select('phone')
                                 .eq('admin_id', storeAdminId)
                                 .eq('notification_type', 'VENDA')
-                                .eq('active', true);
+                                .eq('active', true)
+                                .is('store_id', null);
+                            
+                            const { data: recipientsThisStore, error: recipientsError } = await supabase
+                                .schema('sistemaretiradas')
+                                .from('whatsapp_notification_config')
+                                .select('phone')
+                                .eq('admin_id', storeAdminId)
+                                .eq('notification_type', 'VENDA')
+                                .eq('active', true)
+                                .eq('store_id', storeId);
+                            
+                            // Combinar resultados e remover duplicatas
+                            const recipientsData = [
+                                ...(recipientsAllStores || []),
+                                ...(recipientsThisStore || [])
+                            ].filter((item, index, self) => 
+                                index === self.findIndex(t => t.phone === item.phone)
+                            );
 
                             console.log('📱 [2/4] Resultado da busca de destinatários:', { recipientsData, recipientsError });
 
@@ -1708,7 +1727,8 @@ export default function LojaDashboard() {
                                 .select('phone')
                                 .eq('admin_id', storeAdminId)
                                 .eq('notification_type', 'PARABENS')
-                                .eq('active', true);
+                                .eq('active', true)
+                                .eq('store_id', storeId); // PARABENS deve ser específico da loja
                             
                             if (parabensRecipients && parabensRecipients.length > 0) {
                                 const { formatParabensMessage } = await import('@/lib/whatsapp');
@@ -2588,29 +2608,40 @@ export default function LojaDashboard() {
             {/* Vendas */}
             <Card>
                 <CardHeader className="p-3 sm:p-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <CardTitle className="text-base sm:text-lg">Vendas</CardTitle>
-                        <div className="flex items-center gap-2">
-                            <Label htmlFor="sales-date-filter" className="text-xs sm:text-sm whitespace-nowrap">
-                                Filtrar por data:
-                            </Label>
-                            <Input
-                                id="sales-date-filter"
-                                type="date"
-                                value={salesDateFilter}
-                                onChange={(e) => setSalesDateFilter(e.target.value)}
-                                className="w-auto text-xs sm:text-sm"
-                                max={format(new Date(), 'yyyy-MM-dd')}
-                            />
+                    <div className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                            <CardTitle className="text-base sm:text-lg">
+                                Vendas
+                            </CardTitle>
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                <Label htmlFor="sales-date-filter" className="text-xs sm:text-sm whitespace-nowrap">
+                                    Filtrar por data:
+                                </Label>
+                                <Input
+                                    id="sales-date-filter"
+                                    type="date"
+                                    value={salesDateFilter}
+                                    onChange={(e) => setSalesDateFilter(e.target.value)}
+                                    className="flex-1 sm:flex-initial sm:w-auto text-xs sm:text-sm"
+                                    max={format(new Date(), 'yyyy-MM-dd')}
+                                />
+                            </div>
                             {salesDateFilter !== format(new Date(), 'yyyy-MM-dd') && (
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => setSalesDateFilter(format(new Date(), 'yyyy-MM-dd'))}
-                                    className="text-xs"
+                                    className="text-xs whitespace-nowrap w-full sm:w-auto"
                                 >
-                                    Hoje
+                                    Voltar para Hoje
                                 </Button>
+                            )}
+                            {salesDateFilter === format(new Date(), 'yyyy-MM-dd') && (
+                                <span className="text-xs text-muted-foreground">
+                                    Mostrando vendas de hoje
+                                </span>
                             )}
                         </div>
                     </div>
