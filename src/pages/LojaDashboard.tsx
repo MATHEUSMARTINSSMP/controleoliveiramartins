@@ -1499,6 +1499,7 @@ export default function LojaDashboard() {
                 valor: formData.valor,
                 qtd_pecas: formData.qtd_pecas,
                 data_venda: formData.data_venda,
+                observacoes: formData.observacoes || null,
             };
 
             toast.success('Venda lançada com sucesso!');
@@ -1623,6 +1624,7 @@ export default function LojaDashboard() {
                                 qtdPecas: parseInt(vendaData.qtd_pecas),
                                 storeName: storeNameFromDb || storeName || undefined,
                                 dataVenda: vendaData.data_venda,
+                                observacoes: vendaData.observacoes || null,
                             });
 
                             console.log('📱 [4/4] Mensagem formatada:', message);

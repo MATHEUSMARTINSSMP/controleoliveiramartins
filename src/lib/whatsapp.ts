@@ -81,8 +81,9 @@ export function formatVendaMessage(params: {
   qtdPecas: number;
   storeName?: string;
   dataVenda?: string;
+  observacoes?: string | null;
 }): string {
-  const { colaboradoraName, valor, qtdPecas, storeName, dataVenda } = params;
+  const { colaboradoraName, valor, qtdPecas, storeName, dataVenda, observacoes } = params;
   
   const dataFormatada = dataVenda
     ? new Date(dataVenda).toLocaleDateString('pt-BR', {
@@ -99,20 +100,27 @@ export function formatVendaMessage(params: {
     currency: 'BRL',
   }).format(valor);
 
-  // Formatar mensagem em uma linha (sem quebras de linha)
-  // O formato que funcionou no webhook n8n era tudo em uma linha com espaços
-  let message = `🛒 *Nova Venda Lançada* `;
-  message += `*Colaboradora:* ${colaboradoraName} `;
+  // Formatar mensagem com quebras de linha para melhor legibilidade
+  // WhatsApp suporta \n para quebras de linha
+  let message = `🛒 *Nova Venda Lançada*\n\n`;
+  
+  message += `*Colaboradora:* ${colaboradoraName}\n`;
   
   if (storeName) {
-    message += `*Loja:* ${storeName} `;
+    message += `*Loja:* ${storeName}\n`;
   }
   
-  message += `*Valor:* ${valorFormatado} `;
-  message += `*Quantidade de Peças:* ${qtdPecas} `;
-  message += `*Data:* ${dataFormatada} `;
-  message += `Sistema EleveaOne 📊`;
+  message += `*Valor:* ${valorFormatado}\n`;
+  message += `*Quantidade de Peças:* ${qtdPecas}\n`;
+  message += `*Data:* ${dataFormatada}\n`;
+  
+  // Adicionar observações se houver
+  if (observacoes && observacoes.trim()) {
+    message += `\n*Observações:*\n${observacoes.trim()}\n`;
+  }
+  
+  message += `\nSistema EleveaOne 📊`;
 
-  return message.trim();
+  return message;
 }
 
