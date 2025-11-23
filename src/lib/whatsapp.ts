@@ -213,13 +213,8 @@ export function formatParabensMessage(params: {
 
   let message = `🎉 *Parabéns!*\n\n`;
   message += `Parabéns, ${colaboradoraName}! 🎊\n\n`;
-  message += `Você acabou de realizar uma venda de ${valorFormatado}!\n`;
-  
-  if (storeName) {
-    message += `\n*Loja:* ${storeName}\n`;
-  }
-  
-  message += `\nContinue assim! 💪\n\n`;
+  message += `Você acabou de realizar uma venda de ${valorFormatado}!\n\n`;
+  message += `Continue assim! Estamos muito orgulhosos do seu trabalho. 💪\n\n`;
   message += `Sistema EleveaOne 📊`;
 
   return message;
