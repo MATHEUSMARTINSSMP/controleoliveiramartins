@@ -248,6 +248,17 @@ const NovaCompra = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validar número de parcelas (máximo 3)
+    const numParcelas = parseInt(formData.num_parcelas);
+    if (numParcelas > 3) {
+      toast.error("O número máximo de parcelas é 3x");
+      return;
+    }
+    if (numParcelas < 1) {
+      toast.error("O número mínimo de parcelas é 1x");
+      return;
+    }
+
     // Validar limites antes de prosseguir
     if (!validarLimites()) {
       return;
