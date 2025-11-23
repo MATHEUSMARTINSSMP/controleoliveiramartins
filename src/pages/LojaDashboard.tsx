@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -2255,11 +2256,32 @@ export default function LojaDashboard() {
 
                             <div className="space-y-2">
                                 <Label htmlFor="observacoes">Observações</Label>
-                                <Input
+                                <Textarea
                                     id="observacoes"
                                     value={formData.observacoes}
                                     onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-                                    placeholder="Observações opcionais"
+                                    onKeyDown={(e) => {
+                                        // Permitir Enter para nova linha, mas prevenir submit
+                                        // Shift+Enter = nova linha (comportamento padrão)
+                                        // Enter sozinho = nova linha (prevenir submit)
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            // Adicionar nova linha manualmente
+                                            const textarea = e.currentTarget;
+                                            const start = textarea.selectionStart;
+                                            const end = textarea.selectionEnd;
+                                            const value = textarea.value;
+                                            const newValue = value.substring(0, start) + '\n' + value.substring(end);
+                                            setFormData({ ...formData, observacoes: newValue });
+                                            // Reposicionar cursor após a nova linha
+                                            setTimeout(() => {
+                                                textarea.selectionStart = textarea.selectionEnd = start + 1;
+                                            }, 0);
+                                        }
+                                    }}
+                                    placeholder="Observações opcionais (pressione Enter para nova linha)"
+                                    rows={4}
+                                    className="resize-y"
                                 />
                             </div>
 
