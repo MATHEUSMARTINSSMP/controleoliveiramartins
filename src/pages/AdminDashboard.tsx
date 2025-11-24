@@ -11,11 +11,7 @@ import { CommercialDashboard } from "@/components/admin/CommercialDashboard";
 import { FinancialDashboard } from "@/components/admin/FinancialDashboard";
 import { StorePerformanceReports } from "@/components/admin/StorePerformanceReports";
 import { WhatsAppNotificationConfig } from "@/components/admin/WhatsAppNotificationConfig";
-import { BonusTracker } from "@/components/admin/BonusTracker";
-import { WeeklyMetaTracker } from "@/components/admin/WeeklyMetaTracker";
-import { WeeklyGoalsTracker } from "@/components/admin/WeeklyGoalsTracker";
-import { DailyMetaTracker } from "@/components/admin/DailyMetaTracker";
-import { MonthlyOverview } from "@/components/admin/MonthlyOverview";
+import { GoalsTracking } from "@/components/admin/GoalsTracking";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -232,14 +228,8 @@ const AdminDashboard = () => {
               </Button>
             </div>
 
-            {/* Dashboard de Acompanhamento de Bônus e Metas */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-              <BonusTracker />
-              <WeeklyMetaTracker />
-              <WeeklyGoalsTracker />
-              <DailyMetaTracker />
-              <MonthlyOverview />
-            </div>
+            {/* Acompanhamento de Metas */}
+            <GoalsTracking />
 
             <CommercialDashboard />
 
