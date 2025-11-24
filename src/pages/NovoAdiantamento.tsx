@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { formatCurrency } from "@/lib/utils";
+import { sendWhatsAppMessage, formatAdiantamentoMessage } from "@/lib/whatsapp";
 
 interface Colaboradora {
   id: string;
@@ -166,6 +167,14 @@ export default function NovoAdiantamento() {
       return;
     }
 
+    // Buscar dados da colaboradora antes de inserir
+    const { data: colaboradoraData } = await supabase
+      .schema("sistemaretiradas")
+      .from("profiles")
+      .select("id, name, store_id")
+      .eq("id", formData.colaboradora_id)
+      .single();
+
     const { error } = await supabase.schema("sistemaretiradas").from("adiantamentos").insert({
       colaboradora_id: formData.colaboradora_id,
       valor: parseFloat(formData.valor),
@@ -182,13 +191,117 @@ export default function NovoAdiantamento() {
         description: error.message,
         variant: "destructive",
       });
-    } else {
-      toast({
-        title: "Adiantamento lançado com sucesso!",
-      });
-      navigate("/admin/adiantamentos");
+      setLoading(false);
+      return;
     }
 
+    // Enviar notificação WhatsApp em background (não bloqueia UI)
+    (async () => {
+      try {
+        console.log('📱 [NovoAdiantamento] Iniciando processo de envio de WhatsApp...');
+        
+        if (!colaboradoraData?.store_id) {
+          console.warn('⚠️ [NovoAdiantamento] Colaboradora não tem loja associada');
+          return;
+        }
+
+        // Buscar admin_id da loja
+        const { data: storeData, error: storeError } = await supabase
+          .schema('sistemaretiradas')
+          .from('stores')
+          .select('admin_id, name')
+          .eq('id', colaboradoraData.store_id)
+          .single();
+
+        if (storeError || !storeData?.admin_id) {
+          console.warn('⚠️ [NovoAdiantamento] Loja não tem admin_id configurado');
+          return;
+        }
+
+        // Buscar destinatários WhatsApp configurados para ADIANTAMENTO
+        const { data: recipientsAllStores } = await supabase
+          .schema('sistemaretiradas')
+          .from('whatsapp_notification_config')
+          .select('phone')
+          .eq('admin_id', storeData.admin_id)
+          .eq('notification_type', 'ADIANTAMENTO')
+          .eq('active', true)
+          .is('store_id', null);
+        
+        const { data: recipientsThisStore } = await supabase
+          .schema('sistemaretiradas')
+          .from('whatsapp_notification_config')
+          .select('phone')
+          .eq('admin_id', storeData.admin_id)
+          .eq('notification_type', 'ADIANTAMENTO')
+          .eq('active', true)
+          .eq('store_id', colaboradoraData.store_id);
+
+        // Combinar resultados e remover duplicatas
+        const recipientsData = [
+          ...(recipientsAllStores || []),
+          ...(recipientsThisStore || [])
+        ].filter((item, index, self) => 
+          index === self.findIndex(t => t.phone === item.phone)
+        );
+
+        // Extrair lista de números
+        let adminPhones: string[] = [];
+        if (recipientsData && recipientsData.length > 0) {
+          recipientsData.forEach((recipient: any) => {
+            if (recipient.phone) {
+              const cleaned = recipient.phone.replace(/\D/g, '');
+              if (cleaned && !adminPhones.includes(cleaned)) {
+                adminPhones.push(cleaned);
+              }
+            }
+          });
+        }
+
+        if (adminPhones.length === 0) {
+          console.warn('⚠️ [NovoAdiantamento] NENHUM destinatário WhatsApp encontrado!');
+          return;
+        }
+
+        // Formatar mensagem (admin criou adiantamento aprovado)
+        const message = formatAdiantamentoMessage({
+          colaboradoraName: colaboradoraData.name || 'Colaboradora',
+          valor: parseFloat(formData.valor),
+          mesCompetencia: formData.mes_competencia,
+          observacoes: formData.observacoes,
+          storeName: storeData.name,
+        });
+
+        // Enviar para todos os números em paralelo
+        Promise.all(
+          adminPhones.map(phone => 
+            sendWhatsAppMessage({
+              phone,
+              message,
+            }).then(result => {
+              if (result.success) {
+                console.log(`✅ WhatsApp enviado com sucesso para ${phone}`);
+              } else {
+                console.warn(`⚠️ Falha ao enviar WhatsApp para ${phone}:`, result.error);
+              }
+            }).catch(err => {
+              console.error(`❌ Erro ao enviar WhatsApp para ${phone}:`, err);
+            })
+          )
+        ).then(() => {
+          console.log('📱 [NovoAdiantamento] ✅ Processo de envio de WhatsApp concluído');
+        }).catch(err => {
+          console.error('❌ Erro geral ao enviar WhatsApp:', err);
+        });
+      } catch (err) {
+        console.error('❌ Erro no processo de envio de WhatsApp:', err);
+      }
+    })();
+
+    toast({
+      title: "Adiantamento lançado com sucesso!",
+    });
+    navigate("/admin/adiantamentos");
     setLoading(false);
   };
 

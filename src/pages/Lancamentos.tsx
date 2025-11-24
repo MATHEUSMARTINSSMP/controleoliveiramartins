@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, Undo2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Undo2, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
 
@@ -58,6 +59,7 @@ const Lancamentos = () => {
   const [motivoEstorno, setMotivoEstorno] = useState("");
   const [tipoFiltro, setTipoFiltro] = useState<"TODOS" | "COMPRAS" | "ADIANTAMENTOS">("TODOS");
   const [mesFiltro, setMesFiltro] = useState<string>("TODOS");
+  const [adiantamentoParaExcluir, setAdiantamentoParaExcluir] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading) {
@@ -244,6 +246,26 @@ const Lancamentos = () => {
       fetchData();
     } catch (error: any) {
       toast.error("Erro ao estornar adiantamento");
+    }
+  };
+
+  const handleExcluirAdiantamento = async () => {
+    if (!adiantamentoParaExcluir) return;
+
+    try {
+      const { error } = await supabase
+        .schema("sistemaretiradas")
+        .from("adiantamentos")
+        .delete()
+        .eq("id", adiantamentoParaExcluir);
+
+      if (error) throw error;
+      toast.success("Adiantamento excluído com sucesso!");
+      setAdiantamentoParaExcluir(null);
+      fetchData();
+    } catch (error: any) {
+      toast.error("Erro ao excluir adiantamento");
+      console.error(error);
     }
   };
 
@@ -489,6 +511,18 @@ const Lancamentos = () => {
                                     </DialogContent>
                                   </Dialog>
                                 )}
+                                {/* Botão de excluir - apenas ADMIN pode excluir */}
+                                {profile?.role === "ADMIN" && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setAdiantamentoParaExcluir(adiantamento.id)}
+                                    className="border-destructive/20 text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-1" />
+                                    Excluir
+                                  </Button>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>
@@ -501,6 +535,27 @@ const Lancamentos = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialog de confirmação para excluir adiantamento */}
+      <AlertDialog open={!!adiantamentoParaExcluir} onOpenChange={(open) => !open && setAdiantamentoParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Adiantamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este adiantamento? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleExcluirAdiantamento}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
