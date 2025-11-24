@@ -4,8 +4,8 @@ import { WeeklyMetaTracker } from "./WeeklyMetaTracker";
 import { WeeklyGoalsTracker } from "./WeeklyGoalsTracker";
 import { DailyMetaTracker } from "./DailyMetaTracker";
 import { MonthlyOverview } from "./MonthlyOverview";
-import { GoalsHistory } from "./GoalsHistory";
-import { BonusHistory } from "./BonusHistory";
+// import { GoalsHistory } from "./GoalsHistory";
+// import { BonusHistory } from "./BonusHistory";
 import { Target } from "lucide-react";
 
 export function GoalsTracking() {
@@ -42,16 +42,16 @@ export function GoalsTracking() {
                 </div>
             </div>
 
-            {/* Histórico */}
-            <div>
-                <h3 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
-                    📜 Histórico
-                </h3>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <GoalsHistory />
-                    <BonusHistory />
-                </div>
-            </div>
+            {/* Histórico - Temporariamente desabilitado */}
+            {/* <div>
+        <h3 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
+          📜 Histórico
+        </h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <GoalsHistory />
+          <BonusHistory />
+        </div>
+      </div> */}
         </div>
     );
 }
