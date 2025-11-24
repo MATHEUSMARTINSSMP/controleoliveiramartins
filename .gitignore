@@ -28,7 +28,9 @@ dist-ssr
 *.sln
 *.sw?
 
-# Temporary debug files with secrets
+# Temporary debug files (should use env vars, not hardcoded secrets)
+# These patterns are a safety net, but ALWAYS use environment variables!
 *_via_api.js
 *_debug.js
 *_test_secret.js
+*_with_secret.js
