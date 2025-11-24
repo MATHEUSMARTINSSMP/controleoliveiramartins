@@ -39,6 +39,7 @@ export function MonthlyOverview() {
 
             // Buscar meta mensal da loja
             const { data: metaData, error: metaError } = await supabase
+                .schema("sistemaretiradas")
                 .from("goals")
                 .select("meta_valor, store_id")
                 .eq("mes_referencia", mesAtual)

@@ -34,6 +34,7 @@ export function WeeklyMetaTracker() {
 
             // Buscar meta semanal da loja
             const { data: metaData, error: metaError } = await supabase
+                .schema("sistemaretiradas")
                 .from("goals")
                 .select("meta_valor, store_id, stores(name)")
                 .eq("tipo", "SEMANAL")

@@ -85,6 +85,7 @@ export function DailyMetaTracker() {
                 colabsData.map(async (colab: any) => {
                     // Buscar meta individual
                     const { data: metaData } = await supabase
+                        .schema("sistemaretiradas")
                         .from("goals")
                         .select("meta_valor, daily_weights")
                         .eq("colaboradora_id", colab.id)

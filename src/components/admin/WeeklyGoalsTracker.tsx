@@ -63,6 +63,7 @@ export function WeeklyGoalsTracker() {
                 colabsData.map(async (colab) => {
                     // Buscar meta semanal individual (gincana)
                     const { data: metaData } = await supabase
+                        .schema("sistemaretiradas")
                         .from("goals")
                         .select("meta_valor, super_meta_valor")
                         .eq("colaboradora_id", colab.id)
