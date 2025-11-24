@@ -21,6 +21,7 @@ interface Bonus {
     vendas_minimas: number | null;
     valor_bonus: number;
     descricao_premio: string | null;
+    valor_bonus_texto?: string | null; // Para prêmios físicos
     ativo: boolean;
     store_id?: string | null;
     valor_condicao?: number | null;
@@ -44,6 +45,8 @@ export default function BonusManagement() {
         vendas_minimas: "",
         valor_bonus: "",
         descricao_premio: "",
+        valor_bonus_texto: "", // Para prêmios físicos (ex: "Airfryer")
+        is_premio_fisico: false, // Toggle entre dinheiro e prêmio físico
         store_id: "TODAS",
         // Novos campos para condições avançadas
         categoria_condicao: "BASICA", // "BASICA" ou "AVANCADA"
@@ -104,15 +107,30 @@ export default function BonusManagement() {
             ? 100 
             : formData.meta_minima_percentual ? parseFloat(formData.meta_minima_percentual) : null;
 
+        // Determinar valor do bônus: número ou texto
+        let valorBonus: number | null = null;
+        let valorBonusTexto: string | null = null;
+        
+        if (formData.is_premio_fisico) {
+            // Prêmio físico: usar texto
+            valorBonusTexto = formData.valor_bonus_texto || formData.descricao_premio || null;
+            valorBonus = 0; // Manter 0 para prêmios físicos (ou null se preferir)
+        } else {
+            // Dinheiro: usar número
+            valorBonus = formData.valor_bonus ? parseFloat(formData.valor_bonus) : 0;
+            valorBonusTexto = null;
+        }
+
         const payload: any = {
             nome: formData.nome,
             descricao: formData.descricao || null,
-            tipo: formData.tipo,
+            tipo: formData.is_premio_fisico ? "PRODUTO" : formData.tipo, // Se for prêmio físico, tipo = PRODUTO
             tipo_condicao: formData.tipo_condicao, // Mantido para compatibilidade
             meta_minima_percentual: metaMinimaPercentual,
             vendas_minimas: formData.vendas_minimas ? parseFloat(formData.vendas_minimas) : null,
-            valor_bonus: parseFloat(formData.valor_bonus),
+            valor_bonus: valorBonus,
             descricao_premio: formData.descricao_premio || null,
+            valor_bonus_texto: valorBonusTexto, // Novo campo para prêmios físicos
             valor_condicao: null,
             ativo: true,
             // Novos campos para condições avançadas
@@ -171,6 +189,9 @@ export default function BonusManagement() {
             categoria = "AVANCADA";
         }
         
+        // Verificar se é prêmio físico (tem valor_bonus_texto ou tipo PRODUTO)
+        const isPremioFisico = (bonus as any).valor_bonus_texto || bonus.tipo === "PRODUTO";
+        
         setFormData({
             nome: bonus.nome,
             descricao: bonus.descricao || "",
@@ -178,8 +199,10 @@ export default function BonusManagement() {
             tipo_condicao: bonus.tipo_condicao || "PERCENTUAL_META",
             meta_minima_percentual: bonus.meta_minima_percentual?.toString() || "",
             vendas_minimas: bonus.vendas_minimas?.toString() || "",
-            valor_bonus: bonus.valor_bonus.toString(),
+            valor_bonus: isPremioFisico ? "" : bonus.valor_bonus.toString(),
             descricao_premio: bonus.descricao_premio || "",
+            valor_bonus_texto: (bonus as any).valor_bonus_texto || bonus.descricao_premio || "",
+            is_premio_fisico: isPremioFisico,
             store_id: bonus.store_id || "TODAS",
             categoria_condicao: categoria,
             condicao_tipo: (bonus as any).condicao_tipo || "",
@@ -221,6 +244,8 @@ export default function BonusManagement() {
             vendas_minimas: "",
             valor_bonus: "",
             descricao_premio: "",
+            valor_bonus_texto: "",
+            is_premio_fisico: false,
             store_id: "TODAS",
             categoria_condicao: "BASICA",
             condicao_tipo: "",
@@ -299,7 +324,11 @@ export default function BonusManagement() {
                                     <div className="bg-muted p-2 rounded">
                                         <span className="text-[10px] sm:text-xs text-muted-foreground block">Valor Bônus</span>
                                         <span className="font-medium text-green-600 text-xs sm:text-sm">
-                                            {bonus.tipo === 'PERCENTUAL' ? `${bonus.valor_bonus}%` : `R$ ${bonus.valor_bonus}`}
+                                            {(bonus as any).valor_bonus_texto 
+                                                ? (bonus as any).valor_bonus_texto 
+                                                : bonus.tipo === 'PERCENTUAL' 
+                                                    ? `${bonus.valor_bonus}%` 
+                                                    : `R$ ${bonus.valor_bonus}`}
                                         </span>
                                     </div>
                                     <div className="bg-muted p-2 rounded col-span-2">
@@ -688,37 +717,58 @@ export default function BonusManagement() {
                         )}
 
                         {/* Valor do Bônus */}
-                        <div>
+                        <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
                             <Label className="text-xs sm:text-sm font-semibold">Valor do Bônus</Label>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                                <div>
-                                    <Label className="text-xs sm:text-sm">Tipo</Label>
-                                    <Select 
-                                        value={formData.tipo} 
-                                        onValueChange={(v) => setFormData({ ...formData, tipo: v })}
-                                    >
-                                        <SelectTrigger className="text-xs sm:text-sm">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="VALOR_FIXO">Valor Fixo (R$)</SelectItem>
-                                            <SelectItem value="PERCENTUAL">Percentual (%)</SelectItem>
-                                            <SelectItem value="PRODUTO">Produto</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div>
-                                    <Label className="text-xs sm:text-sm">
-                                        {formData.tipo === 'PERCENTUAL' ? 'Valor (%)' : formData.tipo === 'PRODUTO' ? 'Descrição do Prêmio' : 'Valor (R$)'}
-                                    </Label>
-                                    {formData.tipo === 'PRODUTO' ? (
-                                        <Input
-                                            value={formData.descricao_premio || ""}
-                                            onChange={(e) => setFormData({ ...formData, descricao_premio: e.target.value })}
-                                            placeholder="Ex: Vale compras de R$ 300"
-                                            className="text-xs sm:text-sm"
-                                        />
-                                    ) : (
+                            
+                            {/* Toggle entre Dinheiro e Prêmio Físico */}
+                            <div>
+                                <Label className="text-xs sm:text-sm">Tipo de Bônus</Label>
+                                <Select 
+                                    value={formData.is_premio_fisico ? "FISICO" : "DINHEIRO"} 
+                                    onValueChange={(v) => {
+                                        const isFisico = v === "FISICO";
+                                        setFormData({ 
+                                            ...formData, 
+                                            is_premio_fisico: isFisico,
+                                            tipo: isFisico ? "PRODUTO" : "VALOR_FIXO",
+                                            // Limpar campos ao alternar
+                                            valor_bonus: isFisico ? "" : formData.valor_bonus,
+                                            valor_bonus_texto: isFisico ? formData.valor_bonus_texto : "",
+                                        });
+                                    }}
+                                >
+                                    <SelectTrigger className="text-xs sm:text-sm">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="DINHEIRO">💰 Valor em Dinheiro</SelectItem>
+                                        <SelectItem value="FISICO">🎁 Prêmio Físico</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Campo de Valor (Dinheiro) */}
+                            {!formData.is_premio_fisico && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                    <div>
+                                        <Label className="text-xs sm:text-sm">Formato</Label>
+                                        <Select 
+                                            value={formData.tipo} 
+                                            onValueChange={(v) => setFormData({ ...formData, tipo: v })}
+                                        >
+                                            <SelectTrigger className="text-xs sm:text-sm">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="VALOR_FIXO">Valor Fixo (R$)</SelectItem>
+                                                <SelectItem value="PERCENTUAL">Percentual (%)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs sm:text-sm">
+                                            {formData.tipo === 'PERCENTUAL' ? 'Valor (%)' : 'Valor (R$)'}
+                                        </Label>
                                         <Input
                                             type="number"
                                             step="0.01"
@@ -728,9 +778,30 @@ export default function BonusManagement() {
                                             required
                                             className="text-xs sm:text-sm"
                                         />
-                                    )}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
+
+                            {/* Campo de Prêmio Físico (Texto) */}
+                            {formData.is_premio_fisico && (
+                                <div>
+                                    <Label className="text-xs sm:text-sm">Descrição do Prêmio</Label>
+                                    <Input
+                                        value={formData.valor_bonus_texto || formData.descricao_premio || ""}
+                                        onChange={(e) => setFormData({ 
+                                            ...formData, 
+                                            valor_bonus_texto: e.target.value,
+                                            descricao_premio: e.target.value, // Manter sincronizado
+                                        })}
+                                        placeholder="Ex: Airfryer, Vale compras R$ 300, Smartphone"
+                                        required
+                                        className="text-xs sm:text-sm"
+                                    />
+                                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                                        💡 Descreva o prêmio físico que será entregue (ex: "Airfryer", "Vale compras de R$ 300")
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4">
