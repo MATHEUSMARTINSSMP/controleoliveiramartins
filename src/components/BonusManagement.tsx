@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus, Pencil, Trash, Gift, Check, Trophy, ArrowLeft, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Bonus {
     id: string;
@@ -34,7 +36,11 @@ export default function BonusManagement() {
     const [stores, setStores] = useState<any[]>([]);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingBonus, setEditingBonus] = useState<Bonus | null>(null);
+
     const [storeFilter, setStoreFilter] = useState<string>('ALL');
+    const [availableCollaborators, setAvailableCollaborators] = useState<any[]>([]);
+    const [selectedCollaborators, setSelectedCollaborators] = useState<string[]>([]);
+    const [loadingCollaborators, setLoadingCollaborators] = useState(false);
 
     const [formData, setFormData] = useState({
         nome: "",
@@ -99,18 +105,58 @@ export default function BonusManagement() {
         if (data) setStores(data);
     };
 
+    const fetchCollaborators = async (storeId: string) => {
+        if (!storeId || storeId === "TODAS") {
+            setAvailableCollaborators([]);
+            return;
+        }
+
+        setLoadingCollaborators(true);
+        try {
+            const { data, error } = await supabase
+                .from("profiles")
+                .select("id, name, active")
+                .eq("store_id", storeId)
+                .eq("role", "COLABORADORA")
+                .eq("active", true)
+                .order("name");
+
+            if (error) throw error;
+            setAvailableCollaborators(data || []);
+
+            // Se estiver criando um novo bônus, selecionar todas por padrão
+            if (!editingBonus) {
+                setSelectedCollaborators(data?.map(c => c.id) || []);
+            }
+        } catch (error) {
+            console.error("Error fetching collaborators:", error);
+            toast.error("Erro ao carregar colaboradoras");
+        } finally {
+            setLoadingCollaborators(false);
+        }
+    };
+
+    // Buscar colaboradoras quando a loja selecionada mudar
+    useEffect(() => {
+        if (formData.store_id && formData.store_id !== "TODAS") {
+            fetchCollaborators(formData.store_id);
+        } else {
+            setAvailableCollaborators([]);
+        }
+    }, [formData.store_id]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         // Para bônus semanais, meta_minima_percentual é sempre 100 (atingir 100% da meta)
-        const metaMinimaPercentual = (formData.tipo_condicao === 'META_SEMANAL' || formData.tipo_condicao === 'SUPER_META_SEMANAL') 
-            ? 100 
+        const metaMinimaPercentual = (formData.tipo_condicao === 'META_SEMANAL' || formData.tipo_condicao === 'SUPER_META_SEMANAL')
+            ? 100
             : formData.meta_minima_percentual ? parseFloat(formData.meta_minima_percentual) : null;
 
         // Determinar valor do bônus: número ou texto
         let valorBonus: number | null = null;
         let valorBonusTexto: string | null = null;
-        
+
         if (formData.is_premio_fisico) {
             // Prêmio físico: usar texto
             valorBonusTexto = formData.valor_bonus_texto || formData.descricao_premio || null;
@@ -151,6 +197,8 @@ export default function BonusManagement() {
             payload.store_id = formData.store_id;
         }
 
+        let bonusId = editingBonus?.id;
+
         if (editingBonus) {
             const { error } = await supabase
                 .from("bonuses")
@@ -163,13 +211,46 @@ export default function BonusManagement() {
             }
             toast.success("Bônus atualizado!");
         } else {
-            const { error } = await supabase.from("bonuses").insert([payload]);
+            const { data, error } = await supabase
+                .from("bonuses")
+                .insert([payload])
+                .select()
+                .single();
 
             if (error) {
                 toast.error("Erro ao criar bônus");
                 return;
             }
+            bonusId = data.id;
             toast.success("Bônus criado!");
+        }
+
+        // Atualizar colaboradoras vinculadas
+        if (bonusId && formData.store_id !== "TODAS") {
+            // 1. Remover vínculos existentes (para simplificar, remove tudo e recria)
+            // Em produção idealmente faria um diff, mas aqui simplificamos
+            await supabase
+                .from("bonus_collaborators")
+                .delete()
+                .eq("bonus_id", bonusId);
+
+            // 2. Inserir novos vínculos
+            if (selectedCollaborators.length > 0) {
+                const collaboratorsPayload = selectedCollaborators.map(colabId => ({
+                    bonus_id: bonusId,
+                    colaboradora_id: colabId,
+                    active: true
+                }));
+
+                const { error: colabError } = await supabase
+                    .from("bonus_collaborators")
+                    .insert(collaboratorsPayload);
+
+                if (colabError) {
+                    console.error("Error linking collaborators:", colabError);
+                    toast.error("Bônus salvo, mas houve erro ao vincular colaboradoras");
+                }
+            }
         }
 
         setDialogOpen(false);
@@ -180,7 +261,7 @@ export default function BonusManagement() {
 
     const handleEdit = (bonus: Bonus) => {
         setEditingBonus(bonus);
-        
+
         // Determinar categoria baseado nos campos existentes
         let categoria = "LEGADO";
         if ((bonus as any).condicao_tipo) {
@@ -188,10 +269,10 @@ export default function BonusManagement() {
         } else if ((bonus as any).condicao_meta_tipo) {
             categoria = "AVANCADA";
         }
-        
+
         // Verificar se é prêmio físico (tem valor_bonus_texto ou tipo PRODUTO)
         const isPremioFisico = (bonus as any).valor_bonus_texto || bonus.tipo === "PRODUTO";
-        
+
         setFormData({
             nome: bonus.nome,
             descricao: bonus.descricao || "",
@@ -216,6 +297,20 @@ export default function BonusManagement() {
             periodo_mes: (bonus as any).periodo_mes || "",
             periodo_semana: (bonus as any).periodo_semana || "",
         });
+
+        // Carregar colaboradoras vinculadas
+        if (bonus.store_id) {
+            const { data } = await supabase
+                .from("bonus_collaborators")
+                .select("colaboradora_id")
+                .eq("bonus_id", bonus.id)
+                .eq("active", true);
+
+            if (data) {
+                setSelectedCollaborators(data.map(d => d.colaboradora_id));
+            }
+        }
+
         setDialogOpen(true);
     };
 
@@ -259,6 +354,8 @@ export default function BonusManagement() {
             periodo_mes: "",
             periodo_semana: "",
         });
+        setSelectedCollaborators([]);
+        setAvailableCollaborators([]);
     };
 
     return (
@@ -324,10 +421,10 @@ export default function BonusManagement() {
                                     <div className="bg-muted p-2 rounded">
                                         <span className="text-[10px] sm:text-xs text-muted-foreground block">Valor Bônus</span>
                                         <span className="font-medium text-green-600 text-xs sm:text-sm">
-                                            {(bonus as any).valor_bonus_texto 
-                                                ? (bonus as any).valor_bonus_texto 
-                                                : bonus.tipo === 'PERCENTUAL' 
-                                                    ? `${bonus.valor_bonus}%` 
+                                            {(bonus as any).valor_bonus_texto
+                                                ? (bonus as any).valor_bonus_texto
+                                                : bonus.tipo === 'PERCENTUAL'
+                                                    ? `${bonus.valor_bonus}%`
                                                     : `R$ ${bonus.valor_bonus}`}
                                         </span>
                                     </div>
@@ -399,11 +496,11 @@ export default function BonusManagement() {
                         {/* Seção: Categoria de Condição */}
                         <div>
                             <Label className="text-xs sm:text-sm font-semibold">Categoria de Condição</Label>
-                            <Select 
-                                value={formData.categoria_condicao} 
+                            <Select
+                                value={formData.categoria_condicao}
                                 onValueChange={(v) => {
-                                    setFormData({ 
-                                        ...formData, 
+                                    setFormData({
+                                        ...formData,
                                         categoria_condicao: v,
                                         // Resetar campos específicos ao mudar categoria
                                         condicao_tipo: "",
@@ -429,11 +526,11 @@ export default function BonusManagement() {
                         {formData.categoria_condicao === "BASICA" && (
                             <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
                                 <Label className="text-xs sm:text-sm font-semibold">Condições Básicas</Label>
-                                
+
                                 <div>
                                     <Label className="text-xs sm:text-sm">Métrica</Label>
-                                    <Select 
-                                        value={formData.condicao_tipo} 
+                                    <Select
+                                        value={formData.condicao_tipo}
                                         onValueChange={(v) => setFormData({ ...formData, condicao_tipo: v })}
                                     >
                                         <SelectTrigger className="text-xs sm:text-sm">
@@ -449,8 +546,8 @@ export default function BonusManagement() {
                                 {formData.condicao_tipo && (
                                     <div>
                                         <Label className="text-xs sm:text-sm">Ranking</Label>
-                                        <Select 
-                                            value={formData.condicao_ranking} 
+                                        <Select
+                                            value={formData.condicao_ranking}
                                             onValueChange={(v) => setFormData({ ...formData, condicao_ranking: v })}
                                         >
                                             <SelectTrigger className="text-xs sm:text-sm">
@@ -471,14 +568,14 @@ export default function BonusManagement() {
                         {formData.categoria_condicao === "AVANCADA" && (
                             <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
                                 <Label className="text-xs sm:text-sm font-semibold">Filtros Avançados</Label>
-                                
+
                                 <div>
                                     <Label className="text-xs sm:text-sm">Escopo</Label>
-                                    <Select 
-                                        value={formData.condicao_escopo} 
+                                    <Select
+                                        value={formData.condicao_escopo}
                                         onValueChange={(v) => {
-                                            setFormData({ 
-                                                ...formData, 
+                                            setFormData({
+                                                ...formData,
                                                 condicao_escopo: v,
                                                 condicao_meta_tipo: "", // Reset ao mudar escopo
                                             });
@@ -498,8 +595,8 @@ export default function BonusManagement() {
                                     <>
                                         <div>
                                             <Label className="text-xs sm:text-sm">Tipo de Meta</Label>
-                                            <Select 
-                                                value={formData.condicao_meta_tipo} 
+                                            <Select
+                                                value={formData.condicao_meta_tipo}
                                                 onValueChange={(v) => setFormData({ ...formData, condicao_meta_tipo: v })}
                                             >
                                                 <SelectTrigger className="text-xs sm:text-sm">
@@ -577,14 +674,14 @@ export default function BonusManagement() {
                         {/* Seção: Período de Referência */}
                         <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
                             <Label className="text-xs sm:text-sm font-semibold">Período de Referência</Label>
-                            
+
                             <div>
                                 <Label className="text-xs sm:text-sm">Tipo de Período</Label>
-                                <Select 
-                                    value={formData.periodo_tipo} 
+                                <Select
+                                    value={formData.periodo_tipo}
                                     onValueChange={(v) => {
-                                        setFormData({ 
-                                            ...formData, 
+                                        setFormData({
+                                            ...formData,
                                             periodo_tipo: v,
                                             // Reset campos específicos
                                             periodo_data_inicio: "",
@@ -676,6 +773,70 @@ export default function BonusManagement() {
                             </Select>
                         </div>
 
+                        {/* Seleção de Colaboradoras */}
+                        {formData.store_id !== "TODAS" && (
+                            <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-xs sm:text-sm font-semibold">Colaboradoras Participantes</Label>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 text-[10px]"
+                                            onClick={() => setSelectedCollaborators(availableCollaborators.map(c => c.id))}
+                                        >
+                                            Todas
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 text-[10px]"
+                                            onClick={() => setSelectedCollaborators([])}
+                                        >
+                                            Nenhuma
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {loadingCollaborators ? (
+                                    <p className="text-xs text-muted-foreground text-center py-2">Carregando colaboradoras...</p>
+                                ) : availableCollaborators.length === 0 ? (
+                                    <p className="text-xs text-muted-foreground text-center py-2">Nenhuma colaboradora encontrada nesta loja.</p>
+                                ) : (
+                                    <ScrollArea className="h-[150px] w-full rounded-md border p-2 bg-background">
+                                        <div className="space-y-2">
+                                            {availableCollaborators.map((colab) => (
+                                                <div key={colab.id} className="flex items-center space-x-2">
+                                                    <Checkbox
+                                                        id={`colab-${colab.id}`}
+                                                        checked={selectedCollaborators.includes(colab.id)}
+                                                        onCheckedChange={(checked) => {
+                                                            if (checked) {
+                                                                setSelectedCollaborators([...selectedCollaborators, colab.id]);
+                                                            } else {
+                                                                setSelectedCollaborators(selectedCollaborators.filter(id => id !== colab.id));
+                                                            }
+                                                        }}
+                                                    />
+                                                    <label
+                                                        htmlFor={`colab-${colab.id}`}
+                                                        className="text-xs sm:text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                                    >
+                                                        {colab.name}
+                                                    </label>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </ScrollArea>
+                                )}
+                                <p className="text-[10px] text-muted-foreground">
+                                    Selecione quem está apta a receber este bônus. Desmarcadas não verão o bônus.
+                                </p>
+                            </div>
+                        )}
+
                         {/* Campos condicionais para modo legado */}
                         {formData.categoria_condicao === "LEGADO" && (
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -701,16 +862,16 @@ export default function BonusManagement() {
                         {/* Valor do Bônus */}
                         <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
                             <Label className="text-xs sm:text-sm font-semibold">Valor do Bônus</Label>
-                            
+
                             {/* Toggle entre Dinheiro e Prêmio Físico */}
                             <div>
                                 <Label className="text-xs sm:text-sm">Tipo de Bônus</Label>
-                                <Select 
-                                    value={formData.is_premio_fisico ? "FISICO" : "DINHEIRO"} 
+                                <Select
+                                    value={formData.is_premio_fisico ? "FISICO" : "DINHEIRO"}
                                     onValueChange={(v) => {
                                         const isFisico = v === "FISICO";
-                                        setFormData({ 
-                                            ...formData, 
+                                        setFormData({
+                                            ...formData,
                                             is_premio_fisico: isFisico,
                                             tipo: isFisico ? "PRODUTO" : "VALOR_FIXO",
                                             // Limpar campos ao alternar
@@ -734,8 +895,8 @@ export default function BonusManagement() {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                     <div>
                                         <Label className="text-xs sm:text-sm">Formato</Label>
-                                        <Select 
-                                            value={formData.tipo} 
+                                        <Select
+                                            value={formData.tipo}
                                             onValueChange={(v) => setFormData({ ...formData, tipo: v })}
                                         >
                                             <SelectTrigger className="text-xs sm:text-sm">
@@ -770,8 +931,8 @@ export default function BonusManagement() {
                                     <Label className="text-xs sm:text-sm">Descrição do Prêmio</Label>
                                     <Input
                                         value={formData.valor_bonus_texto || formData.descricao_premio || ""}
-                                        onChange={(e) => setFormData({ 
-                                            ...formData, 
+                                        onChange={(e) => setFormData({
+                                            ...formData,
                                             valor_bonus_texto: e.target.value,
                                             descricao_premio: e.target.value, // Manter sincronizado
                                         })}
