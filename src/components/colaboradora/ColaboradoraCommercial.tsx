@@ -3,7 +3,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useGoalCalculation } from "@/hooks/useGoalCalculation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Target, TrendingUp, TrendingDown, CheckCircle2, AlertCircle, Zap } from "lucide-react";
+import { Target, TrendingUp, TrendingDown, CheckCircle2, AlertCircle, Zap, Calendar } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import WeeklyGoalProgress from "@/components/WeeklyGoalProgress";
 
@@ -47,20 +47,20 @@ export const ColaboradoraCommercial = () => {
     }
   };
 
-  const getProgressColor = () => {
-    if (calculation.percentualHoje >= 100) return 'bg-green-500';
-    if (calculation.percentualHoje >= 70) return 'bg-yellow-500';
+  const getProgressColor = (percentual: number) => {
+    if (percentual >= 100) return 'bg-green-500';
+    if (percentual >= 70) return 'bg-yellow-500';
     return 'bg-red-500';
   };
 
   return (
     <div className="space-y-6">
-      {/* Card "Meu Dia" */}
+      {/* 1. Meta Diária */}
       <Card className="border-2 border-primary/20 shadow-lg">
         <CardHeader className="bg-gradient-to-r from-primary/10 to-accent/10 pb-4">
           <CardTitle className="flex items-center gap-2">
-            <Target className="h-6 w-6 text-primary" />
-            Meu Dia
+            <Calendar className="h-6 w-6 text-primary" />
+            Meta Diária
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6 space-y-4">
@@ -82,7 +82,7 @@ export const ColaboradoraCommercial = () => {
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Progresso</span>
-                <span className={`text-lg font-bold ${getProgressColor().replace('bg-', 'text-')}`}>
+                <span className={`text-lg font-bold text-${getProgressColor(calculation.percentualHoje).replace('bg-', '')}`}>
                   {calculation.percentualHoje.toFixed(0)}%
                 </span>
               </div>
@@ -109,12 +109,61 @@ export const ColaboradoraCommercial = () => {
         </CardContent>
       </Card>
 
-      {/* Progresso Mensal */}
+      {/* 2. Super Meta Diária */}
+      <Card className="border-2 border-purple-200 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-purple-50 to-purple-100/50 pb-4">
+          <CardTitle className="flex items-center gap-2 text-purple-700">
+            <Zap className="h-6 w-6" />
+            Super Meta Diária
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Super Meta do Dia</span>
+                <Badge variant="outline" className="font-semibold border-purple-300 text-purple-700">
+                  {formatCurrency(calculation.superMetaDiariaAjustada)}
+                </Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Vendido Hoje</span>
+                <span className="text-lg font-bold text-green-600">
+                  {formatCurrency(calculation.vendidoHoje)}
+                </span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Progresso Super Meta</span>
+                <span className={`text-lg font-bold text-${getProgressColor(calculation.percentualSuperMetaHoje).replace('bg-', '')}`}>
+                  {calculation.percentualSuperMetaHoje.toFixed(0)}%
+                </span>
+              </div>
+              <Progress 
+                value={calculation.percentualSuperMetaHoje} 
+                className="h-3 bg-purple-100"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 3. Meta Semanal */}
+      <div className="mt-6">
+        <WeeklyGoalProgress 
+          colaboradoraId={profile?.id} 
+          storeId={profile?.store_id} 
+          showDetails={true} 
+        />
+      </div>
+
+      {/* 4. Meta Mensal */}
       <Card className="shadow-md">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
-            Progresso Mensal
+            Meta Mensal
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -163,10 +212,60 @@ export const ColaboradoraCommercial = () => {
               </span>
             </div>
           </div>
+
+          {/* Ritmo Necessário */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="flex flex-col h-full p-4 bg-gradient-to-br from-orange-50 to-orange-100/30 rounded-lg border border-orange-200">
+              <div className="flex items-center gap-2 mb-4">
+                <TrendingUp className="h-5 w-5 text-orange-600" />
+                <h3 className="text-base font-bold text-orange-700">Ritmo Necessário</h3>
+              </div>
+              
+              <div className="flex flex-col space-y-4 flex-1">
+                {/* Para bater a meta - Destaque */}
+                <div className="p-4 bg-orange-600 rounded-lg border-2 border-orange-700 shadow-md">
+                  <div className="text-xs text-orange-100 mb-2 font-medium">Para bater a meta</div>
+                  <div className="text-3xl font-bold text-white">
+                    {formatCurrency(calculation.ritmoNecessario)}/dia
+                  </div>
+                </div>
+
+                {/* Dias úteis restantes */}
+                <div className="p-3 bg-white/60 rounded-lg border border-orange-100">
+                  <div className="text-xs text-muted-foreground mb-1">Dias úteis restantes</div>
+                  <div className="text-xl font-bold text-orange-700">
+                    {calculation.diasUteisRestantes} dias
+                  </div>
+                </div>
+
+                {/* Déficit - Se houver */}
+                <div className="mt-auto">
+                  {calculation.deficit > 0 ? (
+                    <div className="p-4 bg-red-100 rounded-lg border-2 border-red-300 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                        <div className="text-xs font-semibold text-red-700 uppercase tracking-wide">Déficit</div>
+                      </div>
+                      <div className="text-2xl font-bold text-red-700">
+                        {formatCurrency(calculation.deficit)}
+                      </div>
+                      <div className="text-xs text-red-600 mt-1">
+                        Valor necessário para recuperar o atraso
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-transparent rounded-lg">
+                      {/* Espaço vazio para manter altura igual */}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Super Meta Mensal - Card Reorganizado */}
+      {/* 5. Super Meta Mensal */}
       <Card className="shadow-md border-purple-200">
         <CardHeader className="bg-gradient-to-r from-purple-50 to-purple-100/50">
           <CardTitle className="flex items-center gap-2 text-purple-700">
@@ -200,6 +299,18 @@ export const ColaboradoraCommercial = () => {
                   </div>
                 </div>
 
+                {/* Progresso Super Meta */}
+                <div className="p-3 bg-white/60 rounded-lg border border-purple-100">
+                  <div className="text-xs text-muted-foreground mb-1">Progresso</div>
+                  <div className="text-xl font-bold text-purple-700">
+                    {((calculation.realizadoMensal / calculation.superMetaMensal) * 100).toFixed(1)}%
+                  </div>
+                  <Progress 
+                    value={Math.min((calculation.realizadoMensal / calculation.superMetaMensal) * 100, 100)} 
+                    className="h-2 mt-2 bg-purple-100"
+                  />
+                </div>
+
                 {/* Necessário por dia - Destaque */}
                 <div className="mt-auto p-4 bg-purple-600 rounded-lg border-2 border-purple-700 shadow-md">
                   <div className="text-xs text-purple-100 mb-2 font-medium">Necessário por dia</div>
@@ -209,67 +320,9 @@ export const ColaboradoraCommercial = () => {
                 </div>
               </div>
             </div>
-
-            {/* Ritmo Necessário - Card Interno */}
-            <div className="flex flex-col h-full p-4 bg-gradient-to-br from-orange-50 to-orange-100/30 rounded-lg border border-orange-200">
-              <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="h-5 w-5 text-orange-600" />
-                <h3 className="text-base font-bold text-orange-700">Ritmo Necessário</h3>
-              </div>
-              
-              <div className="flex flex-col space-y-4 flex-1">
-                {/* Para bater a meta - Destaque */}
-                <div className="p-4 bg-orange-600 rounded-lg border-2 border-orange-700 shadow-md">
-                  <div className="text-xs text-orange-100 mb-2 font-medium">Para bater a meta</div>
-                  <div className="text-3xl font-bold text-white">
-                    {formatCurrency(calculation.ritmoNecessario)}/dia
-                  </div>
-                </div>
-
-                {/* Dias úteis restantes */}
-                <div className="p-3 bg-white/60 rounded-lg border border-orange-100">
-                  <div className="text-xs text-muted-foreground mb-1">Dias úteis restantes</div>
-                  <div className="text-xl font-bold text-orange-700">
-                    {calculation.diasUteisRestantes} dias
-                  </div>
-                </div>
-
-                {/* Déficit - Se houver - Espaço reservado para manter simetria */}
-                <div className="mt-auto">
-                  {calculation.deficit > 0 ? (
-                    <div className="p-4 bg-red-100 rounded-lg border-2 border-red-300 shadow-sm">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertCircle className="h-4 w-4 text-red-600" />
-                        <div className="text-xs font-semibold text-red-700 uppercase tracking-wide">Déficit</div>
-                      </div>
-                      <div className="text-2xl font-bold text-red-700">
-                        {formatCurrency(calculation.deficit)}
-                      </div>
-                      <div className="text-xs text-red-600 mt-1">
-                        Valor necessário para recuperar o atraso
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-transparent rounded-lg">
-                      {/* Espaço vazio para manter altura igual */}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Meta Semanal Gamificada - Separada para não encavalada */}
-      <div className="mt-6">
-        <WeeklyGoalProgress 
-          colaboradoraId={profile?.id} 
-          storeId={profile?.store_id} 
-          showDetails={true} 
-        />
-      </div>
     </div>
   );
 };
-

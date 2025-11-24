@@ -35,6 +35,15 @@ interface GoalCalculationResult {
   // Meta diária ajustada (considerando déficit/poupança)
   metaDiariaAjustada: number;
   
+  // Super meta diária padrão
+  superMetaDiariaPadrao: number;
+  
+  // Super meta diária ajustada
+  superMetaDiariaAjustada: number;
+  
+  // Progresso super meta hoje
+  percentualSuperMetaHoje: number;
+  
   // Progresso hoje
   progressoHoje: number;
   vendidoHoje: number;
@@ -146,6 +155,13 @@ export const useGoalCalculation = (
           metaDiariaPadrao = (metaMensal * hojePeso) / 100;
         }
 
+        // 6.1. Calcular super meta diária padrão
+        let superMetaDiariaPadrao = superMetaMensal / totalDias;
+        if (Object.keys(dailyWeights).length > 0) {
+          const hojePeso = dailyWeights[hojeStr] || 0;
+          superMetaDiariaPadrao = (superMetaMensal * hojePeso) / 100;
+        }
+
         // 7. Calcular déficit acumulado (considerando daily_weights)
         let deficit = 0;
         let vendidoAcumulado = 0;
@@ -186,8 +202,31 @@ export const useGoalCalculation = (
           }
         }
 
+        // 8.1. Calcular super meta diária ajustada
+        let superMetaDiariaAjustada = superMetaDiariaPadrao;
+        const deficitSuperMeta = (() => {
+          const metaEsperadaSuperMeta = goal.daily_weights && Object.keys(goal.daily_weights).length > 0
+            ? (() => {
+                let soma = 0;
+                for (let dia = 1; dia <= diaAtual; dia++) {
+                  const dataDia = new Date(hoje.getFullYear(), hoje.getMonth(), dia);
+                  const dataStr = format(dataDia, 'yyyy-MM-dd');
+                  const peso = dailyWeights[dataStr] || 0;
+                  soma += (superMetaMensal * peso) / 100;
+                }
+                return soma;
+              })()
+            : superMetaDiariaPadrao * diaAtual;
+          return metaEsperadaSuperMeta - vendidoAteOntem;
+        })();
+
+        if (diasUteisRestantes > 0 && deficitSuperMeta > 0) {
+          superMetaDiariaAjustada = superMetaDiariaPadrao + (deficitSuperMeta / diasUteisRestantes);
+        }
+
         // 9. Calcular progresso hoje
         const percentualHoje = metaDiariaAjustada > 0 ? (vendidoHoje / metaDiariaAjustada) * 100 : 0;
+        const percentualSuperMetaHoje = superMetaDiariaAjustada > 0 ? (vendidoHoje / superMetaDiariaAjustada) * 100 : 0;
 
         // 10. Determinar status
         let status: 'ahead' | 'behind' | 'on-track' = 'on-track';
@@ -232,9 +271,12 @@ export const useGoalCalculation = (
           percentualMensal,
           metaDiariaPadrao,
           metaDiariaAjustada,
+          superMetaDiariaPadrao,
+          superMetaDiariaAjustada,
           progressoHoje: vendidoHoje,
           vendidoHoje,
           percentualHoje,
+          percentualSuperMetaHoje,
           status,
           mensagem,
           deficit,

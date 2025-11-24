@@ -458,8 +458,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                 <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                         <Calendar className="h-5 w-5 text-primary" />
-                        <span>Meta Semanal</span>
-                        {storeName && <span className="text-sm font-normal text-muted-foreground">({storeName})</span>}
+                        <span>Meta Semanal{colaboradoraId ? ' (Sua Meta)' : storeName ? ` (${storeName})` : ''}</span>
                     </CardTitle>
                     <Badge className={`${mainStatusBadge.color} text-white`}>
                         <MainStatusIcon className="h-3 w-3 mr-1" />

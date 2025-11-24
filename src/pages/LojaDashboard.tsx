@@ -54,6 +54,17 @@ export default function LojaDashboard() {
     const [storeName, setStoreName] = useState<string | null>(null);
     const [salesDateFilter, setSalesDateFilter] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
 
+    interface FormaPagamento {
+        tipo: 'CREDITO' | 'DEBITO' | 'DINHEIRO' | 'PIX' | 'BOLETO';
+        valor: number;
+        parcelas?: number;
+    }
+
+    const [formasPagamento, setFormasPagamento] = useState<FormaPagamento[]>([{
+        tipo: 'DINHEIRO',
+        valor: 0,
+    }]);
+
     const [formData, setFormData] = useState({
         colaboradora_id: "",
         valor: "",
@@ -1488,9 +1499,47 @@ export default function LojaDashboard() {
             return;
         }
 
+        // Validar formas de pagamento
+        const totalFormas = formasPagamento.reduce((sum, f) => sum + (f.valor || 0), 0);
+        const valorTotal = parseFloat(formData.valor) || 0;
+        
+        if (totalFormas <= 0) {
+            toast.error('Adicione pelo menos uma forma de pagamento com valor maior que zero');
+            return;
+        }
+        
+        if (Math.abs(totalFormas - valorTotal) > 0.01) {
+            toast.error(`A soma das formas de pagamento (R$ ${totalFormas.toFixed(2)}) deve ser igual ao valor total (R$ ${valorTotal.toFixed(2)})`);
+            return;
+        }
+
+        // Validar parcelas para crédito
+        for (const forma of formasPagamento) {
+            if (forma.tipo === 'CREDITO' && (!forma.parcelas || forma.parcelas < 1 || forma.parcelas > 6)) {
+                toast.error('Número de parcelas deve estar entre 1 e 6 para pagamento no crédito');
+                return;
+            }
+        }
+
         if (!storeId) {
             toast.error('Erro: ID da loja não identificado');
             return;
+        }
+
+        // Preparar observações com formas de pagamento
+        let observacoesFinal = formData.observacoes || '';
+        const formasPagamentoTexto = formasPagamento.map(f => {
+            let texto = `${f.tipo}: R$ ${f.valor.toFixed(2)}`;
+            if (f.tipo === 'CREDITO' && f.parcelas) {
+                texto += ` (${f.parcelas}x)`;
+            }
+            return texto;
+        }).join(' | ');
+        
+        if (observacoesFinal) {
+            observacoesFinal += ` | Formas de Pagamento: ${formasPagamentoTexto}`;
+        } else {
+            observacoesFinal = `Formas de Pagamento: ${formasPagamentoTexto}`;
         }
 
         const { error } = await supabase.from('sales').insert({
@@ -1499,7 +1548,7 @@ export default function LojaDashboard() {
             valor: parseFloat(formData.valor),
             qtd_pecas: parseInt(formData.qtd_pecas),
             data_venda: formData.data_venda,
-            observacoes: formData.observacoes || null,
+            observacoes: observacoesFinal || null,
             lancado_por_id: profile?.id,
         });
 
@@ -1812,6 +1861,10 @@ export default function LojaDashboard() {
             data_venda: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
             observacoes: "",
         });
+        setFormasPagamento([{
+            tipo: 'DINHEIRO',
+            valor: 0,
+        }]);
         setEditingSaleId(null);
     };
 
@@ -1837,16 +1890,32 @@ export default function LojaDashboard() {
             return;
         }
 
+        // Preparar observações com formas de pagamento
+        let observacoesFinal = formData.observacoes || '';
+        const formasPagamentoTexto = formasPagamento.map(f => {
+            let texto = `${f.tipo}: R$ ${f.valor.toFixed(2)}`;
+            if (f.tipo === 'CREDITO' && f.parcelas) {
+                texto += ` (${f.parcelas}x)`;
+            }
+            return texto;
+        }).join(' | ');
+        
+        if (observacoesFinal) {
+            observacoesFinal += ` | Formas de Pagamento: ${formasPagamentoTexto}`;
+        } else {
+            observacoesFinal = `Formas de Pagamento: ${formasPagamentoTexto}`;
+        }
+
         const { error } = await supabase
-            .from('sales')
-            .update({
-                colaboradora_id: formData.colaboradora_id,
-                valor: parseFloat(formData.valor),
-                qtd_pecas: parseInt(formData.qtd_pecas),
-                data_venda: formData.data_venda,
-                observacoes: formData.observacoes || null,
-            })
-            .eq('id', editingSaleId!);
+          .from('sales')
+          .update({
+            colaboradora_id: formData.colaboradora_id,
+            valor: parseFloat(formData.valor),
+            qtd_pecas: parseInt(formData.qtd_pecas),
+            data_venda: formData.data_venda,
+            observacoes: observacoesFinal || null,
+          })
+          .eq('id', editingSaleId!);
 
         if (error) {
             toast.error('Erro ao atualizar venda');
@@ -2242,6 +2311,128 @@ export default function LojaDashboard() {
                                 <p className="text-sm font-medium">
                                     💡 Preço Médio por Peça: <span className="text-primary">R$ {precoMedioPeca}</span>
                                 </p>
+                            </div>
+
+                            {/* Formas de Pagamento */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <Label>Formas de Pagamento *</Label>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            setFormasPagamento([...formasPagamento, {
+                                                tipo: 'DINHEIRO',
+                                                valor: 0,
+                                            }]);
+                                        }}
+                                        className="h-7 text-xs"
+                                    >
+                                        <Plus className="h-3 w-3 mr-1" />
+                                        Adicionar
+                                    </Button>
+                                </div>
+                                <div className="space-y-2">
+                                    {formasPagamento.map((forma, index) => {
+                                        const totalFormas = formasPagamento.reduce((sum, f) => sum + (f.valor || 0), 0);
+                                        const valorTotal = parseFloat(formData.valor) || 0;
+                                        const diferenca = valorTotal - totalFormas;
+                                        
+                                        return (
+                                            <div key={index} className="flex gap-2 items-end p-3 border rounded-lg">
+                                                <div className="flex-1 space-y-2">
+                                                    <div>
+                                                        <Label className="text-xs">Tipo</Label>
+                                                        <Select
+                                                            value={forma.tipo}
+                                                            onValueChange={(value: 'CREDITO' | 'DEBITO' | 'DINHEIRO' | 'PIX' | 'BOLETO') => {
+                                                                const novas = [...formasPagamento];
+                                                                novas[index].tipo = value;
+                                                                novas[index].parcelas = value === 'CREDITO' ? (novas[index].parcelas || 1) : undefined;
+                                                                setFormasPagamento(novas);
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="h-9">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="CREDITO">Crédito</SelectItem>
+                                                                <SelectItem value="DEBITO">Débito</SelectItem>
+                                                                <SelectItem value="DINHEIRO">Dinheiro</SelectItem>
+                                                                <SelectItem value="PIX">Pix</SelectItem>
+                                                                <SelectItem value="BOLETO">Boleto</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    {forma.tipo === 'CREDITO' && (
+                                                        <div>
+                                                            <Label className="text-xs">Parcelas (máx. 6x)</Label>
+                                                            <Input
+                                                                type="number"
+                                                                min="1"
+                                                                max="6"
+                                                                value={forma.parcelas || 1}
+                                                                onChange={(e) => {
+                                                                    const parcelas = Math.min(6, Math.max(1, parseInt(e.target.value) || 1));
+                                                                    const novas = [...formasPagamento];
+                                                                    novas[index].parcelas = parcelas;
+                                                                    setFormasPagamento(novas);
+                                                                }}
+                                                                className="h-9"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <Label className="text-xs">Valor (R$)</Label>
+                                                        <Input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={forma.valor || ''}
+                                                            onChange={(e) => {
+                                                                const novas = [...formasPagamento];
+                                                                novas[index].valor = parseFloat(e.target.value) || 0;
+                                                                setFormasPagamento(novas);
+                                                            }}
+                                                            placeholder="0,00"
+                                                            className="h-9"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                {formasPagamento.length > 1 && (
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setFormasPagamento(formasPagamento.filter((_, i) => i !== index));
+                                                        }}
+                                                        className="h-9 w-9 p-0 text-destructive"
+                                                    >
+                                                        ×
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                {(() => {
+                                    const totalFormas = formasPagamento.reduce((sum, f) => sum + (f.valor || 0), 0);
+                                    const valorTotal = parseFloat(formData.valor) || 0;
+                                    const diferenca = valorTotal - totalFormas;
+                                    
+                                    if (valorTotal > 0 && Math.abs(diferenca) > 0.01) {
+                                        return (
+                                            <div className={`p-2 rounded text-sm ${diferenca > 0 ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                                                {diferenca > 0 
+                                                    ? `⚠️ Faltam R$ ${diferenca.toFixed(2)} para completar o valor total`
+                                                    : `⚠️ Valor excede o total em R$ ${Math.abs(diferenca).toFixed(2)}`
+                                                }
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()}
                             </div>
 
                             <div className="space-y-2">
