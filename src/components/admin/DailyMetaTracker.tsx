@@ -3,15 +3,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Sun, TrendingUp, AlertCircle } from "lucide-react";
-import { format } from "date-fns";
+import { Calendar, TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
+import { format, getDaysInMonth } from "date-fns";
+import { formatCurrency } from "@/lib/utils";
 
 interface DailyCollaborator {
     id: string;
     name: string;
     vendidoHoje: number;
-    metaDiaria: number;
+    metaDiariaAjustada: number;
     progress: number;
+    status: 'ahead' | 'behind' | 'on-track';
     abaixoDaMeta: boolean;
 }
 
@@ -29,7 +31,11 @@ export function DailyMetaTracker() {
 
     const fetchDailyProgress = async () => {
         try {
-            const hoje = format(new Date(), "yyyy-MM-dd");
+            const hoje = new Date();
+            const hojeStr = format(hoje, "yyyy-MM-dd");
+            const mesAtual = format(hoje, "yyyyMM");
+            const diaAtual = hoje.getDate();
+            const totalDias = getDaysInMonth(hoje);
 
             // Buscar todas as colaboradoras ativas
             const { data: colabsData, error: colabsError } = await supabase
@@ -49,22 +55,10 @@ export function DailyMetaTracker() {
             let totalVendidoHoje = 0;
             let totalMetaDiaria = 0;
 
-            // Para cada colaboradora, buscar vendas do dia e meta diária
+            // Para cada colaboradora, buscar meta e vendas
             const collaboratorsWithProgress = await Promise.all(
                 colabsData.map(async (colab) => {
-                    // Buscar vendas de hoje
-                    const { data: salesData } = await supabase
-                        .from("sales")
-                        .select("valor")
-                        .eq("colaboradora_id", colab.id)
-                        .gte("data_venda", `${hoje}T00:00:00`)
-                        .lte("data_venda", `${hoje}T23:59:59`);
-
-                    const vendidoHoje = salesData?.reduce((sum, sale) => sum + Number(sale.valor || 0), 0) || 0;
-
-                    // Buscar meta diária (calculada dinamicamente)
-                    // Aqui vamos buscar a meta mensal e calcular a diária
-                    const mesAtual = format(new Date(), "yyyyMM");
+                    // Buscar meta individual
                     const { data: metaData } = await supabase
                         .from("goals")
                         .select("meta_valor, daily_weights")
@@ -73,25 +67,73 @@ export function DailyMetaTracker() {
                         .eq("tipo", "INDIVIDUAL")
                         .maybeSingle();
 
-                    // Calcular meta diária (simplificado: meta mensal / dias do mês)
-                    const daysInMonth = new Date(
-                        parseInt(mesAtual.slice(0, 4)),
-                        parseInt(mesAtual.slice(4, 6)),
-                        0
-                    ).getDate();
+                    // Buscar vendas de hoje
+                    const { data: salesToday } = await supabase
+                        .from("sales")
+                        .select("valor")
+                        .eq("colaboradora_id", colab.id)
+                        .gte("data_venda", `${hojeStr}T00:00:00`)
+                        .lte("data_venda", `${hojeStr}T23:59:59`);
 
-                    const metaDiaria = metaData?.meta_valor ? Number(metaData.meta_valor) / daysInMonth : 0;
-                    const progress = metaDiaria > 0 ? (vendidoHoje / metaDiaria) * 100 : 0;
+                    // Buscar vendas do mês até ontem para calcular déficit
+                    const { data: salesMonth } = await supabase
+                        .from("sales")
+                        .select("data_venda, valor")
+                        .eq("colaboradora_id", colab.id)
+                        .gte("data_venda", `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01T00:00:00`)
+                        .lt("data_venda", `${hojeStr}T00:00:00`);
+
+                    const vendidoHoje = salesToday?.reduce((sum, s) => sum + Number(s.valor || 0), 0) || 0;
+                    const metaMensal = Number(metaData?.meta_valor || 0);
+                    const dailyWeights = metaData?.daily_weights || {};
+
+                    // Calcular meta diária padrão
+                    let metaDiariaPadrao = metaMensal / totalDias;
+                    if (Object.keys(dailyWeights).length > 0) {
+                        const hojePeso = dailyWeights[hojeStr] || 0;
+                        metaDiariaPadrao = (metaMensal * hojePeso) / 100;
+                    }
+
+                    // Calcular déficit
+                    const vendidoAteOntem = salesMonth?.reduce((sum, s) => sum + Number(s.valor || 0), 0) || 0;
+                    const metaEsperadaAteOntem = Object.keys(dailyWeights).length > 0
+                        ? (() => {
+                            let soma = 0;
+                            for (let dia = 1; dia < diaAtual; dia++) {
+                                const dataDia = new Date(hoje.getFullYear(), hoje.getMonth(), dia);
+                                const dataStr = format(dataDia, 'yyyy-MM-dd');
+                                const peso = dailyWeights[dataStr] || 0;
+                                soma += (metaMensal * peso) / 100;
+                            }
+                            return soma;
+                        })()
+                        : metaDiariaPadrao * (diaAtual - 1);
+
+                    const deficit = metaEsperadaAteOntem - vendidoAteOntem;
+                    const diasRestantes = totalDias - diaAtual;
+
+                    // Calcular meta diária ajustada
+                    let metaDiariaAjustada = metaDiariaPadrao;
+                    if (diasRestantes > 0 && deficit > 0) {
+                        metaDiariaAjustada = metaDiariaPadrao + (deficit / diasRestantes);
+                    }
+
+                    const progress = metaDiariaAjustada > 0 ? (vendidoHoje / metaDiariaAjustada) * 100 : 0;
+
+                    let status: 'ahead' | 'behind' | 'on-track' = 'on-track';
+                    if (deficit > 0) status = 'behind';
+                    else if (deficit < -metaDiariaPadrao * 2) status = 'ahead';
 
                     totalVendidoHoje += vendidoHoje;
-                    totalMetaDiaria += metaDiaria;
+                    totalMetaDiaria += metaDiariaAjustada;
 
                     return {
                         id: colab.id,
                         name: colab.name,
                         vendidoHoje,
-                        metaDiaria,
+                        metaDiariaAjustada,
                         progress: Math.min(progress, 100),
+                        status,
                         abaixoDaMeta: progress < 80,
                     };
                 })
@@ -116,12 +158,23 @@ export function DailyMetaTracker() {
         return "bg-red-500";
     };
 
+    const getStatusIcon = (status: string) => {
+        switch (status) {
+            case 'ahead':
+                return <TrendingUp className="h-3.5 w-3.5 text-green-600" />;
+            case 'behind':
+                return <TrendingDown className="h-3.5 w-3.5 text-red-600" />;
+            default:
+                return <Calendar className="h-3.5 w-3.5 text-blue-600" />;
+        }
+    };
+
     if (loading) {
         return (
             <Card className="col-span-1">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <Sun className="h-5 w-5" />
+                        <Calendar className="h-5 w-5" />
                         Meta Diária
                     </CardTitle>
                 </CardHeader>
@@ -142,55 +195,50 @@ export function DailyMetaTracker() {
         <Card className="col-span-1 bg-gradient-to-br from-card to-card/50 border-primary/10">
             <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
-                    <Sun className="h-5 w-5 text-primary" />
+                    <Calendar className="h-5 w-5 text-primary" />
                     Meta Diária
-                    <Badge variant={progressGeral >= 100 ? "default" : "secondary"} className="ml-auto">
-                        {progressGeral.toFixed(0)}%
-                    </Badge>
+                    {abaixoDaMetaCount > 0 && (
+                        <Badge variant="destructive" className="ml-auto text-xs">
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            {abaixoDaMetaCount} abaixo de 80%
+                        </Badge>
+                    )}
                 </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Vendido hoje</span>
-                        <span className="font-semibold">
-                            R$ {totalVendido.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                        </span>
+            <CardContent className="space-y-3">
+                {/* Resumo Geral */}
+                <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Total Vendido Hoje</span>
+                        <span className="text-lg font-bold text-green-600">{formatCurrency(totalVendido)}</span>
                     </div>
-                    <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Meta do dia</span>
-                        <span className="font-semibold">
-                            R$ {totalMeta.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                        </span>
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-muted-foreground">Meta Total do Dia</span>
+                        <span className="text-sm font-semibold">{formatCurrency(totalMeta)}</span>
                     </div>
-                    <Progress value={progressGeral} className={`h-3 ${getProgressColor(progressGeral)}`} />
+                    <Progress value={progressGeral} className={`h-2 ${getProgressColor(progressGeral)}`} />
+                    <div className="text-xs text-right mt-1 font-semibold">{progressGeral.toFixed(0)}%</div>
                 </div>
 
-                {abaixoDaMetaCount > 0 && (
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-red-50 border border-red-200 text-red-700">
-                        <AlertCircle className="h-4 w-4" />
-                        <span className="text-xs font-semibold">{abaixoDaMetaCount} abaixo de 80%</span>
-                    </div>
-                )}
-
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {collaborators.map((colab, index) => (
+                {/* Lista de Colaboradoras */}
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                    {collaborators.map((colab) => (
                         <div
                             key={colab.id}
-                            className={`p-2.5 rounded-lg border space-y-1.5 ${index < 3 ? "bg-primary/5 border-primary/20" : "bg-muted/50 border-border/50"
+                            className={`p-2.5 rounded-lg border ${colab.abaixoDaMeta ? 'bg-red-50 border-red-200' : 'bg-muted/50 border-border/50'
                                 }`}
                         >
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                    {index < 3 && <TrendingUp className="h-3.5 w-3.5 text-primary" />}
+                            <div className="flex items-center justify-between mb-1.5">
+                                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                    {getStatusIcon(colab.status)}
                                     <span className="text-sm font-medium truncate">{colab.name}</span>
                                 </div>
                                 <span className="text-xs font-semibold">{colab.progress.toFixed(0)}%</span>
                             </div>
                             <Progress value={colab.progress} className={`h-1.5 ${getProgressColor(colab.progress)}`} />
-                            <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                <span>R$ {colab.vendidoHoje.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</span>
-                                <span>Meta: R$ {colab.metaDiaria.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</span>
+                            <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
+                                <span>{formatCurrency(colab.vendidoHoje)}</span>
+                                <span>Meta: {formatCurrency(colab.metaDiariaAjustada)}</span>
                             </div>
                         </div>
                     ))}
