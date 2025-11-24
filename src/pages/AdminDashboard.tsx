@@ -11,6 +11,11 @@ import { CommercialDashboard } from "@/components/admin/CommercialDashboard";
 import { FinancialDashboard } from "@/components/admin/FinancialDashboard";
 import { StorePerformanceReports } from "@/components/admin/StorePerformanceReports";
 import { WhatsAppNotificationConfig } from "@/components/admin/WhatsAppNotificationConfig";
+import { BonusTracker } from "@/components/admin/BonusTracker";
+import { WeeklyMetaTracker } from "@/components/admin/WeeklyMetaTracker";
+import { WeeklyGoalsTracker } from "@/components/admin/WeeklyGoalsTracker";
+import { DailyMetaTracker } from "@/components/admin/DailyMetaTracker";
+import { MonthlyOverview } from "@/components/admin/MonthlyOverview";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -121,8 +126,8 @@ const AdminDashboard = () => {
                 <Bell className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="hidden sm:inline">Adiantamentos</span>
                 <span className="sm:hidden">Adiant.</span>
-                <Badge 
-                  variant="destructive" 
+                <Badge
+                  variant="destructive"
                   className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs font-bold animate-pulse"
                 >
                   {pendingAdiantamentos > 99 ? '99+' : pendingAdiantamentos}
@@ -227,8 +232,17 @@ const AdminDashboard = () => {
               </Button>
             </div>
 
+            {/* Dashboard de Acompanhamento de Bônus e Metas */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+              <BonusTracker />
+              <WeeklyMetaTracker />
+              <WeeklyGoalsTracker />
+              <DailyMetaTracker />
+              <MonthlyOverview />
+            </div>
+
             <CommercialDashboard />
-            
+
             {/* Relatórios de Performance por Loja */}
             <StorePerformanceReports />
           </TabsContent>
