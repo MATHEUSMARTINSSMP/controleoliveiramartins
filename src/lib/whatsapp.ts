@@ -246,3 +246,68 @@ export function formatParabensMessage(params: {
   return message;
 }
 
+/**
+ * Formata mensagem de nova gincana semanal (notificação para colaboradora)
+ */
+export function formatGincanaMessage(params: {
+  colaboradoraName: string;
+  storeName: string;
+  semanaReferencia: string; // WWYYYY
+  metaValor: number;
+  superMetaValor: number | null;
+  dataInicio: string; // Data de início da semana (formato: DD/MM/YYYY)
+  dataFim: string; // Data de fim da semana (formato: DD/MM/YYYY)
+  premio?: string | null; // Texto do prêmio (ex: "Airfryer" ou "R$ 500")
+  condicoes?: string | null; // Condições do bônus
+}): string {
+  const { colaboradoraName, storeName, semanaReferencia, metaValor, superMetaValor, dataInicio, dataFim, premio, condicoes } = params;
+  
+  // Extrair apenas o primeiro nome
+  const primeiroNome = colaboradoraName.split(' ')[0];
+  
+  // Formatar valores monetários
+  const metaFormatada = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(metaValor);
+  
+  const superMetaFormatada = superMetaValor 
+    ? new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+      }).format(superMetaValor)
+    : null;
+
+  // Extrair semana e ano
+  const semana = semanaReferencia.slice(0, 2);
+  const ano = semanaReferencia.slice(2, 6);
+
+  let message = `🎯 *Nova Gincana Semanal!*\n\n`;
+  message += `Olá, ${primeiroNome}!\n\n`;
+  message += `Uma nova gincana semanal foi criada para você:\n\n`;
+  message += `*Loja:* ${storeName}\n`;
+  message += `*Período:* ${dataInicio} a ${dataFim}\n`;
+  message += `*Semana:* Semana ${semana} de ${ano}\n\n`;
+  message += `*Metas:*\n`;
+  message += `• Meta: ${metaFormatada}\n`;
+  if (superMetaFormatada) {
+    message += `• Super Meta: ${superMetaFormatada}\n`;
+  }
+  message += `\n`;
+  
+  // Adicionar prêmio se disponível
+  if (premio && premio.trim()) {
+    message += `*Prêmio:*\n${premio.trim()}\n\n`;
+  }
+  
+  // Adicionar condições se disponíveis
+  if (condicoes && condicoes.trim()) {
+    message += `*Condições:*\n${condicoes.trim()}\n\n`;
+  }
+  
+  message += `Boa sorte! 💪\n\n`;
+  message += `Sistema EleveaOne 📊`;
+
+  return message;
+}
+

@@ -41,6 +41,7 @@ interface Colaboradora {
   limite_mensal: number;
   active: boolean;
   store_default: string | null;
+  whatsapp?: string | null;
   role?: string;
 }
 
@@ -75,6 +76,8 @@ const Colaboradores = () => {
     limite_total: "1000.00",
     limite_mensal: "800.00",
     store: "",
+    whatsapp: "",
+    recebe_notificacoes_gincana: true,
   });
 
   useEffect(() => {
@@ -215,6 +218,7 @@ const Colaboradores = () => {
         limite_total: colaboradora.limite_total.toString(),
         limite_mensal: colaboradora.limite_mensal.toString(),
         store: colaboradora.store_default || "",
+        whatsapp: colaboradora.whatsapp || "",
       });
     } else {
       setEditMode(false);
@@ -227,6 +231,7 @@ const Colaboradores = () => {
         limite_total: "1000.00",
         limite_mensal: "800.00",
         store: "",
+        whatsapp: "",
       });
     }
     setDialogOpen(true);
@@ -243,6 +248,7 @@ const Colaboradores = () => {
           limite_total: parseFloat(formData.limite_total),
           limite_mensal: parseFloat(formData.limite_mensal),
           store_default: formData.store,
+          whatsapp: formData.whatsapp.trim() || null,
         };
 
         // Buscar store_id dinamicamente da tabela stores
@@ -288,8 +294,15 @@ const Colaboradores = () => {
         toast.success("Colaboradora atualizada com sucesso!");
       } else {
         // Validate required fields
-        if (!formData.name || !formData.cpf || !formData.email || !formData.password || !formData.store) {
-          toast.error("Todos os campos obrigatórios devem ser preenchidos");
+        if (!formData.name || !formData.cpf || !formData.email || !formData.password || !formData.store || !formData.whatsapp) {
+          toast.error("Todos os campos obrigatórios devem ser preenchidos (incluindo WhatsApp)");
+          return;
+        }
+
+        // Validar formato do WhatsApp
+        const normalizedWhatsapp = formData.whatsapp.replace(/\D/g, '');
+        if (normalizedWhatsapp.length < 10 || normalizedWhatsapp.length > 11) {
+          toast.error("WhatsApp inválido. Digite apenas números (10-11 dígitos)");
           return;
         }
 
@@ -342,6 +355,7 @@ const Colaboradores = () => {
             limite_mensal: formData.limite_mensal,
             store_default: formData.store,
             store_id: storeIdToSend, // Add store_id
+            whatsapp: formData.whatsapp.replace(/\D/g, ''), // Normalizar WhatsApp (apenas números)
           }),
         });
 
@@ -945,6 +959,21 @@ const Colaboradores = () => {
                 />
               </div>
             )}
+            <div className="space-y-2">
+              <Label htmlFor="whatsapp" className="text-xs sm:text-sm">WhatsApp *</Label>
+              <Input
+                id="whatsapp"
+                type="tel"
+                value={formData.whatsapp}
+                onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                placeholder="96981113307 (apenas números)"
+                className="text-xs sm:text-sm"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Formato: apenas números (10-11 dígitos). Ex: 96981113307 ou 5596981113307
+              </p>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-2">
                 <Label htmlFor="limite_total" className="text-xs sm:text-sm">Limite Total (R$)</Label>

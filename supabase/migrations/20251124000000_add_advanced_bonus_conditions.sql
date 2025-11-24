@@ -21,7 +21,8 @@ ALTER TABLE bonuses
   ADD COLUMN IF NOT EXISTS periodo_data_fim DATE,
   ADD COLUMN IF NOT EXISTS periodo_mes TEXT, -- 'YYYYMM' format (ex: '202511')
   ADD COLUMN IF NOT EXISTS periodo_semana TEXT, -- 'WWYYYY' format (ex: '482025' = semana 48 de 2025)
-  ADD COLUMN IF NOT EXISTS valor_bonus_texto TEXT; -- Para prêmios físicos (ex: "Airfryer", "Vale compras R$ 300")
+  ADD COLUMN IF NOT EXISTS valor_bonus_texto TEXT, -- Para prêmios físicos (ex: "Airfryer", "Vale compras R$ 300")
+  ADD COLUMN IF NOT EXISTS enviar_notificacao_gincana BOOLEAN DEFAULT true; -- Se true, envia notificação WhatsApp quando gincana relacionada for criada
 
 -- Comentários para documentação
 COMMENT ON COLUMN bonuses.condicao_tipo IS 'Tipo de condição: TICKET_MEDIO, PA, META_LOJA, META_COLAB, GINCANA';
@@ -35,6 +36,7 @@ COMMENT ON COLUMN bonuses.periodo_data_fim IS 'Data de fim do período (quando p
 COMMENT ON COLUMN bonuses.periodo_mes IS 'Mês de referência no formato YYYYMM (quando periodo_tipo = MES)';
 COMMENT ON COLUMN bonuses.periodo_semana IS 'Semana de referência no formato WWYYYY (quando periodo_tipo = SEMANA)';
 COMMENT ON COLUMN bonuses.valor_bonus_texto IS 'Descrição do prêmio físico quando tipo = PRODUTO ou quando é prêmio não monetário (ex: "Airfryer", "Vale compras")';
+COMMENT ON COLUMN bonuses.enviar_notificacao_gincana IS 'Se true, envia notificação WhatsApp para colaboradoras quando uma gincana relacionada a este bônus for criada';
 
 -- Criar índices para melhorar performance nas queries de bônus
 CREATE INDEX IF NOT EXISTS idx_bonuses_condicao_tipo ON bonuses(condicao_tipo) WHERE condicao_tipo IS NOT NULL;

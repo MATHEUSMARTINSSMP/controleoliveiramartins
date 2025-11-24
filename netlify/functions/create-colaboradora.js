@@ -18,16 +18,27 @@ exports.handler = async (event, context) => {
     );
 
     // Extract data from request body
-    const { email, password, name, cpf, limite_total, limite_mensal, store_default, store_id } = JSON.parse(event.body);
+    const { email, password, name, cpf, limite_total, limite_mensal, store_default, store_id, whatsapp } = JSON.parse(event.body);
 
-    console.log('[create-colaboradora] Received request:', { email, name, cpf, store_default, store_id });
+    console.log('[create-colaboradora] Received request:', { email, name, cpf, store_default, store_id, whatsapp });
 
     // Validate required fields
-    if (!email || !password || !name || !cpf || !limite_total || !limite_mensal || !store_default) {
+    if (!email || !password || !name || !cpf || !limite_total || !limite_mensal || !store_default || !whatsapp) {
       return {
         statusCode: 400,
         body: JSON.stringify({
-          error: 'Missing required fields: email, password, name, cpf, limite_total, limite_mensal, store_default'
+          error: 'Missing required fields: email, password, name, cpf, limite_total, limite_mensal, store_default, whatsapp'
+        }),
+      };
+    }
+
+    // Validar formato do WhatsApp (apenas números, 10-11 dígitos)
+    const normalizedWhatsapp = whatsapp.replace(/\D/g, '');
+    if (normalizedWhatsapp.length < 10 || normalizedWhatsapp.length > 11) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'WhatsApp inválido. Digite apenas números (10-11 dígitos)'
         }),
       };
     }
@@ -177,6 +188,7 @@ exports.handler = async (event, context) => {
       limite_total: parseFloat(limite_total),
       limite_mensal: parseFloat(limite_mensal),
       store_default: store_default,
+      whatsapp: normalizedWhatsapp, // WhatsApp normalizado (apenas números)
       role: 'COLABORADORA',
       active: true,
     };

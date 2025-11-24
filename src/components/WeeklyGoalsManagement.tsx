@@ -14,6 +14,7 @@ import { ptBR } from "date-fns/locale";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { sendWhatsAppMessage, formatGincanaMessage } from "@/lib/whatsapp";
 
 interface WeeklyGoal {
     id?: string;
@@ -436,6 +437,133 @@ const WeeklyGoalsManagement = () => {
         }
     };
 
+    // Função helper para enviar notificações WhatsApp de gincana
+    const sendGincanaNotifications = async (
+        storeId: string,
+        semanaReferencia: string,
+        colabsWithGoals: { id: string; meta: number; superMeta: number }[],
+        successCount: number
+    ) => {
+        try {
+            console.log('[sendGincanaNotifications] Iniciando envio de notificações...');
+            
+            // 1. Buscar dados da loja
+            const { data: storeData } = await supabase
+                .schema("sistemaretiradas")
+                .from("stores")
+                .select("name")
+                .eq("id", storeId)
+                .single();
+            
+            if (!storeData) {
+                console.warn('[sendGincanaNotifications] Loja não encontrada');
+                return;
+            }
+            
+            // 2. Buscar bônus ativos relacionados à gincana
+            // Buscar bônus que:
+            // - Estão ativos
+            // - Têm enviar_notificacao_gincana = true
+            // - Correspondem à semana (periodo_semana = semanaReferencia OU periodo_semana IS NULL)
+            // - Correspondem à loja (store_id = storeId OU store_id IS NULL)
+            // - São de gincana (condicao_meta_tipo = GINCANA_SEMANAL ou SUPER_GINCANA_SEMANAL)
+            const { data: bonuses } = await supabase
+                .schema("sistemaretiradas")
+                .from("bonuses")
+                .select("*")
+                .eq("ativo", true)
+                .eq("enviar_notificacao_gincana", true)
+                .or(`periodo_semana.eq.${semanaReferencia},periodo_semana.is.null`)
+                .or(`store_id.eq.${storeId},store_id.is.null`)
+                .or("condicao_meta_tipo.eq.GINCANA_SEMANAL,condicao_meta_tipo.eq.SUPER_GINCANA_SEMANAL");
+            
+            if (!bonuses || bonuses.length === 0) {
+                console.log('[sendGincanaNotifications] Nenhum bônus ativo encontrado para esta gincana');
+                return;
+            }
+            
+            // 3. Calcular datas da semana
+            const weekRange = getWeekRange(semanaReferencia);
+            const dataInicio = format(weekRange.start, 'dd/MM/yyyy');
+            const dataFim = format(weekRange.end, 'dd/MM/yyyy');
+            
+            // 4. Buscar dados das colaboradoras (nome e WhatsApp)
+            const colaboradoraIds = colabsWithGoals.map(c => c.id);
+            const { data: colaboradorasData } = await supabase
+                .schema("sistemaretiradas")
+                .from("profiles")
+                .select("id, name, whatsapp")
+                .in("id", colaboradoraIds)
+                .eq("role", "COLABORADORA")
+                .eq("active", true);
+            
+            if (!colaboradorasData || colaboradorasData.length === 0) {
+                console.warn('[sendGincanaNotifications] Nenhuma colaboradora encontrada');
+                return;
+            }
+            
+            // 5. Preparar informações do bônus (pegar o primeiro bônus relevante)
+            const bonus = bonuses[0];
+            const premio = bonus.valor_bonus_texto || 
+                          (bonus.valor_bonus > 0 ? `R$ ${bonus.valor_bonus.toFixed(2)}` : null) ||
+                          bonus.descricao_premio;
+            const condicoes = bonus.descricao || null;
+            
+            // 6. Enviar notificações para cada colaboradora
+            let notificationsSent = 0;
+            for (const colabData of colaboradorasData) {
+                // Verificar se tem WhatsApp
+                if (!colabData.whatsapp || colabData.whatsapp.trim() === '') {
+                    console.log(`[sendGincanaNotifications] Colaboradora ${colabData.name} não tem WhatsApp cadastrado`);
+                    continue;
+                }
+                
+                // Buscar metas da colaboradora
+                const colabGoals = colabsWithGoals.find(c => c.id === colabData.id);
+                if (!colabGoals) {
+                    console.warn(`[sendGincanaNotifications] Metas não encontradas para ${colabData.name}`);
+                    continue;
+                }
+                
+                // Formatar mensagem
+                const message = formatGincanaMessage({
+                    colaboradoraName: colabData.name,
+                    storeName: storeData.name,
+                    semanaReferencia: semanaReferencia,
+                    metaValor: colabGoals.meta,
+                    superMetaValor: colabGoals.superMeta > 0 ? colabGoals.superMeta : null,
+                    dataInicio: dataInicio,
+                    dataFim: dataFim,
+                    premio: premio,
+                    condicoes: condicoes,
+                });
+                
+                // Normalizar WhatsApp (remover caracteres não numéricos)
+                const normalizedWhatsapp = colabData.whatsapp.replace(/\D/g, '');
+                
+                // Enviar mensagem
+                const result = await sendWhatsAppMessage({
+                    phone: normalizedWhatsapp,
+                    message: message,
+                });
+                
+                if (result.success) {
+                    notificationsSent++;
+                    console.log(`[sendGincanaNotifications] ✅ Notificação enviada para ${colabData.name}`);
+                } else {
+                    console.warn(`[sendGincanaNotifications] ⚠️ Falha ao enviar para ${colabData.name}:`, result.error);
+                }
+            }
+            
+            if (notificationsSent > 0) {
+                toast.success(`${notificationsSent} notificação(ões) WhatsApp enviada(s)!`);
+            }
+        } catch (error: any) {
+            console.error('[sendGincanaNotifications] Erro ao enviar notificações:', error);
+            // Não mostrar erro ao usuário, apenas logar
+        }
+    };
+
     const updateIndividualMeta = (colabId: string, field: 'meta' | 'superMeta', value: string) => {
         const numValue = parseFloat(value) || 0;
         setCustomMetasIndividuais(prev => prev.map(c => 
@@ -662,6 +790,9 @@ const WeeklyGoalsManagement = () => {
                     
                     const successCount = individualResults.length;
                     toast.success(`Gincanas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${successCount} colaboradora(s)!`);
+                    
+                    // Enviar notificações WhatsApp
+                    await sendGincanaNotifications(selectedStore, selectedWeek, colabsWithGoals, successCount);
                 } else {
                     throw insertError;
                 }
@@ -669,6 +800,9 @@ const WeeklyGoalsManagement = () => {
                 // Sucesso no batch insert!
                 const successCount = insertData?.length || uniqueColabsList.length;
                 toast.success(`Gincanas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${successCount} colaboradora(s)!`);
+                
+                // Enviar notificações WhatsApp
+                await sendGincanaNotifications(selectedStore, selectedWeek, colabsWithGoals, successCount);
             }
             setDialogOpen(false);
             resetForm();
