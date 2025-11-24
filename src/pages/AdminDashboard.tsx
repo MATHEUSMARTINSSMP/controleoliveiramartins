@@ -228,13 +228,13 @@ const AdminDashboard = () => {
               </Button>
             </div>
 
-            {/* Acompanhamento de Metas */}
-            <GoalsTracking />
-
             <CommercialDashboard />
 
             {/* Relatórios de Performance por Loja */}
             <StorePerformanceReports />
+
+            {/* Acompanhamento de Metas */}
+            <GoalsTracking />
           </TabsContent>
 
           <TabsContent value="financeiro" className="animate-in fade-in-50 duration-500">
