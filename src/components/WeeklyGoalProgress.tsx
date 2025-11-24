@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Target, Zap, TrendingUp, Calendar, Gift } from "lucide-react";
-import { format, startOfWeek, endOfWeek, getWeek, getYear, addWeeks, eachDayOfInterval, isSameDay } from "date-fns";
+import { format, startOfWeek, endOfWeek, getWeek, getYear, addWeeks, eachDayOfInterval, isSameDay, subWeeks, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/utils";
 
@@ -216,6 +216,62 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                     dailyWeights,
                     weekRange
                 );
+            }
+
+            // COMPENSAÇÃO: Calcular déficit acumulado de semanas anteriores (apenas para Meta Semanal, não Gincana)
+            let deficitAcumuladoSemanasAnteriores = 0;
+            if (colaboradoraId && monthlyGoalData) {
+                // Buscar todas as semanas anteriores do mês atual
+                const mesAtualStart = startOfMonth(hoje);
+                const currentWeekStart = weekRange.start;
+                
+                // Se não é a primeira semana do mês, calcular déficits anteriores
+                if (currentWeekStart > mesAtualStart) {
+                    let semanaAnterior = subWeeks(currentWeekStart, 1);
+                    
+                    while (semanaAnterior >= mesAtualStart) {
+                        const semanaAnteriorRef = `${String(getWeek(semanaAnterior, { weekStartsOn: 1, firstWeekContainsDate: 1 })).padStart(2, '0')}${getYear(semanaAnterior)}`;
+                        const semanaAnteriorRange = getWeekRange(semanaAnteriorRef);
+                        
+                        // Calcular meta da semana anterior
+                        const metaSemanaAnterior = calculateWeeklyGoalFromMonthly(
+                            parseFloat(monthlyGoalData.meta_valor || 0),
+                            monthlyGoalData.daily_weights || {},
+                            semanaAnteriorRange
+                        );
+                        
+                        // Buscar vendas da semana anterior
+                        const { data: salesSemanaAnterior } = await supabase
+                            .from("sales")
+                            .select("valor")
+                            .eq("colaboradora_id", colaboradoraId)
+                            .gte("data_venda", format(semanaAnteriorRange.start, "yyyy-MM-dd"))
+                            .lte("data_venda", format(semanaAnteriorRange.end, "yyyy-MM-dd"));
+                        
+                        const realizadoSemanaAnterior = salesSemanaAnterior?.reduce((sum, sale) => sum + parseFloat(sale.valor || '0'), 0) || 0;
+                        
+                        // Calcular déficit da semana anterior (se houver)
+                        const deficitSemanaAnterior = Math.max(0, metaSemanaAnterior - realizadoSemanaAnterior);
+                        deficitAcumuladoSemanasAnteriores += deficitSemanaAnterior;
+                        
+                        // Ir para semana anterior
+                        semanaAnterior = subWeeks(semanaAnterior, 1);
+                        
+                        // Parar se saiu do mês
+                        if (semanaAnterior < mesAtualStart) break;
+                    }
+                }
+                
+                // Adicionar déficit acumulado à meta semanal atual
+                if (deficitAcumuladoSemanasAnteriores > 0) {
+                    console.log(`[WeeklyGoalProgress] Déficit acumulado de semanas anteriores: ${formatCurrency(deficitAcumuladoSemanasAnteriores)}`);
+                    metaSemanalObrigatoria += deficitAcumuladoSemanasAnteriores;
+                    // Também ajustar super meta proporcionalmente
+                    if (superMetaSemanalObrigatoria > 0 && metaSemanalObrigatoria > 0) {
+                        const ratio = superMetaSemanalObrigatoria / (metaSemanalObrigatoria - deficitAcumuladoSemanasAnteriores);
+                        superMetaSemanalObrigatoria = metaSemanalObrigatoria * ratio;
+                    }
+                }
             }
 
             // Fetch weekly bonus goal (SEMANAL) - Gincana Semanal, se existir
@@ -459,7 +515,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                     <CardTitle className="flex items-center gap-2">
                         <Calendar className="h-5 w-5 text-primary" />
                         <span>
-                          Meta Semanal{colaboradoraId ? ' (Sua Meta)' : storeName ? ` (${storeName})` : ''}
+                          {colaboradoraId ? 'Sua Meta Semanal' : storeName ? `Meta Semanal (${storeName})` : 'Meta Semanal'}
                         </span>
                     </CardTitle>
                     <Badge className={`${mainStatusBadge.color} text-white`}>
