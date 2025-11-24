@@ -223,92 +223,115 @@ const WeeklyGoalsManagement = () => {
     const loadSuggestions = async (forceLoadColabs = false) => {
         if (!selectedStore) return;
         
-        // Se não tem semana selecionada, ainda pode carregar colaboradoras
-        if (!selectedWeek && !forceLoadColabs) return;
-
         setLoadingSuggestions(true);
         try {
-            // Get month from week
-            const weekRange = getWeekRange(selectedWeek);
-            const monthRef = format(weekRange.start, "yyyyMM");
-            
-            // Get monthly goal for the store
-            const { data: monthlyStoreGoal } = await supabase
-                .from("goals")
-                .select("meta_valor, super_meta_valor")
-                .eq("store_id", selectedStore)
-                .eq("tipo", "MENSAL")
-                .eq("mes_referencia", monthRef)
-                .is("colaboradora_id", null)
-                .single();
+            // Se tem semana selecionada, buscar meta mensal e calcular sugestões
+            if (selectedWeek) {
+                try {
+                    // Get month from week
+                    const weekRange = getWeekRange(selectedWeek);
+                    const monthRef = format(weekRange.start, "yyyyMM");
+                    
+                    // Get monthly goal for the store
+                    const { data: monthlyStoreGoal } = await supabase
+                        .schema("sistemaretiradas")
+                        .from("goals")
+                        .select("meta_valor, super_meta_valor")
+                        .eq("store_id", selectedStore)
+                        .eq("tipo", "MENSAL")
+                        .eq("mes_referencia", monthRef)
+                        .is("colaboradora_id", null)
+                        .single();
 
-            if (monthlyStoreGoal) {
-                setMonthlyGoal(monthlyStoreGoal);
-                
-                // Get active collaborators for the store
-                const activeColabs = colaboradoras.filter(c => c.store_id === selectedStore);
-                
-                // Calculate weekly suggestions based on total store monthly goal
-                // We'll recalculate when colaboradorasAtivas changes
-                const colabsAtivasCount = activeColabs.length;
-                
-                // Calculate weekly suggestions: monthly / 4.33 / number of active collaborators (will be recalculated when user selects)
-                const weeklyMeta = colabsAtivasCount > 0 
-                    ? monthlyStoreGoal.meta_valor / 4.33 / colabsAtivasCount
-                    : monthlyStoreGoal.meta_valor / 4.33;
-                const weeklySuperMeta = colabsAtivasCount > 0
-                    ? monthlyStoreGoal.super_meta_valor / 4.33 / colabsAtivasCount
-                    : monthlyStoreGoal.super_meta_valor / 4.33;
+                    if (monthlyStoreGoal) {
+                        setMonthlyGoal(monthlyStoreGoal);
+                        
+                        // Get active collaborators for the store
+                        const activeColabs = colaboradoras.filter(c => c.store_id === selectedStore);
+                        
+                        // Calculate weekly suggestions based on total store monthly goal
+                        // We'll recalculate when colaboradorasAtivas changes
+                        const colabsAtivasCount = activeColabs.length;
+                        
+                        // Calculate weekly suggestions: monthly / 4.33 / number of active collaborators (will be recalculated when user selects)
+                        const weeklyMeta = colabsAtivasCount > 0 
+                            ? monthlyStoreGoal.meta_valor / 4.33 / colabsAtivasCount
+                            : monthlyStoreGoal.meta_valor / 4.33;
+                        const weeklySuperMeta = colabsAtivasCount > 0
+                            ? monthlyStoreGoal.super_meta_valor / 4.33 / colabsAtivasCount
+                            : monthlyStoreGoal.super_meta_valor / 4.33;
 
-                setSuggestedWeeklyMeta(parseFloat(weeklyMeta.toFixed(2)));
-                setSuggestedWeeklySuperMeta(parseFloat(weeklySuperMeta.toFixed(2)));
+                        setSuggestedWeeklyMeta(parseFloat(weeklyMeta.toFixed(2)));
+                        setSuggestedWeeklySuperMeta(parseFloat(weeklySuperMeta.toFixed(2)));
+                    } else {
+                        setMonthlyGoal(null);
+                        setSuggestedWeeklyMeta(0);
+                        setSuggestedWeeklySuperMeta(0);
+                    }
+                } catch (err) {
+                    console.error("Error loading monthly goal:", err);
+                    setMonthlyGoal(null);
+                    setSuggestedWeeklyMeta(0);
+                    setSuggestedWeeklySuperMeta(0);
+                }
             } else {
+                // Sem semana, apenas limpar sugestões
                 setMonthlyGoal(null);
                 setSuggestedWeeklyMeta(0);
                 setSuggestedWeeklySuperMeta(0);
             }
 
-            // Load collaborators for the store
+            // SEMPRE carregar colaboradoras da loja (mesmo sem semana)
             const storeColabs = colaboradoras.filter(c => c.store_id === selectedStore);
             
+            console.log('[loadSuggestions] Colaboradoras da loja:', storeColabs.length, 'Total colaboradoras:', colaboradoras.length);
+            
             if (storeColabs.length === 0) {
-                toast.warning("Nenhuma colaboradora encontrada para esta loja");
+                console.warn('[loadSuggestions] Nenhuma colaboradora encontrada para loja:', selectedStore);
                 setColaboradorasAtivas([]);
                 setLoadingSuggestions(false);
+                // Não mostrar toast aqui, apenas log
                 return;
             }
             
             // Check existing weekly goals for this week to see who's already active (só se tiver semana)
             let existingColabIds = new Set<string>();
             if (selectedWeek) {
-                const { data: existingGoals, error: existingGoalsError } = await supabase
-                    .schema("sistemaretiradas")
-                    .from("goals")
-                    .select("colaboradora_id")
-                    .eq("store_id", selectedStore)
-                    .eq("semana_referencia", selectedWeek)
-                    .eq("tipo", "SEMANAL");
+                try {
+                    const { data: existingGoals, error: existingGoalsError } = await supabase
+                        .schema("sistemaretiradas")
+                        .from("goals")
+                        .select("colaboradora_id")
+                        .eq("store_id", selectedStore)
+                        .eq("semana_referencia", selectedWeek)
+                        .eq("tipo", "SEMANAL");
 
-                if (existingGoalsError) {
-                    console.error("Error fetching existing goals:", existingGoalsError);
-                    // Continuar mesmo com erro, apenas não marcar ninguém como ativo
-                } else {
-                    existingColabIds = new Set(
-                        existingGoals
-                            ?.filter(g => g.colaboradora_id) // Filtrar nulos
-                            .map(g => g.colaboradora_id) || []
-                    );
+                    if (existingGoalsError) {
+                        console.error("Error fetching existing goals:", existingGoalsError);
+                        // Continuar mesmo com erro, apenas não marcar ninguém como ativo
+                    } else if (existingGoals) {
+                        existingColabIds = new Set(
+                            existingGoals
+                                .filter(g => g.colaboradora_id) // Filtrar nulos
+                                .map(g => g.colaboradora_id) || []
+                        );
+                    }
+                } catch (err) {
+                    console.error("Error checking existing goals:", err);
                 }
             }
 
+            // Sempre atualizar colaboradoras ativas, mesmo sem semana
             setColaboradorasAtivas(prev => {
                 // Se já temos colaboradoras carregadas, manter o estado de active
                 const prevMap = new Map(prev.map(c => [c.id, c.active]));
-                return storeColabs.map(c => ({
+                const newColabs = storeColabs.map(c => ({
                     id: c.id,
                     name: c.name || "Sem nome",
-                    active: prevMap.get(c.id) ?? existingColabIds.has(c.id)
+                    active: prevMap.get(c.id) ?? existingColabIds.has(c.id) ?? true // Por padrão, todas ativas
                 }));
+                console.log('[loadSuggestions] Colaboradoras ativas atualizadas:', newColabs.length);
+                return newColabs;
             });
         } catch (err) {
             console.error("Error loading suggestions:", err);
