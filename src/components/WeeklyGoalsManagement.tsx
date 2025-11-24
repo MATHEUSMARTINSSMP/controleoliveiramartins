@@ -1196,14 +1196,34 @@ const WeeklyGoalsManagement = () => {
                         <div>
                             <Label className="text-xs sm:text-sm font-semibold">1. Selecionar Loja *</Label>
                             <Select value={selectedStore} onValueChange={async (value) => {
+                                console.log('[Select Store] ========== LOJA SELECIONADA ==========');
+                                console.log('[Select Store] Loja ID:', value);
+                                console.log('[Select Store] Estado atual - colaboradoras totais:', colaboradoras.length);
+                                
                                 setSelectedStore(value);
                                 setColaboradorasAtivas([]);
                                 setMonthlyGoal(null);
                                 setSuggestedWeeklyMeta(0);
                                 setSuggestedWeeklySuperMeta(0);
+                                
                                 // Carregar colaboradoras da loja selecionada imediatamente
                                 if (value) {
+                                    console.log('[Select Store] Colaboradoras da loja selecionada:', colaboradoras.filter(c => c.store_id === value).length);
+                                    
+                                    // Se não temos colaboradoras, buscar agora
+                                    if (colaboradoras.length === 0) {
+                                        console.log('[Select Store] ⚠️ Nenhuma colaboradora carregada, buscando agora...');
+                                        await fetchColaboradoras();
+                                        // Aguardar para o estado atualizar
+                                        await new Promise(resolve => setTimeout(resolve, 500));
+                                        console.log('[Select Store] Após fetch, colaboradoras:', colaboradoras.length);
+                                    }
+                                    
+                                    // Aguardar um pouco para garantir que colaboradoras foram carregadas
+                                    await new Promise(resolve => setTimeout(resolve, 200));
+                                    console.log('[Select Store] Chamando loadSuggestions(true)...');
                                     await loadSuggestions(true); // forceLoadColabs = true para carregar mesmo sem semana
+                                    console.log('[Select Store] loadSuggestions concluído');
                                 }
                             }}>
                                 <SelectTrigger className="text-xs sm:text-sm mt-2">
