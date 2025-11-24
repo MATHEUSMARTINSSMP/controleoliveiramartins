@@ -459,9 +459,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                     <CardTitle className="flex items-center gap-2">
                         <Calendar className="h-5 w-5 text-primary" />
                         <span>
-                          {progress?.meta_bonus_valor 
-                            ? `Meta Semanal & Gincana Semanal${colaboradoraId ? ' (Sua Meta)' : storeName ? ` (${storeName})` : ''}`
-                            : `Meta Semanal${colaboradoraId ? ' (Sua Meta)' : storeName ? ` (${storeName})` : ''}`}
+                          Meta Semanal{colaboradoraId ? ' (Sua Meta)' : storeName ? ` (${storeName})` : ''}
                         </span>
                     </CardTitle>
                     <Badge className={`${mainStatusBadge.color} text-white`}>
@@ -479,33 +477,23 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                     {/* Single Unified Progress Bar with Checkpoints */}
                     {progress.super_meta_valor > 0 ? (
                         <div className="space-y-3">
-                            {/* Header with labels */}
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs sm:text-sm">
-                                <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                            {/* Header with labels - Layout horizontal melhorado */}
+                            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 text-xs sm:text-sm">
+                                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                                     <div className="flex items-center gap-2">
                                         <div className="w-3 h-3 rounded-full bg-green-500 flex-shrink-0"></div>
-                                        <span className="text-muted-foreground text-xs">
-                                            {progress.meta_bonus_valor && progress.meta_bonus_valor > progress.meta_valor 
-                                                ? `Gincana: ${formatCurrency(progress.meta_bonus_valor)}` 
-                                                : `Meta: ${formatCurrency(progress.meta_valor)}`}
+                                        <span className="text-muted-foreground text-xs sm:text-sm font-medium">
+                                            Meta: {formatCurrency(progress.meta_valor)}
                                         </span>
                                     </div>
-                                    {progress.meta_bonus_valor && progress.meta_bonus_valor > progress.meta_valor && (
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-3 h-3 rounded-full bg-blue-400 flex-shrink-0"></div>
-                                            <span className="text-muted-foreground text-xs">Meta: {formatCurrency(progress.meta_valor)}</span>
-                                        </div>
-                                    )}
                                     <div className="flex items-center gap-2">
                                         <div className="w-3 h-3 rounded-full bg-purple-500 flex-shrink-0"></div>
-                                        <span className="text-muted-foreground text-xs">
-                                            {progress.super_meta_bonus_valor && progress.super_meta_bonus_valor > progress.super_meta_valor
-                                                ? `Super Gincana: ${formatCurrency(progress.super_meta_bonus_valor)}`
-                                                : `Super: ${formatCurrency(progress.super_meta_valor)}`}
+                                        <span className="text-muted-foreground text-xs sm:text-sm font-medium">
+                                            Super: {formatCurrency(progress.super_meta_valor)}
                                         </span>
                                     </div>
                                 </div>
-                                <span className="text-muted-foreground font-semibold text-xs">
+                                <span className="text-muted-foreground font-semibold text-sm sm:text-base bg-muted/50 px-3 py-1.5 rounded-lg">
                                     Vendido: {formatCurrency(progress.realizado)}
                                 </span>
                             </div>
@@ -664,26 +652,26 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
 
                 {showDetails && (
                     <>
-                        {/* Stats Grid */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t">
-                            <div className="bg-muted/30 p-3 rounded-lg text-center">
-                                <div className="text-xs text-muted-foreground mb-1">Dias Decorridos</div>
-                                <div className="text-xl font-bold">{progress.daysElapsed}/7</div>
+                        {/* Stats Grid - Layout paisagem melhorado */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 pt-4 border-t">
+                            <div className="bg-muted/30 p-3 sm:p-4 rounded-lg text-center border border-muted-foreground/10">
+                                <div className="text-xs sm:text-sm text-muted-foreground mb-1.5">Dias Decorridos</div>
+                                <div className="text-xl sm:text-2xl font-bold">{progress.daysElapsed}/7</div>
                             </div>
-                            <div className="bg-muted/30 p-3 rounded-lg text-center">
-                                <div className="text-xs text-muted-foreground mb-1">Dias Restantes</div>
-                                <div className="text-xl font-bold">{progress.daysRemaining}</div>
+                            <div className="bg-muted/30 p-3 sm:p-4 rounded-lg text-center border border-muted-foreground/10">
+                                <div className="text-xs sm:text-sm text-muted-foreground mb-1.5">Dias Restantes</div>
+                                <div className="text-xl sm:text-2xl font-bold">{progress.daysRemaining}</div>
                             </div>
-                            <div className="bg-muted/30 p-3 rounded-lg text-center">
-                                <div className="text-xs text-muted-foreground mb-1">Projeção Semanal</div>
-                                <div className={`text-lg font-bold ${progress.projected >= progress.meta_valor ? 'text-green-600' : 'text-yellow-600'}`}>
+                            <div className="bg-muted/30 p-3 sm:p-4 rounded-lg text-center border border-muted-foreground/10">
+                                <div className="text-xs sm:text-sm text-muted-foreground mb-1.5">Projeção Semanal</div>
+                                <div className={`text-lg sm:text-xl font-bold ${progress.projected >= progress.meta_valor ? 'text-green-600' : 'text-yellow-600'}`}>
                                     {formatCurrency(progress.projected)}
                                 </div>
-                                <div className="text-[10px] text-muted-foreground mt-1">Baseada na média</div>
+                                <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Baseada na média</div>
                             </div>
-                            <div className="bg-muted/30 p-3 rounded-lg text-center">
-                                <div className="text-xs text-muted-foreground mb-1">Média Diária</div>
-                                <div className="text-lg font-bold">
+                            <div className="bg-muted/30 p-3 sm:p-4 rounded-lg text-center border border-muted-foreground/10">
+                                <div className="text-xs sm:text-sm text-muted-foreground mb-1.5">Média Diária</div>
+                                <div className="text-lg sm:text-xl font-bold">
                                     {formatCurrency(progress.realizado / Math.max(progress.daysElapsed, 1))}
                                 </div>
                             </div>
