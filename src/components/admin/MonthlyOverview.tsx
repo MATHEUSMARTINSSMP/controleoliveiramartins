@@ -57,6 +57,7 @@ export function MonthlyOverview() {
 
             // Buscar vendas do mês
             const { data: salesData, error: salesError } = await supabase
+                .schema("sistemaretiradas")
                 .from("sales")
                 .select("valor, colaboradora_id, profiles!inner(name)")
                 .eq("store_id", metaData.store_id)

@@ -96,6 +96,7 @@ export function DailyMetaTracker() {
 
                     // Buscar vendas de hoje
                     const { data: salesToday } = await supabase
+                        .schema("sistemaretiradas")
                         .from("sales")
                         .select("valor")
                         .eq("colaboradora_id", colab.id)
@@ -104,6 +105,7 @@ export function DailyMetaTracker() {
 
                     // Buscar vendas do mês até ontem para calcular déficit
                     const { data: salesMonth } = await supabase
+                        .schema("sistemaretiradas")
                         .from("sales")
                         .select("data_venda, valor")
                         .eq("colaboradora_id", colab.id)

@@ -38,6 +38,7 @@ export function BonusTracker() {
         try {
             // 1. Buscar bônus ativos
             const { data: bonusesData, error: bonusesError } = await supabase
+                .schema("sistemaretiradas")
                 .from("bonuses")
                 .select("*")
                 .eq("ativo", true)
@@ -56,6 +57,7 @@ export function BonusTracker() {
                 bonusesData.map(async (bonus) => {
                     // Buscar colaboradoras vinculadas
                     const { data: colabData } = await supabase
+                        .schema("sistemaretiradas")
                         .from("bonus_collaborators")
                         .select(`
               colaboradora_id,
@@ -82,6 +84,7 @@ export function BonusTracker() {
 
                             // Buscar meta individual
                             const { data: metaData } = await supabase
+                                .schema("sistemaretiradas")
                                 .from("goals")
                                 .select("meta_valor")
                                 .eq("colaboradora_id", colabId)
@@ -91,6 +94,7 @@ export function BonusTracker() {
 
                             // Buscar vendas do mês
                             const { data: salesData } = await supabase
+                                .schema("sistemaretiradas")
                                 .from("sales")
                                 .select("valor")
                                 .eq("colaboradora_id", colabId)

@@ -74,6 +74,7 @@ export function WeeklyGoalsTracker() {
 
                     // Buscar vendas da semana
                     const { data: salesData } = await supabase
+                        .schema("sistemaretiradas")
                         .from("sales")
                         .select("valor")
                         .eq("colaboradora_id", colab.id)

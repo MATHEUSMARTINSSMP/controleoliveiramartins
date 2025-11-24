@@ -52,6 +52,7 @@ export function WeeklyMetaTracker() {
 
             // Buscar vendas da semana
             const { data: salesData, error: salesError } = await supabase
+                .schema("sistemaretiradas")
                 .from("sales")
                 .select("valor")
                 .eq("store_id", metaData.store_id)
