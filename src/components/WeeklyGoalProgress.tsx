@@ -16,9 +16,9 @@ interface WeeklyGoalProgressProps {
 
 interface WeeklyProgress {
     semana_referencia: string;
-    meta_valor: number; // Meta semanal obrigatória (soma das metas diárias da meta mensal)
+    meta_valor: number; // Meta semanal obrigatória (calculada da meta mensal)
     super_meta_valor: number;
-    meta_bonus_valor: number | null; // Meta semanal de bônus (opcional)
+    meta_bonus_valor: number | null; // Gincana Semanal (meta extra opcional)
     super_meta_bonus_valor: number | null;
     realizado: number;
     progress: number; // Progresso em relação à meta obrigatória
@@ -200,7 +200,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                 }
             }
 
-            // Calcular meta semanal obrigatória baseada na meta mensal (soma das metas diárias)
+            // Calcular meta semanal obrigatória baseada na meta mensal (dividindo pelas semanas)
             let metaSemanalObrigatoria = 0;
             let superMetaSemanalObrigatoria = 0;
             
@@ -218,7 +218,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                 );
             }
 
-            // Fetch weekly bonus goal (SEMANAL) - meta extra de bônus, se existir
+            // Fetch weekly bonus goal (SEMANAL) - Gincana Semanal, se existir
             let weeklyBonusGoal: any = null;
             if (colaboradoraId) {
                 const { data: goalData } = await supabase
@@ -232,7 +232,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                 
                 weeklyBonusGoal = goalData;
             } else if (storeId) {
-                // Para loja, buscar a primeira meta semanal de bônus (se existir)
+                // Para loja, buscar a primeira gincana semanal (se existir)
                 const { data: goalsData } = await supabase
                     .from("goals")
                     .select("*")
@@ -355,7 +355,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                 ? (realizado / parseFloat(weeklyBonusGoal.meta_valor)) * 100 
                 : 0;
 
-            // Usar meta semanal obrigatória OU meta de bônus (a maior)
+            // Usar meta semanal obrigatória OU gincana semanal (a maior)
             const metaToUse = weeklyBonusGoal && parseFloat(weeklyBonusGoal.meta_valor) > metaSemanalObrigatoria
                 ? parseFloat(weeklyBonusGoal.meta_valor)
                 : metaSemanalObrigatoria;
@@ -458,7 +458,11 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                 <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                         <Calendar className="h-5 w-5 text-primary" />
-                        <span>Meta Semanal{colaboradoraId ? ' (Sua Meta)' : storeName ? ` (${storeName})` : ''}</span>
+                        <span>
+                          {progress?.meta_bonus_valor 
+                            ? `Meta Semanal & Gincana Semanal${colaboradoraId ? ' (Sua Meta)' : storeName ? ` (${storeName})` : ''}`
+                            : `Meta Semanal${colaboradoraId ? ' (Sua Meta)' : storeName ? ` (${storeName})` : ''}`}
+                        </span>
                     </CardTitle>
                     <Badge className={`${mainStatusBadge.color} text-white`}>
                         <MainStatusIcon className="h-3 w-3 mr-1" />
@@ -480,11 +484,25 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                 <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                                     <div className="flex items-center gap-2">
                                         <div className="w-3 h-3 rounded-full bg-green-500 flex-shrink-0"></div>
-                                        <span className="text-muted-foreground text-xs">Meta: {formatCurrency(progress.meta_valor)}</span>
+                                        <span className="text-muted-foreground text-xs">
+                                            {progress.meta_bonus_valor && progress.meta_bonus_valor > progress.meta_valor 
+                                                ? `Gincana: ${formatCurrency(progress.meta_bonus_valor)}` 
+                                                : `Meta: ${formatCurrency(progress.meta_valor)}`}
+                                        </span>
                                     </div>
+                                    {progress.meta_bonus_valor && progress.meta_bonus_valor > progress.meta_valor && (
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-3 h-3 rounded-full bg-blue-400 flex-shrink-0"></div>
+                                            <span className="text-muted-foreground text-xs">Meta: {formatCurrency(progress.meta_valor)}</span>
+                                        </div>
+                                    )}
                                     <div className="flex items-center gap-2">
                                         <div className="w-3 h-3 rounded-full bg-purple-500 flex-shrink-0"></div>
-                                        <span className="text-muted-foreground text-xs">Super: {formatCurrency(progress.super_meta_valor)}</span>
+                                        <span className="text-muted-foreground text-xs">
+                                            {progress.super_meta_bonus_valor && progress.super_meta_bonus_valor > progress.super_meta_valor
+                                                ? `Super Gincana: ${formatCurrency(progress.super_meta_bonus_valor)}`
+                                                : `Super: ${formatCurrency(progress.super_meta_valor)}`}
+                                        </span>
                                     </div>
                                 </div>
                                 <span className="text-muted-foreground font-semibold text-xs">
@@ -528,7 +546,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                             left: `${(progress.meta_valor / progress.super_meta_valor) * 100}%`,
                                             transform: 'translateX(-50%)'
                                         }}
-                                        title={`Meta Semanal: ${formatCurrency(progress.meta_valor)}`}
+                                        title={`Meta Semanal (calculada): ${formatCurrency(progress.meta_valor)}`}
                                     />
                                 )}
 

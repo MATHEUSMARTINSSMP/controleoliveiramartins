@@ -122,9 +122,9 @@ export const Achievements: React.FC<AchievementsProps> = ({ colaboradoraId, stor
       case 'SUPER_META_MENSAL':
         return `Super Meta Mensal ${achievement.mes_referencia?.slice(4, 6)}/${achievement.mes_referencia?.slice(0, 4)}`;
       case 'META_SEMANAL':
-        return `Meta Semanal ${achievement.semana_referencia}`;
+        return `Gincana Semanal ${achievement.semana_referencia}`;
       case 'SUPER_META_SEMANAL':
-        return `Super Meta Semanal ${achievement.semana_referencia}`;
+        return `Super Gincana Semanal ${achievement.semana_referencia}`;
       default:
         return 'Conquista';
     }

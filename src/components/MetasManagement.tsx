@@ -250,7 +250,7 @@ const MetasManagementContent = () => {
             }
         } catch (err) {
             console.error("Error fetching weekly goals:", err);
-            toast.error("Erro ao carregar metas semanais");
+            toast.error("Erro ao carregar gincanas semanais");
         }
     };
 
@@ -823,13 +823,13 @@ const MetasManagementContent = () => {
 
             if (insertError) throw insertError;
 
-            toast.success(`Metas semanais criadas para ${weeklyColabGoals.length} colaboradora(s)!`);
+            toast.success(`Gincanas semanais criadas para ${weeklyColabGoals.length} colaboradora(s)!`);
             setWeeklyDialogOpen(false);
             resetWeeklyForm();
             fetchWeeklyGoals();
         } catch (err: any) {
             console.error("Error saving weekly goals:", err);
-            toast.error(err.message || "Erro ao salvar metas semanais");
+            toast.error(err.message || "Erro ao salvar gincanas semanais");
         }
     };
 
@@ -927,8 +927,8 @@ const MetasManagementContent = () => {
                 ) : (
                     <Button onClick={() => { resetWeeklyForm(); setWeeklyDialogOpen(true); }} className="bg-primary hover:bg-primary/90 text-xs sm:text-sm w-full sm:w-auto" size="sm">
                         <Plus className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                        <span className="hidden sm:inline">Nova Meta Semanal</span>
-                        <span className="sm:hidden">Nova Semanal</span>
+                        <span className="hidden sm:inline">Nova Gincana Semanal</span>
+                        <span className="sm:hidden">Nova Gincana</span>
                     </Button>
                 )}
             </div>
@@ -941,8 +941,8 @@ const MetasManagementContent = () => {
                         <span className="sm:hidden">Mensais</span>
                     </TabsTrigger>
                     <TabsTrigger value="semanal" className="text-xs sm:text-sm">
-                        <span className="hidden sm:inline">Metas Semanais</span>
-                        <span className="sm:hidden">Semanais</span>
+                        <span className="hidden sm:inline">Gincanas Semanais</span>
+                        <span className="sm:hidden">Gincanas</span>
                     </TabsTrigger>
                 </TabsList>
 
@@ -1126,7 +1126,7 @@ const MetasManagementContent = () => {
                             <Card>
                                 <CardContent className="pt-6">
                                     <div className="text-center text-muted-foreground py-8">
-                                        Nenhuma meta semanal cadastrada. Clique em "Nova Meta Semanal" para começar.
+                                        Nenhuma gincana semanal cadastrada. Clique em "Nova Gincana Semanal" para começar.
                                     </div>
                                 </CardContent>
                             </Card>
@@ -1406,7 +1406,7 @@ const MetasManagementContent = () => {
                 <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="text-base sm:text-lg">
-                            {editingWeeklyGoal ? "Editar Meta Semanal" : "Nova Meta Semanal"}
+                            {editingWeeklyGoal ? "Editar Gincana Semanal" : "Nova Gincana Semanal"}
                         </DialogTitle>
                     </DialogHeader>
                     <div className="space-y-3 sm:space-y-4 py-3 sm:py-4">
@@ -1539,7 +1539,7 @@ const MetasManagementContent = () => {
 
                         <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
                             <p className="text-sm text-blue-900 dark:text-blue-100">
-                                💡 <strong>Dica:</strong> As metas semanais são calculadas por colaboradora. Use o botão "Sugerir" para calcular automaticamente 
+                                💡 <strong>Dica:</strong> As gincanas semanais são calculadas por colaboradora. Use o botão "Sugerir" para calcular automaticamente 
                                 baseadas nas metas mensais individuais (mensal ÷ 4.33). Você pode editar livremente.
                             </p>
                         </div>
@@ -1619,7 +1619,7 @@ const MetasManagementContent = () => {
                             </Button>
                             <Button onClick={handleSaveWeeklyGoal} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
                                 <Save className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                                {editingWeeklyGoal ? "Atualizar" : "Criar"} Meta Semanal
+                                {editingWeeklyGoal ? "Atualizar" : "Criar"} Gincana Semanal
                             </Button>
                         </div>
                     </div>

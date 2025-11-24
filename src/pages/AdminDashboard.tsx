@@ -213,7 +213,7 @@ const AdminDashboard = () => {
                 className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
                 size="sm"
               >
-                <span className="hidden sm:inline">Metas Semanais</span>
+                <span className="hidden sm:inline">Gincanas Semanais</span>
                 <span className="sm:hidden">Semanais</span>
               </Button>
               <Button

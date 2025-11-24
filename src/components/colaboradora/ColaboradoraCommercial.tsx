@@ -1,15 +1,83 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useGoalCalculation } from "@/hooks/useGoalCalculation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Target, TrendingUp, TrendingDown, CheckCircle2, AlertCircle, Zap, Calendar } from "lucide-react";
+import { Target, TrendingUp, TrendingDown, CheckCircle2, AlertCircle, Zap, Calendar, Gift } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import WeeklyGoalProgress from "@/components/WeeklyGoalProgress";
+import { supabase } from "@/integrations/supabase/client";
+import { format, startOfWeek, endOfWeek, getWeek, getYear } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export const ColaboradoraCommercial = () => {
   const { profile } = useAuth();
   const calculation = useGoalCalculation(profile?.id, profile?.store_id);
+  const [gincanaSemanal, setGincanaSemanal] = useState<{meta_valor: number; super_meta_valor: number; realizado: number} | null>(null);
+  const [loadingGincana, setLoadingGincana] = useState(true);
+
+  // Helper para buscar semana atual
+  const getCurrentWeekRef = () => {
+    const hoje = new Date();
+    const monday = startOfWeek(hoje, { weekStartsOn: 1 });
+    const year = getYear(monday);
+    const week = getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
+    return `${String(week).padStart(2, '0')}${year}`;
+  };
+
+  // Buscar gincana semanal
+  useEffect(() => {
+    const fetchGincana = async () => {
+      if (!profile?.id || !profile?.store_id) {
+        setLoadingGincana(false);
+        return;
+      }
+
+      try {
+        const currentWeek = getCurrentWeekRef();
+        const { data: goalData } = await supabase
+          .from("goals")
+          .select("*")
+          .eq("store_id", profile.store_id)
+          .eq("colaboradora_id", profile.id)
+          .eq("semana_referencia", currentWeek)
+          .eq("tipo", "SEMANAL")
+          .single();
+
+        if (goalData && goalData.meta_valor) {
+          // Buscar vendas da semana
+          const weekRange = {
+            start: startOfWeek(new Date(), { weekStartsOn: 1 }),
+            end: endOfWeek(new Date(), { weekStartsOn: 1 })
+          };
+          const { data: sales } = await supabase
+            .from("sales")
+            .select("valor")
+            .eq("colaboradora_id", profile.id)
+            .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
+            .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+
+          const realizado = sales?.reduce((sum, s) => sum + Number(s.valor || 0), 0) || 0;
+
+          setGincanaSemanal({
+            meta_valor: parseFloat(goalData.meta_valor || 0),
+            super_meta_valor: parseFloat(goalData.super_meta_valor || 0),
+            realizado
+          });
+        } else {
+          setGincanaSemanal(null);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar gincana semanal:", error);
+        setGincanaSemanal(null);
+      } finally {
+        setLoadingGincana(false);
+      }
+    };
+
+    fetchGincana();
+  }, [profile?.id, profile?.store_id]);
 
   if (!calculation) {
     return (
@@ -149,7 +217,91 @@ export const ColaboradoraCommercial = () => {
         </CardContent>
       </Card>
 
-      {/* 3. Meta Semanal */}
+      {/* 3. Gincana Semanal - Mostrar apenas se houver */}
+      {!loadingGincana && gincanaSemanal && (
+        <Card className="border-2 border-blue-200 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100/50 pb-4">
+            <CardTitle className="flex items-center gap-2 text-blue-700">
+              <Gift className="h-6 w-6" />
+              Gincana Semanal
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Meta da Gincana</span>
+                  <Badge variant="outline" className="font-semibold border-blue-300 text-blue-700">
+                    {formatCurrency(gincanaSemanal.meta_valor)}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Vendido na Semana</span>
+                  <span className="text-lg font-bold text-green-600">
+                    {formatCurrency(gincanaSemanal.realizado)}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Progresso</span>
+                  <span className={`text-lg font-bold ${getProgressColor((gincanaSemanal.realizado / gincanaSemanal.meta_valor) * 100).replace('bg-', '')}`}>
+                    {((gincanaSemanal.realizado / gincanaSemanal.meta_valor) * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <Progress 
+                  value={(gincanaSemanal.realizado / gincanaSemanal.meta_valor) * 100} 
+                  className="h-3 bg-blue-100"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 4. Super Gincana Semanal - Mostrar apenas se houver */}
+      {!loadingGincana && gincanaSemanal && gincanaSemanal.super_meta_valor > 0 && (
+        <Card className="border-2 border-orange-200 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-orange-50 to-orange-100/50 pb-4">
+            <CardTitle className="flex items-center gap-2 text-orange-700">
+              <Zap className="h-6 w-6" />
+              Super Gincana Semanal
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Super Meta da Gincana</span>
+                  <Badge variant="outline" className="font-semibold border-orange-300 text-orange-700">
+                    {formatCurrency(gincanaSemanal.super_meta_valor)}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Vendido na Semana</span>
+                  <span className="text-lg font-bold text-green-600">
+                    {formatCurrency(gincanaSemanal.realizado)}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Progresso</span>
+                  <span className={`text-lg font-bold ${getProgressColor((gincanaSemanal.realizado / gincanaSemanal.super_meta_valor) * 100).replace('bg-', '')}`}>
+                    {((gincanaSemanal.realizado / gincanaSemanal.super_meta_valor) * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <Progress 
+                  value={(gincanaSemanal.realizado / gincanaSemanal.super_meta_valor) * 100} 
+                  className="h-3 bg-orange-100"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 5. Meta Semanal */}
       <div className="mt-6">
         <WeeklyGoalProgress 
           colaboradoraId={profile?.id} 
@@ -158,7 +310,7 @@ export const ColaboradoraCommercial = () => {
         />
       </div>
 
-      {/* 4. Meta Mensal */}
+      {/* 6. Meta Mensal */}
       <Card className="shadow-md">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -265,59 +417,52 @@ export const ColaboradoraCommercial = () => {
         </CardContent>
       </Card>
 
-      {/* 5. Super Meta Mensal */}
+      {/* 7. Super Meta Mensal - Modo Paisagem */}
       <Card className="shadow-md border-purple-200">
-        <CardHeader className="bg-gradient-to-r from-purple-50 to-purple-100/50">
+        <CardHeader className="bg-gradient-to-r from-purple-50 to-purple-100/50 pb-4">
           <CardTitle className="flex items-center gap-2 text-purple-700">
             <Zap className="h-5 w-5" />
             Super Meta Mensal
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Super Meta - Card Interno */}
-            <div className="flex flex-col h-full p-4 bg-gradient-to-br from-purple-50 to-purple-100/30 rounded-lg border border-purple-200">
-              <div className="flex items-center gap-2 mb-4">
-                <Target className="h-5 w-5 text-purple-600" />
-                <h3 className="text-base font-bold text-purple-700">Super Meta</h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Super Meta */}
+            <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100/30 rounded-lg border border-purple-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Target className="h-4 w-4 text-purple-600" />
+                <h3 className="text-sm font-bold text-purple-700">Super Meta</h3>
               </div>
-              
-              <div className="flex flex-col space-y-4 flex-1">
-                {/* Meta Super */}
-                <div className="p-3 bg-white/60 rounded-lg border border-purple-100">
-                  <div className="text-xs text-muted-foreground mb-1">Meta Super</div>
-                  <div className="text-2xl font-bold text-purple-600">
-                    {formatCurrency(calculation.superMetaMensal)}
-                  </div>
-                </div>
+              <div className="text-xl font-bold text-purple-600">
+                {formatCurrency(calculation.superMetaMensal)}
+              </div>
+            </div>
 
-                {/* Falta */}
-                <div className="p-3 bg-white/60 rounded-lg border border-purple-100">
-                  <div className="text-xs text-muted-foreground mb-1">Falta para Super Meta</div>
-                  <div className="text-xl font-bold text-purple-700">
-                    {formatCurrency(Math.max(0, calculation.superMetaMensal - calculation.realizadoMensal))}
-                  </div>
-                </div>
+            {/* Falta para Super Meta */}
+            <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100/30 rounded-lg border border-purple-200">
+              <div className="text-xs text-muted-foreground mb-2">Falta para Super Meta</div>
+              <div className="text-xl font-bold text-purple-700">
+                {formatCurrency(Math.max(0, calculation.superMetaMensal - calculation.realizadoMensal))}
+              </div>
+            </div>
 
-                {/* Progresso Super Meta */}
-                <div className="p-3 bg-white/60 rounded-lg border border-purple-100">
-                  <div className="text-xs text-muted-foreground mb-1">Progresso</div>
-                  <div className="text-xl font-bold text-purple-700">
-                    {((calculation.realizadoMensal / calculation.superMetaMensal) * 100).toFixed(1)}%
-                  </div>
-                  <Progress 
-                    value={Math.min((calculation.realizadoMensal / calculation.superMetaMensal) * 100, 100)} 
-                    className="h-2 mt-2 bg-purple-100"
-                  />
-                </div>
+            {/* Progresso */}
+            <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100/30 rounded-lg border border-purple-200">
+              <div className="text-xs text-muted-foreground mb-2">Progresso</div>
+              <div className="text-xl font-bold text-purple-700 mb-2">
+                {((calculation.realizadoMensal / calculation.superMetaMensal) * 100).toFixed(1)}%
+              </div>
+              <Progress 
+                value={Math.min((calculation.realizadoMensal / calculation.superMetaMensal) * 100, 100)} 
+                className="h-2 bg-purple-100"
+              />
+            </div>
 
-                {/* Necessário por dia - Destaque */}
-                <div className="mt-auto p-4 bg-purple-600 rounded-lg border-2 border-purple-700 shadow-md">
-                  <div className="text-xs text-purple-100 mb-2 font-medium">Necessário por dia</div>
-                  <div className="text-3xl font-bold text-white">
-                    {formatCurrency(calculation.ritmoSuperMeta)}
-                  </div>
-                </div>
+            {/* Necessário por dia - Destaque */}
+            <div className="p-4 bg-purple-600 rounded-lg border-2 border-purple-700 shadow-md">
+              <div className="text-xs text-purple-100 mb-2 font-medium">Necessário por dia</div>
+              <div className="text-2xl font-bold text-white">
+                {formatCurrency(calculation.ritmoSuperMeta)}
               </div>
             </div>
           </div>

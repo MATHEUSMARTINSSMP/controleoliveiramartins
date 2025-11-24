@@ -153,9 +153,9 @@ export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit
       case 'SUPER_META_MENSAL':
         return `Super Meta Mensal ${trophy.mes_referencia?.slice(4, 6)}/${trophy.mes_referencia?.slice(0, 4)}`;
       case 'META_SEMANAL':
-        return `Meta Semanal ${trophy.semana_referencia}`;
+        return `Gincana Semanal ${trophy.semana_referencia}`;
       case 'SUPER_META_SEMANAL':
-        return `Super Meta Semanal ${trophy.semana_referencia}`;
+        return `Super Gincana Semanal ${trophy.semana_referencia}`;
       default:
         return 'Conquista';
     }

@@ -254,8 +254,8 @@ export default function BonusManagement() {
                                             {bonus.tipo_condicao === 'PERCENTUAL_META' && bonus.meta_minima_percentual && `Atingir ${bonus.meta_minima_percentual}% da Meta`}
                                             {bonus.tipo_condicao === 'RANKING' && `Ficar em ${bonus.valor_condicao || bonus.meta_minima_percentual}º Lugar`}
                                             {bonus.tipo_condicao === 'VALOR_FIXO_VENDAS' && bonus.vendas_minimas && `Vender R$ ${bonus.vendas_minimas}`}
-                                            {bonus.tipo_condicao === 'META_SEMANAL' && `🎯 Atingir 100% da Meta Semanal`}
-                                            {bonus.tipo_condicao === 'SUPER_META_SEMANAL' && `🏆 Atingir 100% da Super Meta Semanal (não cumulativo)`}
+                                            {bonus.tipo_condicao === 'META_SEMANAL' && `🎯 Atingir 100% da Gincana Semanal`}
+                                            {bonus.tipo_condicao === 'SUPER_META_SEMANAL' && `🏆 Atingir 100% da Super Gincana Semanal (não cumulativo)`}
                                             {!bonus.tipo_condicao && bonus.meta_minima_percentual && `Atingir ${bonus.meta_minima_percentual}% da Meta`}
                                         </span>
                                     </div>
@@ -297,7 +297,7 @@ export default function BonusManagement() {
                             <Input
                                 value={formData.nome}
                                 onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                                placeholder="Ex: Bônus Meta Semanal"
+                                placeholder="Ex: Bônus Gincana Semanal"
                                 required
                                 className="text-xs sm:text-sm"
                             />
@@ -308,7 +308,7 @@ export default function BonusManagement() {
                             <Input
                                 value={formData.descricao}
                                 onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-                                placeholder="Ex: Bônus ao atingir meta semanal"
+                                placeholder="Ex: Bônus ao atingir gincana semanal"
                                 className="text-xs sm:text-sm"
                             />
                         </div>
@@ -330,8 +330,8 @@ export default function BonusManagement() {
                                         <SelectItem value="PERCENTUAL_META">Meta Percentual</SelectItem>
                                         <SelectItem value="RANKING">Ranking</SelectItem>
                                         <SelectItem value="VALOR_FIXO_VENDAS">Valor Fixo de Vendas</SelectItem>
-                                        <SelectItem value="META_SEMANAL">Meta Semanal (Checkpoint 1)</SelectItem>
-                                        <SelectItem value="SUPER_META_SEMANAL">Super Meta Semanal (Checkpoint Final)</SelectItem>
+                                        <SelectItem value="META_SEMANAL">Gincana Semanal (Checkpoint 1)</SelectItem>
+                                        <SelectItem value="SUPER_META_SEMANAL">Super Gincana Semanal (Checkpoint Final)</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -385,7 +385,7 @@ export default function BonusManagement() {
                                     onChange={(e) => setFormData({ ...formData, valor_bonus: e.target.value })}
                                     placeholder={
                                         formData.tipo_condicao === 'META_SEMANAL' 
-                                            ? 'Ex: 50 (bônus ao atingir meta semanal)' 
+                                            ? 'Ex: 50 (bônus ao atingir gincana semanal)' 
                                             : formData.tipo_condicao === 'SUPER_META_SEMANAL'
                                             ? 'Ex: 150 (bônus ao atingir super meta - não cumulativo)'
                                             : formData.tipo === 'PERCENTUAL' ? 'Ex: 10 (para 10%)' : 'Ex: 500'
@@ -396,7 +396,7 @@ export default function BonusManagement() {
                                 {(formData.tipo_condicao === 'META_SEMANAL' || formData.tipo_condicao === 'SUPER_META_SEMANAL') && (
                                     <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
                                         {formData.tipo_condicao === 'META_SEMANAL' 
-                                            ? '💡 Bônus pago quando atingir 100% da meta semanal'
+                                            ? '💡 Bônus pago quando atingir 100% da gincana semanal'
                                             : '💡 Bônus pago quando atingir 100% da super meta (substitui bônus da meta se atingir super meta)'}
                                     </p>
                                 )}

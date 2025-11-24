@@ -189,7 +189,7 @@ const WeeklyGoalsManagement = () => {
             }
         } catch (err) {
             console.error("Error fetching weekly goals:", err);
-            toast.error("Erro ao carregar metas semanais");
+            toast.error("Erro ao carregar gincanas semanais");
         } finally {
             setLoading(false);
         }
@@ -323,7 +323,7 @@ const WeeklyGoalsManagement = () => {
 
         const activeColabs = colaboradorasAtivas.filter(c => c.active);
         if (activeColabs.length === 0) {
-            toast.error("Selecione pelo menos uma colaboradora para receber a meta semanal");
+            toast.error("Selecione pelo menos uma colaboradora para receber a gincana semanal");
             return;
         }
 
@@ -343,7 +343,7 @@ const WeeklyGoalsManagement = () => {
     const handleStartCustomizing = () => {
         const activeColabs = colaboradorasAtivas.filter(c => c.active);
         if (activeColabs.length === 0) {
-            toast.error("Selecione pelo menos uma colaboradora para receber a meta semanal");
+            toast.error("Selecione pelo menos uma colaboradora para receber a gincana semanal");
             return;
         }
 
@@ -368,7 +368,7 @@ const WeeklyGoalsManagement = () => {
 
         const activeColabs = colaboradorasAtivas.filter(c => c.active);
         if (activeColabs.length === 0) {
-            toast.error("Selecione pelo menos uma colaboradora para receber a meta semanal");
+            toast.error("Selecione pelo menos uma colaboradora para receber a gincana semanal");
             return;
         }
 
@@ -390,7 +390,7 @@ const WeeklyGoalsManagement = () => {
     const handleApplyIndividualMetas = () => {
         const activeColabs = colaboradorasAtivas.filter(c => c.active);
         if (activeColabs.length === 0) {
-            toast.error("Selecione pelo menos uma colaboradora para receber a meta semanal");
+            toast.error("Selecione pelo menos uma colaboradora para receber a gincana semanal");
             return;
         }
 
@@ -426,13 +426,13 @@ const WeeklyGoalsManagement = () => {
 
             if (error) throw error;
 
-            toast.success("Metas semanais excluídas com sucesso!");
+            toast.success("Gincanas semanais excluídas com sucesso!");
             setDialogOpen(false);
             resetForm();
             fetchWeeklyGoals();
         } catch (err: any) {
             console.error("Error deleting weekly goals:", err);
-            toast.error(err.message || "Erro ao excluir metas semanais");
+            toast.error(err.message || "Erro ao excluir gincanas semanais");
         }
     };
 
@@ -661,14 +661,14 @@ const WeeklyGoalsManagement = () => {
                     }
                     
                     const successCount = individualResults.length;
-                    toast.success(`Metas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${successCount} colaboradora(s)!`);
+                    toast.success(`Gincanas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${successCount} colaboradora(s)!`);
                 } else {
                     throw insertError;
                 }
             } else {
                 // Sucesso no batch insert!
                 const successCount = insertData?.length || uniqueColabsList.length;
-                toast.success(`Metas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${successCount} colaboradora(s)!`);
+                toast.success(`Gincanas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${successCount} colaboradora(s)!`);
             }
             setDialogOpen(false);
             resetForm();
@@ -688,7 +688,7 @@ const WeeklyGoalsManagement = () => {
             } else if (err.message?.includes('invalid input syntax')) {
                 toast.error("Erro: Formato de dados inválido. Por favor, verifique os valores inseridos.");
             } else {
-                toast.error(err.message || "Erro ao salvar metas semanais. Tente novamente.");
+                toast.error(err.message || "Erro ao salvar gincanas semanais. Tente novamente.");
             }
         }
     };
@@ -766,7 +766,7 @@ const WeeklyGoalsManagement = () => {
     };
 
     if (loading) {
-        return <div className="text-center py-10">Carregando metas semanais...</div>;
+        return <div className="text-center py-10">Carregando gincanas semanais...</div>;
     }
 
     return (
@@ -783,12 +783,12 @@ const WeeklyGoalsManagement = () => {
                         Voltar
                     </Button>
                     <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-                        Gerenciar Metas Semanais
+                        Gerenciar Gincanas Semanais
                     </h1>
                 </div>
                 <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
                     <Calendar className="mr-2 h-4 w-4" />
-                    Nova Meta Semanal
+                    Nova Gincana Semanal
                 </Button>
             </div>
 
@@ -918,7 +918,7 @@ const WeeklyGoalsManagement = () => {
                 })}
                 {weeklyGoals.length === 0 && (
                     <div className="text-center py-10 text-muted-foreground">
-                        Nenhuma meta semanal cadastrada. Clique em "Nova Meta Semanal" para começar.
+                        Nenhuma gincana semanal cadastrada. Clique em "Nova Gincana Semanal" para começar.
                     </div>
                 )}
             </div>
@@ -928,7 +928,7 @@ const WeeklyGoalsManagement = () => {
                 <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="text-base sm:text-lg">
-                            {editingGoal ? "Editar Meta Semanal" : "Nova Meta Semanal"}
+                            {editingGoal ? "Editar Gincana Semanal" : "Nova Gincana Semanal"}
                         </DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 sm:space-y-5 py-3 sm:py-4">
@@ -958,7 +958,7 @@ const WeeklyGoalsManagement = () => {
                         {/* 2. Seleção de Colaboradoras */}
                         {selectedStore && (
                             <div>
-                                <Label className="text-xs sm:text-sm font-semibold mb-3 block">2. Ativar/Desativar Colaboradoras para Receber Meta Semanal</Label>
+                                <Label className="text-xs sm:text-sm font-semibold mb-3 block">2. Ativar/Desativar Colaboradoras para Receber Gincana Semanal</Label>
                                 <Card className="border-2">
                                     <CardContent className="p-3 sm:p-4">
                                         <ScrollArea className="h-[200px] sm:h-[250px]">
@@ -1041,13 +1041,13 @@ const WeeklyGoalsManagement = () => {
                                     </CardContent>
                                 </Card>
 
-                                {/* Meta Semanal Sugerida */}
+                                {/* Gincana Semanal Sugerida */}
                                 <Card className="bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
                                     <CardContent className="p-3 sm:p-4">
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between">
                                                 <div>
-                                                    <p className="text-xs sm:text-sm text-green-700 dark:text-green-300 font-medium">Meta Semanal Sugerida (por colaboradora ativa)</p>
+                                                    <p className="text-xs sm:text-sm text-green-700 dark:text-green-300 font-medium">Gincana Semanal Sugerida (por colaboradora ativa)</p>
                                                     <p className="text-base sm:text-lg text-green-900 dark:text-green-100 font-bold mt-1">
                                                         R$ {suggestedWeeklyMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                     </p>
@@ -1056,7 +1056,7 @@ const WeeklyGoalsManagement = () => {
                                                     </p>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="text-xs sm:text-sm text-purple-700 dark:text-purple-300 font-medium">Super Meta Semanal Sugerida</p>
+                                                    <p className="text-xs sm:text-sm text-purple-700 dark:text-purple-300 font-medium">Super Gincana Semanal Sugerida</p>
                                                     <p className="text-base sm:text-lg text-purple-900 dark:text-purple-100 font-bold mt-1">
                                                         R$ {suggestedWeeklySuperMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                     </p>
@@ -1242,7 +1242,7 @@ const WeeklyGoalsManagement = () => {
                                     size="sm"
                                 >
                                     <Trash2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                                    Excluir Meta Semanal
+                                    Excluir Gincana Semanal
                                 </Button>
                             )}
                             <Button
