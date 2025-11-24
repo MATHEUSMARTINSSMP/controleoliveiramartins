@@ -4,13 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Zap, CheckCircle2, Circle } from "lucide-react";
-import { format, startOfWeek, endOfWeek } from "date-fns";
+import { format, startOfWeek, endOfWeek, getWeek, getYear } from "date-fns";
 
 interface GincanaCollaborator {
     id: string;
     name: string;
     vendidoSemana: number;
     metaSemanal: number;
+    superMetaSemanal: number;
     progress: number;
     checkpoint1: boolean;
     checkpointFinal: boolean;
@@ -21,24 +22,33 @@ export function WeeklyGoalsTracker() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchWeeklyGoals();
-        const interval = setInterval(fetchWeeklyGoals, 30000);
+        fetchGincanaProgress();
+        const interval = setInterval(fetchGincanaProgress, 30000);
         return () => clearInterval(interval);
     }, []);
 
-    const fetchWeeklyGoals = async () => {
+    const getCurrentWeekRef = () => {
+        const hoje = new Date();
+        const monday = startOfWeek(hoje, { weekStartsOn: 1 });
+        const year = getYear(monday);
+        const week = getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
+        return `${String(week).padStart(2, '0')}${year}`;
+    };
+
+    const fetchGincanaProgress = async () => {
         try {
-            const hoje = new Date();
-            const inicioSemana = startOfWeek(hoje, { weekStartsOn: 0 });
-            const fimSemana = endOfWeek(hoje, { weekStartsOn: 0 });
+            const currentWeek = getCurrentWeekRef();
+            const weekRange = {
+                start: startOfWeek(new Date(), { weekStartsOn: 1 }),
+                end: endOfWeek(new Date(), { weekStartsOn: 1 })
+            };
 
             // Buscar todas as colaboradoras ativas
             const { data: colabsData, error: colabsError } = await supabase
                 .from("profiles")
                 .select("id, name, store_id")
                 .eq("role", "COLABORADORA")
-                .eq("active", true)
-                .order("name");
+                .eq("active", true);
 
             if (colabsError) throw colabsError;
 
@@ -51,12 +61,13 @@ export function WeeklyGoalsTracker() {
             // Para cada colaboradora, buscar meta semanal e vendas
             const collaboratorsWithProgress = await Promise.all(
                 colabsData.map(async (colab) => {
-                    // Buscar meta semanal individual
+                    // Buscar meta semanal individual (gincana)
                     const { data: metaData } = await supabase
                         .from("goals")
                         .select("meta_valor, super_meta_valor")
                         .eq("colaboradora_id", colab.id)
-                        .eq("tipo", "GINCANA_SEMANAL")
+                        .eq("semana_referencia", currentWeek)
+                        .eq("tipo", "SEMANAL")
                         .maybeSingle();
 
                     // Buscar vendas da semana
@@ -64,12 +75,12 @@ export function WeeklyGoalsTracker() {
                         .from("sales")
                         .select("valor")
                         .eq("colaboradora_id", colab.id)
-                        .gte("data_venda", format(inicioSemana, "yyyy-MM-dd'T'00:00:00"))
-                        .lte("data_venda", format(fimSemana, "yyyy-MM-dd'T'23:59:59"));
+                        .gte("data_venda", format(weekRange.start, "yyyy-MM-dd'T'00:00:00"))
+                        .lte("data_venda", format(weekRange.end, "yyyy-MM-dd'T'23:59:59"));
 
                     const vendidoSemana = salesData?.reduce((sum, sale) => sum + Number(sale.valor || 0), 0) || 0;
-                    const metaSemanal = metaData?.meta_valor || 0;
-                    const superMeta = metaData?.super_meta_valor || 0;
+                    const metaSemanal = Number(metaData?.meta_valor || 0);
+                    const superMetaSemanal = Number(metaData?.super_meta_valor || 0);
                     const progress = metaSemanal > 0 ? (vendidoSemana / metaSemanal) * 100 : 0;
 
                     return {
@@ -77,19 +88,22 @@ export function WeeklyGoalsTracker() {
                         name: colab.name,
                         vendidoSemana,
                         metaSemanal,
+                        superMetaSemanal,
                         progress: Math.min(progress, 100),
                         checkpoint1: progress >= 100,
-                        checkpointFinal: superMeta > 0 && vendidoSemana >= superMeta,
+                        checkpointFinal: superMetaSemanal > 0 && vendidoSemana >= superMetaSemanal,
                     };
                 })
             );
 
-            // Ordenar por progresso (maior primeiro)
-            collaboratorsWithProgress.sort((a, b) => b.progress - a.progress);
+            // Filtrar apenas quem tem meta semanal definida e ordenar por progresso
+            const withGoals = collaboratorsWithProgress
+                .filter(c => c.metaSemanal > 0)
+                .sort((a, b) => b.progress - a.progress);
 
-            setCollaborators(collaboratorsWithProgress);
+            setCollaborators(withGoals);
         } catch (error) {
-            console.error("Error fetching weekly goals:", error);
+            console.error("Error fetching gincana progress:", error);
         } finally {
             setLoading(false);
         }
@@ -107,7 +121,7 @@ export function WeeklyGoalsTracker() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Zap className="h-5 w-5" />
-                        Gincanas Semanais
+                        Gincana Semanal
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -120,21 +134,21 @@ export function WeeklyGoalsTracker() {
         );
     }
 
-    const totalCheckpoint1 = collaborators.filter((c) => c.checkpoint1).length;
-    const totalCheckpointFinal = collaborators.filter((c) => c.checkpointFinal).length;
+    const checkpoint1Count = collaborators.filter((c) => c.checkpoint1).length;
+    const checkpointFinalCount = collaborators.filter((c) => c.checkpointFinal).length;
 
     return (
         <Card className="col-span-1 bg-gradient-to-br from-card to-card/50 border-primary/10">
             <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
                     <Zap className="h-5 w-5 text-primary" />
-                    Gincanas Semanais
+                    Gincana Semanal
                     <div className="ml-auto flex gap-1">
-                        <Badge variant="secondary" className="text-xs">
-                            CP1: {totalCheckpoint1}
+                        <Badge variant="outline" className="text-xs">
+                            CP1: {checkpoint1Count}
                         </Badge>
                         <Badge variant="default" className="text-xs">
-                            Final: {totalCheckpointFinal}
+                            Final: {checkpointFinalCount}
                         </Badge>
                     </div>
                 </CardTitle>
@@ -142,33 +156,42 @@ export function WeeklyGoalsTracker() {
             <CardContent className="space-y-3">
                 {collaborators.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">
-                        Nenhuma gincana configurada
+                        Nenhuma colaboradora com gincana semanal ativa
                     </p>
                 ) : (
                     <div className="space-y-2 max-h-80 overflow-y-auto">
                         {collaborators.map((colab) => (
                             <div
                                 key={colab.id}
-                                className="p-2.5 rounded-lg bg-muted/50 border border-border/50 space-y-1.5"
+                                className="p-3 rounded-lg bg-muted/50 border border-border/50 space-y-2"
                             >
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                                        <span className="text-sm font-medium truncate">{colab.name}</span>
-                                        <div className="flex gap-1">
-                                            {colab.checkpoint1 && (
-                                                <CheckCircle2 className="h-3.5 w-3.5 text-green-600" title="Checkpoint 1" />
-                                            )}
-                                            {colab.checkpointFinal && (
-                                                <CheckCircle2 className="h-3.5 w-3.5 text-yellow-600" title="Checkpoint Final" />
-                                            )}
-                                        </div>
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="font-semibold text-sm truncate">{colab.name}</h4>
+                                        <p className="text-xs text-muted-foreground">
+                                            R$ {colab.vendidoSemana.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} / R${" "}
+                                            {colab.metaSemanal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                        </p>
                                     </div>
-                                    <span className="text-xs font-semibold">{colab.progress.toFixed(0)}%</span>
+                                    <div className="flex items-center gap-1">
+                                        {colab.checkpoint1 ? (
+                                            <CheckCircle2 className="h-4 w-4 text-green-500" title="Checkpoint 1 ✓" />
+                                        ) : (
+                                            <Circle className="h-4 w-4 text-muted-foreground" title="Checkpoint 1" />
+                                        )}
+                                        {colab.checkpointFinal ? (
+                                            <CheckCircle2 className="h-4 w-4 text-yellow-500" title="Checkpoint Final ✓" />
+                                        ) : (
+                                            <Circle className="h-4 w-4 text-muted-foreground" title="Checkpoint Final" />
+                                        )}
+                                    </div>
                                 </div>
-                                <Progress value={colab.progress} className={`h-1.5 ${getProgressColor(colab.progress)}`} />
-                                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                    <span>R$ {colab.vendidoSemana.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</span>
-                                    <span>Meta: R$ {colab.metaSemanal.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</span>
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-muted-foreground">Progresso</span>
+                                        <span className="font-semibold">{colab.progress.toFixed(0)}%</span>
+                                    </div>
+                                    <Progress value={colab.progress} className={`h-1.5 ${getProgressColor(colab.progress)}`} />
                                 </div>
                             </div>
                         ))}
