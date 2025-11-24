@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Target, Calendar } from "lucide-react";
-import { format, startOfWeek, endOfWeek, getWeek, getYear } from "date-fns";
+import { format, startOfWeek, endOfWeek, getWeek, getYear, eachDayOfInterval } from "date-fns";
 
 interface WeeklyMetaData {
     metaValor: number;
@@ -35,69 +35,121 @@ export function WeeklyMetaTracker() {
         return `${String(week).padStart(2, '0')}${year}`;
     };
 
+    // Função para calcular meta semanal a partir da meta mensal usando daily_weights
+    const calculateWeeklyGoalFromMonthly = (monthlyGoal: number, dailyWeights: Record<string, number>, weekRange: { start: Date; end: Date }): number => {
+        // Obter todos os dias da semana (segunda a domingo)
+        const weekDays = eachDayOfInterval({ start: weekRange.start, end: weekRange.end });
+        
+        let totalWeeklyGoal = 0;
+        
+        weekDays.forEach(day => {
+            const dayKey = format(day, 'yyyy-MM-dd');
+            const dayWeight = dailyWeights[dayKey] || 0;
+            
+            // Calcular meta do dia: (meta_mensal * peso_do_dia) / 100
+            const dayGoal = (monthlyGoal * dayWeight) / 100;
+            totalWeeklyGoal += dayGoal;
+        });
+        
+        // Se não houver daily_weights, dividir igualmente pelos dias do mês
+        if (Object.keys(dailyWeights).length === 0) {
+            const daysInMonth = new Date(weekRange.start.getFullYear(), weekRange.start.getMonth() + 1, 0).getDate();
+            const dailyGoal = monthlyGoal / daysInMonth;
+            totalWeeklyGoal = dailyGoal * 7; // 7 dias da semana
+        }
+        
+        return totalWeeklyGoal;
+    };
+
     const fetchWeeklyMeta = async () => {
         try {
             const hoje = new Date();
-            const semanaAtual = getCurrentWeekRef();
+            const mesAtual = format(hoje, "yyyyMM");
             const inicioSemana = startOfWeek(hoje, { weekStartsOn: 1 });
             const fimSemana = endOfWeek(hoje, { weekStartsOn: 1 });
+            const weekRange = { start: inicioSemana, end: fimSemana };
 
-            console.log("[WeeklyMetaTracker] Buscando meta semanal para semana:", semanaAtual);
+            console.log("[WeeklyMetaTracker] Buscando metas mensais para calcular meta semanal...");
+            console.log("[WeeklyMetaTracker] Mês atual:", mesAtual);
+            console.log("[WeeklyMetaTracker] Semana:", format(inicioSemana, "dd/MM/yyyy"), "até", format(fimSemana, "dd/MM/yyyy"));
 
-            // Buscar meta semanal da loja
-            const { data: metaData, error: metaError } = await supabase
+            // Buscar todas as metas mensais de loja (pode haver múltiplas lojas)
+            const { data: metasData, error: metaError } = await supabase
                 .schema("sistemaretiradas")
                 .from("goals")
-                .select("meta_valor, store_id, stores(name)")
-                .eq("tipo", "SEMANAL")
-                .eq("semana_referencia", semanaAtual)
-                .is("colaboradora_id", null)
-                .maybeSingle();
+                .select("meta_valor, store_id, daily_weights, stores(name)")
+                .eq("mes_referencia", mesAtual)
+                .eq("tipo", "MENSAL")
+                .is("colaboradora_id", null);
 
             if (metaError) {
-                console.error("[WeeklyMetaTracker] Erro ao buscar meta:", metaError);
+                console.error("[WeeklyMetaTracker] Erro ao buscar metas:", metaError);
                 throw metaError;
             }
 
-            if (!metaData) {
-                console.warn("[WeeklyMetaTracker] Nenhuma meta semanal encontrada para semana:", semanaAtual);
+            if (!metasData || metasData.length === 0) {
+                console.warn("[WeeklyMetaTracker] Nenhuma meta mensal encontrada para calcular meta semanal");
                 setWeeklyMeta(null);
                 setLoading(false);
                 return;
             }
 
-            console.log("[WeeklyMetaTracker] Meta encontrada:", metaData);
+            console.log("[WeeklyMetaTracker] Metas mensais encontradas:", metasData.length, metasData);
 
-            // Buscar vendas da semana
-            const { data: salesData, error: salesError } = await supabase
+            // Calcular meta semanal agregada de todas as lojas
+            let metaSemanalTotal = 0;
+            const storeIds: string[] = [];
+            
+            metasData.forEach((meta: any) => {
+                const monthlyGoal = Number(meta.meta_valor || 0);
+                const dailyWeights = meta.daily_weights || {};
+                const weeklyGoal = calculateWeeklyGoalFromMonthly(monthlyGoal, dailyWeights, weekRange);
+                metaSemanalTotal += weeklyGoal;
+                if (meta.store_id) storeIds.push(meta.store_id);
+            });
+
+            console.log("[WeeklyMetaTracker] Meta semanal calculada (total agregado):", metaSemanalTotal);
+
+            // Buscar vendas da semana de todas as lojas
+            let query = supabase
                 .schema("sistemaretiradas")
                 .from("sales")
                 .select("valor")
-                .eq("store_id", metaData.store_id)
                 .gte("data_venda", format(inicioSemana, "yyyy-MM-dd'T'00:00:00"))
                 .lte("data_venda", format(fimSemana, "yyyy-MM-dd'T'23:59:59"));
 
-            if (salesError) throw salesError;
+            if (storeIds.length > 0) {
+                query = query.in("store_id", storeIds);
+            }
+
+            const { data: salesData, error: salesError } = await query;
+
+            if (salesError) {
+                console.error("[WeeklyMetaTracker] Erro ao buscar vendas:", salesError);
+                throw salesError;
+            }
 
             const vendidoSemana = salesData?.reduce((sum, sale) => sum + Number(sale.valor || 0), 0) || 0;
-            const metaValor = Number(metaData.meta_valor);
-            const progress = metaValor > 0 ? (vendidoSemana / metaValor) * 100 : 0;
+            const progress = metaSemanalTotal > 0 ? (vendidoSemana / metaSemanalTotal) * 100 : 0;
 
             // Calcular dias restantes
             const diasRestantes = Math.max(0, Math.ceil((fimSemana.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)));
-            const faltaParaMeta = Math.max(0, metaValor - vendidoSemana);
+            const faltaParaMeta = Math.max(0, metaSemanalTotal - vendidoSemana);
             const mediaDiariaNecessaria = diasRestantes > 0 ? faltaParaMeta / diasRestantes : 0;
 
+            console.log("[WeeklyMetaTracker] Vendas da semana:", vendidoSemana);
+            console.log("[WeeklyMetaTracker] Progresso:", progress.toFixed(2) + "%");
+
             setWeeklyMeta({
-                metaValor,
+                metaValor: metaSemanalTotal,
                 vendidoSemana,
                 progress: Math.min(progress, 100),
                 diasRestantes,
                 mediaDiariaNecessaria,
-                storeName: (metaData.stores as any)?.name || "Loja",
+                storeName: metasData.length === 1 ? (metasData[0].stores as any)?.name || "Loja" : `${metasData.length} Lojas`,
             });
         } catch (error) {
-            console.error("Error fetching weekly meta:", error);
+            console.error("[WeeklyMetaTracker] Error fetching weekly meta:", error);
         } finally {
             setLoading(false);
         }
