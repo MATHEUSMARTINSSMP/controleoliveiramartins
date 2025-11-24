@@ -658,40 +658,22 @@ export default function BonusManagement() {
                             )}
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                            <div>
-                                <Label className="text-xs sm:text-sm">Loja</Label>
-                                <Select value={formData.store_id} onValueChange={(v) => setFormData({ ...formData, store_id: v })}>
-                                    <SelectTrigger className="text-xs sm:text-sm">
-                                        <SelectValue placeholder="Selecione" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="TODAS">Todas</SelectItem>
-                                        {stores.map((store) => (
-                                            <SelectItem key={store.id} value={store.id}>
-                                                {store.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div>
-                                <Label className="text-xs sm:text-sm">Loja</Label>
-                                <Select value={formData.store_id} onValueChange={(v) => setFormData({ ...formData, store_id: v })}>
-                                    <SelectTrigger className="text-xs sm:text-sm">
-                                        <SelectValue placeholder="Selecione" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="TODAS">Todas</SelectItem>
-                                        {stores.map((store) => (
-                                            <SelectItem key={store.id} value={store.id}>
-                                                {store.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                        {/* Loja */}
+                        <div>
+                            <Label className="text-xs sm:text-sm">Loja</Label>
+                            <Select value={formData.store_id} onValueChange={(v) => setFormData({ ...formData, store_id: v })}>
+                                <SelectTrigger className="text-xs sm:text-sm">
+                                    <SelectValue placeholder="Selecione" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="TODAS">Todas</SelectItem>
+                                    {stores.map((store) => (
+                                        <SelectItem key={store.id} value={store.id}>
+                                            {store.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         {/* Campos condicionais para modo legado */}
