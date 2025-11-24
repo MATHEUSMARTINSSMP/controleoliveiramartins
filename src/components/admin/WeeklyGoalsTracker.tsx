@@ -45,6 +45,7 @@ export function WeeklyGoalsTracker() {
 
             // Buscar todas as colaboradoras ativas
             const { data: colabsData, error: colabsError } = await supabase
+                .schema("sistemaretiradas")
                 .from("profiles")
                 .select("id, name, store_id")
                 .eq("role", "COLABORADORA")

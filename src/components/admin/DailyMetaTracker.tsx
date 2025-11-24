@@ -57,6 +57,7 @@ export function DailyMetaTracker() {
 
             // Buscar todas as colaboradoras ativas
             let query = supabase
+                .schema("sistemaretiradas")
                 .from("profiles")
                 .select("id, name, store_id, stores(name)")
                 .eq("role", "COLABORADORA")
