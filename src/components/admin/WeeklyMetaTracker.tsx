@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Target, Calendar } from "lucide-react";
-import { format, startOfWeek, endOfWeek, getWeek } from "date-fns";
+import { format, startOfWeek, endOfWeek, getWeek, getYear } from "date-fns";
 
 interface WeeklyMetaData {
     metaValor: number;
@@ -25,12 +25,24 @@ export function WeeklyMetaTracker() {
         return () => clearInterval(interval);
     }, []);
 
+    // Função para gerar semana_referencia no formato WWYYYY
+    const getCurrentWeekRef = (): string => {
+        const hoje = new Date();
+        const monday = startOfWeek(hoje, { weekStartsOn: 1 });
+        const year = getYear(monday);
+        const week = getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
+        // Formato: WWYYYY (ex: 462025 para semana 46 de 2025)
+        return `${String(week).padStart(2, '0')}${year}`;
+    };
+
     const fetchWeeklyMeta = async () => {
         try {
             const hoje = new Date();
-            const semanaAtual = `${getWeek(hoje)}${format(hoje, "yyyy")}`;
-            const inicioSemana = startOfWeek(hoje, { weekStartsOn: 0 });
-            const fimSemana = endOfWeek(hoje, { weekStartsOn: 0 });
+            const semanaAtual = getCurrentWeekRef();
+            const inicioSemana = startOfWeek(hoje, { weekStartsOn: 1 });
+            const fimSemana = endOfWeek(hoje, { weekStartsOn: 1 });
+
+            console.log("[WeeklyMetaTracker] Buscando meta semanal para semana:", semanaAtual);
 
             // Buscar meta semanal da loja
             const { data: metaData, error: metaError } = await supabase
@@ -42,13 +54,19 @@ export function WeeklyMetaTracker() {
                 .is("colaboradora_id", null)
                 .maybeSingle();
 
-            if (metaError) throw metaError;
+            if (metaError) {
+                console.error("[WeeklyMetaTracker] Erro ao buscar meta:", metaError);
+                throw metaError;
+            }
 
             if (!metaData) {
+                console.warn("[WeeklyMetaTracker] Nenhuma meta semanal encontrada para semana:", semanaAtual);
                 setWeeklyMeta(null);
                 setLoading(false);
                 return;
             }
+
+            console.log("[WeeklyMetaTracker] Meta encontrada:", metaData);
 
             // Buscar vendas da semana
             const { data: salesData, error: salesError } = await supabase

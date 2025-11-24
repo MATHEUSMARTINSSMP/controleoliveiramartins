@@ -37,36 +37,52 @@ export function MonthlyOverview() {
             const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
             const diasRestantes = daysInMonth - hoje.getDate() + 1;
 
-            // Buscar meta mensal da loja
-            const { data: metaData, error: metaError } = await supabase
+            console.log("[MonthlyOverview] Buscando metas mensais para mês:", mesAtual);
+
+            // Buscar todas as metas mensais de loja (pode haver múltiplas lojas)
+            const { data: metasData, error: metaError } = await supabase
                 .schema("sistemaretiradas")
                 .from("goals")
                 .select("meta_valor, store_id")
                 .eq("mes_referencia", mesAtual)
                 .eq("tipo", "MENSAL")
-                .is("colaboradora_id", null)
-                .maybeSingle();
+                .is("colaboradora_id", null);
 
-            if (metaError) throw metaError;
+            if (metaError) {
+                console.error("[MonthlyOverview] Erro ao buscar metas:", metaError);
+                throw metaError;
+            }
 
-            if (!metaData) {
+            if (!metasData || metasData.length === 0) {
+                console.warn("[MonthlyOverview] Nenhuma meta mensal encontrada para mês:", mesAtual);
                 setMonthlyData(null);
                 setLoading(false);
                 return;
             }
 
-            // Buscar vendas do mês
-            const { data: salesData, error: salesError } = await supabase
+            console.log("[MonthlyOverview] Metas encontradas:", metasData.length, metasData);
+
+            // Agregar todas as metas mensais (soma de todas as lojas)
+            const metaMensalTotal = metasData.reduce((sum, meta) => sum + Number(meta.meta_valor || 0), 0);
+            const storeIds = metasData.map(m => m.store_id).filter(Boolean) as string[];
+
+            // Buscar vendas do mês de todas as lojas
+            let query = supabase
                 .schema("sistemaretiradas")
                 .from("sales")
                 .select("valor, colaboradora_id, profiles!inner(name)")
-                .eq("store_id", metaData.store_id)
                 .gte("data_venda", `${startOfMonth}T00:00:00`);
+
+            if (storeIds.length > 0) {
+                query = query.in("store_id", storeIds);
+            }
+
+            const { data: salesData, error: salesError } = await query;
 
             if (salesError) throw salesError;
 
             const vendidoMes = salesData?.reduce((sum, sale) => sum + Number(sale.valor || 0), 0) || 0;
-            const metaMensal = Number(metaData.meta_valor);
+            const metaMensal = metaMensalTotal;
             const progress = metaMensal > 0 ? (vendidoMes / metaMensal) * 100 : 0;
 
             // Calcular média diária necessária

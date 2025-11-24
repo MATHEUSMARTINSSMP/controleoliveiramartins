@@ -39,6 +39,7 @@ export function DailyMetaTracker() {
 
     const fetchStores = async () => {
         const { data } = await supabase
+            .schema("sistemaretiradas")
             .from("stores")
             .select("id, name")
             .eq("active", true)
