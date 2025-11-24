@@ -365,53 +365,58 @@ export const ColaboradoraCommercial = () => {
             </div>
           </div>
 
-          {/* Ritmo Necessário */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Duas Colunas: Ritmo Necessário | Dias Restantes e Déficit */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Coluna 1: Ritmo Necessário */}
             <div className="flex flex-col h-full p-4 bg-gradient-to-br from-orange-50 to-orange-100/30 rounded-lg border border-orange-200">
               <div className="flex items-center gap-2 mb-4">
                 <TrendingUp className="h-5 w-5 text-orange-600" />
                 <h3 className="text-base font-bold text-orange-700">Ritmo Necessário</h3>
               </div>
               
-              <div className="flex flex-col space-y-4 flex-1">
-                {/* Para bater a meta - Destaque */}
-                <div className="p-4 bg-orange-600 rounded-lg border-2 border-orange-700 shadow-md">
-                  <div className="text-xs text-orange-100 mb-2 font-medium">Para bater a meta</div>
-                  <div className="text-3xl font-bold text-white">
-                    {formatCurrency(calculation.ritmoNecessario)}/dia
-                  </div>
-                </div>
-
-                {/* Dias restantes */}
-                <div className="p-3 bg-white/60 rounded-lg border border-orange-100">
-                  <div className="text-xs text-muted-foreground mb-1">Dias restantes</div>
-                  <div className="text-xl font-bold text-orange-700">
-                    {calculation.diasRestantes} dias
-                  </div>
-                </div>
-
-                {/* Déficit - Se houver */}
-                <div className="mt-auto">
-                  {calculation.deficit > 0 ? (
-                    <div className="p-4 bg-red-100 rounded-lg border-2 border-red-300 shadow-sm">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertCircle className="h-4 w-4 text-red-600" />
-                        <div className="text-xs font-semibold text-red-700 uppercase tracking-wide">Déficit</div>
-                      </div>
-                      <div className="text-2xl font-bold text-red-700">
-                        {formatCurrency(calculation.deficit)}
-                      </div>
-                      <div className="text-xs text-red-600 mt-1">
-                        Valor necessário para recuperar o atraso
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-transparent rounded-lg">
-                      {/* Espaço vazio para manter altura igual */}
-                    </div>
-                  )}
+              {/* Para bater a meta - Destaque */}
+              <div className="p-4 bg-orange-600 rounded-lg border-2 border-orange-700 shadow-md">
+                <div className="text-xs text-orange-100 mb-2 font-medium">Para bater a meta</div>
+                <div className="text-3xl font-bold text-white">
+                  {formatCurrency(calculation.ritmoNecessario)}/dia
                 </div>
               </div>
+            </div>
+
+            {/* Coluna 2: Dias Restantes e Déficit */}
+            <div className="flex flex-col h-full gap-4">
+              {/* Dias restantes */}
+              <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100/30 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <Calendar className="h-5 w-5 text-blue-600" />
+                  <h3 className="text-base font-bold text-blue-700">Dias Restantes</h3>
+                </div>
+                <div className="text-3xl font-bold text-blue-700">
+                  {calculation.diasRestantes} dias
+                </div>
+              </div>
+
+              {/* Déficit - Se houver */}
+              {calculation.deficit > 0 ? (
+                <div className="p-4 bg-red-100 rounded-lg border-2 border-red-300 shadow-sm flex-1">
+                  <div className="flex items-center gap-2 mb-3">
+                    <AlertCircle className="h-5 w-5 text-red-600" />
+                    <div className="text-sm font-semibold text-red-700 uppercase tracking-wide">Déficit</div>
+                  </div>
+                  <div className="text-2xl font-bold text-red-700 mb-2">
+                    {formatCurrency(calculation.deficit)}
+                  </div>
+                  <div className="text-xs text-red-600">
+                    Valor necessário para recuperar o atraso
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 bg-muted/30 rounded-lg border border-muted-foreground/10">
+                  <div className="text-sm text-muted-foreground text-center py-2">
+                    Sem déficit
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
