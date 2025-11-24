@@ -130,13 +130,31 @@ const WeeklyGoalsManagement = () => {
     };
 
     const fetchColaboradoras = async () => {
-        const { data } = await supabase
-            .schema("sistemaretiradas")
-            .from("profiles")
-            .select("id, name, store_id")
-            .eq("role", "COLABORADORA")
-            .eq("active", true);
-        if (data) setColaboradoras(data || []);
+        try {
+            const { data, error } = await supabase
+                .schema("sistemaretiradas")
+                .from("profiles")
+                .select("id, name, store_id")
+                .eq("role", "COLABORADORA")
+                .eq("active", true);
+            
+            if (error) {
+                console.error("Error fetching colaboradoras:", error);
+                toast.error("Erro ao carregar colaboradoras");
+                return;
+            }
+            
+            if (data) {
+                console.log('[fetchColaboradoras] Colaboradoras carregadas:', data.length);
+                setColaboradoras(data || []);
+            } else {
+                console.warn('[fetchColaboradoras] Nenhuma colaboradora retornada');
+                setColaboradoras([]);
+            }
+        } catch (err) {
+            console.error("Exception fetching colaboradoras:", err);
+            toast.error("Erro ao carregar colaboradoras");
+        }
     };
 
     // Função auxiliar para ordenar semana_referencia (formato WWYYYY)
@@ -282,15 +300,54 @@ const WeeklyGoalsManagement = () => {
             }
 
             // SEMPRE carregar colaboradoras da loja (mesmo sem semana)
+            // Se não temos colaboradoras carregadas, buscar agora
+            if (colaboradoras.length === 0) {
+                console.log('[loadSuggestions] Colaboradoras não carregadas, buscando agora...');
+                await fetchColaboradoras();
+                // Aguardar um pouco para o estado atualizar
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+            
             const storeColabs = colaboradoras.filter(c => c.store_id === selectedStore);
             
-            console.log('[loadSuggestions] Colaboradoras da loja:', storeColabs.length, 'Total colaboradoras:', colaboradoras.length);
+            console.log('[loadSuggestions] Colaboradoras da loja:', storeColabs.length, 'Total colaboradoras:', colaboradoras.length, 'Loja:', selectedStore);
             
             if (storeColabs.length === 0) {
                 console.warn('[loadSuggestions] Nenhuma colaboradora encontrada para loja:', selectedStore);
+                // Tentar buscar novamente do banco diretamente
+                try {
+                    const { data: directColabs } = await supabase
+                        .schema("sistemaretiradas")
+                        .from("profiles")
+                        .select("id, name, store_id")
+                        .eq("role", "COLABORADORA")
+                        .eq("active", true)
+                        .eq("store_id", selectedStore);
+                    
+                    if (directColabs && directColabs.length > 0) {
+                        console.log('[loadSuggestions] Encontradas', directColabs.length, 'colaboradoras diretamente do banco');
+                        // Atualizar lista de colaboradoras
+                        setColaboradoras(prev => {
+                            const existing = prev.filter(c => c.id !== directColabs[0]?.id);
+                            return [...existing, ...directColabs];
+                        });
+                        // Usar as colaboradoras encontradas
+                        const newStoreColabs = directColabs.map(c => ({
+                            id: c.id,
+                            name: c.name || "Sem nome",
+                            active: true // Por padrão, todas ativas
+                        }));
+                        setColaboradorasAtivas(newStoreColabs);
+                        setLoadingSuggestions(false);
+                        return;
+                    }
+                } catch (err) {
+                    console.error("Error fetching colaboradoras directly:", err);
+                }
+                
                 setColaboradorasAtivas([]);
                 setLoadingSuggestions(false);
-                // Não mostrar toast aqui, apenas log
+                toast.warning("Nenhuma colaboradora encontrada para esta loja. Verifique se há colaboradoras cadastradas e ativas.");
                 return;
             }
             
