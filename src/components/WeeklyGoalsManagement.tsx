@@ -60,9 +60,16 @@ const WeeklyGoalsManagement = () => {
     const [customMetasIndividuais, setCustomMetasIndividuais] = useState<{ id: string; meta: number; superMeta: number }[]>([]);
 
     useEffect(() => {
-        fetchStores();
-        fetchColaboradoras();
-        fetchWeeklyGoals();
+        console.log('[WeeklyGoalsManagement] useEffect inicial - carregando dados...');
+        const loadData = async () => {
+            await Promise.all([
+                fetchStores(),
+                fetchColaboradoras(),
+                fetchWeeklyGoals()
+            ]);
+            console.log('[WeeklyGoalsManagement] Dados iniciais carregados');
+        };
+        loadData();
     }, []);
 
     function getCurrentWeekRef(): string {
@@ -122,15 +129,35 @@ const WeeklyGoalsManagement = () => {
     }
 
     const fetchStores = async () => {
-        const { data } = await supabase
-            .from("stores")
-            .select("*")
-            .eq("active", true);
-        if (data) setStores(data);
+        try {
+            console.log('[fetchStores] Iniciando busca de lojas...');
+            const { data, error } = await supabase
+                .schema("sistemaretiradas")
+                .from("stores")
+                .select("*")
+                .eq("active", true);
+            
+            if (error) {
+                console.error('[fetchStores] Erro:', error);
+                toast.error("Erro ao carregar lojas");
+                return;
+            }
+            
+            if (data) {
+                console.log('[fetchStores] Lojas carregadas:', data.length);
+                setStores(data);
+            }
+        } catch (err) {
+            console.error('[fetchStores] Exception:', err);
+            toast.error("Erro ao carregar lojas");
+        }
     };
 
     const fetchColaboradoras = async () => {
         try {
+            console.log('[fetchColaboradoras] ========== INICIANDO BUSCA ==========');
+            console.log('[fetchColaboradoras] Chamando Supabase...');
+            
             const { data, error } = await supabase
                 .schema("sistemaretiradas")
                 .from("profiles")
@@ -138,22 +165,33 @@ const WeeklyGoalsManagement = () => {
                 .eq("role", "COLABORADORA")
                 .eq("active", true);
             
+            console.log('[fetchColaboradoras] Resposta recebida. Error:', error);
+            console.log('[fetchColaboradoras] Data recebida:', data);
+            
             if (error) {
-                console.error("Error fetching colaboradoras:", error);
-                toast.error("Erro ao carregar colaboradoras");
+                console.error('[fetchColaboradoras] ❌ ERRO:', error);
+                console.error('[fetchColaboradoras] Código:', error.code);
+                console.error('[fetchColaboradoras] Mensagem:', error.message);
+                console.error('[fetchColaboradoras] Detalhes:', error.details);
+                console.error('[fetchColaboradoras] Hint:', error.hint);
+                toast.error(`Erro ao carregar colaboradoras: ${error.message}`);
+                setColaboradoras([]);
                 return;
             }
             
             if (data) {
-                console.log('[fetchColaboradoras] Colaboradoras carregadas:', data.length);
+                console.log('[fetchColaboradoras] ✅ Colaboradoras carregadas:', data.length);
+                console.log('[fetchColaboradoras] Dados:', data);
                 setColaboradoras(data || []);
             } else {
-                console.warn('[fetchColaboradoras] Nenhuma colaboradora retornada');
+                console.warn('[fetchColaboradoras] ⚠️ Nenhuma colaboradora retornada (data é null/undefined)');
                 setColaboradoras([]);
             }
-        } catch (err) {
-            console.error("Exception fetching colaboradoras:", err);
-            toast.error("Erro ao carregar colaboradoras");
+        } catch (err: any) {
+            console.error('[fetchColaboradoras] ❌ EXCEPTION:', err);
+            console.error('[fetchColaboradoras] Stack:', err?.stack);
+            toast.error(`Erro ao carregar colaboradoras: ${err?.message || String(err)}`);
+            setColaboradoras([]);
         }
     };
 
