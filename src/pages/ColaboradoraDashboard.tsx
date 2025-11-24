@@ -511,16 +511,17 @@ const ColaboradoraDashboard = () => {
         .schema("sistemaretiradas")
         .from("adiantamentos")
         .update({
-          status: "EXCLUIDO" as any,
+          status: "CANCELADO" as any,
         })
         .eq("id", adiantamentoId)
-        .eq("colaboradora_id", profile!.id); // Garantir que só pode excluir seus próprios
+        .eq("colaboradora_id", profile!.id) // Garantir que só pode cancelar seus próprios
+        .eq("status", "PENDENTE"); // Só pode cancelar se estiver PENDENTE
 
       if (error) throw error;
-      toast.success("Adiantamento excluído com sucesso!");
+      toast.success("Adiantamento cancelado com sucesso!");
       fetchAdiantamentos();
     } catch (error: any) {
-      toast.error("Erro ao excluir adiantamento");
+      toast.error("Erro ao cancelar adiantamento");
       console.error(error);
     }
   };
@@ -533,7 +534,7 @@ const ColaboradoraDashboard = () => {
       DESCONTADO: "outline",
       AGENDADO: "secondary",
       ESTORNADO: "destructive",
-      EXCLUIDO: "outline",
+      CANCELADO: "outline",
     };
 
     return <Badge variant={variants[status] || "default"}>{status}</Badge>;
@@ -1000,6 +1001,7 @@ const ColaboradoraDashboard = () => {
                         <SelectItem value="APROVADO">Aprovado</SelectItem>
                         <SelectItem value="RECUSADO">Recusado</SelectItem>
                         <SelectItem value="DESCONTADO">Descontado</SelectItem>
+                        <SelectItem value="CANCELADO">Cancelado</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1069,7 +1071,7 @@ const ColaboradoraDashboard = () => {
                               {a.status === "RECUSADO" ? a.motivo_recusa : a.observacoes || "-"}
                             </TableCell>
                             <TableCell className="text-xs sm:text-sm">
-                              {/* Botão de excluir - apenas se status for PENDENTE */}
+                              {/* Botão de cancelar - apenas se status for PENDENTE */}
                               {a.status === "PENDENTE" && (
                                 <Button
                                   size="sm"
@@ -1078,7 +1080,8 @@ const ColaboradoraDashboard = () => {
                                   className="border-destructive/20 text-destructive hover:text-destructive hover:bg-destructive/10"
                                 >
                                   <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                                  <span className="hidden sm:inline">Excluir</span>
+                                  <span className="hidden sm:inline">Cancelar</span>
+                                  <span className="sm:hidden">Cancelar</span>
                                 </Button>
                               )}
                             </TableCell>

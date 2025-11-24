@@ -281,7 +281,7 @@ export default function NovoAdiantamento() {
             }).then(result => {
               if (result.success) {
                 console.log(`✅ WhatsApp enviado com sucesso para ${phone}`);
-              } else {
+    } else {
                 console.warn(`⚠️ Falha ao enviar WhatsApp para ${phone}:`, result.error);
               }
             }).catch(err => {
@@ -298,10 +298,10 @@ export default function NovoAdiantamento() {
       }
     })();
 
-    toast({
-      title: "Adiantamento lançado com sucesso!",
-    });
-    navigate("/admin/adiantamentos");
+      toast({
+        title: "Adiantamento lançado com sucesso!",
+      });
+      navigate("/admin/adiantamentos");
     setLoading(false);
   };
 
