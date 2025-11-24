@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
 import { format, getDaysInMonth } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
@@ -10,6 +11,7 @@ import { formatCurrency } from "@/lib/utils";
 interface DailyCollaborator {
     id: string;
     name: string;
+    storeName: string;
     vendidoHoje: number;
     metaDiariaAjustada: number;
     progress: number;
@@ -22,12 +24,28 @@ export function DailyMetaTracker() {
     const [loading, setLoading] = useState(true);
     const [totalVendido, setTotalVendido] = useState(0);
     const [totalMeta, setTotalMeta] = useState(0);
+    const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
+    const [selectedStore, setSelectedStore] = useState<string>("TODAS");
+
+    useEffect(() => {
+        fetchStores();
+    }, []);
 
     useEffect(() => {
         fetchDailyProgress();
         const interval = setInterval(fetchDailyProgress, 30000);
         return () => clearInterval(interval);
-    }, []);
+    }, [selectedStore]);
+
+    const fetchStores = async () => {
+        const { data } = await supabase
+            .from("stores")
+            .select("id, name")
+            .eq("active", true)
+            .order("name");
+
+        if (data) setStores(data);
+    };
 
     const fetchDailyProgress = async () => {
         try {
@@ -38,11 +56,18 @@ export function DailyMetaTracker() {
             const totalDias = getDaysInMonth(hoje);
 
             // Buscar todas as colaboradoras ativas
-            const { data: colabsData, error: colabsError } = await supabase
+            let query = supabase
                 .from("profiles")
-                .select("id, name, store_id")
+                .select("id, name, store_id, stores(name)")
                 .eq("role", "COLABORADORA")
                 .eq("active", true);
+
+            // Aplicar filtro de loja se selecionado
+            if (selectedStore !== "TODAS") {
+                query = query.eq("store_id", selectedStore);
+            }
+
+            const { data: colabsData, error: colabsError } = await query;
 
             if (colabsError) throw colabsError;
 
@@ -57,7 +82,7 @@ export function DailyMetaTracker() {
 
             // Para cada colaboradora, buscar meta e vendas
             const collaboratorsWithProgress = await Promise.all(
-                colabsData.map(async (colab) => {
+                colabsData.map(async (colab: any) => {
                     // Buscar meta individual
                     const { data: metaData } = await supabase
                         .from("goals")
@@ -130,6 +155,7 @@ export function DailyMetaTracker() {
                     return {
                         id: colab.id,
                         name: colab.name,
+                        storeName: colab.stores?.name || "Sem loja",
                         vendidoHoje,
                         metaDiariaAjustada,
                         progress: Math.min(progress, 100),
@@ -194,16 +220,31 @@ export function DailyMetaTracker() {
     return (
         <Card className="col-span-1 bg-gradient-to-br from-card to-card/50 border-primary/10">
             <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                    <Calendar className="h-5 w-5 text-primary" />
-                    Meta Diária
-                    {abaixoDaMetaCount > 0 && (
-                        <Badge variant="destructive" className="ml-auto text-xs">
-                            <AlertCircle className="h-3 w-3 mr-1" />
-                            {abaixoDaMetaCount} abaixo de 80%
-                        </Badge>
-                    )}
-                </CardTitle>
+                <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                        <Calendar className="h-5 w-5 text-primary" />
+                        Meta Diária
+                        {abaixoDaMetaCount > 0 && (
+                            <Badge variant="destructive" className="text-xs">
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                {abaixoDaMetaCount} abaixo de 80%
+                            </Badge>
+                        )}
+                    </CardTitle>
+                    <Select value={selectedStore} onValueChange={setSelectedStore}>
+                        <SelectTrigger className="w-[180px] h-8 text-xs">
+                            <SelectValue placeholder="Todas as lojas" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="TODAS">Todas as lojas</SelectItem>
+                            {stores.map((store) => (
+                                <SelectItem key={store.id} value={store.id}>
+                                    {store.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </CardHeader>
             <CardContent className="space-y-3">
                 {/* Resumo Geral */}
@@ -229,9 +270,12 @@ export function DailyMetaTracker() {
                                 }`}
                         >
                             <div className="flex items-center justify-between mb-1.5">
-                                <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                    {getStatusIcon(colab.status)}
-                                    <span className="text-sm font-medium truncate">{colab.name}</span>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                        {getStatusIcon(colab.status)}
+                                        <span className="text-sm font-medium truncate">{colab.name}</span>
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">{colab.storeName}</span>
                                 </div>
                                 <span className="text-xs font-semibold">{colab.progress.toFixed(0)}%</span>
                             </div>
