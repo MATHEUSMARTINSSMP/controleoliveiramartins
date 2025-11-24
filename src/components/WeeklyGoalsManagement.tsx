@@ -220,8 +220,11 @@ const WeeklyGoalsManagement = () => {
         }
     }, [colaboradorasAtivas]);
 
-    const loadSuggestions = async () => {
-        if (!selectedStore || !selectedWeek) return;
+    const loadSuggestions = async (forceLoadColabs = false) => {
+        if (!selectedStore) return;
+        
+        // Se não tem semana selecionada, ainda pode carregar colaboradoras
+        if (!selectedWeek && !forceLoadColabs) return;
 
         setLoadingSuggestions(true);
         try {
@@ -271,27 +274,32 @@ const WeeklyGoalsManagement = () => {
             if (storeColabs.length === 0) {
                 toast.warning("Nenhuma colaboradora encontrada para esta loja");
                 setColaboradorasAtivas([]);
+                setLoadingSuggestions(false);
                 return;
             }
             
-            // Check existing weekly goals for this week to see who's already active
-            const { data: existingGoals, error: existingGoalsError } = await supabase
-                .from("goals")
-                .select("colaboradora_id")
-                .eq("store_id", selectedStore)
-                .eq("semana_referencia", selectedWeek)
-                .eq("tipo", "SEMANAL");
+            // Check existing weekly goals for this week to see who's already active (só se tiver semana)
+            let existingColabIds = new Set<string>();
+            if (selectedWeek) {
+                const { data: existingGoals, error: existingGoalsError } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("goals")
+                    .select("colaboradora_id")
+                    .eq("store_id", selectedStore)
+                    .eq("semana_referencia", selectedWeek)
+                    .eq("tipo", "SEMANAL");
 
-            if (existingGoalsError) {
-                console.error("Error fetching existing goals:", existingGoalsError);
-                // Continuar mesmo com erro, apenas não marcar ninguém como ativo
+                if (existingGoalsError) {
+                    console.error("Error fetching existing goals:", existingGoalsError);
+                    // Continuar mesmo com erro, apenas não marcar ninguém como ativo
+                } else {
+                    existingColabIds = new Set(
+                        existingGoals
+                            ?.filter(g => g.colaboradora_id) // Filtrar nulos
+                            .map(g => g.colaboradora_id) || []
+                    );
+                }
             }
-
-            const existingColabIds = new Set(
-                existingGoals
-                    ?.filter(g => g.colaboradora_id) // Filtrar nulos
-                    .map(g => g.colaboradora_id) || []
-            );
 
             setColaboradorasAtivas(prev => {
                 // Se já temos colaboradoras carregadas, manter o estado de active
@@ -1069,12 +1077,16 @@ const WeeklyGoalsManagement = () => {
                         {/* 1. Seleção de Loja */}
                         <div>
                             <Label className="text-xs sm:text-sm font-semibold">1. Selecionar Loja *</Label>
-                            <Select value={selectedStore} onValueChange={(value) => {
+                            <Select value={selectedStore} onValueChange={async (value) => {
                                 setSelectedStore(value);
                                 setColaboradorasAtivas([]);
                                 setMonthlyGoal(null);
                                 setSuggestedWeeklyMeta(0);
                                 setSuggestedWeeklySuperMeta(0);
+                                // Carregar colaboradoras da loja selecionada imediatamente
+                                if (value) {
+                                    await loadSuggestions(true); // forceLoadColabs = true para carregar mesmo sem semana
+                                }
                             }}>
                                 <SelectTrigger className="text-xs sm:text-sm mt-2">
                                     <SelectValue placeholder="Selecione uma loja" />
@@ -1092,40 +1104,72 @@ const WeeklyGoalsManagement = () => {
                         {/* 2. Seleção de Colaboradoras */}
                         {selectedStore && (
                             <div>
-                                <Label className="text-xs sm:text-sm font-semibold mb-3 block">2. Ativar/Desativar Colaboradoras para Receber Gincana Semanal</Label>
-                                <Card className="border-2">
+                                <div className="flex items-center justify-between mb-3">
+                                    <Label className="text-xs sm:text-sm font-semibold block">
+                                        2. Escolher Colaboradoras que Participarão da Gincana *
+                                    </Label>
+                                    {colaboradorasAtivas.length > 0 && (
+                                        <Badge variant="secondary" className="text-[10px] sm:text-xs">
+                                            {colaboradorasAtivas.filter(c => c.active).length} de {colaboradorasAtivas.length} selecionada{colaboradorasAtivas.filter(c => c.active).length !== 1 ? 's' : ''}
+                                        </Badge>
+                                    )}
+                                </div>
+                                <Card className="border-2 border-primary/20">
                                     <CardContent className="p-3 sm:p-4">
-                                        <ScrollArea className="h-[200px] sm:h-[250px]">
-                                            <div className="space-y-2">
-                                                {colaboradorasAtivas.length === 0 && colaboradoras.filter(c => c.store_id === selectedStore).length > 0 && (
-                                                    <div className="text-center text-sm text-muted-foreground py-4">
-                                                        Carregando colaboradoras...
-                                                    </div>
-                                                )}
-                                                {colaboradorasAtivas.map((colab) => (
-                                                    <div key={colab.id} className="flex items-center justify-between p-2 sm:p-3 rounded-lg border hover:bg-muted/20 transition-colors">
-                                                        <span className="text-xs sm:text-sm font-medium flex-1 truncate pr-2">{colab.name}</span>
-                                                        <div className="flex items-center gap-2 flex-shrink-0">
-                                                            {colab.active && (
-                                                                <Badge variant="default" className="text-[10px] sm:text-xs">
-                                                                    Ativa
-                                                                </Badge>
-                                                            )}
-                                                            <Switch
-                                                                checked={colab.active}
-                                                                onCheckedChange={() => toggleColaboradoraActive(colab.id)}
-                                                                className="scale-90 sm:scale-100"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                                {colaboradorasAtivas.length === 0 && (
-                                                    <div className="text-center text-sm text-muted-foreground py-4">
-                                                        Selecione uma loja para ver as colaboradoras
-                                                    </div>
-                                                )}
+                                        {loadingSuggestions ? (
+                                            <div className="text-center text-sm text-muted-foreground py-8">
+                                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+                                                Carregando colaboradoras...
                                             </div>
-                                        </ScrollArea>
+                                        ) : (
+                                            <ScrollArea className="h-[250px] sm:h-[300px]">
+                                                <div className="space-y-2">
+                                                    {colaboradorasAtivas.length === 0 && colaboradoras.filter(c => c.store_id === selectedStore).length > 0 && (
+                                                        <div className="text-center text-sm text-muted-foreground py-4">
+                                                            <p className="mb-2">Nenhuma colaboradora encontrada para esta loja.</p>
+                                                            <p className="text-xs">Verifique se há colaboradoras cadastradas e ativas.</p>
+                                                        </div>
+                                                    )}
+                                                    {colaboradorasAtivas.length === 0 && colaboradoras.filter(c => c.store_id === selectedStore).length === 0 && (
+                                                        <div className="text-center text-sm text-muted-foreground py-4">
+                                                            <p className="mb-2">Selecione uma loja para ver as colaboradoras.</p>
+                                                        </div>
+                                                    )}
+                                                    {colaboradorasAtivas.map((colab) => (
+                                                        <div key={colab.id} className="flex items-center justify-between p-3 sm:p-4 rounded-lg border-2 hover:border-primary/50 hover:bg-primary/5 transition-all">
+                                                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                                <UserCheck className={`h-4 w-4 flex-shrink-0 ${colab.active ? 'text-primary' : 'text-muted-foreground'}`} />
+                                                                <span className="text-xs sm:text-sm font-medium truncate">{colab.name}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-3 flex-shrink-0">
+                                                                {colab.active ? (
+                                                                    <Badge variant="default" className="text-[10px] sm:text-xs bg-primary">
+                                                                        Participa
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <Badge variant="outline" className="text-[10px] sm:text-xs">
+                                                                        Não participa
+                                                                    </Badge>
+                                                                )}
+                                                                <Switch
+                                                                    checked={colab.active}
+                                                                    onCheckedChange={() => toggleColaboradoraActive(colab.id)}
+                                                                    className="scale-90 sm:scale-100"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </ScrollArea>
+                                        )}
+                                        {colaboradorasAtivas.length > 0 && (
+                                            <div className="mt-3 pt-3 border-t">
+                                                <p className="text-xs text-muted-foreground">
+                                                    💡 Use o switch ao lado de cada colaboradora para incluí-la ou excluí-la da gincana semanal.
+                                                    Apenas as colaboradoras com switch ativado receberão a gincana e as notificações WhatsApp.
+                                                </p>
+                                            </div>
+                                        )}
                                     </CardContent>
                                 </Card>
                             </div>
