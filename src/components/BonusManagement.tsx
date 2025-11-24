@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash, Gift, Check, Trophy, ArrowLeft, Edit, Trash2 } from "lucide-react";
+import { Plus, Gift, Check, ArrowLeft, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -259,7 +259,7 @@ export default function BonusManagement() {
         fetchBonuses();
     };
 
-    const handleEdit = (bonus: Bonus) => {
+    const handleEdit = async (bonus: Bonus) => {
         setEditingBonus(bonus);
 
         // Determinar categoria baseado nos campos existentes
