@@ -27,3 +27,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Temporary debug files with secrets
+*_via_api.js
+*_debug.js
+*_test_secret.js
