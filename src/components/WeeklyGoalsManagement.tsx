@@ -417,17 +417,24 @@ const WeeklyGoalsManagement = () => {
             }
 
             // Sempre atualizar colaboradoras ativas, mesmo sem semana
-            setColaboradorasAtivas(prev => {
-                // Se já temos colaboradoras carregadas, manter o estado de active
-                const prevMap = new Map(prev.map(c => [c.id, c.active]));
-                const newColabs = storeColabs.map(c => ({
+            const newColabs = storeColabs.map(c => {
+                // Verificar se já estava ativa antes (manter estado)
+                const wasActive = colaboradorasAtivas.find(ca => ca.id === c.id)?.active;
+                // Se não tinha estado anterior, verificar se já tem gincana ou ativar por padrão
+                const shouldBeActive = wasActive !== undefined 
+                    ? wasActive 
+                    : (existingColabIds.has(c.id) || true); // Por padrão, todas ativas
+                
+                return {
                     id: c.id,
                     name: c.name || "Sem nome",
-                    active: prevMap.get(c.id) ?? existingColabIds.has(c.id) ?? true // Por padrão, todas ativas
-                }));
-                console.log('[loadSuggestions] Colaboradoras ativas atualizadas:', newColabs.length);
-                return newColabs;
+                    active: shouldBeActive
+                };
             });
+            
+            console.log('[loadSuggestions] ✅ Colaboradoras ativas atualizadas:', newColabs.length);
+            console.log('[loadSuggestions] Colaboradoras:', newColabs.map(c => `${c.name} (${c.active ? 'ativa' : 'inativa'})`));
+            setColaboradorasAtivas(newColabs);
         } catch (err) {
             console.error("Error loading suggestions:", err);
             toast.error("Erro ao carregar sugestões");
