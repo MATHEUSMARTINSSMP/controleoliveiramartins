@@ -182,51 +182,21 @@ export default function SolicitarAdiantamento() {
         console.log('📱 [2/5] Admin ID:', storeData.admin_id);
 
         // Buscar destinatários WhatsApp configurados para ADIANTAMENTO
+        // Usar EXATAMENTE a mesma lógica do LojaDashboard para VENDA
         console.log('📱 [3/5] Buscando destinatários WhatsApp para ADIANTAMENTO...');
         console.log('📱 [3/5] Admin ID:', storeData.admin_id);
         console.log('📱 [3/5] Store ID da colaboradora:', colaboradoraData.store_id);
         
-        // Primeiro, buscar TODOS os registros de ADIANTAMENTO para este admin (sem filtro de store_id ou active)
-        const { data: allRecipients, error: allRecipientsError } = await supabase
-          .schema('sistemaretiradas')
-          .from('whatsapp_notification_config')
-          .select('*')
-          .eq('admin_id', storeData.admin_id)
-          .eq('notification_type', 'ADIANTAMENTO');
-        
-        if (allRecipientsError) {
-          console.error('❌ Erro ao buscar todos os destinatários:', allRecipientsError);
-        } else {
-          console.log('📱 [3/5] Total de registros ADIANTAMENTO para este admin:', allRecipients?.length || 0);
-          if (allRecipients && allRecipients.length > 0) {
-            console.log('📱 [3/5] Registros encontrados:', allRecipients.map(r => ({
-              id: r.id,
-              phone: r.phone,
-              store_id: r.store_id,
-              active: r.active
-            })));
-          }
-        }
-        
-        // Agora buscar com filtros corretos
+        // Buscar destinatários: store_id IS NULL (todas as lojas) OU store_id = loja atual
+        // Usar EXATAMENTE a mesma lógica do LojaDashboard para VENDA
         const { data: recipientsAllStores, error: recipientsAllError } = await supabase
           .schema('sistemaretiradas')
           .from('whatsapp_notification_config')
           .select('phone')
           .eq('admin_id', storeData.admin_id)
           .eq('notification_type', 'ADIANTAMENTO')
+          .eq('active', true)
           .is('store_id', null);
-        
-        if (recipientsAllError) {
-          console.error('❌ Erro ao buscar destinatários (todas as lojas):', recipientsAllError);
-          console.error('❌ Código do erro:', recipientsAllError.code);
-          console.error('❌ Mensagem do erro:', recipientsAllError.message);
-        } else {
-          console.log('📱 [3/5] Destinatários (todas as lojas - store_id IS NULL):', recipientsAllStores?.length || 0);
-          if (recipientsAllStores && recipientsAllStores.length > 0) {
-            console.log('📱 [3/5] Números (todas as lojas):', recipientsAllStores.map(r => r.phone));
-          }
-        }
         
         const { data: recipientsThisStore, error: recipientsStoreError } = await supabase
           .schema('sistemaretiradas')
@@ -234,20 +204,22 @@ export default function SolicitarAdiantamento() {
           .select('phone')
           .eq('admin_id', storeData.admin_id)
           .eq('notification_type', 'ADIANTAMENTO')
+          .eq('active', true)
           .eq('store_id', colaboradoraData.store_id);
         
-        if (recipientsStoreError) {
-          console.error('❌ Erro ao buscar destinatários (loja específica):', recipientsStoreError);
-          console.error('❌ Código do erro:', recipientsStoreError.code);
-          console.error('❌ Mensagem do erro:', recipientsStoreError.message);
-        } else {
-          console.log('📱 [3/5] Destinatários (loja específica - store_id = ' + colaboradoraData.store_id + '):', recipientsThisStore?.length || 0);
-          if (recipientsThisStore && recipientsThisStore.length > 0) {
-            console.log('📱 [3/5] Números (loja específica):', recipientsThisStore.map(r => r.phone));
-          }
+        console.log('📱 [3/5] Resultado da busca de destinatários:', { 
+          recipientsAllStores, 
+          recipientsThisStore, 
+          recipientsAllError,
+          recipientsStoreError 
+        });
+
+        if (recipientsAllError || recipientsStoreError) {
+          console.error('❌ Erro ao buscar destinatários WhatsApp:', recipientsAllError || recipientsStoreError);
+          return;
         }
-        
-        // Combinar resultados e remover duplicatas
+
+        // Combinar resultados e remover duplicatas (mesma lógica do LojaDashboard)
         const recipientsData = [
           ...(recipientsAllStores || []),
           ...(recipientsThisStore || [])
@@ -255,14 +227,27 @@ export default function SolicitarAdiantamento() {
           index === self.findIndex(t => t.phone === item.phone)
         );
 
-        console.log('📱 [3/5] Total de destinatários únicos:', recipientsData.length);
-        if (recipientsData.length > 0) {
-          console.log('📱 [3/5] Números:', recipientsData.map(r => r.phone));
+        // Extrair lista de números dos destinatários (mesma lógica do LojaDashboard)
+        let adminPhones: string[] = [];
+        if (recipientsData && recipientsData.length > 0) {
+          recipientsData.forEach((recipient: any) => {
+            if (recipient.phone) {
+              // Normalizar: remover caracteres não numéricos
+              // A função Netlify adicionará o DDI 55 se necessário
+              const cleaned = recipient.phone.replace(/\D/g, '');
+              if (cleaned && !adminPhones.includes(cleaned)) {
+                adminPhones.push(cleaned);
+              }
+            }
+          });
         }
 
-        if (!recipientsData || recipientsData.length === 0) {
-          console.warn('⚠️ [3/5] Nenhum destinatário WhatsApp configurado para notificações de adiantamento');
-          console.warn('⚠️ [3/5] Verifique se há números configurados em "Configurações > Notificações WhatsApp" para o tipo "ADIANTAMENTO"');
+        console.log('📱 [3/5] Destinatários WhatsApp encontrados:', adminPhones.length);
+        if (adminPhones.length > 0) {
+          console.log('📱 [3/5] Números:', adminPhones);
+        } else {
+          console.warn('⚠️ [3/5] NENHUM destinatário WhatsApp encontrado!');
+          console.warn('⚠️ [3/5] Verifique se há números configurados em "Configurações > Notificações WhatsApp" para o tipo "ADIANTAMENTO".');
           return;
         }
 
@@ -278,33 +263,31 @@ export default function SolicitarAdiantamento() {
 
         console.log('📱 [4/5] Mensagem formatada:', message);
 
-        // Enviar para todos os destinatários
-        console.log('📱 [5/5] Enviando WhatsApp para', recipientsData.length, 'destinatário(s)...');
-        const sendPromises = recipientsData.map((recipient, index) => {
-          const cleanedPhone = recipient.phone.replace(/\D/g, '');
-          console.log(`📱 [5/5] Enviando para destinatário ${index + 1}/${recipientsData.length}: ${cleanedPhone}`);
-          return sendWhatsAppMessage({
-            phone: cleanedPhone,
-            message,
-          }).then(result => {
-            if (result.success) {
-              console.log(`✅ [5/5] WhatsApp enviado com sucesso para ${cleanedPhone}`);
-            } else {
-              console.warn(`⚠️ [5/5] Falha ao enviar WhatsApp para ${cleanedPhone}:`, result.error);
-            }
-            return result;
-          }).catch(err => {
-            console.error(`❌ [5/5] Erro ao enviar WhatsApp para ${cleanedPhone}:`, err);
-            return { success: false, error: err };
-          });
-        });
+        // Enviar mensagem WhatsApp para todos os números em background (mesma lógica do LojaDashboard)
+        console.log(`📱 [5/5] Enviando WhatsApp para ${adminPhones.length} destinatário(s)...`);
 
-        const results = await Promise.all(sendPromises);
-        const successCount = results.filter(r => r.success).length;
-        const failCount = results.filter(r => !r.success).length;
-        
-        console.log('📱 [SolicitarAdiantamento] ✅ Processo concluído!');
-        console.log(`📱 [SolicitarAdiantamento] Sucessos: ${successCount}, Falhas: ${failCount}`);
+        // Enviar para todos os números em paralelo (não bloqueia)
+        Promise.all(
+          adminPhones.map(phone => 
+            sendWhatsAppMessage({
+              phone,
+              message,
+            }).then(result => {
+              if (result.success) {
+                console.log(`✅ WhatsApp enviado com sucesso para ${phone}`);
+              } else {
+                console.warn(`⚠️ Falha ao enviar WhatsApp para ${phone}:`, result.error);
+              }
+            }).catch(err => {
+              console.error(`❌ Erro ao enviar WhatsApp para ${phone}:`, err);
+              // Não mostrar erro ao usuário, apenas log
+            })
+          )
+        ).then(() => {
+          console.log('📱 [SolicitarAdiantamento] ✅ Processo de envio de WhatsApp concluído');
+        }).catch(err => {
+          console.error('❌ Erro geral ao enviar WhatsApp:', err);
+        });
       } catch (err) {
         console.error('❌ Erro no processo de envio de WhatsApp:', err);
         console.error('❌ Stack:', err instanceof Error ? err.stack : 'N/A');
