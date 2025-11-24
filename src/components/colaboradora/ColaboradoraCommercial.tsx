@@ -230,11 +230,11 @@ export const ColaboradoraCommercial = () => {
                   </div>
                 </div>
 
-                {/* Dias úteis restantes */}
+                {/* Dias restantes */}
                 <div className="p-3 bg-white/60 rounded-lg border border-orange-100">
-                  <div className="text-xs text-muted-foreground mb-1">Dias úteis restantes</div>
+                  <div className="text-xs text-muted-foreground mb-1">Dias restantes</div>
                   <div className="text-xl font-bold text-orange-700">
-                    {calculation.diasUteisRestantes} dias
+                    {calculation.diasRestantes} dias
                   </div>
                 </div>
 

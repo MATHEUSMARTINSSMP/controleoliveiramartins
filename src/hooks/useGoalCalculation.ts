@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { format, getDaysInMonth, getDay, isWeekend, addDays, startOfMonth, endOfMonth } from 'date-fns';
+import { format, getDaysInMonth, startOfMonth, endOfMonth } from 'date-fns';
 
 interface Goal {
   id: string;
@@ -56,7 +56,6 @@ interface GoalCalculationResult {
   // Déficit/Poupança
   deficit: number;
   diasRestantes: number;
-  diasUteisRestantes: number;
   
   // Ritmo necessário
   ritmoNecessario: number;
@@ -131,19 +130,10 @@ export const useGoalCalculation = (
           .filter(v => v.data_venda.startsWith(hojeStr))
           .reduce((sum, v) => sum + v.valor, 0);
 
-        // 5. Calcular dias do mês e dias úteis restantes
+        // 5. Calcular dias do mês e dias restantes (todos os dias, incluindo finais de semana)
         const totalDias = getDaysInMonth(hoje);
         const diaAtual = hoje.getDate();
         const diasRestantes = totalDias - diaAtual;
-        
-        // Contar dias úteis restantes (excluir finais de semana)
-        let diasUteisRestantes = 0;
-        for (let i = 1; i <= diasRestantes; i++) {
-          const dataFutura = addDays(hoje, i);
-          if (!isWeekend(dataFutura)) {
-            diasUteisRestantes++;
-          }
-        }
 
         // 6. Calcular meta diária padrão usando daily_weights
         let metaDiariaPadrao = metaMensal / totalDias;
@@ -192,10 +182,10 @@ export const useGoalCalculation = (
         // 8. Calcular meta diária ajustada
         let metaDiariaAjustada = metaDiariaPadrao;
         
-        if (diasUteisRestantes > 0) {
+        if (diasRestantes > 0) {
           if (deficit > 0) {
-            // Se está atrasada, distribuir déficit nos dias úteis restantes
-            metaDiariaAjustada = metaDiariaPadrao + (deficit / diasUteisRestantes);
+            // Se está atrasada, distribuir déficit nos dias restantes
+            metaDiariaAjustada = metaDiariaPadrao + (deficit / diasRestantes);
           } else {
             // Se está à frente, não reduzir a meta (mantém padrão)
             metaDiariaAjustada = metaDiariaPadrao;
@@ -220,8 +210,8 @@ export const useGoalCalculation = (
           return metaEsperadaSuperMeta - vendidoAteOntem;
         })();
 
-        if (diasUteisRestantes > 0 && deficitSuperMeta > 0) {
-          superMetaDiariaAjustada = superMetaDiariaPadrao + (deficitSuperMeta / diasUteisRestantes);
+        if (diasRestantes > 0 && deficitSuperMeta > 0) {
+          superMetaDiariaAjustada = superMetaDiariaPadrao + (deficitSuperMeta / diasRestantes);
         }
 
         // 9. Calcular progresso hoje
@@ -247,8 +237,8 @@ export const useGoalCalculation = (
         }
 
         // 11. Calcular ritmo necessário
-        const ritmoNecessario = diasUteisRestantes > 0 
-          ? (metaMensal - realizadoMensal) / diasUteisRestantes
+        const ritmoNecessario = diasRestantes > 0 
+          ? (metaMensal - realizadoMensal) / diasRestantes
           : 0;
 
         // 12. Calcular projeção mensal
@@ -257,11 +247,11 @@ export const useGoalCalculation = (
 
         // 13. Calcular necessidade para super meta
         const restanteSuperMeta = superMetaMensal - realizadoMensal;
-        const necessidadeSuperMeta = diasUteisRestantes > 0 
-          ? restanteSuperMeta / diasUteisRestantes
+        const necessidadeSuperMeta = diasRestantes > 0 
+          ? restanteSuperMeta / diasRestantes
           : 0;
-        const ritmoSuperMeta = diasUteisRestantes > 0
-          ? restanteSuperMeta / diasUteisRestantes
+        const ritmoSuperMeta = diasRestantes > 0
+          ? restanteSuperMeta / diasRestantes
           : 0;
 
         setResult({
@@ -281,7 +271,6 @@ export const useGoalCalculation = (
           mensagem,
           deficit,
           diasRestantes,
-          diasUteisRestantes,
           ritmoNecessario,
           projecaoMensal,
           necessidadeSuperMeta,
