@@ -39,12 +39,24 @@ export default function BonusManagement() {
         nome: "",
         descricao: "",
         tipo: "VALOR_FIXO",
-        tipo_condicao: "PERCENTUAL_META",
+        tipo_condicao: "PERCENTUAL_META", // Mantido para compatibilidade
         meta_minima_percentual: "",
         vendas_minimas: "",
         valor_bonus: "",
         descricao_premio: "",
         store_id: "TODAS",
+        // Novos campos para condições avançadas
+        categoria_condicao: "BASICA", // "BASICA" ou "AVANCADA"
+        condicao_tipo: "", // "TICKET_MEDIO", "PA", "META_LOJA", "META_COLAB", "GINCANA"
+        condicao_ranking: "", // "1", "2", "3"
+        condicao_meta_tipo: "", // "MENSAL", "SEMANAL", "DIARIA", etc
+        condicao_escopo: "", // "LOJA" ou "COLABORADORA"
+        condicao_faturamento: "",
+        periodo_tipo: "MES_ATUAL", // "CUSTOM", "MES", "SEMANA", "MES_ATUAL"
+        periodo_data_inicio: "",
+        periodo_data_fim: "",
+        periodo_mes: "",
+        periodo_semana: "",
     });
 
     useEffect(() => {
@@ -96,13 +108,24 @@ export default function BonusManagement() {
             nome: formData.nome,
             descricao: formData.descricao || null,
             tipo: formData.tipo,
-            tipo_condicao: formData.tipo_condicao,
+            tipo_condicao: formData.tipo_condicao, // Mantido para compatibilidade
             meta_minima_percentual: metaMinimaPercentual,
             vendas_minimas: formData.vendas_minimas ? parseFloat(formData.vendas_minimas) : null,
             valor_bonus: parseFloat(formData.valor_bonus),
             descricao_premio: formData.descricao_premio || null,
-            valor_condicao: null, // Pode ser usado para outras condições no futuro
+            valor_condicao: null,
             ativo: true,
+            // Novos campos para condições avançadas
+            condicao_tipo: formData.condicao_tipo || null,
+            condicao_ranking: formData.condicao_ranking ? parseInt(formData.condicao_ranking) : null,
+            condicao_meta_tipo: formData.condicao_meta_tipo || null,
+            condicao_escopo: formData.condicao_escopo || null,
+            condicao_faturamento: formData.condicao_faturamento ? parseFloat(formData.condicao_faturamento) : null,
+            periodo_tipo: formData.periodo_tipo || null,
+            periodo_data_inicio: formData.periodo_data_inicio || null,
+            periodo_data_fim: formData.periodo_data_fim || null,
+            periodo_mes: formData.periodo_mes || null,
+            periodo_semana: formData.periodo_semana || null,
         };
 
         // Adicionar store_id se não for "TODAS"
@@ -139,6 +162,15 @@ export default function BonusManagement() {
 
     const handleEdit = (bonus: Bonus) => {
         setEditingBonus(bonus);
+        
+        // Determinar categoria baseado nos campos existentes
+        let categoria = "LEGADO";
+        if ((bonus as any).condicao_tipo) {
+            categoria = "BASICA";
+        } else if ((bonus as any).condicao_meta_tipo) {
+            categoria = "AVANCADA";
+        }
+        
         setFormData({
             nome: bonus.nome,
             descricao: bonus.descricao || "",
@@ -149,6 +181,17 @@ export default function BonusManagement() {
             valor_bonus: bonus.valor_bonus.toString(),
             descricao_premio: bonus.descricao_premio || "",
             store_id: bonus.store_id || "TODAS",
+            categoria_condicao: categoria,
+            condicao_tipo: (bonus as any).condicao_tipo || "",
+            condicao_ranking: (bonus as any).condicao_ranking?.toString() || "",
+            condicao_meta_tipo: (bonus as any).condicao_meta_tipo || "",
+            condicao_escopo: (bonus as any).condicao_escopo || "",
+            condicao_faturamento: (bonus as any).condicao_faturamento?.toString() || "",
+            periodo_tipo: (bonus as any).periodo_tipo || "MES_ATUAL",
+            periodo_data_inicio: (bonus as any).periodo_data_inicio || "",
+            periodo_data_fim: (bonus as any).periodo_data_fim || "",
+            periodo_mes: (bonus as any).periodo_mes || "",
+            periodo_semana: (bonus as any).periodo_semana || "",
         });
         setDialogOpen(true);
     };
@@ -179,6 +222,17 @@ export default function BonusManagement() {
             valor_bonus: "",
             descricao_premio: "",
             store_id: "TODAS",
+            categoria_condicao: "BASICA",
+            condicao_tipo: "",
+            condicao_ranking: "",
+            condicao_meta_tipo: "",
+            condicao_escopo: "",
+            condicao_faturamento: "",
+            periodo_tipo: "MES_ATUAL",
+            periodo_data_inicio: "",
+            periodo_data_fim: "",
+            periodo_mes: "",
+            periodo_semana: "",
         });
     };
 
@@ -313,25 +367,282 @@ export default function BonusManagement() {
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                        {/* Seção: Categoria de Condição */}
+                        <div>
+                            <Label className="text-xs sm:text-sm font-semibold">Categoria de Condição</Label>
+                            <Select 
+                                value={formData.categoria_condicao} 
+                                onValueChange={(v) => {
+                                    setFormData({ 
+                                        ...formData, 
+                                        categoria_condicao: v,
+                                        // Resetar campos específicos ao mudar categoria
+                                        condicao_tipo: "",
+                                        condicao_ranking: "",
+                                        condicao_meta_tipo: "",
+                                        condicao_escopo: "",
+                                        condicao_faturamento: "",
+                                    });
+                                }}
+                            >
+                                <SelectTrigger className="text-xs sm:text-sm">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="BASICA">Condições Básicas (Rankings)</SelectItem>
+                                    <SelectItem value="AVANCADA">Filtros Avançados (Metas)</SelectItem>
+                                    <SelectItem value="LEGADO">Legado (Compatibilidade)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Seção: Condições Básicas */}
+                        {formData.categoria_condicao === "BASICA" && (
+                            <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
+                                <Label className="text-xs sm:text-sm font-semibold">Condições Básicas</Label>
+                                
+                                <div>
+                                    <Label className="text-xs sm:text-sm">Métrica</Label>
+                                    <Select 
+                                        value={formData.condicao_tipo} 
+                                        onValueChange={(v) => setFormData({ ...formData, condicao_tipo: v })}
+                                    >
+                                        <SelectTrigger className="text-xs sm:text-sm">
+                                            <SelectValue placeholder="Selecione a métrica" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="TICKET_MEDIO">Ticket Médio</SelectItem>
+                                            <SelectItem value="PA">PA (Peças por Atendimento)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {formData.condicao_tipo && (
+                                    <div>
+                                        <Label className="text-xs sm:text-sm">Ranking</Label>
+                                        <Select 
+                                            value={formData.condicao_ranking} 
+                                            onValueChange={(v) => setFormData({ ...formData, condicao_ranking: v })}
+                                        >
+                                            <SelectTrigger className="text-xs sm:text-sm">
+                                                <SelectValue placeholder="Selecione o ranking" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="1">Melhor (1º lugar)</SelectItem>
+                                                <SelectItem value="2">Top 2</SelectItem>
+                                                <SelectItem value="3">Top 3</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Seção: Filtros Avançados */}
+                        {formData.categoria_condicao === "AVANCADA" && (
+                            <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
+                                <Label className="text-xs sm:text-sm font-semibold">Filtros Avançados</Label>
+                                
+                                <div>
+                                    <Label className="text-xs sm:text-sm">Escopo</Label>
+                                    <Select 
+                                        value={formData.condicao_escopo} 
+                                        onValueChange={(v) => {
+                                            setFormData({ 
+                                                ...formData, 
+                                                condicao_escopo: v,
+                                                condicao_meta_tipo: "", // Reset ao mudar escopo
+                                            });
+                                        }}
+                                    >
+                                        <SelectTrigger className="text-xs sm:text-sm">
+                                            <SelectValue placeholder="Selecione o escopo" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="LOJA">Loja</SelectItem>
+                                            <SelectItem value="COLABORADORA">Colaboradora</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {formData.condicao_escopo && (
+                                    <>
+                                        <div>
+                                            <Label className="text-xs sm:text-sm">Tipo de Meta</Label>
+                                            <Select 
+                                                value={formData.condicao_meta_tipo} 
+                                                onValueChange={(v) => setFormData({ ...formData, condicao_meta_tipo: v })}
+                                            >
+                                                <SelectTrigger className="text-xs sm:text-sm">
+                                                    <SelectValue placeholder="Selecione o tipo" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {formData.condicao_escopo === "LOJA" && (
+                                                        <>
+                                                            <SelectItem value="META_MENSAL">Meta Mensal</SelectItem>
+                                                            <SelectItem value="META_SEMANAL">Meta Semanal</SelectItem>
+                                                            <SelectItem value="META_DIARIA">Meta Diária</SelectItem>
+                                                            <SelectItem value="SUPER_META_MENSAL">Super Meta Mensal</SelectItem>
+                                                            <SelectItem value="SUPER_META_SEMANAL">Super Meta Semanal</SelectItem>
+                                                            <SelectItem value="FATURAMENTO">Faturamento X</SelectItem>
+                                                        </>
+                                                    )}
+                                                    {formData.condicao_escopo === "COLABORADORA" && (
+                                                        <>
+                                                            <SelectItem value="META_MENSAL">Meta Mensal</SelectItem>
+                                                            <SelectItem value="META_DIARIA">Meta Diária</SelectItem>
+                                                            <SelectItem value="SUPER_META">Super Meta</SelectItem>
+                                                            <SelectItem value="GINCANA_SEMANAL">Gincana Semanal</SelectItem>
+                                                            <SelectItem value="SUPER_GINCANA_SEMANAL">Super Gincana Semanal</SelectItem>
+                                                        </>
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        {formData.condicao_meta_tipo === "FATURAMENTO" && (
+                                            <div>
+                                                <Label className="text-xs sm:text-sm">Valor de Faturamento (R$)</Label>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={formData.condicao_faturamento}
+                                                    onChange={(e) => setFormData({ ...formData, condicao_faturamento: e.target.value })}
+                                                    placeholder="Ex: 50000"
+                                                    className="text-xs sm:text-sm"
+                                                />
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Seção: Condições Legadas (compatibilidade) */}
+                        {formData.categoria_condicao === "LEGADO" && (
+                            <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
+                                <Label className="text-xs sm:text-sm font-semibold">Condições Legadas</Label>
+                                <div>
+                                    <Label className="text-xs sm:text-sm">Tipo de Condição</Label>
+                                    <Select value={formData.tipo_condicao} onValueChange={(v) => {
+                                        setFormData({ ...formData, tipo_condicao: v });
+                                        if (v === 'META_SEMANAL' || v === 'SUPER_META_SEMANAL') {
+                                            setFormData(prev => ({ ...prev, meta_minima_percentual: '100', tipo: 'VALOR_FIXO' }));
+                                        }
+                                    }}>
+                                        <SelectTrigger className="text-xs sm:text-sm">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="PERCENTUAL_META">Meta Percentual</SelectItem>
+                                            <SelectItem value="RANKING">Ranking</SelectItem>
+                                            <SelectItem value="VALOR_FIXO_VENDAS">Valor Fixo de Vendas</SelectItem>
+                                            <SelectItem value="META_SEMANAL">Gincana Semanal (Checkpoint 1)</SelectItem>
+                                            <SelectItem value="SUPER_META_SEMANAL">Super Gincana Semanal (Checkpoint Final)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Seção: Período de Referência */}
+                        <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
+                            <Label className="text-xs sm:text-sm font-semibold">Período de Referência</Label>
+                            
                             <div>
-                                <Label className="text-xs sm:text-sm">Tipo de Condição</Label>
-                                <Select value={formData.tipo_condicao} onValueChange={(v) => {
-                                    setFormData({ ...formData, tipo_condicao: v });
-                                    // Para bônus semanais, meta_minima_percentual é sempre 100%
-                                    if (v === 'META_SEMANAL' || v === 'SUPER_META_SEMANAL') {
-                                        setFormData(prev => ({ ...prev, meta_minima_percentual: '100', tipo: 'VALOR_FIXO' }));
-                                    }
-                                }}>
+                                <Label className="text-xs sm:text-sm">Tipo de Período</Label>
+                                <Select 
+                                    value={formData.periodo_tipo} 
+                                    onValueChange={(v) => {
+                                        setFormData({ 
+                                            ...formData, 
+                                            periodo_tipo: v,
+                                            // Reset campos específicos
+                                            periodo_data_inicio: "",
+                                            periodo_data_fim: "",
+                                            periodo_mes: "",
+                                            periodo_semana: "",
+                                        });
+                                    }}
+                                >
                                     <SelectTrigger className="text-xs sm:text-sm">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="PERCENTUAL_META">Meta Percentual</SelectItem>
-                                        <SelectItem value="RANKING">Ranking</SelectItem>
-                                        <SelectItem value="VALOR_FIXO_VENDAS">Valor Fixo de Vendas</SelectItem>
-                                        <SelectItem value="META_SEMANAL">Gincana Semanal (Checkpoint 1)</SelectItem>
-                                        <SelectItem value="SUPER_META_SEMANAL">Super Gincana Semanal (Checkpoint Final)</SelectItem>
+                                        <SelectItem value="MES_ATUAL">Mês Atual</SelectItem>
+                                        <SelectItem value="CUSTOM">Período Customizado (Data X a Data X)</SelectItem>
+                                        <SelectItem value="MES">Mês Específico</SelectItem>
+                                        <SelectItem value="SEMANA">Semana Específica</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {formData.periodo_tipo === "CUSTOM" && (
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <Label className="text-xs sm:text-sm">Data Início</Label>
+                                        <Input
+                                            type="date"
+                                            value={formData.periodo_data_inicio}
+                                            onChange={(e) => setFormData({ ...formData, periodo_data_inicio: e.target.value })}
+                                            className="text-xs sm:text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs sm:text-sm">Data Fim</Label>
+                                        <Input
+                                            type="date"
+                                            value={formData.periodo_data_fim}
+                                            onChange={(e) => setFormData({ ...formData, periodo_data_fim: e.target.value })}
+                                            className="text-xs sm:text-sm"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {formData.periodo_tipo === "MES" && (
+                                <div>
+                                    <Label className="text-xs sm:text-sm">Mês/Ano</Label>
+                                    <Input
+                                        type="month"
+                                        value={formData.periodo_mes ? `${formData.periodo_mes.slice(0, 4)}-${formData.periodo_mes.slice(4)}` : ""}
+                                        onChange={(e) => {
+                                            const value = e.target.value.replace("-", "");
+                                            setFormData({ ...formData, periodo_mes: value });
+                                        }}
+                                        className="text-xs sm:text-sm"
+                                    />
+                                </div>
+                            )}
+
+                            {formData.periodo_tipo === "SEMANA" && (
+                                <div>
+                                    <Label className="text-xs sm:text-sm">Semana/Ano (formato: WWYYYY)</Label>
+                                    <Input
+                                        type="text"
+                                        value={formData.periodo_semana}
+                                        onChange={(e) => setFormData({ ...formData, periodo_semana: e.target.value })}
+                                        placeholder="Ex: 482025 (semana 48 de 2025)"
+                                        className="text-xs sm:text-sm"
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                            <div>
+                                <Label className="text-xs sm:text-sm">Loja</Label>
+                                <Select value={formData.store_id} onValueChange={(v) => setFormData({ ...formData, store_id: v })}>
+                                    <SelectTrigger className="text-xs sm:text-sm">
+                                        <SelectValue placeholder="Selecione" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="TODAS">Todas</SelectItem>
+                                        {stores.map((store) => (
+                                            <SelectItem key={store.id} value={store.id}>
+                                                {store.name}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -354,52 +665,71 @@ export default function BonusManagement() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                            {(formData.tipo_condicao !== 'META_SEMANAL' && formData.tipo_condicao !== 'SUPER_META_SEMANAL') && (
+                        {/* Campos condicionais para modo legado */}
+                        {formData.categoria_condicao === "LEGADO" && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                {(formData.tipo_condicao !== 'META_SEMANAL' && formData.tipo_condicao !== 'SUPER_META_SEMANAL') && (
+                                    <div>
+                                        <Label className="text-xs sm:text-sm">
+                                            {formData.tipo_condicao === 'PERCENTUAL_META' ? 'Meta Mínima (%)' : 'Condição'}
+                                        </Label>
+                                        <Input
+                                            type="number"
+                                            step="0.01"
+                                            value={formData.meta_minima_percentual}
+                                            onChange={(e) => setFormData({ ...formData, meta_minima_percentual: e.target.value })}
+                                            placeholder={formData.tipo_condicao === 'PERCENTUAL_META' ? "Ex: 100 (para 100%)" : "Valor da condição"}
+                                            required={formData.tipo_condicao !== 'META_SEMANAL' && formData.tipo_condicao !== 'SUPER_META_SEMANAL'}
+                                            className="text-xs sm:text-sm"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Valor do Bônus */}
+                        <div>
+                            <Label className="text-xs sm:text-sm font-semibold">Valor do Bônus</Label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                <div>
+                                    <Label className="text-xs sm:text-sm">Tipo</Label>
+                                    <Select 
+                                        value={formData.tipo} 
+                                        onValueChange={(v) => setFormData({ ...formData, tipo: v })}
+                                    >
+                                        <SelectTrigger className="text-xs sm:text-sm">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="VALOR_FIXO">Valor Fixo (R$)</SelectItem>
+                                            <SelectItem value="PERCENTUAL">Percentual (%)</SelectItem>
+                                            <SelectItem value="PRODUTO">Produto</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                                 <div>
                                     <Label className="text-xs sm:text-sm">
-                                        {formData.tipo_condicao === 'PERCENTUAL_META' ? 'Meta Mínima (%)' : 'Condição'}
+                                        {formData.tipo === 'PERCENTUAL' ? 'Valor (%)' : formData.tipo === 'PRODUTO' ? 'Descrição do Prêmio' : 'Valor (R$)'}
                                     </Label>
-                                    <Input
-                                        type="number"
-                                        step="0.01"
-                                        value={formData.meta_minima_percentual}
-                                        onChange={(e) => setFormData({ ...formData, meta_minima_percentual: e.target.value })}
-                                        placeholder={formData.tipo_condicao === 'PERCENTUAL_META' ? "Ex: 100 (para 100%)" : "Valor da condição"}
-                                        required={formData.tipo_condicao !== 'META_SEMANAL' && formData.tipo_condicao !== 'SUPER_META_SEMANAL'}
-                                        className="text-xs sm:text-sm"
-                                    />
+                                    {formData.tipo === 'PRODUTO' ? (
+                                        <Input
+                                            value={formData.descricao_premio || ""}
+                                            onChange={(e) => setFormData({ ...formData, descricao_premio: e.target.value })}
+                                            placeholder="Ex: Vale compras de R$ 300"
+                                            className="text-xs sm:text-sm"
+                                        />
+                                    ) : (
+                                        <Input
+                                            type="number"
+                                            step="0.01"
+                                            value={formData.valor_bonus}
+                                            onChange={(e) => setFormData({ ...formData, valor_bonus: e.target.value })}
+                                            placeholder={formData.tipo === 'PERCENTUAL' ? 'Ex: 10 (para 10%)' : 'Ex: 500'}
+                                            required
+                                            className="text-xs sm:text-sm"
+                                        />
+                                    )}
                                 </div>
-                            )}
-
-                            <div className={formData.tipo_condicao === 'META_SEMANAL' || formData.tipo_condicao === 'SUPER_META_SEMANAL' ? 'col-span-2' : ''}>
-                                <Label className="text-xs sm:text-sm">
-                                    {formData.tipo_condicao === 'META_SEMANAL' || formData.tipo_condicao === 'SUPER_META_SEMANAL' 
-                                        ? 'Valor do Bônus (R$)' 
-                                        : formData.tipo === 'PERCENTUAL' ? 'Valor do Bônus (%)' : 'Valor do Bônus (R$)'}
-                                </Label>
-                                <Input
-                                    type="number"
-                                    step="0.01"
-                                    value={formData.valor_bonus}
-                                    onChange={(e) => setFormData({ ...formData, valor_bonus: e.target.value })}
-                                    placeholder={
-                                        formData.tipo_condicao === 'META_SEMANAL' 
-                                            ? 'Ex: 50 (bônus ao atingir gincana semanal)' 
-                                            : formData.tipo_condicao === 'SUPER_META_SEMANAL'
-                                            ? 'Ex: 150 (bônus ao atingir super meta - não cumulativo)'
-                                            : formData.tipo === 'PERCENTUAL' ? 'Ex: 10 (para 10%)' : 'Ex: 500'
-                                    }
-                                    required
-                                    className="text-xs sm:text-sm"
-                                />
-                                {(formData.tipo_condicao === 'META_SEMANAL' || formData.tipo_condicao === 'SUPER_META_SEMANAL') && (
-                                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
-                                        {formData.tipo_condicao === 'META_SEMANAL' 
-                                            ? '💡 Bônus pago quando atingir 100% da gincana semanal'
-                                            : '💡 Bônus pago quando atingir 100% da super meta (substitui bônus da meta se atingir super meta)'}
-                                    </p>
-                                )}
                             </div>
                         </div>
 

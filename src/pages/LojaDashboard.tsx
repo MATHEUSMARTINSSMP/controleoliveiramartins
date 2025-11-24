@@ -1565,6 +1565,9 @@ export default function LojaDashboard() {
                 data_venda: formData.data_venda,
                 observacoes: formData.observacoes || null,
             };
+            
+            // Salvar formas de pagamento antes de resetar
+            const formasPagamentoData = [...formasPagamento];
 
             toast.success('Venda lançada com sucesso!');
             setDialogOpen(false);
@@ -1734,6 +1737,7 @@ export default function LojaDashboard() {
                                 observacoes: vendaData.observacoes || null,
                                 totalDia: totalDia,
                                 totalMes: monthlyRealizado || undefined,
+                                formasPagamento: formasPagamentoData,
                             });
 
                             console.log('📱 [4/4] Mensagem formatada:', message);

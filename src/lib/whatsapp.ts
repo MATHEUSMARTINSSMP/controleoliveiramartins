@@ -75,6 +75,12 @@ export async function sendWhatsAppMessage({
 /**
  * Formata mensagem de venda lançada (notificação para administrador)
  */
+interface FormaPagamento {
+  tipo: string;
+  valor: number;
+  parcelas?: number;
+}
+
 export function formatVendaMessage(params: {
   colaboradoraName: string;
   valor: number;
@@ -84,8 +90,9 @@ export function formatVendaMessage(params: {
   observacoes?: string | null;
   totalDia?: number;
   totalMes?: number;
+  formasPagamento?: FormaPagamento[];
 }): string {
-  const { colaboradoraName, valor, qtdPecas, storeName, dataVenda, observacoes, totalDia, totalMes } = params;
+  const { colaboradoraName, valor, qtdPecas, storeName, dataVenda, observacoes, totalDia, totalMes, formasPagamento } = params;
   
   const dataFormatada = dataVenda
     ? new Date(dataVenda).toLocaleDateString('pt-BR', {
@@ -115,6 +122,22 @@ export function formatVendaMessage(params: {
   
   message += `*Valor:* ${valorFormatado}\n`;
   message += `*Quantidade de Peças:* ${qtdPecas}\n`;
+  
+  // Adicionar formas de pagamento se disponíveis
+  if (formasPagamento && formasPagamento.length > 0) {
+    const formasTexto = formasPagamento.map(f => {
+      let texto = `${f.tipo}: ${new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+      }).format(f.valor)}`;
+      if (f.tipo === 'CREDITO' && f.parcelas) {
+        texto += ` (${f.parcelas}x)`;
+      }
+      return texto;
+    }).join(' | ');
+    message += `*Formas de Pagamento:* ${formasTexto}\n`;
+  }
+  
   message += `*Data:* ${dataFormatada}\n`;
   
   // Adicionar totais se disponíveis
