@@ -24,7 +24,8 @@ import {
   Plus,
   KeyRound,
   Filter,
-  X
+  X,
+  Trash2
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
@@ -504,6 +505,26 @@ const ColaboradoraDashboard = () => {
     navigate("/");
   };
 
+  const handleExcluirAdiantamento = async (adiantamentoId: string) => {
+    try {
+      const { error } = await supabase
+        .schema("sistemaretiradas")
+        .from("adiantamentos")
+        .update({
+          status: "EXCLUIDO" as any,
+        })
+        .eq("id", adiantamentoId)
+        .eq("colaboradora_id", profile!.id); // Garantir que só pode excluir seus próprios
+
+      if (error) throw error;
+      toast.success("Adiantamento excluído com sucesso!");
+      fetchAdiantamentos();
+    } catch (error: any) {
+      toast.error("Erro ao excluir adiantamento");
+      console.error(error);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
       PENDENTE: "secondary",
@@ -512,6 +533,7 @@ const ColaboradoraDashboard = () => {
       DESCONTADO: "outline",
       AGENDADO: "secondary",
       ESTORNADO: "destructive",
+      EXCLUIDO: "outline",
     };
 
     return <Badge variant={variants[status] || "default"}>{status}</Badge>;
@@ -1026,12 +1048,13 @@ const ColaboradoraDashboard = () => {
                         <TableHead className="text-xs sm:text-sm">Mês</TableHead>
                         <TableHead className="text-xs sm:text-sm">Status</TableHead>
                         <TableHead className="text-xs sm:text-sm hidden md:table-cell">Observações/Motivo</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredAdiantamentos.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center text-muted-foreground text-xs sm:text-sm py-6">
+                          <TableCell colSpan={6} className="text-center text-muted-foreground text-xs sm:text-sm py-6">
                             Nenhum adiantamento encontrado
                           </TableCell>
                         </TableRow>
@@ -1044,6 +1067,20 @@ const ColaboradoraDashboard = () => {
                             <TableCell className="text-xs sm:text-sm">{getStatusBadge(a.status)}</TableCell>
                             <TableCell className="text-xs sm:text-sm hidden md:table-cell max-w-[200px] truncate">
                               {a.status === "RECUSADO" ? a.motivo_recusa : a.observacoes || "-"}
+                            </TableCell>
+                            <TableCell className="text-xs sm:text-sm">
+                              {/* Botão de excluir - apenas se status for PENDENTE */}
+                              {a.status === "PENDENTE" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleExcluirAdiantamento(a.id)}
+                                  className="border-destructive/20 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                >
+                                  <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                                  <span className="hidden sm:inline">Excluir</span>
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))
