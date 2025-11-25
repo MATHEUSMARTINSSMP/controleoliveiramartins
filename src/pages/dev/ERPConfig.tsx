@@ -9,9 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, CheckCircle2, XCircle, Save, Store, Key, Eye, EyeOff, ExternalLink } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Save, Store, Key, Eye, EyeOff, ExternalLink, TestTube } from "lucide-react";
 import { toast } from "sonner";
-import { getERPAuthorizationUrl } from "@/lib/erpIntegrations";
+import { getERPAuthorizationUrl, testERPConnection } from "@/lib/erpIntegrations";
 
 interface Store {
   id: string;
@@ -41,6 +41,7 @@ const ERPConfig = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -191,6 +192,36 @@ const ERPConfig = () => {
       console.error("Erro ao gerar URL de autorização:", error);
       toast.error(error.message || "Erro ao iniciar conexão OAuth");
       setConnecting(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    if (!selectedStoreId) {
+      toast.error("Selecione uma loja primeiro");
+      return;
+    }
+
+    if (!integration || integration.sync_status !== 'CONNECTED') {
+      toast.error("Conecte a integração OAuth primeiro");
+      return;
+    }
+
+    setTesting(true);
+    try {
+      const result = await testERPConnection(selectedStoreId);
+      
+      if (result.success) {
+        toast.success(result.message);
+        // Recarregar integração para atualizar last_sync_at
+        await fetchIntegration();
+      } else {
+        toast.error(result.message);
+      }
+    } catch (error: any) {
+      console.error("Erro ao testar conexão:", error);
+      toast.error(error.message || "Erro ao testar conexão");
+    } finally {
+      setTesting(false);
     }
   };
 
