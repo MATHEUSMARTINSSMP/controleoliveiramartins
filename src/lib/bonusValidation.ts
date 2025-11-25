@@ -235,9 +235,99 @@ export async function validateBonusPreRequisitos(
         }
 
         // ============================================================
+        // VALIDAÇÃO: Loja bateu super meta semanal
+        // ============================================================
+        if (preReqText.includes("loja") && preReqText.includes("super meta semanal") && (preReqText.includes("bater") || preReqText.includes("atingir") || preReqText.includes("bateu"))) {
+            if (!storeId) {
+                return {
+                    isValid: false,
+                    reason: "Pré-requisito de loja requer storeId"
+                };
+            }
+
+            // Calcular semana atual
+            const hoje = new Date();
+            const dateFns = await import("date-fns");
+            const monday = dateFns.startOfWeek(hoje, { weekStartsOn: 1 });
+            const week = dateFns.getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
+            const year = dateFns.getYear(monday);
+            const semanaRef = `${String(week).padStart(2, '0')}${year}`;
+            const weekRange = { start: monday, end: dateFns.endOfWeek(monday, { weekStartsOn: 1 }) };
+
+            // Buscar super meta semanal da loja (se existir) ou calcular da mensal
+            const { data: lojaMetaSemanal } = await supabase
+                .schema("sistemaretiradas")
+                .from("goals")
+                .select("super_meta_valor")
+                .eq("store_id", storeId)
+                .eq("semana_referencia", semanaRef)
+                .eq("tipo", "SEMANAL")
+                .is("colaboradora_id", null)
+                .maybeSingle();
+
+            let metaSemanalValor = 0;
+            if (lojaMetaSemanal?.super_meta_valor) {
+                metaSemanalValor = Number(lojaMetaSemanal.super_meta_valor);
+            } else {
+                // Calcular da super meta mensal
+                const { data: lojaMetaMensal } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("goals")
+                    .select("super_meta_valor, daily_weights")
+                    .eq("store_id", storeId)
+                    .eq("mes_referencia", mesAtual)
+                    .eq("tipo", "MENSAL")
+                    .is("colaboradora_id", null)
+                    .maybeSingle();
+
+                if (lojaMetaMensal?.super_meta_valor) {
+                    const dailyWeights = (lojaMetaMensal.daily_weights || {}) as Record<string, number>;
+                    const dateFns = await import("date-fns");
+                    const weekDays = dateFns.eachDayOfInterval({ start: weekRange.start, end: weekRange.end });
+                    
+                    weekDays.forEach(day => {
+                        const dayKey = format(day, 'yyyy-MM-dd');
+                        const dayWeight = dailyWeights[dayKey] || 0;
+                        metaSemanalValor += (Number(lojaMetaMensal.super_meta_valor) * dayWeight) / 100;
+                    });
+
+                    if (Object.keys(dailyWeights).length === 0) {
+                        const daysInMonth = new Date(monday.getFullYear(), monday.getMonth() + 1, 0).getDate();
+                        const dailyGoal = Number(lojaMetaMensal.super_meta_valor) / daysInMonth;
+                        metaSemanalValor = dailyGoal * 7;
+                    }
+                }
+            }
+
+            if (metaSemanalValor === 0) {
+                return {
+                    isValid: false,
+                    reason: "Super meta semanal da loja não encontrada"
+                };
+            }
+
+            // Buscar vendas da loja na semana
+            const { data: vendasSemana } = await supabase
+                .schema("sistemaretiradas")
+                .from("sales")
+                .select("valor")
+                .eq("store_id", storeId)
+                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
+                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+
+            const totalVendido = vendasSemana?.reduce((sum, v) => sum + Number(v.valor || 0), 0) || 0;
+            const bateuMeta = totalVendido >= metaSemanalValor;
+
+            return {
+                isValid: bateuMeta,
+                reason: bateuMeta ? undefined : `Loja não bateu super meta semanal (${totalVendido.toFixed(2)} / ${metaSemanalValor.toFixed(2)})`
+            };
+        }
+
+        // ============================================================
         // VALIDAÇÃO: Loja bateu meta semanal
         // ============================================================
-        if (preReqText.includes("loja") && preReqText.includes("meta semanal") && (preReqText.includes("bater") || preReqText.includes("atingir") || preReqText.includes("bateu"))) {
+        if (preReqText.includes("loja") && preReqText.includes("meta semanal") && !preReqText.includes("super") && (preReqText.includes("bater") || preReqText.includes("atingir") || preReqText.includes("bateu"))) {
             if (!storeId) {
                 return {
                     isValid: false,
