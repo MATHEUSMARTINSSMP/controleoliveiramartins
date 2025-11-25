@@ -1224,95 +1224,98 @@ export default function BonusManagement() {
                             </div>
                         )}
 
-                        {/* Valor do Bônus */}
-                        <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
-                            <Label className="text-xs sm:text-sm font-semibold">Valor do Bônus</Label>
+                        {/* Valor do Bônus - Mostrar apenas se NÃO for prêmio por posição */}
+                        {!(formData.categoria_condicao === "BASICA" && formData.condicao_ranking && formData.condicao_ranking !== "") && (
+                            <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
+                                <Label className="text-xs sm:text-sm font-semibold">Valor do Bônus</Label>
 
-                            {/* Toggle entre Dinheiro e Prêmio Físico */}
-                            <div>
-                                <Label className="text-xs sm:text-sm">Tipo de Bônus</Label>
-                                <Select
-                                    value={formData.is_premio_fisico ? "FISICO" : "DINHEIRO"}
-                                    onValueChange={(v) => {
-                                        const isFisico = v === "FISICO";
-                                        setFormData({
-                                            ...formData,
-                                            is_premio_fisico: isFisico,
-                                            tipo: isFisico ? "PRODUTO" : "VALOR_FIXO",
-                                            // Limpar campos ao alternar
-                                            valor_bonus: isFisico ? "" : formData.valor_bonus,
-                                            valor_bonus_texto: isFisico ? formData.valor_bonus_texto : "",
-                                        });
-                                    }}
-                                >
-                                    <SelectTrigger className="text-xs sm:text-sm">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="DINHEIRO">💰 Valor em Dinheiro</SelectItem>
-                                        <SelectItem value="FISICO">🎁 Prêmio Físico</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                                {/* Toggle entre Dinheiro e Prêmio Físico */}
+                                <div>
+                                    <Label className="text-xs sm:text-sm">Tipo de Bônus</Label>
+                                    <Select
+                                        value={formData.is_premio_fisico ? "FISICO" : "DINHEIRO"}
+                                        onValueChange={(v) => {
+                                            const isFisico = v === "FISICO";
+                                            setFormData({
+                                                ...formData,
+                                                is_premio_fisico: isFisico,
+                                                tipo: isFisico ? "PRODUTO" : "VALOR_FIXO",
+                                                // Limpar campos ao alternar
+                                                valor_bonus: isFisico ? "" : formData.valor_bonus,
+                                                valor_bonus_texto: isFisico ? formData.valor_bonus_texto : "",
+                                            });
+                                        }}
+                                    >
+                                        <SelectTrigger className="text-xs sm:text-sm">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="DINHEIRO">💰 Valor em Dinheiro</SelectItem>
+                                            <SelectItem value="FISICO">🎁 Prêmio Físico</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
 
-                            {/* Campo de Valor (Dinheiro) */}
-                            {!formData.is_premio_fisico && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                                    <div>
-                                        <Label className="text-xs sm:text-sm">Formato</Label>
-                                        <Select
-                                            value={formData.tipo}
-                                            onValueChange={(v) => setFormData({ ...formData, tipo: v })}
-                                        >
-                                            <SelectTrigger className="text-xs sm:text-sm">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="VALOR_FIXO">Valor Fixo (R$)</SelectItem>
-                                                <SelectItem value="PERCENTUAL">Percentual (%)</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                {/* Campo de Valor (Dinheiro) */}
+                                {!formData.is_premio_fisico && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                        <div>
+                                            <Label className="text-xs sm:text-sm">Formato</Label>
+                                            <Select
+                                                value={formData.tipo}
+                                                onValueChange={(v) => setFormData({ ...formData, tipo: v })}
+                                            >
+                                                <SelectTrigger className="text-xs sm:text-sm">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="VALOR_FIXO">Valor Fixo (R$)</SelectItem>
+                                                    <SelectItem value="PERCENTUAL">Percentual (%)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label className="text-xs sm:text-sm">
+                                                {formData.tipo === 'PERCENTUAL' ? 'Valor (%)' : 'Valor (R$)'}
+                                            </Label>
+                                            <Input
+                                                type="number"
+                                                step="0.01"
+                                                value={formData.valor_bonus}
+                                                onChange={(e) => setFormData({ ...formData, valor_bonus: e.target.value })}
+                                                placeholder={formData.tipo === 'PERCENTUAL' ? 'Ex: 10 (para 10%)' : 'Ex: 500'}
+                                                required
+                                                className="text-xs sm:text-sm"
+                                            />
+                                        </div>
                                     </div>
+                                )}
+
+                                {/* Campo de Prêmio Físico (Texto) */}
+                                {formData.is_premio_fisico && (
                                     <div>
-                                        <Label className="text-xs sm:text-sm">
-                                            {formData.tipo === 'PERCENTUAL' ? 'Valor (%)' : 'Valor (R$)'}
-                                        </Label>
+                                        <Label className="text-xs sm:text-sm">Descrição do Prêmio</Label>
                                         <Input
-                                            type="number"
-                                            step="0.01"
-                                            value={formData.valor_bonus}
-                                            onChange={(e) => setFormData({ ...formData, valor_bonus: e.target.value })}
-                                            placeholder={formData.tipo === 'PERCENTUAL' ? 'Ex: 10 (para 10%)' : 'Ex: 500'}
+                                            value={formData.valor_bonus_texto || formData.descricao_premio || ""}
+                                            onChange={(e) => setFormData({
+                                                ...formData,
+                                                valor_bonus_texto: e.target.value,
+                                                descricao_premio: e.target.value, // Manter sincronizado
+                                            })}
+                                            placeholder="Ex: Airfryer, Vale compras R$ 300, Smartphone"
                                             required
                                             className="text-xs sm:text-sm"
                                         />
+                                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                                            💡 Descreva o prêmio físico que será entregue (ex: "Airfryer", "Vale compras de R$ 300")
+                                        </p>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
+                        )}
 
-                            {/* Campo de Prêmio Físico (Texto) */}
-                            {formData.is_premio_fisico && (
-                                <div>
-                                    <Label className="text-xs sm:text-sm">Descrição do Prêmio</Label>
-                                    <Input
-                                        value={formData.valor_bonus_texto || formData.descricao_premio || ""}
-                                        onChange={(e) => setFormData({
-                                            ...formData,
-                                            valor_bonus_texto: e.target.value,
-                                            descricao_premio: e.target.value, // Manter sincronizado
-                                        })}
-                                        placeholder="Ex: Airfryer, Vale compras R$ 300, Smartphone"
-                                        required
-                                        className="text-xs sm:text-sm"
-                                    />
-                                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
-                                        💡 Descreva o prêmio físico que será entregue (ex: "Airfryer", "Vale compras de R$ 300")
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Prêmios por Posição (Top 1, 2, 3) - Apenas para Condições Básicas com Ranking */}
-                            {formData.categoria_condicao === "BASICA" && formData.condicao_ranking && formData.condicao_ranking !== "" && (
+                        {/* Prêmios por Posição (Top 1, 2, 3) - Apenas para Condições Básicas com Ranking */}
+                        {formData.categoria_condicao === "BASICA" && formData.condicao_ranking && formData.condicao_ranking !== "" && (
                                 <div className="space-y-3 mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
                                     <Label className="text-xs sm:text-sm font-semibold">Prêmios por Posição</Label>
                                     <p className="text-[10px] sm:text-xs text-muted-foreground">
