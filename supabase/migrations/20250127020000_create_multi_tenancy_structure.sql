@@ -8,15 +8,17 @@
 SET search_path TO sistemaretiradas, public;
 
 -- =============================================================================
--- 1. TABELA: tenants (no schema público)
+-- 1. TABELA: tenants (no schema sistemaretiradas)
 -- =============================================================================
 -- Armazena informações sobre cada tenant (empresa/cliente)
+-- IMPORTANTE: Esta tabela fica no schema sistemaretiradas junto com os dados existentes
+-- NÃO mexe nos dados atuais, apenas adiciona controle de multi-tenancy
 CREATE TABLE IF NOT EXISTS tenants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     slug TEXT NOT NULL UNIQUE, -- Ex: "oliveira-martins"
-    schema_name TEXT NOT NULL UNIQUE, -- Ex: "tenant_oliveira_martins"
-    admin_user_id UUID, -- ID do usuário admin do tenant (no schema do tenant)
+    schema_name TEXT, -- Ex: "tenant_oliveira_martins" (NULL = usa sistemaretiradas)
+    admin_user_id UUID, -- ID do usuário admin do tenant
     active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
@@ -128,7 +130,7 @@ COMMENT ON FUNCTION create_tenant_schema(TEXT, TEXT) IS 'Cria um novo schema par
 -- 3. FUNÇÃO: get_tenant_schema_by_user
 -- =============================================================================
 -- Retorna o schema do tenant baseado no usuário logado
--- Busca em todos os schemas de tenant para encontrar o profile do usuário
+-- Se schema_name for NULL, retorna 'sistemaretiradas' (compatibilidade)
 CREATE OR REPLACE FUNCTION get_tenant_schema_by_user()
 RETURNS TEXT
 LANGUAGE plpgsql
@@ -145,12 +147,29 @@ BEGIN
     v_user_id := auth.uid();
     
     IF v_user_id IS NULL THEN
-        RETURN NULL;
+        RETURN 'sistemaretiradas'; -- Schema padrão
     END IF;
     
-    -- Buscar em todos os tenants ativos
+    -- Buscar tenant do usuário (verificar se profile existe no sistemaretiradas primeiro)
+    -- Para compatibilidade, se o usuário existe no sistemaretiradas, usa esse schema
+    IF EXISTS (SELECT 1 FROM sistemaretiradas.profiles WHERE id = v_user_id) THEN
+        -- Verificar se há tenant configurado com schema_name NULL (usa sistemaretiradas)
+        SELECT schema_name INTO v_schema_name
+        FROM tenants
+        WHERE active = true
+        AND (schema_name IS NULL OR schema_name = 'sistemaretiradas')
+        LIMIT 1;
+        
+        -- Se não encontrou tenant específico, retorna sistemaretiradas (padrão)
+        RETURN COALESCE(v_schema_name, 'sistemaretiradas');
+    END IF;
+    
+    -- Se usuário não está no sistemaretiradas, buscar em outros schemas de tenant
     FOR v_tenant_record IN 
-        SELECT schema_name FROM tenants WHERE active = true
+        SELECT schema_name FROM tenants 
+        WHERE active = true 
+        AND schema_name IS NOT NULL
+        AND schema_name != 'sistemaretiradas'
     LOOP
         -- Verificar se o usuário existe neste schema
         EXECUTE format('
@@ -162,12 +181,12 @@ BEGIN
         END IF;
     END LOOP;
     
-    -- Se não encontrou, retorna schema padrão (para compatibilidade)
+    -- Se não encontrou, retorna schema padrão (sistemaretiradas)
     RETURN 'sistemaretiradas';
 END;
 $$;
 
-COMMENT ON FUNCTION get_tenant_schema_by_user() IS 'Retorna o schema do tenant do usuário logado';
+COMMENT ON FUNCTION get_tenant_schema_by_user() IS 'Retorna o schema do tenant do usuário logado. Retorna sistemaretiradas por padrão para compatibilidade';
 
 -- =============================================================================
 -- 4. FUNÇÃO: migrate_data_to_tenant
@@ -254,41 +273,56 @@ COMMENT ON FUNCTION migrate_data_to_tenant(TEXT) IS 'Migra dados do schema siste
 -- =============================================================================
 -- 5. CRIAR TENANT PADRÃO: oliveira-martins
 -- =============================================================================
--- Cria o tenant padrão para Oliveira Martins com os dados existentes
+-- Cria o tenant padrão para Oliveira Martins
+-- IMPORTANTE: Este tenant usa o schema sistemaretiradas (schema_name = NULL)
+-- Dados existentes continuam no sistemaretiradas, sem migração
 DO $$
 DECLARE
     v_tenant_id UUID;
-    v_schema_name TEXT;
 BEGIN
-    -- Criar tenant
-    SELECT create_tenant_schema('oliveira-martins', 'Oliveira Martins') INTO v_tenant_id;
+    -- Criar tenant que usa o schema sistemaretiradas atual
+    -- schema_name = NULL significa que usa o schema padrão (sistemaretiradas)
+    INSERT INTO tenants (name, slug, schema_name, active)
+    VALUES ('Oliveira Martins', 'oliveira-martins', NULL, true)
+    ON CONFLICT (slug) DO NOTHING
+    RETURNING id INTO v_tenant_id;
     
-    -- Obter schema name
-    SELECT schema_name INTO v_schema_name FROM tenants WHERE id = v_tenant_id;
-    
-    RAISE NOTICE 'Tenant criado: % (schema: %)', v_tenant_id, v_schema_name;
-    
-    -- NOTA: A migração de dados deve ser feita manualmente ou via script separado
-    -- para evitar problemas com dependências e garantir integridade
-    -- Execute: SELECT migrate_data_to_tenant('tenant_oliveira_martins');
+    IF v_tenant_id IS NOT NULL THEN
+        RAISE NOTICE 'Tenant padrão criado: % (usa schema sistemaretiradas)', v_tenant_id;
+    ELSE
+        RAISE NOTICE 'Tenant oliveira-martins já existe';
+    END IF;
 END;
 $$;
 
 -- =============================================================================
--- 6. ATUALIZAR tiny_api_credentials para suportar tenant_id
+-- 6. ATUALIZAR tiny_api_credentials para suportar tenant_id (OPCIONAL)
 -- =============================================================================
--- Adicionar tenant_id na tabela de credenciais Tiny (se ainda não existir)
+-- Adicionar tenant_id na tabela de credenciais Tiny (se a tabela existir)
+-- Isso permite que cada tenant tenha suas próprias credenciais Tiny ERP
 DO $$
 BEGIN
-    -- Verificar se a coluna já existe antes de adicionar
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+    -- Verificar se a tabela existe
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
         WHERE table_schema = 'sistemaretiradas' 
-        AND table_name = 'tiny_api_credentials' 
-        AND column_name = 'tenant_id'
+        AND table_name = 'tiny_api_credentials'
     ) THEN
-        ALTER TABLE sistemaretiradas.tiny_api_credentials 
-        ADD COLUMN tenant_id UUID REFERENCES tenants(id);
+        -- Verificar se a coluna já existe antes de adicionar
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_schema = 'sistemaretiradas' 
+            AND table_name = 'tiny_api_credentials' 
+            AND column_name = 'tenant_id'
+        ) THEN
+            ALTER TABLE sistemaretiradas.tiny_api_credentials 
+            ADD COLUMN tenant_id UUID REFERENCES tenants(id);
+            
+            -- Atualizar registros existentes para o tenant padrão (se houver)
+            UPDATE sistemaretiradas.tiny_api_credentials
+            SET tenant_id = (SELECT id FROM tenants WHERE slug = 'oliveira-martins' LIMIT 1)
+            WHERE tenant_id IS NULL;
+        END IF;
     END IF;
 END;
 $$;
