@@ -534,54 +534,8 @@ export default function BonusManagement() {
                             // Preparar lista de promises para envio
                             const promises: Promise<any>[] = [];
 
-                            // Adicionar envio para a loja (se houver)
-                            if (lojaProfile) {
-                                const lojaPhone = lojaProfile.whatsapp.replace(/\D/g, '');
-                                
-                                if (lojaPhone && lojaPhone.length >= 10) {
-                                    const temPremiosPorPosicao = formData.categoria_condicao === "BASICA" && 
-                                                                 formData.condicao_ranking && 
-                                                                 formData.condicao_ranking !== "" &&
-                                                                 parseInt(formData.condicao_ranking) > 0;
-
-                                    const lojaMessage = formatBonusMessage({
-                                        colaboradoraName: lojaProfile.name,
-                                        bonusName: formData.nome,
-                                        bonusDescription: formData.descricao || null,
-                                        valorBonus: temPremiosPorPosicao ? null : (formData.is_premio_fisico ? null : (formData.valor_bonus ? parseFloat(formData.valor_bonus) : null)),
-                                        valorBonusTexto: temPremiosPorPosicao ? null : (formData.is_premio_fisico ? (formData.valor_bonus_texto || formData.descricao_premio || null) : null),
-                                        storeName: storeName || undefined,
-                                        preRequisitos: Array.isArray(formData.pre_requisitos) ? formData.pre_requisitos.filter(pr => pr && pr.trim()) : null,
-                                        valorBonus1: formData.valor_bonus_1 ? parseFloat(formData.valor_bonus_1) : null,
-                                        valorBonus2: formData.valor_bonus_2 ? parseFloat(formData.valor_bonus_2) : null,
-                                        valorBonus3: formData.valor_bonus_3 ? parseFloat(formData.valor_bonus_3) : null,
-                                        valorBonusTexto1: formData.valor_bonus_texto_1 || null,
-                                        valorBonusTexto2: formData.valor_bonus_texto_2 || null,
-                                        valorBonusTexto3: formData.valor_bonus_texto_3 || null,
-                                        condicaoRanking: formData.condicao_ranking ? parseInt(formData.condicao_ranking) : null,
-                                    });
-
-                                    promises.push(
-                                        sendWhatsAppMessage({
-                                            phone: lojaPhone,
-                                            message: lojaMessage,
-                                        }).then(result => {
-                                            if (result.success) {
-                                                console.log(`✅ [BonusManagement] WhatsApp enviado com sucesso para LOJA ${lojaProfile.name} (${lojaPhone})`);
-                                            } else {
-                                                console.warn(`⚠️ [BonusManagement] Falha ao enviar WhatsApp para LOJA ${lojaProfile.name} (${lojaPhone}):`, result.error);
-                                            }
-                                        }).catch(err => {
-                                            console.error(`❌ [BonusManagement] Erro ao enviar WhatsApp para LOJA ${lojaProfile.name} (${lojaPhone}):`, err);
-                                        })
-                                    );
-                                } else {
-                                    console.warn(`⚠️ [BonusManagement] WhatsApp inválido para LOJA ${lojaProfile.name}: ${lojaProfile.whatsapp}`);
-                                }
-                            }
-
                             // Buscar e enviar para números da tabela whatsapp_notification_config
-                            // 1. Colaboradoras vinculadas (já enviado acima) - apenas as ativadas para receber a meta
+                            // 1. Colaboradoras vinculadas (será enviado abaixo) - apenas as ativadas para receber a meta
                             // 2. Números PARABENS da loja - para quando colaboradoras estão sem celular
                             // 3. Números VENDA - globais e específicos da loja
                             if (formData.store_id && formData.store_id !== "TODAS") {
@@ -690,6 +644,52 @@ export default function BonusManagement() {
                                     }
                                 } else {
                                     console.warn('⚠️ [BonusManagement] Loja não tem admin_id configurado!');
+                                }
+                            }
+
+                            // Adicionar envio para a loja (se houver)
+                            if (lojaProfile) {
+                                const lojaPhone = lojaProfile.whatsapp.replace(/\D/g, '');
+                                
+                                if (lojaPhone && lojaPhone.length >= 10) {
+                                    const temPremiosPorPosicao = formData.categoria_condicao === "BASICA" && 
+                                                                 formData.condicao_ranking && 
+                                                                 formData.condicao_ranking !== "" &&
+                                                                 parseInt(formData.condicao_ranking) > 0;
+
+                                    const lojaMessage = formatBonusMessage({
+                                        colaboradoraName: lojaProfile.name,
+                                        bonusName: formData.nome,
+                                        bonusDescription: formData.descricao || null,
+                                        valorBonus: temPremiosPorPosicao ? null : (formData.is_premio_fisico ? null : (formData.valor_bonus ? parseFloat(formData.valor_bonus) : null)),
+                                        valorBonusTexto: temPremiosPorPosicao ? null : (formData.is_premio_fisico ? (formData.valor_bonus_texto || formData.descricao_premio || null) : null),
+                                        storeName: storeName || undefined,
+                                        preRequisitos: Array.isArray(formData.pre_requisitos) ? formData.pre_requisitos.filter(pr => pr && pr.trim()) : null,
+                                        valorBonus1: formData.valor_bonus_1 ? parseFloat(formData.valor_bonus_1) : null,
+                                        valorBonus2: formData.valor_bonus_2 ? parseFloat(formData.valor_bonus_2) : null,
+                                        valorBonus3: formData.valor_bonus_3 ? parseFloat(formData.valor_bonus_3) : null,
+                                        valorBonusTexto1: formData.valor_bonus_texto_1 || null,
+                                        valorBonusTexto2: formData.valor_bonus_texto_2 || null,
+                                        valorBonusTexto3: formData.valor_bonus_texto_3 || null,
+                                        condicaoRanking: formData.condicao_ranking ? parseInt(formData.condicao_ranking) : null,
+                                    });
+
+                                    promises.push(
+                                        sendWhatsAppMessage({
+                                            phone: lojaPhone,
+                                            message: lojaMessage,
+                                        }).then(result => {
+                                            if (result.success) {
+                                                console.log(`✅ [BonusManagement] WhatsApp enviado com sucesso para LOJA ${lojaProfile.name} (${lojaPhone})`);
+                                            } else {
+                                                console.warn(`⚠️ [BonusManagement] Falha ao enviar WhatsApp para LOJA ${lojaProfile.name} (${lojaPhone}):`, result.error);
+                                            }
+                                        }).catch(err => {
+                                            console.error(`❌ [BonusManagement] Erro ao enviar WhatsApp para LOJA ${lojaProfile.name} (${lojaPhone}):`, err);
+                                        })
+                                    );
+                                } else {
+                                    console.warn(`⚠️ [BonusManagement] WhatsApp inválido para LOJA ${lojaProfile.name}: ${lojaProfile.whatsapp}`);
                                 }
                             } else if (formData.store_id === "TODAS") {
                                 // Se for "Todas" as lojas, buscar números de todas as lojas
