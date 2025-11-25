@@ -68,12 +68,15 @@ export async function validateBonusPreRequisitos(
             }
 
             // Buscar vendas da loja no mês
+            const inicioMes = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01T00:00:00`;
+            const fimMes = new Date(parseInt(mesAtual.slice(0, 4)), parseInt(mesAtual.slice(4, 6)), 0, 23, 59, 59);
             const { data: vendasLoja } = await supabase
                 .schema("sistemaretiradas")
                 .from("sales")
                 .select("valor")
                 .eq("store_id", storeId)
-                .gte("data_venda", `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01T00:00:00`);
+                .gte("data_venda", inicioMes)
+                .lte("data_venda", format(fimMes, "yyyy-MM-dd'T'HH:mm:ss"));
 
             const totalVendido = vendasLoja?.reduce((sum, v) => sum + Number(v.valor || 0), 0) || 0;
             const metaValor = Number(lojaMeta.super_meta_valor);
@@ -169,12 +172,15 @@ export async function validateBonusPreRequisitos(
             }
 
             // Buscar vendas da colaboradora no mês
+            const inicioMes = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01T00:00:00`;
+            const fimMes = new Date(parseInt(mesAtual.slice(0, 4)), parseInt(mesAtual.slice(4, 6)), 0, 23, 59, 59);
             const { data: vendasColab } = await supabase
                 .schema("sistemaretiradas")
                 .from("sales")
                 .select("valor")
                 .eq("colaboradora_id", colaboradoraId)
-                .gte("data_venda", `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01T00:00:00`);
+                .gte("data_venda", inicioMes)
+                .lte("data_venda", format(fimMes, "yyyy-MM-dd'T'HH:mm:ss"));
 
             const totalVendido = vendasColab?.reduce((sum, v) => sum + Number(v.valor || 0), 0) || 0;
             const metaValor = Number(colabMeta.super_meta_valor);
