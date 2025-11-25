@@ -3,8 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Gift, TrendingUp, Users } from "lucide-react";
+import { Gift, TrendingUp, Users, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
+import { validateBonusPreRequisitos } from "@/lib/bonusValidation";
 
 interface BonusData {
     id: string;
@@ -21,6 +22,8 @@ interface BonusData {
         name: string;
         progress: number;
         achieved: boolean;
+        preRequisitosValidos?: boolean;
+        preRequisitosReason?: string;
     }[];
 }
 
@@ -110,11 +113,34 @@ export function BonusTracker() {
                                 achieved = progress >= bonus.meta_minima_percentual;
                             }
 
+                            // IMPORTANTE: Validar pré-requisitos antes de conceder o bônus
+                            let preRequisitosValidos = true;
+                            let preRequisitosReason = "";
+                            
+                            if (achieved && (bonus as any).pre_requisitos) {
+                                const preReqValidation = await validateBonusPreRequisitos(
+                                    (bonus as any).pre_requisitos,
+                                    bonus.id,
+                                    colabId,
+                                    colab.profiles?.store_id
+                                );
+                                
+                                preRequisitosValidos = preReqValidation.isValid;
+                                preRequisitosReason = preReqValidation.reason || "";
+                                
+                                // Se os pré-requisitos não foram cumpridos, o bônus não é válido
+                                if (!preRequisitosValidos) {
+                                    achieved = false;
+                                }
+                            }
+
                             return {
                                 id: colabId,
                                 name: colabName,
                                 progress: Math.min(progress, 100),
                                 achieved,
+                                preRequisitosValidos,
+                                preRequisitosReason: preRequisitosReason || undefined,
                             };
                         })
                     );
@@ -223,6 +249,12 @@ export function BonusTracker() {
                                                     </span>
                                                 </div>
                                                 <Progress value={colab.progress} className={`h-1.5 ${getProgressColor(colab.progress)}`} />
+                                                {colab.progress >= (bonus.meta_minima_percentual || 0) && !colab.achieved && colab.preRequisitosReason && (
+                                                    <div className="flex items-center gap-1 text-[10px] text-orange-600 mt-1">
+                                                        <AlertCircle className="h-3 w-3" />
+                                                        <span className="truncate">{colab.preRequisitosReason}</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                 </div>

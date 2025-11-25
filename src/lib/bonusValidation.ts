@@ -1,0 +1,335 @@
+/**
+ * Utilitário para validação de pré-requisitos de bônus
+ * 
+ * Este módulo contém funções para validar se os pré-requisitos de um bônus
+ * foram cumpridos antes de conceder o prêmio.
+ */
+
+import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
+
+export interface BonusPreRequisitoValidation {
+    isValid: boolean;
+    reason?: string; // Motivo se não foi válido
+}
+
+/**
+ * Valida se os pré-requisitos de um bônus foram cumpridos
+ * 
+ * @param preRequisitos Texto dos pré-requisitos (ex: "Válido apenas se a loja bater a meta mensal")
+ * @param bonusId ID do bônus
+ * @param colaboradoraId ID da colaboradora (opcional, necessário para validações individuais)
+ * @param storeId ID da loja (opcional, necessário para validações de loja)
+ * @returns Promise<BonusPreRequisitoValidation>
+ */
+export async function validateBonusPreRequisitos(
+    preRequisitos: string | null | undefined,
+    bonusId: string,
+    colaboradoraId?: string,
+    storeId?: string
+): Promise<BonusPreRequisitoValidation> {
+    // Se não houver pré-requisitos, o bônus é válido
+    if (!preRequisitos || !preRequisitos.trim()) {
+        return { isValid: true };
+    }
+
+    const preReqText = preRequisitos.trim().toLowerCase();
+
+    try {
+        const mesAtual = format(new Date(), "yyyyMM");
+
+        // ============================================================
+        // VALIDAÇÃO: Loja bateu meta mensal
+        // ============================================================
+        if (preReqText.includes("loja") && preReqText.includes("meta mensal") && (preReqText.includes("bater") || preReqText.includes("atingir") || preReqText.includes("bateu"))) {
+            if (!storeId) {
+                return {
+                    isValid: false,
+                    reason: "Pré-requisito de loja requer storeId"
+                };
+            }
+
+            // Buscar meta mensal da loja
+            const { data: lojaMeta } = await supabase
+                .schema("sistemaretiradas")
+                .from("goals")
+                .select("meta_valor")
+                .eq("store_id", storeId)
+                .eq("mes_referencia", mesAtual)
+                .eq("tipo", "MENSAL")
+                .is("colaboradora_id", null)
+                .maybeSingle();
+
+            if (!lojaMeta || !lojaMeta.meta_valor) {
+                return {
+                    isValid: false,
+                    reason: "Meta mensal da loja não encontrada"
+                };
+            }
+
+            // Buscar vendas da loja no mês
+            const { data: vendasLoja } = await supabase
+                .schema("sistemaretiradas")
+                .from("sales")
+                .select("valor")
+                .eq("store_id", storeId)
+                .gte("data_venda", `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01T00:00:00`);
+
+            const totalVendido = vendasLoja?.reduce((sum, v) => sum + Number(v.valor || 0), 0) || 0;
+            const metaValor = Number(lojaMeta.meta_valor);
+
+            const bateuMeta = totalVendido >= metaValor;
+
+            return {
+                isValid: bateuMeta,
+                reason: bateuMeta ? undefined : `Loja não bateu meta mensal (${totalVendido.toFixed(2)} / ${metaValor.toFixed(2)})`
+            };
+        }
+
+        // ============================================================
+        // VALIDAÇÃO: Colaboradora bateu meta mensal
+        // ============================================================
+        if ((preReqText.includes("consultora") || preReqText.includes("colaboradora")) && 
+            preReqText.includes("meta mensal") && 
+            (preReqText.includes("bater") || preReqText.includes("atingir") || preReqText.includes("bateu"))) {
+            
+            if (!colaboradoraId) {
+                return {
+                    isValid: false,
+                    reason: "Pré-requisito de colaboradora requer colaboradoraId"
+                };
+            }
+
+            // Buscar meta mensal individual da colaboradora
+            const { data: colabMeta } = await supabase
+                .schema("sistemaretiradas")
+                .from("goals")
+                .select("meta_valor")
+                .eq("colaboradora_id", colaboradoraId)
+                .eq("mes_referencia", mesAtual)
+                .eq("tipo", "INDIVIDUAL")
+                .maybeSingle();
+
+            if (!colabMeta || !colabMeta.meta_valor) {
+                return {
+                    isValid: false,
+                    reason: "Meta mensal da colaboradora não encontrada"
+                };
+            }
+
+            // Buscar vendas da colaboradora no mês
+            const { data: vendasColab } = await supabase
+                .schema("sistemaretiradas")
+                .from("sales")
+                .select("valor")
+                .eq("colaboradora_id", colaboradoraId)
+                .gte("data_venda", `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01T00:00:00`);
+
+            const totalVendido = vendasColab?.reduce((sum, v) => sum + Number(v.valor || 0), 0) || 0;
+            const metaValor = Number(colabMeta.meta_valor);
+
+            const bateuMeta = totalVendido >= metaValor;
+
+            return {
+                isValid: bateuMeta,
+                reason: bateuMeta ? undefined : `Colaboradora não bateu meta mensal (${totalVendido.toFixed(2)} / ${metaValor.toFixed(2)})`
+            };
+        }
+
+        // ============================================================
+        // VALIDAÇÃO: Loja bateu meta semanal
+        // ============================================================
+        if (preReqText.includes("loja") && preReqText.includes("meta semanal") && (preReqText.includes("bater") || preReqText.includes("atingir") || preReqText.includes("bateu"))) {
+            if (!storeId) {
+                return {
+                    isValid: false,
+                    reason: "Pré-requisito de loja requer storeId"
+                };
+            }
+
+            // Calcular semana atual
+            const hoje = new Date();
+            const dateFns = await import("date-fns");
+            const monday = dateFns.startOfWeek(hoje, { weekStartsOn: 1 });
+            const week = dateFns.getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
+            const year = dateFns.getYear(monday);
+            const semanaRef = `${String(week).padStart(2, '0')}${year}`;
+            const weekRange = { start: monday, end: dateFns.endOfWeek(monday, { weekStartsOn: 1 }) };
+
+            // Buscar meta semanal da loja (se existir) ou calcular da mensal
+            const { data: lojaMetaSemanal } = await supabase
+                .schema("sistemaretiradas")
+                .from("goals")
+                .select("meta_valor")
+                .eq("store_id", storeId)
+                .eq("semana_referencia", semanaRef)
+                .eq("tipo", "SEMANAL")
+                .is("colaboradora_id", null)
+                .maybeSingle();
+
+            let metaSemanalValor = 0;
+            if (lojaMetaSemanal?.meta_valor) {
+                metaSemanalValor = Number(lojaMetaSemanal.meta_valor);
+            } else {
+                // Calcular da meta mensal
+                const { data: lojaMetaMensal } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("goals")
+                    .select("meta_valor, daily_weights")
+                    .eq("store_id", storeId)
+                    .eq("mes_referencia", mesAtual)
+                    .eq("tipo", "MENSAL")
+                    .is("colaboradora_id", null)
+                    .maybeSingle();
+
+                if (lojaMetaMensal?.meta_valor) {
+                    const dailyWeights = (lojaMetaMensal.daily_weights || {}) as Record<string, number>;
+                    const dateFns = await import("date-fns");
+                    const weekDays = dateFns.eachDayOfInterval({ start: weekRange.start, end: weekRange.end });
+                    
+                    weekDays.forEach(day => {
+                        const dayKey = format(day, 'yyyy-MM-dd');
+                        const dayWeight = dailyWeights[dayKey] || 0;
+                        metaSemanalValor += (Number(lojaMetaMensal.meta_valor) * dayWeight) / 100;
+                    });
+
+                    if (Object.keys(dailyWeights).length === 0) {
+                        const daysInMonth = new Date(monday.getFullYear(), monday.getMonth() + 1, 0).getDate();
+                        const dailyGoal = Number(lojaMetaMensal.meta_valor) / daysInMonth;
+                        metaSemanalValor = dailyGoal * 7;
+                    }
+                }
+            }
+
+            if (metaSemanalValor === 0) {
+                return {
+                    isValid: false,
+                    reason: "Meta semanal da loja não encontrada"
+                };
+            }
+
+            // Buscar vendas da loja na semana
+            const { data: vendasSemana } = await supabase
+                .schema("sistemaretiradas")
+                .from("sales")
+                .select("valor")
+                .eq("store_id", storeId)
+                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
+                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+
+            const totalVendido = vendasSemana?.reduce((sum, v) => sum + Number(v.valor || 0), 0) || 0;
+            const bateuMeta = totalVendido >= metaSemanalValor;
+
+            return {
+                isValid: bateuMeta,
+                reason: bateuMeta ? undefined : `Loja não bateu meta semanal (${totalVendido.toFixed(2)} / ${metaSemanalValor.toFixed(2)})`
+            };
+        }
+
+        // ============================================================
+        // VALIDAÇÃO: Colaboradora bateu meta semanal
+        // ============================================================
+        if ((preReqText.includes("consultora") || preReqText.includes("colaboradora")) && 
+            preReqText.includes("meta semanal") && 
+            (preReqText.includes("bater") || preReqText.includes("atingir") || preReqText.includes("bateu"))) {
+            
+            if (!colaboradoraId) {
+                return {
+                    isValid: false,
+                    reason: "Pré-requisito de colaboradora requer colaboradoraId"
+                };
+            }
+
+            // Calcular semana atual
+            const hoje = new Date();
+            const dateFns = await import("date-fns");
+            const monday = dateFns.startOfWeek(hoje, { weekStartsOn: 1 });
+            const week = dateFns.getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
+            const year = dateFns.getYear(monday);
+            const semanaRef = `${String(week).padStart(2, '0')}${year}`;
+            const weekRange = { start: monday, end: dateFns.endOfWeek(monday, { weekStartsOn: 1 }) };
+
+            // Buscar meta semanal individual da colaboradora (se existir) ou calcular da mensal
+            const { data: colabMetaSemanal } = await supabase
+                .schema("sistemaretiradas")
+                .from("goals")
+                .select("meta_valor")
+                .eq("colaboradora_id", colaboradoraId)
+                .eq("semana_referencia", semanaRef)
+                .eq("tipo", "SEMANAL")
+                .maybeSingle();
+
+            let metaSemanalValor = 0;
+            if (colabMetaSemanal?.meta_valor) {
+                metaSemanalValor = Number(colabMetaSemanal.meta_valor);
+            } else {
+                // Calcular da meta mensal
+                const { data: colabMetaMensal } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("goals")
+                    .select("meta_valor, daily_weights")
+                    .eq("colaboradora_id", colaboradoraId)
+                    .eq("mes_referencia", mesAtual)
+                    .eq("tipo", "INDIVIDUAL")
+                    .maybeSingle();
+
+                if (colabMetaMensal?.meta_valor) {
+                    const dailyWeights = (colabMetaMensal.daily_weights || {}) as Record<string, number>;
+                    const { eachDayOfInterval } = await import("date-fns");
+                    const weekDays = eachDayOfInterval({ start: weekRange.start, end: weekRange.end });
+                    
+                    weekDays.forEach(day => {
+                        const dayKey = format(day, 'yyyy-MM-dd');
+                        const dayWeight = dailyWeights[dayKey] || 0;
+                        metaSemanalValor += (Number(colabMetaMensal.meta_valor) * dayWeight) / 100;
+                    });
+
+                    if (Object.keys(dailyWeights).length === 0) {
+                        const daysInMonth = new Date(monday.getFullYear(), monday.getMonth() + 1, 0).getDate();
+                        const dailyGoal = Number(colabMetaMensal.meta_valor) / daysInMonth;
+                        metaSemanalValor = dailyGoal * 7;
+                    }
+                }
+            }
+
+            if (metaSemanalValor === 0) {
+                return {
+                    isValid: false,
+                    reason: "Meta semanal da colaboradora não encontrada"
+                };
+            }
+
+            // Buscar vendas da colaboradora na semana
+            const { data: vendasSemana } = await supabase
+                .schema("sistemaretiradas")
+                .from("sales")
+                .select("valor")
+                .eq("colaboradora_id", colaboradoraId)
+                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
+                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+
+            const totalVendido = vendasSemana?.reduce((sum, v) => sum + Number(v.valor || 0), 0) || 0;
+            const bateuMeta = totalVendido >= metaSemanalValor;
+
+            return {
+                isValid: bateuMeta,
+                reason: bateuMeta ? undefined : `Colaboradora não bateu meta semanal (${totalVendido.toFixed(2)} / ${metaSemanalValor.toFixed(2)})`
+            };
+        }
+
+        // Se não reconhecer o padrão do pré-requisito, retorna como inválido por segurança
+        console.warn(`[bonusValidation] Pré-requisito não reconhecido: ${preRequisitos}`);
+        return {
+            isValid: false,
+            reason: "Pré-requisito não reconhecido ou não implementado"
+        };
+
+    } catch (error) {
+        console.error("[bonusValidation] Erro ao validar pré-requisitos:", error);
+        return {
+            isValid: false,
+            reason: `Erro ao validar pré-requisitos: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
+        };
+    }
+}
+
