@@ -211,6 +211,31 @@ $$;
 COMMENT ON FUNCTION get_erp_integration(UUID) IS 'Retorna integração ERP de uma loja (cada loja tem apenas uma)';
 
 -- =============================================================================
+-- 6. VALIDAR QUE sistema_erp DA INTEGRAÇÃO BATE COM O DA LOJA
+-- =============================================================================
+-- Garantir que quando uma integração é criada, o sistema_erp bate com o da loja
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'check_erp_integration_sistema_match'
+    ) THEN
+        ALTER TABLE erp_integrations
+        ADD CONSTRAINT check_erp_integration_sistema_match
+        CHECK (
+            EXISTS (
+                SELECT 1 FROM stores
+                WHERE stores.id = erp_integrations.store_id
+                AND (
+                    stores.sistema_erp = erp_integrations.sistema_erp
+                    OR stores.sistema_erp IS NULL
+                )
+            )
+        );
+    END IF;
+END $$;
+
+-- =============================================================================
 -- FIM DA MIGRATION
 -- =============================================================================
 
