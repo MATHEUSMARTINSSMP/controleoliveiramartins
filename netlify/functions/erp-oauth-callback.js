@@ -27,7 +27,7 @@ const ERP_CONFIGS = {
   },
   BLING: {
     baseUrl: 'https://www.bling.com.br',
-    tokenEndpoint: '/Api/v3/oauth/token',
+    oauthTokenUrl: 'https://www.bling.com.br/Api/v3/oauth/token',
   },
 };
 
@@ -207,8 +207,21 @@ exports.handler = async (event, context) => {
         client_secret: clientSecret,
         redirect_uri: `${process.env.URL || 'https://eleveaone.com.br'}/.netlify/functions/erp-oauth-callback`,
       }).toString();
+    } else if (sistema_erp === 'BLING') {
+      tokenUrl = config.oauthTokenUrl || `${config.baseUrl}/Api/v3/oauth/token`;
+      tokenHeaders = {
+        'Content-Type': 'application/json',
+      };
+      tokenBody = JSON.stringify({
+        grant_type: 'authorization_code',
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: `${process.env.URL || 'https://eleveaone.com.br'}/.netlify/functions/erp-oauth-callback`,
+      });
     } else {
-      tokenUrl = `${config.baseUrl}${config.tokenEndpoint}`;
+      // Fallback para outros sistemas
+      tokenUrl = config.oauthTokenUrl || `${config.baseUrl}/oauth/token`;
       tokenHeaders = {
         'Content-Type': 'application/json',
       };
