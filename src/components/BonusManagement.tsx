@@ -109,6 +109,12 @@ interface Bonus {
     valor_bonus: number;
     descricao_premio: string | null;
     valor_bonus_texto?: string | null; // Para prêmios físicos
+    valor_bonus_1?: number | null; // Prêmio para 1º lugar
+    valor_bonus_2?: number | null; // Prêmio para 2º lugar
+    valor_bonus_3?: number | null; // Prêmio para 3º lugar
+    valor_bonus_texto_1?: string | null; // Prêmio físico para 1º lugar
+    valor_bonus_texto_2?: string | null; // Prêmio físico para 2º lugar
+    valor_bonus_texto_3?: string | null; // Prêmio físico para 3º lugar
     pre_requisitos?: string[] | null; // Pré-requisitos para o bônus ser válido (array)
     ativo: boolean;
     store_id?: string | null;
@@ -138,6 +144,12 @@ export default function BonusManagement() {
         valor_bonus: "",
         descricao_premio: "",
         valor_bonus_texto: "", // Para prêmios físicos (ex: "Airfryer")
+        valor_bonus_1: "", // Prêmio para 1º lugar
+        valor_bonus_2: "", // Prêmio para 2º lugar
+        valor_bonus_3: "", // Prêmio para 3º lugar
+        valor_bonus_texto_1: "", // Prêmio físico para 1º lugar
+        valor_bonus_texto_2: "", // Prêmio físico para 2º lugar
+        valor_bonus_texto_3: "", // Prêmio físico para 3º lugar
         is_premio_fisico: false, // Toggle entre dinheiro e prêmio físico
         store_id: "TODAS",
         // Novos campos para condições avançadas
@@ -268,6 +280,13 @@ export default function BonusManagement() {
             valor_bonus: valorBonus,
             descricao_premio: formData.descricao_premio || null,
             valor_bonus_texto: valorBonusTexto, // Novo campo para prêmios físicos
+            // Prêmios por posição (Top 1, 2, 3)
+            valor_bonus_1: formData.valor_bonus_1 ? parseFloat(formData.valor_bonus_1) : null,
+            valor_bonus_2: formData.valor_bonus_2 ? parseFloat(formData.valor_bonus_2) : null,
+            valor_bonus_3: formData.valor_bonus_3 ? parseFloat(formData.valor_bonus_3) : null,
+            valor_bonus_texto_1: formData.valor_bonus_texto_1 || null,
+            valor_bonus_texto_2: formData.valor_bonus_texto_2 || null,
+            valor_bonus_texto_3: formData.valor_bonus_texto_3 || null,
             valor_condicao: null,
             ativo: true,
             // Novos campos para condições avançadas
@@ -499,6 +518,12 @@ export default function BonusManagement() {
             valor_bonus: isPremioFisico ? "" : bonus.valor_bonus.toString(),
             descricao_premio: bonus.descricao_premio || "",
             valor_bonus_texto: (bonus as any).valor_bonus_texto || bonus.descricao_premio || "",
+            valor_bonus_1: (bonus as any).valor_bonus_1?.toString() || "",
+            valor_bonus_2: (bonus as any).valor_bonus_2?.toString() || "",
+            valor_bonus_3: (bonus as any).valor_bonus_3?.toString() || "",
+            valor_bonus_texto_1: (bonus as any).valor_bonus_texto_1 || "",
+            valor_bonus_texto_2: (bonus as any).valor_bonus_texto_2 || "",
+            valor_bonus_texto_3: (bonus as any).valor_bonus_texto_3 || "",
             is_premio_fisico: isPremioFisico,
             store_id: bonus.store_id || "TODAS",
             categoria_condicao: categoria,
@@ -761,11 +786,29 @@ export default function BonusManagement() {
                                         <SelectContent>
                                             <SelectItem value="TICKET_MEDIO">Ticket Médio</SelectItem>
                                             <SelectItem value="PA">PA (Peças por Atendimento)</SelectItem>
+                                            <SelectItem value="FATURAMENTO">Faturamento</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
 
-                                {formData.condicao_tipo && (
+                                {formData.condicao_tipo === "FATURAMENTO" && (
+                                    <div>
+                                        <Label className="text-xs sm:text-sm">Valor de Faturamento (R$)</Label>
+                                        <Input
+                                            type="number"
+                                            step="0.01"
+                                            value={formData.condicao_faturamento}
+                                            onChange={(e) => setFormData({ ...formData, condicao_faturamento: e.target.value })}
+                                            placeholder="Ex: 50000"
+                                            className="text-xs sm:text-sm"
+                                        />
+                                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                                            💡 Exemplo: Consultora que mais vender no período X (R$ 50.000)
+                                        </p>
+                                    </div>
+                                )}
+
+                                {formData.condicao_tipo && formData.condicao_tipo !== "FATURAMENTO" && (
                                     <div>
                                         <Label className="text-xs sm:text-sm">Ranking</Label>
                                         <Select
@@ -842,13 +885,14 @@ export default function BonusManagement() {
                                                             <SelectItem value="SUPER_META">Super Meta</SelectItem>
                                                             <SelectItem value="GINCANA_SEMANAL">Gincana Semanal</SelectItem>
                                                             <SelectItem value="SUPER_GINCANA_SEMANAL">Super Gincana Semanal</SelectItem>
+                                                            <SelectItem value="FATURAMENTO">Faturamento X</SelectItem>
                                                         </>
                                                     )}
                                                 </SelectContent>
                                             </Select>
                                         </div>
 
-                                        {formData.condicao_meta_tipo === "FATURAMENTO" && (
+                                        {(formData.condicao_meta_tipo === "FATURAMENTO" || formData.condicao_tipo === "FATURAMENTO") && (
                                             <div>
                                                 <Label className="text-xs sm:text-sm">Valor de Faturamento (R$)</Label>
                                                 <Input
@@ -859,6 +903,9 @@ export default function BonusManagement() {
                                                     placeholder="Ex: 50000"
                                                     className="text-xs sm:text-sm"
                                                 />
+                                                <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                                                    💡 Exemplo: {formData.condicao_escopo === "COLABORADORA" ? "Consultora" : "Loja"} que mais vender no período X (R$ 50.000)
+                                                </p>
                                             </div>
                                         )}
                                     </>
@@ -1165,6 +1212,109 @@ export default function BonusManagement() {
                                     <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
                                         💡 Descreva o prêmio físico que será entregue (ex: "Airfryer", "Vale compras de R$ 300")
                                     </p>
+                                </div>
+                            )}
+
+                            {/* Prêmios por Posição (Top 1, 2, 3) - Apenas para Condições Básicas com Ranking */}
+                            {formData.categoria_condicao === "BASICA" && formData.condicao_ranking && formData.condicao_ranking !== "" && (
+                                <div className="space-y-3 mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                                    <Label className="text-xs sm:text-sm font-semibold">Prêmios por Posição</Label>
+                                    <p className="text-[10px] sm:text-xs text-muted-foreground">
+                                        Configure prêmios diferentes para cada posição do ranking
+                                    </p>
+
+                                    {/* Toggle entre Dinheiro e Prêmio Físico para prêmios por posição */}
+                                    <div>
+                                        <Label className="text-xs sm:text-sm">Tipo de Prêmio por Posição</Label>
+                                        <Select
+                                            value={formData.is_premio_fisico ? "FISICO" : "DINHEIRO"}
+                                            onValueChange={(v) => {
+                                                const isFisico = v === "FISICO";
+                                                setFormData({
+                                                    ...formData,
+                                                    is_premio_fisico: isFisico,
+                                                });
+                                            }}
+                                        >
+                                            <SelectTrigger className="text-xs sm:text-sm">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="DINHEIRO">💰 Valor em Dinheiro</SelectItem>
+                                                <SelectItem value="FISICO">🎁 Prêmio Físico</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {/* Top 1 - Sempre visível quando há ranking */}
+                                    <div className="space-y-2 p-2 bg-background rounded border">
+                                        <Label className="text-xs sm:text-sm font-semibold">🥇 1º Lugar</Label>
+                                        {!formData.is_premio_fisico ? (
+                                            <Input
+                                                type="number"
+                                                step="0.01"
+                                                value={formData.valor_bonus_1}
+                                                onChange={(e) => setFormData({ ...formData, valor_bonus_1: e.target.value })}
+                                                placeholder="Ex: 500.00"
+                                                className="text-xs sm:text-sm"
+                                            />
+                                        ) : (
+                                            <Input
+                                                value={formData.valor_bonus_texto_1}
+                                                onChange={(e) => setFormData({ ...formData, valor_bonus_texto_1: e.target.value })}
+                                                placeholder="Ex: Airfryer, Smartphone"
+                                                className="text-xs sm:text-sm"
+                                            />
+                                        )}
+                                    </div>
+
+                                    {/* Top 2 - Visível apenas se ranking >= 2 */}
+                                    {parseInt(formData.condicao_ranking) >= 2 && (
+                                        <div className="space-y-2 p-2 bg-background rounded border">
+                                            <Label className="text-xs sm:text-sm font-semibold">🥈 2º Lugar</Label>
+                                            {!formData.is_premio_fisico ? (
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={formData.valor_bonus_2}
+                                                    onChange={(e) => setFormData({ ...formData, valor_bonus_2: e.target.value })}
+                                                    placeholder="Ex: 300.00"
+                                                    className="text-xs sm:text-sm"
+                                                />
+                                            ) : (
+                                                <Input
+                                                    value={formData.valor_bonus_texto_2}
+                                                    onChange={(e) => setFormData({ ...formData, valor_bonus_texto_2: e.target.value })}
+                                                    placeholder="Ex: Vale compras R$ 300"
+                                                    className="text-xs sm:text-sm"
+                                                />
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Top 3 - Visível apenas se ranking >= 3 */}
+                                    {parseInt(formData.condicao_ranking) >= 3 && (
+                                        <div className="space-y-2 p-2 bg-background rounded border">
+                                            <Label className="text-xs sm:text-sm font-semibold">🥉 3º Lugar</Label>
+                                            {!formData.is_premio_fisico ? (
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={formData.valor_bonus_3}
+                                                    onChange={(e) => setFormData({ ...formData, valor_bonus_3: e.target.value })}
+                                                    placeholder="Ex: 200.00"
+                                                    className="text-xs sm:text-sm"
+                                                />
+                                            ) : (
+                                                <Input
+                                                    value={formData.valor_bonus_texto_3}
+                                                    onChange={(e) => setFormData({ ...formData, valor_bonus_texto_3: e.target.value })}
+                                                    placeholder="Ex: Kit de produtos"
+                                                    className="text-xs sm:text-sm"
+                                                />
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
