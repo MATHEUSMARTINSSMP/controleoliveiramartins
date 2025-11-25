@@ -327,53 +327,6 @@ export async function syncTinyOrders(
       executionTime,
     };
 
-    // Atualizar log de sincronização
-    await supabase
-      .schema('sistemaretiradas')
-      .from('erp_sync_logs')
-      .insert({
-        store_id: storeId,
-        sistema_erp: 'TINY',
-        tipo_sync: 'PEDIDOS',
-        registros_sincronizados: synced,
-        registros_com_erro: errors,
-        status: errors === 0 ? 'SUCCESS' : 'PARTIAL',
-        sync_at: new Date().toISOString(),
-      });
-
-    return {
-      success: errors === 0,
-      message: `Sincronizados ${synced} pedidos${errors > 0 ? `, ${errors} erros` : ''}`,
-      synced,
-      errors,
-    };
-  } catch (error: any) {
-    console.error('Erro na sincronização de pedidos:', error);
-    
-    // Log de erro
-    await supabase
-      .schema('sistemaretiradas')
-      .from('erp_sync_logs')
-      .insert({
-        store_id: storeId,
-        sistema_erp: 'TINY',
-        tipo_sync: 'PEDIDOS',
-        registros_sincronizados: 0,
-        registros_com_erro: 0,
-        status: 'ERROR',
-        error_message: error.message,
-        sync_at: new Date().toISOString(),
-      });
-
-    return {
-      success: false,
-      message: error.message || 'Erro ao sincronizar pedidos',
-      synced: 0,
-      errors: 0,
-    };
-  }
-}
-
 /**
  * Sincroniza um cliente/contato do Tiny ERP
  */
