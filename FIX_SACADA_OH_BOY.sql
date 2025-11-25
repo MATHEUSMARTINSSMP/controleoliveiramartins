@@ -17,10 +17,10 @@ SELECT * FROM stores WHERE id = 'cee7d359-0240-4131-87a2-21ae44bd1bb4';
 SELECT '=== PROFILE LOJA ===' as seção;
 SELECT * FROM profiles WHERE store_default = 'cee7d359-0240-4131-87a2-21ae44bd1bb4';
 
--- 2. Atualizar store com admin_user_id e sistema_erp (se necessário)
+-- 2. Atualizar store com admin_id e sistema_erp (se necessário)
 UPDATE stores
 SET 
-  admin_user_id = '7391610a-f83b-4727-875f-81299b8bfa68', -- Admin do sistema
+  admin_id = '7391610a-f83b-4727-875f-81299b8bfa68', -- Admin do sistema
   sistema_erp = 'TINY' -- Definir sistema ERP como TINY
 WHERE id = 'cee7d359-0240-4131-87a2-21ae44bd1bb4';
 
