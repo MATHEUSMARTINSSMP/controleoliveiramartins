@@ -73,11 +73,11 @@ export function WeeklyMetaTracker() {
             console.log("[WeeklyMetaTracker] Mês atual:", mesAtual);
             console.log("[WeeklyMetaTracker] Semana:", format(inicioSemana, "dd/MM/yyyy"), "até", format(fimSemana, "dd/MM/yyyy"));
 
-            // Buscar todas as metas mensais INDIVIDUAIS (por colaboradora)
+            // Buscar todas as metas mensais INDIVIDUAIS (por colaboradora) - usar schema como no dashboard da loja
             const { data: metasData, error: metaError } = await supabase
                 .schema("sistemaretiradas")
                 .from("goals")
-                .select("meta_valor, colaboradora_id, daily_weights, profiles(name)")
+                .select("meta_valor, colaboradora_id, daily_weights")
                 .eq("mes_referencia", mesAtual)
                 .eq("tipo", "INDIVIDUAL")
                 .not("colaboradora_id", "is", null);
@@ -109,8 +109,9 @@ export function WeeklyMetaTracker() {
             });
 
             console.log("[WeeklyMetaTracker] Meta semanal calculada (total agregado):", metaSemanalTotal);
+            console.log("[WeeklyMetaTracker] Colaboradoras com meta:", colaboradoraIds.length);
 
-            // Buscar vendas da semana de todas as colaboradoras
+            // Buscar vendas da semana de todas as colaboradoras - usar schema como no dashboard da loja
             let query = supabase
                 .schema("sistemaretiradas")
                 .from("sales")
@@ -128,6 +129,8 @@ export function WeeklyMetaTracker() {
                 console.error("[WeeklyMetaTracker] Erro ao buscar vendas:", salesError);
                 throw salesError;
             }
+
+            console.log("[WeeklyMetaTracker] Vendas encontradas:", salesData?.length || 0);
 
             const vendidoSemana = salesData?.reduce((sum, sale) => sum + Number(sale.valor || 0), 0) || 0;
             const progress = metaSemanalTotal > 0 ? (vendidoSemana / metaSemanalTotal) * 100 : 0;

@@ -39,11 +39,11 @@ export function MonthlyOverview() {
 
             console.log("[MonthlyOverview] Buscando metas mensais INDIVIDUAIS para mês:", mesAtual);
 
-            // Buscar todas as metas mensais INDIVIDUAIS (por colaboradora)
+            // Buscar todas as metas mensais INDIVIDUAIS (por colaboradora) - usar schema como no dashboard da loja
             const { data: metasData, error: metaError } = await supabase
                 .schema("sistemaretiradas")
                 .from("goals")
-                .select("meta_valor, colaboradora_id, profiles(name)")
+                .select("meta_valor, colaboradora_id")
                 .eq("mes_referencia", mesAtual)
                 .eq("tipo", "INDIVIDUAL")
                 .not("colaboradora_id", "is", null);
@@ -66,11 +66,14 @@ export function MonthlyOverview() {
             const metaMensalTotal = metasData.reduce((sum, meta) => sum + Number(meta.meta_valor || 0), 0);
             const colaboradoraIds = metasData.map(m => m.colaboradora_id).filter(Boolean) as string[];
 
-            // Buscar vendas do mês de todas as colaboradoras
+            console.log("[MonthlyOverview] Meta mensal total agregada:", metaMensalTotal);
+            console.log("[MonthlyOverview] Colaboradoras com meta:", colaboradoraIds.length);
+
+            // Buscar vendas do mês de todas as colaboradoras - usar schema como no dashboard da loja
             let query = supabase
                 .schema("sistemaretiradas")
                 .from("sales")
-                .select("valor, colaboradora_id, profiles!inner(name)")
+                .select("valor, colaboradora_id")
                 .gte("data_venda", `${startOfMonth}T00:00:00`);
 
             if (colaboradoraIds.length > 0) {
@@ -79,30 +82,55 @@ export function MonthlyOverview() {
 
             const { data: salesData, error: salesError } = await query;
 
-            if (salesError) throw salesError;
+            if (salesError) {
+                console.error("[MonthlyOverview] Erro ao buscar vendas:", salesError);
+                throw salesError;
+            }
+
+            console.log("[MonthlyOverview] Vendas encontradas:", salesData?.length || 0);
 
             const vendidoMes = salesData?.reduce((sum, sale) => sum + Number(sale.valor || 0), 0) || 0;
             const metaMensal = metaMensalTotal;
             const progress = metaMensal > 0 ? (vendidoMes / metaMensal) * 100 : 0;
 
+            console.log("[MonthlyOverview] Vendido no mês:", vendidoMes);
+            console.log("[MonthlyOverview] Progresso:", progress.toFixed(2) + "%");
+
             // Calcular média diária necessária
             const faltaParaMeta = Math.max(0, metaMensal - vendidoMes);
             const mediaDiariaNecessaria = diasRestantes > 0 ? faltaParaMeta / diasRestantes : 0;
 
-            // Calcular Top 3 colaboradoras
-            const salesByColab = salesData?.reduce((acc: any, sale: any) => {
+            // Calcular Top 3 colaboradoras - buscar nomes das colaboradoras separadamente
+            const salesByColab: Record<string, { id: string; vendido: number }> = {};
+            salesData?.forEach((sale: any) => {
                 const colabId = sale.colaboradora_id;
-                const colabName = sale.profiles?.name || "Desconhecida";
-                if (!acc[colabId]) {
-                    acc[colabId] = { id: colabId, name: colabName, vendido: 0 };
+                if (!salesByColab[colabId]) {
+                    salesByColab[colabId] = { id: colabId, vendido: 0 };
                 }
-                acc[colabId].vendido += Number(sale.valor || 0);
-                return acc;
-            }, {});
+                salesByColab[colabId].vendido += Number(sale.valor || 0);
+            });
 
-            const top3 = Object.values(salesByColab || {})
-                .sort((a: any, b: any) => b.vendido - a.vendido)
-                .slice(0, 3);
+            // Buscar nomes das colaboradoras do Top 3
+            const top3Ids = Object.values(salesByColab)
+                .sort((a, b) => b.vendido - a.vendido)
+                .slice(0, 3)
+                .map(c => c.id);
+
+            let top3: { id: string; name: string; vendido: number }[] = [];
+            if (top3Ids.length > 0) {
+                const { data: profilesData } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("profiles")
+                    .select("id, name")
+                    .in("id", top3Ids);
+
+                const profilesMap = new Map((profilesData || []).map((p: any) => [p.id, p.name]));
+                top3 = top3Ids.map(id => ({
+                    id,
+                    name: profilesMap.get(id) || "Desconhecida",
+                    vendido: salesByColab[id].vendido
+                }));
+            }
 
             setMonthlyData({
                 metaMensal,
