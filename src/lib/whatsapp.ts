@@ -321,10 +321,9 @@ export function formatBonusMessage(params: {
   valorBonus?: number | null;
   valorBonusTexto?: string | null;
   storeName?: string;
-  condicoes?: string | null;
-  preRequisitos?: string | null;
+  preRequisitos?: string[] | null; // Array de pré-requisitos
 }): string {
-  const { colaboradoraName, bonusName, bonusDescription, valorBonus, valorBonusTexto, storeName, condicoes, preRequisitos } = params;
+  const { colaboradoraName, bonusName, bonusDescription, valorBonus, valorBonusTexto, storeName, preRequisitos } = params;
   
   // Extrair apenas o primeiro nome
   const primeiroNome = colaboradoraName.split(' ')[0];
@@ -357,13 +356,15 @@ export function formatBonusMessage(params: {
     message += `*Valor:* ${valorFormatado}\n`;
   }
   
-  if (condicoes && condicoes.trim()) {
-    message += `\n*Condições:*\n${condicoes.trim()}\n`;
-  }
-  
-  // Adicionar pré-requisitos se houver (separado das condições)
-  if (preRequisitos && preRequisitos.trim()) {
-    message += `\n*Pré-requisito:*\n${preRequisitos.trim()}\n`;
+  // Adicionar pré-requisitos se houver (array de pré-requisitos)
+  if (preRequisitos && preRequisitos.length > 0) {
+    const preRequisitosFiltrados = preRequisitos.filter(pr => pr && pr.trim()).map(pr => pr.trim());
+    if (preRequisitosFiltrados.length > 0) {
+      message += `\n*Pré-requisitos:*\n`;
+      preRequisitosFiltrados.forEach((pr, index) => {
+        message += `${index + 1}. ${pr}\n`;
+      });
+    }
   }
   
   message += `\nBoa sorte! 💪\n\n`;

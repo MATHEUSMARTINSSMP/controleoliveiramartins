@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Gift, Check, ArrowLeft, Edit, Trash2 } from "lucide-react";
+import { Plus, Gift, Check, ArrowLeft, Edit, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -74,7 +74,7 @@ interface Bonus {
     valor_bonus: number;
     descricao_premio: string | null;
     valor_bonus_texto?: string | null; // Para prêmios físicos
-    pre_requisitos?: string | null; // Pré-requisitos para o bônus ser válido
+    pre_requisitos?: string[] | null; // Pré-requisitos para o bônus ser válido (array)
     ativo: boolean;
     store_id?: string | null;
     valor_condicao?: number | null;
@@ -117,8 +117,8 @@ export default function BonusManagement() {
         periodo_data_fim: "",
         periodo_mes: "",
         periodo_semana: "",
-        pre_requisitos: "", // Pré-requisitos para o bônus ser válido
-        pre_requisitos_tipo: "NENHUM", // Tipo de pré-requisito: "NENHUM", "LOJA_META_MENSAL", "LOJA_META_SEMANAL", "COLAB_META_MENSAL", "COLAB_META_SEMANAL", "CUSTOM"
+        pre_requisitos: [], // Pré-requisitos para o bônus ser válido (array)
+        pre_requisitos_tipos: [], // Tipos de pré-requisitos selecionados (array)
     });
 
     useEffect(() => {
@@ -246,7 +246,9 @@ export default function BonusManagement() {
             periodo_data_fim: formData.periodo_data_fim || null,
             periodo_mes: formData.periodo_mes || null,
             periodo_semana: formData.periodo_semana || null,
-            pre_requisitos: formData.pre_requisitos?.trim() || null,
+            pre_requisitos: Array.isArray(formData.pre_requisitos) && formData.pre_requisitos.length > 0
+                ? JSON.stringify(formData.pre_requisitos.filter(pr => pr && pr.trim()))
+                : null,
         };
 
         // Adicionar store_id se não for "TODAS"
@@ -378,21 +380,8 @@ export default function BonusManagement() {
                                 }
                             }
 
-                            // Preparar condições do bônus
-                            let condicoesTexto = '';
-                            if (formData.descricao && formData.descricao.trim()) {
-                                condicoesTexto = formData.descricao.trim();
-                            }
-                            if (formData.meta_minima_percentual) {
-                                if (condicoesTexto) condicoesTexto += '\n';
-                                condicoesTexto += `Meta mínima: ${formData.meta_minima_percentual}%`;
-                            }
-                            
-                            // Adicionar pré-requisitos se houver
-                            if (formData.pre_requisitos && formData.pre_requisitos.trim()) {
-                                if (condicoesTexto) condicoesTexto += '\n\n';
-                                condicoesTexto += `*Pré-requisito:*\n${formData.pre_requisitos.trim()}`;
-                            }
+                            // Preparar descrição do bônus (não incluir condições, apenas descrição)
+                            // Pré-requisitos serão enviados separadamente
 
                             // Enviar mensagem APENAS para colaboradoras vinculadas que têm WhatsApp configurado
                             const colaboradorasComWhatsApp = colaboradorasData.filter((colab: any) => colab.whatsapp && colab.whatsapp.trim());
@@ -418,8 +407,7 @@ export default function BonusManagement() {
                                         valorBonus: formData.is_premio_fisico ? null : (formData.valor_bonus ? parseFloat(formData.valor_bonus) : null),
                                         valorBonusTexto: formData.is_premio_fisico ? (formData.valor_bonus_texto || formData.descricao_premio || null) : null,
                                         storeName: storeName || undefined,
-                                        condicoes: condicoesTexto || null,
-                                        preRequisitos: formData.pre_requisitos?.trim() || null,
+                                        preRequisitos: Array.isArray(formData.pre_requisitos) ? formData.pre_requisitos.filter(pr => pr && pr.trim()) : null,
                                     });
 
                                     return sendWhatsAppMessage({
@@ -489,8 +477,8 @@ export default function BonusManagement() {
             periodo_data_fim: (bonus as any).periodo_data_fim || "",
             periodo_mes: (bonus as any).periodo_mes || "",
             periodo_semana: (bonus as any).periodo_semana || "",
-            pre_requisitos: (bonus as any).pre_requisitos || "",
-            pre_requisitos_tipo: getPreRequisitoTipo((bonus as any).pre_requisitos),
+            pre_requisitos: parsePreRequisitosFromDB((bonus as any).pre_requisitos),
+            pre_requisitos_tipos: parsePreRequisitosTiposFromDB((bonus as any).pre_requisitos),
         });
 
         // Carregar colaboradoras vinculadas
@@ -550,8 +538,8 @@ export default function BonusManagement() {
             periodo_data_fim: "",
             periodo_mes: "",
             periodo_semana: "",
-            pre_requisitos: "",
-            pre_requisitos_tipo: "NENHUM",
+            pre_requisitos: [],
+            pre_requisitos_tipos: [],
         });
         setSelectedCollaborators([]);
         setAvailableCollaborators([]);
