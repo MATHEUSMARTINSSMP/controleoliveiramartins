@@ -4,7 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, KeyRound, Bell, DollarSign } from "lucide-react";
+import { LogOut, KeyRound, Bell, DollarSign, Settings, ExternalLink } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CommercialDashboard } from "@/components/admin/CommercialDashboard";
@@ -241,8 +242,32 @@ const AdminDashboard = () => {
             <FinancialDashboard />
           </TabsContent>
 
-          <TabsContent value="configuracoes" className="animate-in fade-in-50 duration-500">
+          <TabsContent value="configuracoes" className="animate-in fade-in-50 duration-500 space-y-4 sm:space-y-6">
             <WhatsAppNotificationConfig />
+            
+            {/* Integração Tiny ERP */}
+            <Card className="border-primary/20">
+              <CardHeader>
+                <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                  <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
+                  Integração Tiny ERP
+                </CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  Configure a conexão com o Tiny ERP para sincronizar produtos, pedidos e estoque
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  onClick={() => navigate("/admin/tiny-config")}
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  size="sm"
+                >
+                  <ExternalLink className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                  Configurar Tiny ERP
+                </Button>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>

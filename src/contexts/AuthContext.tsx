@@ -116,12 +116,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (!data) {
-        console.error("[AuthContext] ❌ NO PROFILE FOUND for userId:", userId);
-        console.error("[AuthContext] This could mean:");
-        console.error("[AuthContext] 1. Profile doesn't exist in database");
-        console.error("[AuthContext] 2. RLS is blocking access");
-        console.error("[AuthContext] 3. Profile ID doesn't match userId");
-        throw new Error("Profile not found");
+        console.warn("[AuthContext] Profile não encontrado no sistemaretiradas para userId:", userId);
+        // TODO: Se não encontrar, pode tentar buscar em outros schemas de tenant
+        // Por enquanto, apenas loga e retorna null (compatibilidade)
+        setProfile(null);
+        setLoading(false);
+        return;
       }
 
       console.log("[AuthContext] ✅ PROFILE FOUND! Role:", data.role, "Name:", data.name);
@@ -134,7 +134,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // Track the last loaded user ID to prevent duplicate fetches
       lastLoadedUserIdRef.current = userId;
-      setProfile(data);
+      // Por padrão, tenant usa sistemaretiradas (schema_name = null)
+      const profileData = {
+        ...data,
+        tenant_schema: 'sistemaretiradas', // Default para compatibilidade
+      } as Profile;
+      setProfile(profileData);
       setLoading(false);
     } catch (error) {
       console.error("[AuthContext] Error in fetchProfile:", error);
