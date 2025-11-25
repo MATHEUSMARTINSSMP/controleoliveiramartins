@@ -579,11 +579,11 @@ export default function BonusManagement() {
                                 }
                             }
 
-                            // Buscar e enviar para números da tabela whatsapp_notification_config
-                            // Busca tanto VENDA (números globais) quanto PARABENS (números específicos da loja)
-                            // PARABENS é usado porque a colaboradora está na loja e não está com seu celular
+                            // Buscar e enviar para números PARABENS da loja
+                            // PARABENS é usado porque algumas colaboradoras podem estar na loja sem celular
+                            // As outras colaboradoras recebem no WhatsApp pessoal delas (já enviado acima)
                             if (formData.store_id && formData.store_id !== "TODAS") {
-                                console.log('📱 [BonusManagement] Buscando números WhatsApp da tabela whatsapp_notification_config para loja:', formData.store_id);
+                                console.log('📱 [BonusManagement] Buscando números PARABENS da loja:', formData.store_id);
                                 
                                 // Buscar admin_id da loja
                                 const { data: storeData } = await supabase
@@ -596,26 +596,8 @@ export default function BonusManagement() {
                                 if (storeData && storeData.admin_id) {
                                     const storeAdminId = storeData.admin_id;
                                     
-                                    // Buscar destinatários VENDA: store_id IS NULL (todas as lojas) OU store_id = loja atual
-                                    const { data: recipientsAllStores } = await supabase
-                                        .schema('sistemaretiradas')
-                                        .from('whatsapp_notification_config')
-                                        .select('phone')
-                                        .eq('admin_id', storeAdminId)
-                                        .eq('notification_type', 'VENDA')
-                                        .eq('active', true)
-                                        .is('store_id', null);
-                                    
-                                    const { data: recipientsThisStore, error: recipientsError } = await supabase
-                                        .schema('sistemaretiradas')
-                                        .from('whatsapp_notification_config')
-                                        .select('phone')
-                                        .eq('admin_id', storeAdminId)
-                                        .eq('notification_type', 'VENDA')
-                                        .eq('active', true)
-                                        .eq('store_id', formData.store_id);
-                                    
-                                    // Buscar destinatários PARABENS: específicos da loja (como configurado pelo usuário)
+                                    // Buscar destinatários PARABENS: específicos da loja
+                                    // Esses são os números da loja para quando colaboradoras estão sem celular
                                     const { data: parabensRecipients, error: parabensError } = await supabase
                                         .schema('sistemaretiradas')
                                         .from('whatsapp_notification_config')
@@ -625,19 +607,10 @@ export default function BonusManagement() {
                                         .eq('active', true)
                                         .eq('store_id', formData.store_id); // PARABENS deve ser específico da loja
                                     
-                                    // Combinar resultados e remover duplicatas
-                                    const recipientsData = [
-                                        ...(recipientsAllStores || []),
-                                        ...(recipientsThisStore || []),
-                                        ...(parabensRecipients || [])
-                                    ].filter((item, index, self) => 
-                                        index === self.findIndex(t => t.phone === item.phone)
-                                    );
-                                    
-                                    if (recipientsError || parabensError) {
-                                        console.error('❌ [BonusManagement] Erro ao buscar destinatários WhatsApp:', recipientsError || parabensError);
-                                    } else if (recipientsData && recipientsData.length > 0) {
-                                        console.log(`📱 [BonusManagement] ${recipientsData.length} número(s) encontrado(s) na tabela whatsapp_notification_config (VENDA + PARABENS)`);
+                                    if (parabensError) {
+                                        console.error('❌ [BonusManagement] Erro ao buscar destinatários PARABENS:', parabensError);
+                                    } else if (parabensRecipients && parabensRecipients.length > 0) {
+                                        console.log(`📱 [BonusManagement] ${parabensRecipients.length} número(s) PARABENS encontrado(s) para a loja`);
                                         
                                         const temPremiosPorPosicao = formData.categoria_condicao === "BASICA" && 
                                                                      formData.condicao_ranking && 
@@ -645,7 +618,7 @@ export default function BonusManagement() {
                                                                      parseInt(formData.condicao_ranking) > 0;
                                         
                                         const notificationMessage = formatBonusMessage({
-                                            colaboradoraName: "Administrador",
+                                            colaboradoraName: "Equipe da Loja",
                                             bonusName: formData.nome,
                                             bonusDescription: formData.descricao || null,
                                             valorBonus: temPremiosPorPosicao ? null : (formData.is_premio_fisico ? null : (formData.valor_bonus ? parseFloat(formData.valor_bonus) : null)),
@@ -661,8 +634,8 @@ export default function BonusManagement() {
                                             condicaoRanking: formData.condicao_ranking ? parseInt(formData.condicao_ranking) : null,
                                         });
                                         
-                                        // Adicionar envios para todos os números encontrados
-                                        recipientsData.forEach((recipient: any) => {
+                                        // Adicionar envios para números PARABENS da loja
+                                        parabensRecipients.forEach((recipient: any) => {
                                             if (recipient.phone) {
                                                 const cleaned = recipient.phone.replace(/\D/g, '');
                                                 if (cleaned && cleaned.length >= 10) {
@@ -672,19 +645,19 @@ export default function BonusManagement() {
                                                             message: notificationMessage,
                                                         }).then(result => {
                                                             if (result.success) {
-                                                                console.log(`✅ [BonusManagement] WhatsApp enviado com sucesso para número da tabela (${cleaned})`);
+                                                                console.log(`✅ [BonusManagement] WhatsApp enviado com sucesso para número PARABENS da loja (${cleaned})`);
                                                             } else {
-                                                                console.warn(`⚠️ [BonusManagement] Falha ao enviar WhatsApp para número da tabela (${cleaned}):`, result.error);
+                                                                console.warn(`⚠️ [BonusManagement] Falha ao enviar WhatsApp para número PARABENS da loja (${cleaned}):`, result.error);
                                                             }
                                                         }).catch(err => {
-                                                            console.error(`❌ [BonusManagement] Erro ao enviar WhatsApp para número da tabela (${cleaned}):`, err);
+                                                            console.error(`❌ [BonusManagement] Erro ao enviar WhatsApp para número PARABENS da loja (${cleaned}):`, err);
                                                         })
                                                     );
                                                 }
                                             }
                                         });
                                     } else {
-                                        console.log('📱 [BonusManagement] Nenhum número encontrado na tabela whatsapp_notification_config para esta loja');
+                                        console.log('📱 [BonusManagement] Nenhum número PARABENS encontrado para esta loja');
                                     }
                                 } else {
                                     console.warn('⚠️ [BonusManagement] Loja não tem admin_id configurado!');
