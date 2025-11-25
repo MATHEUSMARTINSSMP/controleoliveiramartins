@@ -269,6 +269,8 @@ export async function callERPAPI(
   const { supabase } = await import('@/integrations/supabase/client');
 
   // Buscar integração da loja (cada loja tem apenas uma)
+  console.log(`[ERPIntegrations] Buscando integração para store_id: ${storeId}`);
+  
   const { data: integration, error: credError } = await supabase
     .schema('sistemaretiradas')
     .from('erp_integrations')
@@ -276,8 +278,26 @@ export async function callERPAPI(
     .eq('store_id', storeId)
     .maybeSingle();
 
-  if (credError || !integration) {
-    throw new Error(`Integração ERP não encontrada para esta loja. Configure primeiro.`);
+  console.log(`[ERPIntegrations] Resultado da busca:`, { 
+    integration: integration ? 'encontrada' : 'não encontrada',
+    error: credError?.message,
+    storeId 
+  });
+
+  if (credError) {
+    console.error(`[ERPIntegrations] Erro ao buscar integração:`, credError);
+    throw new Error(`Erro ao buscar integração ERP: ${credError.message}`);
+  }
+
+  if (!integration) {
+    // Tentar buscar todas as integrações para debug
+    const { data: allIntegrations } = await supabase
+      .schema('sistemaretiradas')
+      .from('erp_integrations')
+      .select('id, store_id, sistema_erp, sync_status');
+    
+    console.error(`[ERPIntegrations] Integração não encontrada. Integrações disponíveis:`, allIntegrations);
+    throw new Error(`Integração ERP não encontrada para esta loja (store_id: ${storeId}). Configure primeiro em /dev/erp-config`);
   }
 
   const sistemaERP = (integration.sistema_erp || 'TINY') as SistemaERP;

@@ -91,8 +91,13 @@ export default function ERPDashboard() {
         .order('name');
 
       // Se for LOJA, filtrar apenas sua loja
-      if (profile?.role === 'LOJA' && profile.store_id) {
-        query = query.eq('id', profile.store_id);
+      // Para LOJA, usar store_default se store_id não estiver disponível
+      const lojaStoreId = profile?.role === 'LOJA' 
+        ? (profile.store_id || profile.store_default)
+        : null;
+      
+      if (lojaStoreId) {
+        query = query.eq('id', lojaStoreId);
       }
 
       const { data, error } = await query;
@@ -103,8 +108,8 @@ export default function ERPDashboard() {
 
       // Auto-selecionar primeira loja ou loja do usuário
       if (data && data.length > 0) {
-        if (profile?.role === 'LOJA' && profile.store_id) {
-          setSelectedStoreId(profile.store_id);
+        if (lojaStoreId) {
+          setSelectedStoreId(lojaStoreId);
         } else {
           setSelectedStoreId(data[0].id);
         }
