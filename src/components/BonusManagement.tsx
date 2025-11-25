@@ -582,6 +582,11 @@ export default function BonusManagement() {
                                         .eq('store_id', formData.store_id);
                                     
                                     // Combinar resultados e remover duplicatas
+                                    console.log(`📱 [BonusManagement] Resultados da busca:`);
+                                    console.log(`  - VENDA globais (store_id IS NULL): ${recipientsAllStores?.length || 0}`);
+                                    console.log(`  - VENDA específicos da loja: ${recipientsThisStore?.length || 0}`);
+                                    console.log(`  - PARABENS específicos da loja: ${parabensRecipients?.length || 0}`);
+                                    
                                     const recipientsData = [
                                         ...(recipientsAllStores || []),
                                         ...(recipientsThisStore || []),
@@ -593,7 +598,7 @@ export default function BonusManagement() {
                                     if (recipientsError || parabensError) {
                                         console.error('❌ [BonusManagement] Erro ao buscar destinatários WhatsApp:', recipientsError || parabensError);
                                     } else if (recipientsData && recipientsData.length > 0) {
-                                        console.log(`📱 [BonusManagement] ${recipientsData.length} número(s) encontrado(s) (VENDA + PARABENS)`);
+                                        console.log(`📱 [BonusManagement] ${recipientsData.length} número(s) encontrado(s) (VENDA + PARABENS) após remoção de duplicatas`);
                                         
                                         const temPremiosPorPosicao = formData.categoria_condicao === "BASICA" && 
                                                                      formData.condicao_ranking && 
@@ -618,27 +623,36 @@ export default function BonusManagement() {
                                         });
                                         
                                         // Adicionar envios para todos os números encontrados
-                                        recipientsData.forEach((recipient: any) => {
+                                        console.log(`📱 [BonusManagement] Adicionando ${recipientsData.length} promise(s) para envio de mensagens...`);
+                                        recipientsData.forEach((recipient: any, index: number) => {
                                             if (recipient.phone) {
                                                 const cleaned = recipient.phone.replace(/\D/g, '');
+                                                console.log(`📱 [BonusManagement] Processando número ${index + 1}/${recipientsData.length}: ${cleaned}`);
                                                 if (cleaned && cleaned.length >= 10) {
-                                                    promises.push(
-                                                        sendWhatsAppMessage({
-                                                            phone: cleaned,
-                                                            message: notificationMessage,
-                                                        }).then(result => {
-                                                            if (result.success) {
-                                                                console.log(`✅ [BonusManagement] WhatsApp enviado com sucesso para número da tabela (${cleaned})`);
-                                                            } else {
-                                                                console.warn(`⚠️ [BonusManagement] Falha ao enviar WhatsApp para número da tabela (${cleaned}):`, result.error);
-                                                            }
-                                                        }).catch(err => {
-                                                            console.error(`❌ [BonusManagement] Erro ao enviar WhatsApp para número da tabela (${cleaned}):`, err);
-                                                        })
-                                                    );
+                                                    const promise = sendWhatsAppMessage({
+                                                        phone: cleaned,
+                                                        message: notificationMessage,
+                                                    }).then(result => {
+                                                        if (result.success) {
+                                                            console.log(`✅ [BonusManagement] WhatsApp enviado com sucesso para número da tabela (${cleaned})`);
+                                                        } else {
+                                                            console.warn(`⚠️ [BonusManagement] Falha ao enviar WhatsApp para número da tabela (${cleaned}):`, result.error);
+                                                        }
+                                                        return result;
+                                                    }).catch(err => {
+                                                        console.error(`❌ [BonusManagement] Erro ao enviar WhatsApp para número da tabela (${cleaned}):`, err);
+                                                        return { success: false, error: err };
+                                                    });
+                                                    promises.push(promise);
+                                                    console.log(`📱 [BonusManagement] Promise ${index + 1} adicionada ao array`);
+                                                } else {
+                                                    console.warn(`⚠️ [BonusManagement] Número inválido (menos de 10 dígitos): ${cleaned}`);
                                                 }
+                                            } else {
+                                                console.warn(`⚠️ [BonusManagement] Recipient sem phone:`, recipient);
                                             }
                                         });
+                                        console.log(`📱 [BonusManagement] Total de promises após adicionar números da tabela: ${promises.length}`);
                                     } else {
                                         console.log('📱 [BonusManagement] Nenhum número encontrado na tabela whatsapp_notification_config para esta loja');
                                     }
@@ -826,8 +840,15 @@ export default function BonusManagement() {
                                     );
                                 });
 
-                            await Promise.all(promises);
-                            console.log('📱 [BonusManagement] ✅ Processo de envio de WhatsApp concluído');
+                            // Verificar se há promises para executar
+                            console.log(`📱 [BonusManagement] Total de ${promises.length} promise(s) para executar`);
+                            if (promises.length > 0) {
+                                console.log(`📱 [BonusManagement] Executando ${promises.length} envio(s) de WhatsApp...`);
+                                await Promise.all(promises);
+                                console.log('📱 [BonusManagement] ✅ Processo de envio de WhatsApp concluído');
+                            } else {
+                                console.warn('⚠️ [BonusManagement] Nenhuma mensagem para enviar (nenhuma colaboradora com WhatsApp e nenhum número configurado)');
+                            }
                         } catch (err) {
                             console.error('❌ [BonusManagement] Erro no processo de envio de WhatsApp:', err);
                         }
