@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "lucide-react";
 import { format, getDaysInMonth } from "date-fns";
 
@@ -17,12 +18,29 @@ interface ColaboradoraMetaDiaria {
 export function DailyMetaTracker() {
     const [colaboradoras, setColaboradoras] = useState<ColaboradoraMetaDiaria[]>([]);
     const [loading, setLoading] = useState(true);
+    const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
+    const [selectedStore, setSelectedStore] = useState<string>("TODAS");
+
+    useEffect(() => {
+        fetchStores();
+    }, []);
 
     useEffect(() => {
         fetchDailyProgress();
         const interval = setInterval(fetchDailyProgress, 30000);
         return () => clearInterval(interval);
-    }, []);
+    }, [selectedStore]);
+
+    const fetchStores = async () => {
+        const { data } = await supabase
+            .schema("sistemaretiradas")
+            .from("stores")
+            .select("id, name")
+            .eq("active", true)
+            .order("name");
+
+        if (data) setStores(data);
+    };
 
     const fetchDailyProgress = async () => {
         try {
@@ -59,14 +77,27 @@ export function DailyMetaTracker() {
 
             const colaboradoraIds = metasData.map(m => m.colaboradora_id).filter(Boolean) as string[];
 
-            // Buscar nomes de todas as colaboradoras
-            const { data: profilesData } = await supabase
+            // Buscar nomes de todas as colaboradoras (com filtro de loja se necessário)
+            let profilesQuery = supabase
                 .schema("sistemaretiradas")
                 .from("profiles")
-                .select("id, name")
+                .select("id, name, store_id")
                 .in("id", colaboradoraIds);
 
+            if (selectedStore !== "TODAS") {
+                profilesQuery = profilesQuery.eq("store_id", selectedStore);
+            }
+
+            const { data: profilesData } = await profilesQuery;
+
             const profilesMap = new Map((profilesData || []).map((p: any) => [p.id, p.name]));
+            const filteredColabIds = (profilesData || []).map((p: any) => p.id).filter(Boolean) as string[];
+
+            if (filteredColabIds.length === 0) {
+                setColaboradoras([]);
+                setLoading(false);
+                return;
+            }
 
             // Buscar vendas de hoje de todas as colaboradoras - usar schema como no dashboard da loja
             let query = supabase
@@ -76,8 +107,8 @@ export function DailyMetaTracker() {
                 .gte("data_venda", `${hojeStr}T00:00:00`)
                 .lte("data_venda", `${hojeStr}T23:59:59`);
 
-            if (colaboradoraIds.length > 0) {
-                query = query.in("colaboradora_id", colaboradoraIds);
+            if (filteredColabIds.length > 0) {
+                query = query.in("colaboradora_id", filteredColabIds);
             }
 
             const { data: salesData, error: salesError } = await query;
@@ -106,7 +137,7 @@ export function DailyMetaTracker() {
                 .select("valor, colaboradora_id")
                 .gte("data_venda", `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01T00:00:00`)
                 .lt("data_venda", `${hojeStr}T00:00:00`)
-                .in("colaboradora_id", colaboradoraIds);
+                .in("colaboradora_id", filteredColabIds);
 
             const salesMonthByColab: Record<string, number> = {};
             salesMonthData?.forEach((sale: any) => {
@@ -117,13 +148,15 @@ export function DailyMetaTracker() {
                 salesMonthByColab[colabId] += Number(sale.valor || 0);
             });
 
-            // Criar lista de colaboradoras com suas metas diárias e vendas
-            const colaboradorasList: ColaboradoraMetaDiaria[] = metasData.map((meta: any) => {
-                const colabId = meta.colaboradora_id;
-                const metaMensal = Number(meta.meta_valor || 0);
-                const dailyWeights = meta.daily_weights || {};
-                const vendidoHoje = salesByColab[colabId] || 0;
-                const vendidoAteOntem = salesMonthByColab[colabId] || 0;
+            // Criar lista de colaboradoras com suas metas diárias e vendas (apenas as filtradas)
+            const colaboradorasList: ColaboradoraMetaDiaria[] = metasData
+                .filter((meta: any) => filteredColabIds.includes(meta.colaboradora_id))
+                .map((meta: any) => {
+                    const colabId = meta.colaboradora_id;
+                    const metaMensal = Number(meta.meta_valor || 0);
+                    const dailyWeights = meta.daily_weights || {};
+                    const vendidoHoje = salesByColab[colabId] || 0;
+                    const vendidoAteOntem = salesMonthByColab[colabId] || 0;
 
                 // Calcular meta diária padrão
                 let metaDiariaPadrao = metaMensal / totalDias;
@@ -159,14 +192,14 @@ export function DailyMetaTracker() {
 
                 const progress = metaDiaria > 0 ? (vendidoHoje / metaDiaria) * 100 : 0;
 
-                return {
-                    id: colabId,
-                    name: profilesMap.get(colabId) || "Desconhecida",
-                    vendidoHoje,
-                    metaDiaria,
-                    progress: Math.min(progress, 100),
-                };
-            });
+                    return {
+                        id: colabId,
+                        name: profilesMap.get(colabId) || "Desconhecida",
+                        vendidoHoje,
+                        metaDiaria,
+                        progress: Math.min(progress, 100),
+                    };
+                });
 
             // Ordenar por progresso (maior primeiro)
             colaboradorasList.sort((a, b) => b.progress - a.progress);
@@ -227,13 +260,28 @@ export function DailyMetaTracker() {
     return (
         <Card className="col-span-1 bg-gradient-to-br from-card to-card/50 border-primary/10">
             <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                    <Calendar className="h-5 w-5 text-primary" />
-                    Meta Diária
-                </CardTitle>
+                <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                        <Calendar className="h-5 w-5 text-primary" />
+                        Meta Diária
+                    </CardTitle>
+                    <Select value={selectedStore} onValueChange={setSelectedStore}>
+                        <SelectTrigger className="w-[180px] h-8 text-xs">
+                            <SelectValue placeholder="Todas as lojas" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="TODAS">Todas as lojas</SelectItem>
+                            {stores.map((store) => (
+                                <SelectItem key={store.id} value={store.id}>
+                                    {store.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </CardHeader>
             <CardContent className="space-y-3">
-                <div className="space-y-2 max-h-96 overflow-y-auto">
+                <div className="space-y-2">
                     {colaboradoras.map((colab) => (
                         <div
                             key={colab.id}

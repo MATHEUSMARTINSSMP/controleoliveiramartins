@@ -63,7 +63,7 @@ export function WeeklyGoalsTracker() {
             const collaboratorsWithProgress = await Promise.all(
                 colabsData.map(async (colab) => {
                     // Buscar meta semanal individual (gincana)
-                    const { data: metaData } = await supabase
+                    const { data: metaData, error: metaError } = await supabase
                         .schema("sistemaretiradas")
                         .from("goals")
                         .select("meta_valor, super_meta_valor")
@@ -71,6 +71,10 @@ export function WeeklyGoalsTracker() {
                         .eq("semana_referencia", currentWeek)
                         .eq("tipo", "SEMANAL")
                         .maybeSingle();
+
+                    if (metaError) {
+                        console.error(`[WeeklyGoalsTracker] Erro ao buscar meta para ${colab.name}:`, metaError);
+                    }
 
                     // Buscar vendas da semana
                     const { data: salesData } = await supabase
@@ -86,6 +90,14 @@ export function WeeklyGoalsTracker() {
                     const superMetaSemanal = Number(metaData?.super_meta_valor || 0);
                     const progress = metaSemanal > 0 ? (vendidoSemana / metaSemanal) * 100 : 0;
 
+                    // Checkpoint 1: atingiu a meta semanal (100% ou mais)
+                    const checkpoint1 = metaSemanal > 0 && vendidoSemana >= metaSemanal;
+                    
+                    // Checkpoint Final: atingiu a super meta semanal
+                    const checkpointFinal = superMetaSemanal > 0 && vendidoSemana >= superMetaSemanal;
+
+                    console.log(`[WeeklyGoalsTracker] ${colab.name}: vendido=${vendidoSemana}, meta=${metaSemanal}, super=${superMetaSemanal}, CP1=${checkpoint1}, Final=${checkpointFinal}`);
+
                     return {
                         id: colab.id,
                         name: colab.name,
@@ -93,8 +105,8 @@ export function WeeklyGoalsTracker() {
                         metaSemanal,
                         superMetaSemanal,
                         progress: Math.min(progress, 100),
-                        checkpoint1: progress >= 100,
-                        checkpointFinal: superMetaSemanal > 0 && vendidoSemana >= superMetaSemanal,
+                        checkpoint1,
+                        checkpointFinal,
                     };
                 })
             );
@@ -162,7 +174,7 @@ export function WeeklyGoalsTracker() {
                         Nenhuma colaboradora com gincana semanal ativa
                     </p>
                 ) : (
-                    <div className="space-y-2 max-h-80 overflow-y-auto">
+                    <div className="space-y-2">
                         {collaborators.map((colab) => (
                             <div
                                 key={colab.id}
@@ -174,6 +186,11 @@ export function WeeklyGoalsTracker() {
                                         <p className="text-xs text-muted-foreground">
                                             R$ {colab.vendidoSemana.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} / R${" "}
                                             {colab.metaSemanal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                            {colab.superMetaSemanal > 0 && (
+                                                <span className="ml-1 text-purple-600 font-semibold">
+                                                    (Super: R$ {colab.superMetaSemanal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })})
+                                                </span>
+                                            )}
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-1">
@@ -182,10 +199,12 @@ export function WeeklyGoalsTracker() {
                                         ) : (
                                             <Circle className="h-4 w-4 text-muted-foreground" title="Checkpoint 1" />
                                         )}
-                                        {colab.checkpointFinal ? (
-                                            <CheckCircle2 className="h-4 w-4 text-yellow-500" title="Checkpoint Final ✓" />
-                                        ) : (
-                                            <Circle className="h-4 w-4 text-muted-foreground" title="Checkpoint Final" />
+                                        {colab.superMetaSemanal > 0 && (
+                                            colab.checkpointFinal ? (
+                                                <CheckCircle2 className="h-4 w-4 text-yellow-500" title="Checkpoint Final ✓" />
+                                            ) : (
+                                                <Circle className="h-4 w-4 text-muted-foreground" title="Checkpoint Final" />
+                                            )
                                         )}
                                     </div>
                                 </div>

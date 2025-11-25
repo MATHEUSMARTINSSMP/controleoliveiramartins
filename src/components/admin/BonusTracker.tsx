@@ -211,7 +211,7 @@ export function BonusTracker() {
                                     <Users className="h-3 w-3" />
                                     <span>{bonus.collaborators.length} colaboradoras</span>
                                 </div>
-                                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                                <div className="space-y-1.5">
                                     {bonus.collaborators
                                         .sort((a, b) => b.progress - a.progress)
                                         .map((colab) => (

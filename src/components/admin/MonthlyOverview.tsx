@@ -187,7 +187,7 @@ export function MonthlyOverview() {
                 </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-                <div className="space-y-2 max-h-96 overflow-y-auto">
+                <div className="space-y-2">
                     {monthlyData.colaboradoras.map((colab) => (
                         <div
                             key={colab.id}
