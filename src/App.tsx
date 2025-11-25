@@ -22,6 +22,7 @@ import BenchmarksManagement from "./pages/BenchmarksManagement";
 import WeeklyGoalsManagement from "./components/WeeklyGoalsManagement";
 import ERPIntegrationsConfig from "./pages/ERPIntegrationsConfig";
 import ERPConfig from "./pages/dev/ERPConfig";
+import DevLogin from "./pages/dev/DevLogin";
 import Seed from "./pages/Seed";
 import ForgotPassword from "./pages/ForgotPassword";
 import Landing from "./pages/Landing";
@@ -56,6 +57,7 @@ const App = () => (
             <Route path="/admin/bonus" element={<BonusManagement />} />
             <Route path="/admin/benchmarks" element={<BenchmarksManagement />} />
             <Route path="/admin/erp-integrations" element={<ERPIntegrationsConfig />} />
+            <Route path="/dev/login" element={<DevLogin />} />
             <Route path="/dev/erp-config" element={<ERPConfig />} />
             <Route path="/loja" element={<LojaDashboard />} />
             <Route path="/me" element={<ColaboradoraDashboard />} />

@@ -52,19 +52,20 @@ const ERPConfig = () => {
       return;
     }
 
-    // Se não tem usuário logado, redirecionar para login
+    // Se não tem usuário logado, redirecionar para login dev
     if (!profile) {
-      navigate("/", { replace: true });
+      navigate("/dev/login", { replace: true });
       return;
     }
 
-    // Se não é ADMIN, redirecionar para dashboard
-    if (profile.role !== "ADMIN") {
-      navigate("/admin", { replace: true });
+    // Verificar se é o usuário dev@dev.com
+    if (profile.email !== "dev@dev.com") {
+      toast.error("Acesso restrito. Apenas usuário dev autorizado.");
+      navigate("/dev/login", { replace: true });
       return;
     }
 
-    // Se chegou aqui, é ADMIN - carregar dados
+    // Se chegou aqui, é o usuário dev - carregar dados
     fetchStores();
   }, [profile, authLoading, navigate]);
 
