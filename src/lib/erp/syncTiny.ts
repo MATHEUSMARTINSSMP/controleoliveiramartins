@@ -261,7 +261,10 @@ export async function syncTinyOrders(
       const response = await callERPAPI(storeId, '/pedidos', params);
       
       // Verificar estrutura da resposta conforme documentação
+      // Tiny ERP v3 pode retornar: { pedidos: [...] } ou { retorno: { pedidos: [...] } }
       let pedidos: TinyPedido[] = [];
+      
+      console.log(`[SyncTiny] Resposta recebida (página ${currentPage}):`, JSON.stringify(response).substring(0, 500));
       
       if (response.pedidos && Array.isArray(response.pedidos)) {
         pedidos = response.pedidos;
@@ -269,12 +272,15 @@ export async function syncTinyOrders(
         pedidos = response.retorno.pedidos;
       } else if (response.data?.pedidos && Array.isArray(response.data.pedidos)) {
         pedidos = response.data.pedidos;
+      } else if (Array.isArray(response)) {
+        // Se a resposta é um array direto
+        pedidos = response;
       } else {
-        console.warn(`[SyncTiny] Página ${currentPage}: Resposta inesperada:`, response);
+        console.warn(`[SyncTiny] Página ${currentPage}: Estrutura de resposta não reconhecida:`, Object.keys(response || {}));
         if (currentPage === 1) {
           return {
             success: false,
-            message: 'Resposta inválida da API Tiny. Verifique a estrutura da resposta.',
+            message: `Resposta inválida da API Tiny. Estrutura recebida: ${JSON.stringify(Object.keys(response || {}))}`,
             synced: 0,
             updated: 0,
             errors: 0,
