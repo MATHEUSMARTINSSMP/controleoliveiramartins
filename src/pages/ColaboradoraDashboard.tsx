@@ -288,6 +288,7 @@ const ColaboradoraDashboard = () => {
 
       // Buscar meta individual
       const { data: goal } = await supabase
+        .schema("sistemaretiradas")
         .from('goals')
         .select('*')
         .eq('colaboradora_id', profile.id)
@@ -297,6 +298,7 @@ const ColaboradoraDashboard = () => {
 
       // Buscar vendas do mês
       const { data: sales } = await supabase
+        .schema("sistemaretiradas")
         .from('sales')
         .select('*')
         .eq('colaboradora_id', profile.id)
@@ -304,6 +306,7 @@ const ColaboradoraDashboard = () => {
 
       // Buscar vendas de hoje
       const { data: salesToday } = await supabase
+        .schema("sistemaretiradas")
         .from('sales')
         .select('*')
         .eq('colaboradora_id', profile.id)
@@ -311,6 +314,7 @@ const ColaboradoraDashboard = () => {
 
       // Buscar bônus ativos
       const { data: bonusesData } = await supabase
+        .schema("sistemaretiradas")
         .from('bonuses')
         .select('*')
         .eq('ativo', true)
