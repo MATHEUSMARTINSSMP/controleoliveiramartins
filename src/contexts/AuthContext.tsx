@@ -11,6 +11,7 @@ interface Profile {
   store_default: string | null;
   store_id: string | null;
   active: boolean;
+  tenant_schema?: string | null; // Schema do tenant (opcional, para multi-tenancy)
 }
 
 interface AuthContextType {
@@ -76,6 +77,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const queryStartTime = Date.now();
       
       // Create a promise with timeout
+      // Try sistemaretiradas first (tenant padrão)
+      // Se não encontrar, pode tentar outros schemas de tenant no futuro
       const queryPromise = supabase
         .schema("sistemaretiradas")
         .from("profiles")

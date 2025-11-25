@@ -8,7 +8,7 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-const SCHEMA_NAME = 'sistemaretiradas';
+const DEFAULT_SCHEMA_NAME = 'sistemaretiradas';
 
 // Validate environment variables
 if (!SUPABASE_URL) {
@@ -24,6 +24,9 @@ if (!SUPABASE_PUBLISHABLE_KEY) {
 // Create client with schema configured in db.schema option
 // This is CRITICAL: without this, supabase-js defaults to 'public' schema
 // Even with Accept-Profile headers, we need db.schema to ensure all queries use the correct schema
+// 
+// NOTE: For multi-tenancy, we use DEFAULT_SCHEMA_NAME as fallback
+// Individual queries should specify .schema() explicitly when needed
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
@@ -31,12 +34,23 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   },
   db: {
-    schema: SCHEMA_NAME,  // ← THIS IS THE KEY! Forces all queries to use sistemaretiradas schema
+    schema: DEFAULT_SCHEMA_NAME,  // ← Default schema (compatibilidade)
   },
   global: {
     headers: {
-      'Accept-Profile': SCHEMA_NAME,  // For SELECT queries (PostgREST)
-      'Content-Profile': SCHEMA_NAME, // For INSERT/UPDATE/DELETE queries (PostgREST)
+      'Accept-Profile': DEFAULT_SCHEMA_NAME,  // For SELECT queries (PostgREST)
+      'Content-Profile': DEFAULT_SCHEMA_NAME, // For INSERT/UPDATE/DELETE queries (PostgREST)
     },
   },
 });
+
+/**
+ * Helper function to get Supabase client with dynamic schema
+ * Use this when you need to query a specific tenant schema
+ * 
+ * @param schemaName - Schema name to use (defaults to 'sistemaretiradas')
+ * @returns Supabase client configured for the specified schema
+ */
+export function getSupabaseClient(schemaName: string = DEFAULT_SCHEMA_NAME) {
+  return supabase.schema(schemaName);
+}
