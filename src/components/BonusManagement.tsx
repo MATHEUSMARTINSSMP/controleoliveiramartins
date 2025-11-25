@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { sendWhatsAppMessage, formatBonusMessage } from "@/lib/whatsapp";
 
 interface Bonus {
     id: string;
@@ -77,6 +78,7 @@ export default function BonusManagement() {
     const fetchBonuses = async () => {
         try {
             const { data, error } = await supabase
+                .schema("sistemaretiradas")
                 .from("bonuses")
                 .select(`
                 *,
@@ -99,6 +101,7 @@ export default function BonusManagement() {
 
     const fetchStores = async () => {
         const { data } = await supabase
+            .schema("sistemaretiradas")
             .from("stores")
             .select("*")
             .eq("active", true);
@@ -114,6 +117,7 @@ export default function BonusManagement() {
         setLoadingCollaborators(true);
         try {
             const { data, error } = await supabase
+                .schema("sistemaretiradas")
                 .from("profiles")
                 .select("id, name, active")
                 .eq("store_id", storeId)
@@ -201,6 +205,7 @@ export default function BonusManagement() {
 
         if (editingBonus) {
             const { error } = await supabase
+                .schema("sistemaretiradas")
                 .from("bonuses")
                 .update(payload)
                 .eq("id", editingBonus.id);
@@ -212,6 +217,7 @@ export default function BonusManagement() {
             toast.success("Bônus atualizado!");
         } else {
             const { data, error } = await supabase
+                .schema("sistemaretiradas")
                 .from("bonuses")
                 .insert([payload])
                 .select()
@@ -230,6 +236,7 @@ export default function BonusManagement() {
             // 1. Remover vínculos existentes (para simplificar, remove tudo e recria)
             // Em produção idealmente faria um diff, mas aqui simplificamos
             await supabase
+                .schema("sistemaretiradas")
                 .from("bonus_collaborators")
                 .delete()
                 .eq("bonus_id", bonusId);
@@ -243,12 +250,125 @@ export default function BonusManagement() {
                 }));
 
                 const { error: colabError } = await supabase
+                    .schema("sistemaretiradas")
                     .from("bonus_collaborators")
                     .insert(collaboratorsPayload);
 
                 if (colabError) {
                     console.error("Error linking collaborators:", colabError);
                     toast.error("Bônus salvo, mas houve erro ao vincular colaboradoras");
+                }
+
+                // 3. Enviar notificação WhatsApp para colaboradoras (apenas ao criar, não ao editar)
+                if (!editingBonus && bonusId) {
+                    (async () => {
+                        try {
+                            console.log('📱 [BonusManagement] Iniciando processo de envio de WhatsApp...');
+                            
+                            // Buscar colaboradoras ativas vinculadas ao bônus na tabela bonus_collaborators
+                            const { data: bonusCollaborators, error: bonusColabError } = await supabase
+                                .schema('sistemaretiradas')
+                                .from('bonus_collaborators')
+                                .select('colaboradora_id')
+                                .eq('bonus_id', bonusId)
+                                .eq('active', true);
+
+                            if (bonusColabError) {
+                                console.error('❌ [BonusManagement] Erro ao buscar colaboradoras vinculadas:', bonusColabError);
+                                return;
+                            }
+
+                            if (!bonusCollaborators || bonusCollaborators.length === 0) {
+                                console.warn('⚠️ [BonusManagement] Nenhuma colaboradora ativa vinculada ao bônus');
+                                return;
+                            }
+
+                            const colaboradoraIds = bonusCollaborators.map((bc: any) => bc.colaboradora_id).filter(Boolean) as string[];
+                            console.log(`📱 [BonusManagement] ${colaboradoraIds.length} colaboradora(s) ativa(s) vinculada(s) ao bônus`);
+
+                            // Buscar dados das colaboradoras (nome, whatsapp, store_id)
+                            const { data: colaboradorasData, error: colabDataError } = await supabase
+                                .schema('sistemaretiradas')
+                                .from('profiles')
+                                .select('id, name, whatsapp, store_id')
+                                .in('id', colaboradoraIds);
+
+                            if (colabDataError) {
+                                console.error('❌ [BonusManagement] Erro ao buscar dados das colaboradoras:', colabDataError);
+                                return;
+                            }
+
+                            if (!colaboradorasData || colaboradorasData.length === 0) {
+                                console.warn('⚠️ [BonusManagement] Nenhuma colaboradora encontrada');
+                                return;
+                            }
+
+                            // Buscar nome da loja
+                            let storeName = '';
+                            if (formData.store_id && formData.store_id !== "TODAS") {
+                                const { data: storeData } = await supabase
+                                    .schema('sistemaretiradas')
+                                    .from('stores')
+                                    .select('name')
+                                    .eq('id', formData.store_id)
+                                    .single();
+                                
+                                if (storeData) {
+                                    storeName = storeData.name;
+                                }
+                            }
+
+                            // Preparar condições do bônus
+                            let condicoesTexto = '';
+                            if (formData.descricao && formData.descricao.trim()) {
+                                condicoesTexto = formData.descricao.trim();
+                            }
+                            if (formData.meta_minima_percentual) {
+                                if (condicoesTexto) condicoesTexto += '\n';
+                                condicoesTexto += `Meta mínima: ${formData.meta_minima_percentual}%`;
+                            }
+
+                            // Enviar mensagem para cada colaboradora que tem WhatsApp
+                            const promises = colaboradorasData
+                                .filter((colab: any) => colab.whatsapp && colab.whatsapp.trim())
+                                .map(async (colab: any) => {
+                                    const phone = colab.whatsapp.replace(/\D/g, '');
+                                    
+                                    if (!phone || phone.length < 10) {
+                                        console.warn(`⚠️ [BonusManagement] WhatsApp inválido para ${colab.name}: ${colab.whatsapp}`);
+                                        return;
+                                    }
+
+                                    const message = formatBonusMessage({
+                                        colaboradoraName: colab.name,
+                                        bonusName: formData.nome,
+                                        bonusDescription: formData.descricao || null,
+                                        valorBonus: formData.is_premio_fisico ? null : (formData.valor_bonus ? parseFloat(formData.valor_bonus) : null),
+                                        valorBonusTexto: formData.is_premio_fisico ? (formData.valor_bonus_texto || formData.descricao_premio || null) : null,
+                                        storeName: storeName || undefined,
+                                        condicoes: condicoesTexto || null,
+                                    });
+
+                                    return sendWhatsAppMessage({
+                                        phone,
+                                        message,
+                                    }).then(result => {
+                                        if (result.success) {
+                                            console.log(`✅ [BonusManagement] WhatsApp enviado com sucesso para ${colab.name} (${phone})`);
+                                        } else {
+                                            console.warn(`⚠️ [BonusManagement] Falha ao enviar WhatsApp para ${colab.name} (${phone}):`, result.error);
+                                        }
+                                    }).catch(err => {
+                                        console.error(`❌ [BonusManagement] Erro ao enviar WhatsApp para ${colab.name} (${phone}):`, err);
+                                    });
+                                });
+
+                            await Promise.all(promises);
+                            console.log('📱 [BonusManagement] ✅ Processo de envio de WhatsApp concluído');
+                        } catch (err) {
+                            console.error('❌ [BonusManagement] Erro no processo de envio de WhatsApp:', err);
+                        }
+                    })();
                 }
             }
         }
@@ -301,6 +421,7 @@ export default function BonusManagement() {
         // Carregar colaboradoras vinculadas
         if (bonus.store_id) {
             const { data } = await supabase
+                .schema("sistemaretiradas")
                 .from("bonus_collaborators")
                 .select("colaboradora_id")
                 .eq("bonus_id", bonus.id)
@@ -316,6 +437,7 @@ export default function BonusManagement() {
 
     const handleToggleActive = async (id: string, currentStatus: boolean) => {
         const { error } = await supabase
+            .schema("sistemaretiradas")
             .from("bonuses")
             .update({ ativo: !currentStatus })
             .eq("id", id);

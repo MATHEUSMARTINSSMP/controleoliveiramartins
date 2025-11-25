@@ -311,3 +311,58 @@ export function formatGincanaMessage(params: {
   return message;
 }
 
+/**
+ * Formata mensagem de novo bônus criado (notificação para colaboradora)
+ */
+export function formatBonusMessage(params: {
+  colaboradoraName: string;
+  bonusName: string;
+  bonusDescription?: string | null;
+  valorBonus?: number | null;
+  valorBonusTexto?: string | null;
+  storeName?: string;
+  condicoes?: string | null;
+}): string {
+  const { colaboradoraName, bonusName, bonusDescription, valorBonus, valorBonusTexto, storeName, condicoes } = params;
+  
+  // Extrair apenas o primeiro nome
+  const primeiroNome = colaboradoraName.split(' ')[0];
+  
+  // Formatar valor do bônus
+  let valorFormatado = '';
+  if (valorBonusTexto) {
+    valorFormatado = valorBonusTexto;
+  } else if (valorBonus && valorBonus > 0) {
+    valorFormatado = new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(valorBonus);
+  }
+
+  let message = `🎁 *Novo Bônus Disponível!*\n\n`;
+  message += `Olá, ${primeiroNome}!\n\n`;
+  message += `Um novo bônus foi criado para você:\n\n`;
+  message += `*Bônus:* ${bonusName}\n`;
+  
+  if (bonusDescription && bonusDescription.trim()) {
+    message += `*Descrição:* ${bonusDescription.trim()}\n`;
+  }
+  
+  if (storeName) {
+    message += `*Loja:* ${storeName}\n`;
+  }
+  
+  if (valorFormatado) {
+    message += `*Valor:* ${valorFormatado}\n`;
+  }
+  
+  if (condicoes && condicoes.trim()) {
+    message += `\n*Condições:*\n${condicoes.trim()}\n`;
+  }
+  
+  message += `\nBoa sorte! 💪\n\n`;
+  message += `Sistema EleveaOne 📊`;
+
+  return message;
+}
+
