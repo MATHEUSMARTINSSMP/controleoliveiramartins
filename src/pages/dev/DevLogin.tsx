@@ -36,9 +36,12 @@ const DevLogin = () => {
       // Verificar se é o usuário dev@dev.com
       if (data.user?.email !== "dev@dev.com") {
         await supabase.auth.signOut();
-        toast.error("Acesso restrito. Apenas usuário dev autorizado.");
+        toast.error("Acesso restrito. Apenas usuário dev@dev.com autorizado.");
         return;
       }
+
+      // Aguardar um pouco para o AuthContext processar
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Verificar se o profile existe e é ADMIN
       const { data: profile, error: profileError } = await supabase
@@ -48,9 +51,23 @@ const DevLogin = () => {
         .eq("id", data.user.id)
         .maybeSingle();
 
-      if (profileError || !profile) {
+      if (profileError) {
+        console.error("Erro ao buscar profile:", profileError);
         await supabase.auth.signOut();
-        toast.error("Perfil não encontrado. Entre em contato com o administrador.");
+        toast.error("Erro ao buscar perfil. Tente novamente.");
+        return;
+      }
+
+      if (!profile) {
+        await supabase.auth.signOut();
+        toast.error("Perfil não encontrado. Execute a migration para criar o profile.");
+        return;
+      }
+
+      // Verificar se é ADMIN
+      if (profile.role !== "ADMIN") {
+        await supabase.auth.signOut();
+        toast.error("Acesso negado. Perfil não tem permissão de ADMIN.");
         return;
       }
 
