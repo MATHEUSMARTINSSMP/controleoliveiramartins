@@ -450,9 +450,9 @@ export async function testERPConnection(
     let params: Record<string, any> = {};
 
     if (sistemaERP === 'TINY') {
-      // API v3: endpoint de produtos
-      endpoint = '/produtos';
-      params = { pagina: 1, limite: 10 }; // Teste simples
+      // API v3: endpoint de pedidos (teste com pedidos, não produtos)
+      endpoint = '/pedidos';
+      params = { pagina: 1, limite: 1 }; // Teste simples - apenas 1 pedido
     } else if (sistemaERP === 'BLING') {
       endpoint = '/Api/v3/produtos';
       params = { pagina: 1 };

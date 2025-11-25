@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, CheckCircle2, XCircle, Save, Store, Key, Eye, EyeOff, ExternalLink, TestTube } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Save, Store, Key, Eye, EyeOff, ExternalLink, TestTube, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { getERPAuthorizationUrl, testERPConnection } from "@/lib/erpIntegrations";
+import { syncTinyOrders, syncTinyContacts } from "@/lib/erp/syncTiny";
 
 interface Store {
   id: string;
@@ -42,6 +43,7 @@ const ERPConfig = () => {
   const [saving, setSaving] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -222,6 +224,38 @@ const ERPConfig = () => {
       toast.error(error.message || "Erro ao testar conexão");
     } finally {
       setTesting(false);
+    }
+  };
+
+  const handleSyncOrders = async () => {
+    if (!selectedStoreId) {
+      toast.error("Selecione uma loja primeiro");
+      return;
+    }
+
+    if (!integration || integration.sync_status !== 'CONNECTED') {
+      toast.error("Conecte a integração OAuth primeiro");
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      toast.info("Sincronizando pedidos de venda...");
+      const result = await syncTinyOrders(selectedStoreId, {
+        limit: 100, // Sincronizar últimos 100 pedidos
+      });
+      
+      if (result.success) {
+        toast.success(result.message);
+        await fetchIntegration();
+      } else {
+        toast.error(result.message);
+      }
+    } catch (error: any) {
+      console.error("Erro ao sincronizar pedidos:", error);
+      toast.error(error.message || "Erro ao sincronizar pedidos");
+    } finally {
+      setSyncing(false);
     }
   };
 
