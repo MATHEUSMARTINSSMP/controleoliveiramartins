@@ -777,11 +777,6 @@ export default function BonusManagement() {
                                 }
                             }
 
-                            if (colaboradorasComWhatsApp.length === 0 && promises.length === 0) {
-                                console.warn('⚠️ [BonusManagement] Nenhuma colaboradora ou loja vinculada tem WhatsApp configurado');
-                                return;
-                            }
-
                             // Adicionar envios para colaboradoras
                             colaboradorasComWhatsApp.forEach((colab: any) => {
                                     const phone = colab.whatsapp.replace(/\D/g, '');
