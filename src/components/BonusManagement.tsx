@@ -516,7 +516,7 @@ export default function BonusManagement() {
                             }
 
                             // Adicionar envios para colaboradoras
-                            const colaboradorasPromises = colaboradorasComWhatsApp.map(async (colab: any) => {
+                            colaboradorasComWhatsApp.forEach((colab: any) => {
                                     const phone = colab.whatsapp.replace(/\D/g, '');
                                     
                                     if (!phone || phone.length < 10) {
