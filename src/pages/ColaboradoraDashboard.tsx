@@ -379,6 +379,7 @@ const ColaboradoraDashboard = () => {
       // Fetch Ranking Position
       const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
       const { data: rankingData } = await supabase
+        .schema("sistemaretiradas")
         .from('sales')
         .select('colaboradora_id, valor')
         .gte('data_venda', `${startOfMonth}T00:00:00`);
