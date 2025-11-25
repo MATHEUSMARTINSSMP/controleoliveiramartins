@@ -491,7 +491,7 @@ BEGIN
         SECURITY DEFINER 
         SET search_path = sistemaretiradas, public 
         STABLE 
-        AS $$
+        AS $func$
         DECLARE
             v_role TEXT;
         BEGIN
@@ -500,7 +500,7 @@ BEGIN
             WHERE id = auth.uid();
             RETURN v_role;
         END;
-        $$;
+        $func$;
     END IF;
 END $$;
 
