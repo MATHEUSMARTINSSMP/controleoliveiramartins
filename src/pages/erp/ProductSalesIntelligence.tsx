@@ -14,6 +14,7 @@
  */
 
 import { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -66,6 +67,7 @@ type PeriodPreset = 'today' | 'yesterday' | 'last7' | 'last30' | 'last90' | 'thi
 
 export default function ProductSalesIntelligence() {
   const { profile, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [rawSales, setRawSales] = useState<ProductSale[]>([]);
   const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
@@ -97,12 +99,21 @@ export default function ProductSalesIntelligence() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!profile || (profile.role !== 'ADMIN' && profile.role !== 'LOJA')) {
+
+    if (!profile) {
+      navigate('/erp/login');
       return;
     }
+
+    // Apenas ADMIN e LOJA podem acessar ERP
+    if (profile.role !== 'ADMIN' && profile.role !== 'LOJA') {
+      navigate('/erp/login');
+      return;
+    }
+
     fetchStores();
     fetchColaboradoras();
-  }, [profile, authLoading]);
+  }, [profile, authLoading, navigate]);
 
   useEffect(() => {
     if (periodPreset !== 'custom') {

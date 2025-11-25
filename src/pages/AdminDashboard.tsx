@@ -267,59 +267,6 @@ const AdminDashboard = () => {
                     <ExternalLink className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                     Gerenciar Integrações
                   </Button>
-                  <Button
-                    onClick={() => navigate("/erp/dashboard")}
-                    variant="outline"
-                    className="w-full sm:w-auto"
-                    size="sm"
-                  >
-                    <BarChart className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                    Dashboard ERP
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Relatórios ERP */}
-            <Card className="border-primary/20">
-              <CardHeader>
-                <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-                  <BarChart className="h-4 w-4 sm:h-5 sm:w-5" />
-                  Relatórios ERP
-                </CardTitle>
-                <CardDescription className="text-xs sm:text-sm">
-                  Acesse relatórios avançados de vendas, categorias e inteligência de produtos
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col gap-2">
-                  <Button
-                    onClick={() => navigate("/erp/dashboard")}
-                    variant="default"
-                    className="w-full"
-                    size="sm"
-                  >
-                    <Package className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                    Dashboard ERP
-                  </Button>
-                  <Button
-                    onClick={() => navigate("/erp/category-reports")}
-                    variant="outline"
-                    className="w-full"
-                    size="sm"
-                  >
-                    <FileText className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                    Relatórios por Categorias
-                  </Button>
-                  <Button
-                    onClick={() => navigate("/erp/product-intelligence")}
-                    variant="outline"
-                    className="w-full"
-                    size="sm"
-                  >
-                    <TrendingUp className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                    Inteligência de Produtos
-                  </Button>
                 </div>
               </CardContent>
             </Card>

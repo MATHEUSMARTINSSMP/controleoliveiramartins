@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,7 +29,8 @@ interface CategoryReport {
 }
 
 export default function CategoryReports() {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [reports, setReports] = useState<CategoryReport[]>([]);
   const [selectedStore, setSelectedStore] = useState<string>('all');
@@ -39,8 +41,21 @@ export default function CategoryReports() {
   const [dateEnd, setDateEnd] = useState<string>(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
   useEffect(() => {
+    if (authLoading) return;
+
+    if (!profile) {
+      navigate('/erp/login');
+      return;
+    }
+
+    // Apenas ADMIN e LOJA podem acessar ERP
+    if (profile.role !== 'ADMIN' && profile.role !== 'LOJA') {
+      navigate('/erp/login');
+      return;
+    }
+
     fetchStores();
-  }, [profile]);
+  }, [profile, authLoading, navigate]);
 
   useEffect(() => {
     if (stores.length > 0) {

@@ -23,6 +23,7 @@ import WeeklyGoalsManagement from "./components/WeeklyGoalsManagement";
 import ERPIntegrationsConfig from "./pages/ERPIntegrationsConfig";
 import ERPConfig from "./pages/dev/ERPConfig";
 import DevLogin from "./pages/dev/DevLogin";
+import ERPLogin from "./pages/erp/ERPLogin";
 import ERPDashboard from "./pages/erp/ERPDashboard";
 import CategoryReports from "./pages/erp/CategoryReports";
 import ProductSalesIntelligence from "./pages/erp/ProductSalesIntelligence";
@@ -62,6 +63,7 @@ const App = () => (
             <Route path="/admin/erp-integrations" element={<ERPIntegrationsConfig />} />
             <Route path="/dev/login" element={<DevLogin />} />
             <Route path="/dev/erp-config" element={<ERPConfig />} />
+            <Route path="/erp/login" element={<ERPLogin />} />
             <Route path="/erp/dashboard" element={<ERPDashboard />} />
             <Route path="/erp/category-reports" element={<CategoryReports />} />
             <Route path="/erp/product-intelligence" element={<ProductSalesIntelligence />} />

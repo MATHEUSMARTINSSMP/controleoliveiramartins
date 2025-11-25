@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { syncTinyOrders, syncTinyContacts } from '@/lib/erp/syncTiny';
 import TinyOrdersList from '@/components/erp/TinyOrdersList';
 import TinyContactsList from '@/components/erp/TinyContactsList';
+import CashbackSettings from '@/components/erp/CashbackSettings';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -59,13 +60,13 @@ export default function ERPDashboard() {
     if (authLoading) return;
 
     if (!profile) {
-      navigate('/');
+      navigate('/erp/login');
       return;
     }
 
-    // Apenas ADMIN e LOJA podem acessar
+    // Apenas ADMIN e LOJA podem acessar ERP
     if (profile.role !== 'ADMIN' && profile.role !== 'LOJA') {
-      navigate('/me');
+      navigate('/erp/login');
       return;
     }
 
@@ -406,6 +407,10 @@ export default function ERPDashboard() {
         <TinyContactsList storeId={selectedStoreId} limit={20} />
       )}
 
+      {/* Configurações de Cashback */}
+      {profile?.role === 'ADMIN' && (
+        <CashbackSettings storeId={selectedStoreId || undefined} />
+      )}
     </div>
   );
 }
