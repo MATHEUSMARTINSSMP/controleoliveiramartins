@@ -1411,7 +1411,21 @@ export default function BonusManagement() {
                                             variant="ghost"
                                             size="sm"
                                             className="h-6 text-[10px]"
-                                            onClick={() => setSelectedCollaborators(availableCollaborators.map(c => c.id))}
+                                            onClick={() => {
+                                                // Se for "Todas" as lojas, pegar de availableCollaboratorsByStore
+                                                if (formData.store_id === "TODAS") {
+                                                    const allIds: string[] = [];
+                                                    Object.values(availableCollaboratorsByStore).forEach((colabs) => {
+                                                        colabs.forEach((colab: any) => {
+                                                            allIds.push(colab.id);
+                                                        });
+                                                    });
+                                                    setSelectedCollaborators(allIds);
+                                                } else {
+                                                    // Para loja específica, usar availableCollaborators
+                                                    setSelectedCollaborators(availableCollaborators.map(c => c.id));
+                                                }
+                                            }}
                                         >
                                             Todas
                                         </Button>
