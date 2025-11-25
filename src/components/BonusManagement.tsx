@@ -410,7 +410,7 @@ export default function BonusManagement() {
         }
 
         // Atualizar colaboradoras vinculadas
-        if (bonusId && formData.store_id !== "TODAS") {
+        if (bonusId) {
             // 1. Remover vínculos existentes (para simplificar, remove tudo e recria)
             // Em produção idealmente faria um diff, mas aqui simplificamos
             await supabase
@@ -419,7 +419,7 @@ export default function BonusManagement() {
                 .delete()
                 .eq("bonus_id", bonusId);
 
-            // 2. Inserir novos vínculos
+            // 2. Inserir novos vínculos (funciona tanto para loja específica quanto "TODAS")
             if (selectedCollaborators.length > 0) {
                 const collaboratorsPayload = selectedCollaborators.map(colabId => ({
                     bonus_id: bonusId,
@@ -440,6 +440,7 @@ export default function BonusManagement() {
                 // 3. Enviar notificação WhatsApp para colaboradoras VINCULADAS ao bônus (apenas ao criar, não ao editar)
                 // IMPORTANTE: Envia APENAS para colaboradoras que foram vinculadas na tabela bonus_collaborators com active=true
                 // NÃO envia para todas as colaboradoras da loja, apenas para as que receberam a tarefa bônus
+                // Funciona tanto para loja específica quanto "TODAS"
                 if (!editingBonus && bonusId) {
                     (async () => {
                         try {
