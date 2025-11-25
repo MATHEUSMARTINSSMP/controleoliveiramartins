@@ -131,6 +131,7 @@ export default function BonusManagement() {
 
     const [storeFilter, setStoreFilter] = useState<string>('ALL');
     const [availableCollaborators, setAvailableCollaborators] = useState<any[]>([]);
+    const [availableCollaboratorsByStore, setAvailableCollaboratorsByStore] = useState<Record<string, any[]>>({});
     const [selectedCollaborators, setSelectedCollaborators] = useState<string[]>([]);
     const [loadingCollaborators, setLoadingCollaborators] = useState(false);
 
@@ -208,28 +209,91 @@ export default function BonusManagement() {
     };
 
     const fetchCollaborators = async (storeId: string) => {
-        if (!storeId || storeId === "TODAS") {
+        if (!storeId) {
             setAvailableCollaborators([]);
+            setAvailableCollaboratorsByStore({});
             return;
         }
 
         setLoadingCollaborators(true);
         try {
-            const { data, error } = await supabase
-                .schema("sistemaretiradas")
-                .from("profiles")
-                .select("id, name, active")
-                .eq("store_id", storeId)
-                .eq("role", "COLABORADORA")
-                .eq("active", true)
-                .order("name");
+            if (storeId === "TODAS") {
+                // Buscar todas as colaboradoras de todas as lojas, agrupadas por loja
+                const { data: allCollaborators, error } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("profiles")
+                    .select("id, name, active, store_id")
+                    .eq("role", "COLABORADORA")
+                    .eq("active", true)
+                    .order("name");
 
-            if (error) throw error;
-            setAvailableCollaborators(data || []);
+                if (error) throw error;
 
-            // Se estiver criando um novo bônus, selecionar todas por padrão
-            if (!editingBonus) {
-                setSelectedCollaborators(data?.map(c => c.id) || []);
+                // Buscar nomes das lojas separadamente
+                const storeIds = [...new Set((allCollaborators || []).map((c: any) => c.store_id).filter(Boolean))];
+                let storesMap = new Map<string, string>();
+                
+                if (storeIds.length > 0) {
+                    const { data: storesData } = await supabase
+                        .schema("sistemaretiradas")
+                        .from("stores")
+                        .select("id, name")
+                        .in("id", storeIds);
+                    
+                    if (storesData) {
+                        storesData.forEach((store: any) => {
+                            storesMap.set(store.id, store.name);
+                        });
+                    }
+                }
+
+                // Agrupar por loja
+                const groupedByStore: Record<string, any[]> = {};
+                const allColabs: any[] = [];
+
+                (allCollaborators || []).forEach((colab: any) => {
+                    const storeIdKey = colab.store_id || "SEM_LOJA";
+                    const storeName = colab.store_id ? (storesMap.get(colab.store_id) || "Sem Loja") : "Sem Loja";
+                    
+                    if (!groupedByStore[storeIdKey]) {
+                        groupedByStore[storeIdKey] = [];
+                    }
+                    groupedByStore[storeIdKey].push({
+                        ...colab,
+                        storeName
+                    });
+                    allColabs.push({
+                        ...colab,
+                        storeName
+                    });
+                });
+
+                setAvailableCollaboratorsByStore(groupedByStore);
+                setAvailableCollaborators(allColabs);
+
+                // Se estiver criando um novo bônus, selecionar todas por padrão
+                if (!editingBonus) {
+                    setSelectedCollaborators(allColabs.map(c => c.id));
+                }
+            } else {
+                // Buscar colaboradoras de uma loja específica
+                const { data, error } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("profiles")
+                    .select("id, name, active")
+                    .eq("store_id", storeId)
+                    .eq("role", "COLABORADORA")
+                    .eq("active", true)
+                    .order("name");
+
+                if (error) throw error;
+                setAvailableCollaborators(data || []);
+                setAvailableCollaboratorsByStore({});
+
+                // Se estiver criando um novo bônus, selecionar todas por padrão
+                if (!editingBonus) {
+                    setSelectedCollaborators(data?.map(c => c.id) || []);
+                }
             }
         } catch (error) {
             console.error("Error fetching collaborators:", error);
@@ -241,10 +305,11 @@ export default function BonusManagement() {
 
     // Buscar colaboradoras quando a loja selecionada mudar
     useEffect(() => {
-        if (formData.store_id && formData.store_id !== "TODAS") {
+        if (formData.store_id) {
             fetchCollaborators(formData.store_id);
         } else {
             setAvailableCollaborators([]);
+            setAvailableCollaboratorsByStore({});
         }
     }, [formData.store_id]);
 
@@ -511,6 +576,190 @@ export default function BonusManagement() {
                                     );
                                 } else {
                                     console.warn(`⚠️ [BonusManagement] WhatsApp inválido para LOJA ${lojaProfile.name}: ${lojaProfile.whatsapp}`);
+                                }
+                            }
+
+                            // Buscar e enviar para números da tabela whatsapp_notification_config (tipo VENDA)
+                            // Isso envia para os mesmos números que recebem notificações de vendas
+                            if (formData.store_id && formData.store_id !== "TODAS") {
+                                console.log('📱 [BonusManagement] Buscando números WhatsApp da tabela whatsapp_notification_config para loja:', formData.store_id);
+                                
+                                // Buscar admin_id da loja
+                                const { data: storeData } = await supabase
+                                    .schema('sistemaretiradas')
+                                    .from('stores')
+                                    .select('admin_id')
+                                    .eq('id', formData.store_id)
+                                    .single();
+                                
+                                if (storeData && storeData.admin_id) {
+                                    const storeAdminId = storeData.admin_id;
+                                    
+                                    // Buscar destinatários: store_id IS NULL (todas as lojas) OU store_id = loja atual
+                                    const { data: recipientsAllStores } = await supabase
+                                        .schema('sistemaretiradas')
+                                        .from('whatsapp_notification_config')
+                                        .select('phone')
+                                        .eq('admin_id', storeAdminId)
+                                        .eq('notification_type', 'VENDA')
+                                        .eq('active', true)
+                                        .is('store_id', null);
+                                    
+                                    const { data: recipientsThisStore, error: recipientsError } = await supabase
+                                        .schema('sistemaretiradas')
+                                        .from('whatsapp_notification_config')
+                                        .select('phone')
+                                        .eq('admin_id', storeAdminId)
+                                        .eq('notification_type', 'VENDA')
+                                        .eq('active', true)
+                                        .eq('store_id', formData.store_id);
+                                    
+                                    // Combinar resultados e remover duplicatas
+                                    const recipientsData = [
+                                        ...(recipientsAllStores || []),
+                                        ...(recipientsThisStore || [])
+                                    ].filter((item, index, self) => 
+                                        index === self.findIndex(t => t.phone === item.phone)
+                                    );
+                                    
+                                    if (recipientsError) {
+                                        console.error('❌ [BonusManagement] Erro ao buscar destinatários WhatsApp:', recipientsError);
+                                    } else if (recipientsData && recipientsData.length > 0) {
+                                        console.log(`📱 [BonusManagement] ${recipientsData.length} número(s) encontrado(s) na tabela whatsapp_notification_config`);
+                                        
+                                        const temPremiosPorPosicao = formData.categoria_condicao === "BASICA" && 
+                                                                     formData.condicao_ranking && 
+                                                                     formData.condicao_ranking !== "" &&
+                                                                     parseInt(formData.condicao_ranking) > 0;
+                                        
+                                        const notificationMessage = formatBonusMessage({
+                                            colaboradoraName: "Administrador",
+                                            bonusName: formData.nome,
+                                            bonusDescription: formData.descricao || null,
+                                            valorBonus: temPremiosPorPosicao ? null : (formData.is_premio_fisico ? null : (formData.valor_bonus ? parseFloat(formData.valor_bonus) : null)),
+                                            valorBonusTexto: temPremiosPorPosicao ? null : (formData.is_premio_fisico ? (formData.valor_bonus_texto || formData.descricao_premio || null) : null),
+                                            storeName: storeName || undefined,
+                                            preRequisitos: Array.isArray(formData.pre_requisitos) ? formData.pre_requisitos.filter(pr => pr && pr.trim()) : null,
+                                            valorBonus1: formData.valor_bonus_1 ? parseFloat(formData.valor_bonus_1) : null,
+                                            valorBonus2: formData.valor_bonus_2 ? parseFloat(formData.valor_bonus_2) : null,
+                                            valorBonus3: formData.valor_bonus_3 ? parseFloat(formData.valor_bonus_3) : null,
+                                            valorBonusTexto1: formData.valor_bonus_texto_1 || null,
+                                            valorBonusTexto2: formData.valor_bonus_texto_2 || null,
+                                            valorBonusTexto3: formData.valor_bonus_texto_3 || null,
+                                            condicaoRanking: formData.condicao_ranking ? parseInt(formData.condicao_ranking) : null,
+                                        });
+                                        
+                                        // Adicionar envios para todos os números encontrados
+                                        recipientsData.forEach((recipient: any) => {
+                                            if (recipient.phone) {
+                                                const cleaned = recipient.phone.replace(/\D/g, '');
+                                                if (cleaned && cleaned.length >= 10) {
+                                                    promises.push(
+                                                        sendWhatsAppMessage({
+                                                            phone: cleaned,
+                                                            message: notificationMessage,
+                                                        }).then(result => {
+                                                            if (result.success) {
+                                                                console.log(`✅ [BonusManagement] WhatsApp enviado com sucesso para número da tabela (${cleaned})`);
+                                                            } else {
+                                                                console.warn(`⚠️ [BonusManagement] Falha ao enviar WhatsApp para número da tabela (${cleaned}):`, result.error);
+                                                            }
+                                                        }).catch(err => {
+                                                            console.error(`❌ [BonusManagement] Erro ao enviar WhatsApp para número da tabela (${cleaned}):`, err);
+                                                        })
+                                                    );
+                                                }
+                                            }
+                                        });
+                                    } else {
+                                        console.log('📱 [BonusManagement] Nenhum número encontrado na tabela whatsapp_notification_config para esta loja');
+                                    }
+                                } else {
+                                    console.warn('⚠️ [BonusManagement] Loja não tem admin_id configurado!');
+                                }
+                            } else if (formData.store_id === "TODAS") {
+                                // Se for "Todas" as lojas, buscar números de todas as lojas
+                                console.log('📱 [BonusManagement] Buscando números WhatsApp da tabela whatsapp_notification_config para TODAS as lojas');
+                                
+                                // Buscar todas as lojas ativas
+                                const { data: allStores } = await supabase
+                                    .schema('sistemaretiradas')
+                                    .from('stores')
+                                    .select('id, admin_id, name')
+                                    .eq('active', true);
+                                
+                                if (allStores && allStores.length > 0) {
+                                    const allAdminIds = [...new Set(allStores.map(s => s.admin_id).filter(Boolean))];
+                                    const allPhones = new Set<string>();
+                                    
+                                    // Buscar números para cada admin_id
+                                    for (const adminId of allAdminIds) {
+                                        const { data: recipients } = await supabase
+                                            .schema('sistemaretiradas')
+                                            .from('whatsapp_notification_config')
+                                            .select('phone')
+                                            .eq('admin_id', adminId)
+                                            .eq('notification_type', 'VENDA')
+                                            .eq('active', true)
+                                            .is('store_id', null); // Apenas números globais (sem store_id específico)
+                                        
+                                        if (recipients) {
+                                            recipients.forEach((r: any) => {
+                                                if (r.phone) {
+                                                    const cleaned = r.phone.replace(/\D/g, '');
+                                                    if (cleaned && cleaned.length >= 10) {
+                                                        allPhones.add(cleaned);
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    }
+                                    
+                                    if (allPhones.size > 0) {
+                                        console.log(`📱 [BonusManagement] ${allPhones.size} número(s) encontrado(s) para TODAS as lojas`);
+                                        
+                                        const temPremiosPorPosicao = formData.categoria_condicao === "BASICA" && 
+                                                                     formData.condicao_ranking && 
+                                                                     formData.condicao_ranking !== "" &&
+                                                                     parseInt(formData.condicao_ranking) > 0;
+                                        
+                                        const notificationMessage = formatBonusMessage({
+                                            colaboradoraName: "Administrador",
+                                            bonusName: formData.nome,
+                                            bonusDescription: formData.descricao || null,
+                                            valorBonus: temPremiosPorPosicao ? null : (formData.is_premio_fisico ? null : (formData.valor_bonus ? parseFloat(formData.valor_bonus) : null)),
+                                            valorBonusTexto: temPremiosPorPosicao ? null : (formData.is_premio_fisico ? (formData.valor_bonus_texto || formData.descricao_premio || null) : null),
+                                            storeName: "Todas as Lojas",
+                                            preRequisitos: Array.isArray(formData.pre_requisitos) ? formData.pre_requisitos.filter(pr => pr && pr.trim()) : null,
+                                            valorBonus1: formData.valor_bonus_1 ? parseFloat(formData.valor_bonus_1) : null,
+                                            valorBonus2: formData.valor_bonus_2 ? parseFloat(formData.valor_bonus_2) : null,
+                                            valorBonus3: formData.valor_bonus_3 ? parseFloat(formData.valor_bonus_3) : null,
+                                            valorBonusTexto1: formData.valor_bonus_texto_1 || null,
+                                            valorBonusTexto2: formData.valor_bonus_texto_2 || null,
+                                            valorBonusTexto3: formData.valor_bonus_texto_3 || null,
+                                            condicaoRanking: formData.condicao_ranking ? parseInt(formData.condicao_ranking) : null,
+                                        });
+                                        
+                                        // Adicionar envios para todos os números encontrados
+                                        Array.from(allPhones).forEach(phone => {
+                                            promises.push(
+                                                sendWhatsAppMessage({
+                                                    phone,
+                                                    message: notificationMessage,
+                                                }).then(result => {
+                                                    if (result.success) {
+                                                        console.log(`✅ [BonusManagement] WhatsApp enviado com sucesso para número da tabela (${phone})`);
+                                                    } else {
+                                                        console.warn(`⚠️ [BonusManagement] Falha ao enviar WhatsApp para número da tabela (${phone}):`, result.error);
+                                                    }
+                                                }).catch(err => {
+                                                    console.error(`❌ [BonusManagement] Erro ao enviar WhatsApp para número da tabela (${phone}):`, err);
+                                                })
+                                            );
+                                        });
+                                    } else {
+                                        console.log('📱 [BonusManagement] Nenhum número encontrado na tabela whatsapp_notification_config para TODAS as lojas');
+                                    }
                                 }
                             }
 
@@ -1139,7 +1388,7 @@ export default function BonusManagement() {
                         </div>
 
                         {/* Seleção de Colaboradoras */}
-                        {formData.store_id !== "TODAS" && (
+                        {formData.store_id && (
                             <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
                                 <div className="flex items-center justify-between">
                                     <Label className="text-xs sm:text-sm font-semibold">Colaboradoras Participantes</Label>
@@ -1167,6 +1416,50 @@ export default function BonusManagement() {
 
                                 {loadingCollaborators ? (
                                     <p className="text-xs text-muted-foreground text-center py-2">Carregando colaboradoras...</p>
+                                ) : formData.store_id === "TODAS" ? (
+                                    // Mostrar colaboradoras agrupadas por loja quando "Todas" for selecionado
+                                    Object.keys(availableCollaboratorsByStore).length === 0 ? (
+                                        <p className="text-xs text-muted-foreground text-center py-2">Nenhuma colaboradora encontrada.</p>
+                                    ) : (
+                                        <ScrollArea className="h-[300px] w-full rounded-md border p-2 bg-background">
+                                            <div className="space-y-4">
+                                                {Object.entries(availableCollaboratorsByStore).map(([storeIdKey, colabs]) => {
+                                                    // Buscar nome da loja
+                                                    const storeName = colabs[0]?.storeName || "Sem Loja";
+                                                    return (
+                                                        <div key={storeIdKey} className="space-y-2">
+                                                            <Label className="text-xs sm:text-sm font-semibold text-primary border-b pb-1 block">
+                                                                🏪 {storeName}
+                                                            </Label>
+                                                            <div className="space-y-2 pl-2">
+                                                                {colabs.map((colab) => (
+                                                                    <div key={colab.id} className="flex items-center space-x-2">
+                                                                        <Checkbox
+                                                                            id={`colab-${colab.id}`}
+                                                                            checked={selectedCollaborators.includes(colab.id)}
+                                                                            onCheckedChange={(checked) => {
+                                                                                if (checked) {
+                                                                                    setSelectedCollaborators([...selectedCollaborators, colab.id]);
+                                                                                } else {
+                                                                                    setSelectedCollaborators(selectedCollaborators.filter(id => id !== colab.id));
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                        <label
+                                                                            htmlFor={`colab-${colab.id}`}
+                                                                            className="text-xs sm:text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                                                        >
+                                                                            {colab.name}
+                                                                        </label>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </ScrollArea>
+                                    )
                                 ) : availableCollaborators.length === 0 ? (
                                     <p className="text-xs text-muted-foreground text-center py-2">Nenhuma colaboradora encontrada nesta loja.</p>
                                 ) : (
