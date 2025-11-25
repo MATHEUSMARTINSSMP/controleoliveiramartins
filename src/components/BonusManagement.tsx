@@ -843,16 +843,23 @@ export default function BonusManagement() {
                                 });
 
                             // Verificar se há promises para executar
+                            console.log(`📱 [BonusManagement] ========== RESUMO ANTES DE EXECUTAR ==========`);
                             console.log(`📱 [BonusManagement] Total de ${promises.length} promise(s) para executar`);
+                            console.log(`📱 [BonusManagement] Colaboradoras com WhatsApp: ${colaboradorasComWhatsApp.length}`);
+                            
                             if (promises.length > 0) {
                                 console.log(`📱 [BonusManagement] Executando ${promises.length} envio(s) de WhatsApp...`);
-                                await Promise.all(promises);
-                                console.log('📱 [BonusManagement] ✅ Processo de envio de WhatsApp concluído');
+                                const results = await Promise.all(promises);
+                                const successCount = results.filter((r: any) => r?.success).length;
+                                const failCount = results.length - successCount;
+                                console.log(`📱 [BonusManagement] ✅ Processo de envio concluído: ${successCount} sucesso, ${failCount} falhas`);
                             } else {
                                 console.warn('⚠️ [BonusManagement] Nenhuma mensagem para enviar (nenhuma colaboradora com WhatsApp e nenhum número configurado)');
                             }
+                            console.log('📱 [BonusManagement] ========== FIM DO PROCESSO DE ENVIO ==========');
                         } catch (err) {
                             console.error('❌ [BonusManagement] Erro no processo de envio de WhatsApp:', err);
+                            console.error('❌ [BonusManagement] Stack trace:', (err as Error)?.stack);
                         }
                     })();
                 }
