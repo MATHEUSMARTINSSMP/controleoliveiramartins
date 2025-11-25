@@ -23,17 +23,41 @@ function getPreRequisitoTipo(preRequisitos: string | null | undefined): string {
     
     const text = preRequisitos.toLowerCase().trim();
     
+    // Loja - Metas Mensais
+    if (text.includes("loja") && text.includes("super meta mensal")) {
+        return "LOJA_SUPER_META_MENSAL";
+    }
     if (text.includes("loja") && text.includes("meta mensal")) {
         return "LOJA_META_MENSAL";
+    }
+    
+    // Loja - Metas Semanais
+    if (text.includes("loja") && text.includes("super meta semanal")) {
+        return "LOJA_SUPER_META_SEMANAL";
     }
     if (text.includes("loja") && text.includes("meta semanal")) {
         return "LOJA_META_SEMANAL";
     }
+    
+    // Colaboradora - Metas Mensais
+    if ((text.includes("consultora") || text.includes("colaboradora")) && text.includes("super meta mensal")) {
+        return "COLAB_SUPER_META_MENSAL";
+    }
     if ((text.includes("consultora") || text.includes("colaboradora")) && text.includes("meta mensal")) {
         return "COLAB_META_MENSAL";
     }
+    
+    // Colaboradora - Metas Semanais
+    if ((text.includes("consultora") || text.includes("colaboradora")) && text.includes("super meta semanal")) {
+        return "COLAB_SUPER_META_SEMANAL";
+    }
     if ((text.includes("consultora") || text.includes("colaboradora")) && text.includes("meta semanal")) {
         return "COLAB_META_SEMANAL";
+    }
+    
+    // Colaboradora - Meta Diária
+    if ((text.includes("consultora") || text.includes("colaboradora")) && text.includes("meta diária")) {
+        return "COLAB_META_DIARIA";
     }
     
     return "CUSTOM";
@@ -1133,14 +1157,29 @@ export default function BonusManagement() {
                                         case "LOJA_META_MENSAL":
                                             preReqText = "Válido apenas se a loja bater a meta mensal";
                                             break;
+                                        case "LOJA_SUPER_META_MENSAL":
+                                            preReqText = "Válido apenas se a loja bater a super meta mensal";
+                                            break;
                                         case "LOJA_META_SEMANAL":
                                             preReqText = "Válido apenas se a loja bater a meta semanal";
+                                            break;
+                                        case "LOJA_SUPER_META_SEMANAL":
+                                            preReqText = "Válido apenas se a loja bater a super meta semanal";
                                             break;
                                         case "COLAB_META_MENSAL":
                                             preReqText = "Válido apenas se a consultora atingir meta mensal";
                                             break;
+                                        case "COLAB_SUPER_META_MENSAL":
+                                            preReqText = "Válido apenas se a consultora atingir super meta mensal";
+                                            break;
                                         case "COLAB_META_SEMANAL":
                                             preReqText = "Válido apenas se a colaboradora atingir meta semanal";
+                                            break;
+                                        case "COLAB_SUPER_META_SEMANAL":
+                                            preReqText = "Válido apenas se a colaboradora atingir super meta semanal";
+                                            break;
+                                        case "COLAB_META_DIARIA":
+                                            preReqText = "Válido apenas se a colaboradora atingir meta diária";
                                             break;
                                         case "NENHUM":
                                             preReqText = "";
@@ -1158,12 +1197,47 @@ export default function BonusManagement() {
                                 <SelectTrigger className="text-xs sm:text-sm">
                                     <SelectValue placeholder="Selecione um pré-requisito" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="max-h-[300px] overflow-y-auto">
                                     <SelectItem value="NENHUM">Nenhum pré-requisito</SelectItem>
+                                    
+                                    {/* Loja - Metas Mensais */}
+                                    <div className="px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground">
+                                        Loja - Metas Mensais
+                                    </div>
                                     <SelectItem value="LOJA_META_MENSAL">Loja deve bater meta mensal</SelectItem>
+                                    <SelectItem value="LOJA_SUPER_META_MENSAL">Loja deve bater super meta mensal</SelectItem>
+                                    
+                                    {/* Loja - Metas Semanais */}
+                                    <div className="px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground mt-2">
+                                        Loja - Metas Semanais
+                                    </div>
                                     <SelectItem value="LOJA_META_SEMANAL">Loja deve bater meta semanal</SelectItem>
+                                    <SelectItem value="LOJA_SUPER_META_SEMANAL">Loja deve bater super meta semanal</SelectItem>
+                                    
+                                    {/* Colaboradora - Metas Mensais */}
+                                    <div className="px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground mt-2">
+                                        Colaboradora - Metas Mensais
+                                    </div>
                                     <SelectItem value="COLAB_META_MENSAL">Colaboradora deve atingir meta mensal</SelectItem>
+                                    <SelectItem value="COLAB_SUPER_META_MENSAL">Colaboradora deve atingir super meta mensal</SelectItem>
+                                    
+                                    {/* Colaboradora - Metas Semanais */}
+                                    <div className="px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground mt-2">
+                                        Colaboradora - Metas Semanais
+                                    </div>
                                     <SelectItem value="COLAB_META_SEMANAL">Colaboradora deve atingir meta semanal</SelectItem>
+                                    <SelectItem value="COLAB_SUPER_META_SEMANAL">Colaboradora deve atingir super meta semanal</SelectItem>
+                                    
+                                    {/* Colaboradora - Metas Diárias */}
+                                    <div className="px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground mt-2">
+                                        Colaboradora - Metas Diárias
+                                    </div>
+                                    <SelectItem value="COLAB_META_DIARIA">Colaboradora deve atingir meta diária</SelectItem>
+                                    
+                                    {/* Personalizado */}
+                                    <div className="px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground mt-2">
+                                        Outros
+                                    </div>
                                     <SelectItem value="CUSTOM">Pré-requisito personalizado (texto livre)</SelectItem>
                                 </SelectContent>
                             </Select>

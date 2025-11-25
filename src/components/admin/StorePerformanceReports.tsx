@@ -474,30 +474,30 @@ export const StorePerformanceReports = () => {
                         <CardTitle className="text-base sm:text-lg">Resumo Geral - {report.period}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
-                            <div className="text-center">
-                                <p className="text-xs sm:text-sm text-muted-foreground">Total Vendido</p>
-                                <p className="text-base sm:text-lg font-bold text-primary">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+                            <div className="text-center space-y-1">
+                                <p className="text-[10px] sm:text-xs text-muted-foreground break-words">Total Vendido</p>
+                                <p className="text-sm sm:text-base lg:text-lg font-bold text-primary break-words">
                                     {formatCurrency(report.totals.total_valor)}
                                 </p>
                             </div>
-                            <div className="text-center">
-                                <p className="text-xs sm:text-sm text-muted-foreground">Total Vendas</p>
-                                <p className="text-base sm:text-lg font-bold">{report.totals.total_vendas}</p>
+                            <div className="text-center space-y-1">
+                                <p className="text-[10px] sm:text-xs text-muted-foreground break-words">Total Vendas</p>
+                                <p className="text-sm sm:text-base lg:text-lg font-bold break-words">{report.totals.total_vendas}</p>
                             </div>
-                            <div className="text-center">
-                                <p className="text-xs sm:text-sm text-muted-foreground">Total Peças</p>
-                                <p className="text-base sm:text-lg font-bold">{report.totals.total_pecas}</p>
+                            <div className="text-center space-y-1">
+                                <p className="text-[10px] sm:text-xs text-muted-foreground break-words">Total Peças</p>
+                                <p className="text-sm sm:text-base lg:text-lg font-bold break-words">{report.totals.total_pecas}</p>
                             </div>
-                            <div className="text-center">
-                                <p className="text-xs sm:text-sm text-muted-foreground">Ticket Médio</p>
-                                <p className="text-base sm:text-lg font-bold">
+                            <div className="text-center space-y-1">
+                                <p className="text-[10px] sm:text-xs text-muted-foreground break-words">Ticket Médio</p>
+                                <p className="text-sm sm:text-base lg:text-lg font-bold break-words">
                                     {formatCurrency(report.totals.ticket_medio)}
                                 </p>
                             </div>
-                            <div className="text-center">
-                                <p className="text-xs sm:text-sm text-muted-foreground">PA</p>
-                                <p className="text-base sm:text-lg font-bold">
+                            <div className="text-center space-y-1">
+                                <p className="text-[10px] sm:text-xs text-muted-foreground break-words">PA</p>
+                                <p className="text-sm sm:text-base lg:text-lg font-bold break-words">
                                     {report.totals.pa.toFixed(1)}
                                 </p>
                             </div>
