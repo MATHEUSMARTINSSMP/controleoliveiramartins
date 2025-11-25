@@ -106,12 +106,30 @@ export default function ERPDashboard() {
 
       setStores(data || []);
 
-      // Auto-selecionar primeira loja ou loja do usuário
+      // Auto-selecionar loja com integração ERP configurada
       if (data && data.length > 0) {
         if (lojaStoreId) {
           setSelectedStoreId(lojaStoreId);
         } else {
-          setSelectedStoreId(data[0].id);
+          // Buscar qual loja tem integração ERP configurada
+          const { data: integrations } = await supabase
+            .schema('sistemaretiradas')
+            .from('erp_integrations')
+            .select('store_id')
+            .eq('active', true)
+            .not('access_token', 'is', null);
+          
+          const storesWithIntegration = integrations?.map(i => i.store_id) || [];
+          
+          // Tentar selecionar primeira loja com integração
+          const storeWithIntegration = data.find(s => storesWithIntegration.includes(s.id));
+          
+          if (storeWithIntegration) {
+            setSelectedStoreId(storeWithIntegration.id);
+          } else if (data.length > 0) {
+            // Se não houver loja com integração, selecionar primeira mesmo assim
+            setSelectedStoreId(data[0].id);
+          }
         }
       }
     } catch (error: any) {

@@ -189,11 +189,14 @@ export async function syncTinyOrders(
 }> {
   const startTime = Date.now();
   
+  // Definir dataInicioSync no escopo externo para estar disponível no catch
+  let dataInicioSync: string | undefined = options.dataInicio;
+  
   try {
     const { dataInicio, dataFim, limit = 100, maxPages = 50, incremental = true } = options;
 
     // Sincronização incremental - buscar última data E último ID
-    let dataInicioSync = dataInicio;
+    dataInicioSync = dataInicio;
     let ultimoTinyIdSync: string | null = null;
     
     if (incremental && !dataInicio) {
