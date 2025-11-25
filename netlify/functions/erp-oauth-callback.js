@@ -191,9 +191,9 @@ exports.handler = async (event, context) => {
 
     // Trocar código por token
     // Tiny ERP usa OAuth 2.0 padrão (OpenID Connect) com application/x-www-form-urlencoded
-    let tokenUrl: string;
-    let tokenBody: string;
-    let tokenHeaders: Record<string, string>;
+    let tokenUrl;
+    let tokenBody;
+    let tokenHeaders;
 
     if (sistema_erp === 'TINY') {
       tokenUrl = config.oauthTokenUrl;

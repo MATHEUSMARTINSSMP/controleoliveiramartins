@@ -100,15 +100,14 @@ export async function getERPAuthorizationUrl(
     client_id: clientId,
     redirect_uri: redirectUri,
     state: state,
-    scope: 'openid profile email', // OAuth 2.0 standard scopes
   });
 
-  // Escopos específicos por sistema (adicionais)
+  // Escopos específicos por sistema
+  // Tiny ERP: escopos são definidos no aplicativo OAuth, não na URL
   if (sistemaERP === 'TINY') {
-    // Tiny ERP usa OAuth 2.0 padrão, escopos são definidos no aplicativo
-    // Não precisa adicionar escopos customizados aqui
+    // Não adicionar scope - Tiny ERP define escopos no aplicativo
   } else if (sistemaERP === 'BLING') {
-    params.set('scope', 'produtos pedidos estoque');
+    params.append('scope', 'produtos pedidos estoque');
   }
   
   // Tiny ERP usa OAuth 2.0 padrão (OpenID Connect)
