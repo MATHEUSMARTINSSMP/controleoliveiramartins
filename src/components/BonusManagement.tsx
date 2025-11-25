@@ -259,13 +259,17 @@ export default function BonusManagement() {
                     toast.error("Bônus salvo, mas houve erro ao vincular colaboradoras");
                 }
 
-                // 3. Enviar notificação WhatsApp para colaboradoras (apenas ao criar, não ao editar)
+                // 3. Enviar notificação WhatsApp para colaboradoras VINCULADAS ao bônus (apenas ao criar, não ao editar)
+                // IMPORTANTE: Envia APENAS para colaboradoras que foram vinculadas na tabela bonus_collaborators com active=true
+                // NÃO envia para todas as colaboradoras da loja, apenas para as que receberam a tarefa bônus
                 if (!editingBonus && bonusId) {
                     (async () => {
                         try {
                             console.log('📱 [BonusManagement] Iniciando processo de envio de WhatsApp...');
+                            console.log(`📱 [BonusManagement] Buscando colaboradoras VINCULADAS ao bônus ID: ${bonusId}`);
                             
-                            // Buscar colaboradoras ativas vinculadas ao bônus na tabela bonus_collaborators
+                            // Buscar APENAS colaboradoras que foram vinculadas ao bônus na tabela bonus_collaborators
+                            // Isso garante que apenas as colaboradoras que receberam a tarefa bônus recebem a mensagem
                             const { data: bonusCollaborators, error: bonusColabError } = await supabase
                                 .schema('sistemaretiradas')
                                 .from('bonus_collaborators')
@@ -279,14 +283,15 @@ export default function BonusManagement() {
                             }
 
                             if (!bonusCollaborators || bonusCollaborators.length === 0) {
-                                console.warn('⚠️ [BonusManagement] Nenhuma colaboradora ativa vinculada ao bônus');
+                                console.warn('⚠️ [BonusManagement] Nenhuma colaboradora vinculada ao bônus na tabela bonus_collaborators');
                                 return;
                             }
 
                             const colaboradoraIds = bonusCollaborators.map((bc: any) => bc.colaboradora_id).filter(Boolean) as string[];
-                            console.log(`📱 [BonusManagement] ${colaboradoraIds.length} colaboradora(s) ativa(s) vinculada(s) ao bônus`);
+                            console.log(`📱 [BonusManagement] ${colaboradoraIds.length} colaboradora(s) VINCULADA(S) ao bônus (não todas da loja, apenas as que receberam a tarefa)`);
 
-                            // Buscar dados das colaboradoras (nome, whatsapp, store_id)
+                            // Buscar dados APENAS das colaboradoras vinculadas ao bônus (nome, whatsapp)
+                            console.log(`📱 [BonusManagement] Buscando dados de ${colaboradoraIds.length} colaboradora(s) vinculada(s)...`);
                             const { data: colaboradorasData, error: colabDataError } = await supabase
                                 .schema('sistemaretiradas')
                                 .from('profiles')
@@ -294,14 +299,16 @@ export default function BonusManagement() {
                                 .in('id', colaboradoraIds);
 
                             if (colabDataError) {
-                                console.error('❌ [BonusManagement] Erro ao buscar dados das colaboradoras:', colabDataError);
+                                console.error('❌ [BonusManagement] Erro ao buscar dados das colaboradoras vinculadas:', colabDataError);
                                 return;
                             }
 
                             if (!colaboradorasData || colaboradorasData.length === 0) {
-                                console.warn('⚠️ [BonusManagement] Nenhuma colaboradora encontrada');
+                                console.warn('⚠️ [BonusManagement] Nenhuma colaboradora vinculada encontrada com dados');
                                 return;
                             }
+
+                            console.log(`📱 [BonusManagement] Dados de ${colaboradorasData.length} colaboradora(s) vinculada(s) encontrados`);
 
                             // Buscar nome da loja
                             let storeName = '';
@@ -328,10 +335,16 @@ export default function BonusManagement() {
                                 condicoesTexto += `Meta mínima: ${formData.meta_minima_percentual}%`;
                             }
 
-                            // Enviar mensagem para cada colaboradora que tem WhatsApp
-                            const promises = colaboradorasData
-                                .filter((colab: any) => colab.whatsapp && colab.whatsapp.trim())
-                                .map(async (colab: any) => {
+                            // Enviar mensagem APENAS para colaboradoras vinculadas que têm WhatsApp configurado
+                            const colaboradorasComWhatsApp = colaboradorasData.filter((colab: any) => colab.whatsapp && colab.whatsapp.trim());
+                            console.log(`📱 [BonusManagement] ${colaboradorasComWhatsApp.length} colaboradora(s) vinculada(s) com WhatsApp configurado`);
+                            
+                            if (colaboradorasComWhatsApp.length === 0) {
+                                console.warn('⚠️ [BonusManagement] Nenhuma colaboradora vinculada tem WhatsApp configurado');
+                                return;
+                            }
+
+                            const promises = colaboradorasComWhatsApp.map(async (colab: any) => {
                                     const phone = colab.whatsapp.replace(/\D/g, '');
                                     
                                     if (!phone || phone.length < 10) {
