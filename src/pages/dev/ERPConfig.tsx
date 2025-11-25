@@ -80,6 +80,30 @@ const ERPConfig = () => {
     }
   }, [selectedStoreId]);
 
+  // Verificar se voltou do OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const success = params.get('success');
+    const error = params.get('error');
+    const storeId = params.get('store_id');
+
+    if (success === 'true' && storeId) {
+      toast.success("Conexão OAuth autorizada com sucesso!");
+      // Limpar URL
+      window.history.replaceState({}, '', window.location.pathname);
+      // Recarregar integração
+      if (storeId === selectedStoreId) {
+        fetchIntegration();
+      } else {
+        setSelectedStoreId(storeId);
+      }
+    } else if (error) {
+      toast.error(`Erro na autorização OAuth: ${decodeURIComponent(error)}`);
+      // Limpar URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
   const fetchStores = async () => {
     try {
       setLoading(true);

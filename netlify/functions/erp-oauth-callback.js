@@ -17,10 +17,13 @@ const corsHeaders = {
 };
 
 // Configurações por sistema ERP
+// Documentação Tiny: https://erp.tiny.com.br/public-api/v3/swagger/index.html
+// OAuth: https://accounts.tiny.com.br/realms/tiny/protocol/openid-connect/token
 const ERP_CONFIGS = {
   TINY: {
-    baseUrl: 'https://api.tiny.com.br',
-    tokenEndpoint: '/oauth/access_token',
+    baseUrl: 'https://api.tiny.com.br', // API v2 (legado)
+    apiV3Url: 'https://erp.tiny.com.br/public-api/v3', // API v3 (nova)
+    oauthTokenUrl: 'https://accounts.tiny.com.br/realms/tiny/protocol/openid-connect/token', // OAuth Token
   },
   BLING: {
     baseUrl: 'https://www.bling.com.br',
@@ -75,7 +78,7 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 302,
         headers: {
-          Location: `${process.env.URL || 'https://eleveaone.com.br'}/admin/erp-integrations?error=${encodeURIComponent(errorDescription || error)}`,
+          Location: `${process.env.URL || 'https://eleveaone.com.br'}/dev/erp-config?error=${encodeURIComponent(errorDescription || error)}`,
         },
       };
     }
@@ -86,7 +89,7 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 302,
         headers: {
-          Location: `${process.env.URL || 'https://eleveaone.com.br'}/admin/erp-integrations?error=code_missing`,
+          Location: `${process.env.URL || 'https://eleveaone.com.br'}/dev/erp-config?error=code_missing`,
         },
       };
     }
@@ -97,7 +100,7 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 302,
         headers: {
-          Location: `${process.env.URL || 'https://eleveaone.com.br'}/admin/erp-integrations?error=state_missing`,
+          Location: `${process.env.URL || 'https://eleveaone.com.br'}/dev/erp-config?error=state_missing`,
         },
       };
     }
@@ -110,7 +113,7 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 302,
         headers: {
-          Location: `${process.env.URL || 'https://eleveaone.com.br'}/admin/erp-integrations?error=invalid_state`,
+          Location: `${process.env.URL || 'https://eleveaone.com.br'}/dev/erp-config?error=invalid_state`,
         },
       };
     }
@@ -122,7 +125,7 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 302,
         headers: {
-          Location: `${process.env.URL || 'https://eleveaone.com.br'}/admin/erp-integrations?error=invalid_state_data`,
+          Location: `${process.env.URL || 'https://eleveaone.com.br'}/dev/erp-config?error=invalid_state_data`,
         },
       };
     }
@@ -142,7 +145,7 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 302,
         headers: {
-          Location: `${process.env.URL || 'https://eleveaone.com.br'}/admin/erp-integrations?error=credentials_error`,
+          Location: `${process.env.URL || 'https://eleveaone.com.br'}/dev/erp-config?error=credentials_error`,
         },
       };
     }
@@ -153,7 +156,7 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 302,
         headers: {
-          Location: `${process.env.URL || 'https://eleveaone.com.br'}/admin/erp-integrations?error=integration_not_found`,
+          Location: `${process.env.URL || 'https://eleveaone.com.br'}/dev/erp-config?error=integration_not_found`,
         },
       };
     }
@@ -167,7 +170,7 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 302,
         headers: {
-          Location: `${process.env.URL || 'https://eleveaone.com.br'}/admin/erp-integrations?error=credentials_not_found`,
+          Location: `${process.env.URL || 'https://eleveaone.com.br'}/dev/erp-config?error=credentials_not_found`,
         },
       };
     }
@@ -179,7 +182,7 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 302,
         headers: {
-          Location: `${process.env.URL || 'https://eleveaone.com.br'}/admin/erp-integrations?error=sistema_nao_suportado`,
+          Location: `${process.env.URL || 'https://eleveaone.com.br'}/dev/erp-config?error=sistema_nao_suportado`,
         },
       };
     }
@@ -187,18 +190,41 @@ exports.handler = async (event, context) => {
     console.log('[ERPOAuth] Exchanging code for token...');
 
     // Trocar código por token
-    const tokenResponse = await fetch(`${config.baseUrl}${config.tokenEndpoint}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    // Tiny ERP usa OAuth 2.0 padrão (OpenID Connect) com application/x-www-form-urlencoded
+    let tokenUrl: string;
+    let tokenBody: string;
+    let tokenHeaders: Record<string, string>;
+
+    if (sistema_erp === 'TINY') {
+      tokenUrl = config.oauthTokenUrl;
+      tokenHeaders = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      };
+      tokenBody = new URLSearchParams({
         grant_type: 'authorization_code',
         code,
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: `${process.env.URL || 'https://eleveaone.com.br'}/api/erp/callback`,
-      }),
+        redirect_uri: `${process.env.URL || 'https://eleveaone.com.br'}/.netlify/functions/erp-oauth-callback`,
+      }).toString();
+    } else {
+      tokenUrl = `${config.baseUrl}${config.tokenEndpoint}`;
+      tokenHeaders = {
+        'Content-Type': 'application/json',
+      };
+      tokenBody = JSON.stringify({
+        grant_type: 'authorization_code',
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: `${process.env.URL || 'https://eleveaone.com.br'}/.netlify/functions/erp-oauth-callback`,
+      });
+    }
+
+    const tokenResponse = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: tokenHeaders,
+      body: tokenBody,
     });
 
     if (!tokenResponse.ok) {
@@ -207,7 +233,7 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 302,
         headers: {
-          Location: `${process.env.URL || 'https://eleveaone.com.br'}/admin/erp-integrations?error=${encodeURIComponent(errorData.message || 'Erro ao obter token')}`,
+          Location: `${process.env.URL || 'https://eleveaone.com.br'}/dev/erp-config?error=${encodeURIComponent(errorData.message || 'Erro ao obter token')}`,
         },
       };
     }
@@ -277,7 +303,7 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 302,
       headers: {
-        Location: `${process.env.URL || 'https://eleveaone.com.br'}/admin/erp-integrations?success=true&store_id=${store_id}`,
+        Location: `${process.env.URL || 'https://eleveaone.com.br'}/dev/erp-config?success=true&store_id=${store_id}`,
       },
     };
   } catch (error) {
@@ -285,7 +311,7 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 302,
       headers: {
-        Location: `${process.env.URL || 'https://eleveaone.com.br'}/admin/erp-integrations?error=${encodeURIComponent(error.message || 'Erro inesperado')}`,
+        Location: `${process.env.URL || 'https://eleveaone.com.br'}/dev/erp-config?error=${encodeURIComponent(error.message || 'Erro inesperado')}`,
       },
     };
   }

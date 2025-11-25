@@ -8,18 +8,20 @@
  */
 
 // URLs base das APIs (fixas, não mudam por loja)
+// Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html
+// OAuth: https://accounts.tiny.com.br/realms/tiny/protocol/openid-connect/auth
 export const ERP_CONFIGS = {
   TINY: {
-    baseUrl: 'https://api.tiny.com.br',
-    erpUrl: 'https://erp.tiny.com.br',
-    oauthEndpoint: '/oauth/authorize',
-    tokenEndpoint: '/oauth/access_token',
+    baseUrl: 'https://api.tiny.com.br', // API v2 (legado)
+    apiV3Url: 'https://erp.tiny.com.br/public-api/v3', // API v3 (nova)
+    oauthAuthUrl: 'https://accounts.tiny.com.br/realms/tiny/protocol/openid-connect/auth', // OAuth Authorization
+    oauthTokenUrl: 'https://accounts.tiny.com.br/realms/tiny/protocol/openid-connect/token', // OAuth Token
   },
   BLING: {
     baseUrl: 'https://www.bling.com.br',
     erpUrl: 'https://www.bling.com.br',
-    oauthEndpoint: '/Api/v3/oauth/authorize',
-    tokenEndpoint: '/Api/v3/oauth/token',
+    oauthAuthUrl: 'https://www.bling.com.br/Api/v3/oauth/authorize',
+    oauthTokenUrl: 'https://www.bling.com.br/Api/v3/oauth/token',
   },
   // Adicionar outros sistemas conforme necessário
   // MICROVIX: { ... },
@@ -85,7 +87,8 @@ export async function getERPAuthorizationUrl(
     throw new Error(`Client ID não encontrado para loja ${storeId}. Configure as credenciais primeiro em /dev/erp-config.`);
   }
 
-  const redirectUri = `${window.location.origin}/api/erp/callback`;
+  // URL de callback - deve ser a Netlify Function
+  const redirectUri = `${window.location.origin}/.netlify/functions/erp-oauth-callback`;
   
   // Incluir store_id no state (sistema já está salvo na integração)
   const state = encodeURIComponent(JSON.stringify({ 
@@ -97,16 +100,29 @@ export async function getERPAuthorizationUrl(
     client_id: clientId,
     redirect_uri: redirectUri,
     state: state,
+    scope: 'openid profile email', // OAuth 2.0 standard scopes
   });
 
-  // Escopos específicos por sistema
+  // Escopos específicos por sistema (adicionais)
   if (sistemaERP === 'TINY') {
-    params.append('scope', 'produtos pedidos estoque contatos');
+    // Tiny ERP usa OAuth 2.0 padrão, escopos são definidos no aplicativo
+    // Não precisa adicionar escopos customizados aqui
   } else if (sistemaERP === 'BLING') {
-    params.append('scope', 'produtos pedidos estoque');
+    params.set('scope', 'produtos pedidos estoque');
   }
   
-  return `${config.erpUrl}${config.oauthEndpoint}?${params.toString()}`;
+  // Tiny ERP usa OAuth 2.0 padrão (OpenID Connect)
+  if (sistemaERP === 'TINY') {
+    return `${config.oauthAuthUrl}?${params.toString()}`;
+  }
+  
+  // Outros sistemas (Bling, etc.)
+  if (sistemaERP === 'BLING') {
+    return `${config.oauthAuthUrl}?${params.toString()}`;
+  }
+  
+  // Fallback (não deve chegar aqui)
+  throw new Error(`Sistema ERP ${sistemaERP} não suportado para autorização OAuth`);
 }
 
 /**
@@ -137,18 +153,36 @@ export async function exchangeCodeForToken(
     throw new Error(`Sistema ERP ${sistemaERP} não suportado`);
   }
 
-  const response = await fetch(`${config.baseUrl}${config.tokenEndpoint}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  // Tiny ERP usa OAuth 2.0 padrão (OpenID Connect)
+  let tokenUrl: string;
+  let tokenBody: any;
+  
+  if (sistemaERP === 'TINY') {
+    tokenUrl = config.oauthTokenUrl;
+    tokenBody = new URLSearchParams({
       grant_type: 'authorization_code',
       code,
       client_id: clientId,
       client_secret: clientSecret,
-      redirect_uri: `${window.location.origin}/api/erp/callback`,
-    }),
+      redirect_uri: `${window.location.origin}/.netlify/functions/erp-oauth-callback`,
+    });
+  } else {
+    tokenUrl = `${config.baseUrl}${config.tokenEndpoint}`;
+    tokenBody = JSON.stringify({
+      grant_type: 'authorization_code',
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: `${window.location.origin}/.netlify/functions/erp-oauth-callback`,
+    });
+  }
+
+  const response = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: sistemaERP === 'TINY' 
+      ? { 'Content-Type': 'application/x-www-form-urlencoded' }
+      : { 'Content-Type': 'application/json' },
+    body: sistemaERP === 'TINY' ? tokenBody.toString() : tokenBody,
   });
 
   if (!response.ok) {
@@ -180,17 +214,34 @@ export async function refreshAccessToken(
     throw new Error(`Sistema ERP ${sistemaERP} não suportado`);
   }
 
-  const response = await fetch(`${config.baseUrl}${config.tokenEndpoint}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  // Tiny ERP usa OAuth 2.0 padrão (OpenID Connect)
+  let tokenUrl: string;
+  let tokenBody: any;
+  
+  if (sistemaERP === 'TINY') {
+    tokenUrl = config.oauthTokenUrl;
+    tokenBody = new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
       client_id: clientId,
       client_secret: clientSecret,
-    }),
+    });
+  } else {
+    tokenUrl = `${config.baseUrl}${config.tokenEndpoint}`;
+    tokenBody = JSON.stringify({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: clientId,
+      client_secret: clientSecret,
+    });
+  }
+
+  const response = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: sistemaERP === 'TINY' 
+      ? { 'Content-Type': 'application/x-www-form-urlencoded' }
+      : { 'Content-Type': 'application/json' },
+    body: sistemaERP === 'TINY' ? tokenBody.toString() : tokenBody,
   });
 
   if (!response.ok) {
@@ -300,28 +351,39 @@ export async function callERPAPI(
   }
 
   // Fazer chamada à API (formato específico por sistema)
-  const url = `${config.baseUrl}${endpoint}`;
+  // Tiny ERP v3 usa Bearer token no header
+  let url: string;
   let requestBody: any;
+  let headers: Record<string, string>;
 
-  // Formato de requisição específico por sistema
   if (sistemaERP === 'TINY') {
-    requestBody = {
-      token: accessToken,
-      formato: 'JSON',
-      ...params,
+    // API v3: https://erp.tiny.com.br/public-api/v3/{endpoint}
+    url = `${config.apiV3Url}${endpoint}`;
+    headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
     };
+    requestBody = params;
   } else if (sistemaERP === 'BLING') {
-    requestBody = {
-      ...params,
+    url = `${config.baseUrl}${endpoint}`;
+    headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
     };
+    requestBody = params;
+  } else {
+    // Fallback para API v2 (legado)
+    url = `${config.baseUrl}${endpoint}`;
+    headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    };
+    requestBody = params;
   }
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    },
+    headers,
     body: JSON.stringify(requestBody),
   });
 
@@ -389,8 +451,9 @@ export async function testERPConnection(
     let params: Record<string, any> = {};
 
     if (sistemaERP === 'TINY') {
-      endpoint = '/api/produtos.pesquisa.php';
-      params = { pesquisa: '', pagina: 1 };
+      // API v3: endpoint de produtos
+      endpoint = '/produtos';
+      params = { pagina: 1, limite: 10 }; // Teste simples
     } else if (sistemaERP === 'BLING') {
       endpoint = '/Api/v3/produtos';
       params = { pagina: 1 };
