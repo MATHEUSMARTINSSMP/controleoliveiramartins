@@ -34,6 +34,31 @@ COMMENT ON COLUMN stores.sistema_erp IS 'Sistema ERP utilizado pela loja: TINY, 
 -- =============================================================================
 -- O trigger já foi criado na migration anterior
 -- Aqui apenas garantimos que está ativo
+
+-- Criar função (se não existir)
+CREATE OR REPLACE FUNCTION validate_erp_integration_sistema()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_store_sistema TEXT;
+BEGIN
+    -- Buscar sistema_erp da loja
+    SELECT sistema_erp INTO v_store_sistema
+    FROM stores
+    WHERE id = NEW.store_id;
+    
+    -- Se a loja tem sistema_erp definido, deve bater com a integração
+    IF v_store_sistema IS NOT NULL AND v_store_sistema != NEW.sistema_erp THEN
+        RAISE EXCEPTION 'sistema_erp da integração (%) não corresponde ao sistema_erp da loja (%)', 
+            NEW.sistema_erp, v_store_sistema;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$;
+
+-- Criar trigger (se a tabela existir)
 DO $$
 BEGIN
     -- Verificar se a tabela existe
@@ -42,33 +67,11 @@ BEGIN
         WHERE table_schema = 'sistemaretiradas' 
         AND table_name = 'erp_integrations'
     ) THEN
-        -- Garantir que a função existe
+        -- Criar trigger se não existir
         IF NOT EXISTS (
-            SELECT 1 FROM pg_proc 
-            WHERE proname = 'validate_erp_integration_sistema'
+            SELECT 1 FROM pg_trigger 
+            WHERE tgname = 'trigger_validate_erp_integration_sistema'
         ) THEN
-            -- Recriar função e trigger
-            CREATE OR REPLACE FUNCTION validate_erp_integration_sistema()
-            RETURNS TRIGGER
-            LANGUAGE plpgsql
-            AS $$
-            DECLARE
-                v_store_sistema TEXT;
-            BEGIN
-                SELECT sistema_erp INTO v_store_sistema
-                FROM stores
-                WHERE id = NEW.store_id;
-                
-                IF v_store_sistema IS NOT NULL AND v_store_sistema != NEW.sistema_erp THEN
-                    RAISE EXCEPTION 'sistema_erp da integração (%) não corresponde ao sistema_erp da loja (%)', 
-                        NEW.sistema_erp, v_store_sistema;
-                END IF;
-                
-                RETURN NEW;
-            END;
-            $$;
-            
-            DROP TRIGGER IF EXISTS trigger_validate_erp_integration_sistema ON erp_integrations;
             CREATE TRIGGER trigger_validate_erp_integration_sistema
                 BEFORE INSERT OR UPDATE ON erp_integrations
                 FOR EACH ROW
