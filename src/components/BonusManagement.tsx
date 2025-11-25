@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { sendWhatsAppMessage, formatBonusMessage } from "@/lib/whatsapp";
 
 // Função auxiliar para identificar o tipo de pré-requisito a partir do texto
-function getPreRequisitoTipo(preRequisitos: string | null | undefined): string {
+function getPreRequisitoTipo(preRequisito: string | null | undefined): string {
     if (!preRequisitos || !preRequisitos.trim()) {
         return "NENHUM";
     }
@@ -61,6 +61,41 @@ function getPreRequisitoTipo(preRequisitos: string | null | undefined): string {
     }
     
     return "CUSTOM";
+}
+
+// Função para parsear pré-requisitos do banco (pode ser JSONB array, string única, ou null)
+function parsePreRequisitosFromDB(preRequisitos: any): string[] {
+    if (!preRequisitos) {
+        return [];
+    }
+    
+    // Se já é array
+    if (Array.isArray(preRequisitos)) {
+        return preRequisitos.filter(pr => pr && pr.trim()).map(pr => String(pr).trim());
+    }
+    
+    // Se é string JSON
+    if (typeof preRequisitos === 'string') {
+        try {
+            const parsed = JSON.parse(preRequisitos);
+            if (Array.isArray(parsed)) {
+                return parsed.filter(pr => pr && pr.trim()).map(pr => String(pr).trim());
+            }
+            // Se não é array, tratar como string única
+            return preRequisitos.trim() ? [preRequisitos.trim()] : [];
+        } catch {
+            // Se não é JSON válido, tratar como string única
+            return preRequisitos.trim() ? [preRequisitos.trim()] : [];
+        }
+    }
+    
+    return [];
+}
+
+// Função para parsear tipos de pré-requisitos do banco
+function parsePreRequisitosTiposFromDB(preRequisitos: any): string[] {
+    const preReqs = parsePreRequisitosFromDB(preRequisitos);
+    return preReqs.map(pr => getPreRequisitoTipo(pr));
 }
 
 interface Bonus {
