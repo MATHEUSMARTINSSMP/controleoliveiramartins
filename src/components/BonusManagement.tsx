@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { sendWhatsAppMessage, formatBonusMessage } from "@/lib/whatsapp";
 
 interface Bonus {
@@ -25,6 +26,7 @@ interface Bonus {
     valor_bonus: number;
     descricao_premio: string | null;
     valor_bonus_texto?: string | null; // Para prêmios físicos
+    pre_requisitos?: string | null; // Pré-requisitos para o bônus ser válido
     ativo: boolean;
     store_id?: string | null;
     valor_condicao?: number | null;
@@ -67,6 +69,7 @@ export default function BonusManagement() {
         periodo_data_fim: "",
         periodo_mes: "",
         periodo_semana: "",
+        pre_requisitos: "", // Pré-requisitos para o bônus ser válido
     });
 
     useEffect(() => {
@@ -194,6 +197,7 @@ export default function BonusManagement() {
             periodo_data_fim: formData.periodo_data_fim || null,
             periodo_mes: formData.periodo_mes || null,
             periodo_semana: formData.periodo_semana || null,
+            pre_requisitos: formData.pre_requisitos?.trim() || null,
         };
 
         // Adicionar store_id se não for "TODAS"
@@ -334,6 +338,12 @@ export default function BonusManagement() {
                                 if (condicoesTexto) condicoesTexto += '\n';
                                 condicoesTexto += `Meta mínima: ${formData.meta_minima_percentual}%`;
                             }
+                            
+                            // Adicionar pré-requisitos se houver
+                            if (formData.pre_requisitos && formData.pre_requisitos.trim()) {
+                                if (condicoesTexto) condicoesTexto += '\n\n';
+                                condicoesTexto += `*Pré-requisito:*\n${formData.pre_requisitos.trim()}`;
+                            }
 
                             // Enviar mensagem APENAS para colaboradoras vinculadas que têm WhatsApp configurado
                             const colaboradorasComWhatsApp = colaboradorasData.filter((colab: any) => colab.whatsapp && colab.whatsapp.trim());
@@ -360,6 +370,7 @@ export default function BonusManagement() {
                                         valorBonusTexto: formData.is_premio_fisico ? (formData.valor_bonus_texto || formData.descricao_premio || null) : null,
                                         storeName: storeName || undefined,
                                         condicoes: condicoesTexto || null,
+                                        preRequisitos: formData.pre_requisitos?.trim() || null,
                                     });
 
                                     return sendWhatsAppMessage({
@@ -429,6 +440,7 @@ export default function BonusManagement() {
             periodo_data_fim: (bonus as any).periodo_data_fim || "",
             periodo_mes: (bonus as any).periodo_mes || "",
             periodo_semana: (bonus as any).periodo_semana || "",
+            pre_requisitos: (bonus as any).pre_requisitos || "",
         });
 
         // Carregar colaboradoras vinculadas
@@ -488,6 +500,7 @@ export default function BonusManagement() {
             periodo_data_fim: "",
             periodo_mes: "",
             periodo_semana: "",
+            pre_requisitos: "",
         });
         setSelectedCollaborators([]);
         setAvailableCollaborators([]);
@@ -1080,6 +1093,21 @@ export default function BonusManagement() {
                                     </p>
                                 </div>
                             )}
+                        </div>
+
+                        {/* Campo de Pré-requisitos */}
+                        <div>
+                            <Label className="text-xs sm:text-sm">Pré-requisitos (Opcional)</Label>
+                            <Textarea
+                                value={formData.pre_requisitos}
+                                onChange={(e) => setFormData({ ...formData, pre_requisitos: e.target.value })}
+                                placeholder="Ex: Válido apenas se a loja bater a meta mensal&#10;Ex: Válido apenas se a consultora atingir meta mensal"
+                                rows={3}
+                                className="text-xs sm:text-sm resize-none"
+                            />
+                            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                                💡 Defina pré-requisitos que devem ser atendidos para o bônus ser válido. Ex: "Válido apenas se a loja bater a meta mensal"
+                            </p>
                         </div>
 
                         <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4">

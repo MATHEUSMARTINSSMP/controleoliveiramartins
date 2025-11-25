@@ -322,8 +322,9 @@ export function formatBonusMessage(params: {
   valorBonusTexto?: string | null;
   storeName?: string;
   condicoes?: string | null;
+  preRequisitos?: string | null;
 }): string {
-  const { colaboradoraName, bonusName, bonusDescription, valorBonus, valorBonusTexto, storeName, condicoes } = params;
+  const { colaboradoraName, bonusName, bonusDescription, valorBonus, valorBonusTexto, storeName, condicoes, preRequisitos } = params;
   
   // Extrair apenas o primeiro nome
   const primeiroNome = colaboradoraName.split(' ')[0];
@@ -358,6 +359,11 @@ export function formatBonusMessage(params: {
   
   if (condicoes && condicoes.trim()) {
     message += `\n*Condições:*\n${condicoes.trim()}\n`;
+  }
+  
+  // Adicionar pré-requisitos se houver (separado das condições)
+  if (preRequisitos && preRequisitos.trim()) {
+    message += `\n*Pré-requisito:*\n${preRequisitos.trim()}\n`;
   }
   
   message += `\nBoa sorte! 💪\n\n`;
