@@ -3,50 +3,26 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { format, getDaysInMonth } from "date-fns";
-import { formatCurrency } from "@/lib/utils";
 
-interface DailyCollaborator {
+interface ColaboradoraMetaDiaria {
     id: string;
     name: string;
-    storeName: string;
     vendidoHoje: number;
-    metaDiariaAjustada: number;
+    metaDiaria: number;
     progress: number;
-    status: 'ahead' | 'behind' | 'on-track';
-    abaixoDaMeta: boolean;
 }
 
 export function DailyMetaTracker() {
-    const [collaborators, setCollaborators] = useState<DailyCollaborator[]>([]);
+    const [colaboradoras, setColaboradoras] = useState<ColaboradoraMetaDiaria[]>([]);
     const [loading, setLoading] = useState(true);
-    const [totalVendido, setTotalVendido] = useState(0);
-    const [totalMeta, setTotalMeta] = useState(0);
-    const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
-    const [selectedStore, setSelectedStore] = useState<string>("TODAS");
-
-    useEffect(() => {
-        fetchStores();
-    }, []);
 
     useEffect(() => {
         fetchDailyProgress();
         const interval = setInterval(fetchDailyProgress, 30000);
         return () => clearInterval(interval);
-    }, [selectedStore]);
-
-    const fetchStores = async () => {
-        const { data } = await supabase
-            .schema("sistemaretiradas")
-            .from("stores")
-            .select("id, name")
-            .eq("active", true)
-            .order("name");
-
-        if (data) setStores(data);
-    };
+    }, []);
 
     const fetchDailyProgress = async () => {
         try {
@@ -56,128 +32,150 @@ export function DailyMetaTracker() {
             const diaAtual = hoje.getDate();
             const totalDias = getDaysInMonth(hoje);
 
-            // Buscar todas as colaboradoras ativas
-            let query = supabase
-                .schema("sistemaretiradas")
-                .from("profiles")
-                .select("id, name, store_id, stores(name)")
-                .eq("role", "COLABORADORA")
-                .eq("active", true);
+            console.log("[DailyMetaTracker] Buscando metas diárias para:", hojeStr);
 
-            // Aplicar filtro de loja se selecionado
-            if (selectedStore !== "TODAS") {
-                query = query.eq("store_id", selectedStore);
+            // Buscar todas as metas mensais INDIVIDUAIS (por colaboradora) - usar schema como no dashboard da loja
+            const { data: metasData, error: metaError } = await supabase
+                .schema("sistemaretiradas")
+                .from("goals")
+                .select("meta_valor, colaboradora_id, daily_weights")
+                .eq("mes_referencia", mesAtual)
+                .eq("tipo", "INDIVIDUAL")
+                .not("colaboradora_id", "is", null);
+
+            if (metaError) {
+                console.error("[DailyMetaTracker] Erro ao buscar metas:", metaError);
+                throw metaError;
             }
 
-            const { data: colabsData, error: colabsError } = await query;
-
-            if (colabsError) throw colabsError;
-
-            if (!colabsData || colabsData.length === 0) {
-                setCollaborators([]);
+            if (!metasData || metasData.length === 0) {
+                console.warn("[DailyMetaTracker] Nenhuma meta mensal individual encontrada");
+                setColaboradoras([]);
                 setLoading(false);
                 return;
             }
 
-            let totalVendidoHoje = 0;
-            let totalMetaDiaria = 0;
+            console.log("[DailyMetaTracker] Metas individuais encontradas:", metasData.length);
 
-            // Para cada colaboradora, buscar meta e vendas
-            const collaboratorsWithProgress = await Promise.all(
-                colabsData.map(async (colab: any) => {
-                    // Buscar meta individual
-                    const { data: metaData } = await supabase
-                        .schema("sistemaretiradas")
-                        .from("goals")
-                        .select("meta_valor, daily_weights")
-                        .eq("colaboradora_id", colab.id)
-                        .eq("mes_referencia", mesAtual)
-                        .eq("tipo", "INDIVIDUAL")
-                        .maybeSingle();
+            const colaboradoraIds = metasData.map(m => m.colaboradora_id).filter(Boolean) as string[];
 
-                    // Buscar vendas de hoje
-                    const { data: salesToday } = await supabase
-                        .schema("sistemaretiradas")
-                        .from("sales")
-                        .select("valor")
-                        .eq("colaboradora_id", colab.id)
-                        .gte("data_venda", `${hojeStr}T00:00:00`)
-                        .lte("data_venda", `${hojeStr}T23:59:59`);
+            // Buscar nomes de todas as colaboradoras
+            const { data: profilesData } = await supabase
+                .schema("sistemaretiradas")
+                .from("profiles")
+                .select("id, name")
+                .in("id", colaboradoraIds);
 
-                    // Buscar vendas do mês até ontem para calcular déficit
-                    const { data: salesMonth } = await supabase
-                        .schema("sistemaretiradas")
-                        .from("sales")
-                        .select("data_venda, valor")
-                        .eq("colaboradora_id", colab.id)
-                        .gte("data_venda", `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01T00:00:00`)
-                        .lt("data_venda", `${hojeStr}T00:00:00`);
+            const profilesMap = new Map((profilesData || []).map((p: any) => [p.id, p.name]));
 
-                    const vendidoHoje = salesToday?.reduce((sum, s) => sum + Number(s.valor || 0), 0) || 0;
-                    const metaMensal = Number(metaData?.meta_valor || 0);
-                    const dailyWeights = metaData?.daily_weights || {};
+            // Buscar vendas de hoje de todas as colaboradoras - usar schema como no dashboard da loja
+            let query = supabase
+                .schema("sistemaretiradas")
+                .from("sales")
+                .select("valor, colaboradora_id")
+                .gte("data_venda", `${hojeStr}T00:00:00`)
+                .lte("data_venda", `${hojeStr}T23:59:59`);
 
-                    // Calcular meta diária padrão
-                    let metaDiariaPadrao = metaMensal / totalDias;
-                    if (Object.keys(dailyWeights).length > 0) {
-                        const hojePeso = dailyWeights[hojeStr] || 0;
+            if (colaboradoraIds.length > 0) {
+                query = query.in("colaboradora_id", colaboradoraIds);
+            }
+
+            const { data: salesData, error: salesError } = await query;
+
+            if (salesError) {
+                console.error("[DailyMetaTracker] Erro ao buscar vendas:", salesError);
+                throw salesError;
+            }
+
+            console.log("[DailyMetaTracker] Vendas encontradas:", salesData?.length || 0);
+
+            // Agrupar vendas por colaboradora
+            const salesByColab: Record<string, number> = {};
+            salesData?.forEach((sale: any) => {
+                const colabId = sale.colaboradora_id;
+                if (!salesByColab[colabId]) {
+                    salesByColab[colabId] = 0;
+                }
+                salesByColab[colabId] += Number(sale.valor || 0);
+            });
+
+            // Buscar vendas do mês até ontem para calcular déficit e ajustar meta diária
+            const { data: salesMonthData } = await supabase
+                .schema("sistemaretiradas")
+                .from("sales")
+                .select("valor, colaboradora_id")
+                .gte("data_venda", `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01T00:00:00`)
+                .lt("data_venda", `${hojeStr}T00:00:00`)
+                .in("colaboradora_id", colaboradoraIds);
+
+            const salesMonthByColab: Record<string, number> = {};
+            salesMonthData?.forEach((sale: any) => {
+                const colabId = sale.colaboradora_id;
+                if (!salesMonthByColab[colabId]) {
+                    salesMonthByColab[colabId] = 0;
+                }
+                salesMonthByColab[colabId] += Number(sale.valor || 0);
+            });
+
+            // Criar lista de colaboradoras com suas metas diárias e vendas
+            const colaboradorasList: ColaboradoraMetaDiaria[] = metasData.map((meta: any) => {
+                const colabId = meta.colaboradora_id;
+                const metaMensal = Number(meta.meta_valor || 0);
+                const dailyWeights = meta.daily_weights || {};
+                const vendidoHoje = salesByColab[colabId] || 0;
+                const vendidoAteOntem = salesMonthByColab[colabId] || 0;
+
+                // Calcular meta diária padrão
+                let metaDiariaPadrao = metaMensal / totalDias;
+                if (Object.keys(dailyWeights).length > 0) {
+                    const hojePeso = dailyWeights[hojeStr] || 0;
+                    if (hojePeso > 0) {
                         metaDiariaPadrao = (metaMensal * hojePeso) / 100;
                     }
+                }
 
-                    // Calcular déficit
-                    const vendidoAteOntem = salesMonth?.reduce((sum, s) => sum + Number(s.valor || 0), 0) || 0;
-                    const metaEsperadaAteOntem = Object.keys(dailyWeights).length > 0
-                        ? (() => {
-                            let soma = 0;
-                            for (let dia = 1; dia < diaAtual; dia++) {
-                                const dataDia = new Date(hoje.getFullYear(), hoje.getMonth(), dia);
-                                const dataStr = format(dataDia, 'yyyy-MM-dd');
-                                const peso = dailyWeights[dataStr] || 0;
-                                soma += (metaMensal * peso) / 100;
-                            }
-                            return soma;
-                        })()
-                        : metaDiariaPadrao * (diaAtual - 1);
+                // Calcular meta esperada até ontem
+                const metaEsperadaAteOntem = Object.keys(dailyWeights).length > 0
+                    ? (() => {
+                        let soma = 0;
+                        for (let dia = 1; dia < diaAtual; dia++) {
+                            const dataDia = new Date(hoje.getFullYear(), hoje.getMonth(), dia);
+                            const dataStr = format(dataDia, 'yyyy-MM-dd');
+                            const peso = dailyWeights[dataStr] || 0;
+                            soma += (metaMensal * peso) / 100;
+                        }
+                        return soma;
+                    })()
+                    : metaDiariaPadrao * (diaAtual - 1);
 
-                    const deficit = metaEsperadaAteOntem - vendidoAteOntem;
-                    const diasRestantes = totalDias - diaAtual;
+                // Calcular déficit e ajustar meta diária
+                const deficit = metaEsperadaAteOntem - vendidoAteOntem;
+                const diasRestantes = totalDias - diaAtual + 1; // +1 para incluir hoje
 
-                    // Calcular meta diária ajustada
-                    let metaDiariaAjustada = metaDiariaPadrao;
-                    if (diasRestantes > 0 && deficit > 0) {
-                        metaDiariaAjustada = metaDiariaPadrao + (deficit / diasRestantes);
-                    }
+                let metaDiaria = metaDiariaPadrao;
+                if (diasRestantes > 0 && deficit > 0) {
+                    metaDiaria = metaDiariaPadrao + (deficit / diasRestantes);
+                }
 
-                    const progress = metaDiariaAjustada > 0 ? (vendidoHoje / metaDiariaAjustada) * 100 : 0;
+                const progress = metaDiaria > 0 ? (vendidoHoje / metaDiaria) * 100 : 0;
 
-                    let status: 'ahead' | 'behind' | 'on-track' = 'on-track';
-                    if (deficit > 0) status = 'behind';
-                    else if (deficit < -metaDiariaPadrao * 2) status = 'ahead';
-
-                    totalVendidoHoje += vendidoHoje;
-                    totalMetaDiaria += metaDiariaAjustada;
-
-                    return {
-                        id: colab.id,
-                        name: colab.name,
-                        storeName: colab.stores?.name || "Sem loja",
-                        vendidoHoje,
-                        metaDiariaAjustada,
-                        progress: Math.min(progress, 100),
-                        status,
-                        abaixoDaMeta: progress < 80,
-                    };
-                })
-            );
+                return {
+                    id: colabId,
+                    name: profilesMap.get(colabId) || "Desconhecida",
+                    vendidoHoje,
+                    metaDiaria,
+                    progress: Math.min(progress, 100),
+                };
+            });
 
             // Ordenar por progresso (maior primeiro)
-            collaboratorsWithProgress.sort((a, b) => b.progress - a.progress);
+            colaboradorasList.sort((a, b) => b.progress - a.progress);
 
-            setCollaborators(collaboratorsWithProgress);
-            setTotalVendido(totalVendidoHoje);
-            setTotalMeta(totalMetaDiaria);
+            console.log("[DailyMetaTracker] Colaboradoras processadas:", colaboradorasList.length);
+
+            setColaboradoras(colaboradorasList);
         } catch (error) {
-            console.error("Error fetching daily progress:", error);
+            console.error("[DailyMetaTracker] Error fetching daily progress:", error);
         } finally {
             setLoading(false);
         }
@@ -187,17 +185,6 @@ export function DailyMetaTracker() {
         if (progress >= 100) return "bg-green-500";
         if (progress >= 80) return "bg-yellow-500";
         return "bg-red-500";
-    };
-
-    const getStatusIcon = (status: string) => {
-        switch (status) {
-            case 'ahead':
-                return <TrendingUp className="h-3.5 w-3.5 text-green-600" />;
-            case 'behind':
-                return <TrendingDown className="h-3.5 w-3.5 text-red-600" />;
-            default:
-                return <Calendar className="h-3.5 w-3.5 text-blue-600" />;
-        }
     };
 
     if (loading) {
@@ -219,76 +206,52 @@ export function DailyMetaTracker() {
         );
     }
 
-    const progressGeral = totalMeta > 0 ? (totalVendido / totalMeta) * 100 : 0;
-    const abaixoDaMetaCount = collaborators.filter((c) => c.abaixoDaMeta).length;
+    if (!colaboradoras || colaboradoras.length === 0) {
+        return (
+            <Card className="col-span-1">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Calendar className="h-5 w-5" />
+                        Meta Diária
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                        Nenhuma meta diária configurada
+                    </p>
+                </CardContent>
+            </Card>
+        );
+    }
 
     return (
         <Card className="col-span-1 bg-gradient-to-br from-card to-card/50 border-primary/10">
             <CardHeader className="pb-3">
-                <div className="flex items-center justify-between gap-2">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                        <Calendar className="h-5 w-5 text-primary" />
-                        Meta Diária
-                        {abaixoDaMetaCount > 0 && (
-                            <Badge variant="destructive" className="text-xs">
-                                <AlertCircle className="h-3 w-3 mr-1" />
-                                {abaixoDaMetaCount} abaixo de 80%
-                            </Badge>
-                        )}
-                    </CardTitle>
-                    <Select value={selectedStore} onValueChange={setSelectedStore}>
-                        <SelectTrigger className="w-[180px] h-8 text-xs">
-                            <SelectValue placeholder="Todas as lojas" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="TODAS">Todas as lojas</SelectItem>
-                            {stores.map((store) => (
-                                <SelectItem key={store.id} value={store.id}>
-                                    {store.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                    <Calendar className="h-5 w-5 text-primary" />
+                    Meta Diária
+                </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-                {/* Resumo Geral */}
-                <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">Total Vendido Hoje</span>
-                        <span className="text-lg font-bold text-green-600">{formatCurrency(totalVendido)}</span>
-                    </div>
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-muted-foreground">Meta Total do Dia</span>
-                        <span className="text-sm font-semibold">{formatCurrency(totalMeta)}</span>
-                    </div>
-                    <Progress value={progressGeral} className={`h-2 ${getProgressColor(progressGeral)}`} />
-                    <div className="text-xs text-right mt-1 font-semibold">{progressGeral.toFixed(0)}%</div>
-                </div>
-
-                {/* Lista de Colaboradoras */}
-                <div className="space-y-2 max-h-80 overflow-y-auto">
-                    {collaborators.map((colab) => (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {colaboradoras.map((colab) => (
                         <div
                             key={colab.id}
-                            className={`p-2.5 rounded-lg border ${colab.abaixoDaMeta ? 'bg-red-50 border-red-200' : 'bg-muted/50 border-border/50'
-                                }`}
+                            className="p-3 rounded-lg bg-muted/50 border border-border/50"
                         >
-                            <div className="flex items-center justify-between mb-1.5">
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5">
-                                        {getStatusIcon(colab.status)}
-                                        <span className="text-sm font-medium truncate">{colab.name}</span>
-                                    </div>
-                                    <span className="text-xs text-muted-foreground">{colab.storeName}</span>
-                                </div>
-                                <span className="text-xs font-semibold">{colab.progress.toFixed(0)}%</span>
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-medium truncate">{colab.name}</span>
+                                <Badge
+                                    variant={colab.progress >= 100 ? "default" : "secondary"}
+                                    className="ml-2"
+                                >
+                                    {colab.progress.toFixed(0)}%
+                                </Badge>
                             </div>
-                            <Progress value={colab.progress} className={`h-1.5 ${getProgressColor(colab.progress)}`} />
-                            <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
-                                <span>{formatCurrency(colab.vendidoHoje)}</span>
-                                <span>Meta: {formatCurrency(colab.metaDiariaAjustada)}</span>
+                            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                                <span>Vendido: R$ {colab.vendidoHoje.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
                             </div>
+                            <Progress value={colab.progress} className={`h-2 ${getProgressColor(colab.progress)}`} />
                         </div>
                     ))}
                 </div>
