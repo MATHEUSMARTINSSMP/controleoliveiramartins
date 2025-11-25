@@ -206,6 +206,19 @@ export default function ERPDashboard() {
       return;
     }
 
+    // Verificar se a loja tem integração ERP configurada
+    const { data: integration } = await supabase
+      .schema('sistemaretiradas')
+      .from('erp_integrations')
+      .select('id, sistema_erp, access_token, sync_status')
+      .eq('store_id', selectedStoreId)
+      .maybeSingle();
+
+    if (!integration || !integration.access_token) {
+      toast.error('Esta loja não tem integração ERP configurada. Configure primeiro em /dev/erp-config');
+      return;
+    }
+
     try {
       setSyncing(true);
       toast.info('Sincronizando pedidos...');
@@ -232,6 +245,19 @@ export default function ERPDashboard() {
   const handleSyncContacts = async () => {
     if (!selectedStoreId) {
       toast.error('Selecione uma loja');
+      return;
+    }
+
+    // Verificar se a loja tem integração ERP configurada
+    const { data: integration } = await supabase
+      .schema('sistemaretiradas')
+      .from('erp_integrations')
+      .select('id, sistema_erp, access_token, sync_status')
+      .eq('store_id', selectedStoreId)
+      .maybeSingle();
+
+    if (!integration || !integration.access_token) {
+      toast.error('Esta loja não tem integração ERP configurada. Configure primeiro em /dev/erp-config');
       return;
     }
 
