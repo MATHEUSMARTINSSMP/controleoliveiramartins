@@ -600,6 +600,12 @@ export default function BonusManagement() {
             periodo_semana: "",
             pre_requisitos: [],
             pre_requisitos_tipos: [],
+            valor_bonus_1: "",
+            valor_bonus_2: "",
+            valor_bonus_3: "",
+            valor_bonus_texto_1: "",
+            valor_bonus_texto_2: "",
+            valor_bonus_texto_3: "",
         });
         setSelectedCollaborators([]);
         setAvailableCollaborators([]);
