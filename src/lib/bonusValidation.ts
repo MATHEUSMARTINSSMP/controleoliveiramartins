@@ -24,10 +24,12 @@ async function validateSinglePreRequisito(
     storeId?: string
 ): Promise<BonusPreRequisitoValidation> {
     if (!preRequisito || !preRequisito.trim()) {
+        console.log(`[bonusValidation] Pré-requisito vazio, considerando válido`);
         return { isValid: true };
     }
 
     const preReqText = preRequisito.trim().toLowerCase();
+    console.log(`[bonusValidation] 🔍 Validando: "${preRequisito}" → "${preReqText}"`);
 
     try {
         const mesAtual = format(new Date(), "yyyyMM");
