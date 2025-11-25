@@ -274,7 +274,6 @@ export async function callERPAPI(
     .from('erp_integrations')
     .select('*')
     .eq('store_id', storeId)
-    .eq('active', true)
     .maybeSingle();
 
   if (credError || !integration) {
