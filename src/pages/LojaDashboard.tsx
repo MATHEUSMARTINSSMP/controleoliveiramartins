@@ -1542,15 +1542,18 @@ export default function LojaDashboard() {
             observacoesFinal = `Formas de Pagamento: ${formasPagamentoTexto}`;
         }
 
-        const { error } = await supabase.from('sales').insert({
-            colaboradora_id: formData.colaboradora_id,
-            store_id: storeId,
-            valor: parseFloat(formData.valor),
-            qtd_pecas: parseInt(formData.qtd_pecas),
-            data_venda: formData.data_venda,
-            observacoes: observacoesFinal || null,
-            lancado_por_id: profile?.id,
-        });
+        const { error } = await supabase
+            .schema("sistemaretiradas")
+            .from('sales')
+            .insert({
+                colaboradora_id: formData.colaboradora_id,
+                store_id: storeId,
+                valor: parseFloat(formData.valor),
+                qtd_pecas: parseInt(formData.qtd_pecas),
+                data_venda: formData.data_venda,
+                observacoes: observacoesFinal || null,
+                lancado_por_id: profile?.id,
+            });
 
         if (error) {
             toast.error('Erro ao lançar venda');
@@ -2225,7 +2228,7 @@ export default function LojaDashboard() {
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                     <StoreLogo storeId={storeId || profile?.store_id} className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" />
                     <div className="min-w-0 flex-1">
-                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate">{storeName || profile?.name || "Loja"}</h1>
+                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold break-words">{storeName || profile?.name || "Loja"}</h1>
                         <p className="text-xs sm:text-sm text-muted-foreground">Gestão de Vendas</p>
                 </div>
                 </div>
@@ -2744,7 +2747,7 @@ export default function LojaDashboard() {
                             <TableBody>
                                 {colaboradorasPerformance.map((perf) => (
                                     <TableRow key={perf.id}>
-                                            <TableCell className="font-medium text-xs sm:text-sm truncate max-w-[120px]">{perf.name}</TableCell>
+                                            <TableCell className="font-medium text-xs sm:text-sm break-words">{perf.name}</TableCell>
                                             <TableCell className="text-xs sm:text-sm font-medium">
                                                 R$ {perf.vendido.toFixed(2)}
                                                 {perf.vendidoMes > 0 && (
@@ -2888,7 +2891,7 @@ export default function LojaDashboard() {
                                                     : format(new Date(sale.data_venda), 'dd/MM/yyyy HH:mm')
                                                 }
                                             </TableCell>
-                                            <TableCell className="text-xs sm:text-sm font-medium truncate max-w-[100px]">
+                                            <TableCell className="text-xs sm:text-sm font-medium break-words">
                                                 {sale.colaboradora?.name || 'Colaboradora não encontrada'}
                                             </TableCell>
                                             <TableCell className="text-xs sm:text-sm font-medium">R$ {sale.valor.toFixed(2)}</TableCell>
@@ -2963,7 +2966,7 @@ export default function LojaDashboard() {
                                                 {isOuro ? '🥇' : isPrata ? '🥈' : index + 1}
                                             </div>
                                             <div className="min-w-0 flex-1">
-                                                <span className="font-bold text-sm sm:text-base truncate block">{item.name}</span>
+                                                <span className="font-bold text-sm sm:text-base break-words block">{item.name}</span>
                                                 {perf && (
                                                     <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 space-y-0.5">
                                                         <div className="flex gap-2">

@@ -249,7 +249,7 @@ export function MonthlyOverview() {
                             className="p-3 rounded-lg bg-muted/50 border border-border/50"
                         >
                             <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-medium truncate">{colab.name}</span>
+                                <span className="text-sm font-medium break-words">{colab.name}</span>
                                 <Badge
                                     variant={colab.progress >= 100 ? "default" : "secondary"}
                                     className="ml-2"

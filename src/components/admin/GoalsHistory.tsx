@@ -254,7 +254,7 @@ export function GoalsHistory() {
                                     >
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
-                                                <span className="font-medium text-sm truncate">{colab.name}</span>
+                                                <span className="font-medium text-sm break-words">{colab.name}</span>
                                                 {colab.atingiu ? (
                                                     <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
                                                 ) : (

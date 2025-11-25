@@ -226,7 +226,7 @@ const BenchmarksManagement = () => {
                       ) : (
                         benchmarks.map((benchmark) => (
                           <TableRow key={benchmark.id}>
-                            <TableCell className="font-medium text-xs sm:text-sm truncate max-w-[150px]">{benchmark.store_name}</TableCell>
+                            <TableCell className="font-medium text-xs sm:text-sm break-words">{benchmark.store_name}</TableCell>
                             <TableCell className="text-right text-xs sm:text-sm hidden sm:table-cell font-medium">
                               {formatCurrency(benchmark.ideal_ticket_medio, { showSymbol: false })}
                             </TableCell>

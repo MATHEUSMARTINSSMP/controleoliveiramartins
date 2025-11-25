@@ -108,7 +108,7 @@ const AdminDashboard = () => {
             <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               Dashboard Admin
             </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground truncate">Bem-vindo, {profile.name}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground break-words">Bem-vindo, {profile.name}</p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto items-center">
             {/* Badge de notificação de adiantamentos pendentes */}

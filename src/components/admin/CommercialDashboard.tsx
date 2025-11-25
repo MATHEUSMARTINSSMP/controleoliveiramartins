@@ -301,6 +301,7 @@ export const CommercialDashboard = () => {
 
             // 2. Fetch Goals
             const { data: goalsData } = await supabase
+                .schema("sistemaretiradas")
                 .from('goals')
                 .select('store_id, meta_valor, super_meta_valor')
                 .eq('tipo', 'MENSAL')
@@ -456,9 +457,9 @@ export const CommercialDashboard = () => {
                                         <div className="p-2 sm:p-3 bg-primary/10 rounded-lg flex-shrink-0">
                                             <DollarSign className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                                         </div>
-                                        <div className="min-w-0">
+                                        <div className="min-w-0 flex-1">
                                             <p className="text-xs sm:text-sm text-muted-foreground">Faturamento</p>
-                                            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-primary truncate">
+                                            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-primary break-words">
                                                 {formatCurrency(salesSummary.total_valor)}
                                             </p>
                                         </div>
@@ -478,9 +479,9 @@ export const CommercialDashboard = () => {
                                         <div className="p-2 sm:p-3 bg-purple-500/10 rounded-lg flex-shrink-0">
                                             <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500" />
                                         </div>
-                                        <div className="min-w-0">
+                                        <div className="min-w-0 flex-1">
                                             <p className="text-xs sm:text-sm text-muted-foreground">Ticket Médio</p>
-                                            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-purple-600 truncate">
+                                            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-purple-600 break-words">
                                                 {formatCurrency(salesSummary.ticket_medio)}
                                             </p>
                                         </div>
@@ -526,9 +527,9 @@ export const CommercialDashboard = () => {
                                                         <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Peças</p>
                                                         <p className="text-sm sm:text-base font-semibold">{store.total_pecas}</p>
                                                     </div>
-                                                    <div>
+                                                    <div className="min-w-0">
                                                         <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">TM</p>
-                                                        <p className="text-[10px] sm:text-xs font-semibold truncate">
+                                                        <p className="text-[10px] sm:text-xs font-semibold break-words">
                                                             {formatCurrency(store.ticket_medio)}
                                                         </p>
                                                     </div>
@@ -787,8 +788,8 @@ export const CommercialDashboard = () => {
                                     </div>
                                     <Progress value={progress} className="h-2 sm:h-3" />
                                     <div className="flex justify-between text-[10px] sm:text-xs mt-1 text-muted-foreground">
-                                        <span className="truncate pr-1">R$ {store.total_valor.toLocaleString('pt-BR')}</span>
-                                        <span className="truncate pl-1">R$ {goal?.meta_valor?.toLocaleString('pt-BR') || '0'}</span>
+                                        <span className="break-words pr-1">R$ {store.total_valor.toLocaleString('pt-BR')}</span>
+                                        <span className="break-words pl-1">R$ {goal?.meta_valor?.toLocaleString('pt-BR') || '0'}</span>
                                     </div>
                                 </div>
 

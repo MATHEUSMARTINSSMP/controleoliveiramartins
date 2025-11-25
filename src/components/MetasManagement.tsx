@@ -255,7 +255,11 @@ const MetasManagementContent = () => {
     };
 
     const fetchStores = async () => {
-        const { data } = await supabase.from("stores").select("*").eq("active", true);
+        const { data } = await supabase
+            .schema("sistemaretiradas")
+            .from("stores")
+            .select("*")
+            .eq("active", true);
         if (data) setStores(data);
     };
 

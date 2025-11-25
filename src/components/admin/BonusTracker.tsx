@@ -219,7 +219,7 @@ export function BonusTracker() {
                     <div key={bonus.id} className="space-y-2 p-3 rounded-lg bg-muted/50 border border-border/50">
                         <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-sm truncate">{bonus.nome}</h4>
+                                <h4 className="font-semibold text-sm break-words">{bonus.nome}</h4>
                                 <p className="text-xs text-muted-foreground">
                                     {bonus.valor_bonus_texto || `R$ ${bonus.valor_bonus.toFixed(2)}`}
                                 </p>
@@ -243,7 +243,7 @@ export function BonusTracker() {
                                         .map((colab) => (
                                             <div key={colab.id} className="space-y-1">
                                                 <div className="flex items-center justify-between text-xs">
-                                                    <span className="truncate flex-1 min-w-0">{colab.name}</span>
+                                                    <span className="break-words flex-1 min-w-0">{colab.name}</span>
                                                     <span className={`font-semibold ${colab.achieved ? "text-green-600" : ""}`}>
                                                         {colab.progress.toFixed(0)}%
                                                     </span>
@@ -252,7 +252,7 @@ export function BonusTracker() {
                                                 {colab.progress >= (bonus.meta_minima_percentual || 0) && !colab.achieved && colab.preRequisitosReason && (
                                                     <div className="flex items-center gap-1 text-[10px] text-orange-600 mt-1">
                                                         <AlertCircle className="h-3 w-3" />
-                                                        <span className="truncate">{colab.preRequisitosReason}</span>
+                                                        <span className="break-words">{colab.preRequisitosReason}</span>
                                                     </div>
                                                 )}
                                             </div>

@@ -127,7 +127,7 @@ export function BonusHistory() {
                                 <div className="flex items-start justify-between gap-2">
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
-                                            <h4 className="font-semibold text-sm truncate">{bonus.nome}</h4>
+                                            <h4 className="font-semibold text-sm break-words">{bonus.nome}</h4>
                                             <Badge variant={bonus.ativo ? "default" : "outline"} className="text-xs">
                                                 {bonus.ativo ? "Ativo" : "Encerrado"}
                                             </Badge>

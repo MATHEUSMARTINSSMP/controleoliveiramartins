@@ -88,6 +88,7 @@ export const useGoalCalculation = (
 
         // 1. Buscar meta individual
         const { data: goal } = await supabase
+          .schema("sistemaretiradas")
           .from('goals')
           .select('*')
           .eq('colaboradora_id', colaboradoraId)
@@ -106,6 +107,7 @@ export const useGoalCalculation = (
         const fimMes = endOfMonth(hoje);
         
         const { data: sales } = await supabase
+          .schema("sistemaretiradas")
           .from('sales')
           .select('data_venda, valor, qtd_pecas')
           .eq('colaboradora_id', colaboradoraId)

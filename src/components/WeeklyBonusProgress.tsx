@@ -199,8 +199,8 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
                 salesTodayByCollaborator.set(sale.colaboradora_id, current + parseFloat(sale.valor || 0));
             });
 
-            // Processar progresso de cada colaboradora
-            const progress: CollaboratorProgress[] = colaboradoras.map(colab => {
+            // Processar progresso de cada colaboradora (com validação assíncrona de pré-requisitos)
+            const progressPromises = colaboradoras.map(async (colab) => {
                 const weeklyGoal = weeklyGoalsMap.get(colab.id);
                 const monthlyGoal = monthlyGoalsMap.get(colab.id);
                 const realizado = salesByCollaborator.get(colab.id) || 0;
@@ -304,6 +304,8 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
                     preRequisitosReasonSuperMeta: preRequisitosReasonSuperMeta || undefined,
                 };
             });
+
+            const progress: CollaboratorProgress[] = await Promise.all(progressPromises);
 
             // Filtrar apenas colaboradoras com metas semanais (bônus ou calculadas)
             const progressFiltered = progress.filter(p => p.metaValor > 0 || p.superMetaValor > 0);

@@ -20,9 +20,16 @@ const Seed = () => {
           },
         }
       );
+
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status} ${response.statusText}`);
+      }
+
       const data = await response.json();
       if (data.success) {
         toast.success("Usuários criados com sucesso!");
+      } else {
+        throw new Error(data.error || "Erro ao criar usuários");
       }
     } catch (error) {
       toast.error("Erro ao criar usuários");

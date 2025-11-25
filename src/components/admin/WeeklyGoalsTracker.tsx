@@ -182,7 +182,7 @@ export function WeeklyGoalsTracker() {
                             >
                                 <div className="flex items-center justify-between gap-2">
                                     <div className="flex-1 min-w-0">
-                                        <h4 className="font-semibold text-sm truncate">{colab.name}</h4>
+                                        <h4 className="font-semibold text-sm break-words">{colab.name}</h4>
                                         <p className="text-xs text-muted-foreground">
                                             R$ {colab.vendidoSemana.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} / R${" "}
                                             {colab.metaSemanal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}

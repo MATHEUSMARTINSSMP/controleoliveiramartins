@@ -627,11 +627,11 @@ const Relatorios = () => {
                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-4 flex-1 min-w-0">
                                 <div className="min-w-0">
                                   <p className="text-xs sm:text-sm text-muted-foreground">Colaboradora</p>
-                                  <p className="font-medium text-xs sm:text-sm truncate">{compra.colaboradora_nome}</p>
+                                  <p className="font-medium text-xs sm:text-sm break-words">{compra.colaboradora_nome}</p>
                                 </div>
                                 <div className="min-w-0">
                                   <p className="text-xs sm:text-sm text-muted-foreground">Item</p>
-                                  <p className="font-medium text-xs sm:text-sm truncate">{compra.item}</p>
+                                  <p className="font-medium text-xs sm:text-sm break-words">{compra.item}</p>
                                 </div>
                                 <div className="min-w-0">
                                   <p className="text-xs sm:text-sm text-muted-foreground">Data Compra</p>
@@ -730,7 +730,7 @@ const Relatorios = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
                           <div className="min-w-0">
                             <p className="text-xs sm:text-sm text-muted-foreground">Colaboradora</p>
-                            <p className="font-medium text-xs sm:text-sm truncate">{adiantamento.colaboradora_nome}</p>
+                            <p className="font-medium text-xs sm:text-sm break-words">{adiantamento.colaboradora_nome}</p>
                           </div>
                           <div className="min-w-0">
                             <p className="text-xs sm:text-sm text-muted-foreground">Valor</p>

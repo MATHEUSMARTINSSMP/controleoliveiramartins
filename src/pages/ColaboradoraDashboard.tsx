@@ -601,7 +601,7 @@ const ColaboradoraDashboard = () => {
               className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" 
             />
             <div className="flex-1 min-w-0">
-              <p className="text-base sm:text-lg font-semibold text-foreground truncate">
+              <p className="text-base sm:text-lg font-semibold text-foreground break-words">
                 Bem-vinda, {profile.name?.split(' ')[0] || profile.name}
               </p>
             </div>
@@ -802,7 +802,7 @@ const ColaboradoraDashboard = () => {
                         filteredCompras.map(c => (
                           <TableRow key={c.id}>
                             <TableCell className="text-xs sm:text-sm">{format(new Date(c.data_compra), "dd/MM/yyyy")}</TableCell>
-                            <TableCell className="text-xs sm:text-sm hidden sm:table-cell max-w-[150px] truncate">{c.item}</TableCell>
+                            <TableCell className="text-xs sm:text-sm hidden sm:table-cell break-words">{c.item}</TableCell>
                             <TableCell className="text-xs sm:text-sm hidden md:table-cell">{c.stores?.name || "-"}</TableCell>
                             <TableCell className="text-xs sm:text-sm font-medium">{formatCurrency(c.preco_final)}</TableCell>
                             <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{c.num_parcelas}x</TableCell>
@@ -931,7 +931,7 @@ const ColaboradoraDashboard = () => {
                         filteredParcelas.map(p => (
                           <TableRow key={p.id}>
                             <TableCell className="text-xs sm:text-sm">{p.competencia.slice(4)}/{p.competencia.slice(0, 4)}</TableCell>
-                            <TableCell className="text-xs sm:text-sm hidden sm:table-cell max-w-[150px] truncate">{p.purchases?.item || "-"}</TableCell>
+                            <TableCell className="text-xs sm:text-sm hidden sm:table-cell break-words">{p.purchases?.item || "-"}</TableCell>
                             <TableCell className="text-xs sm:text-sm hidden md:table-cell">{p.purchases?.stores?.name || "-"}</TableCell>
                             <TableCell className="text-xs sm:text-sm">{p.n_parcela}</TableCell>
                             <TableCell className="text-xs sm:text-sm font-medium">{formatCurrency(p.valor_parcela)}</TableCell>
@@ -1067,7 +1067,7 @@ const ColaboradoraDashboard = () => {
                             <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{format(new Date(a.data_solicitacao), "dd/MM/yyyy")}</TableCell>
                             <TableCell className="text-xs sm:text-sm">{a.mes_competencia.slice(4)}/{a.mes_competencia.slice(0, 4)}</TableCell>
                             <TableCell className="text-xs sm:text-sm">{getStatusBadge(a.status)}</TableCell>
-                            <TableCell className="text-xs sm:text-sm hidden md:table-cell max-w-[200px] truncate">
+                            <TableCell className="text-xs sm:text-sm hidden md:table-cell break-words">
                               {a.status === "RECUSADO" ? a.motivo_recusa : a.observacoes || "-"}
                             </TableCell>
                             <TableCell className="text-xs sm:text-sm">

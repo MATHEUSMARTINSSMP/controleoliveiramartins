@@ -732,7 +732,7 @@ const Colaboradores = () => {
                           <TableRow key={colab.id} className="hover:bg-muted/50 transition-colors">
                             <TableCell className="font-medium text-xs sm:text-sm sticky left-0 bg-background z-10 min-w-[150px]">{colab.name}</TableCell>
                             <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{colab.cpf || "Não informado"}</TableCell>
-                            <TableCell className="text-xs sm:text-sm hidden md:table-cell min-w-[180px] truncate">{colab.email}</TableCell>
+                            <TableCell className="text-xs sm:text-sm hidden md:table-cell min-w-[180px] break-words">{colab.email}</TableCell>
                             <TableCell className="text-xs sm:text-sm">
                               <span className="text-xs font-medium px-2 py-1 bg-primary/10 rounded-full whitespace-nowrap">
                                 {colab.store_default || "-"}
@@ -821,7 +821,7 @@ const Colaboradores = () => {
                         {lojas.map((loja: any) => (
                           <TableRow key={loja.id} className="hover:bg-muted/50 transition-colors">
                             <TableCell className="font-medium text-xs sm:text-sm sticky left-0 bg-background z-10 min-w-[150px]">{loja.name}</TableCell>
-                            <TableCell className="text-xs sm:text-sm hidden md:table-cell min-w-[180px] truncate">{loja.email}</TableCell>
+                            <TableCell className="text-xs sm:text-sm hidden md:table-cell min-w-[180px] break-words">{loja.email}</TableCell>
                             <TableCell className="text-xs sm:text-sm">
                               <span className="text-xs font-medium px-2 py-1 bg-primary/10 rounded-full whitespace-nowrap">
                                 {loja.store_name || loja.store_default || "-"}
