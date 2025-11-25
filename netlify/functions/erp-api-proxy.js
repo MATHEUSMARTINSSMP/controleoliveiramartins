@@ -233,9 +233,26 @@ exports.handler = async (event, context) => {
     }
 
     console.log(`[ERP-API-Proxy] Fazendo requisição ${method} para: ${url}`);
+    console.log(`[ERP-API-Proxy] Headers:`, JSON.stringify(requestOptions.headers, null, 2));
+    if (requestOptions.body) {
+      console.log(`[ERP-API-Proxy] Body:`, requestOptions.body.substring(0, 200));
+    }
 
     // Fazer requisição para API do Tiny ERP
-    const apiResponse = await fetch(url, requestOptions);
+    let apiResponse;
+    try {
+      apiResponse = await fetch(url, requestOptions);
+    } catch (fetchError) {
+      console.error('[ERP-API-Proxy] Erro ao fazer fetch:', fetchError);
+      return {
+        statusCode: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          success: false,
+          error: `Erro de rede ao conectar com Tiny ERP: ${fetchError.message}`,
+        }),
+      };
+    }
 
     // Ler resposta
     const responseText = await apiResponse.text();
@@ -245,8 +262,11 @@ exports.handler = async (event, context) => {
       responseData = JSON.parse(responseText);
     } catch (e) {
       // Se não for JSON, retornar texto
-      responseData = responseText;
+      console.warn('[ERP-API-Proxy] Resposta não é JSON:', responseText.substring(0, 500));
+      responseData = { raw: responseText };
     }
+
+    console.log(`[ERP-API-Proxy] Status: ${apiResponse.status}, Resposta:`, JSON.stringify(responseData).substring(0, 500));
 
     // Se erro 401, marcar como erro no banco
     if (apiResponse.status === 401) {

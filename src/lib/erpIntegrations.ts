@@ -407,7 +407,20 @@ export async function callERPAPI(
 
   // Verificar se houve erro na resposta
   if (!response.ok) {
-    const errorMessage = data.error || data.message || response.statusText;
+    // Log detalhado do erro
+    console.error(`[ERPIntegrations] Erro ${response.status} na resposta do proxy:`, {
+      status: response.status,
+      statusText: response.statusText,
+      data: JSON.stringify(data).substring(0, 500),
+    });
+
+    let errorMessage = 'Erro desconhecido';
+    
+    if (typeof data === 'object' && data !== null) {
+      errorMessage = data.error || data.message || data.raw || JSON.stringify(data);
+    } else if (typeof data === 'string') {
+      errorMessage = data;
+    }
     
     if (response.status === 401) {
       await supabase
@@ -422,7 +435,11 @@ export async function callERPAPI(
       throw new Error('Token inválido. Reautorize a conexão.');
     }
 
-    throw new Error(`Erro na API ${sistemaERP}: ${errorMessage}`);
+    if (response.status === 400) {
+      throw new Error(`Erro na requisição para ${sistemaERP}: ${errorMessage}. Verifique os parâmetros enviados.`);
+    }
+
+    throw new Error(`Erro na API ${sistemaERP} (${response.status}): ${errorMessage}`);
   }
   
   // Atualizar última sincronização

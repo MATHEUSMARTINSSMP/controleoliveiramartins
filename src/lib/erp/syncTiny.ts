@@ -216,7 +216,21 @@ export async function syncTinyOrders(
         dataInicioSync = lastDate.toISOString().split('T')[0];
         ultimoTinyIdSync = lastSync.ultimo_tiny_id_sincronizado || null;
         console.log(`[SyncTiny] Sincronização incremental desde: ${dataInicioSync}, último ID: ${ultimoTinyIdSync || 'N/A'}`);
+      } else {
+        // Se não há sincronização anterior, sincronizar últimos 7 dias por padrão
+        const hoje = new Date();
+        const seteDiasAtras = new Date(hoje);
+        seteDiasAtras.setDate(hoje.getDate() - 7);
+        dataInicioSync = seteDiasAtras.toISOString().split('T')[0];
+        console.log(`[SyncTiny] Primeira sincronização - sincronizando últimos 7 dias desde: ${dataInicioSync}`);
       }
+    } else if (!dataInicio) {
+      // Se não é incremental e não tem dataInicio, também usar últimos 7 dias
+      const hoje = new Date();
+      const seteDiasAtras = new Date(hoje);
+      seteDiasAtras.setDate(hoje.getDate() - 7);
+      dataInicioSync = seteDiasAtras.toISOString().split('T')[0];
+      console.log(`[SyncTiny] Sem data inicial definida - sincronizando últimos 7 dias desde: ${dataInicioSync}`);
     }
 
     // Endpoint conforme documentação oficial
@@ -657,7 +671,10 @@ export async function syncTinyContacts(
       const response = await callERPAPI(storeId, '/contatos', params);
       
       // Verificar estrutura da resposta
+      // Tiny ERP v3 pode retornar: { contatos: [...] } ou { retorno: { contatos: [...] } }
       let contatos: TinyContato[] = [];
+      
+      console.log(`[SyncTiny] Resposta recebida (página ${currentPage}):`, JSON.stringify(response).substring(0, 500));
       
       if (response.contatos && Array.isArray(response.contatos)) {
         contatos = response.contatos;
@@ -665,11 +682,15 @@ export async function syncTinyContacts(
         contatos = response.retorno.contatos;
       } else if (response.data?.contatos && Array.isArray(response.data.contatos)) {
         contatos = response.data.contatos;
+      } else if (Array.isArray(response)) {
+        // Se a resposta é um array direto
+        contatos = response;
       } else {
+        console.warn(`[SyncTiny] Estrutura de resposta não reconhecida (página ${currentPage}):`, Object.keys(response));
         if (currentPage === 1) {
           return {
             success: false,
-            message: 'Resposta inválida da API Tiny',
+            message: `Resposta inválida da API Tiny. Estrutura recebida: ${JSON.stringify(Object.keys(response || {}))}`,
             synced: 0,
             updated: 0,
             errors: 0,
