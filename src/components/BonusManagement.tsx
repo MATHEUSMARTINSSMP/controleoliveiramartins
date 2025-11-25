@@ -17,11 +17,11 @@ import { sendWhatsAppMessage, formatBonusMessage } from "@/lib/whatsapp";
 
 // Função auxiliar para identificar o tipo de pré-requisito a partir do texto
 function getPreRequisitoTipo(preRequisito: string | null | undefined): string {
-    if (!preRequisitos || !preRequisitos.trim()) {
+    if (!preRequisito || !preRequisito.trim()) {
         return "NENHUM";
     }
     
-    const text = preRequisitos.toLowerCase().trim();
+    const text = preRequisito.toLowerCase().trim();
     
     // Loja - Metas Mensais
     if (text.includes("loja") && text.includes("super meta mensal")) {
