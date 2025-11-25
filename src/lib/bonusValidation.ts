@@ -266,48 +266,36 @@ export async function validateBonusPreRequisitos(
             const semanaRef = `${String(week).padStart(2, '0')}${year}`;
             const weekRange = { start: monday, end: dateFns.endOfWeek(monday, { weekStartsOn: 1 }) };
 
-            // Buscar super meta semanal da loja (se existir) ou calcular da mensal
-            const { data: lojaMetaSemanal } = await supabase
+            // IMPORTANTE: Meta semanal obrigatória é SEMPRE calculada da mensal, não buscada no banco
+            // A busca no banco (tipo SEMANAL) é apenas para gincanas opcionais
+            // Calcular da super meta mensal
+            const { data: lojaMetaMensal } = await supabase
                 .schema("sistemaretiradas")
                 .from("goals")
-                .select("super_meta_valor")
+                .select("super_meta_valor, daily_weights")
                 .eq("store_id", storeId)
-                .eq("semana_referencia", semanaRef)
-                .eq("tipo", "SEMANAL")
+                .eq("mes_referencia", mesAtual)
+                .eq("tipo", "MENSAL")
                 .is("colaboradora_id", null)
                 .maybeSingle();
 
             let metaSemanalValor = 0;
-            if (lojaMetaSemanal?.super_meta_valor) {
-                metaSemanalValor = Number(lojaMetaSemanal.super_meta_valor);
-            } else {
-                // Calcular da super meta mensal
-                const { data: lojaMetaMensal } = await supabase
-                    .schema("sistemaretiradas")
-                    .from("goals")
-                    .select("super_meta_valor, daily_weights")
-                    .eq("store_id", storeId)
-                    .eq("mes_referencia", mesAtual)
-                    .eq("tipo", "MENSAL")
-                    .is("colaboradora_id", null)
-                    .maybeSingle();
+            if (lojaMetaMensal?.super_meta_valor) {
+                const dailyWeights = (lojaMetaMensal.daily_weights || {}) as Record<string, number>;
+                const dateFns = await import("date-fns");
+                const { eachDayOfInterval } = dateFns;
+                const weekDays = eachDayOfInterval({ start: weekRange.start, end: weekRange.end });
+                
+                weekDays.forEach(day => {
+                    const dayKey = format(day, 'yyyy-MM-dd');
+                    const dayWeight = dailyWeights[dayKey] || 0;
+                    metaSemanalValor += (Number(lojaMetaMensal.super_meta_valor) * dayWeight) / 100;
+                });
 
-                if (lojaMetaMensal?.super_meta_valor) {
-                    const dailyWeights = (lojaMetaMensal.daily_weights || {}) as Record<string, number>;
-                    const dateFns = await import("date-fns");
-                    const weekDays = dateFns.eachDayOfInterval({ start: weekRange.start, end: weekRange.end });
-                    
-                    weekDays.forEach(day => {
-                        const dayKey = format(day, 'yyyy-MM-dd');
-                        const dayWeight = dailyWeights[dayKey] || 0;
-                        metaSemanalValor += (Number(lojaMetaMensal.super_meta_valor) * dayWeight) / 100;
-                    });
-
-                    if (Object.keys(dailyWeights).length === 0) {
-                        const daysInMonth = new Date(monday.getFullYear(), monday.getMonth() + 1, 0).getDate();
-                        const dailyGoal = Number(lojaMetaMensal.super_meta_valor) / daysInMonth;
-                        metaSemanalValor = dailyGoal * 7;
-                    }
+                if (Object.keys(dailyWeights).length === 0) {
+                    const daysInMonth = new Date(monday.getFullYear(), monday.getMonth() + 1, 0).getDate();
+                    const dailyGoal = Number(lojaMetaMensal.super_meta_valor) / daysInMonth;
+                    metaSemanalValor = dailyGoal * 7;
                 }
             }
 
@@ -356,48 +344,36 @@ export async function validateBonusPreRequisitos(
             const semanaRef = `${String(week).padStart(2, '0')}${year}`;
             const weekRange = { start: monday, end: dateFns.endOfWeek(monday, { weekStartsOn: 1 }) };
 
-            // Buscar meta semanal da loja (se existir) ou calcular da mensal
-            const { data: lojaMetaSemanal } = await supabase
+            // IMPORTANTE: Meta semanal obrigatória é SEMPRE calculada da mensal, não buscada no banco
+            // A busca no banco (tipo SEMANAL) é apenas para gincanas opcionais
+            // Calcular da meta mensal
+            const { data: lojaMetaMensal } = await supabase
                 .schema("sistemaretiradas")
                 .from("goals")
-                .select("meta_valor")
+                .select("meta_valor, daily_weights")
                 .eq("store_id", storeId)
-                .eq("semana_referencia", semanaRef)
-                .eq("tipo", "SEMANAL")
+                .eq("mes_referencia", mesAtual)
+                .eq("tipo", "MENSAL")
                 .is("colaboradora_id", null)
                 .maybeSingle();
 
             let metaSemanalValor = 0;
-            if (lojaMetaSemanal?.meta_valor) {
-                metaSemanalValor = Number(lojaMetaSemanal.meta_valor);
-            } else {
-                // Calcular da meta mensal
-                const { data: lojaMetaMensal } = await supabase
-                    .schema("sistemaretiradas")
-                    .from("goals")
-                    .select("meta_valor, daily_weights")
-                    .eq("store_id", storeId)
-                    .eq("mes_referencia", mesAtual)
-                    .eq("tipo", "MENSAL")
-                    .is("colaboradora_id", null)
-                    .maybeSingle();
+            if (lojaMetaMensal?.meta_valor) {
+                const dailyWeights = (lojaMetaMensal.daily_weights || {}) as Record<string, number>;
+                const dateFns = await import("date-fns");
+                const { eachDayOfInterval } = dateFns;
+                const weekDays = eachDayOfInterval({ start: weekRange.start, end: weekRange.end });
+                
+                weekDays.forEach(day => {
+                    const dayKey = format(day, 'yyyy-MM-dd');
+                    const dayWeight = dailyWeights[dayKey] || 0;
+                    metaSemanalValor += (Number(lojaMetaMensal.meta_valor) * dayWeight) / 100;
+                });
 
-                if (lojaMetaMensal?.meta_valor) {
-                    const dailyWeights = (lojaMetaMensal.daily_weights || {}) as Record<string, number>;
-                    const dateFns = await import("date-fns");
-                    const weekDays = dateFns.eachDayOfInterval({ start: weekRange.start, end: weekRange.end });
-                    
-                    weekDays.forEach(day => {
-                        const dayKey = format(day, 'yyyy-MM-dd');
-                        const dayWeight = dailyWeights[dayKey] || 0;
-                        metaSemanalValor += (Number(lojaMetaMensal.meta_valor) * dayWeight) / 100;
-                    });
-
-                    if (Object.keys(dailyWeights).length === 0) {
-                        const daysInMonth = new Date(monday.getFullYear(), monday.getMonth() + 1, 0).getDate();
-                        const dailyGoal = Number(lojaMetaMensal.meta_valor) / daysInMonth;
-                        metaSemanalValor = dailyGoal * 7;
-                    }
+                if (Object.keys(dailyWeights).length === 0) {
+                    const daysInMonth = new Date(monday.getFullYear(), monday.getMonth() + 1, 0).getDate();
+                    const dailyGoal = Number(lojaMetaMensal.meta_valor) / daysInMonth;
+                    metaSemanalValor = dailyGoal * 7;
                 }
             }
 
@@ -540,46 +516,34 @@ export async function validateBonusPreRequisitos(
             const semanaRef = `${String(week).padStart(2, '0')}${year}`;
             const weekRange = { start: monday, end: dateFns.endOfWeek(monday, { weekStartsOn: 1 }) };
 
-            // Buscar meta semanal individual da colaboradora (se existir) ou calcular da mensal
-            const { data: colabMetaSemanal } = await supabase
+            // IMPORTANTE: Meta semanal obrigatória é SEMPRE calculada da mensal, não buscada no banco
+            // A busca no banco (tipo SEMANAL) é apenas para gincanas opcionais
+            // Calcular da meta mensal
+            const { data: colabMetaMensal } = await supabase
                 .schema("sistemaretiradas")
                 .from("goals")
-                .select("meta_valor")
+                .select("meta_valor, daily_weights")
                 .eq("colaboradora_id", colaboradoraId)
-                .eq("semana_referencia", semanaRef)
-                .eq("tipo", "SEMANAL")
+                .eq("mes_referencia", mesAtual)
+                .eq("tipo", "INDIVIDUAL")
                 .maybeSingle();
 
             let metaSemanalValor = 0;
-            if (colabMetaSemanal?.meta_valor) {
-                metaSemanalValor = Number(colabMetaSemanal.meta_valor);
-            } else {
-                // Calcular da meta mensal
-                const { data: colabMetaMensal } = await supabase
-                    .schema("sistemaretiradas")
-                    .from("goals")
-                    .select("meta_valor, daily_weights")
-                    .eq("colaboradora_id", colaboradoraId)
-                    .eq("mes_referencia", mesAtual)
-                    .eq("tipo", "INDIVIDUAL")
-                    .maybeSingle();
+            if (colabMetaMensal?.meta_valor) {
+                const dailyWeights = (colabMetaMensal.daily_weights || {}) as Record<string, number>;
+                const { eachDayOfInterval } = await import("date-fns");
+                const weekDays = eachDayOfInterval({ start: weekRange.start, end: weekRange.end });
+                
+                weekDays.forEach(day => {
+                    const dayKey = format(day, 'yyyy-MM-dd');
+                    const dayWeight = dailyWeights[dayKey] || 0;
+                    metaSemanalValor += (Number(colabMetaMensal.meta_valor) * dayWeight) / 100;
+                });
 
-                if (colabMetaMensal?.meta_valor) {
-                    const dailyWeights = (colabMetaMensal.daily_weights || {}) as Record<string, number>;
-                    const { eachDayOfInterval } = await import("date-fns");
-                    const weekDays = eachDayOfInterval({ start: weekRange.start, end: weekRange.end });
-                    
-                    weekDays.forEach(day => {
-                        const dayKey = format(day, 'yyyy-MM-dd');
-                        const dayWeight = dailyWeights[dayKey] || 0;
-                        metaSemanalValor += (Number(colabMetaMensal.meta_valor) * dayWeight) / 100;
-                    });
-
-                    if (Object.keys(dailyWeights).length === 0) {
-                        const daysInMonth = new Date(monday.getFullYear(), monday.getMonth() + 1, 0).getDate();
-                        const dailyGoal = Number(colabMetaMensal.meta_valor) / daysInMonth;
-                        metaSemanalValor = dailyGoal * 7;
-                    }
+                if (Object.keys(dailyWeights).length === 0) {
+                    const daysInMonth = new Date(monday.getFullYear(), monday.getMonth() + 1, 0).getDate();
+                    const dailyGoal = Number(colabMetaMensal.meta_valor) / daysInMonth;
+                    metaSemanalValor = dailyGoal * 7;
                 }
             }
 
