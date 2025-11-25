@@ -3,10 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, Target, Gift, CheckCircle2, XCircle, Calendar } from "lucide-react";
+import { Trophy, Target, Gift, CheckCircle2, XCircle, Calendar, AlertCircle } from "lucide-react";
 import { format, startOfWeek, endOfWeek, getWeek, getYear, addWeeks, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/utils";
+import { validateBonusPreRequisitos } from "@/lib/bonusValidation";
 
 interface WeeklyBonusProgressProps {
     storeId: string;
@@ -28,6 +29,10 @@ interface CollaboratorProgress {
     faltaMeta: number; // Quanto falta para a meta
     faltaSuperMeta: number; // Quanto falta para a super meta
     progressDiario: number; // % da meta do dia
+    preRequisitosValidosMeta?: boolean; // Se pré-requisitos do bônus meta foram cumpridos
+    preRequisitosValidosSuperMeta?: boolean; // Se pré-requisitos do bônus super meta foram cumpridos
+    preRequisitosReasonMeta?: string; // Motivo se pré-requisitos meta não válidos
+    preRequisitosReasonSuperMeta?: string; // Motivo se pré-requisitos super meta não válidos
 }
 
 interface WeeklyBonus {
@@ -237,10 +242,46 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
                 const progressMeta = metaValor > 0 ? (realizado / metaValor) * 100 : 0;
                 const progressSuperMeta = superMetaValor > 0 ? (realizado / superMetaValor) * 100 : 0;
                 const progressDiario = metaDiaria > 0 ? (realizadoHoje / metaDiaria) * 100 : 0;
-                const bateuMeta = metaValor > 0 && realizado >= metaValor;
-                const bateuSuperMeta = superMetaValor > 0 && realizado >= superMetaValor;
+                let bateuMeta = metaValor > 0 && realizado >= metaValor;
+                let bateuSuperMeta = superMetaValor > 0 && realizado >= superMetaValor;
                 const faltaMeta = Math.max(0, metaValor - realizado);
                 const faltaSuperMeta = Math.max(0, superMetaValor - realizado);
+
+                // Validar pré-requisitos se bateu a meta
+                let preRequisitosValidosMeta = true;
+                let preRequisitosValidosSuperMeta = true;
+                let preRequisitosReasonMeta = "";
+                let preRequisitosReasonSuperMeta = "";
+
+                if (bateuMeta && metaBonusId && metaBonusPreRequisitos) {
+                    const validation = await validateBonusPreRequisitos(
+                        metaBonusPreRequisitos,
+                        metaBonusId,
+                        colab.id,
+                        storeId
+                    );
+                    preRequisitosValidosMeta = validation.isValid;
+                    preRequisitosReasonMeta = validation.reason || "";
+                    // Se não cumpriu pré-requisitos, não considera como tendo batido a meta
+                    if (!preRequisitosValidosMeta) {
+                        bateuMeta = false;
+                    }
+                }
+
+                if (bateuSuperMeta && superMetaBonusId && superMetaBonusPreRequisitos) {
+                    const validation = await validateBonusPreRequisitos(
+                        superMetaBonusPreRequisitos,
+                        superMetaBonusId,
+                        colab.id,
+                        storeId
+                    );
+                    preRequisitosValidosSuperMeta = validation.isValid;
+                    preRequisitosReasonSuperMeta = validation.reason || "";
+                    // Se não cumpriu pré-requisitos, não considera como tendo batido a super meta
+                    if (!preRequisitosValidosSuperMeta) {
+                        bateuSuperMeta = false;
+                    }
+                }
 
                 return {
                     colaboradoraId: colab.id,
@@ -256,7 +297,11 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
                     bateuMeta,
                     bateuSuperMeta,
                     faltaMeta,
-                    faltaSuperMeta
+                    faltaSuperMeta,
+                    preRequisitosValidosMeta,
+                    preRequisitosValidosSuperMeta,
+                    preRequisitosReasonMeta: preRequisitosReasonMeta || undefined,
+                    preRequisitosReasonSuperMeta: preRequisitosReasonSuperMeta || undefined,
                 };
             });
 
@@ -327,12 +372,20 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
                         </div>
                         <div className="space-y-2">
                             {superMetaAtingidas.map(colab => (
-                                <div key={colab.colaboradoraId} className="flex items-center justify-between bg-white dark:bg-gray-900 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
-                                    <span className="text-sm sm:text-base font-semibold">{colab.colaboradoraName}</span>
-                                    <Badge className="bg-purple-500 text-white">
-                                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                                        ATINGIDO
-                                    </Badge>
+                                <div key={colab.colaboradoraId} className="space-y-1">
+                                    <div className="flex items-center justify-between bg-white dark:bg-gray-900 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
+                                        <span className="text-sm sm:text-base font-semibold">{colab.colaboradoraName}</span>
+                                        <Badge className="bg-purple-500 text-white">
+                                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                                            ATINGIDO
+                                        </Badge>
+                                    </div>
+                                    {colab.preRequisitosReasonSuperMeta && (
+                                        <div className="flex items-center gap-1 text-xs text-orange-600 bg-orange-50 dark:bg-orange-950/20 p-2 rounded">
+                                            <AlertCircle className="h-3 w-3" />
+                                            <span>{colab.preRequisitosReasonSuperMeta}</span>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -348,11 +401,19 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
                         </div>
                         <div className="space-y-2">
                             {metaAtingidas.map(colab => (
-                                <div key={colab.colaboradoraId} className="flex items-center justify-between bg-white dark:bg-gray-900 p-3 rounded-lg border border-green-200 dark:border-green-800">
-                                    <span className="text-sm sm:text-base font-semibold">{colab.colaboradoraName}</span>
-                                    <span className="text-sm sm:text-base font-bold text-green-700 dark:text-green-400">
-                                        Falta R$ {colab.faltaSuperMeta.toFixed(2)} para Super Meta Semanal
-                                    </span>
+                                <div key={colab.colaboradoraId} className="space-y-1">
+                                    <div className="flex items-center justify-between bg-white dark:bg-gray-900 p-3 rounded-lg border border-green-200 dark:border-green-800">
+                                        <span className="text-sm sm:text-base font-semibold">{colab.colaboradoraName}</span>
+                                        <span className="text-sm sm:text-base font-bold text-green-700 dark:text-green-400">
+                                            Falta R$ {colab.faltaSuperMeta.toFixed(2)} para Super Meta Semanal
+                                        </span>
+                                    </div>
+                                    {colab.preRequisitosReasonMeta && (
+                                        <div className="flex items-center gap-1 text-xs text-orange-600 bg-orange-50 dark:bg-orange-950/20 p-2 rounded">
+                                            <AlertCircle className="h-3 w-3" />
+                                            <span>{colab.preRequisitosReasonMeta}</span>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
