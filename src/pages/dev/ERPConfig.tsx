@@ -9,8 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, CheckCircle2, XCircle, Save, Store, Key, Eye, EyeOff } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Save, Store, Key, Eye, EyeOff, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { getERPAuthorizationUrl } from "@/lib/erpIntegrations";
 
 interface Store {
   id: string;
@@ -39,6 +40,7 @@ const ERPConfig = () => {
   const [integration, setIntegration] = useState<ERPIntegration | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -143,6 +145,28 @@ const ERPConfig = () => {
     } catch (error: any) {
       console.error("Erro ao buscar integração:", error);
       toast.error("Erro ao carregar configurações");
+    }
+  };
+
+  const handleConnect = async () => {
+    if (!selectedStoreId || !integration) {
+      toast.error("Configure as credenciais primeiro");
+      return;
+    }
+
+    if (!integration.client_id || !integration.client_secret) {
+      toast.error("Client ID e Client Secret são obrigatórios");
+      return;
+    }
+
+    setConnecting(true);
+    try {
+      const authUrl = await getERPAuthorizationUrl(selectedStoreId);
+      window.location.href = authUrl;
+    } catch (error: any) {
+      console.error("Erro ao gerar URL de autorização:", error);
+      toast.error(error.message || "Erro ao iniciar conexão OAuth");
+      setConnecting(false);
     }
   };
 
@@ -369,24 +393,47 @@ const ERPConfig = () => {
                 </p>
               </div>
 
-              {/* Botão Salvar */}
-              <Button
-                onClick={handleSave}
-                disabled={saving || !formData.client_id || !formData.client_secret}
-                className="w-full"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Salvando...
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    {integration ? "Atualizar Credenciais" : "Salvar Credenciais"}
-                  </>
+              {/* Botões: Salvar e Conectar */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button
+                  onClick={handleSave}
+                  disabled={saving || connecting || !formData.client_id || !formData.client_secret}
+                  className="flex-1"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      {integration ? "Atualizar Credenciais" : "Salvar Credenciais"}
+                    </>
+                  )}
+                </Button>
+
+                {integration && integration.client_id && integration.client_secret && (
+                  <Button
+                    onClick={handleConnect}
+                    disabled={saving || connecting}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    {connecting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Conectando...
+                      </>
+                    ) : (
+                      <>
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        {integration.sync_status === 'CONNECTED' ? 'Reautorizar' : 'Conectar'}
+                      </>
+                    )}
+                  </Button>
                 )}
-              </Button>
+              </div>
 
               {/* Informações */}
               {integration && (

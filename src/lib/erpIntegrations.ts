@@ -69,7 +69,7 @@ export async function getERPAuthorizationUrl(
 
   // Se não encontrou integração, erro
   if (!integration) {
-    throw new Error(`Integração ERP não configurada para esta loja. Configure primeiro.`);
+    throw new Error(`Integração ERP não configurada para esta loja. Configure as credenciais primeiro em /dev/erp-config.`);
   }
 
   const sistemaERP = (integration.sistema_erp || 'TINY') as SistemaERP;
@@ -82,7 +82,7 @@ export async function getERPAuthorizationUrl(
   const clientId = integration.client_id;
   
   if (!clientId) {
-    throw new Error(`Client ID não encontrado para loja ${storeId}. Configure as credenciais primeiro.`);
+    throw new Error(`Client ID não encontrado para loja ${storeId}. Configure as credenciais primeiro em /dev/erp-config.`);
   }
 
   const redirectUri = `${window.location.origin}/api/erp/callback`;
