@@ -87,31 +87,44 @@ export async function syncTinyOrders(
     const { dataInicio, dataFim, limit = 100 } = options;
 
     // Buscar pedidos do Tiny
+    // Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html#/Pedidos
+    // Endpoint: GET /pedidos com query parameters
     const params: Record<string, any> = {
       pagina: 1,
       limite: limit,
-      situacao: 'aprovado,faturado', // Apenas pedidos aprovados ou faturados
+      // Filtro de situação: consultar documentação para valores corretos
+      // Possíveis valores: 'aberto', 'atendido', 'cancelado', 'faturado', etc
+      situacao: 'faturado', // Focado em pedidos faturados (vendidos)
     };
 
     if (dataInicio) {
-      params.dataInicial = dataInicio;
+      params.dataInicial = dataInicio; // Formato: YYYY-MM-DD
     }
     if (dataFim) {
-      params.dataFinal = dataFim;
+      params.dataFinal = dataFim; // Formato: YYYY-MM-DD
     }
 
+    // API v3 usa GET para listar pedidos
+    // API v3: GET /pedidos retorna { pedidos: [...] }
     const response = await callERPAPI(storeId, '/pedidos', params);
     
-    if (!response.pedidos || !Array.isArray(response.pedidos)) {
+    // Verificar estrutura da resposta conforme documentação
+    // Pode ser: { pedidos: [...] } ou { retorno: { pedidos: [...] } }
+    let pedidos: TinyPedido[] = [];
+    
+    if (response.pedidos && Array.isArray(response.pedidos)) {
+      pedidos = response.pedidos;
+    } else if (response.retorno?.pedidos && Array.isArray(response.retorno.pedidos)) {
+      pedidos = response.retorno.pedidos;
+    } else {
+      console.error('Resposta inesperada da API:', response);
       return {
         success: false,
-        message: 'Resposta inválida da API Tiny',
+        message: 'Resposta inválida da API Tiny. Verifique a estrutura da resposta.',
         synced: 0,
         errors: 0,
       };
     }
-
-    const pedidos: TinyPedido[] = response.pedidos;
     let synced = 0;
     let errors = 0;
 

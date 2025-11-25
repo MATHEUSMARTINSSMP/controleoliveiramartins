@@ -380,10 +380,15 @@ export async function callERPAPI(
     requestBody = params;
   }
 
+  // Tiny ERP v3: método já determinado acima
+  const method = sistemaERP === 'TINY' && (endpoint.includes('/pedidos') || endpoint.includes('/contatos')) 
+    ? 'GET'  // Endpoints de listagem são GET
+    : 'POST'; // Outros endpoints são POST
+  
   const response = await fetch(url, {
-    method: 'POST',
+    method,
     headers,
-    body: JSON.stringify(requestBody),
+    body: method === 'POST' && requestBody ? JSON.stringify(requestBody) : undefined,
   });
 
   if (!response.ok) {
