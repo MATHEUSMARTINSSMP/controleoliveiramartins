@@ -44,29 +44,22 @@ interface ERPIntegration {
 /**
  * Gera URL de autorização OAuth para sistema ERP
  * Busca credenciais da LOJA no banco de dados
+ * Cada loja tem apenas UMA integração ERP
  * 
  * @param storeId - ID da loja
- * @param sistemaERP - Sistema ERP ('TINY', 'BLING', etc)
  * @returns URL completa para redirecionar o usuário
  */
 export async function getERPAuthorizationUrl(
-  storeId: string,
-  sistemaERP: SistemaERP = 'TINY'
+  storeId: string
 ): Promise<string> {
   const { supabase } = await import('@/integrations/supabase/client');
-  const config = ERP_CONFIGS[sistemaERP];
-  
-  if (!config) {
-    throw new Error(`Sistema ERP ${sistemaERP} não suportado`);
-  }
 
-  // Buscar credenciais da loja
+  // Buscar integração da loja (cada loja tem apenas uma)
   const { data: integration, error } = await supabase
     .schema('sistemaretiradas')
     .from('erp_integrations')
-    .select('client_id')
+    .select('client_id, sistema_erp')
     .eq('store_id', storeId)
-    .eq('sistema_erp', sistemaERP)
     .eq('active', true)
     .maybeSingle();
 
@@ -74,23 +67,29 @@ export async function getERPAuthorizationUrl(
     throw new Error(`Erro ao buscar credenciais: ${error.message}`);
   }
 
-  // Se não encontrou no banco, tentar env var como fallback (compatibilidade)
-  let clientId = integration?.client_id;
+  // Se não encontrou integração, erro
+  if (!integration) {
+    throw new Error(`Integração ERP não configurada para esta loja. Configure primeiro.`);
+  }
+
+  const sistemaERP = (integration.sistema_erp || 'TINY') as SistemaERP;
+  const config = ERP_CONFIGS[sistemaERP];
+  
+  if (!config) {
+    throw new Error(`Sistema ERP ${sistemaERP} não suportado`);
+  }
+
+  const clientId = integration.client_id;
   
   if (!clientId) {
-    // Fallback para env vars (apenas para desenvolvimento/teste)
-    clientId = import.meta.env[`VITE_${sistemaERP}_API_CLIENT_ID`];
-    if (!clientId) {
-      throw new Error(`Client ID não encontrado para loja ${storeId}. Configure as credenciais primeiro.`);
-    }
+    throw new Error(`Client ID não encontrado para loja ${storeId}. Configure as credenciais primeiro.`);
   }
 
   const redirectUri = `${window.location.origin}/api/erp/callback`;
   
-  // Incluir store_id e sistema no state para o callback saber qual loja/sistema é
+  // Incluir store_id no state (sistema já está salvo na integração)
   const state = encodeURIComponent(JSON.stringify({ 
-    store_id: storeId,
-    sistema_erp: sistemaERP 
+    store_id: storeId
   }));
   
   const params = new URLSearchParams({
@@ -205,38 +204,38 @@ export async function refreshAccessToken(
 /**
  * Faz chamada à API ERP com autenticação automática
  * Busca credenciais da LOJA no banco de dados
+ * Cada loja tem apenas UMA integração ERP
  * 
  * @param storeId - ID da loja
- * @param sistemaERP - Sistema ERP ('TINY', 'BLING', etc)
  * @param endpoint - Endpoint da API
  * @param params - Parâmetros da requisição
  * @returns Resposta da API
  */
 export async function callERPAPI(
   storeId: string,
-  sistemaERP: SistemaERP,
   endpoint: string,
   params: Record<string, any> = {}
 ): Promise<any> {
   const { supabase } = await import('@/integrations/supabase/client');
-  const config = ERP_CONFIGS[sistemaERP];
-  
-  if (!config) {
-    throw new Error(`Sistema ERP ${sistemaERP} não suportado`);
-  }
 
-  // Buscar credenciais da loja
+  // Buscar integração da loja (cada loja tem apenas uma)
   const { data: integration, error: credError } = await supabase
     .schema('sistemaretiradas')
     .from('erp_integrations')
     .select('*')
     .eq('store_id', storeId)
-    .eq('sistema_erp', sistemaERP)
     .eq('active', true)
     .maybeSingle();
 
   if (credError || !integration) {
-    throw new Error(`Integração ${sistemaERP} não encontrada para esta loja. Configure primeiro.`);
+    throw new Error(`Integração ERP não encontrada para esta loja. Configure primeiro.`);
+  }
+
+  const sistemaERP = (integration.sistema_erp || 'TINY') as SistemaERP;
+  const config = ERP_CONFIGS[sistemaERP];
+  
+  if (!config) {
+    throw new Error(`Sistema ERP ${sistemaERP} não suportado`);
   }
 
   if (!integration.access_token) {
@@ -363,16 +362,28 @@ export async function callERPAPI(
 
 /**
  * Testa conexão com API ERP de uma loja
+ * Cada loja tem apenas UMA integração ERP
  */
 export async function testERPConnection(
-  storeId: string,
-  sistemaERP: SistemaERP = 'TINY'
+  storeId: string
 ): Promise<{
   success: boolean;
   message: string;
   data?: any;
 }> {
   try {
+    // Buscar qual sistema a loja usa
+    const { supabase } = await import('@/integrations/supabase/client');
+    const { data: integration } = await supabase
+      .schema('sistemaretiradas')
+      .from('erp_integrations')
+      .select('sistema_erp')
+      .eq('store_id', storeId)
+      .eq('active', true)
+      .maybeSingle();
+
+    const sistemaERP = (integration?.sistema_erp || 'TINY') as SistemaERP;
+
     // Chamada de teste específica por sistema
     let endpoint: string;
     let params: Record<string, any> = {};
@@ -387,7 +398,7 @@ export async function testERPConnection(
       throw new Error(`Sistema ${sistemaERP} não suportado para teste`);
     }
 
-    const result = await callERPAPI(storeId, sistemaERP, endpoint, params);
+    const result = await callERPAPI(storeId, endpoint, params);
 
     return {
       success: true,
@@ -411,9 +422,9 @@ export async function testERPConnection(
  */
 export async function getTinyAuthorizationUrl(storeId?: string): Promise<string> {
   if (!storeId) {
-    throw new Error('storeId é obrigatório. Cada loja tem seu próprio Tiny ERP.');
+    throw new Error('storeId é obrigatório. Cada loja tem seu próprio sistema ERP.');
   }
-  return getERPAuthorizationUrl(storeId, 'TINY');
+  return getERPAuthorizationUrl(storeId);
 }
 
 /**
@@ -425,9 +436,9 @@ export async function callTinyAPI(
   storeId?: string
 ): Promise<any> {
   if (!storeId) {
-    throw new Error('storeId é obrigatório. Cada loja tem seu próprio Tiny ERP.');
+    throw new Error('storeId é obrigatório. Cada loja tem seu próprio sistema ERP.');
   }
-  return callERPAPI(storeId, 'TINY', endpoint, params);
+  return callERPAPI(storeId, endpoint, params);
 }
 
 /**
@@ -439,8 +450,8 @@ export async function testTinyConnection(storeId?: string): Promise<{
   data?: any;
 }> {
   if (!storeId) {
-    throw new Error('storeId é obrigatório. Cada loja tem seu próprio Tiny ERP.');
+    throw new Error('storeId é obrigatório. Cada loja tem seu próprio sistema ERP.');
   }
-  return testERPConnection(storeId, 'TINY');
+  return testERPConnection(storeId);
 }
 

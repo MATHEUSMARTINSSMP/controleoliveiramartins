@@ -18,7 +18,7 @@ SET search_path TO sistemaretiradas, public;
 CREATE TABLE IF NOT EXISTS erp_integrations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     store_id UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
-    sistema_erp TEXT NOT NULL, -- 'TINY', 'BLING', 'MICROVIX', 'CONTA_AZUL', etc
+    sistema_erp TEXT NOT NULL, -- 'TINY', 'BLING', 'MICROVIX', 'CONTA_AZUL', etc (apenas informativo)
     client_id TEXT NOT NULL,
     client_secret TEXT NOT NULL,
     access_token TEXT,
@@ -31,19 +31,18 @@ CREATE TABLE IF NOT EXISTS erp_integrations (
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
     active BOOLEAN DEFAULT true,
-    UNIQUE(store_id, sistema_erp) -- Uma loja pode ter apenas uma integração por sistema
+    UNIQUE(store_id) -- Cada loja tem apenas UMA integração ERP
 );
 
 -- Índices
 CREATE INDEX IF NOT EXISTS idx_erp_integrations_store ON erp_integrations(store_id);
 CREATE INDEX IF NOT EXISTS idx_erp_integrations_sistema ON erp_integrations(sistema_erp);
 CREATE INDEX IF NOT EXISTS idx_erp_integrations_active ON erp_integrations(active) WHERE active = true;
-CREATE INDEX IF NOT EXISTS idx_erp_integrations_store_sistema ON erp_integrations(store_id, sistema_erp);
 
 -- Comentários
-COMMENT ON TABLE erp_integrations IS 'Integrações ERP por loja - Suporta múltiplos sistemas (Tiny, Bling, Microvix, etc)';
-COMMENT ON COLUMN erp_integrations.store_id IS 'ID da loja - cada loja tem suas próprias credenciais';
-COMMENT ON COLUMN erp_integrations.sistema_erp IS 'Sistema ERP: TINY, BLING, MICROVIX, CONTA_AZUL, etc';
+COMMENT ON TABLE erp_integrations IS 'Integrações ERP por loja - Cada loja tem apenas UMA integração com um sistema ERP';
+COMMENT ON COLUMN erp_integrations.store_id IS 'ID da loja - cada loja tem suas próprias credenciais (UNIQUE)';
+COMMENT ON COLUMN erp_integrations.sistema_erp IS 'Sistema ERP utilizado: TINY, BLING, MICROVIX, CONTA_AZUL, etc (apenas informativo)';
 COMMENT ON COLUMN erp_integrations.config_adicional IS 'Configurações específicas de cada sistema em JSON';
 
 -- =============================================================================
@@ -104,7 +103,18 @@ BEGIN
                     v_record.created_at,
                     v_record.updated_at
                 )
-                ON CONFLICT (store_id, sistema_erp) DO NOTHING;
+                ON CONFLICT (store_id) DO UPDATE SET
+                    sistema_erp = EXCLUDED.sistema_erp,
+                    client_id = EXCLUDED.client_id,
+                    client_secret = EXCLUDED.client_secret,
+                    access_token = EXCLUDED.access_token,
+                    refresh_token = EXCLUDED.refresh_token,
+                    token_expires_at = EXCLUDED.token_expires_at,
+                    last_sync_at = EXCLUDED.last_sync_at,
+                    sync_status = EXCLUDED.sync_status,
+                    error_message = EXCLUDED.error_message,
+                    active = EXCLUDED.active,
+                    updated_at = NOW();
             END IF;
         END LOOP;
         
@@ -163,8 +173,7 @@ CREATE TRIGGER trigger_update_erp_integrations_updated_at
 -- 5. FUNÇÃO: Buscar integração ERP de uma loja
 -- =============================================================================
 CREATE OR REPLACE FUNCTION get_erp_integration(
-    p_store_id UUID,
-    p_sistema_erp TEXT DEFAULT 'TINY'
+    p_store_id UUID
 )
 RETURNS TABLE (
     id UUID,
@@ -195,12 +204,11 @@ BEGIN
         ei.sync_status
     FROM erp_integrations ei
     WHERE ei.store_id = p_store_id
-        AND ei.sistema_erp = p_sistema_erp
         AND ei.active = true;
 END;
 $$;
 
-COMMENT ON FUNCTION get_erp_integration(UUID, TEXT) IS 'Retorna integração ERP de uma loja específica';
+COMMENT ON FUNCTION get_erp_integration(UUID) IS 'Retorna integração ERP de uma loja (cada loja tem apenas uma)';
 
 -- =============================================================================
 -- FIM DA MIGRATION

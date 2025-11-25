@@ -115,10 +115,10 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const { store_id, sistema_erp } = stateData;
+    const { store_id } = stateData;
 
-    if (!store_id || !sistema_erp) {
-      console.error('[ERPOAuth] Missing store_id or sistema_erp in state');
+    if (!store_id) {
+      console.error('[ERPOAuth] Missing store_id in state');
       return {
         statusCode: 302,
         headers: {
@@ -127,14 +127,13 @@ exports.handler = async (event, context) => {
       };
     }
 
-    console.log('[ERPOAuth] Processing callback for store:', store_id, 'system:', sistema_erp);
+    console.log('[ERPOAuth] Processing callback for store:', store_id);
 
-    // Buscar credenciais da loja
+    // Buscar integração da loja (cada loja tem apenas uma)
     const { data: existingIntegration, error: credError } = await supabaseAdmin
       .from('erp_integrations')
-      .select('id, client_id, client_secret')
+      .select('id, client_id, client_secret, sistema_erp')
       .eq('store_id', store_id)
-      .eq('sistema_erp', sistema_erp)
       .eq('active', true)
       .maybeSingle();
 
@@ -148,19 +147,20 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Se não encontrou, tentar env var como fallback (apenas para desenvolvimento)
-    let clientId, clientSecret;
-    
-    if (existingIntegration) {
-      clientId = existingIntegration.client_id;
-      clientSecret = existingIntegration.client_secret;
-      console.log('[ERPOAuth] Using credentials from database');
-    } else {
-      // Fallback para env vars (apenas desenvolvimento/teste)
-      clientId = process.env[`VITE_${sistema_erp}_API_CLIENT_ID`];
-      clientSecret = process.env[`VITE_${sistema_erp}_API_CLIENT_SECRET`];
-      console.log('[ERPOAuth] Using credentials from env vars (fallback)');
+    // Se não encontrou integração, erro
+    if (!existingIntegration) {
+      console.error('[ERPOAuth] Integration not found for store');
+      return {
+        statusCode: 302,
+        headers: {
+          Location: `${process.env.URL || 'https://eleveaone.com.br'}/admin/erp-integrations?error=integration_not_found`,
+        },
+      };
     }
+
+    const sistema_erp = existingIntegration.sistema_erp || 'TINY';
+    const clientId = existingIntegration.client_id;
+    const clientSecret = existingIntegration.client_secret;
 
     if (!clientId || !clientSecret) {
       console.error('[ERPOAuth] Credentials not found');
@@ -277,7 +277,7 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 302,
       headers: {
-        Location: `${process.env.URL || 'https://eleveaone.com.br'}/admin/erp-integrations?success=true&store_id=${store_id}&sistema=${sistema_erp}`,
+        Location: `${process.env.URL || 'https://eleveaone.com.br'}/admin/erp-integrations?success=true&store_id=${store_id}`,
       },
     };
   } catch (error) {

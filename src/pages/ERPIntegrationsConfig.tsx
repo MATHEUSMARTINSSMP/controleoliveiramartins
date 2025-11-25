@@ -31,7 +31,6 @@ const ERPIntegrationsConfig = () => {
   const navigate = useNavigate();
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string>("");
-  const [selectedSistema, setSelectedSistema] = useState<SistemaERP>("TINY");
   const [integration, setIntegration] = useState<ERPIntegration | null>(null);
   const [loading, setLoading] = useState(true);
   const [testing, setTesting] = useState(false);
@@ -53,7 +52,7 @@ const ERPIntegrationsConfig = () => {
     if (selectedStoreId) {
       fetchIntegration();
     }
-  }, [selectedStoreId, selectedSistema]);
+  }, [selectedStoreId]);
 
   const fetchStores = async () => {
     try {
@@ -89,7 +88,6 @@ const ERPIntegrationsConfig = () => {
         .from("erp_integrations")
         .select("*")
         .eq("store_id", selectedStoreId)
-        .eq("sistema_erp", selectedSistema)
         .eq("active", true)
         .maybeSingle();
 
@@ -111,7 +109,7 @@ const ERPIntegrationsConfig = () => {
     }
 
     try {
-      const authUrl = await getERPAuthorizationUrl(selectedStoreId, selectedSistema);
+      const authUrl = await getERPAuthorizationUrl(selectedStoreId);
       window.location.href = authUrl;
     } catch (error: any) {
       toast.error(error.message || "Erro ao gerar URL de autorização");
@@ -128,7 +126,7 @@ const ERPIntegrationsConfig = () => {
     setTestResult(null);
     
     try {
-      const result = await testERPConnection(selectedStoreId, selectedSistema);
+      const result = await testERPConnection(selectedStoreId);
       setTestResult(result);
       
       if (result.success) {
@@ -228,20 +226,16 @@ const ERPIntegrationsConfig = () => {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Sistema ERP:</label>
-              <Select value={selectedSistema} onValueChange={(value) => setSelectedSistema(value as SistemaERP)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TINY">Tiny ERP</SelectItem>
-                  <SelectItem value="BLING" disabled>Bling (Em breve)</SelectItem>
-                  <SelectItem value="MICROVIX" disabled>Microvix (Em breve)</SelectItem>
-                  <SelectItem value="CONTA_AZUL" disabled>Conta Azul (Em breve)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {integration && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Sistema ERP Configurado:</label>
+                <div className="p-3 bg-muted rounded-md">
+                  <Badge variant="outline" className="text-base">
+                    {integration.sistema_erp}
+                  </Badge>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -253,9 +247,9 @@ const ERPIntegrationsConfig = () => {
                 <Settings className="h-5 w-5" />
                 Status da Conexão
               </CardTitle>
-              <CardDescription>
-                {selectedStore && `Loja: ${selectedStore.name} | Sistema: ${selectedSistema}`}
-              </CardDescription>
+            <CardDescription>
+              {selectedStore && `Loja: ${selectedStore.name}${integration ? ` | Sistema: ${integration.sistema_erp}` : ''}`}
+            </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
@@ -316,7 +310,7 @@ const ERPIntegrationsConfig = () => {
                 {!integration || integration.sync_status !== 'CONNECTED' ? (
                   <Button onClick={handleConnect} className="flex-1" disabled={!selectedStoreId}>
                     <ExternalLink className="mr-2 h-4 w-4" />
-                    Conectar {selectedSistema}
+                    {integration ? `Conectar ${integration.sistema_erp}` : 'Configurar Integração'}
                   </Button>
                 ) : (
                   <Button onClick={handleConnect} variant="outline" className="flex-1">
@@ -368,7 +362,7 @@ const ERPIntegrationsConfig = () => {
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             <p>
-              • Cada loja pode ter integração com diferentes sistemas ERP.
+              • Cada loja tem apenas UMA integração ERP.
             </p>
             <p>
               • Cada loja tem suas próprias credenciais (Client ID e Secret).
