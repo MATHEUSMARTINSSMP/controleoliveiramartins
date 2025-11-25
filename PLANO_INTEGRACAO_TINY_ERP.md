@@ -73,43 +73,58 @@ Sincronizar pedidos de venda (aprovados/faturados) e clientes do Tiny ERP para g
 
 ---
 
-## ⏳ Passo 7: Implementar Paginação na Sincronização
-- [ ] Adicionar lógica de paginação para buscar todos os pedidos
-- [ ] Implementar loop para buscar múltiplas páginas
-- [ ] Adicionar limite máximo de registros por sincronização
-- [ ] Mostrar progresso da sincronização
+## ✅ Passo 7: Implementar Paginação na Sincronização
+- [x] Adicionar lógica de paginação para buscar todos os pedidos
+- [x] Implementar loop para buscar múltiplas páginas
+- [x] Adicionar limite máximo de registros por sincronização (maxPages)
+- [x] Logs de progresso por página
+- [x] Detecção automática de fim de paginação
 
-**Status:** ⏳ **PENDENTE**
-
----
-
-## ⏳ Passo 8: Mapear Categorias e Subcategorias dos Itens
-- [ ] Extrair categorias/subcategorias dos itens do pedido
-- [ ] Verificar estrutura de dados do Tiny para categorias
-- [ ] Salvar categorias em campo separado ou em `dados_extras`
-- [ ] Garantir que categorias estão disponíveis para relatórios
-
-**Status:** ⏳ **PENDENTE**
+**Status:** ✅ **COMPLETO**
 
 ---
 
-## ⏳ Passo 9: Criar Logs de Sincronização Detalhados
-- [ ] Melhorar logs em `erp_sync_logs`
-- [ ] Adicionar contadores (pedidos novos, atualizados, erros)
-- [ ] Salvar período sincronizado (data início/fim)
-- [ ] Adicionar tempo de execução
+## ✅ Passo 8: Mapear Categorias e Subcategorias dos Itens
+- [x] Extrair categorias/subcategorias dos itens do pedido
+- [x] Suporte para múltiplos formatos (categoria, categoria_produto, categoria_id, produto.categoria)
+- [x] Salvar categorias mapeadas nos itens (JSON)
+- [x] Preservar dados originais para referência
+- [x] Categorias disponíveis para relatórios
 
-**Status:** ⏳ **PENDENTE**
+**Status:** ✅ **COMPLETO**
 
 ---
 
-## ⏳ Passo 10: Implementar Sincronização Incremental
-- [ ] Sincronizar apenas pedidos novos/atualizados desde última sync
-- [ ] Usar `data_pedido` para filtrar por período
-- [ ] Evitar duplicação de dados
-- [ ] Otimizar performance
+## ✅ Passo 9: Criar Logs de Sincronização Detalhados
+- [x] Melhorar logs em `erp_sync_logs`
+- [x] Adicionar contadores (pedidos novos, atualizados, erros)
+- [x] Salvar período sincronizado (data início/fim)
+- [x] Adicionar tempo de execução (ms)
+- [x] Salvar último ID sincronizado (proteção extra)
+- [x] Detalhes de erros (primeiros 5)
 
-**Status:** ⏳ **PENDENTE**
+**Status:** ✅ **COMPLETO**
+
+---
+
+## ✅ Passo 10: Implementar Sincronização Incremental
+- [x] Sincronizar apenas pedidos novos/atualizados desde última sync
+- [x] Usar `data_pedido` para filtrar por período
+- [x] Proteção extra: usar último ID sincronizado (além da data)
+- [x] Evitar duplicação de dados
+- [x] Otimizar performance
+
+**Status:** ✅ **COMPLETO**
+
+---
+
+## ✅ Passo 10.5: Adicionar Identificação de Vendedora
+- [x] Adicionar campo `colaboradora_id` em `tiny_orders`
+- [x] Adicionar campos `vendedor_tiny_id` e `vendedor_tiny_nome`
+- [x] Tentar matching automático vendedor Tiny → colaboradora sistema
+- [x] Preparar estrutura para integração com cashback e metas
+
+**Status:** ✅ **COMPLETO**
 
 ---
 

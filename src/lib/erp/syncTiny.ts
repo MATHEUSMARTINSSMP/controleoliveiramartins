@@ -45,7 +45,10 @@ interface TinyPedido {
     }>;
     observacoes?: string;
     vendedor?: {
+      id?: string;
       nome?: string;
+      email?: string;
+      dados_extras?: any;
     };
     dados_extras?: any;
   };
@@ -99,13 +102,15 @@ export async function syncTinyOrders(
   try {
     const { dataInicio, dataFim, limit = 100, maxPages = 50, incremental = true } = options;
 
-    // PASSO 10: Sincronização incremental - buscar última data de sincronização
+    // PASSO 10: Sincronização incremental - buscar última data E último ID
     let dataInicioSync = dataInicio;
+    let ultimoTinyIdSync: string | null = null;
+    
     if (incremental && !dataInicio) {
       const { data: lastSync } = await supabase
         .schema('sistemaretiradas')
         .from('erp_sync_logs')
-        .select('data_fim')
+        .select('data_fim, ultimo_tiny_id_sincronizado')
         .eq('store_id', storeId)
         .eq('sistema_erp', 'TINY')
         .eq('tipo_sync', 'PEDIDOS')
@@ -119,7 +124,8 @@ export async function syncTinyOrders(
         const lastDate = new Date(lastSync.data_fim);
         lastDate.setDate(lastDate.getDate() - 1); // 1 dia antes para garantir que não perde nada
         dataInicioSync = lastDate.toISOString().split('T')[0];
-        console.log(`[SyncTiny] Sincronização incremental desde: ${dataInicioSync}`);
+        ultimoTinyIdSync = lastSync.ultimo_tiny_id_sincronizado || null;
+        console.log(`[SyncTiny] Sincronização incremental desde: ${dataInicioSync}, último ID: ${ultimoTinyIdSync || 'N/A'}`);
       }
     }
 
@@ -329,6 +335,7 @@ export async function syncTinyOrders(
         data_fim: dataFimSync,
         tempo_execucao_ms: executionTime,
         total_paginas: totalPages,
+        ultimo_tiny_id_sincronizado: ultimoTinyIdProcessado, // Proteção extra: último ID processado
         sync_at: new Date().toISOString(),
       });
 
