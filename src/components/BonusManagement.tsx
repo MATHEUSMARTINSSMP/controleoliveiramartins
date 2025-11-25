@@ -454,14 +454,28 @@ export default function BonusManagement() {
                                         return;
                                     }
 
+                                    // Determinar se há prêmios por posição
+                                    const temPremiosPorPosicao = formData.categoria_condicao === "BASICA" && 
+                                                                 formData.condicao_ranking && 
+                                                                 formData.condicao_ranking !== "" &&
+                                                                 parseInt(formData.condicao_ranking) > 0;
+
                                     const message = formatBonusMessage({
                                         colaboradoraName: colab.name,
                                         bonusName: formData.nome,
                                         bonusDescription: formData.descricao || null,
-                                        valorBonus: formData.is_premio_fisico ? null : (formData.valor_bonus ? parseFloat(formData.valor_bonus) : null),
-                                        valorBonusTexto: formData.is_premio_fisico ? (formData.valor_bonus_texto || formData.descricao_premio || null) : null,
+                                        valorBonus: temPremiosPorPosicao ? null : (formData.is_premio_fisico ? null : (formData.valor_bonus ? parseFloat(formData.valor_bonus) : null)),
+                                        valorBonusTexto: temPremiosPorPosicao ? null : (formData.is_premio_fisico ? (formData.valor_bonus_texto || formData.descricao_premio || null) : null),
                                         storeName: storeName || undefined,
                                         preRequisitos: Array.isArray(formData.pre_requisitos) ? formData.pre_requisitos.filter(pr => pr && pr.trim()) : null,
+                                        // Prêmios por posição
+                                        valorBonus1: formData.valor_bonus_1 ? parseFloat(formData.valor_bonus_1) : null,
+                                        valorBonus2: formData.valor_bonus_2 ? parseFloat(formData.valor_bonus_2) : null,
+                                        valorBonus3: formData.valor_bonus_3 ? parseFloat(formData.valor_bonus_3) : null,
+                                        valorBonusTexto1: formData.valor_bonus_texto_1 || null,
+                                        valorBonusTexto2: formData.valor_bonus_texto_2 || null,
+                                        valorBonusTexto3: formData.valor_bonus_texto_3 || null,
+                                        condicaoRanking: formData.condicao_ranking ? parseInt(formData.condicao_ranking) : null,
                                     });
 
                                     return sendWhatsAppMessage({

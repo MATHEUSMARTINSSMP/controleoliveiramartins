@@ -322,22 +322,44 @@ export function formatBonusMessage(params: {
   valorBonusTexto?: string | null;
   storeName?: string;
   preRequisitos?: string[] | null; // Array de pré-requisitos
+  // Prêmios por posição (Top 1, 2, 3)
+  valorBonus1?: number | null;
+  valorBonus2?: number | null;
+  valorBonus3?: number | null;
+  valorBonusTexto1?: string | null;
+  valorBonusTexto2?: string | null;
+  valorBonusTexto3?: string | null;
+  condicaoRanking?: number | null; // 1, 2 ou 3 - indica quantas posições há prêmios
 }): string {
-  const { colaboradoraName, bonusName, bonusDescription, valorBonus, valorBonusTexto, storeName, preRequisitos } = params;
+  const { 
+    colaboradoraName, 
+    bonusName, 
+    bonusDescription, 
+    valorBonus, 
+    valorBonusTexto, 
+    storeName, 
+    preRequisitos,
+    valorBonus1,
+    valorBonus2,
+    valorBonus3,
+    valorBonusTexto1,
+    valorBonusTexto2,
+    valorBonusTexto3,
+    condicaoRanking
+  } = params;
   
   // Extrair apenas o primeiro nome
   const primeiroNome = colaboradoraName.split(' ')[0];
   
-  // Formatar valor do bônus
-  let valorFormatado = '';
-  if (valorBonusTexto) {
-    valorFormatado = valorBonusTexto;
-  } else if (valorBonus && valorBonus > 0) {
-    valorFormatado = new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(valorBonus);
-  }
+  // Verificar se há prêmios por posição (Top 1, 2, 3)
+  const temPremiosPorPosicao = condicaoRanking && condicaoRanking > 0 && (
+    (valorBonus1 !== null && valorBonus1 !== undefined && valorBonus1 > 0) ||
+    (valorBonusTexto1 && valorBonusTexto1.trim()) ||
+    (valorBonus2 !== null && valorBonus2 !== undefined && valorBonus2 > 0) ||
+    (valorBonusTexto2 && valorBonusTexto2.trim()) ||
+    (valorBonus3 !== null && valorBonus3 !== undefined && valorBonus3 > 0) ||
+    (valorBonusTexto3 && valorBonusTexto3.trim())
+  );
 
   let message = `🎁 *Novo Bônus Disponível!*\n\n`;
   message += `Olá, ${primeiroNome}!\n\n`;
@@ -352,8 +374,76 @@ export function formatBonusMessage(params: {
     message += `*Loja:* ${storeName}\n`;
   }
   
-  if (valorFormatado) {
-    message += `*Valor:* ${valorFormatado}\n`;
+  // Se houver prêmios por posição, mostrar todos os prêmios disponíveis
+  if (temPremiosPorPosicao) {
+    message += `\n*Prêmios por Posição:*\n`;
+    
+    // Top 1
+    if ((valorBonus1 !== null && valorBonus1 !== undefined && valorBonus1 > 0) || (valorBonusTexto1 && valorBonusTexto1.trim())) {
+      let premio1 = '';
+      if (valorBonusTexto1 && valorBonusTexto1.trim()) {
+        premio1 = valorBonusTexto1.trim();
+      } else if (valorBonus1 && valorBonus1 > 0) {
+        premio1 = new Intl.NumberFormat('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+        }).format(valorBonus1);
+      }
+      if (premio1) {
+        message += `🥇 *1º Lugar:* ${premio1}\n`;
+      }
+    }
+    
+    // Top 2
+    if (condicaoRanking && condicaoRanking >= 2) {
+      if ((valorBonus2 !== null && valorBonus2 !== undefined && valorBonus2 > 0) || (valorBonusTexto2 && valorBonusTexto2.trim())) {
+        let premio2 = '';
+        if (valorBonusTexto2 && valorBonusTexto2.trim()) {
+          premio2 = valorBonusTexto2.trim();
+        } else if (valorBonus2 && valorBonus2 > 0) {
+          premio2 = new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+          }).format(valorBonus2);
+        }
+        if (premio2) {
+          message += `🥈 *2º Lugar:* ${premio2}\n`;
+        }
+      }
+    }
+    
+    // Top 3
+    if (condicaoRanking && condicaoRanking >= 3) {
+      if ((valorBonus3 !== null && valorBonus3 !== undefined && valorBonus3 > 0) || (valorBonusTexto3 && valorBonusTexto3.trim())) {
+        let premio3 = '';
+        if (valorBonusTexto3 && valorBonusTexto3.trim()) {
+          premio3 = valorBonusTexto3.trim();
+        } else if (valorBonus3 && valorBonus3 > 0) {
+          premio3 = new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+          }).format(valorBonus3);
+        }
+        if (premio3) {
+          message += `🥉 *3º Lugar:* ${premio3}\n`;
+        }
+      }
+    }
+  } else {
+    // Prêmio único (comportamento antigo)
+    let valorFormatado = '';
+    if (valorBonusTexto) {
+      valorFormatado = valorBonusTexto;
+    } else if (valorBonus && valorBonus > 0) {
+      valorFormatado = new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+      }).format(valorBonus);
+    }
+    
+    if (valorFormatado) {
+      message += `*Valor:* ${valorFormatado}\n`;
+    }
   }
   
   // Adicionar pré-requisitos se houver (array de pré-requisitos)

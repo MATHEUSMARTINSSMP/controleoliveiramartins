@@ -14,26 +14,20 @@ export interface BonusPreRequisitoValidation {
 }
 
 /**
- * Valida se os pré-requisitos de um bônus foram cumpridos
- * 
- * @param preRequisitos Texto dos pré-requisitos (ex: "Válido apenas se a loja bater a meta mensal")
- * @param bonusId ID do bônus
- * @param colaboradoraId ID da colaboradora (opcional, necessário para validações individuais)
- * @param storeId ID da loja (opcional, necessário para validações de loja)
- * @returns Promise<BonusPreRequisitoValidation>
+ * Valida um único pré-requisito
+ * Função auxiliar interna
  */
-export async function validateBonusPreRequisitos(
-    preRequisitos: string | null | undefined,
+async function validateSinglePreRequisito(
+    preRequisito: string,
     bonusId: string,
     colaboradoraId?: string,
     storeId?: string
 ): Promise<BonusPreRequisitoValidation> {
-    // Se não houver pré-requisitos, o bônus é válido
-    if (!preRequisitos || !preRequisitos.trim()) {
+    if (!preRequisito || !preRequisito.trim()) {
         return { isValid: true };
     }
 
-    const preReqText = preRequisitos.trim().toLowerCase();
+    const preReqText = preRequisito.trim().toLowerCase();
 
     try {
         const mesAtual = format(new Date(), "yyyyMM");
@@ -560,19 +554,84 @@ export async function validateBonusPreRequisitos(
             };
         }
 
-        // Se não reconhecer o padrão do pré-requisito, retorna como inválido por segurança
-        console.warn(`[bonusValidation] Pré-requisito não reconhecido: ${preRequisitos}`);
-        return {
-            isValid: false,
-            reason: "Pré-requisito não reconhecido ou não implementado"
-        };
+    // Se não reconhecer o padrão do pré-requisito, retorna como inválido por segurança
+    console.warn(`[bonusValidation] Pré-requisito não reconhecido: ${preRequisito}`);
+    return {
+        isValid: false,
+        reason: "Pré-requisito não reconhecido ou não implementado"
+    };
 
-    } catch (error) {
-        console.error("[bonusValidation] Erro ao validar pré-requisitos:", error);
-        return {
-            isValid: false,
-            reason: `Erro ao validar pré-requisitos: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
-        };
+} catch (error) {
+    console.error("[bonusValidation] Erro ao validar pré-requisito:", error);
+    return {
+        isValid: false,
+        reason: `Erro ao validar pré-requisito: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
+    };
+}
+}
+
+/**
+ * Valida se os pré-requisitos de um bônus foram cumpridos
+ * 
+ * @param preRequisitos Array de textos dos pré-requisitos ou string única (compatibilidade)
+ * @param bonusId ID do bônus
+ * @param colaboradoraId ID da colaboradora (opcional, necessário para validações individuais)
+ * @param storeId ID da loja (opcional, necessário para validações de loja)
+ * @returns Promise<BonusPreRequisitoValidation>
+ */
+export async function validateBonusPreRequisitos(
+    preRequisitos: string | string[] | null | undefined,
+    bonusId: string,
+    colaboradoraId?: string,
+    storeId?: string
+): Promise<BonusPreRequisitoValidation> {
+    // Se não houver pré-requisitos, o bônus é válido
+    if (!preRequisitos) {
+        return { isValid: true };
     }
+
+    // Converter para array se for string única (compatibilidade)
+    let preReqsArray: string[] = [];
+    if (typeof preRequisitos === 'string') {
+        try {
+            // Tentar parsear como JSON (pode ser array JSONB do banco)
+            const parsed = JSON.parse(preRequisitos);
+            if (Array.isArray(parsed)) {
+                preReqsArray = parsed.filter(pr => pr && typeof pr === 'string' && pr.trim()).map(pr => String(pr).trim());
+            } else {
+                // Se não é array, tratar como string única
+                preReqsArray = preRequisitos.trim() ? [preRequisitos.trim()] : [];
+            }
+        } catch {
+            // Se não é JSON válido, tratar como string única
+            preReqsArray = preRequisitos.trim() ? [preRequisitos.trim()] : [];
+        }
+    } else if (Array.isArray(preRequisitos)) {
+        preReqsArray = preRequisitos.filter(pr => pr && typeof pr === 'string' && pr.trim()).map(pr => String(pr).trim());
+    }
+
+    // Se não houver pré-requisitos válidos após filtragem, o bônus é válido
+    if (preReqsArray.length === 0) {
+        return { isValid: true };
+    }
+
+    // Validar TODOS os pré-requisitos - todos devem ser válidos
+    const validations = await Promise.all(
+        preReqsArray.map(preReq => validateSinglePreRequisito(preReq, bonusId, colaboradoraId, storeId))
+    );
+
+    // Verificar se todos são válidos
+    const allValid = validations.every(v => v.isValid);
+    
+    if (allValid) {
+        return { isValid: true };
+    }
+
+    // Se algum falhou, retornar o primeiro motivo de falha
+    const firstInvalid = validations.find(v => !v.isValid);
+    return {
+        isValid: false,
+        reason: firstInvalid?.reason || "Um ou mais pré-requisitos não foram atendidos"
+    };
 }
 
