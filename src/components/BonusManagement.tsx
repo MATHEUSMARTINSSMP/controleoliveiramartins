@@ -548,18 +548,20 @@ export default function BonusManagement() {
                                         condicaoRanking: formData.condicao_ranking ? parseInt(formData.condicao_ranking) : null,
                                     });
 
-                                    return sendWhatsAppMessage({
-                                        phone,
-                                        message,
-                                    }).then(result => {
-                                        if (result.success) {
-                                            console.log(`✅ [BonusManagement] WhatsApp enviado com sucesso para ${colab.name} (${phone})`);
-                                        } else {
-                                            console.warn(`⚠️ [BonusManagement] Falha ao enviar WhatsApp para ${colab.name} (${phone}):`, result.error);
-                                        }
-                                    }).catch(err => {
-                                        console.error(`❌ [BonusManagement] Erro ao enviar WhatsApp para ${colab.name} (${phone}):`, err);
-                                    });
+                                    promises.push(
+                                        sendWhatsAppMessage({
+                                            phone,
+                                            message,
+                                        }).then(result => {
+                                            if (result.success) {
+                                                console.log(`✅ [BonusManagement] WhatsApp enviado com sucesso para ${colab.name} (${phone})`);
+                                            } else {
+                                                console.warn(`⚠️ [BonusManagement] Falha ao enviar WhatsApp para ${colab.name} (${phone}):`, result.error);
+                                            }
+                                        }).catch(err => {
+                                            console.error(`❌ [BonusManagement] Erro ao enviar WhatsApp para ${colab.name} (${phone}):`, err);
+                                        })
+                                    );
                                 });
 
                             await Promise.all(promises);
