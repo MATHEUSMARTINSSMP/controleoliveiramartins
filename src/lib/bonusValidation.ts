@@ -555,10 +555,23 @@ async function validateSinglePreRequisito(
         }
 
     // Se não reconhecer o padrão do pré-requisito, retorna como inválido por segurança
-    console.warn(`[bonusValidation] Pré-requisito não reconhecido: ${preRequisito}`);
+    console.warn(`[bonusValidation] ⚠️ Pré-requisito não reconhecido: "${preRequisito}"`);
+    console.warn(`[bonusValidation] Texto normalizado: "${preReqText}"`);
+    console.warn(`[bonusValidation] Palavras-chave encontradas:`, {
+        temLoja: preReqText.includes("loja"),
+        temColaboradora: preReqText.includes("consultora") || preReqText.includes("colaboradora"),
+        temMetaMensal: preReqText.includes("meta mensal"),
+        temSuperMetaMensal: preReqText.includes("super meta mensal"),
+        temMetaSemanal: preReqText.includes("meta semanal"),
+        temSuperMetaSemanal: preReqText.includes("super meta semanal"),
+        temMetaDiaria: preReqText.includes("meta diária"),
+        temBater: preReqText.includes("bater"),
+        temAtingir: preReqText.includes("atingir"),
+        temBateu: preReqText.includes("bateu")
+    });
     return {
         isValid: false,
-        reason: "Pré-requisito não reconhecido ou não implementado"
+        reason: `Pré-requisito não reconhecido: "${preRequisito}". Verifique se o texto está correto.`
     };
 
 } catch (error) {
@@ -615,20 +628,34 @@ export async function validateBonusPreRequisitos(
         return { isValid: true };
     }
 
+    console.log(`[bonusValidation] 📋 Validando ${preReqsArray.length} pré-requisito(s):`, preReqsArray);
+
     // Validar TODOS os pré-requisitos - todos devem ser válidos
     const validations = await Promise.all(
-        preReqsArray.map(preReq => validateSinglePreRequisito(preReq, bonusId, colaboradoraId, storeId))
+        preReqsArray.map((preReq, index) => {
+            console.log(`[bonusValidation] 🔄 Validando pré-requisito ${index + 1}/${preReqsArray.length}: "${preReq}"`);
+            return validateSinglePreRequisito(preReq, bonusId, colaboradoraId, storeId);
+        })
     );
+
+    console.log(`[bonusValidation] ✅ Resultados da validação:`, validations.map((v, i) => ({
+        preReq: preReqsArray[i],
+        isValid: v.isValid,
+        reason: v.reason
+    })));
 
     // Verificar se todos são válidos
     const allValid = validations.every(v => v.isValid);
     
     if (allValid) {
+        console.log(`[bonusValidation] ✅ Todos os pré-requisitos foram atendidos!`);
         return { isValid: true };
     }
 
     // Se algum falhou, retornar o primeiro motivo de falha
     const firstInvalid = validations.find(v => !v.isValid);
+    const invalidIndex = validations.findIndex(v => !v.isValid);
+    console.warn(`[bonusValidation] ❌ Pré-requisito ${invalidIndex + 1} não foi atendido: "${preReqsArray[invalidIndex]}" - ${firstInvalid?.reason}`);
     return {
         isValid: false,
         reason: firstInvalid?.reason || "Um ou mais pré-requisitos não foram atendidos"

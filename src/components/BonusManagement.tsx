@@ -301,7 +301,11 @@ export default function BonusManagement() {
             periodo_mes: formData.periodo_mes || null,
             periodo_semana: formData.periodo_semana || null,
             pre_requisitos: Array.isArray(formData.pre_requisitos) && formData.pre_requisitos.length > 0
-                ? JSON.stringify(formData.pre_requisitos.filter(pr => pr && pr.trim()))
+                ? JSON.stringify(
+                    formData.pre_requisitos
+                        .filter(pr => pr && typeof pr === 'string' && pr.trim() && pr.trim() !== "NENHUM")
+                        .map(pr => pr.trim())
+                )
                 : null,
         };
 
