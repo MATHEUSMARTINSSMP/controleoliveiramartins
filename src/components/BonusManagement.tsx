@@ -70,6 +70,7 @@ export default function BonusManagement() {
         periodo_mes: "",
         periodo_semana: "",
         pre_requisitos: "", // Pré-requisitos para o bônus ser válido
+        pre_requisitos_tipo: "NENHUM", // Tipo de pré-requisito: "NENHUM", "LOJA_META_MENSAL", "LOJA_META_SEMANAL", "COLAB_META_MENSAL", "COLAB_META_SEMANAL", "CUSTOM"
     });
 
     useEffect(() => {
@@ -1098,15 +1099,69 @@ export default function BonusManagement() {
                         {/* Campo de Pré-requisitos */}
                         <div>
                             <Label className="text-xs sm:text-sm">Pré-requisitos (Opcional)</Label>
-                            <Textarea
-                                value={formData.pre_requisitos}
-                                onChange={(e) => setFormData({ ...formData, pre_requisitos: e.target.value })}
-                                placeholder="Ex: Válido apenas se a loja bater a meta mensal&#10;Ex: Válido apenas se a consultora atingir meta mensal"
-                                rows={3}
-                                className="text-xs sm:text-sm resize-none"
-                            />
+                            <Select
+                                value={formData.pre_requisitos_tipo || "NENHUM"}
+                                onValueChange={(value) => {
+                                    let preReqText = "";
+                                    switch (value) {
+                                        case "LOJA_META_MENSAL":
+                                            preReqText = "Válido apenas se a loja bater a meta mensal";
+                                            break;
+                                        case "LOJA_META_SEMANAL":
+                                            preReqText = "Válido apenas se a loja bater a meta semanal";
+                                            break;
+                                        case "COLAB_META_MENSAL":
+                                            preReqText = "Válido apenas se a consultora atingir meta mensal";
+                                            break;
+                                        case "COLAB_META_SEMANAL":
+                                            preReqText = "Válido apenas se a colaboradora atingir meta semanal";
+                                            break;
+                                        case "NENHUM":
+                                            preReqText = "";
+                                            break;
+                                        default:
+                                            preReqText = formData.pre_requisitos || "";
+                                    }
+                                    setFormData({ 
+                                        ...formData, 
+                                        pre_requisitos_tipo: value,
+                                        pre_requisitos: preReqText
+                                    });
+                                }}
+                            >
+                                <SelectTrigger className="text-xs sm:text-sm">
+                                    <SelectValue placeholder="Selecione um pré-requisito" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="NENHUM">Nenhum pré-requisito</SelectItem>
+                                    <SelectItem value="LOJA_META_MENSAL">Loja deve bater meta mensal</SelectItem>
+                                    <SelectItem value="LOJA_META_SEMANAL">Loja deve bater meta semanal</SelectItem>
+                                    <SelectItem value="COLAB_META_MENSAL">Colaboradora deve atingir meta mensal</SelectItem>
+                                    <SelectItem value="COLAB_META_SEMANAL">Colaboradora deve atingir meta semanal</SelectItem>
+                                    <SelectItem value="CUSTOM">Pré-requisito personalizado (texto livre)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            
+                            {/* Mostrar textarea apenas se for CUSTOM */}
+                            {formData.pre_requisitos_tipo === "CUSTOM" && (
+                                <Textarea
+                                    value={formData.pre_requisitos}
+                                    onChange={(e) => setFormData({ ...formData, pre_requisitos: e.target.value })}
+                                    placeholder="Digite o pré-requisito personalizado..."
+                                    rows={3}
+                                    className="text-xs sm:text-sm resize-none mt-2"
+                                />
+                            )}
+                            
+                            {/* Mostrar preview do pré-requisito selecionado */}
+                            {formData.pre_requisitos_tipo && formData.pre_requisitos_tipo !== "NENHUM" && formData.pre_requisitos_tipo !== "CUSTOM" && formData.pre_requisitos && (
+                                <p className="text-[10px] sm:text-xs text-muted-foreground mt-2 p-2 bg-muted rounded">
+                                    📋 <strong>Pré-requisito:</strong> {formData.pre_requisitos}
+                                </p>
+                            )}
+                            
                             <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
-                                💡 Defina pré-requisitos que devem ser atendidos para o bônus ser válido. Ex: "Válido apenas se a loja bater a meta mensal"
+                                💡 Selecione um pré-requisito que deve ser atendido para o bônus ser válido
                             </p>
                         </div>
 
