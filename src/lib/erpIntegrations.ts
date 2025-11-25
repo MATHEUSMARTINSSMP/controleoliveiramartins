@@ -357,12 +357,34 @@ export async function callERPAPI(
 
   if (sistemaERP === 'TINY') {
     // API v3: https://erp.tiny.com.br/public-api/v3/{endpoint}
+    // Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html
     url = `${config.apiV3Url}${endpoint}`;
+    
+    // Para GET requests, parâmetros vão na query string
+    // Para POST requests, parâmetros vão no body
+    const isGetRequest = endpoint.includes('/pedidos') || endpoint.includes('/contatos');
+    
+    if (isGetRequest) {
+      // GET: adicionar parâmetros na URL
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          queryParams.append(key, String(value));
+        }
+      });
+      if (queryParams.toString()) {
+        url += `?${queryParams.toString()}`;
+      }
+      requestBody = null; // GET não tem body
+    } else {
+      // POST: parâmetros no body
+      requestBody = params;
+    }
+    
     headers = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${accessToken}`,
     };
-    requestBody = params;
   } else if (sistemaERP === 'BLING') {
     url = `${config.baseUrl}${endpoint}`;
     headers = {

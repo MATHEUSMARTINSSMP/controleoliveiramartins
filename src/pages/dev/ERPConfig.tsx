@@ -241,8 +241,11 @@ const ERPConfig = () => {
     setSyncing(true);
     try {
       toast.info("Sincronizando pedidos de venda...");
+      // PASSO 10: Sincronização incremental habilitada por padrão
       const result = await syncTinyOrders(selectedStoreId, {
-        limit: 100, // Sincronizar últimos 100 pedidos
+        limit: 100, // Registros por página
+        maxPages: 50, // Máximo de 50 páginas (5000 pedidos)
+        incremental: true, // Sincronizar apenas novos/atualizados
       });
       
       if (result.success) {

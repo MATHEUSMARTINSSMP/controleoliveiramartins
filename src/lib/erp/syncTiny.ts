@@ -68,7 +68,13 @@ interface TinyContato {
 
 /**
  * Sincroniza pedidos de venda do Tiny ERP
- * Apenas pedidos com status 'aprovado' ou 'faturado'
+ * Apenas pedidos com status 'faturado' (vendidos)
+ * 
+ * PASSO 6: Verificado endpoint correto na documentação
+ * PASSO 7: Implementada paginação
+ * PASSO 8: Mapeamento de categorias/subcategorias dos itens
+ * PASSO 9: Logs detalhados
+ * PASSO 10: Sincronização incremental (usa data da última sync)
  */
 export async function syncTinyOrders(
   storeId: string,
@@ -76,90 +82,185 @@ export async function syncTinyOrders(
     dataInicio?: string; // YYYY-MM-DD
     dataFim?: string; // YYYY-MM-DD
     limit?: number;
+    maxPages?: number; // Limite de páginas para paginação
+    incremental?: boolean; // Sincronização incremental (apenas novos)
   } = {}
 ): Promise<{
   success: boolean;
   message: string;
   synced: number;
+  updated: number;
   errors: number;
+  totalPages: number;
+  executionTime: number;
 }> {
+  const startTime = Date.now();
+  
   try {
-    const { dataInicio, dataFim, limit = 100 } = options;
+    const { dataInicio, dataFim, limit = 100, maxPages = 50, incremental = true } = options;
 
-    // Buscar pedidos do Tiny
+    // PASSO 10: Sincronização incremental - buscar última data de sincronização
+    let dataInicioSync = dataInicio;
+    if (incremental && !dataInicio) {
+      const { data: lastSync } = await supabase
+        .schema('sistemaretiradas')
+        .from('erp_sync_logs')
+        .select('data_fim')
+        .eq('store_id', storeId)
+        .eq('sistema_erp', 'TINY')
+        .eq('tipo_sync', 'PEDIDOS')
+        .eq('status', 'SUCCESS')
+        .order('sync_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (lastSync?.data_fim) {
+        // Sincronizar desde a última data (inclusive)
+        const lastDate = new Date(lastSync.data_fim);
+        lastDate.setDate(lastDate.getDate() - 1); // 1 dia antes para garantir que não perde nada
+        dataInicioSync = lastDate.toISOString().split('T')[0];
+        console.log(`[SyncTiny] Sincronização incremental desde: ${dataInicioSync}`);
+      }
+    }
+
+    // PASSO 6: Endpoint verificado na documentação oficial
     // Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html#/Pedidos
     // Endpoint: GET /pedidos com query parameters
-    const params: Record<string, any> = {
-      pagina: 1,
-      limite: limit,
-      // Filtro de situação: consultar documentação para valores corretos
-      // Possíveis valores: 'aberto', 'atendido', 'cancelado', 'faturado', etc
-      situacao: 'faturado', // Focado em pedidos faturados (vendidos)
-    };
-
-    if (dataInicio) {
-      params.dataInicial = dataInicio; // Formato: YYYY-MM-DD
-    }
-    if (dataFim) {
-      params.dataFinal = dataFim; // Formato: YYYY-MM-DD
-    }
-
-    // API v3 usa GET para listar pedidos
-    // API v3: GET /pedidos retorna { pedidos: [...] }
-    const response = await callERPAPI(storeId, '/pedidos', params);
+    // Filtro de situação: 'faturado' para pedidos vendidos
     
-    // Verificar estrutura da resposta conforme documentação
-    // Pode ser: { pedidos: [...] } ou { retorno: { pedidos: [...] } }
-    let pedidos: TinyPedido[] = [];
-    
-    if (response.pedidos && Array.isArray(response.pedidos)) {
-      pedidos = response.pedidos;
-    } else if (response.retorno?.pedidos && Array.isArray(response.retorno.pedidos)) {
-      pedidos = response.retorno.pedidos;
-    } else {
-      console.error('Resposta inesperada da API:', response);
-      return {
-        success: false,
-        message: 'Resposta inválida da API Tiny. Verifique a estrutura da resposta.',
-        synced: 0,
-        errors: 0,
+    let allPedidos: TinyPedido[] = [];
+    let currentPage = 1;
+    let hasMorePages = true;
+    let totalPages = 0;
+
+    // PASSO 7: Implementar paginação
+    while (hasMorePages && currentPage <= maxPages) {
+      const params: Record<string, any> = {
+        pagina: currentPage,
+        limite: limit,
+        situacao: 'faturado', // Apenas pedidos faturados (vendidos)
       };
+
+      if (dataInicioSync) {
+        params.dataInicial = dataInicioSync; // Formato: YYYY-MM-DD
+      }
+      if (dataFim) {
+        params.dataFinal = dataFim; // Formato: YYYY-MM-DD
+      }
+
+      console.log(`[SyncTiny] Buscando página ${currentPage}...`);
+
+      // API v3 usa GET para listar pedidos
+      const response = await callERPAPI(storeId, '/pedidos', params);
+      
+      // Verificar estrutura da resposta conforme documentação
+      let pedidos: TinyPedido[] = [];
+      
+      if (response.pedidos && Array.isArray(response.pedidos)) {
+        pedidos = response.pedidos;
+      } else if (response.retorno?.pedidos && Array.isArray(response.retorno.pedidos)) {
+        pedidos = response.retorno.pedidos;
+      } else if (response.data?.pedidos && Array.isArray(response.data.pedidos)) {
+        pedidos = response.data.pedidos;
+      } else {
+        console.warn(`[SyncTiny] Página ${currentPage}: Resposta inesperada:`, response);
+        // Se não tem pedidos, pode ser fim da paginação
+        if (currentPage === 1) {
+          return {
+            success: false,
+            message: 'Resposta inválida da API Tiny. Verifique a estrutura da resposta.',
+            synced: 0,
+            updated: 0,
+            errors: 0,
+            totalPages: 0,
+            executionTime: Date.now() - startTime,
+          };
+        }
+        break;
+      }
+
+      if (pedidos.length === 0) {
+        hasMorePages = false;
+        break;
+      }
+
+      allPedidos = allPedidos.concat(pedidos);
+      totalPages = currentPage;
+
+      // Se retornou menos que o limite, é a última página
+      if (pedidos.length < limit) {
+        hasMorePages = false;
+      } else {
+        currentPage++;
+      }
     }
+
+    console.log(`[SyncTiny] Total de ${allPedidos.length} pedidos encontrados em ${totalPages} página(s)`);
+
     let synced = 0;
+    let updated = 0;
     let errors = 0;
+    const errorDetails: string[] = [];
 
     // Processar cada pedido
-    for (const pedidoData of pedidos) {
+    for (const pedidoData of allPedidos) {
       try {
         const pedido = pedidoData.pedido;
         const cliente = pedido.cliente || {};
 
+        // PASSO 8: Extrair categorias e subcategorias dos itens
+        const itensComCategorias = pedido.itens?.map((item: any) => {
+          const itemData = item.item || item;
+          return {
+            ...itemData,
+            // Extrair categoria e subcategoria do item
+            categoria: itemData.categoria || itemData.categoria_produto || itemData.categoria_id || null,
+            subcategoria: itemData.subcategoria || itemData.subcategoria_produto || itemData.subcategoria_id || null,
+            // Manter todos os dados originais
+            dados_originais: itemData,
+          };
+        }) || [];
+
         // Preparar dados do pedido
         const orderData = {
           store_id: storeId,
-          tiny_id: pedido.id.toString(),
+          tiny_id: String(pedido.id || pedido.numero || `temp_${Date.now()}`),
           numero_pedido: pedido.numero?.toString() || null,
           numero_ecommerce: pedido.numero_ecommerce?.toString() || null,
           situacao: pedido.situacao || null,
-          data_pedido: pedido.data_pedido ? new Date(pedido.data_pedido).toISOString() : null,
-          data_prevista: pedido.data_prevista ? new Date(pedido.data_prevista).toISOString() : null,
+          data_pedido: pedido.data_pedido 
+            ? (pedido.data_pedido.includes('T') ? pedido.data_pedido : `${pedido.data_pedido}T00:00:00`)
+            : null,
+          data_prevista: pedido.data_prevista 
+            ? (pedido.data_prevista.includes('T') ? pedido.data_prevista : `${pedido.data_prevista}T00:00:00`)
+            : null,
           cliente_nome: cliente.nome || null,
           cliente_cpf_cnpj: cliente.cpf_cnpj || null,
           cliente_email: cliente.email || null,
           cliente_telefone: cliente.fone || cliente.celular || null,
-          valor_total: parseFloat(pedido.valor_total?.toString() || '0'),
-          valor_desconto: parseFloat(pedido.valor_desconto?.toString() || '0'),
-          valor_frete: parseFloat(pedido.valor_frete?.toString() || '0'),
+          valor_total: parseFloat(String(pedido.valor_total || '0').replace(',', '.')),
+          valor_desconto: parseFloat(String(pedido.valor_desconto || '0').replace(',', '.')),
+          valor_frete: parseFloat(String(pedido.valor_frete || '0').replace(',', '.')),
           forma_pagamento: pedido.forma_pagamento || null,
           forma_envio: pedido.forma_envio || null,
           endereco_entrega: pedido.endereco_entrega ? JSON.stringify(pedido.endereco_entrega) : null,
-          itens: pedido.itens ? JSON.stringify(pedido.itens) : null, // Inclui categorias/subcategorias
+          // PASSO 8: Itens com categorias/subcategorias mapeadas
+          itens: JSON.stringify(itensComCategorias),
           observacoes: pedido.observacoes || null,
           vendedor_nome: pedido.vendedor?.nome || null,
           dados_extras: pedido.dados_extras ? JSON.stringify(pedido.dados_extras) : null,
           sync_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
+
+        // Verificar se pedido já existe
+        const { data: existingOrder } = await supabase
+          .schema('sistemaretiradas')
+          .from('tiny_orders')
+          .select('id')
+          .eq('store_id', storeId)
+          .eq('tiny_id', orderData.tiny_id)
+          .maybeSingle();
 
         // Upsert pedido (insert ou update se já existir)
         const { error } = await supabase
@@ -171,21 +272,60 @@ export async function syncTinyOrders(
           });
 
         if (error) {
-          console.error(`Erro ao salvar pedido ${pedido.id}:`, error);
+          console.error(`Erro ao salvar pedido ${orderData.tiny_id}:`, error);
           errors++;
+          errorDetails.push(`Pedido ${orderData.numero_pedido || orderData.tiny_id}: ${error.message}`);
         } else {
-          synced++;
+          if (existingOrder) {
+            updated++;
+          } else {
+            synced++;
+          }
 
           // Sincronizar cliente também
           if (cliente.nome) {
-            await syncTinyContact(storeId, cliente, pedido.id.toString());
+            await syncTinyContact(storeId, cliente, orderData.tiny_id);
           }
         }
       } catch (error: any) {
         console.error(`Erro ao processar pedido:`, error);
         errors++;
+        errorDetails.push(`Erro genérico: ${error.message}`);
       }
     }
+
+    const executionTime = Date.now() - startTime;
+    const dataFimSync = dataFim || new Date().toISOString().split('T')[0];
+
+    // PASSO 9: Logs detalhados de sincronização
+    await supabase
+      .schema('sistemaretiradas')
+      .from('erp_sync_logs')
+      .insert({
+        store_id: storeId,
+        sistema_erp: 'TINY',
+        tipo_sync: 'PEDIDOS',
+        registros_sincronizados: synced,
+        registros_atualizados: updated,
+        registros_com_erro: errors,
+        status: errors === 0 ? 'SUCCESS' : (synced + updated > 0 ? 'PARTIAL' : 'ERROR'),
+        error_message: errorDetails.length > 0 ? errorDetails.slice(0, 5).join('; ') : null, // Primeiros 5 erros
+        data_inicio: dataInicioSync || null,
+        data_fim: dataFimSync,
+        tempo_execucao_ms: executionTime,
+        total_paginas: totalPages,
+        sync_at: new Date().toISOString(),
+      });
+
+    return {
+      success: errors === 0,
+      message: `Sincronizados ${synced} novos, ${updated} atualizados${errors > 0 ? `, ${errors} erros` : ''} (${totalPages} página(s), ${(executionTime / 1000).toFixed(1)}s)`,
+      synced,
+      updated,
+      errors,
+      totalPages,
+      executionTime,
+    };
 
     // Atualizar log de sincronização
     await supabase
