@@ -354,6 +354,7 @@ const ColaboradoraDashboard = () => {
       // Fetch 7-Day History
       const startDate = format(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
       const { data: historyData } = await supabase
+        .schema("sistemaretiradas")
         .from('sales')
         .select('data_venda, valor, qtd_pecas')
         .eq('colaboradora_id', profile.id)
