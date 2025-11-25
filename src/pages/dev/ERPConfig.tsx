@@ -47,14 +47,25 @@ const ERPConfig = () => {
   });
 
   useEffect(() => {
-    if (!authLoading) {
-      // Verificar se é ADMIN (ou criar role DEV no futuro)
-      if (!profile || profile.role !== "ADMIN") {
-        navigate("/");
-      } else {
-        fetchStores();
-      }
+    // Aguardar carregamento da autenticação
+    if (authLoading) {
+      return;
     }
+
+    // Se não tem usuário logado, redirecionar para login
+    if (!profile) {
+      navigate("/", { replace: true });
+      return;
+    }
+
+    // Se não é ADMIN, redirecionar para dashboard
+    if (profile.role !== "ADMIN") {
+      navigate("/admin", { replace: true });
+      return;
+    }
+
+    // Se chegou aqui, é ADMIN - carregar dados
+    fetchStores();
   }, [profile, authLoading, navigate]);
 
   useEffect(() => {
@@ -205,12 +216,19 @@ const ERPConfig = () => {
 
   const selectedStore = stores.find(s => s.id === selectedStoreId);
 
-  if (loading || authLoading) {
+  // Mostrar loading enquanto autentica ou carrega dados
+  if (authLoading || (profile && loading)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
+  }
+
+  // Se não tem profile ainda (mas authLoading já terminou), não renderizar nada
+  // O useEffect vai redirecionar
+  if (!profile) {
+    return null;
   }
 
   return (
