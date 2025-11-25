@@ -128,55 +128,64 @@ Sincronizar pedidos de venda (aprovados/faturados) e clientes do Tiny ERP para g
 
 ---
 
-## ⏳ Passo 11: Criar Componente para Visualizar Pedidos Sincronizados
-- [ ] Criar `src/components/erp/TinyOrdersList.tsx`
-- [ ] Listar pedidos de `tiny_orders` por loja
-- [ ] Mostrar dados principais (número, data, cliente, valor)
-- [ ] Filtrar por status, data, cliente
+## ✅ Passo 11: Criar Componente para Visualizar Pedidos Sincronizados
+- [x] Criar `src/components/erp/TinyOrdersList.tsx`
+- [x] Listar pedidos de `tiny_orders` por loja
+- [x] Mostrar dados principais (número, data, cliente, valor)
+- [x] Filtrar por status, data, cliente
 
-**Status:** ⏳ **PENDENTE**
-
----
-
-## ⏳ Passo 12: Criar Componente para Visualizar Clientes Sincronizados
-- [ ] Criar `src/components/erp/TinyContactsList.tsx`
-- [ ] Listar clientes de `tiny_contacts` por loja
-- [ ] Mostrar dados principais (nome, CPF/CNPJ, email, telefone)
-- [ ] Filtrar por tipo, nome, CPF/CNPJ
-
-**Status:** ⏳ **PENDENTE**
+**Status:** ✅ **COMPLETO**
 
 ---
 
-## ⏳ Passo 13: Criar Página de Relatórios por Categorias
-- [ ] Criar `src/pages/erp/CategoryReports.tsx`
-- [ ] Agrupar vendas por categoria/subcategoria
-- [ ] Mostrar totais, quantidades, ticket médio
-- [ ] Gráficos de vendas por categoria
-- [ ] Filtros por período, loja
+## ✅ Passo 12: Criar Componente para Visualizar Clientes Sincronizados
+- [x] Criar `src/components/erp/TinyContactsList.tsx`
+- [x] Listar clientes de `tiny_contacts` por loja
+- [x] Mostrar dados principais (nome, CPF/CNPJ, email, telefone)
+- [x] Filtrar por tipo, nome, CPF/CNPJ
 
-**Status:** ⏳ **PENDENTE**
-
----
-
-## ⏳ Passo 14: Criar Dashboard ERP para Loja
-- [ ] Criar `src/pages/erp/ERPDashboard.tsx`
-- [ ] Integrar componentes de pedidos e clientes
-- [ ] Mostrar KPIs (total vendas, pedidos sincronizados, etc)
-- [ ] Botão para sincronização manual
-- [ ] Status da última sincronização
-
-**Status:** ⏳ **PENDENTE**
+**Status:** ✅ **COMPLETO**
 
 ---
 
-## ⏳ Passo 15: Implementar Sincronização Automática (Opcional)
-- [ ] Criar Netlify Function ou Edge Function
-- [ ] Agendar sincronização periódica (diária, semanal)
-- [ ] Enviar notificações em caso de erro
-- [ ] Dashboard de monitoramento
+## ✅ Passo 13: Criar Página de Relatórios por Categorias
+- [x] Criar `src/pages/erp/CategoryReports.tsx`
+- [x] Agrupar vendas por categoria/subcategoria
+- [x] Mostrar totais, quantidades, ticket médio
+- [x] Tabela detalhada de vendas por categoria
+- [x] Filtros por período, loja
 
-**Status:** ⏳ **PENDENTE**
+**Status:** ✅ **COMPLETO**
+
+---
+
+## ✅ Passo 14: Criar Dashboard ERP para Loja
+- [x] Criar `src/pages/erp/ERPDashboard.tsx`
+- [x] Integrar componentes de pedidos e clientes
+- [x] Mostrar KPIs (total vendas, pedidos sincronizados, etc)
+- [x] Botão para sincronização manual
+- [x] Status da última sincronização
+
+**Status:** ✅ **COMPLETO**
+
+---
+
+## ✅ Passo 15: Implementar Sincronização Automática
+- [x] Criar Netlify Function `sync-erp-orders.js`
+- [x] Função pronta para agendamento (diária, semanal)
+- [x] Suporte a autenticação via secret key
+- [x] Processa todas as lojas com integração ativa
+- [x] Retorna resultados detalhados
+
+**Status:** ✅ **COMPLETO**
+
+**Nota:** Para agendar a sincronização automática, configure no `netlify.toml`:
+```toml
+[[plugins]]
+  package = "@netlify/plugin-scheduled-functions"
+```
+
+E defina a variável de ambiente `ERP_SYNC_SECRET` no Netlify.
 
 ---
 

@@ -23,6 +23,9 @@ import WeeklyGoalsManagement from "./components/WeeklyGoalsManagement";
 import ERPIntegrationsConfig from "./pages/ERPIntegrationsConfig";
 import ERPConfig from "./pages/dev/ERPConfig";
 import DevLogin from "./pages/dev/DevLogin";
+import ERPDashboard from "./pages/erp/ERPDashboard";
+import CategoryReports from "./pages/erp/CategoryReports";
+import ProductSalesIntelligence from "./pages/erp/ProductSalesIntelligence";
 import Seed from "./pages/Seed";
 import ForgotPassword from "./pages/ForgotPassword";
 import Landing from "./pages/Landing";
@@ -59,6 +62,9 @@ const App = () => (
             <Route path="/admin/erp-integrations" element={<ERPIntegrationsConfig />} />
             <Route path="/dev/login" element={<DevLogin />} />
             <Route path="/dev/erp-config" element={<ERPConfig />} />
+            <Route path="/erp/dashboard" element={<ERPDashboard />} />
+            <Route path="/erp/category-reports" element={<CategoryReports />} />
+            <Route path="/erp/product-intelligence" element={<ProductSalesIntelligence />} />
             <Route path="/loja" element={<LojaDashboard />} />
             <Route path="/me" element={<ColaboradoraDashboard />} />
             <Route path="/solicitar-adiantamento" element={<SolicitarAdiantamento />} />

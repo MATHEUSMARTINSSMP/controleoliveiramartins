@@ -3,6 +3,8 @@
  * 
  * Foco: Pedidos de venda (aprovados/faturados) e Clientes
  * NÃO sincroniza: Produtos, Estoque
+ * 
+ * Documentação Oficial: https://erp.tiny.com.br/public-api/v3/swagger/index.html
  */
 
 import { supabase } from '@/integrations/supabase/client';
@@ -48,6 +50,7 @@ interface TinyPedido {
       id?: string;
       nome?: string;
       email?: string;
+      cpf?: string; // CPF pode vir direto no vendedor
       dados_extras?: any;
     };
     dados_extras?: any;
@@ -70,14 +73,101 @@ interface TinyContato {
 }
 
 /**
+ * Busca colaboradora no sistema pelo vendedor do Tiny
+ * Tenta matching por: CPF (prioritário), email e nome
+ * 
+ * CPF está disponível no cadastro do Tiny e no profile do sistema
+ */
+async function findCollaboratorByVendedor(
+  storeId: string,
+  vendedor: { id?: string; nome?: string; email?: string; cpf?: string }
+): Promise<string | null> {
+  if (!vendedor.nome && !vendedor.email && !vendedor.cpf) {
+    return null;
+  }
+
+  try {
+    // Normalizar CPF (remover caracteres especiais)
+    const normalizeCPF = (cpf: string | undefined) => {
+      if (!cpf) return null;
+      return cpf.replace(/\D/g, '');
+    };
+
+    const normalizedCPF = normalizeCPF(vendedor.cpf);
+
+    // Buscar colaboradoras da loja
+    const { data: colaboradoras, error } = await supabase
+      .schema('sistemaretiradas')
+      .from('profiles')
+      .select('id, name, email, cpf, store_id')
+      .eq('role', 'COLABORADORA')
+      .eq('active', true)
+      .eq('store_id', storeId);
+
+    if (error || !colaboradoras || colaboradoras.length === 0) {
+      return null;
+    }
+
+    // Tentar matching por CPF primeiro (mais confiável)
+    if (normalizedCPF && normalizedCPF.length >= 11) {
+      const matchByCPF = colaboradoras.find((colab) => {
+        const colabCPF = normalizeCPF(colab.cpf);
+        return colabCPF && colabCPF === normalizedCPF;
+      });
+      if (matchByCPF) {
+        console.log(`[SyncTiny] ✅ Vendedora encontrada por CPF: ${matchByCPF.name} (${matchByCPF.id})`);
+        return matchByCPF.id;
+      }
+    }
+
+    // Tentar matching por email (segunda opção)
+    if (vendedor.email) {
+      const matchByEmail = colaboradoras.find(
+        (colab) => colab.email && colab.email.toLowerCase() === vendedor.email?.toLowerCase()
+      );
+      if (matchByEmail) {
+        console.log(`[SyncTiny] ✅ Vendedora encontrada por email: ${matchByEmail.name} (${matchByEmail.id})`);
+        return matchByEmail.id;
+      }
+    }
+
+    // Tentar matching por nome (última opção, menos confiável)
+    if (vendedor.nome) {
+      const normalizeName = (name: string) => {
+        return name
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+          .trim();
+      };
+
+      const normalizedVendedorNome = normalizeName(vendedor.nome);
+      const matchByName = colaboradoras.find((colab) => {
+        const normalizedColabNome = normalizeName(colab.name || '');
+        return normalizedColabNome === normalizedVendedorNome;
+      });
+
+      if (matchByName) {
+        console.log(`[SyncTiny] ✅ Vendedora encontrada por nome: ${matchByName.name} (${matchByName.id})`);
+        return matchByName.id;
+      }
+    }
+
+    console.log(`[SyncTiny] ⚠️ Vendedora não encontrada: ${vendedor.nome || vendedor.email || vendedor.cpf || 'N/A'}`);
+    return null;
+  } catch (error: any) {
+    console.error('[SyncTiny] Erro ao buscar colaboradora:', error);
+    return null;
+  }
+}
+
+/**
  * Sincroniza pedidos de venda do Tiny ERP
  * Apenas pedidos com status 'faturado' (vendidos)
  * 
- * PASSO 6: Verificado endpoint correto na documentação
- * PASSO 7: Implementada paginação
- * PASSO 8: Mapeamento de categorias/subcategorias dos itens
- * PASSO 9: Logs detalhados
- * PASSO 10: Sincronização incremental (usa data da última sync)
+ * Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html#/Pedidos
+ * Endpoint: GET /pedidos
+ * Parâmetros: pagina, limite, situacao, dataInicial, dataFinal
  */
 export async function syncTinyOrders(
   storeId: string,
@@ -102,7 +192,7 @@ export async function syncTinyOrders(
   try {
     const { dataInicio, dataFim, limit = 100, maxPages = 50, incremental = true } = options;
 
-    // PASSO 10: Sincronização incremental - buscar última data E último ID
+    // Sincronização incremental - buscar última data E último ID
     let dataInicioSync = dataInicio;
     let ultimoTinyIdSync: string | null = null;
     
@@ -129,17 +219,14 @@ export async function syncTinyOrders(
       }
     }
 
-    // PASSO 6: Endpoint verificado na documentação oficial
-    // Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html#/Pedidos
-    // Endpoint: GET /pedidos com query parameters
-    // Filtro de situação: 'faturado' para pedidos vendidos
-    
+    // Endpoint conforme documentação oficial
+    // GET /pedidos com query parameters
     let allPedidos: TinyPedido[] = [];
     let currentPage = 1;
     let hasMorePages = true;
     let totalPages = 0;
 
-    // PASSO 7: Implementar paginação
+    // Paginação conforme documentação
     while (hasMorePages && currentPage <= maxPages) {
       const params: Record<string, any> = {
         pagina: currentPage,
@@ -170,7 +257,6 @@ export async function syncTinyOrders(
         pedidos = response.data.pedidos;
       } else {
         console.warn(`[SyncTiny] Página ${currentPage}: Resposta inesperada:`, response);
-        // Se não tem pedidos, pode ser fim da paginação
         if (currentPage === 1) {
           return {
             success: false,
@@ -207,6 +293,7 @@ export async function syncTinyOrders(
     let updated = 0;
     let errors = 0;
     const errorDetails: string[] = [];
+    let ultimoTinyIdProcessado: string | null = null;
 
     // Processar cada pedido
     for (const pedidoData of allPedidos) {
@@ -214,38 +301,137 @@ export async function syncTinyOrders(
         const pedido = pedidoData.pedido;
         const cliente = pedido.cliente || {};
 
-        // PASSO 8: Extrair categorias e subcategorias dos itens
-        // Consultar documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html#/Pedidos
+        // Extrair TODOS os dados possíveis dos produtos para relatórios inteligentes
         const itensComCategorias = pedido.itens?.map((item: any) => {
           const itemData = item.item || item;
           const produto = itemData.produto || {};
           
-          // Extrair categoria e subcategoria do item (múltiplos formatos possíveis)
+          // Extrair categoria e subcategoria
           const categoria = itemData.categoria 
             || itemData.categoria_produto 
             || itemData.categoria_id 
             || produto.categoria 
+            || produto.categoria_produto
             || null;
           
           const subcategoria = itemData.subcategoria 
             || itemData.subcategoria_produto 
             || itemData.subcategoria_id 
             || produto.subcategoria 
+            || produto.subcategoria_produto
+            || null;
+          
+          // Extrair marca (pode estar em vários lugares)
+          const marca = itemData.marca
+            || itemData.marca_produto
+            || produto.marca
+            || produto.marca_produto
+            || itemData.fabricante
+            || produto.fabricante
+            || itemData.dados_extras?.marca
+            || produto.dados_extras?.marca
+            || null;
+          
+          // Extrair tamanho
+          const tamanho = itemData.tamanho
+            || itemData.tamanho_produto
+            || produto.tamanho
+            || produto.tamanho_produto
+            || itemData.dados_extras?.tamanho
+            || produto.dados_extras?.tamanho
+            || itemData.variacao?.tamanho
+            || produto.variacao?.tamanho
+            || null;
+          
+          // Extrair cor
+          const cor = itemData.cor
+            || itemData.cor_produto
+            || produto.cor
+            || produto.cor_produto
+            || itemData.dados_extras?.cor
+            || produto.dados_extras?.cor
+            || itemData.variacao?.cor
+            || produto.variacao?.cor
+            || null;
+          
+          // Extrair código do produto
+          const codigo = itemData.codigo
+            || produto.codigo
+            || produto.codigo_produto
+            || itemData.sku
+            || produto.sku
+            || null;
+          
+          // Extrair descrição completa
+          const descricao = itemData.descricao
+            || produto.descricao
+            || produto.nome
+            || itemData.nome
+            || null;
+          
+          // Extrair outras informações úteis
+          const genero = itemData.genero
+            || produto.genero
+            || itemData.dados_extras?.genero
+            || produto.dados_extras?.genero
+            || null;
+          
+          const faixa_etaria = itemData.faixa_etaria
+            || produto.faixa_etaria
+            || itemData.dados_extras?.faixa_etaria
+            || produto.dados_extras?.faixa_etaria
+            || null;
+          
+          const material = itemData.material
+            || produto.material
+            || itemData.dados_extras?.material
+            || produto.dados_extras?.material
             || null;
           
           return {
             ...itemData,
+            // Dados organizados para relatórios
             categoria,
             subcategoria,
+            marca,
+            tamanho,
+            cor,
+            codigo,
+            descricao,
+            genero,
+            faixa_etaria,
+            material,
             // Manter todos os dados originais para referência
             dados_originais: itemData,
+            produto_original: produto,
           };
         }) || [];
 
+        // Identificar vendedora/colaboradora
+        let colaboradoraId: string | null = null;
+        if (pedido.vendedor) {
+          // Buscar CPF do vendedor - pode estar em vários lugares conforme documentação
+          const vendedorCPF = pedido.vendedor.cpf
+            || pedido.vendedor.dados_extras?.cpf 
+            || pedido.vendedor.dados_extras?.cpf_cnpj
+            || pedido.dados_extras?.vendedor_cpf
+            || null;
+
+          colaboradoraId = await findCollaboratorByVendedor(storeId, {
+            id: pedido.vendedor.id,
+            nome: pedido.vendedor.nome,
+            email: pedido.vendedor.email,
+            cpf: vendedorCPF,
+          });
+        }
+
         // Preparar dados do pedido
+        const tinyId = String(pedido.id || pedido.numero || `temp_${Date.now()}`);
+        ultimoTinyIdProcessado = tinyId; // Atualizar último ID processado
+        
         const orderData = {
           store_id: storeId,
-          tiny_id: String(pedido.id || pedido.numero || `temp_${Date.now()}`),
+          tiny_id: tinyId,
           numero_pedido: pedido.numero?.toString() || null,
           numero_ecommerce: pedido.numero_ecommerce?.toString() || null,
           situacao: pedido.situacao || null,
@@ -265,10 +451,11 @@ export async function syncTinyOrders(
           forma_pagamento: pedido.forma_pagamento || null,
           forma_envio: pedido.forma_envio || null,
           endereco_entrega: pedido.endereco_entrega ? JSON.stringify(pedido.endereco_entrega) : null,
-          // PASSO 8: Itens com categorias/subcategorias mapeadas
           itens: JSON.stringify(itensComCategorias),
           observacoes: pedido.observacoes || null,
           vendedor_nome: pedido.vendedor?.nome || null,
+          vendedor_tiny_id: pedido.vendedor?.id?.toString() || null,
+          colaboradora_id: colaboradoraId,
           dados_extras: pedido.dados_extras ? JSON.stringify(pedido.dados_extras) : null,
           sync_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -318,7 +505,7 @@ export async function syncTinyOrders(
     const executionTime = Date.now() - startTime;
     const dataFimSync = dataFim || new Date().toISOString().split('T')[0];
 
-    // PASSO 9: Logs detalhados de sincronização
+    // Logs detalhados de sincronização
     await supabase
       .schema('sistemaretiradas')
       .from('erp_sync_logs')
@@ -330,12 +517,12 @@ export async function syncTinyOrders(
         registros_atualizados: updated,
         registros_com_erro: errors,
         status: errors === 0 ? 'SUCCESS' : (synced + updated > 0 ? 'PARTIAL' : 'ERROR'),
-        error_message: errorDetails.length > 0 ? errorDetails.slice(0, 5).join('; ') : null, // Primeiros 5 erros
+        error_message: errorDetails.length > 0 ? errorDetails.slice(0, 5).join('; ') : null,
         data_inicio: dataInicioSync || null,
         data_fim: dataFimSync,
         tempo_execucao_ms: executionTime,
         total_paginas: totalPages,
-        ultimo_tiny_id_sincronizado: ultimoTinyIdProcessado, // Proteção extra: último ID processado
+        ultimo_tiny_id_sincronizado: ultimoTinyIdProcessado,
         sync_at: new Date().toISOString(),
       });
 
@@ -352,7 +539,7 @@ export async function syncTinyOrders(
     console.error('Erro na sincronização de pedidos:', error);
     const executionTime = Date.now() - startTime;
     
-    // PASSO 9: Log detalhado de erro
+    // Log detalhado de erro
     await supabase
       .schema('sistemaretiradas')
       .from('erp_sync_logs')
@@ -393,7 +580,6 @@ async function syncTinyContact(
   pedidoId?: string
 ): Promise<void> {
   try {
-    // Se não tem CPF/CNPJ ou nome, não sincroniza
     if (!cliente.nome) {
       return;
     }
@@ -423,20 +609,16 @@ async function syncTinyContact(
       });
   } catch (error: any) {
     console.error('Erro ao sincronizar contato:', error);
-    // Não falha a sincronização de pedidos por causa de contato
   }
 }
 
 /**
  * Sincroniza todos os clientes do Tiny ERP
  * Útil para sincronização inicial completa
- */
-/**
- * Sincroniza todos os clientes do Tiny ERP
- * Útil para sincronização inicial completa
  * 
- * PASSO 7: Implementada paginação
- * PASSO 9: Logs detalhados
+ * Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html#/Contatos
+ * Endpoint: GET /contatos
+ * Parâmetros: pagina, limite
  */
 export async function syncTinyContacts(
   storeId: string,
@@ -463,7 +645,7 @@ export async function syncTinyContacts(
     let hasMorePages = true;
     let totalPages = 0;
 
-    // PASSO 7: Paginação para contatos
+    // Paginação conforme documentação
     while (hasMorePages && currentPage <= maxPages) {
       const params: Record<string, any> = {
         pagina: currentPage,
@@ -524,7 +706,7 @@ export async function syncTinyContacts(
         const contato = contatoData.contato;
 
         if (!contato.nome) {
-          continue; // Pula contatos sem nome
+          continue;
         }
 
         // Verificar se já existe
@@ -552,7 +734,7 @@ export async function syncTinyContacts(
 
     const executionTime = Date.now() - startTime;
 
-    // PASSO 9: Log detalhado
+    // Log detalhado
     await supabase
       .schema('sistemaretiradas')
       .from('erp_sync_logs')
@@ -594,4 +776,3 @@ export async function syncTinyContacts(
     };
   }
 }
-
