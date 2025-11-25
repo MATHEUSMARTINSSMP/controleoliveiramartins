@@ -209,14 +209,29 @@ export async function syncTinyOrders(
         const cliente = pedido.cliente || {};
 
         // PASSO 8: Extrair categorias e subcategorias dos itens
+        // Consultar documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html#/Pedidos
         const itensComCategorias = pedido.itens?.map((item: any) => {
           const itemData = item.item || item;
+          const produto = itemData.produto || {};
+          
+          // Extrair categoria e subcategoria do item (múltiplos formatos possíveis)
+          const categoria = itemData.categoria 
+            || itemData.categoria_produto 
+            || itemData.categoria_id 
+            || produto.categoria 
+            || null;
+          
+          const subcategoria = itemData.subcategoria 
+            || itemData.subcategoria_produto 
+            || itemData.subcategoria_id 
+            || produto.subcategoria 
+            || null;
+          
           return {
             ...itemData,
-            // Extrair categoria e subcategoria do item
-            categoria: itemData.categoria || itemData.categoria_produto || itemData.categoria_id || null,
-            subcategoria: itemData.subcategoria || itemData.subcategoria_produto || itemData.subcategoria_id || null,
-            // Manter todos os dados originais
+            categoria,
+            subcategoria,
+            // Manter todos os dados originais para referência
             dados_originais: itemData,
           };
         }) || [];
@@ -326,6 +341,41 @@ export async function syncTinyOrders(
       totalPages,
       executionTime,
     };
+  } catch (error: any) {
+    console.error('Erro na sincronização de pedidos:', error);
+    const executionTime = Date.now() - startTime;
+    
+    // PASSO 9: Log detalhado de erro
+    await supabase
+      .schema('sistemaretiradas')
+      .from('erp_sync_logs')
+      .insert({
+        store_id: storeId,
+        sistema_erp: 'TINY',
+        tipo_sync: 'PEDIDOS',
+        registros_sincronizados: 0,
+        registros_atualizados: 0,
+        registros_com_erro: 0,
+        status: 'ERROR',
+        error_message: error.message || 'Erro desconhecido',
+        data_inicio: dataInicio || null,
+        data_fim: dataFim || null,
+        tempo_execucao_ms: executionTime,
+        total_paginas: 0,
+        sync_at: new Date().toISOString(),
+      });
+
+    return {
+      success: false,
+      message: error.message || 'Erro ao sincronizar pedidos',
+      synced: 0,
+      updated: 0,
+      errors: 0,
+      totalPages: 0,
+      executionTime,
+    };
+  }
+}
 
 /**
  * Sincroniza um cliente/contato do Tiny ERP
@@ -374,43 +424,95 @@ async function syncTinyContact(
  * Sincroniza todos os clientes do Tiny ERP
  * Útil para sincronização inicial completa
  */
+/**
+ * Sincroniza todos os clientes do Tiny ERP
+ * Útil para sincronização inicial completa
+ * 
+ * PASSO 7: Implementada paginação
+ * PASSO 9: Logs detalhados
+ */
 export async function syncTinyContacts(
   storeId: string,
   options: {
     limit?: number;
+    maxPages?: number;
   } = {}
 ): Promise<{
   success: boolean;
   message: string;
   synced: number;
+  updated: number;
   errors: number;
+  totalPages: number;
+  executionTime: number;
 }> {
+  const startTime = Date.now();
+  
   try {
-    const { limit = 100 } = options;
+    const { limit = 100, maxPages = 50 } = options;
 
-    // Buscar contatos do Tiny
-    const params: Record<string, any> = {
-      pagina: 1,
-      limite: limit,
-    };
+    let allContatos: TinyContato[] = [];
+    let currentPage = 1;
+    let hasMorePages = true;
+    let totalPages = 0;
 
-    const response = await callERPAPI(storeId, '/contatos', params);
-    
-    if (!response.contatos || !Array.isArray(response.contatos)) {
-      return {
-        success: false,
-        message: 'Resposta inválida da API Tiny',
-        synced: 0,
-        errors: 0,
+    // PASSO 7: Paginação para contatos
+    while (hasMorePages && currentPage <= maxPages) {
+      const params: Record<string, any> = {
+        pagina: currentPage,
+        limite: limit,
       };
+
+      console.log(`[SyncTiny] Buscando contatos página ${currentPage}...`);
+
+      const response = await callERPAPI(storeId, '/contatos', params);
+      
+      // Verificar estrutura da resposta
+      let contatos: TinyContato[] = [];
+      
+      if (response.contatos && Array.isArray(response.contatos)) {
+        contatos = response.contatos;
+      } else if (response.retorno?.contatos && Array.isArray(response.retorno.contatos)) {
+        contatos = response.retorno.contatos;
+      } else if (response.data?.contatos && Array.isArray(response.data.contatos)) {
+        contatos = response.data.contatos;
+      } else {
+        if (currentPage === 1) {
+          return {
+            success: false,
+            message: 'Resposta inválida da API Tiny',
+            synced: 0,
+            updated: 0,
+            errors: 0,
+            totalPages: 0,
+            executionTime: Date.now() - startTime,
+          };
+        }
+        break;
+      }
+
+      if (contatos.length === 0) {
+        hasMorePages = false;
+        break;
+      }
+
+      allContatos = allContatos.concat(contatos);
+      totalPages = currentPage;
+
+      if (contatos.length < limit) {
+        hasMorePages = false;
+      } else {
+        currentPage++;
+      }
     }
 
-    const contatos: TinyContato[] = response.contatos;
     let synced = 0;
+    let updated = 0;
     let errors = 0;
+    const errorDetails: string[] = [];
 
     // Processar cada contato
-    for (const contatoData of contatos) {
+    for (const contatoData of allContatos) {
       try {
         const contato = contatoData.contato;
 
@@ -418,15 +520,32 @@ export async function syncTinyContacts(
           continue; // Pula contatos sem nome
         }
 
+        // Verificar se já existe
+        const { data: existing } = await supabase
+          .schema('sistemaretiradas')
+          .from('tiny_contacts')
+          .select('id')
+          .eq('store_id', storeId)
+          .eq('tiny_id', String(contato.id || contato.cpf_cnpj || `temp_${Date.now()}`))
+          .maybeSingle();
+
         await syncTinyContact(storeId, contato);
-        synced++;
+        
+        if (existing) {
+          updated++;
+        } else {
+          synced++;
+        }
       } catch (error: any) {
         console.error(`Erro ao processar contato:`, error);
         errors++;
+        errorDetails.push(`Contato: ${error.message}`);
       }
     }
 
-    // Atualizar log de sincronização
+    const executionTime = Date.now() - startTime;
+
+    // PASSO 9: Log detalhado
     await supabase
       .schema('sistemaretiradas')
       .from('erp_sync_logs')
@@ -435,25 +554,36 @@ export async function syncTinyContacts(
         sistema_erp: 'TINY',
         tipo_sync: 'CONTATOS',
         registros_sincronizados: synced,
+        registros_atualizados: updated,
         registros_com_erro: errors,
-        status: errors === 0 ? 'SUCCESS' : 'PARTIAL',
+        status: errors === 0 ? 'SUCCESS' : (synced + updated > 0 ? 'PARTIAL' : 'ERROR'),
+        error_message: errorDetails.length > 0 ? errorDetails.slice(0, 5).join('; ') : null,
+        tempo_execucao_ms: executionTime,
+        total_paginas: totalPages,
         sync_at: new Date().toISOString(),
       });
 
     return {
       success: errors === 0,
-      message: `Sincronizados ${synced} clientes${errors > 0 ? `, ${errors} erros` : ''}`,
+      message: `Sincronizados ${synced} novos, ${updated} atualizados${errors > 0 ? `, ${errors} erros` : ''} (${totalPages} página(s), ${(executionTime / 1000).toFixed(1)}s)`,
       synced,
+      updated,
       errors,
+      totalPages,
+      executionTime,
     };
   } catch (error: any) {
     console.error('Erro na sincronização de contatos:', error);
+    const executionTime = Date.now() - startTime;
     
     return {
       success: false,
       message: error.message || 'Erro ao sincronizar contatos',
       synced: 0,
+      updated: 0,
       errors: 0,
+      totalPages: 0,
+      executionTime,
     };
   }
 }
