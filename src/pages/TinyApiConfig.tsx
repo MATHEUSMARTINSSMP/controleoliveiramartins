@@ -20,6 +20,7 @@ interface TinyCredentials {
 
 const TinyApiConfig = () => {
   const { profile, loading: authLoading } = useAuth();
+  const { tenant } = useTenant();
   const navigate = useNavigate();
   const [credentials, setCredentials] = useState<TinyCredentials | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,9 +62,11 @@ const TinyApiConfig = () => {
     }
   };
 
-  const handleConnect = () => {
+  const handleConnect = async () => {
     try {
-      const authUrl = getTinyAuthorizationUrl();
+      // Buscar tenant_id do profile (se houver)
+      // Por enquanto, não passamos tenant_id (usa padrão)
+      const authUrl = await getTinyAuthorizationUrl();
       window.location.href = authUrl;
     } catch (error: any) {
       toast.error(error.message || "Erro ao gerar URL de autorização");

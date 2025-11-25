@@ -20,7 +20,7 @@ import MetasManagement from "./components/MetasManagement";
 import BonusManagement from "./components/BonusManagement";
 import BenchmarksManagement from "./pages/BenchmarksManagement";
 import WeeklyGoalsManagement from "./components/WeeklyGoalsManagement";
-import TinyApiConfig from "./pages/TinyApiConfig";
+import ERPIntegrationsConfig from "./pages/ERPIntegrationsConfig";
 import Seed from "./pages/Seed";
 import ForgotPassword from "./pages/ForgotPassword";
 import Landing from "./pages/Landing";
@@ -54,7 +54,7 @@ const App = () => (
             <Route path="/admin/metas-semanais" element={<WeeklyGoalsManagement />} />
             <Route path="/admin/bonus" element={<BonusManagement />} />
             <Route path="/admin/benchmarks" element={<BenchmarksManagement />} />
-            <Route path="/admin/tiny-config" element={<TinyApiConfig />} />
+            <Route path="/admin/erp-integrations" element={<ERPIntegrationsConfig />} />
             <Route path="/loja" element={<LojaDashboard />} />
             <Route path="/me" element={<ColaboradoraDashboard />} />
             <Route path="/solicitar-adiantamento" element={<SolicitarAdiantamento />} />

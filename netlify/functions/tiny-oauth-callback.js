@@ -39,17 +39,9 @@ exports.handler = async (event, context) => {
       };
     }
 
-    if (!process.env.VITE_TINY_API_CLIENT_ID || !process.env.VITE_TINY_API_CLIENT_SECRET) {
-      console.error('Missing Tiny API credentials');
-      return {
-        statusCode: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          success: false,
-          message: 'Credenciais Tiny não configuradas.',
-        }),
-      };
-    }
+    // NOTA: Client ID e Secret agora vêm do banco de dados (por tenant)
+    // Env vars são apenas fallback para compatibilidade
+    // O callback receberá tenant_id via query param ou state
 
     const supabaseAdmin = createClient(
       process.env.SUPABASE_URL,
@@ -61,11 +53,13 @@ exports.handler = async (event, context) => {
       }
     );
 
-    // Extrair código da query string
+    // Extrair código e tenant_id da query string
     const queryParams = new URLSearchParams(event.queryStringParameters || {});
     const code = queryParams.get('code');
     const error = queryParams.get('error');
     const errorDescription = queryParams.get('error_description');
+    const state = queryParams.get('state'); // Pode conter tenant_id
+    const tenantId = state ? JSON.parse(decodeURIComponent(state)).tenant_id : null;
 
     // Se houver erro no callback
     if (error) {
@@ -90,6 +84,46 @@ exports.handler = async (event, context) => {
     }
 
     console.log('[TinyOAuth] Exchanging code for token...');
+    console.log('[TinyOAuth] Tenant ID:', tenantId);
+
+    // Buscar credenciais do tenant (ou padrão se não houver tenant_id)
+    let credentialsQuery = supabaseAdmin
+      .from('tiny_api_credentials')
+      .select('id, client_id, client_secret, tenant_id')
+      .eq('active', true);
+
+    if (tenantId) {
+      credentialsQuery = credentialsQuery.eq('tenant_id', tenantId);
+    } else {
+      // Se não tem tenant_id, buscar registro sem tenant_id (padrão)
+      credentialsQuery = credentialsQuery.is('tenant_id', null);
+    }
+
+    const { data: existingCredentials, error: credError } = await credentialsQuery.maybeSingle();
+
+    // Se não encontrou, tentar criar novo ou usar env vars como fallback
+    let clientId, clientSecret;
+    
+    if (existingCredentials) {
+      clientId = existingCredentials.client_id;
+      clientSecret = existingCredentials.client_secret;
+      console.log('[TinyOAuth] Usando credenciais do banco de dados');
+    } else {
+      // Fallback para env vars (compatibilidade)
+      clientId = process.env.VITE_TINY_API_CLIENT_ID;
+      clientSecret = process.env.VITE_TINY_API_CLIENT_SECRET;
+      console.log('[TinyOAuth] Usando credenciais de env vars (fallback)');
+    }
+
+    if (!clientId || !clientSecret) {
+      console.error('[TinyOAuth] Credenciais não encontradas');
+      return {
+        statusCode: 302,
+        headers: {
+          Location: `${process.env.URL || 'https://eleveaone.com.br'}/admin/tiny-config?error=credentials_not_found`,
+        },
+      };
+    }
 
     // Trocar código por token
     const tokenResponse = await fetch('https://api.tiny.com.br/oauth/access_token', {
@@ -100,8 +134,8 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         grant_type: 'authorization_code',
         code,
-        client_id: process.env.VITE_TINY_API_CLIENT_ID,
-        client_secret: process.env.VITE_TINY_API_CLIENT_SECRET,
+        client_id: clientId,
+        client_secret: clientSecret,
         redirect_uri: `${process.env.URL || 'https://eleveaone.com.br'}/api/tiny/callback`,
       }),
     });
@@ -123,13 +157,6 @@ exports.handler = async (event, context) => {
     // Calcular data de expiração
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + (tokenData.expires_in || 3600));
-
-    // Buscar ou criar registro de credenciais
-    const { data: existingCredentials } = await supabaseAdmin
-      .from('tiny_api_credentials')
-      .select('*')
-      .eq('active', true)
-      .maybeSingle();
 
     let credentialsId;
 
@@ -158,12 +185,14 @@ exports.handler = async (event, context) => {
       credentialsId = data.id;
       console.log('[TinyOAuth] Credentials updated:', credentialsId);
     } else {
-      // Criar novo
+      // Criar novo registro
+      // Se não tinha credenciais no banco, usar as que foram usadas para obter o token
       const { data, error: insertError } = await supabaseAdmin
         .from('tiny_api_credentials')
         .insert({
-          client_id: process.env.VITE_TINY_API_CLIENT_ID,
-          client_secret: process.env.VITE_TINY_API_CLIENT_SECRET,
+          client_id: clientId,
+          client_secret: clientSecret,
+          tenant_id: tenantId || null, // Salvar tenant_id se fornecido
           access_token: tokenData.access_token,
           refresh_token: tokenData.refresh_token,
           token_expires_at: expiresAt.toISOString(),
@@ -180,7 +209,7 @@ exports.handler = async (event, context) => {
       }
 
       credentialsId = data.id;
-      console.log('[TinyOAuth] Credentials created:', credentialsId);
+      console.log('[TinyOAuth] Credentials created:', credentialsId, 'for tenant:', tenantId);
     }
 
     // Redirecionar para página de sucesso

@@ -101,11 +101,11 @@ export function DailyMetaTracker() {
 
             // Buscar vendas de hoje de todas as colaboradoras - usar schema como no dashboard da loja
             let query = supabase
-                .schema("sistemaretiradas")
-                .from("sales")
+                        .schema("sistemaretiradas")
+                        .from("sales")
                 .select("valor, colaboradora_id")
-                .gte("data_venda", `${hojeStr}T00:00:00`)
-                .lte("data_venda", `${hojeStr}T23:59:59`);
+                        .gte("data_venda", `${hojeStr}T00:00:00`)
+                        .lte("data_venda", `${hojeStr}T23:59:59`);
 
             if (filteredColabIds.length > 0) {
                 query = query.in("colaboradora_id", filteredColabIds);
@@ -132,10 +132,10 @@ export function DailyMetaTracker() {
 
             // Buscar vendas do mês até ontem para calcular déficit e ajustar meta diária
             const { data: salesMonthData } = await supabase
-                .schema("sistemaretiradas")
-                .from("sales")
+                        .schema("sistemaretiradas")
+                        .from("sales")
                 .select("valor, colaboradora_id")
-                .gte("data_venda", `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01T00:00:00`)
+                        .gte("data_venda", `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01T00:00:00`)
                 .lt("data_venda", `${hojeStr}T00:00:00`)
                 .in("colaboradora_id", filteredColabIds);
 
@@ -158,37 +158,37 @@ export function DailyMetaTracker() {
                     const vendidoHoje = salesByColab[colabId] || 0;
                     const vendidoAteOntem = salesMonthByColab[colabId] || 0;
 
-                // Calcular meta diária padrão
-                let metaDiariaPadrao = metaMensal / totalDias;
-                if (Object.keys(dailyWeights).length > 0) {
-                    const hojePeso = dailyWeights[hojeStr] || 0;
+                    // Calcular meta diária padrão
+                    let metaDiariaPadrao = metaMensal / totalDias;
+                    if (Object.keys(dailyWeights).length > 0) {
+                        const hojePeso = dailyWeights[hojeStr] || 0;
                     if (hojePeso > 0) {
                         metaDiariaPadrao = (metaMensal * hojePeso) / 100;
                     }
-                }
+                    }
 
                 // Calcular meta esperada até ontem
-                const metaEsperadaAteOntem = Object.keys(dailyWeights).length > 0
-                    ? (() => {
-                        let soma = 0;
-                        for (let dia = 1; dia < diaAtual; dia++) {
-                            const dataDia = new Date(hoje.getFullYear(), hoje.getMonth(), dia);
-                            const dataStr = format(dataDia, 'yyyy-MM-dd');
-                            const peso = dailyWeights[dataStr] || 0;
-                            soma += (metaMensal * peso) / 100;
-                        }
-                        return soma;
-                    })()
-                    : metaDiariaPadrao * (diaAtual - 1);
+                    const metaEsperadaAteOntem = Object.keys(dailyWeights).length > 0
+                        ? (() => {
+                            let soma = 0;
+                            for (let dia = 1; dia < diaAtual; dia++) {
+                                const dataDia = new Date(hoje.getFullYear(), hoje.getMonth(), dia);
+                                const dataStr = format(dataDia, 'yyyy-MM-dd');
+                                const peso = dailyWeights[dataStr] || 0;
+                                soma += (metaMensal * peso) / 100;
+                            }
+                            return soma;
+                        })()
+                        : metaDiariaPadrao * (diaAtual - 1);
 
                 // Calcular déficit e ajustar meta diária
-                const deficit = metaEsperadaAteOntem - vendidoAteOntem;
+                    const deficit = metaEsperadaAteOntem - vendidoAteOntem;
                 const diasRestantes = totalDias - diaAtual + 1; // +1 para incluir hoje
 
                 let metaDiaria = metaDiariaPadrao;
-                if (diasRestantes > 0 && deficit > 0) {
+                    if (diasRestantes > 0 && deficit > 0) {
                     metaDiaria = metaDiariaPadrao + (deficit / diasRestantes);
-                }
+                    }
 
                 const progress = metaDiaria > 0 ? (vendidoHoje / metaDiaria) * 100 : 0;
 

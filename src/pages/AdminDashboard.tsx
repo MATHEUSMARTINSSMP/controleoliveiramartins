@@ -245,26 +245,26 @@ const AdminDashboard = () => {
           <TabsContent value="configuracoes" className="animate-in fade-in-50 duration-500 space-y-4 sm:space-y-6">
             <WhatsAppNotificationConfig />
             
-            {/* Integração Tiny ERP */}
+            {/* Integrações ERP */}
             <Card className="border-primary/20">
               <CardHeader>
                 <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                   <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
-                  Integração Tiny ERP
+                  Integrações ERP
                 </CardTitle>
                 <CardDescription className="text-xs sm:text-sm">
-                  Configure a conexão com o Tiny ERP para sincronizar produtos, pedidos e estoque
+                  Configure integrações ERP por loja (Tiny, Bling, Microvix, Conta Azul, etc)
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Button
-                  onClick={() => navigate("/admin/tiny-config")}
+                  onClick={() => navigate("/admin/erp-integrations")}
                   variant="outline"
                   className="w-full sm:w-auto"
                   size="sm"
                 >
                   <ExternalLink className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                  Configurar Tiny ERP
+                  Gerenciar Integrações
                 </Button>
               </CardContent>
             </Card>

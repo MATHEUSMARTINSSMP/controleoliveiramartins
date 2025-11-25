@@ -2,32 +2,72 @@
  * Integração com API Tiny ERP
  * 
  * Documentação: https://ajuda.olist.com/kb/articles/erp/integracoes
+ * 
+ * IMPORTANTE: Credenciais são armazenadas no Supabase por tenant
+ * Cada tenant pode ter seu próprio Tiny ERP com credenciais diferentes
  */
 
-// Configuração da API Tiny
+// URLs base da API Tiny (fixas, não mudam por tenant)
 export const TINY_API_CONFIG = {
   baseUrl: import.meta.env.VITE_TINY_API_BASE_URL || 'https://api.tiny.com.br',
   erpUrl: import.meta.env.VITE_TINY_ERP_URL || 'https://erp.tiny.com.br',
-  clientId: import.meta.env.VITE_TINY_API_CLIENT_ID,
-  clientSecret: import.meta.env.VITE_TINY_API_CLIENT_SECRET,
+  // Client ID e Secret podem ser diferentes por tenant, então não usamos env vars aqui
+  // Eles serão buscados do banco de dados (tiny_api_credentials)
 };
 
 /**
  * Gera URL de autorização OAuth para o Tiny ERP
+ * Busca Client ID do banco de dados (por tenant)
+ * 
+ * @param tenantId - ID do tenant (opcional, busca do tenant atual se não fornecido)
  * @returns URL completa para redirecionar o usuário
  */
-export function getTinyAuthorizationUrl(): string {
-  if (!TINY_API_CONFIG.clientId) {
-    throw new Error('VITE_TINY_API_CLIENT_ID não está configurado');
+export async function getTinyAuthorizationUrl(tenantId?: string): Promise<string> {
+  const { supabase } = await import('@/integrations/supabase/client');
+  
+  // Buscar credenciais do tenant
+  let credentialsQuery = supabase
+    .schema('sistemaretiradas')
+    .from('tiny_api_credentials')
+    .select('client_id')
+    .eq('active', true);
+
+  // Se tenantId fornecido, filtrar por tenant
+  if (tenantId) {
+    credentialsQuery = credentialsQuery.eq('tenant_id', tenantId);
+  } else {
+    // Se não fornecido, buscar registro sem tenant_id (padrão)
+    credentialsQuery = credentialsQuery.is('tenant_id', null);
+  }
+
+  const { data: credentials, error } = await credentialsQuery.maybeSingle();
+
+  // Se não encontrou no banco, tentar env var como fallback (compatibilidade)
+  let clientId = credentials?.client_id;
+  
+  if (!clientId) {
+    clientId = import.meta.env.VITE_TINY_API_CLIENT_ID;
+    if (!clientId) {
+      throw new Error('Client ID não encontrado. Configure as credenciais Tiny primeiro.');
+    }
   }
 
   const redirectUri = `${window.location.origin}/api/tiny/callback`;
+  
+  // Incluir tenant_id no state para o callback saber qual tenant é
+  const state = tenantId ? encodeURIComponent(JSON.stringify({ tenant_id: tenantId })) : undefined;
+  
   const params = new URLSearchParams({
     response_type: 'code',
-    client_id: TINY_API_CONFIG.clientId,
+    client_id: clientId,
     redirect_uri: redirectUri,
     scope: 'produtos pedidos estoque contatos', // Escopos necessários
   });
+  
+  // Adicionar state se houver tenant_id
+  if (state) {
+    params.append('state', state);
+  }
   
   return `${TINY_API_CONFIG.erpUrl}/oauth/authorize?${params.toString()}`;
 }
@@ -35,17 +75,27 @@ export function getTinyAuthorizationUrl(): string {
 /**
  * Troca código OAuth por access token
  * Esta função deve ser chamada no backend (Netlify Function)
+ * 
+ * NOTA: Esta função busca client_id e client_secret do banco de dados
+ * A Netlify Function fará isso usando service role key
+ * 
  * @param code - Código recebido no callback
+ * @param clientId - Client ID do tenant
+ * @param clientSecret - Client Secret do tenant
  * @returns Token de acesso e refresh token
  */
-export async function exchangeCodeForToken(code: string): Promise<{
+export async function exchangeCodeForToken(
+  code: string,
+  clientId: string,
+  clientSecret: string
+): Promise<{
   access_token: string;
   refresh_token: string;
   expires_in: number;
   token_type: string;
 }> {
-  if (!TINY_API_CONFIG.clientId || !TINY_API_CONFIG.clientSecret) {
-    throw new Error('Credenciais Tiny não configuradas');
+  if (!clientId || !clientSecret) {
+    throw new Error('Credenciais Tiny não fornecidas');
   }
 
   const response = await fetch(`${TINY_API_CONFIG.baseUrl}/oauth/access_token`, {
@@ -56,8 +106,8 @@ export async function exchangeCodeForToken(code: string): Promise<{
     body: JSON.stringify({
       grant_type: 'authorization_code',
       code,
-      client_id: TINY_API_CONFIG.clientId,
-      client_secret: TINY_API_CONFIG.clientSecret,
+      client_id: clientId,
+      client_secret: clientSecret,
       redirect_uri: `${window.location.origin}/api/tiny/callback`,
     }),
   });
@@ -73,16 +123,22 @@ export async function exchangeCodeForToken(code: string): Promise<{
 /**
  * Renova access token usando refresh token
  * @param refreshToken - Refresh token atual
+ * @param clientId - Client ID do tenant
+ * @param clientSecret - Client Secret do tenant
  * @returns Novo token de acesso
  */
-export async function refreshAccessToken(refreshToken: string): Promise<{
+export async function refreshAccessToken(
+  refreshToken: string,
+  clientId: string,
+  clientSecret: string
+): Promise<{
   access_token: string;
   refresh_token: string;
   expires_in: number;
   token_type: string;
 }> {
-  if (!TINY_API_CONFIG.clientId || !TINY_API_CONFIG.clientSecret) {
-    throw new Error('Credenciais Tiny não configuradas');
+  if (!clientId || !clientSecret) {
+    throw new Error('Credenciais Tiny não fornecidas');
   }
 
   const response = await fetch(`${TINY_API_CONFIG.baseUrl}/oauth/access_token`, {
@@ -93,8 +149,8 @@ export async function refreshAccessToken(refreshToken: string): Promise<{
     body: JSON.stringify({
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
-      client_id: TINY_API_CONFIG.clientId,
-      client_secret: TINY_API_CONFIG.clientSecret,
+      client_id: clientId,
+      client_secret: clientSecret,
     }),
   });
 
@@ -152,18 +208,26 @@ export async function callTinyAPI(
   let accessToken = credentials.access_token;
   let refreshToken = credentials.refresh_token;
 
-  // Se token expirado, renovar
-  if (expiresAt && expiresAt <= now) {
-    console.log('[TinyAPI] Token expirado, renovando...');
-    
-    if (!refreshToken) {
-      throw new Error('Token expirado e refresh token não disponível. Reautorize a conexão.');
-    }
+      // Se token expirado, renovar
+      if (expiresAt && expiresAt <= now) {
+        console.log('[TinyAPI] Token expirado, renovando...');
+        
+        if (!refreshToken) {
+          throw new Error('Token expirado e refresh token não disponível. Reautorize a conexão.');
+        }
 
-    try {
-      const newTokens = await refreshAccessToken(refreshToken);
-      accessToken = newTokens.access_token;
-      refreshToken = newTokens.refresh_token;
+        if (!credentials.client_id || !credentials.client_secret) {
+          throw new Error('Client ID ou Secret não encontrados. Reconfigure a conexão.');
+        }
+
+        try {
+          const newTokens = await refreshAccessToken(
+            refreshToken,
+            credentials.client_id,
+            credentials.client_secret
+          );
+          accessToken = newTokens.access_token;
+          refreshToken = newTokens.refresh_token;
 
       // Atualizar no banco
       const expiresAt = new Date();
