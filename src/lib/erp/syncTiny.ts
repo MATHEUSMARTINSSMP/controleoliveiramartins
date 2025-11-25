@@ -552,7 +552,7 @@ export async function syncTinyOrders(
         registros_com_erro: 0,
         status: 'ERROR',
         error_message: error.message || 'Erro desconhecido',
-        data_inicio: dataInicio || null,
+        data_inicio: dataInicioSync || null,
         data_fim: dataFim || null,
         tempo_execucao_ms: executionTime,
         total_paginas: 0,

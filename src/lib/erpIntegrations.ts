@@ -368,72 +368,46 @@ export async function callERPAPI(
     }
   }
 
-  // Fazer chamada à API (formato específico por sistema)
-  // Tiny ERP v3 usa Bearer token no header
-  let url: string;
-  let requestBody: any;
-  let headers: Record<string, string>;
-
-  if (sistemaERP === 'TINY') {
-    // API v3: https://erp.tiny.com.br/public-api/v3/{endpoint}
-    // Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html
-    url = `${config.apiV3Url}${endpoint}`;
-    
-    // Para GET requests, parâmetros vão na query string
-    // Para POST requests, parâmetros vão no body
-    const isGetRequest = endpoint.includes('/pedidos') || endpoint.includes('/contatos');
-    
-    if (isGetRequest) {
-      // GET: adicionar parâmetros na URL
-      const queryParams = new URLSearchParams();
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== null && value !== undefined) {
-          queryParams.append(key, String(value));
-        }
-      });
-      if (queryParams.toString()) {
-        url += `?${queryParams.toString()}`;
-      }
-      requestBody = null; // GET não tem body
-    } else {
-      // POST: parâmetros no body
-      requestBody = params;
-    }
-    
-    headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    };
-  } else if (sistemaERP === 'BLING') {
-    url = `${config.baseUrl}${endpoint}`;
-    headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    };
-    requestBody = params;
-  } else {
-    // Fallback para API v2 (legado)
-    url = `${config.baseUrl}${endpoint}`;
-    headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    };
-    requestBody = params;
-  }
-
-  // Tiny ERP v3: método já determinado acima
+  // Determinar método HTTP
+  // Tiny ERP v3: GET para listagem, POST para outras operações
   const method = sistemaERP === 'TINY' && (endpoint.includes('/pedidos') || endpoint.includes('/contatos')) 
     ? 'GET'  // Endpoints de listagem são GET
     : 'POST'; // Outros endpoints são POST
+
+  // Fazer requisição via Netlify Function (proxy) para evitar CORS
+  // O frontend não pode fazer requisições diretas para erp.tiny.com.br devido a CORS
+  // O proxy faz a requisição no servidor, que não tem restrições de CORS
+  const proxyUrl = `/.netlify/functions/erp-api-proxy`;
   
-  const response = await fetch(url, {
-    method,
-    headers,
-    body: method === 'POST' && requestBody ? JSON.stringify(requestBody) : undefined,
+  console.log(`[ERPIntegrations] Fazendo requisição via proxy: ${method} ${endpoint}`, params);
+  
+  const response = await fetch(proxyUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      storeId,
+      endpoint,
+      params,
+      method,
+    }),
   });
 
+  // Ler resposta
+  const responseText = await response.text();
+  let data;
+  
+  try {
+    data = JSON.parse(responseText);
+  } catch (e) {
+    console.error('[ERPIntegrations] Erro ao parsear resposta:', responseText);
+    throw new Error(`Erro ao processar resposta da API: ${responseText.substring(0, 200)}`);
+  }
+
+  // Verificar se houve erro na resposta
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Erro desconhecido' }));
+    const errorMessage = data.error || data.message || response.statusText;
     
     if (response.status === 401) {
       await supabase
@@ -448,10 +422,8 @@ export async function callERPAPI(
       throw new Error('Token inválido. Reautorize a conexão.');
     }
 
-    throw new Error(`Erro na API ${sistemaERP}: ${error.message || response.statusText}`);
+    throw new Error(`Erro na API ${sistemaERP}: ${errorMessage}`);
   }
-
-  const data = await response.json();
   
   // Atualizar última sincronização
   await supabase
