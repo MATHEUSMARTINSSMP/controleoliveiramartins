@@ -1416,7 +1416,6 @@ export default function BonusManagement() {
                                     )}
                                 </div>
                             )}
-                        </div>
 
                         {/* Campo de Pré-requisitos (Múltiplos) */}
                         <div>
