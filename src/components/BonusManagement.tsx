@@ -442,8 +442,10 @@ export default function BonusManagement() {
                 // NÃO envia para todas as colaboradoras da loja, apenas para as que receberam a tarefa bônus
                 // Funciona tanto para loja específica quanto "TODAS"
                 if (!editingBonus && bonusId) {
+                    // Executar em background (não bloquear o submit)
                     (async () => {
                         try {
+                            console.log('📱 [BonusManagement] ========== INICIANDO PROCESSO DE ENVIO ==========');
                             console.log('📱 [BonusManagement] Iniciando processo de envio de WhatsApp...');
                             console.log(`📱 [BonusManagement] Buscando colaboradoras VINCULADAS ao bônus ID: ${bonusId}`);
                             
