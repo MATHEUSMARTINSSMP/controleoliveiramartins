@@ -69,18 +69,18 @@ export function WeeklyMetaTracker() {
             const fimSemana = endOfWeek(hoje, { weekStartsOn: 1 });
             const weekRange = { start: inicioSemana, end: fimSemana };
 
-            console.log("[WeeklyMetaTracker] Buscando metas mensais para calcular meta semanal...");
+            console.log("[WeeklyMetaTracker] Buscando metas mensais INDIVIDUAIS para calcular meta semanal...");
             console.log("[WeeklyMetaTracker] Mês atual:", mesAtual);
             console.log("[WeeklyMetaTracker] Semana:", format(inicioSemana, "dd/MM/yyyy"), "até", format(fimSemana, "dd/MM/yyyy"));
 
-            // Buscar todas as metas mensais de loja (pode haver múltiplas lojas)
+            // Buscar todas as metas mensais INDIVIDUAIS (por colaboradora)
             const { data: metasData, error: metaError } = await supabase
                 .schema("sistemaretiradas")
                 .from("goals")
-                .select("meta_valor, store_id, daily_weights, stores(name)")
+                .select("meta_valor, colaboradora_id, daily_weights, profiles(name)")
                 .eq("mes_referencia", mesAtual)
-                .eq("tipo", "MENSAL")
-                .is("colaboradora_id", null);
+                .eq("tipo", "INDIVIDUAL")
+                .not("colaboradora_id", "is", null);
 
             if (metaError) {
                 console.error("[WeeklyMetaTracker] Erro ao buscar metas:", metaError);
@@ -88,29 +88,29 @@ export function WeeklyMetaTracker() {
             }
 
             if (!metasData || metasData.length === 0) {
-                console.warn("[WeeklyMetaTracker] Nenhuma meta mensal encontrada para calcular meta semanal");
+                console.warn("[WeeklyMetaTracker] Nenhuma meta mensal individual encontrada para calcular meta semanal");
                 setWeeklyMeta(null);
                 setLoading(false);
                 return;
             }
 
-            console.log("[WeeklyMetaTracker] Metas mensais encontradas:", metasData.length, metasData);
+            console.log("[WeeklyMetaTracker] Metas individuais encontradas:", metasData.length, metasData);
 
-            // Calcular meta semanal agregada de todas as lojas
+            // Calcular meta semanal agregada de todas as colaboradoras
             let metaSemanalTotal = 0;
-            const storeIds: string[] = [];
+            const colaboradoraIds: string[] = [];
             
             metasData.forEach((meta: any) => {
                 const monthlyGoal = Number(meta.meta_valor || 0);
                 const dailyWeights = meta.daily_weights || {};
                 const weeklyGoal = calculateWeeklyGoalFromMonthly(monthlyGoal, dailyWeights, weekRange);
                 metaSemanalTotal += weeklyGoal;
-                if (meta.store_id) storeIds.push(meta.store_id);
+                if (meta.colaboradora_id) colaboradoraIds.push(meta.colaboradora_id);
             });
 
             console.log("[WeeklyMetaTracker] Meta semanal calculada (total agregado):", metaSemanalTotal);
 
-            // Buscar vendas da semana de todas as lojas
+            // Buscar vendas da semana de todas as colaboradoras
             let query = supabase
                 .schema("sistemaretiradas")
                 .from("sales")
@@ -118,8 +118,8 @@ export function WeeklyMetaTracker() {
                 .gte("data_venda", format(inicioSemana, "yyyy-MM-dd'T'00:00:00"))
                 .lte("data_venda", format(fimSemana, "yyyy-MM-dd'T'23:59:59"));
 
-            if (storeIds.length > 0) {
-                query = query.in("store_id", storeIds);
+            if (colaboradoraIds.length > 0) {
+                query = query.in("colaboradora_id", colaboradoraIds);
             }
 
             const { data: salesData, error: salesError } = await query;
@@ -146,7 +146,7 @@ export function WeeklyMetaTracker() {
                 progress: Math.min(progress, 100),
                 diasRestantes,
                 mediaDiariaNecessaria,
-                storeName: metasData.length === 1 ? (metasData[0].stores as any)?.name || "Loja" : `${metasData.length} Lojas`,
+                storeName: `${metasData.length} Colaboradora${metasData.length > 1 ? 's' : ''}`,
             });
         } catch (error) {
             console.error("[WeeklyMetaTracker] Error fetching weekly meta:", error);

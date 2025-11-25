@@ -37,16 +37,16 @@ export function MonthlyOverview() {
             const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
             const diasRestantes = daysInMonth - hoje.getDate() + 1;
 
-            console.log("[MonthlyOverview] Buscando metas mensais para mês:", mesAtual);
+            console.log("[MonthlyOverview] Buscando metas mensais INDIVIDUAIS para mês:", mesAtual);
 
-            // Buscar todas as metas mensais de loja (pode haver múltiplas lojas)
+            // Buscar todas as metas mensais INDIVIDUAIS (por colaboradora)
             const { data: metasData, error: metaError } = await supabase
                 .schema("sistemaretiradas")
                 .from("goals")
-                .select("meta_valor, store_id")
+                .select("meta_valor, colaboradora_id, profiles(name)")
                 .eq("mes_referencia", mesAtual)
-                .eq("tipo", "MENSAL")
-                .is("colaboradora_id", null);
+                .eq("tipo", "INDIVIDUAL")
+                .not("colaboradora_id", "is", null);
 
             if (metaError) {
                 console.error("[MonthlyOverview] Erro ao buscar metas:", metaError);
@@ -54,27 +54,27 @@ export function MonthlyOverview() {
             }
 
             if (!metasData || metasData.length === 0) {
-                console.warn("[MonthlyOverview] Nenhuma meta mensal encontrada para mês:", mesAtual);
+                console.warn("[MonthlyOverview] Nenhuma meta mensal individual encontrada para mês:", mesAtual);
                 setMonthlyData(null);
                 setLoading(false);
                 return;
             }
 
-            console.log("[MonthlyOverview] Metas encontradas:", metasData.length, metasData);
+            console.log("[MonthlyOverview] Metas individuais encontradas:", metasData.length, metasData);
 
-            // Agregar todas as metas mensais (soma de todas as lojas)
+            // Agregar todas as metas mensais individuais (soma de todas as colaboradoras)
             const metaMensalTotal = metasData.reduce((sum, meta) => sum + Number(meta.meta_valor || 0), 0);
-            const storeIds = metasData.map(m => m.store_id).filter(Boolean) as string[];
+            const colaboradoraIds = metasData.map(m => m.colaboradora_id).filter(Boolean) as string[];
 
-            // Buscar vendas do mês de todas as lojas
+            // Buscar vendas do mês de todas as colaboradoras
             let query = supabase
                 .schema("sistemaretiradas")
                 .from("sales")
                 .select("valor, colaboradora_id, profiles!inner(name)")
                 .gte("data_venda", `${startOfMonth}T00:00:00`);
 
-            if (storeIds.length > 0) {
-                query = query.in("store_id", storeIds);
+            if (colaboradoraIds.length > 0) {
+                query = query.in("colaboradora_id", colaboradoraIds);
             }
 
             const { data: salesData, error: salesError } = await query;
