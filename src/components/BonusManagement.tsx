@@ -579,8 +579,9 @@ export default function BonusManagement() {
                                 }
                             }
 
-                            // Buscar e enviar para números da tabela whatsapp_notification_config (tipo VENDA)
-                            // Isso envia para os mesmos números que recebem notificações de vendas
+                            // Buscar e enviar para números da tabela whatsapp_notification_config
+                            // Busca tanto VENDA (números globais) quanto PARABENS (números específicos da loja)
+                            // PARABENS é usado porque a colaboradora está na loja e não está com seu celular
                             if (formData.store_id && formData.store_id !== "TODAS") {
                                 console.log('📱 [BonusManagement] Buscando números WhatsApp da tabela whatsapp_notification_config para loja:', formData.store_id);
                                 
@@ -595,7 +596,7 @@ export default function BonusManagement() {
                                 if (storeData && storeData.admin_id) {
                                     const storeAdminId = storeData.admin_id;
                                     
-                                    // Buscar destinatários: store_id IS NULL (todas as lojas) OU store_id = loja atual
+                                    // Buscar destinatários VENDA: store_id IS NULL (todas as lojas) OU store_id = loja atual
                                     const { data: recipientsAllStores } = await supabase
                                         .schema('sistemaretiradas')
                                         .from('whatsapp_notification_config')
@@ -614,18 +615,29 @@ export default function BonusManagement() {
                                         .eq('active', true)
                                         .eq('store_id', formData.store_id);
                                     
+                                    // Buscar destinatários PARABENS: específicos da loja (como configurado pelo usuário)
+                                    const { data: parabensRecipients, error: parabensError } = await supabase
+                                        .schema('sistemaretiradas')
+                                        .from('whatsapp_notification_config')
+                                        .select('phone')
+                                        .eq('admin_id', storeAdminId)
+                                        .eq('notification_type', 'PARABENS')
+                                        .eq('active', true)
+                                        .eq('store_id', formData.store_id); // PARABENS deve ser específico da loja
+                                    
                                     // Combinar resultados e remover duplicatas
                                     const recipientsData = [
                                         ...(recipientsAllStores || []),
-                                        ...(recipientsThisStore || [])
+                                        ...(recipientsThisStore || []),
+                                        ...(parabensRecipients || [])
                                     ].filter((item, index, self) => 
                                         index === self.findIndex(t => t.phone === item.phone)
                                     );
                                     
-                                    if (recipientsError) {
-                                        console.error('❌ [BonusManagement] Erro ao buscar destinatários WhatsApp:', recipientsError);
+                                    if (recipientsError || parabensError) {
+                                        console.error('❌ [BonusManagement] Erro ao buscar destinatários WhatsApp:', recipientsError || parabensError);
                                     } else if (recipientsData && recipientsData.length > 0) {
-                                        console.log(`📱 [BonusManagement] ${recipientsData.length} número(s) encontrado(s) na tabela whatsapp_notification_config`);
+                                        console.log(`📱 [BonusManagement] ${recipientsData.length} número(s) encontrado(s) na tabela whatsapp_notification_config (VENDA + PARABENS)`);
                                         
                                         const temPremiosPorPosicao = formData.categoria_condicao === "BASICA" && 
                                                                      formData.condicao_ranking && 
