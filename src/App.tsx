@@ -23,6 +23,7 @@ import WeeklyGoalsManagement from "./components/WeeklyGoalsManagement";
 import Seed from "./pages/Seed";
 import ForgotPassword from "./pages/ForgotPassword";
 import Landing from "./pages/Landing";
+import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/" element={<Auth />} />
             <Route path="/home" element={<Index />} />
             <Route path="/landing" element={<Landing />} />
+            <Route path="/landingteste" element={<LandingPage />} />
             <Route path="/seed" element={<Seed />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/admin" element={<AdminDashboard />} />
