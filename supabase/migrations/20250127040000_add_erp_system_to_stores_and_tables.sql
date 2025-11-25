@@ -190,6 +190,7 @@ CREATE INDEX IF NOT EXISTS idx_tiny_contacts_cpf_cnpj ON tiny_contacts(cpf_cnpj)
 -- tiny_products
 ALTER TABLE tiny_products ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "admin_tiny_products_all" ON tiny_products;
 CREATE POLICY "admin_tiny_products_all" ON tiny_products
     FOR ALL
     USING (
@@ -200,6 +201,7 @@ CREATE POLICY "admin_tiny_products_all" ON tiny_products
         )
     );
 
+DROP POLICY IF EXISTS "loja_tiny_products_read" ON tiny_products;
 CREATE POLICY "loja_tiny_products_read" ON tiny_products
     FOR SELECT
     USING (
@@ -214,6 +216,7 @@ CREATE POLICY "loja_tiny_products_read" ON tiny_products
 -- tiny_orders
 ALTER TABLE tiny_orders ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "admin_tiny_orders_all" ON tiny_orders;
 CREATE POLICY "admin_tiny_orders_all" ON tiny_orders
     FOR ALL
     USING (
@@ -224,6 +227,7 @@ CREATE POLICY "admin_tiny_orders_all" ON tiny_orders
         )
     );
 
+DROP POLICY IF EXISTS "loja_tiny_orders_read" ON tiny_orders;
 CREATE POLICY "loja_tiny_orders_read" ON tiny_orders
     FOR SELECT
     USING (
@@ -238,6 +242,7 @@ CREATE POLICY "loja_tiny_orders_read" ON tiny_orders
 -- tiny_contacts
 ALTER TABLE tiny_contacts ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "admin_tiny_contacts_all" ON tiny_contacts;
 CREATE POLICY "admin_tiny_contacts_all" ON tiny_contacts
     FOR ALL
     USING (
@@ -248,6 +253,7 @@ CREATE POLICY "admin_tiny_contacts_all" ON tiny_contacts
         )
     );
 
+DROP POLICY IF EXISTS "loja_tiny_contacts_read" ON tiny_contacts;
 CREATE POLICY "loja_tiny_contacts_read" ON tiny_contacts
     FOR SELECT
     USING (
@@ -335,6 +341,7 @@ CREATE INDEX IF NOT EXISTS idx_erp_sync_logs_sync_at ON erp_sync_logs(sync_at);
 -- RLS para logs
 ALTER TABLE erp_sync_logs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "admin_erp_sync_logs_all" ON erp_sync_logs;
 CREATE POLICY "admin_erp_sync_logs_all" ON erp_sync_logs
     FOR ALL
     USING (
@@ -345,6 +352,7 @@ CREATE POLICY "admin_erp_sync_logs_all" ON erp_sync_logs
         )
     );
 
+DROP POLICY IF EXISTS "loja_erp_sync_logs_read" ON erp_sync_logs;
 CREATE POLICY "loja_erp_sync_logs_read" ON erp_sync_logs
     FOR SELECT
     USING (
