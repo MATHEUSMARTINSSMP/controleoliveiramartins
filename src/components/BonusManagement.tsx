@@ -15,6 +15,30 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { sendWhatsAppMessage, formatBonusMessage } from "@/lib/whatsapp";
 
+// Função auxiliar para identificar o tipo de pré-requisito a partir do texto
+function getPreRequisitoTipo(preRequisitos: string | null | undefined): string {
+    if (!preRequisitos || !preRequisitos.trim()) {
+        return "NENHUM";
+    }
+    
+    const text = preRequisitos.toLowerCase().trim();
+    
+    if (text.includes("loja") && text.includes("meta mensal")) {
+        return "LOJA_META_MENSAL";
+    }
+    if (text.includes("loja") && text.includes("meta semanal")) {
+        return "LOJA_META_SEMANAL";
+    }
+    if ((text.includes("consultora") || text.includes("colaboradora")) && text.includes("meta mensal")) {
+        return "COLAB_META_MENSAL";
+    }
+    if ((text.includes("consultora") || text.includes("colaboradora")) && text.includes("meta semanal")) {
+        return "COLAB_META_SEMANAL";
+    }
+    
+    return "CUSTOM";
+}
+
 interface Bonus {
     id: string;
     nome: string;
@@ -442,6 +466,7 @@ export default function BonusManagement() {
             periodo_mes: (bonus as any).periodo_mes || "",
             periodo_semana: (bonus as any).periodo_semana || "",
             pre_requisitos: (bonus as any).pre_requisitos || "",
+            pre_requisitos_tipo: getPreRequisitoTipo((bonus as any).pre_requisitos),
         });
 
         // Carregar colaboradoras vinculadas
@@ -502,6 +527,7 @@ export default function BonusManagement() {
             periodo_mes: "",
             periodo_semana: "",
             pre_requisitos: "",
+            pre_requisitos_tipo: "NENHUM",
         });
         setSelectedCollaborators([]);
         setAvailableCollaborators([]);
