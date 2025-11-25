@@ -33,21 +33,33 @@ COMMENT ON COLUMN stores.sistema_erp IS 'Sistema ERP utilizado pela loja: TINY, 
 -- 2. ATUALIZAR erp_integrations (garantir que sistema_erp bate com stores)
 -- =============================================================================
 -- Adicionar constraint para garantir que sistema_erp da integração bate com o da loja
+-- Só adiciona se a tabela erp_integrations existir
 DO $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint 
-        WHERE conname = 'check_erp_integration_sistema_match'
+    -- Verificar se a tabela existe
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'sistemaretiradas' 
+        AND table_name = 'erp_integrations'
     ) THEN
-        ALTER TABLE erp_integrations
-        ADD CONSTRAINT check_erp_integration_sistema_match
-        CHECK (
-            EXISTS (
-                SELECT 1 FROM stores
-                WHERE stores.id = erp_integrations.store_id
-                AND stores.sistema_erp = erp_integrations.sistema_erp
-            )
-        );
+        -- Verificar se a constraint não existe
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint 
+            WHERE conname = 'check_erp_integration_sistema_match'
+        ) THEN
+            ALTER TABLE erp_integrations
+            ADD CONSTRAINT check_erp_integration_sistema_match
+            CHECK (
+                EXISTS (
+                    SELECT 1 FROM stores
+                    WHERE stores.id = erp_integrations.store_id
+                    AND (
+                        stores.sistema_erp = erp_integrations.sistema_erp
+                        OR stores.sistema_erp IS NULL
+                    )
+                )
+            );
+        END IF;
     END IF;
 END $$;
 
