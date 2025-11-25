@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "lucide-react";
 import { format } from "date-fns";
 
@@ -21,12 +22,29 @@ interface MonthlyData {
 export function MonthlyOverview() {
     const [monthlyData, setMonthlyData] = useState<MonthlyData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
+    const [selectedStore, setSelectedStore] = useState<string>("TODAS");
+
+    useEffect(() => {
+        fetchStores();
+    }, []);
 
     useEffect(() => {
         fetchMonthlyData();
         const interval = setInterval(fetchMonthlyData, 30000);
         return () => clearInterval(interval);
-    }, []);
+    }, [selectedStore]);
+
+    const fetchStores = async () => {
+        const { data } = await supabase
+            .schema("sistemaretiradas")
+            .from("stores")
+            .select("id, name")
+            .eq("active", true)
+            .order("name");
+
+        if (data) setStores(data);
+    };
 
     const fetchMonthlyData = async () => {
         try {
@@ -65,14 +83,27 @@ export function MonthlyOverview() {
 
             console.log("[MonthlyOverview] Colaboradoras com meta:", colaboradoraIds.length);
 
-            // Buscar nomes de todas as colaboradoras
-            const { data: profilesData } = await supabase
+            // Buscar nomes de todas as colaboradoras (com filtro de loja se necessário)
+            let profilesQuery = supabase
                 .schema("sistemaretiradas")
                 .from("profiles")
-                .select("id, name")
+                .select("id, name, store_id")
                 .in("id", colaboradoraIds);
 
+            if (selectedStore !== "TODAS") {
+                profilesQuery = profilesQuery.eq("store_id", selectedStore);
+            }
+
+            const { data: profilesData } = await profilesQuery;
+
             const profilesMap = new Map((profilesData || []).map((p: any) => [p.id, p.name]));
+            const filteredColabIds = (profilesData || []).map((p: any) => p.id).filter(Boolean) as string[];
+
+            if (filteredColabIds.length === 0) {
+                setMonthlyData({ colaboradoras: [] });
+                setLoading(false);
+                return;
+            }
 
             // Buscar vendas do mês de todas as colaboradoras - usar schema como no dashboard da loja
             let query = supabase
@@ -81,8 +112,8 @@ export function MonthlyOverview() {
                 .select("valor, colaboradora_id")
                 .gte("data_venda", `${startOfMonth}T00:00:00`);
 
-            if (colaboradoraIds.length > 0) {
-                query = query.in("colaboradora_id", colaboradoraIds);
+            if (filteredColabIds.length > 0) {
+                query = query.in("colaboradora_id", filteredColabIds);
             }
 
             const { data: salesData, error: salesError } = await query;
@@ -104,21 +135,23 @@ export function MonthlyOverview() {
                 salesByColab[colabId] += Number(sale.valor || 0);
             });
 
-            // Criar lista de colaboradoras com suas metas e vendas
-            const colaboradoras: ColaboradoraMeta[] = metasData.map((meta: any) => {
+            // Criar lista de colaboradoras com suas metas e vendas (apenas as filtradas)
+            const colaboradoras: ColaboradoraMeta[] = metasData
+                .filter((meta: any) => filteredColabIds.includes(meta.colaboradora_id))
+                .map((meta: any) => {
                 const colabId = meta.colaboradora_id;
                 const metaMensal = Number(meta.meta_valor || 0);
                 const vendidoMes = salesByColab[colabId] || 0;
                 const progress = metaMensal > 0 ? (vendidoMes / metaMensal) * 100 : 0;
 
-                return {
-                    id: colabId,
-                    name: profilesMap.get(colabId) || "Desconhecida",
-                    metaMensal,
-                    vendidoMes,
-                    progress: Math.min(progress, 100),
-                };
-            });
+                    return {
+                        id: colabId,
+                        name: profilesMap.get(colabId) || "Desconhecida",
+                        metaMensal,
+                        vendidoMes,
+                        progress: Math.min(progress, 100),
+                    };
+                });
 
             // Ordenar por progresso (maior primeiro)
             colaboradoras.sort((a, b) => b.progress - a.progress);
@@ -181,10 +214,25 @@ export function MonthlyOverview() {
     return (
         <Card className="col-span-1 bg-gradient-to-br from-card to-card/50 border-primary/10">
             <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                    <Calendar className="h-5 w-5 text-primary" />
-                    Visão Mensal
-                </CardTitle>
+                <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                        <Calendar className="h-5 w-5 text-primary" />
+                        Visão Mensal
+                    </CardTitle>
+                    <Select value={selectedStore} onValueChange={setSelectedStore}>
+                        <SelectTrigger className="w-[180px] h-8 text-xs">
+                            <SelectValue placeholder="Todas as lojas" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="TODAS">Todas as lojas</SelectItem>
+                            {stores.map((store) => (
+                                <SelectItem key={store.id} value={store.id}>
+                                    {store.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </CardHeader>
             <CardContent className="space-y-3">
                 <div className="space-y-2">

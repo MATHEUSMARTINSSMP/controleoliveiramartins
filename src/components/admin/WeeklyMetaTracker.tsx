@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "lucide-react";
 import { format, startOfWeek, endOfWeek, getWeek, getYear, eachDayOfInterval } from "date-fns";
 
@@ -21,12 +22,29 @@ interface WeeklyMetaData {
 export function WeeklyMetaTracker() {
     const [weeklyMeta, setWeeklyMeta] = useState<WeeklyMetaData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
+    const [selectedStore, setSelectedStore] = useState<string>("TODAS");
+
+    useEffect(() => {
+        fetchStores();
+    }, []);
 
     useEffect(() => {
         fetchWeeklyMeta();
         const interval = setInterval(fetchWeeklyMeta, 30000);
         return () => clearInterval(interval);
-    }, []);
+    }, [selectedStore]);
+
+    const fetchStores = async () => {
+        const { data } = await supabase
+            .schema("sistemaretiradas")
+            .from("stores")
+            .select("id, name")
+            .eq("active", true)
+            .order("name");
+
+        if (data) setStores(data);
+    };
 
     // Função para gerar semana_referencia no formato WWYYYY
     const getCurrentWeekRef = (): string => {
@@ -103,14 +121,27 @@ export function WeeklyMetaTracker() {
 
             console.log("[WeeklyMetaTracker] Colaboradoras com meta:", colaboradoraIds.length);
 
-            // Buscar nomes de todas as colaboradoras
-            const { data: profilesData } = await supabase
+            // Buscar nomes de todas as colaboradoras (com filtro de loja se necessário)
+            let profilesQuery = supabase
                 .schema("sistemaretiradas")
                 .from("profiles")
-                .select("id, name")
+                .select("id, name, store_id")
                 .in("id", colaboradoraIds);
 
+            if (selectedStore !== "TODAS") {
+                profilesQuery = profilesQuery.eq("store_id", selectedStore);
+            }
+
+            const { data: profilesData } = await profilesQuery;
+
             const profilesMap = new Map((profilesData || []).map((p: any) => [p.id, p.name]));
+            const filteredColabIds = (profilesData || []).map((p: any) => p.id).filter(Boolean) as string[];
+
+            if (filteredColabIds.length === 0) {
+                setWeeklyMeta({ colaboradoras: [] });
+                setLoading(false);
+                return;
+            }
 
             // Buscar vendas da semana de todas as colaboradoras - usar schema como no dashboard da loja
             let query = supabase
@@ -120,8 +151,8 @@ export function WeeklyMetaTracker() {
                 .gte("data_venda", format(inicioSemana, "yyyy-MM-dd'T'00:00:00"))
                 .lte("data_venda", format(fimSemana, "yyyy-MM-dd'T'23:59:59"));
 
-            if (colaboradoraIds.length > 0) {
-                query = query.in("colaboradora_id", colaboradoraIds);
+            if (filteredColabIds.length > 0) {
+                query = query.in("colaboradora_id", filteredColabIds);
             }
 
             const { data: salesData, error: salesError } = await query;
@@ -143,8 +174,10 @@ export function WeeklyMetaTracker() {
                 salesByColab[colabId] += Number(sale.valor || 0);
             });
 
-            // Criar lista de colaboradoras com suas metas semanais e vendas
-            const colaboradoras: ColaboradoraMetaSemanal[] = metasData.map((meta: any) => {
+            // Criar lista de colaboradoras com suas metas semanais e vendas (apenas as filtradas)
+            const colaboradoras: ColaboradoraMetaSemanal[] = metasData
+                .filter((meta: any) => filteredColabIds.includes(meta.colaboradora_id))
+                .map((meta: any) => {
                 const colabId = meta.colaboradora_id;
                 const monthlyGoal = Number(meta.meta_valor || 0);
                 const dailyWeights = meta.daily_weights || {};
@@ -152,14 +185,14 @@ export function WeeklyMetaTracker() {
                 const vendidoSemana = salesByColab[colabId] || 0;
                 const progress = metaSemanal > 0 ? (vendidoSemana / metaSemanal) * 100 : 0;
 
-                return {
-                    id: colabId,
-                    name: profilesMap.get(colabId) || "Desconhecida",
-                    metaSemanal,
-                    vendidoSemana,
-                    progress: Math.min(progress, 100),
-                };
-            });
+                    return {
+                        id: colabId,
+                        name: profilesMap.get(colabId) || "Desconhecida",
+                        metaSemanal,
+                        vendidoSemana,
+                        progress: Math.min(progress, 100),
+                    };
+                });
 
             // Ordenar por progresso (maior primeiro)
             colaboradoras.sort((a, b) => b.progress - a.progress);
@@ -222,10 +255,25 @@ export function WeeklyMetaTracker() {
     return (
         <Card className="col-span-1 bg-gradient-to-br from-card to-card/50 border-primary/10">
             <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                    <Calendar className="h-5 w-5 text-primary" />
-                    Meta Semanal
-                </CardTitle>
+                <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                        <Calendar className="h-5 w-5 text-primary" />
+                        Meta Semanal
+                    </CardTitle>
+                    <Select value={selectedStore} onValueChange={setSelectedStore}>
+                        <SelectTrigger className="w-[180px] h-8 text-xs">
+                            <SelectValue placeholder="Todas as lojas" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="TODAS">Todas as lojas</SelectItem>
+                            {stores.map((store) => (
+                                <SelectItem key={store.id} value={store.id}>
+                                    {store.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </CardHeader>
             <CardContent className="space-y-3">
                 <div className="space-y-2">
