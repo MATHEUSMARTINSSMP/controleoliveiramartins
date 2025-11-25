@@ -437,16 +437,86 @@ export default function BonusManagement() {
                             // Preparar descrição do bônus (não incluir condições, apenas descrição)
                             // Pré-requisitos serão enviados separadamente
 
+                            // Buscar perfil da loja vinculada (se houver store_id)
+                            let lojaProfile: any = null;
+                            if (formData.store_id && formData.store_id !== "TODAS") {
+                                const { data: lojaData } = await supabase
+                                    .schema('sistemaretiradas')
+                                    .from('profiles')
+                                    .select('id, name, whatsapp')
+                                    .eq('store_default', formData.store_id)
+                                    .eq('role', 'LOJA')
+                                    .eq('active', true)
+                                    .maybeSingle();
+                                
+                                if (lojaData && lojaData.whatsapp && lojaData.whatsapp.trim()) {
+                                    lojaProfile = lojaData;
+                                    console.log(`📱 [BonusManagement] Loja vinculada encontrada: ${lojaData.name} (WhatsApp: ${lojaData.whatsapp})`);
+                                } else {
+                                    console.log(`📱 [BonusManagement] Loja vinculada não tem WhatsApp configurado ou não encontrada`);
+                                }
+                            }
+
                             // Enviar mensagem APENAS para colaboradoras vinculadas que têm WhatsApp configurado
                             const colaboradorasComWhatsApp = colaboradorasData.filter((colab: any) => colab.whatsapp && colab.whatsapp.trim());
                             console.log(`📱 [BonusManagement] ${colaboradorasComWhatsApp.length} colaboradora(s) vinculada(s) com WhatsApp configurado`);
                             
-                            if (colaboradorasComWhatsApp.length === 0) {
-                                console.warn('⚠️ [BonusManagement] Nenhuma colaboradora vinculada tem WhatsApp configurado');
+                            // Preparar lista de promises para envio
+                            const promises: Promise<any>[] = [];
+
+                            // Adicionar envio para a loja (se houver)
+                            if (lojaProfile) {
+                                const lojaPhone = lojaProfile.whatsapp.replace(/\D/g, '');
+                                
+                                if (lojaPhone && lojaPhone.length >= 10) {
+                                    const temPremiosPorPosicao = formData.categoria_condicao === "BASICA" && 
+                                                                 formData.condicao_ranking && 
+                                                                 formData.condicao_ranking !== "" &&
+                                                                 parseInt(formData.condicao_ranking) > 0;
+
+                                    const lojaMessage = formatBonusMessage({
+                                        colaboradoraName: lojaProfile.name,
+                                        bonusName: formData.nome,
+                                        bonusDescription: formData.descricao || null,
+                                        valorBonus: temPremiosPorPosicao ? null : (formData.is_premio_fisico ? null : (formData.valor_bonus ? parseFloat(formData.valor_bonus) : null)),
+                                        valorBonusTexto: temPremiosPorPosicao ? null : (formData.is_premio_fisico ? (formData.valor_bonus_texto || formData.descricao_premio || null) : null),
+                                        storeName: storeName || undefined,
+                                        preRequisitos: Array.isArray(formData.pre_requisitos) ? formData.pre_requisitos.filter(pr => pr && pr.trim()) : null,
+                                        valorBonus1: formData.valor_bonus_1 ? parseFloat(formData.valor_bonus_1) : null,
+                                        valorBonus2: formData.valor_bonus_2 ? parseFloat(formData.valor_bonus_2) : null,
+                                        valorBonus3: formData.valor_bonus_3 ? parseFloat(formData.valor_bonus_3) : null,
+                                        valorBonusTexto1: formData.valor_bonus_texto_1 || null,
+                                        valorBonusTexto2: formData.valor_bonus_texto_2 || null,
+                                        valorBonusTexto3: formData.valor_bonus_texto_3 || null,
+                                        condicaoRanking: formData.condicao_ranking ? parseInt(formData.condicao_ranking) : null,
+                                    });
+
+                                    promises.push(
+                                        sendWhatsAppMessage({
+                                            phone: lojaPhone,
+                                            message: lojaMessage,
+                                        }).then(result => {
+                                            if (result.success) {
+                                                console.log(`✅ [BonusManagement] WhatsApp enviado com sucesso para LOJA ${lojaProfile.name} (${lojaPhone})`);
+                                            } else {
+                                                console.warn(`⚠️ [BonusManagement] Falha ao enviar WhatsApp para LOJA ${lojaProfile.name} (${lojaPhone}):`, result.error);
+                                            }
+                                        }).catch(err => {
+                                            console.error(`❌ [BonusManagement] Erro ao enviar WhatsApp para LOJA ${lojaProfile.name} (${lojaPhone}):`, err);
+                                        })
+                                    );
+                                } else {
+                                    console.warn(`⚠️ [BonusManagement] WhatsApp inválido para LOJA ${lojaProfile.name}: ${lojaProfile.whatsapp}`);
+                                }
+                            }
+
+                            if (colaboradorasComWhatsApp.length === 0 && promises.length === 0) {
+                                console.warn('⚠️ [BonusManagement] Nenhuma colaboradora ou loja vinculada tem WhatsApp configurado');
                                 return;
                             }
 
-                            const promises = colaboradorasComWhatsApp.map(async (colab: any) => {
+                            // Adicionar envios para colaboradoras
+                            const colaboradorasPromises = colaboradorasComWhatsApp.map(async (colab: any) => {
                                     const phone = colab.whatsapp.replace(/\D/g, '');
                                     
                                     if (!phone || phone.length < 10) {
@@ -1339,122 +1409,191 @@ export default function BonusManagement() {
                             )}
                         </div>
 
-                        {/* Campo de Pré-requisitos */}
+                        {/* Campo de Pré-requisitos (Múltiplos) */}
                         <div>
-                            <Label className="text-xs sm:text-sm">Pré-requisitos (Opcional)</Label>
-                            <Select
-                                value={formData.pre_requisitos_tipo || "NENHUM"}
-                                onValueChange={(value) => {
-                                    let preReqText = "";
-                                    switch (value) {
-                                        case "LOJA_META_MENSAL":
-                                            preReqText = "Válido apenas se a loja bater a meta mensal";
-                                            break;
-                                        case "LOJA_SUPER_META_MENSAL":
-                                            preReqText = "Válido apenas se a loja bater a super meta mensal";
-                                            break;
-                                        case "LOJA_META_SEMANAL":
-                                            preReqText = "Válido apenas se a loja bater a meta semanal";
-                                            break;
-                                        case "LOJA_SUPER_META_SEMANAL":
-                                            preReqText = "Válido apenas se a loja bater a super meta semanal";
-                                            break;
-                                        case "COLAB_META_MENSAL":
-                                            preReqText = "Válido apenas se a consultora atingir meta mensal";
-                                            break;
-                                        case "COLAB_SUPER_META_MENSAL":
-                                            preReqText = "Válido apenas se a consultora atingir super meta mensal";
-                                            break;
-                                        case "COLAB_META_SEMANAL":
-                                            preReqText = "Válido apenas se a colaboradora atingir meta semanal";
-                                            break;
-                                        case "COLAB_SUPER_META_SEMANAL":
-                                            preReqText = "Válido apenas se a colaboradora atingir super meta semanal";
-                                            break;
-                                        case "COLAB_META_DIARIA":
-                                            preReqText = "Válido apenas se a colaboradora atingir meta diária";
-                                            break;
-                                        case "NENHUM":
-                                            preReqText = "";
-                                            break;
-                                        default:
-                                            preReqText = formData.pre_requisitos || "";
-                                    }
-                                    setFormData({ 
-                                        ...formData, 
-                                        pre_requisitos_tipo: value,
-                                        pre_requisitos: preReqText
-                                    });
-                                }}
-                            >
-                                <SelectTrigger className="text-xs sm:text-sm">
-                                    <SelectValue placeholder="Selecione um pré-requisito" />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-[300px] overflow-y-auto">
-                                    <SelectItem value="NENHUM">Nenhum pré-requisito</SelectItem>
-                                    
-                                    {/* Loja - Metas Mensais */}
-                                    <div className="px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground">
-                                        Loja - Metas Mensais
-                                    </div>
-                                    <SelectItem value="LOJA_META_MENSAL">Loja deve bater meta mensal</SelectItem>
-                                    <SelectItem value="LOJA_SUPER_META_MENSAL">Loja deve bater super meta mensal</SelectItem>
-                                    
-                                    {/* Loja - Metas Semanais */}
-                                    <div className="px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground mt-2">
-                                        Loja - Metas Semanais
-                                    </div>
-                                    <SelectItem value="LOJA_META_SEMANAL">Loja deve bater meta semanal</SelectItem>
-                                    <SelectItem value="LOJA_SUPER_META_SEMANAL">Loja deve bater super meta semanal</SelectItem>
-                                    
-                                    {/* Colaboradora - Metas Mensais */}
-                                    <div className="px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground mt-2">
-                                        Colaboradora - Metas Mensais
-                                    </div>
-                                    <SelectItem value="COLAB_META_MENSAL">Colaboradora deve atingir meta mensal</SelectItem>
-                                    <SelectItem value="COLAB_SUPER_META_MENSAL">Colaboradora deve atingir super meta mensal</SelectItem>
-                                    
-                                    {/* Colaboradora - Metas Semanais */}
-                                    <div className="px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground mt-2">
-                                        Colaboradora - Metas Semanais
-                                    </div>
-                                    <SelectItem value="COLAB_META_SEMANAL">Colaboradora deve atingir meta semanal</SelectItem>
-                                    <SelectItem value="COLAB_SUPER_META_SEMANAL">Colaboradora deve atingir super meta semanal</SelectItem>
-                                    
-                                    {/* Colaboradora - Metas Diárias */}
-                                    <div className="px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground mt-2">
-                                        Colaboradora - Metas Diárias
-                                    </div>
-                                    <SelectItem value="COLAB_META_DIARIA">Colaboradora deve atingir meta diária</SelectItem>
-                                    
-                                    {/* Personalizado */}
-                                    <div className="px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground mt-2">
-                                        Outros
-                                    </div>
-                                    <SelectItem value="CUSTOM">Pré-requisito personalizado (texto livre)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            
-                            {/* Mostrar textarea apenas se for CUSTOM */}
-                            {formData.pre_requisitos_tipo === "CUSTOM" && (
-                                <Textarea
-                                    value={formData.pre_requisitos}
-                                    onChange={(e) => setFormData({ ...formData, pre_requisitos: e.target.value })}
-                                    placeholder="Digite o pré-requisito personalizado..."
-                                    rows={3}
-                                    className="text-xs sm:text-sm resize-none mt-2"
-                                />
-                            )}
-                            
-                            {/* Mostrar preview do pré-requisito selecionado */}
-                            {formData.pre_requisitos_tipo && formData.pre_requisitos_tipo !== "NENHUM" && formData.pre_requisitos_tipo !== "CUSTOM" && formData.pre_requisitos && (
-                                <p className="text-[10px] sm:text-xs text-muted-foreground mt-2 p-2 bg-muted rounded">
-                                    📋 <strong>Pré-requisito:</strong> {formData.pre_requisitos}
+                            <div className="flex items-center justify-between mb-2">
+                                <Label className="text-xs sm:text-sm">Pré-requisitos (Opcional)</Label>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        const currentPreReqs = Array.isArray(formData.pre_requisitos) ? formData.pre_requisitos : [];
+                                        setFormData({
+                                            ...formData,
+                                            pre_requisitos: [...currentPreReqs, ""],
+                                            pre_requisitos_tipos: [...(formData.pre_requisitos_tipos || []), "NENHUM"]
+                                        });
+                                    }}
+                                    className="h-7 px-2 text-xs"
+                                >
+                                    <Plus className="h-3 w-3 mr-1" />
+                                    Adicionar
+                                </Button>
+                            </div>
+
+                            {/* Lista de pré-requisitos */}
+                            {Array.isArray(formData.pre_requisitos) && formData.pre_requisitos.length > 0 ? (
+                                <div className="space-y-2">
+                                    {formData.pre_requisitos.map((preReq, index) => (
+                                        <div key={index} className="flex gap-2 items-start">
+                                            <div className="flex-1">
+                                                <Select
+                                                    value={formData.pre_requisitos_tipos?.[index] || "NENHUM"}
+                                                    onValueChange={(value) => {
+                                                        const currentPreReqs = [...formData.pre_requisitos];
+                                                        const currentTipos = [...(formData.pre_requisitos_tipos || [])];
+                                                        
+                                                        let preReqText = "";
+                                                        switch (value) {
+                                                            case "LOJA_META_MENSAL":
+                                                                preReqText = "Válido apenas se a loja bater a meta mensal";
+                                                                break;
+                                                            case "LOJA_SUPER_META_MENSAL":
+                                                                preReqText = "Válido apenas se a loja bater a super meta mensal";
+                                                                break;
+                                                            case "LOJA_META_SEMANAL":
+                                                                preReqText = "Válido apenas se a loja bater a meta semanal";
+                                                                break;
+                                                            case "LOJA_SUPER_META_SEMANAL":
+                                                                preReqText = "Válido apenas se a loja bater a super meta semanal";
+                                                                break;
+                                                            case "COLAB_META_MENSAL":
+                                                                preReqText = "Válido apenas se a consultora atingir meta mensal";
+                                                                break;
+                                                            case "COLAB_SUPER_META_MENSAL":
+                                                                preReqText = "Válido apenas se a consultora atingir super meta mensal";
+                                                                break;
+                                                            case "COLAB_META_SEMANAL":
+                                                                preReqText = "Válido apenas se a colaboradora atingir meta semanal";
+                                                                break;
+                                                            case "COLAB_SUPER_META_SEMANAL":
+                                                                preReqText = "Válido apenas se a colaboradora atingir super meta semanal";
+                                                                break;
+                                                            case "COLAB_META_DIARIA":
+                                                                preReqText = "Válido apenas se a colaboradora atingir meta diária";
+                                                                break;
+                                                            case "NENHUM":
+                                                                preReqText = "";
+                                                                break;
+                                                            case "CUSTOM":
+                                                                preReqText = currentPreReqs[index] || "";
+                                                                break;
+                                                            default:
+                                                                preReqText = currentPreReqs[index] || "";
+                                                        }
+                                                        
+                                                        currentPreReqs[index] = preReqText;
+                                                        currentTipos[index] = value;
+                                                        
+                                                        setFormData({
+                                                            ...formData,
+                                                            pre_requisitos: currentPreReqs,
+                                                            pre_requisitos_tipos: currentTipos
+                                                        });
+                                                    }}
+                                                >
+                                                    <SelectTrigger className="text-xs sm:text-sm">
+                                                        <SelectValue placeholder="Selecione um pré-requisito" />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="max-h-[300px] overflow-y-auto">
+                                                        <SelectItem value="NENHUM">Nenhum pré-requisito</SelectItem>
+                                                        
+                                                        {/* Loja - Metas Mensais */}
+                                                        <div className="px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground">
+                                                            Loja - Metas Mensais
+                                                        </div>
+                                                        <SelectItem value="LOJA_META_MENSAL">Loja deve bater meta mensal</SelectItem>
+                                                        <SelectItem value="LOJA_SUPER_META_MENSAL">Loja deve bater super meta mensal</SelectItem>
+                                                        
+                                                        {/* Loja - Metas Semanais */}
+                                                        <div className="px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground mt-2">
+                                                            Loja - Metas Semanais
+                                                        </div>
+                                                        <SelectItem value="LOJA_META_SEMANAL">Loja deve bater meta semanal</SelectItem>
+                                                        <SelectItem value="LOJA_SUPER_META_SEMANAL">Loja deve bater super meta semanal</SelectItem>
+                                                        
+                                                        {/* Colaboradora - Metas Mensais */}
+                                                        <div className="px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground mt-2">
+                                                            Colaboradora - Metas Mensais
+                                                        </div>
+                                                        <SelectItem value="COLAB_META_MENSAL">Colaboradora deve atingir meta mensal</SelectItem>
+                                                        <SelectItem value="COLAB_SUPER_META_MENSAL">Colaboradora deve atingir super meta mensal</SelectItem>
+                                                        
+                                                        {/* Colaboradora - Metas Semanais */}
+                                                        <div className="px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground mt-2">
+                                                            Colaboradora - Metas Semanais
+                                                        </div>
+                                                        <SelectItem value="COLAB_META_SEMANAL">Colaboradora deve atingir meta semanal</SelectItem>
+                                                        <SelectItem value="COLAB_SUPER_META_SEMANAL">Colaboradora deve atingir super meta semanal</SelectItem>
+                                                        
+                                                        {/* Colaboradora - Metas Diárias */}
+                                                        <div className="px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground mt-2">
+                                                            Colaboradora - Metas Diárias
+                                                        </div>
+                                                        <SelectItem value="COLAB_META_DIARIA">Colaboradora deve atingir meta diária</SelectItem>
+                                                        
+                                                        {/* Personalizado */}
+                                                        <div className="px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground mt-2">
+                                                            Outros
+                                                        </div>
+                                                        <SelectItem value="CUSTOM">Pré-requisito personalizado (texto livre)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                
+                                                {/* Mostrar textarea apenas se for CUSTOM */}
+                                                {formData.pre_requisitos_tipos?.[index] === "CUSTOM" && (
+                                                    <Textarea
+                                                        value={preReq}
+                                                        onChange={(e) => {
+                                                            const currentPreReqs = [...formData.pre_requisitos];
+                                                            currentPreReqs[index] = e.target.value;
+                                                            setFormData({ ...formData, pre_requisitos: currentPreReqs });
+                                                        }}
+                                                        placeholder="Digite o pré-requisito personalizado..."
+                                                        rows={2}
+                                                        className="text-xs sm:text-sm resize-none mt-2"
+                                                    />
+                                                )}
+                                                
+                                                {/* Mostrar preview do pré-requisito selecionado */}
+                                                {formData.pre_requisitos_tipos?.[index] && 
+                                                 formData.pre_requisitos_tipos[index] !== "NENHUM" && 
+                                                 formData.pre_requisitos_tipos[index] !== "CUSTOM" && 
+                                                 preReq && (
+                                                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-2 p-2 bg-muted rounded">
+                                                        📋 <strong>Pré-requisito {index + 1}:</strong> {preReq}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                    const currentPreReqs = formData.pre_requisitos.filter((_, i) => i !== index);
+                                                    const currentTipos = (formData.pre_requisitos_tipos || []).filter((_, i) => i !== index);
+                                                    setFormData({
+                                                        ...formData,
+                                                        pre_requisitos: currentPreReqs,
+                                                        pre_requisitos_tipos: currentTipos
+                                                    });
+                                                }}
+                                                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-[10px] sm:text-xs text-muted-foreground italic">
+                                    Nenhum pré-requisito adicionado. Clique em "Adicionar" para incluir um.
                                 </p>
                             )}
                             
-                            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
-                                💡 Selecione um pré-requisito que deve ser atendido para o bônus ser válido
+                            <p className="text-[10px] sm:text-xs text-muted-foreground mt-2">
+                                💡 Adicione um ou mais pré-requisitos que devem ser atendidos para o bônus ser válido
                             </p>
                         </div>
 
