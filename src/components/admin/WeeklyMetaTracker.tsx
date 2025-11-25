@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -28,12 +28,6 @@ export function WeeklyMetaTracker() {
     useEffect(() => {
         fetchStores();
     }, []);
-
-    useEffect(() => {
-        fetchWeeklyMeta();
-        const interval = setInterval(fetchWeeklyMeta, 30000);
-        return () => clearInterval(interval);
-    }, [selectedStore]);
 
     const fetchStores = async () => {
         const { data } = await supabase
@@ -82,7 +76,7 @@ export function WeeklyMetaTracker() {
         return totalWeeklyGoal;
     };
 
-    const fetchWeeklyMeta = async () => {
+    const fetchWeeklyMeta = useCallback(async () => {
         try {
             const hoje = new Date();
             const mesAtual = format(hoje, "yyyyMM");
@@ -93,6 +87,7 @@ export function WeeklyMetaTracker() {
             console.log("[WeeklyMetaTracker] Buscando metas mensais INDIVIDUAIS para calcular meta semanal...");
             console.log("[WeeklyMetaTracker] Mês atual:", mesAtual);
             console.log("[WeeklyMetaTracker] Semana:", format(inicioSemana, "dd/MM/yyyy"), "até", format(fimSemana, "dd/MM/yyyy"));
+            console.log("[WeeklyMetaTracker] Filtro de loja selecionado:", selectedStore);
 
             // Buscar todas as metas mensais INDIVIDUAIS (por colaboradora) - usar schema como no dashboard da loja
             const { data: metasData, error: metaError } = await supabase
@@ -130,14 +125,20 @@ export function WeeklyMetaTracker() {
 
             if (selectedStore !== "TODAS") {
                 profilesQuery = profilesQuery.eq("store_id", selectedStore);
+                console.log("[WeeklyMetaTracker] Aplicando filtro de loja:", selectedStore);
             }
 
             const { data: profilesData } = await profilesQuery;
 
+            console.log("[WeeklyMetaTracker] Profiles encontrados após filtro:", profilesData?.length || 0);
+
             const profilesMap = new Map((profilesData || []).map((p: any) => [p.id, p.name]));
             const filteredColabIds = (profilesData || []).map((p: any) => p.id).filter(Boolean) as string[];
 
+            console.log("[WeeklyMetaTracker] IDs de colaboradoras filtradas:", filteredColabIds.length);
+
             if (filteredColabIds.length === 0) {
+                console.log("[WeeklyMetaTracker] Nenhuma colaboradora encontrada após filtro");
                 setWeeklyMeta({ colaboradoras: [] });
                 setLoading(false);
                 return;
@@ -207,7 +208,13 @@ export function WeeklyMetaTracker() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedStore]);
+
+    useEffect(() => {
+        fetchWeeklyMeta();
+        const interval = setInterval(fetchWeeklyMeta, 30000);
+        return () => clearInterval(interval);
+    }, [fetchWeeklyMeta]);
 
     if (loading) {
         return (

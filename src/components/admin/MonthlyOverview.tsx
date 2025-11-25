@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -29,12 +29,6 @@ export function MonthlyOverview() {
         fetchStores();
     }, []);
 
-    useEffect(() => {
-        fetchMonthlyData();
-        const interval = setInterval(fetchMonthlyData, 30000);
-        return () => clearInterval(interval);
-    }, [selectedStore]);
-
     const fetchStores = async () => {
         const { data } = await supabase
             .schema("sistemaretiradas")
@@ -46,7 +40,7 @@ export function MonthlyOverview() {
         if (data) setStores(data);
     };
 
-    const fetchMonthlyData = async () => {
+    const fetchMonthlyData = useCallback(async () => {
         try {
             const hoje = new Date();
             const mesAtual = format(hoje, "yyyyMM");
@@ -55,6 +49,7 @@ export function MonthlyOverview() {
             const diasRestantes = daysInMonth - hoje.getDate() + 1;
 
             console.log("[MonthlyOverview] Buscando metas mensais INDIVIDUAIS para mês:", mesAtual);
+            console.log("[MonthlyOverview] Filtro de loja selecionado:", selectedStore);
 
             // Buscar todas as metas mensais INDIVIDUAIS (por colaboradora) - usar schema como no dashboard da loja
             const { data: metasData, error: metaError } = await supabase
@@ -92,14 +87,20 @@ export function MonthlyOverview() {
 
             if (selectedStore !== "TODAS") {
                 profilesQuery = profilesQuery.eq("store_id", selectedStore);
+                console.log("[MonthlyOverview] Aplicando filtro de loja:", selectedStore);
             }
 
             const { data: profilesData } = await profilesQuery;
 
+            console.log("[MonthlyOverview] Profiles encontrados após filtro:", profilesData?.length || 0);
+
             const profilesMap = new Map((profilesData || []).map((p: any) => [p.id, p.name]));
             const filteredColabIds = (profilesData || []).map((p: any) => p.id).filter(Boolean) as string[];
 
+            console.log("[MonthlyOverview] IDs de colaboradoras filtradas:", filteredColabIds.length);
+
             if (filteredColabIds.length === 0) {
+                console.log("[MonthlyOverview] Nenhuma colaboradora encontrada após filtro");
                 setMonthlyData({ colaboradoras: [] });
                 setLoading(false);
                 return;
@@ -166,7 +167,13 @@ export function MonthlyOverview() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedStore]);
+
+    useEffect(() => {
+        fetchMonthlyData();
+        const interval = setInterval(fetchMonthlyData, 30000);
+        return () => clearInterval(interval);
+    }, [fetchMonthlyData]);
 
     if (loading) {
         return (
