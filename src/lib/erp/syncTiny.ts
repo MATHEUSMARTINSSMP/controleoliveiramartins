@@ -857,6 +857,18 @@ export async function syncTinyOrders(
         const tinyId = String(pedido.id || pedido.numeroPedido || pedido.numero || `temp_${Date.now()}`);
         ultimoTinyIdProcessado = tinyId; // Atualizar último ID processado
 
+        // ✅ FASE 1: SEMPRE sincronizar cliente ANTES de salvar pedido
+        // Isso garante que o cliente existe em tiny_contacts antes do pedido
+        let clienteId: string | null = null;
+        if (pedido.cliente) {
+          clienteId = await syncTinyContact(storeId, pedido.cliente, tinyId);
+          if (!clienteId) {
+            console.warn(`[SyncTiny] ⚠️ Cliente não foi sincronizado: ${pedido.cliente.nome || 'Sem nome'}`);
+          } else {
+            console.log(`[SyncTiny] ✅ Cliente sincronizado com ID: ${clienteId.substring(0, 8)}...`);
+          }
+        }
+
         const orderData = {
           store_id: storeId,
           tiny_id: tinyId,
@@ -917,7 +929,11 @@ export async function syncTinyOrders(
             if (!data) return null;
             return data.includes('T') ? data : `${data}T00:00:00`;
           })(),
-          cliente_nome: cliente.nome || null,
+          // ✅ FASE 2: Usar FK cliente_id ao invés de duplicar dados
+          // Dados completos do cliente estão em tiny_contacts
+          cliente_id: clienteId, // FK para tiny_contacts (será adicionada na migration)
+          // Manter apenas campos essenciais para histórico rápido (sem JOIN)
+          cliente_nome: cliente.nome || null, // Para exibição rápida sem JOIN
           cliente_cpf_cnpj: (() => {
             // API v3 usa camelCase: cpfCnpj
             const cpfCnpj = cliente.cpfCnpj  // API v3 oficial (camelCase)
@@ -937,19 +953,8 @@ export async function syncTinyOrders(
             }
             return cpfCnpj;
           })(),
-          cliente_email: cliente.email || null,
-          // ✅ PRIORIZAR CELULAR sobre TELEFONE (mais útil para contato)
-          cliente_telefone: (() => {
-            // Prioridade 1: Celular
-            const celular = cliente.celular || cliente.mobile || cliente.whatsapp || null;
-            if (celular && celular.trim() !== '') return celular.trim();
-            
-            // Prioridade 2: Telefone fixo
-            const telefone = cliente.telefone || cliente.fone || cliente.telefoneAdicional || null;
-            if (telefone && telefone.trim() !== '') return telefone.trim();
-            
-            return null;
-          })(),
+          // ✅ REMOVIDO: cliente_email e cliente_telefone (agora em tiny_contacts via FK)
+          // Para obter telefone/email: fazer JOIN com tiny_contacts usando cliente_id
           // ✅ CORREÇÃO CRÍTICA: valor_total será calculado depois (async)
           valor_total: 0, // Placeholder - será atualizado abaixo
           // ✅ API v3 oficial usa camelCase
@@ -1297,10 +1302,9 @@ export async function syncTinyOrders(
           synced++;
         }
 
-        // Sincronizar cliente também
-        if (cliente.nome) {
-          await syncTinyContact(storeId, cliente, orderData.tiny_id);
-        }
+        // ✅ FASE 1: Cliente já foi sincronizado ANTES (linha ~860)
+        // Não precisamos sincronizar novamente aqui
+        // clienteId já está disponível no escopo
       } catch (error: any) {
         console.error(`Erro ao processar pedido:`, error);
         errors++;
@@ -1520,15 +1524,20 @@ async function fetchPedidoCompletoFromTiny(
 
 /**
  * Sincroniza um cliente/contato do Tiny ERP
+ * 
+ * ✅ FASE 1: Retorna o ID do cliente criado/atualizado para uso em FK
+ * 
+ * @returns UUID do cliente em tiny_contacts ou null se não foi possível criar
  */
 async function syncTinyContact(
   storeId: string,
   cliente: any,
   pedidoId?: string
-): Promise<void> {
+): Promise<string | null> {
   try {
     if (!cliente.nome) {
-      return;
+      console.warn(`[SyncTiny] ⚠️ Cliente sem nome, ignorando sincronização`);
+      return null;
     }
 
     // Buscar data de nascimento - pode estar em vários lugares
@@ -1623,15 +1632,46 @@ async function syncTinyContact(
       updated_at: new Date().toISOString(),
     };
 
-    await supabase
+    // ✅ FASE 1: Fazer upsert e retornar o ID do cliente
+    const { data: contactResult, error: contactError } = await supabase
       .schema('sistemaretiradas')
       .from('tiny_contacts')
       .upsert(contactData, {
         onConflict: 'store_id,tiny_id',
         ignoreDuplicates: false,
-      });
+      })
+      .select('id')
+      .single();
+
+    if (contactError) {
+      console.error(`[SyncTiny] ❌ Erro ao sincronizar contato ${cliente.nome}:`, contactError);
+      return null;
+    }
+
+    if (!contactResult || !contactResult.id) {
+      console.warn(`[SyncTiny] ⚠️ Cliente sincronizado mas ID não retornado: ${cliente.nome}`);
+      // Tentar buscar o ID pelo tiny_id
+      const { data: existingContact } = await supabase
+        .schema('sistemaretiradas')
+        .from('tiny_contacts')
+        .select('id')
+        .eq('store_id', storeId)
+        .eq('tiny_id', contactData.tiny_id)
+        .single();
+
+      if (existingContact?.id) {
+        console.log(`[SyncTiny] ✅ ID do cliente recuperado: ${existingContact.id.substring(0, 8)}...`);
+        return existingContact.id;
+      }
+
+      return null;
+    }
+
+    console.log(`[SyncTiny] ✅ Cliente sincronizado: ${cliente.nome} → ID: ${contactResult.id.substring(0, 8)}...`);
+    return contactResult.id;
   } catch (error: any) {
-    console.error('Erro ao sincronizar contato:', error);
+    console.error(`[SyncTiny] ❌ Erro ao sincronizar contato ${cliente.nome}:`, error);
+    return null;
   }
 }
 

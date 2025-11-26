@@ -24,14 +24,23 @@ interface TinyOrder {
   numero_ecommerce: string | null;
   situacao: string | null;
   data_pedido: string | null;
-  cliente_nome: string | null;
-  cliente_cpf_cnpj: string | null;
-  cliente_email: string | null;
+  cliente_id: string | null; // ✅ FASE 2: FK para tiny_contacts
+  cliente_nome: string | null; // Mantido para histórico rápido
+  cliente_cpf_cnpj: string | null; // Mantido para histórico rápido
+  cliente_email: string | null; // ⚠️ Será removido na FASE 3
   valor_total: number;
   vendedor_nome: string | null;
   colaboradora_id: string | null;
   forma_pagamento: string | null;
   sync_at: string;
+  // ✅ FASE 2: Dados completos do cliente via JOIN
+  cliente?: {
+    id: string;
+    nome: string | null;
+    telefone: string | null;
+    email: string | null;
+    cpf_cnpj: string | null;
+  } | null;
 }
 
 interface TinyOrdersListProps {
@@ -58,10 +67,20 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
   const fetchOrders = async () => {
     try {
       setLoading(true);
+      // ✅ FASE 2: Fazer JOIN com tiny_contacts para obter dados completos do cliente
       let query = supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
-        .select('*')
+        .select(`
+          *,
+          cliente:tiny_contacts!cliente_id (
+            id,
+            nome,
+            telefone,
+            email,
+            cpf_cnpj
+          )
+        `)
         .order('data_pedido', { ascending: false })
         .limit(limit);
 
