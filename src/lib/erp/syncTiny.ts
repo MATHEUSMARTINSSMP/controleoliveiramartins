@@ -515,7 +515,7 @@ export async function syncTinyOrders(
           endereco_entrega: pedido.endereco_entrega ? JSON.stringify(pedido.endereco_entrega) : null,
           itens: JSON.stringify(itensComCategorias),
           observacoes: pedido.observacoes || null,
-          vendedor_nome: pedido.vendedor?.nome || null,
+          vendedor_tiny_nome: pedido.vendedor?.nome || pedido.vendedor_nome || null,
           vendedor_tiny_id: pedido.vendedor?.id?.toString() || null,
           colaboradora_id: colaboradoraId,
           dados_extras: pedido.dados_extras ? JSON.stringify(pedido.dados_extras) : null,
