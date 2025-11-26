@@ -150,14 +150,42 @@ export default function CategoryReports() {
       if (error) throw error;
 
       console.log(`[Relatórios] 📊 Total de pedidos encontrados: ${orders?.length || 0}`);
-      console.log(`[Relatórios] 📦 Primeiro pedido (exemplo):`, orders?.[0] ? {
-        id: orders[0].id,
-        valor_total: orders[0].valor_total,
-        itens_tipo: typeof orders[0].itens,
-        itens_preview: typeof orders[0].itens === 'string' 
-          ? orders[0].itens.substring(0, 200) 
-          : JSON.stringify(orders[0].itens).substring(0, 200),
-      } : 'Nenhum pedido');
+      
+      if (orders && orders.length > 0) {
+        const primeiroPedido = orders[0];
+        console.log(`[Relatórios] 📦 Primeiro pedido (exemplo):`, {
+          id: primeiroPedido.id,
+          valor_total: primeiroPedido.valor_total,
+          data_pedido: primeiroPedido.data_pedido,
+          itens_tipo: typeof primeiroPedido.itens,
+          itens_is_null: primeiroPedido.itens === null,
+          itens_is_undefined: primeiroPedido.itens === undefined,
+          itens_length: primeiroPedido.itens ? (typeof primeiroPedido.itens === 'string' ? primeiroPedido.itens.length : Array.isArray(primeiroPedido.itens) ? primeiroPedido.itens.length : 'não é string nem array') : 'null/undefined',
+          itens_preview: typeof primeiroPedido.itens === 'string' 
+            ? primeiroPedido.itens.substring(0, 500) 
+            : Array.isArray(primeiroPedido.itens)
+            ? JSON.stringify(primeiroPedido.itens.slice(0, 2), null, 2)
+            : JSON.stringify(primeiroPedido.itens).substring(0, 500),
+        });
+        
+        // Tentar parsear e mostrar estrutura
+        try {
+          const itensParsed = typeof primeiroPedido.itens === 'string' 
+            ? JSON.parse(primeiroPedido.itens) 
+            : primeiroPedido.itens;
+          
+          if (Array.isArray(itensParsed) && itensParsed.length > 0) {
+            console.log(`[Relatórios] 🔍 Primeiro item parseado:`, {
+              keys: Object.keys(itensParsed[0]),
+              item_completo: JSON.stringify(itensParsed[0], null, 2),
+            });
+          }
+        } catch (e) {
+          console.error('[Relatórios] ❌ Erro ao parsear itens:', e);
+        }
+      } else {
+        console.warn('[Relatórios] ⚠️ Nenhum pedido retornado da query');
+      }
 
       if (!orders || orders.length === 0) {
         console.warn('[Relatórios] ⚠️ Nenhum pedido encontrado para o período');
@@ -207,18 +235,22 @@ export default function CategoryReports() {
 
             // Extrair categoria (pode vir como string ou objeto)
             let categoria: string | null = null;
-            if (typeof item.categoria === 'string') {
-              categoria = item.categoria;
+            if (typeof item.categoria === 'string' && item.categoria.trim()) {
+              categoria = item.categoria.trim();
             } else if (item.categoria?.nome) {
               categoria = item.categoria.nome;
             } else if (item.categoria?.descricao) {
               categoria = item.categoria.descricao;
+            } else if (item.produto_completo?.categoria?.nome) {
+              categoria = item.produto_completo.categoria.nome;
+            } else if (item.produto_original?.categoria?.nome) {
+              categoria = item.produto_original.categoria.nome;
             }
 
             // Extrair subcategoria
             let subcategoria: string | null = null;
-            if (typeof item.subcategoria === 'string') {
-              subcategoria = item.subcategoria;
+            if (typeof item.subcategoria === 'string' && item.subcategoria.trim()) {
+              subcategoria = item.subcategoria.trim();
             } else if (item.subcategoria?.nome) {
               subcategoria = item.subcategoria.nome;
             } else if (item.categoria?.caminhoCompleto) {
@@ -227,30 +259,45 @@ export default function CategoryReports() {
               if (caminho.length > 1) {
                 subcategoria = caminho[caminho.length - 1];
               }
+            } else if (item.produto_completo?.categoria?.caminhoCompleto) {
+              const caminho = item.produto_completo.categoria.caminhoCompleto.split(' > ');
+              if (caminho.length > 1) {
+                subcategoria = caminho[caminho.length - 1];
+              }
             }
 
             // Extrair marca (pode vir como string ou objeto)
             let marca: string | null = null;
-            if (typeof item.marca === 'string') {
-              marca = item.marca;
+            if (typeof item.marca === 'string' && item.marca.trim()) {
+              marca = item.marca.trim();
             } else if (item.marca?.nome) {
               marca = item.marca.nome;
             } else if (item.marca?.descricao) {
               marca = item.marca.descricao;
+            } else if (item.produto_completo?.marca?.nome) {
+              marca = item.produto_completo.marca.nome;
+            } else if (item.produto_original?.marca?.nome) {
+              marca = item.produto_original.marca.nome;
             }
 
-            const quantidade = Number(item.quantidade) || 0;
-            const valorUnitario = Number(item.valorUnitario) || 0;
-            const valorItem = Number(item.valor_total) || (quantidade * valorUnitario);
+            // Extrair quantidade e valores (pode vir de diferentes campos)
+            const quantidade = Number(item.quantidade) || Number(item.qtd) || 0;
+            const valorUnitario = Number(item.valorUnitario) || Number(item.preco) || Number(item.valor_unitario) || 0;
+            const valorItem = Number(item.valor_total) || Number(item.total) || (quantidade * valorUnitario);
+            
+            // Extrair código e descrição
+            const codigo = item.codigo || item.sku || item.produto?.sku || item.produto?.codigo || null;
+            const descricao = item.descricao || item.produto?.descricao || item.produto?.nome || 'Sem Descrição';
+            const produto_id = item.produto_id || item.produto?.id || item.produto_id || null;
 
             allItems.push({
               ...item,
               categoria: categoria || 'Sem Categoria',
               subcategoria,
               marca: marca || 'Sem Marca',
-              produto_id: item.produto_id || item.produto?.id || null,
-              codigo: item.codigo || item.sku || null,
-              descricao: item.descricao || item.produto?.descricao || 'Sem Descrição',
+              produto_id,
+              codigo,
+              descricao,
               quantidade,
               valorUnitario,
               valor_total: valorItem,
