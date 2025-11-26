@@ -148,7 +148,9 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
         .schema('sistemaretiradas')
         .from('tiny_orders')
         .select('*')
-        .order('data_pedido', { ascending: false })
+        .order('data_pedido', { ascending: false, nullsFirst: false })
+        .order('numero_pedido', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
         .limit(limit);
 
       if (storeId) {
