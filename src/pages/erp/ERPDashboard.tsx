@@ -321,6 +321,17 @@ export default function ERPDashboard() {
     }).format(value);
   };
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate('/erp/login');
+      toast.success('Logout realizado com sucesso');
+    } catch (error: any) {
+      console.error('Erro ao fazer logout:', error);
+      toast.error('Erro ao fazer logout');
+    }
+  };
+
   if (loading || authLoading) {
     return (
       <div className="container mx-auto p-4 flex items-center justify-center min-h-screen">
