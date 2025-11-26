@@ -515,8 +515,9 @@ export async function syncTinyOrders(
           endereco_entrega: pedido.endereco_entrega ? JSON.stringify(pedido.endereco_entrega) : null,
           itens: JSON.stringify(itensComCategorias),
           observacoes: pedido.observacoes || null,
-          vendedor_tiny_nome: pedido.vendedor?.nome || pedido.vendedor_nome || null,
+          vendedor_nome: pedido.vendedor?.nome || pedido.vendedor_nome || null, // Coluna já existe na tabela
           vendedor_tiny_id: pedido.vendedor?.id?.toString() || null,
+          vendedor_tiny_nome: pedido.vendedor?.nome || pedido.vendedor_nome || null, // Coluna adicional da migration
           colaboradora_id: colaboradoraId,
           dados_extras: pedido.dados_extras ? JSON.stringify(pedido.dados_extras) : null,
           sync_at: new Date().toISOString(),
