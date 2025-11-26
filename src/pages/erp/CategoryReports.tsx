@@ -1,11 +1,13 @@
 /**
- * Página de Relatórios por Categorias
- * Passo 13: Criar página de relatórios por categorias
+ * Página de Relatórios ERP
  * 
- * Agrupa vendas por categoria/subcategoria e mostra totais, quantidades, ticket médio
+ * Múltiplas visões de relatórios de vendas:
+ * - Por Categorias
+ * - Por Produtos
+ * - Por Marcas
+ * - Por Vendedores
+ * 
  * Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html
- * 
- * Fix: DollarSign import corrigido
  */
 
 import { useEffect, useState } from 'react';
@@ -15,11 +17,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, BarChart3, Calendar, Store, TrendingUp, DollarSign } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Loader2, BarChart3, Calendar, Store, TrendingUp, DollarSign, ArrowLeft, Package, Tag, User } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 interface CategoryReport {
   categoria: string;
@@ -30,11 +35,47 @@ interface CategoryReport {
   ticket_medio: number;
 }
 
+interface ProductReport {
+  produto_id: string | null;
+  codigo: string | null;
+  descricao: string | null;
+  categoria: string | null;
+  marca: string | null;
+  total_vendas: number;
+  quantidade_vendida: number;
+  quantidade_pedidos: number;
+  ticket_medio: number;
+}
+
+interface BrandReport {
+  marca: string;
+  total_vendas: number;
+  quantidade_vendida: number;
+  quantidade_pedidos: number;
+  ticket_medio: number;
+}
+
+interface SellerReport {
+  vendedor_nome: string | null;
+  colaboradora_id: string | null;
+  total_vendas: number;
+  quantidade_pedidos: number;
+  ticket_medio: number;
+}
+
 export default function CategoryReports() {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [reports, setReports] = useState<CategoryReport[]>([]);
+  const [activeTab, setActiveTab] = useState('categorias');
+  
+  // Dados
+  const [categoryReports, setCategoryReports] = useState<CategoryReport[]>([]);
+  const [productReports, setProductReports] = useState<ProductReport[]>([]);
+  const [brandReports, setBrandReports] = useState<BrandReport[]>([]);
+  const [sellerReports, setSellerReports] = useState<SellerReport[]>([]);
+  
+  // Filtros
   const [selectedStore, setSelectedStore] = useState<string>('all');
   const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
   const [dateStart, setDateStart] = useState<string>(
@@ -63,7 +104,7 @@ export default function CategoryReports() {
     if (stores.length > 0) {
       fetchReports();
     }
-  }, [selectedStore, dateStart, dateEnd, stores]);
+  }, [selectedStore, dateStart, dateEnd, stores, activeTab]);
 
   const fetchStores = async () => {
     try {
@@ -78,6 +119,7 @@ export default function CategoryReports() {
       setStores(data || []);
     } catch (error: any) {
       console.error('Erro ao buscar lojas:', error);
+      toast.error('Erro ao carregar lojas');
     }
   };
 
@@ -89,7 +131,7 @@ export default function CategoryReports() {
       let query = supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
-        .select('id, valor_total, itens, data_pedido');
+        .select('id, valor_total, itens, data_pedido, vendedor_nome, colaboradora_id');
 
       if (selectedStore !== 'all') {
         query = query.eq('store_id', selectedStore);
@@ -107,54 +149,260 @@ export default function CategoryReports() {
 
       if (error) throw error;
 
-      // Processar itens e agrupar por categoria/subcategoria
-      const categoryMap = new Map<string, CategoryReport>();
+      console.log(`[Relatórios] 📊 Total de pedidos encontrados: ${orders?.length || 0}`);
+      console.log(`[Relatórios] 📦 Primeiro pedido (exemplo):`, orders?.[0] ? {
+        id: orders[0].id,
+        valor_total: orders[0].valor_total,
+        itens_tipo: typeof orders[0].itens,
+        itens_preview: typeof orders[0].itens === 'string' 
+          ? orders[0].itens.substring(0, 200) 
+          : JSON.stringify(orders[0].itens).substring(0, 200),
+      } : 'Nenhum pedido');
 
-      orders?.forEach((order) => {
+      if (!orders || orders.length === 0) {
+        console.warn('[Relatórios] ⚠️ Nenhum pedido encontrado para o período');
+        setCategoryReports([]);
+        setProductReports([]);
+        setBrandReports([]);
+        setSellerReports([]);
+        return;
+      }
+
+      // Processar itens de todos os pedidos
+      const allItems: any[] = [];
+      const orderMap = new Map<string, number>(); // Para contar pedidos únicos
+
+      orders.forEach((order) => {
         try {
           const itens = typeof order.itens === 'string' ? JSON.parse(order.itens) : order.itens || [];
-          const valorTotal = Number(order.valor_total) || 0;
+          
+          if (!Array.isArray(itens)) {
+            console.warn('[Relatórios] ⚠️ Itens não é um array:', typeof itens, itens);
+            return;
+          }
 
-          itens.forEach((item: any) => {
-            const categoria = item.categoria || 'Sem Categoria';
-            const subcategoria = item.subcategoria || null;
-            const key = `${categoria}|${subcategoria || 'null'}`;
-            const quantidade = Number(item.quantidade) || 0;
-            const valorItem = Number(item.valor_total) || 0;
-
-            if (!categoryMap.has(key)) {
-              categoryMap.set(key, {
-                categoria,
-                subcategoria,
-                total_vendas: 0,
-                quantidade_pedidos: 0,
-                quantidade_itens: 0,
-                ticket_medio: 0,
+          console.log(`[Relatórios] 📦 Pedido ${order.id}: ${itens.length} itens`);
+          
+          itens.forEach((item: any, index: number) => {
+            // Log detalhado do primeiro item do primeiro pedido
+            if (order.id === orders[0]?.id && index === 0) {
+              console.log('[Relatórios] 🔍 Estrutura do primeiro item:', {
+                keys: Object.keys(item),
+                categoria: item.categoria,
+                categoria_tipo: typeof item.categoria,
+                categoria_nome: item.categoria?.nome,
+                subcategoria: item.subcategoria,
+                marca: item.marca,
+                marca_tipo: typeof item.marca,
+                marca_nome: item.marca?.nome,
+                produto_id: item.produto_id,
+                codigo: item.codigo,
+                descricao: item.descricao,
+                quantidade: item.quantidade,
+                valorUnitario: item.valorUnitario,
+                valor_total: item.valor_total,
+                item_completo: JSON.stringify(item).substring(0, 500),
               });
             }
 
-            const report = categoryMap.get(key)!;
-            report.total_vendas += valorItem;
-            report.quantidade_itens += quantidade;
-            if (!report.quantidade_pedidos) {
-              report.quantidade_pedidos = 1;
+            // Extrair categoria (pode vir como string ou objeto)
+            let categoria: string | null = null;
+            if (typeof item.categoria === 'string') {
+              categoria = item.categoria;
+            } else if (item.categoria?.nome) {
+              categoria = item.categoria.nome;
+            } else if (item.categoria?.descricao) {
+              categoria = item.categoria.descricao;
             }
+
+            // Extrair subcategoria
+            let subcategoria: string | null = null;
+            if (typeof item.subcategoria === 'string') {
+              subcategoria = item.subcategoria;
+            } else if (item.subcategoria?.nome) {
+              subcategoria = item.subcategoria.nome;
+            } else if (item.categoria?.caminhoCompleto) {
+              // Tentar extrair subcategoria do caminho completo (ex: "Roupas > Feminino > Vestidos")
+              const caminho = item.categoria.caminhoCompleto.split(' > ');
+              if (caminho.length > 1) {
+                subcategoria = caminho[caminho.length - 1];
+              }
+            }
+
+            // Extrair marca (pode vir como string ou objeto)
+            let marca: string | null = null;
+            if (typeof item.marca === 'string') {
+              marca = item.marca;
+            } else if (item.marca?.nome) {
+              marca = item.marca.nome;
+            } else if (item.marca?.descricao) {
+              marca = item.marca.descricao;
+            }
+
+            const quantidade = Number(item.quantidade) || 0;
+            const valorUnitario = Number(item.valorUnitario) || 0;
+            const valorItem = Number(item.valor_total) || (quantidade * valorUnitario);
+
+            allItems.push({
+              ...item,
+              categoria: categoria || 'Sem Categoria',
+              subcategoria,
+              marca: marca || 'Sem Marca',
+              produto_id: item.produto_id || item.produto?.id || null,
+              codigo: item.codigo || item.sku || null,
+              descricao: item.descricao || item.produto?.descricao || 'Sem Descrição',
+              quantidade,
+              valorUnitario,
+              valor_total: valorItem,
+              order_id: order.id,
+              vendedor_nome: order.vendedor_nome,
+              colaboradora_id: order.colaboradora_id,
+            });
+
+            orderMap.set(order.id, (orderMap.get(order.id) || 0) + 1);
           });
         } catch (error) {
-          console.error('Erro ao processar itens do pedido:', error);
+          console.error('[Relatórios] ❌ Erro ao processar itens do pedido:', order.id, error);
         }
       });
 
-      // Calcular ticket médio e ordenar
-      const reportsArray = Array.from(categoryMap.values()).map((report) => ({
-        ...report,
-        ticket_medio: report.quantidade_itens > 0 ? report.total_vendas / report.quantidade_itens : 0,
-      }));
+      console.log(`[Relatórios] ✅ Total de itens processados: ${allItems.length}`);
+      console.log(`[Relatórios] 📊 Pedidos únicos: ${orderMap.size}`);
 
-      reportsArray.sort((a, b) => b.total_vendas - a.total_vendas);
-      setReports(reportsArray);
+      // Agrupar por categoria
+      const categoryMap = new Map<string, CategoryReport>();
+      allItems.forEach((item) => {
+        const key = `${item.categoria}|${item.subcategoria || 'null'}`;
+        if (!categoryMap.has(key)) {
+          categoryMap.set(key, {
+            categoria: item.categoria,
+            subcategoria: item.subcategoria,
+            total_vendas: 0,
+            quantidade_pedidos: 0,
+            quantidade_itens: 0,
+            ticket_medio: 0,
+          });
+        }
+        const report = categoryMap.get(key)!;
+        report.total_vendas += item.valor_total;
+        report.quantidade_itens += item.quantidade;
+      });
+      // Contar pedidos únicos por categoria
+      const categoryOrders = new Map<string, Set<string>>();
+      allItems.forEach((item) => {
+        const key = `${item.categoria}|${item.subcategoria || 'null'}`;
+        if (!categoryOrders.has(key)) {
+          categoryOrders.set(key, new Set());
+        }
+        categoryOrders.get(key)!.add(item.order_id);
+      });
+      categoryOrders.forEach((orderSet, key) => {
+        const report = categoryMap.get(key);
+        if (report) {
+          report.quantidade_pedidos = orderSet.size;
+          report.ticket_medio = report.quantidade_itens > 0 ? report.total_vendas / report.quantidade_itens : 0;
+        }
+      });
+      setCategoryReports(Array.from(categoryMap.values()).sort((a, b) => b.total_vendas - a.total_vendas));
+
+      // Agrupar por produto
+      const productMap = new Map<string, ProductReport>();
+      allItems.forEach((item) => {
+        const key = item.produto_id || item.codigo || item.descricao || 'unknown';
+        if (!productMap.has(key)) {
+          productMap.set(key, {
+            produto_id: item.produto_id,
+            codigo: item.codigo,
+            descricao: item.descricao,
+            categoria: item.categoria,
+            marca: item.marca,
+            total_vendas: 0,
+            quantidade_vendida: 0,
+            quantidade_pedidos: 0,
+            ticket_medio: 0,
+          });
+        }
+        const report = productMap.get(key)!;
+        report.total_vendas += item.valor_total;
+        report.quantidade_vendida += item.quantidade;
+      });
+      const productOrders = new Map<string, Set<string>>();
+      allItems.forEach((item) => {
+        const key = item.produto_id || item.codigo || item.descricao || 'unknown';
+        if (!productOrders.has(key)) {
+          productOrders.set(key, new Set());
+        }
+        productOrders.get(key)!.add(item.order_id);
+      });
+      productOrders.forEach((orderSet, key) => {
+        const report = productMap.get(key);
+        if (report) {
+          report.quantidade_pedidos = orderSet.size;
+          report.ticket_medio = report.quantidade_vendida > 0 ? report.total_vendas / report.quantidade_vendida : 0;
+        }
+      });
+      setProductReports(Array.from(productMap.values()).sort((a, b) => b.total_vendas - a.total_vendas));
+
+      // Agrupar por marca
+      const brandMap = new Map<string, BrandReport>();
+      allItems.forEach((item) => {
+        const key = item.marca;
+        if (!brandMap.has(key)) {
+          brandMap.set(key, {
+            marca: item.marca,
+            total_vendas: 0,
+            quantidade_vendida: 0,
+            quantidade_pedidos: 0,
+            ticket_medio: 0,
+          });
+        }
+        const report = brandMap.get(key)!;
+        report.total_vendas += item.valor_total;
+        report.quantidade_vendida += item.quantidade;
+      });
+      const brandOrders = new Map<string, Set<string>>();
+      allItems.forEach((item) => {
+        const key = item.marca;
+        if (!brandOrders.has(key)) {
+          brandOrders.set(key, new Set());
+        }
+        brandOrders.get(key)!.add(item.order_id);
+      });
+      brandOrders.forEach((orderSet, key) => {
+        const report = brandMap.get(key);
+        if (report) {
+          report.quantidade_pedidos = orderSet.size;
+          report.ticket_medio = report.quantidade_vendida > 0 ? report.total_vendas / report.quantidade_vendida : 0;
+        }
+      });
+      setBrandReports(Array.from(brandMap.values()).sort((a, b) => b.total_vendas - a.total_vendas));
+
+      // Agrupar por vendedor
+      const sellerMap = new Map<string, SellerReport>();
+      orders.forEach((order) => {
+        const key = order.vendedor_nome || order.colaboradora_id || 'Sem Vendedor';
+        if (!sellerMap.has(key)) {
+          sellerMap.set(key, {
+            vendedor_nome: order.vendedor_nome,
+            colaboradora_id: order.colaboradora_id,
+            total_vendas: 0,
+            quantidade_pedidos: 0,
+            ticket_medio: 0,
+          });
+        }
+        const report = sellerMap.get(key)!;
+        report.total_vendas += Number(order.valor_total) || 0;
+        report.quantidade_pedidos += 1;
+      });
+      sellerMap.forEach((report) => {
+        report.ticket_medio = report.quantidade_pedidos > 0 ? report.total_vendas / report.quantidade_pedidos : 0;
+      });
+      setSellerReports(Array.from(sellerMap.values()).sort((a, b) => b.total_vendas - a.total_vendas));
+
+      console.log('[Relatórios] ✅ Relatórios processados com sucesso');
     } catch (error: any) {
-      console.error('Erro ao buscar relatórios:', error);
+      console.error('[Relatórios] ❌ Erro ao buscar relatórios:', error);
+      toast.error('Erro ao carregar relatórios: ' + (error.message || 'Erro desconhecido'));
     } finally {
       setLoading(false);
     }
@@ -167,17 +415,41 @@ export default function CategoryReports() {
     }).format(value);
   };
 
-  const totalGeral = reports.reduce((sum, r) => sum + r.total_vendas, 0);
-  const totalItens = reports.reduce((sum, r) => sum + r.quantidade_itens, 0);
+  const getTotalVendas = () => {
+    switch (activeTab) {
+      case 'categorias':
+        return categoryReports.reduce((sum, r) => sum + r.total_vendas, 0);
+      case 'produtos':
+        return productReports.reduce((sum, r) => sum + r.total_vendas, 0);
+      case 'marcas':
+        return brandReports.reduce((sum, r) => sum + r.total_vendas, 0);
+      case 'vendedores':
+        return sellerReports.reduce((sum, r) => sum + r.total_vendas, 0);
+      default:
+        return 0;
+    }
+  };
+
+  const totalGeral = getTotalVendas();
 
   return (
     <div className="container mx-auto p-4 space-y-6">
+      {/* Header com botão voltar */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Relatórios por Categorias</h1>
-          <p className="text-muted-foreground">
-            Análise de vendas agrupadas por categoria e subcategoria
-          </p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => navigate('/erp/dashboard')}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Relatórios</h1>
+            <p className="text-muted-foreground">
+              Análise completa de vendas com múltiplas visões
+            </p>
+          </div>
         </div>
       </div>
 
@@ -237,89 +509,309 @@ export default function CategoryReports() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Itens</CardTitle>
+            <CardTitle className="text-sm font-medium">Registros</CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalItens.toLocaleString('pt-BR')}</div>
+            <div className="text-2xl font-bold">
+              {activeTab === 'categorias' && categoryReports.length}
+              {activeTab === 'produtos' && productReports.length}
+              {activeTab === 'marcas' && brandReports.length}
+              {activeTab === 'vendedores' && sellerReports.length}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Categorias</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Período</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{reports.length}</div>
+            <div className="text-sm text-muted-foreground">
+              {format(new Date(dateStart), 'dd/MM/yyyy', { locale: ptBR })} - {format(new Date(dateEnd), 'dd/MM/yyyy', { locale: ptBR })}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Tabela de Relatórios */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Vendas por Categoria</CardTitle>
-          <CardDescription>
-            Detalhamento de vendas agrupadas por categoria e subcategoria
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex items-center justify-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : reports.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">
-              Nenhum dado encontrado para o período selecionado
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead>Subcategoria</TableHead>
-                    <TableHead className="text-right">Total Vendas</TableHead>
-                    <TableHead className="text-right">Qtd. Itens</TableHead>
-                    <TableHead className="text-right">Ticket Médio</TableHead>
-                    <TableHead className="text-right">% do Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {reports.map((report, index) => {
-                    const percentual = totalGeral > 0 ? (report.total_vendas / totalGeral) * 100 : 0;
-                    return (
-                      <TableRow key={index}>
-                        <TableCell className="font-medium">{report.categoria}</TableCell>
-                        <TableCell>
-                          {report.subcategoria ? (
-                            <Badge variant="outline">{report.subcategoria}</Badge>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(report.total_vendas)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {report.quantidade_itens.toLocaleString('pt-BR')}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(report.ticket_medio)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant="secondary">{percentual.toFixed(1)}%</Badge>
-                        </TableCell>
+      {/* Tabs com diferentes visões */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="categorias">
+            <Tag className="h-4 w-4 mr-2" />
+            Categorias
+          </TabsTrigger>
+          <TabsTrigger value="produtos">
+            <Package className="h-4 w-4 mr-2" />
+            Produtos
+          </TabsTrigger>
+          <TabsTrigger value="marcas">
+            <TrendingUp className="h-4 w-4 mr-2" />
+            Marcas
+          </TabsTrigger>
+          <TabsTrigger value="vendedores">
+            <User className="h-4 w-4 mr-2" />
+            Vendedores
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Visão: Categorias */}
+        <TabsContent value="categorias">
+          <Card>
+            <CardHeader>
+              <CardTitle>Vendas por Categoria</CardTitle>
+              <CardDescription>
+                Detalhamento de vendas agrupadas por categoria e subcategoria
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : categoryReports.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  Nenhum dado encontrado para o período selecionado
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Categoria</TableHead>
+                        <TableHead>Subcategoria</TableHead>
+                        <TableHead className="text-right">Total Vendas</TableHead>
+                        <TableHead className="text-right">Qtd. Itens</TableHead>
+                        <TableHead className="text-right">Qtd. Pedidos</TableHead>
+                        <TableHead className="text-right">Ticket Médio</TableHead>
+                        <TableHead className="text-right">% do Total</TableHead>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {categoryReports.map((report, index) => {
+                        const percentual = totalGeral > 0 ? (report.total_vendas / totalGeral) * 100 : 0;
+                        return (
+                          <TableRow key={index}>
+                            <TableCell className="font-medium">{report.categoria}</TableCell>
+                            <TableCell>
+                              {report.subcategoria ? (
+                                <Badge variant="outline">{report.subcategoria}</Badge>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {formatCurrency(report.total_vendas)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {report.quantidade_itens.toLocaleString('pt-BR')}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {report.quantidade_pedidos.toLocaleString('pt-BR')}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(report.ticket_medio)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant="secondary">{percentual.toFixed(1)}%</Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Visão: Produtos */}
+        <TabsContent value="produtos">
+          <Card>
+            <CardHeader>
+              <CardTitle>Vendas por Produto</CardTitle>
+              <CardDescription>
+                Ranking de produtos mais vendidos
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : productReports.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  Nenhum dado encontrado para o período selecionado
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead>Código</TableHead>
+                        <TableHead>Categoria</TableHead>
+                        <TableHead>Marca</TableHead>
+                        <TableHead className="text-right">Qtd. Vendida</TableHead>
+                        <TableHead className="text-right">Total Vendas</TableHead>
+                        <TableHead className="text-right">Qtd. Pedidos</TableHead>
+                        <TableHead className="text-right">Ticket Médio</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {productReports.slice(0, 100).map((report, index) => (
+                        <TableRow key={index}>
+                          <TableCell className="font-medium">{report.descricao}</TableCell>
+                          <TableCell className="text-muted-foreground">{report.codigo || '-'}</TableCell>
+                          <TableCell>{report.categoria || '-'}</TableCell>
+                          <TableCell>{report.marca || '-'}</TableCell>
+                          <TableCell className="text-right">
+                            {report.quantidade_vendida.toLocaleString('pt-BR')}
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {formatCurrency(report.total_vendas)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {report.quantidade_pedidos.toLocaleString('pt-BR')}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(report.ticket_medio)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Visão: Marcas */}
+        <TabsContent value="marcas">
+          <Card>
+            <CardHeader>
+              <CardTitle>Vendas por Marca</CardTitle>
+              <CardDescription>
+                Performance de vendas por marca
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : brandReports.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  Nenhum dado encontrado para o período selecionado
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Marca</TableHead>
+                        <TableHead className="text-right">Total Vendas</TableHead>
+                        <TableHead className="text-right">Qtd. Vendida</TableHead>
+                        <TableHead className="text-right">Qtd. Pedidos</TableHead>
+                        <TableHead className="text-right">Ticket Médio</TableHead>
+                        <TableHead className="text-right">% do Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {brandReports.map((report, index) => {
+                        const percentual = totalGeral > 0 ? (report.total_vendas / totalGeral) * 100 : 0;
+                        return (
+                          <TableRow key={index}>
+                            <TableCell className="font-medium">{report.marca}</TableCell>
+                            <TableCell className="text-right font-medium">
+                              {formatCurrency(report.total_vendas)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {report.quantidade_vendida.toLocaleString('pt-BR')}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {report.quantidade_pedidos.toLocaleString('pt-BR')}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(report.ticket_medio)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant="secondary">{percentual.toFixed(1)}%</Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Visão: Vendedores */}
+        <TabsContent value="vendedores">
+          <Card>
+            <CardHeader>
+              <CardTitle>Vendas por Vendedor</CardTitle>
+              <CardDescription>
+                Performance de vendas por vendedor/colaboradora
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : sellerReports.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  Nenhum dado encontrado para o período selecionado
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Vendedor</TableHead>
+                        <TableHead className="text-right">Total Vendas</TableHead>
+                        <TableHead className="text-right">Qtd. Pedidos</TableHead>
+                        <TableHead className="text-right">Ticket Médio</TableHead>
+                        <TableHead className="text-right">% do Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sellerReports.map((report, index) => {
+                        const percentual = totalGeral > 0 ? (report.total_vendas / totalGeral) * 100 : 0;
+                        return (
+                          <TableRow key={index}>
+                            <TableCell className="font-medium">
+                              {report.vendedor_nome || 'Sem Nome'}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {formatCurrency(report.total_vendas)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {report.quantidade_pedidos.toLocaleString('pt-BR')}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(report.ticket_medio)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant="secondary">{percentual.toFixed(1)}%</Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
-
