@@ -462,6 +462,18 @@ export async function syncTinyOrders(
         const pedido = pedidoData.pedido || pedidoData;
         const cliente = pedido.cliente || {};
 
+        // Log detalhado do pedido completo para debug
+        console.log(`[SyncTiny] 📦 Processando pedido completo:`, {
+          id: pedido.id,
+          numero: pedido.numero,
+          valor_total: pedido.valor_total,
+          valor: pedido.valor,
+          data_pedido: pedido.data_pedido,
+          data: pedido.data,
+          dataCriacao: pedido.dataCriacao,
+          todas_as_chaves: Object.keys(pedido),
+        });
+
         // Extrair TODOS os dados possíveis dos produtos para relatórios inteligentes
         const itensComCategorias = pedido.itens?.map((item: any) => {
           const itemData = item.item || item;
@@ -615,8 +627,21 @@ export async function syncTinyOrders(
           numero_ecommerce: pedido.numero_ecommerce?.toString() || null,
           situacao: pedido.situacao || null,
           data_pedido: (() => {
-            const data = pedido.data_pedido || pedido.data || pedido.dataCriacao || null;
-            if (!data) return null;
+            // Tentar vários campos possíveis conforme documentação Tiny ERP v3
+            const data = pedido.data_pedido 
+              || pedido.data 
+              || pedido.dataCriacao
+              || pedido.data_criacao
+              || pedido.dataPedido
+              || pedido.data_criacao_pedido
+              || null;
+
+            if (!data) {
+              console.warn(`[SyncTiny] ⚠️ Data não encontrada no pedido ${pedido.id || pedido.numero}`);
+              return null;
+            }
+
+            console.log(`[SyncTiny] 📅 Data bruta recebida: "${data}" (tipo: ${typeof data})`);
             
             // Se já tem formato ISO completo com T e hora
             if (typeof data === 'string' && data.includes('T')) {
@@ -648,10 +673,32 @@ export async function syncTinyOrders(
           cliente_email: cliente.email || null,
           cliente_telefone: cliente.fone || cliente.celular || null,
           valor_total: (() => {
-            const valorStr = String(pedido.valor_total || pedido.valor || '0');
+            // Tentar vários campos possíveis conforme documentação Tiny ERP v3
+            const valorBruto = pedido.valor_total 
+              || pedido.valor 
+              || pedido.total
+              || pedido.valorTotal
+              || pedido.valor_total_pedido
+              || pedido.total_pedido
+              || null;
+
+            if (!valorBruto) {
+              console.warn(`[SyncTiny] ⚠️ Valor não encontrado no pedido ${pedido.id || pedido.numero}`);
+              return 0;
+            }
+
+            const valorStr = String(valorBruto);
+            // Remover tudo exceto dígitos, vírgula e ponto
             const valorLimpo = valorStr.replace(/[^\d,.-]/g, '').replace(',', '.');
             const valorNum = parseFloat(valorLimpo);
-            return isNaN(valorNum) ? 0 : valorNum;
+            
+            if (isNaN(valorNum)) {
+              console.warn(`[SyncTiny] ⚠️ Erro ao parsear valor "${valorStr}" do pedido ${pedido.id || pedido.numero}`);
+              return 0;
+            }
+
+            console.log(`[SyncTiny] ✅ Valor parseado: ${valorStr} → ${valorNum}`);
+            return valorNum;
           })(),
           valor_desconto: parseFloat(String(pedido.valor_desconto || '0').replace(',', '.')),
           valor_frete: parseFloat(String(pedido.valor_frete || '0').replace(',', '.')),
@@ -818,10 +865,10 @@ async function syncTinyContact(
       tiny_id: cliente.id?.toString() || cliente.cpf_cnpj || `temp_${Date.now()}`,
       nome: cliente.nome,
       tipo: cliente.tipo || 'F',
-      cpf_cnpj: cliente.cpf_cnpj || null,
+      cpf_cnpj: cpfCnpj, // Usar o CPF/CNPJ que encontramos acima
       email: cliente.email || null,
-      telefone: cliente.fone || null,
-      celular: cliente.celular || null,
+      telefone: cliente.fone || cliente.telefone || null,
+      celular: cliente.celular || cliente.mobile || cliente.whatsapp || null,
       data_nascimento: dataNascimentoNormalizada,
       endereco: cliente.endereco ? JSON.stringify(cliente.endereco) : null,
       observacoes: cliente.observacoes || null,
