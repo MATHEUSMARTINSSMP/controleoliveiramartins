@@ -865,20 +865,27 @@ export async function syncTinyOrders(
                       || (typeof produtoCompleto.categoria === 'string' ? produtoCompleto.categoria : null)
                       || null;
                     
-                    // Extrair subcategoria do caminho completo (ex: "Roupas > Feminino > Vestidos")
+                    // Extrair subcategoria do caminho completo (ex: "Calça > Calça Alfaiataria")
                     // REGRA: Tudo antes do último ">" é categoria, o último item é subcategoria
                     if (produtoCompleto.categoria.caminhoCompleto) {
-                      const caminho = produtoCompleto.categoria.caminhoCompleto.split(' > ');
+                      const caminhoCompletoStr = String(produtoCompleto.categoria.caminhoCompleto).trim();
+                      const caminho = caminhoCompletoStr.split(' > ').map(s => s.trim()).filter(s => s.length > 0);
+                      
+                      console.log(`[SyncTiny] 🔍 Processando caminhoCompleto: "${caminhoCompletoStr}" → Array:`, caminho);
+                      
                       if (caminho.length > 1) {
                         // Último item é sempre a subcategoria
                         subcategoria = caminho[caminho.length - 1];
                         
                         // Tudo antes do último ">" é a categoria (juntar todos os níveis anteriores)
                         categoria = caminho.slice(0, -1).join(' > ');
-                      } else {
+                        
+                        console.log(`[SyncTiny] ✅ Separado: categoria="${categoria}", subcategoria="${subcategoria}"`);
+                      } else if (caminho.length === 1) {
                         // Se só tem um nível, é apenas categoria (sem subcategoria)
                         categoria = caminho[0];
                         subcategoria = null;
+                        console.log(`[SyncTiny] ✅ Apenas categoria: "${categoria}" (sem subcategoria)`);
                       }
                     }
                     

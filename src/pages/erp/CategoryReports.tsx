@@ -257,36 +257,67 @@ export default function CategoryReports() {
               });
             }
 
-            // Extrair categoria (pode vir como string ou objeto)
+            // ✅ CORREÇÃO: Os dados já devem vir separados do banco (categoria e subcategoria)
+            // Se não vierem separados, tentar extrair do caminhoCompleto como fallback
             let categoria: string | null = null;
+            let subcategoria: string | null = null;
+            
+            // PRIORIDADE 1: Dados já separados (como devem estar salvos no banco)
             if (typeof item.categoria === 'string' && item.categoria.trim()) {
               categoria = item.categoria.trim();
             } else if (item.categoria?.nome) {
               categoria = item.categoria.nome;
             } else if (item.categoria?.descricao) {
               categoria = item.categoria.descricao;
-            } else if (item.produto_completo?.categoria?.nome) {
-              categoria = item.produto_completo.categoria.nome;
-            } else if (item.produto_original?.categoria?.nome) {
-              categoria = item.produto_original.categoria.nome;
             }
-
-            // Extrair subcategoria
-            let subcategoria: string | null = null;
+            
             if (typeof item.subcategoria === 'string' && item.subcategoria.trim()) {
               subcategoria = item.subcategoria.trim();
             } else if (item.subcategoria?.nome) {
               subcategoria = item.subcategoria.nome;
-            } else if (item.categoria?.caminhoCompleto) {
-              // Tentar extrair subcategoria do caminho completo (ex: "Roupas > Feminino > Vestidos")
-              const caminho = item.categoria.caminhoCompleto.split(' > ');
+            }
+            
+            // PRIORIDADE 2: Se não temos categoria/subcategoria separadas, tentar extrair do caminhoCompleto
+            if ((!categoria || !subcategoria) && item.categoria?.caminhoCompleto) {
+              const caminhoCompletoStr = String(item.categoria.caminhoCompleto).trim();
+              const caminho = caminhoCompletoStr.split(' > ').map(s => s.trim()).filter(s => s.length > 0);
+              
               if (caminho.length > 1) {
-                subcategoria = caminho[caminho.length - 1];
+                // Se não temos categoria, pegar tudo antes do último ">"
+                if (!categoria) {
+                  categoria = caminho.slice(0, -1).join(' > ');
+                }
+                // Se não temos subcategoria, pegar o último item
+                if (!subcategoria) {
+                  subcategoria = caminho[caminho.length - 1];
+                }
+              } else if (caminho.length === 1 && !categoria) {
+                categoria = caminho[0];
               }
-            } else if (item.produto_completo?.categoria?.caminhoCompleto) {
-              const caminho = item.produto_completo.categoria.caminhoCompleto.split(' > ');
+            }
+            
+            // PRIORIDADE 3: Fallback para produto_completo
+            if (!categoria && item.produto_completo?.categoria?.nome) {
+              categoria = item.produto_completo.categoria.nome;
+            }
+            if (!categoria && item.produto_original?.categoria?.nome) {
+              categoria = item.produto_original.categoria.nome;
+            }
+            
+            // Se ainda temos caminhoCompleto no produto_completo, tentar extrair
+            if ((!categoria || !subcategoria) && item.produto_completo?.categoria?.caminhoCompleto) {
+              const caminhoCompletoStr = String(item.produto_completo.categoria.caminhoCompleto).trim();
+              const caminho = caminhoCompletoStr.split(' > ').map(s => s.trim()).filter(s => s.length > 0);
+              
               if (caminho.length > 1) {
-                subcategoria = caminho[caminho.length - 1];
+                if (!categoria) {
+                  categoria = caminho.slice(0, -1).join(' > ');
+                }
+                if (!subcategoria) {
+                  subcategoria = caminho[caminho.length - 1];
+                }
+              } else if (caminho.length === 1 && !categoria) {
+                categoria = caminho[0];
               }
             }
 
