@@ -841,7 +841,18 @@ export async function syncTinyOrders(
             return cpfCnpj;
           })(),
           cliente_email: cliente.email || null,
-          cliente_telefone: cliente.telefone || cliente.fone || cliente.telefoneAdicional || cliente.celular || cliente.mobile || null,
+          // ✅ PRIORIZAR CELULAR sobre TELEFONE (mais útil para contato)
+          cliente_telefone: (() => {
+            // Prioridade 1: Celular
+            const celular = cliente.celular || cliente.mobile || cliente.whatsapp || null;
+            if (celular && celular.trim() !== '') return celular.trim();
+            
+            // Prioridade 2: Telefone fixo
+            const telefone = cliente.telefone || cliente.fone || cliente.telefoneAdicional || null;
+            if (telefone && telefone.trim() !== '') return telefone.trim();
+            
+            return null;
+          })(),
           // ✅ CORREÇÃO CRÍTICA: valor_total será calculado depois (async)
           valor_total: 0, // Placeholder - será atualizado abaixo
           // ✅ API v3 oficial usa camelCase
@@ -1372,6 +1383,50 @@ async function syncTinyContact(
       || cliente.documento
       || null;
 
+    // ✅ ESTRATÉGIA ROBUSTA: Priorizar CELULAR sobre TELEFONE
+    // API v3 pode retornar: celular, telefone, mobile, whatsapp, telefoneAdicional
+    // Damos preferência para celular (mais útil para contato)
+    const telefoneFinal = (() => {
+      // 1. PRIORIDADE: Celular (mais útil)
+      const celular = cliente.celular 
+        || cliente.mobile 
+        || cliente.whatsapp 
+        || cliente.celularAdicional
+        || null;
+      
+      if (celular && celular.trim() !== '') {
+        console.log(`[SyncTiny] ✅ Telefone encontrado (CELULAR): ${celular.substring(0, 10)}...`);
+        return celular.trim();
+      }
+      
+      // 2. FALLBACK: Telefone fixo
+      const telefone = cliente.telefone 
+        || cliente.fone 
+        || cliente.telefoneAdicional
+        || cliente.telefonePrincipal
+        || null;
+      
+      if (telefone && telefone.trim() !== '') {
+        console.log(`[SyncTiny] ✅ Telefone encontrado (FIXO): ${telefone.substring(0, 10)}...`);
+        return telefone.trim();
+      }
+      
+      // 3. FALLBACK: Dados extras
+      const telefoneExtras = cliente.dados_extras?.celular
+        || cliente.dados_extras?.telefone
+        || cliente.dados_extras?.mobile
+        || cliente.dados_extras?.whatsapp
+        || null;
+      
+      if (telefoneExtras && telefoneExtras.trim() !== '') {
+        console.log(`[SyncTiny] ✅ Telefone encontrado (DADOS_EXTRAS): ${telefoneExtras.substring(0, 10)}...`);
+        return telefoneExtras.trim();
+      }
+      
+      console.warn(`[SyncTiny] ⚠️ Nenhum telefone encontrado para cliente ${cliente.nome}`);
+      return null;
+    })();
+
     const contactData = {
       store_id: storeId,
       tiny_id: cliente.id?.toString() || cpfCnpj || `temp_${Date.now()}`,
@@ -1379,8 +1434,9 @@ async function syncTinyContact(
       tipo: cliente.tipoPessoa || cliente.tipo || 'F', // API v3 usa tipoPessoa (camelCase)
       cpf_cnpj: cpfCnpj, // Usar o CPF/CNPJ que encontramos acima
       email: cliente.email || null,
-      telefone: cliente.telefone || cliente.fone || cliente.telefoneAdicional || null, // API v3 usa telefone
-      celular: cliente.celular || cliente.mobile || cliente.whatsapp || null, // API v3 usa celular
+      // ✅ SALVAR NA COLUNA TELEFONE (priorizando celular)
+      telefone: telefoneFinal, // Celular ou telefone (prioridade para celular)
+      celular: null, // Manter null para não duplicar (já está em telefone)
       data_nascimento: dataNascimentoNormalizada,
       endereco: cliente.endereco ? JSON.stringify(cliente.endereco) : null,
       observacoes: cliente.observacoes || null,
