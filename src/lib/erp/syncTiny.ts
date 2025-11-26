@@ -267,23 +267,32 @@ export async function syncTinyOrders(
       // API v3 usa GET para listar pedidos
       const response = await callERPAPI(storeId, '/pedidos', params);
       
-      // Verificar estrutura da resposta conforme documentação
-      // Tiny ERP v3 pode retornar: { pedidos: [...] } ou { retorno: { pedidos: [...] } }
+      // Verificar estrutura da resposta conforme documentação Tiny ERP v3
+      // A API v3 retorna: { itens: [...], paginacao: {...} }
       let pedidos: TinyPedido[] = [];
       
       console.log(`[SyncTiny] Resposta recebida (página ${currentPage}):`, JSON.stringify(response).substring(0, 500));
       
-      if (response.pedidos && Array.isArray(response.pedidos)) {
+      // Tiny ERP v3 retorna: { itens: [...], paginacao: {...} }
+      if (response.itens && Array.isArray(response.itens)) {
+        pedidos = response.itens;
+        console.log(`[SyncTiny] Encontrados ${pedidos.length} pedidos na página ${currentPage} via 'itens'`);
+      } else if (response.pedidos && Array.isArray(response.pedidos)) {
+        // Fallback para estrutura alternativa
         pedidos = response.pedidos;
+        console.log(`[SyncTiny] Encontrados ${pedidos.length} pedidos na página ${currentPage} via 'pedidos'`);
       } else if (response.retorno?.pedidos && Array.isArray(response.retorno.pedidos)) {
         pedidos = response.retorno.pedidos;
+        console.log(`[SyncTiny] Encontrados ${pedidos.length} pedidos na página ${currentPage} via 'retorno.pedidos'`);
       } else if (response.data?.pedidos && Array.isArray(response.data.pedidos)) {
         pedidos = response.data.pedidos;
+        console.log(`[SyncTiny] Encontrados ${pedidos.length} pedidos na página ${currentPage} via 'data.pedidos'`);
       } else if (Array.isArray(response)) {
         // Se a resposta é um array direto
         pedidos = response;
+        console.log(`[SyncTiny] Encontrados ${pedidos.length} pedidos na página ${currentPage} (array direto)`);
       } else {
-        console.warn(`[SyncTiny] Página ${currentPage}: Estrutura de resposta não reconhecida:`, Object.keys(response || {}));
+        console.warn(`[SyncTiny] Página ${currentPage}: Estrutura de resposta não reconhecida. Chaves encontradas:`, Object.keys(response || {}));
         if (currentPage === 1) {
           return {
             success: false,
