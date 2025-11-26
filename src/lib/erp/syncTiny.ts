@@ -73,9 +73,52 @@ interface TinyContato {
 }
 
 /**
+ * Busca dados completos do vendedor na API do Tiny ERP usando o ID
+ * Retorna CPF, email e outros dados completos do contato
+ */
+async function fetchVendedorCompletoFromTiny(
+  storeId: string,
+  vendedorId: string
+): Promise<{ cpf?: string; email?: string; nome?: string } | null> {
+  try {
+    console.log(`[SyncTiny] 🔍 Buscando dados completos do vendedor ${vendedorId} no Tiny ERP...`);
+    
+    // Buscar contato/vendedor pelo ID na API do Tiny
+    const response = await callERPAPI(storeId, {
+      endpoint: `/contatos/${vendedorId}`,
+      method: 'GET',
+    });
+
+    if (!response || !response.contato) {
+      console.log(`[SyncTiny] ⚠️ Vendedor ${vendedorId} não encontrado na API do Tiny`);
+      return null;
+    }
+
+    const contato = response.contato;
+    const dadosCompletos = {
+      cpf: contato.cpf_cnpj || contato.cpf || contato.dados_extras?.cpf || null,
+      email: contato.email || contato.dados_extras?.email || null,
+      nome: contato.nome || null,
+    };
+
+    console.log(`[SyncTiny] ✅ Dados completos do vendedor encontrados:`, {
+      nome: dadosCompletos.nome,
+      email: dadosCompletos.email ? '***' : null,
+      cpf: dadosCompletos.cpf ? dadosCompletos.cpf.substring(0, 3) + '***' : null,
+    });
+
+    return dadosCompletos;
+  } catch (error: any) {
+    console.error(`[SyncTiny] ❌ Erro ao buscar vendedor ${vendedorId} no Tiny:`, error);
+    return null;
+  }
+}
+
+/**
  * Busca colaboradora no sistema pelo vendedor do Tiny
  * Tenta matching por: CPF (prioritário), email e nome
  * 
+ * Se tiver vendedor.id, busca dados completos no Tiny primeiro para pegar CPF
  * CPF está disponível no cadastro do Tiny e no profile do sistema
  */
 async function findCollaboratorByVendedor(
@@ -86,6 +129,20 @@ async function findCollaboratorByVendedor(
     return null;
   }
 
+  // Se tiver ID do vendedor mas não tiver CPF, buscar dados completos no Tiny
+  let vendedorCompleto = { ...vendedor };
+  if (vendedor.id && !vendedor.cpf) {
+    const dadosCompletos = await fetchVendedorCompletoFromTiny(storeId, vendedor.id);
+    if (dadosCompletos) {
+      vendedorCompleto = {
+        ...vendedor,
+        cpf: dadosCompletos.cpf || vendedor.cpf,
+        email: dadosCompletos.email || vendedor.email,
+        nome: dadosCompletos.nome || vendedor.nome,
+      };
+    }
+  }
+
   try {
     // Normalizar CPF (remover caracteres especiais)
     const normalizeCPF = (cpf: string | undefined) => {
@@ -93,7 +150,7 @@ async function findCollaboratorByVendedor(
       return cpf.replace(/\D/g, '');
     };
 
-    const normalizedCPF = normalizeCPF(vendedor.cpf);
+    const normalizedCPF = normalizeCPF(vendedorCompleto.cpf);
 
     // Buscar colaboradoras da loja
     const { data: colaboradoras, error } = await supabase
@@ -131,9 +188,9 @@ async function findCollaboratorByVendedor(
     }
 
     // Tentar matching por email (segunda opção)
-    if (vendedor.email) {
+    if (vendedorCompleto.email) {
       const matchByEmail = colaboradoras.find(
-        (colab) => colab.email && colab.email.toLowerCase() === vendedor.email?.toLowerCase()
+        (colab) => colab.email && colab.email.toLowerCase() === vendedorCompleto.email?.toLowerCase()
       );
       if (matchByEmail) {
         console.log(`[SyncTiny] ✅ Vendedora encontrada por email: ${matchByEmail.name} (${matchByEmail.id})`);
@@ -142,7 +199,7 @@ async function findCollaboratorByVendedor(
     }
 
     // Tentar matching por nome (última opção, menos confiável)
-    if (vendedor.nome) {
+    if (vendedorCompleto.nome) {
       const normalizeName = (name: string) => {
         return name
           .toLowerCase()
@@ -151,16 +208,16 @@ async function findCollaboratorByVendedor(
           .trim();
       };
 
-      const normalizedVendedorNome = normalizeName(vendedor.nome);
+      const normalizedVendedorNome = normalizeName(vendedorCompleto.nome);
       
-      console.log(`[SyncTiny] 🔍 Tentando matching por nome: "${vendedor.nome}" (normalizado: "${normalizedVendedorNome}")`);
+      console.log(`[SyncTiny] 🔍 Tentando matching por nome: "${vendedorCompleto.nome}" (normalizado: "${normalizedVendedorNome}")`);
       
       // Tentar match exato primeiro
       const matchByName = colaboradoras.find((colab) => {
         const normalizedColabNome = normalizeName(colab.name || '');
         const isMatch = normalizedColabNome === normalizedVendedorNome;
         if (isMatch) {
-          console.log(`[SyncTiny] 🎯 Match encontrado: "${colab.name}" = "${vendedor.nome}"`);
+          console.log(`[SyncTiny] 🎯 Match encontrado: "${colab.name}" = "${vendedorCompleto.nome}"`);
         }
         return isMatch;
       });
@@ -189,11 +246,11 @@ async function findCollaboratorByVendedor(
       );
     }
 
-    console.log(`[SyncTiny] ⚠️ Vendedora não encontrada: ${vendedor.nome || vendedor.email || vendedor.cpf || 'N/A'}`);
+    console.log(`[SyncTiny] ⚠️ Vendedora não encontrada: ${vendedorCompleto.nome || vendedorCompleto.email || vendedorCompleto.cpf || 'N/A'}`);
     console.log(`[SyncTiny] 📋 Dados do vendedor recebidos:`, {
-      nome: vendedor.nome,
-      email: vendedor.email,
-      cpf: vendedor.cpf,
+      nome: vendedorCompleto.nome,
+      email: vendedorCompleto.email,
+      cpf: vendedorCompleto.cpf ? vendedorCompleto.cpf.substring(0, 3) + '***' : null,
       id: vendedor.id,
     });
     return null;
@@ -513,16 +570,34 @@ export async function syncTinyOrders(
 
         // Identificar vendedora/colaboradora
         let colaboradoraId: string | null = null;
-        if (pedido.vendedor) {
-          // Buscar CPF do vendedor - pode estar em vários lugares conforme documentação
+        if (pedido.vendedor && pedido.vendedor.id) {
+          // Log detalhado dos dados do vendedor recebidos do Tiny
+          console.log(`[SyncTiny] 🔍 Dados do vendedor recebidos:`, {
+            id: pedido.vendedor.id,
+            nome: pedido.vendedor.nome,
+            email: pedido.vendedor.email,
+            cpf: pedido.vendedor.cpf,
+            objeto_completo: JSON.stringify(pedido.vendedor).substring(0, 500),
+          });
+
+          // Tentar buscar CPF do vendedor nos dados do pedido (pode não vir)
           const vendedorCPF = pedido.vendedor.cpf
             || pedido.vendedor.dados_extras?.cpf 
             || pedido.vendedor.dados_extras?.cpf_cnpj
             || pedido.dados_extras?.vendedor_cpf
             || null;
 
-          colaboradoraId = await findCollaboratorByVendedor(storeId, {
+          console.log(`[SyncTiny] 🔍 Buscando colaboradora com:`, {
             id: pedido.vendedor.id,
+            nome: pedido.vendedor.nome,
+            email: pedido.vendedor.email,
+            cpf: vendedorCPF || 'não informado no pedido - será buscado na API',
+            storeId,
+          });
+
+          // A função findCollaboratorByVendedor agora busca dados completos do Tiny se tiver ID mas não tiver CPF
+          colaboradoraId = await findCollaboratorByVendedor(storeId, {
+            id: pedido.vendedor.id?.toString(),
             nome: pedido.vendedor.nome,
             email: pedido.vendedor.email,
             cpf: vendedorCPF,
@@ -539,9 +614,32 @@ export async function syncTinyOrders(
           numero_pedido: pedido.numero?.toString() || null,
           numero_ecommerce: pedido.numero_ecommerce?.toString() || null,
           situacao: pedido.situacao || null,
-          data_pedido: pedido.data_pedido 
-            ? (pedido.data_pedido.includes('T') ? pedido.data_pedido : `${pedido.data_pedido}T00:00:00`)
-            : null,
+          data_pedido: (() => {
+            const data = pedido.data_pedido || pedido.data || pedido.dataCriacao || null;
+            if (!data) return null;
+            
+            // Se já tem formato ISO completo com T e hora
+            if (typeof data === 'string' && data.includes('T')) {
+              return data;
+            }
+            
+            // Se for apenas data (YYYY-MM-DD)
+            if (typeof data === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data)) {
+              return `${data}T00:00:00`;
+            }
+            
+            // Tentar parsear qualquer formato
+            try {
+              const date = new Date(data);
+              if (!isNaN(date.getTime())) {
+                return date.toISOString();
+              }
+            } catch {
+              // Ignorar erro de parsing
+            }
+            
+            return null;
+          })(),
           data_prevista: pedido.data_prevista 
             ? (pedido.data_prevista.includes('T') ? pedido.data_prevista : `${pedido.data_prevista}T00:00:00`)
             : null,
@@ -549,7 +647,12 @@ export async function syncTinyOrders(
           cliente_cpf_cnpj: cliente.cpf_cnpj || null,
           cliente_email: cliente.email || null,
           cliente_telefone: cliente.fone || cliente.celular || null,
-          valor_total: parseFloat(String(pedido.valor_total || '0').replace(',', '.')),
+          valor_total: (() => {
+            const valorStr = String(pedido.valor_total || pedido.valor || '0');
+            const valorLimpo = valorStr.replace(/[^\d,.-]/g, '').replace(',', '.');
+            const valorNum = parseFloat(valorLimpo);
+            return isNaN(valorNum) ? 0 : valorNum;
+          })(),
           valor_desconto: parseFloat(String(pedido.valor_desconto || '0').replace(',', '.')),
           valor_frete: parseFloat(String(pedido.valor_frete || '0').replace(',', '.')),
           forma_pagamento: pedido.forma_pagamento || null,
@@ -688,6 +791,28 @@ async function syncTinyContact(
       return;
     }
 
+    // Buscar data de nascimento - pode estar em vários lugares
+    const dataNascimento = cliente.data_nascimento 
+      || cliente.nascimento 
+      || cliente.data_nasc 
+      || cliente.dados_extras?.data_nascimento
+      || cliente.dados_extras?.nascimento
+      || null;
+    
+    // Normalizar data de nascimento para formato DATE
+    let dataNascimentoNormalizada: string | null = null;
+    if (dataNascimento) {
+      try {
+        // Se for string, tentar parsear
+        const date = new Date(dataNascimento);
+        if (!isNaN(date.getTime())) {
+          dataNascimentoNormalizada = date.toISOString().split('T')[0]; // YYYY-MM-DD
+        }
+      } catch {
+        // Se não conseguir parsear, deixar null
+      }
+    }
+
     const contactData = {
       store_id: storeId,
       tiny_id: cliente.id?.toString() || cliente.cpf_cnpj || `temp_${Date.now()}`,
@@ -697,6 +822,7 @@ async function syncTinyContact(
       email: cliente.email || null,
       telefone: cliente.fone || null,
       celular: cliente.celular || null,
+      data_nascimento: dataNascimentoNormalizada,
       endereco: cliente.endereco ? JSON.stringify(cliente.endereco) : null,
       observacoes: cliente.observacoes || null,
       dados_extras: cliente.dados_extras ? JSON.stringify(cliente.dados_extras) : null,

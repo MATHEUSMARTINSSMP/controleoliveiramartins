@@ -224,8 +224,6 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
                   <TableHead>Cliente</TableHead>
                   <TableHead>Vendedor</TableHead>
                   <TableHead>Valor</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Pagamento</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -261,16 +259,8 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
                     <TableCell>
                       <div className="flex items-center gap-1 font-medium">
                         <DollarSign className="h-3 w-3 text-muted-foreground" />
-                        {formatCurrency(order.valor_total)}
+                        {formatCurrency(order.valor_total || 0)}
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={order.situacao === 'faturado' ? 'default' : 'secondary'}>
-                        {order.situacao || '-'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {order.forma_pagamento || '-'}
                     </TableCell>
                   </TableRow>
                 ))}

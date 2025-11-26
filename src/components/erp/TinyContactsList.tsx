@@ -12,7 +12,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Search, User, Mail, Phone, Building2 } from 'lucide-react';
+import { Loader2, Search, User, Mail, Phone, Building2, Calendar } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface TinyContact {
   id: string;
@@ -24,6 +26,7 @@ interface TinyContact {
   email: string | null;
   telefone: string | null;
   celular: string | null;
+  data_nascimento: string | null;
   sync_at: string;
 }
 
@@ -140,16 +143,6 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
               className="pl-9"
             />
           </div>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filtrar por tipo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os tipos</SelectItem>
-              <SelectItem value="F">Pessoa Física</SelectItem>
-              <SelectItem value="J">Pessoa Jurídica</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
 
         {/* Tabela */}
@@ -163,38 +156,17 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Tipo</TableHead>
                   <TableHead>CPF/CNPJ</TableHead>
-                  <TableHead>Email</TableHead>
                   <TableHead>Telefone</TableHead>
+                  <TableHead>Data de Nascimento</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredContacts.map((contact) => (
                   <TableRow key={contact.id}>
                     <TableCell className="font-medium">{contact.nome}</TableCell>
-                    <TableCell>
-                      <Badge variant={contact.tipo === 'F' ? 'default' : 'secondary'}>
-                        {contact.tipo === 'F' ? (
-                          <User className="mr-1 h-3 w-3" />
-                        ) : (
-                          <Building2 className="mr-1 h-3 w-3" />
-                        )}
-                        {contact.tipo === 'F' ? 'Pessoa Física' : 'Pessoa Jurídica'}
-                      </Badge>
-                    </TableCell>
                     <TableCell className="font-mono text-sm">
                       {formatCPFCNPJ(contact.cpf_cnpj)}
-                    </TableCell>
-                    <TableCell>
-                      {contact.email ? (
-                        <div className="flex items-center gap-1">
-                          <Mail className="h-3 w-3 text-muted-foreground" />
-                          {contact.email}
-                        </div>
-                      ) : (
-                        '-'
-                      )}
                     </TableCell>
                     <TableCell>
                       {contact.telefone || contact.celular ? (
@@ -202,6 +174,13 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
                           <Phone className="h-3 w-3 text-muted-foreground" />
                           {contact.celular || contact.telefone}
                         </div>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {contact.data_nascimento ? (
+                        format(new Date(contact.data_nascimento), 'dd/MM/yyyy', { locale: ptBR })
                       ) : (
                         '-'
                       )}
