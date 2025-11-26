@@ -57,6 +57,7 @@ interface AggregatedProduct {
   cor: string | null;
   codigo: string | null;
   descricao: string | null;
+  vendedor_nome: string | null; // ✅ CORREÇÃO: Campo adicionado para análises de vendedores
   total_vendas: number;
   quantidade_vendida: number;
   quantidade_pedidos: number;
@@ -383,6 +384,7 @@ export default function ProductSalesIntelligence() {
           cor: sale.cor,
           codigo: sale.codigo,
           descricao: sale.descricao,
+          vendedor_nome: sale.vendedor_nome, // ✅ CORREÇÃO: Incluir vendedor_nome na agregação
           total_vendas: 0,
           quantidade_vendida: 0,
           quantidade_pedidos: 0,
