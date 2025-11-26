@@ -57,14 +57,14 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
     filterOrders();
   }, [orders, searchTerm, statusFilter, dateFilter]);
 
-  // ✅ FASE 1: AUTO-REFRESH OTIMIZADO - Atualizar lista mais frequentemente
+  // ✅ AUTO-REFRESH SILENCIOSO - Atualizar lista quando houver novas vendas
+  // Não mostra loading, apenas atualiza a lista silenciosamente
   useEffect(() => {
     if (!storeId) return;
 
-    // ✅ FASE 1: Atualizar a cada 8 segundos (mais frequente que sincronização de 10s)
-    // Isso garante que quando novos pedidos chegarem, a lista atualiza rapidamente
+    // Atualizar a cada 8 segundos silenciosamente
     const interval = setInterval(() => {
-      fetchOrders();
+      fetchOrdersSilently();
     }, 8000); // 8 segundos
 
     return () => clearInterval(interval);
@@ -96,6 +96,47 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
       supabase.removeChannel(channel);
     };
   }, [storeId]);
+
+  // ✅ Buscar pedidos silenciosamente (sem mostrar loading)
+  const fetchOrdersSilently = async () => {
+    if (!storeId) return;
+
+    try {
+      const { data, error } = await supabase
+        .schema('sistemaretiradas')
+        .from('tiny_orders')
+        .select('*')
+        .eq('store_id', storeId)
+        .order('data_pedido', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+
+      if (data) {
+        // ✅ Detectar novos pedidos e adicionar no topo
+        const novosPedidos = data.filter(
+          (newOrder) => !orders.some((existingOrder) => existingOrder.id === newOrder.id)
+        );
+
+        if (novosPedidos.length > 0) {
+          // ✅ Adicionar novos pedidos no TOPO da lista
+          setOrders((prevOrders) => {
+            // Remover duplicados e adicionar novos no topo
+            const existingIds = new Set(prevOrders.map((o) => o.id));
+            const novosSemDuplicados = novosPedidos.filter((o) => !existingIds.has(o.id));
+            return [...novosSemDuplicados, ...prevOrders];
+          });
+        } else {
+          // Sem novos pedidos, apenas atualizar se houver mudanças
+          setOrders(data);
+        }
+      }
+    } catch (error: any) {
+      console.error('Erro ao buscar pedidos (silencioso):', error);
+      // Não mostrar erro para não poluir a interface
+    }
+  };
 
   const fetchOrders = async () => {
     try {

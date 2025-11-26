@@ -272,9 +272,8 @@ export default function ERPDashboard() {
     }
   };
 
-  // ✅ SEGURANÇA: Sincronização manual apenas incremental (não hard sync)
-  // Hard Sync fica APENAS no painel dev (/dev/erp-config) para evitar uso indevido
-  const handleSyncOrders = async () => {
+  // ✅ Sincronização manual com diferentes períodos
+  const handleSyncOrders = async (periodo: 'agora' | 'semana' | 'total') => {
     if (!selectedStoreId) {
       toast.error('Selecione uma loja');
       return;
@@ -295,13 +294,41 @@ export default function ERPDashboard() {
 
     try {
       setSyncing(true);
-      toast.info('Sincronizando pedidos (incremental)...');
+      
+      let dataInicio: string | undefined;
+      let mensagem: string;
+      
+      if (periodo === 'agora') {
+        // Buscar apenas última venda (últimas 2 horas)
+        const agora = new Date();
+        const duasHorasAtras = new Date(agora);
+        duasHorasAtras.setHours(agora.getHours() - 2);
+        dataInicio = duasHorasAtras.toISOString().split('T')[0];
+        mensagem = 'Sincronizando última venda...';
+      } else if (periodo === 'semana') {
+        // Buscar últimos 7 dias
+        const hoje = new Date();
+        const seteDiasAtras = new Date(hoje);
+        seteDiasAtras.setDate(hoje.getDate() - 7);
+        dataInicio = seteDiasAtras.toISOString().split('T')[0];
+        mensagem = 'Sincronizando últimos 7 dias...';
+      } else {
+        // Sincronização total: últimos 90 dias, mas apenas se houver mudanças
+        const hoje = new Date();
+        const noventaDiasAtras = new Date(hoje);
+        noventaDiasAtras.setDate(hoje.getDate() - 90);
+        dataInicio = noventaDiasAtras.toISOString().split('T')[0];
+        mensagem = 'Sincronização total (últimos 90 dias)...';
+      }
+      
+      toast.info(mensagem);
 
-      // ✅ SEGURANÇA: Apenas sincronização incremental (não hard sync)
-      // Hard sync disponível apenas em /dev/erp-config
       const result = await syncTinyOrders(selectedStoreId, {
-        incremental: true,
-        hardSync: false, // Sempre false no dashboard normal
+        dataInicio,
+        incremental: periodo === 'total', // Total usa incremental para só atualizar mudanças
+        hardSync: false,
+        limit: periodo === 'agora' ? 10 : 100, // Agora: menos registros
+        maxPages: periodo === 'agora' ? 1 : (periodo === 'semana' ? 10 : 50), // Agora: 1 página, Semana: 10, Total: 50
       });
 
       if (result.success) {
