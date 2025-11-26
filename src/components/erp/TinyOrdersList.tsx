@@ -67,12 +67,6 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
   const endIndex = startIndex + itemsPerPage;
   const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
 
-  // Calcular paginação
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
-
   // ✅ AUTO-REFRESH SILENCIOSO - Atualizar lista quando houver novas vendas
   // Não mostra loading, apenas atualiza a lista silenciosamente
   useEffect(() => {
@@ -383,99 +377,101 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
             Nenhum pedido encontrado
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Número</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Vendedor</TableHead>
-                  <TableHead>Valor</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedOrders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-medium">
-                      {order.numero_pedido || order.numero_ecommerce || order.tiny_id}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3 text-muted-foreground" />
-                        {formatDate(order.data_pedido)}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">
-                          {order.cliente_nome || '-'}
-                        </div>
-                        {/* ✅ Exibir diretamente da coluna do Supabase */}
-                        {order.cliente_telefone && (
-                          <div className="text-xs text-muted-foreground">
-                            📞 {order.cliente_telefone}
-                          </div>
-                        )}
-                        {order.cliente_email && (
-                          <div className="text-xs text-muted-foreground">
-                            ✉️ {order.cliente_email}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {order.vendedor_nome ? (
-                        <div className="flex items-center gap-1">
-                          <User className="h-3 w-3 text-muted-foreground" />
-                          {order.vendedor_nome}
-                        </div>
-                      ) : (
-                        '-'
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 font-medium">
-                        <DollarSign className="h-3 w-3 text-muted-foreground" />
-                        {formatCurrency(order.valor_total || 0)}
-                      </div>
-                    </TableCell>
+          <>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Número</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Vendedor</TableHead>
+                    <TableHead>Valor</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          {/* Paginação */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 pt-4 border-t">
-              <div className="text-sm text-muted-foreground">
-                Mostrando {startIndex + 1} a {Math.min(endIndex, filteredOrders.length)} de {filteredOrders.length} pedidos
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Anterior
-                </Button>
-                <div className="text-sm">
-                  Página {currentPage} de {totalPages}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Próxima
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+                </TableHeader>
+                <TableBody>
+                  {paginatedOrders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium">
+                        {order.numero_pedido || order.numero_ecommerce || order.tiny_id}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3 text-muted-foreground" />
+                          {formatDate(order.data_pedido)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">
+                            {order.cliente_nome || '-'}
+                          </div>
+                          {/* ✅ Exibir diretamente da coluna do Supabase */}
+                          {order.cliente_telefone && (
+                            <div className="text-xs text-muted-foreground">
+                              📞 {order.cliente_telefone}
+                            </div>
+                          )}
+                          {order.cliente_email && (
+                            <div className="text-xs text-muted-foreground">
+                              ✉️ {order.cliente_email}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {order.vendedor_nome ? (
+                          <div className="flex items-center gap-1">
+                            <User className="h-3 w-3 text-muted-foreground" />
+                            {order.vendedor_nome}
+                          </div>
+                        ) : (
+                          '-'
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1 font-medium">
+                          <DollarSign className="h-3 w-3 text-muted-foreground" />
+                          {formatCurrency(order.valor_total || 0)}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-          )}
+            {/* Paginação */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                  Mostrando {startIndex + 1} a {Math.min(endIndex, filteredOrders.length)} de {filteredOrders.length} pedidos
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Anterior
+                  </Button>
+                  <div className="text-sm">
+                    Página {currentPage} de {totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Próxima
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
