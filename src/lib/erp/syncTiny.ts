@@ -708,17 +708,26 @@ export async function syncTinyContacts(
       
       console.log(`[SyncTiny] Resposta recebida (página ${currentPage}):`, JSON.stringify(response).substring(0, 500));
       
-      if (response.contatos && Array.isArray(response.contatos)) {
+      // Tiny ERP v3 retorna: { itens: [...], paginacao: {...} }
+      if (response.itens && Array.isArray(response.itens)) {
+        contatos = response.itens;
+        console.log(`[SyncTiny] Encontrados ${contatos.length} contatos na página ${currentPage} via 'itens'`);
+      } else if (response.contatos && Array.isArray(response.contatos)) {
+        // Fallback para estrutura alternativa
         contatos = response.contatos;
+        console.log(`[SyncTiny] Encontrados ${contatos.length} contatos na página ${currentPage} via 'contatos'`);
       } else if (response.retorno?.contatos && Array.isArray(response.retorno.contatos)) {
         contatos = response.retorno.contatos;
+        console.log(`[SyncTiny] Encontrados ${contatos.length} contatos na página ${currentPage} via 'retorno.contatos'`);
       } else if (response.data?.contatos && Array.isArray(response.data.contatos)) {
         contatos = response.data.contatos;
+        console.log(`[SyncTiny] Encontrados ${contatos.length} contatos na página ${currentPage} via 'data.contatos'`);
       } else if (Array.isArray(response)) {
         // Se a resposta é um array direto
         contatos = response;
+        console.log(`[SyncTiny] Encontrados ${contatos.length} contatos na página ${currentPage} (array direto)`);
       } else {
-        console.warn(`[SyncTiny] Estrutura de resposta não reconhecida (página ${currentPage}):`, Object.keys(response));
+        console.warn(`[SyncTiny] Estrutura de resposta não reconhecida (página ${currentPage}). Chaves encontradas:`, Object.keys(response || {}));
         if (currentPage === 1) {
           return {
             success: false,
