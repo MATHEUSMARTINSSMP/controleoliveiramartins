@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, RefreshCw, Package, Users, DollarSign, TrendingUp, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, RefreshCw, Package, Users, DollarSign, TrendingUp, AlertCircle, CheckCircle2, LogOut, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { syncTinyOrders, syncTinyContacts } from '@/lib/erp/syncTiny';
 import TinyOrdersList from '@/components/erp/TinyOrdersList';
@@ -236,7 +236,23 @@ export default function ERPDashboard() {
       }
     } catch (error: any) {
       console.error('Erro ao sincronizar pedidos:', error);
-      toast.error('Erro ao sincronizar pedidos');
+      const errorMessage = error.message || 'Erro ao sincronizar pedidos';
+      
+      // Se for erro de token, mostrar mensagem específica com botão de reautorização
+      if (errorMessage.includes('renovar token') || errorMessage.includes('Reautorize')) {
+        toast.error(errorMessage, {
+          duration: 10000,
+          action: {
+            label: 'Reautorizar',
+            onClick: () => {
+              // Redirecionar para página de configuração para reautorizar
+              window.location.href = `/dev/erp-config?store=${selectedStoreId}`;
+            },
+          },
+        });
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setSyncing(false);
     }
@@ -276,7 +292,23 @@ export default function ERPDashboard() {
       }
     } catch (error: any) {
       console.error('Erro ao sincronizar clientes:', error);
-      toast.error('Erro ao sincronizar clientes');
+      const errorMessage = error.message || 'Erro ao sincronizar clientes';
+      
+      // Se for erro de token, mostrar mensagem específica com botão de reautorização
+      if (errorMessage.includes('renovar token') || errorMessage.includes('Reautorize')) {
+        toast.error(errorMessage, {
+          duration: 10000,
+          action: {
+            label: 'Reautorizar',
+            onClick: () => {
+              // Redirecionar para página de configuração para reautorizar
+              window.location.href = `/dev/erp-config?store=${selectedStoreId}`;
+            },
+          },
+        });
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setSyncing(false);
     }
