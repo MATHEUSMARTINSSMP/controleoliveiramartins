@@ -1570,47 +1570,105 @@ async function syncTinyContact(
       || cliente.documento
       || null;
 
-    // ✅ ESTRATÉGIA ROBUSTA: Priorizar CELULAR sobre TELEFONE
-    // API v3 pode retornar: celular, telefone, mobile, whatsapp, telefoneAdicional
-    // Damos preferência para celular (mais útil para contato)
+    // ✅ ESTRATÉGIA ULTRA ROBUSTA: Priorizar CELULAR sobre TELEFONE
+    // API v3 pode retornar em múltiplos lugares: celular, telefone, mobile, whatsapp, contatos[], etc.
+    // Damos preferência ABSOLUTA para celular (mais útil para contato)
     const telefoneFinal = (() => {
-      // 1. PRIORIDADE: Celular (mais útil)
-      const celular = cliente.celular 
+      // Log detalhado do objeto recebido para diagnóstico
+      console.log(`[SyncTiny] 🔍 Buscando telefone para cliente ${cliente.nome}:`, {
+        tem_celular: !!cliente.celular,
+        tem_telefone: !!cliente.telefone,
+        tem_mobile: !!cliente.mobile,
+        tem_whatsapp: !!cliente.whatsapp,
+        tem_contatos: !!cliente.contatos,
+        contatos_length: Array.isArray(cliente.contatos) ? cliente.contatos.length : 0,
+        chaves_disponiveis: Object.keys(cliente).filter(k => 
+          k.toLowerCase().includes('tel') || 
+          k.toLowerCase().includes('cel') || 
+          k.toLowerCase().includes('mobile') || 
+          k.toLowerCase().includes('whats')
+        ),
+      });
+
+      // 1. PRIORIDADE MÁXIMA: Celular direto (campos principais)
+      const celularDireto = cliente.celular 
         || cliente.mobile 
         || cliente.whatsapp 
         || cliente.celularAdicional
+        || cliente.celularPrincipal
         || null;
       
-      if (celular && celular.trim() !== '') {
-        console.log(`[SyncTiny] ✅ Telefone encontrado (CELULAR): ${celular.substring(0, 10)}...`);
-        return celular.trim();
+      if (celularDireto && String(celularDireto).trim() !== '') {
+        const celularLimpo = String(celularDireto).trim();
+        console.log(`[SyncTiny] ✅ Telefone encontrado (CELULAR DIRETO): ${celularLimpo.substring(0, 15)}...`);
+        return celularLimpo;
       }
       
-      // 2. FALLBACK: Telefone fixo
-      const telefone = cliente.telefone 
+      // 2. PRIORIDADE ALTA: Array de contatos (Tiny ERP pode ter múltiplos contatos)
+      if (Array.isArray(cliente.contatos) && cliente.contatos.length > 0) {
+        for (const contato of cliente.contatos) {
+          // Priorizar celular no array de contatos
+          const celularContato = contato.celular 
+            || contato.mobile 
+            || contato.whatsapp
+            || contato.telefoneCelular
+            || null;
+          
+          if (celularContato && String(celularContato).trim() !== '') {
+            const celularLimpo = String(celularContato).trim();
+            console.log(`[SyncTiny] ✅ Telefone encontrado (CELULAR EM CONTATOS[]): ${celularLimpo.substring(0, 15)}...`);
+            return celularLimpo;
+          }
+        }
+        
+        // Se não encontrou celular, tentar telefone fixo no array
+        for (const contato of cliente.contatos) {
+          const telefoneContato = contato.telefone 
+            || contato.fone
+            || contato.telefonePrincipal
+            || null;
+          
+          if (telefoneContato && String(telefoneContato).trim() !== '') {
+            const telefoneLimpo = String(telefoneContato).trim();
+            console.log(`[SyncTiny] ✅ Telefone encontrado (FIXO EM CONTATOS[]): ${telefoneLimpo.substring(0, 15)}...`);
+            return telefoneLimpo;
+          }
+        }
+      }
+      
+      // 3. FALLBACK: Telefone fixo direto
+      const telefoneFixo = cliente.telefone 
         || cliente.fone 
         || cliente.telefoneAdicional
         || cliente.telefonePrincipal
         || null;
       
-      if (telefone && telefone.trim() !== '') {
-        console.log(`[SyncTiny] ✅ Telefone encontrado (FIXO): ${telefone.substring(0, 10)}...`);
-        return telefone.trim();
+      if (telefoneFixo && String(telefoneFixo).trim() !== '') {
+        const telefoneLimpo = String(telefoneFixo).trim();
+        console.log(`[SyncTiny] ✅ Telefone encontrado (FIXO DIRETO): ${telefoneLimpo.substring(0, 15)}...`);
+        return telefoneLimpo;
       }
       
-      // 3. FALLBACK: Dados extras
+      // 4. FALLBACK: Dados extras (JSONB)
       const telefoneExtras = cliente.dados_extras?.celular
         || cliente.dados_extras?.telefone
         || cliente.dados_extras?.mobile
         || cliente.dados_extras?.whatsapp
+        || cliente.dados_extras?.telefoneCelular
         || null;
       
-      if (telefoneExtras && telefoneExtras.trim() !== '') {
-        console.log(`[SyncTiny] ✅ Telefone encontrado (DADOS_EXTRAS): ${telefoneExtras.substring(0, 10)}...`);
-        return telefoneExtras.trim();
+      if (telefoneExtras && String(telefoneExtras).trim() !== '') {
+        const telefoneLimpo = String(telefoneExtras).trim();
+        console.log(`[SyncTiny] ✅ Telefone encontrado (DADOS_EXTRAS): ${telefoneLimpo.substring(0, 15)}...`);
+        return telefoneLimpo;
       }
       
-      console.warn(`[SyncTiny] ⚠️ Nenhum telefone encontrado para cliente ${cliente.nome}`);
+      // 5. FALLBACK FINAL: Verificar se já existe telefone no banco (não sobrescrever com null)
+      // Isso evita perder dados que já foram salvos anteriormente
+      console.warn(`[SyncTiny] ⚠️ Nenhum telefone encontrado nos dados recebidos para cliente ${cliente.nome}`);
+      console.warn(`[SyncTiny] ⚠️ Objeto completo recebido:`, JSON.stringify(cliente).substring(0, 500));
+      
+      // Retornar null - o upsert não vai sobrescrever se já existir telefone no banco
       return null;
     })();
 
@@ -1633,10 +1691,31 @@ async function syncTinyContact(
     };
 
     // ✅ FASE 1: Fazer upsert e retornar o ID do cliente
+    // ⚠️ IMPORTANTE: Se telefoneFinal for null, não sobrescrever telefone existente no banco
+    // Verificar se já existe contato com telefone antes de fazer upsert
+    let contactDataFinal = { ...contactData };
+    
+    if (!telefoneFinal) {
+      // Se não encontramos telefone nos dados recebidos, verificar se já existe no banco
+      const { data: existingContact } = await supabase
+        .schema('sistemaretiradas')
+        .from('tiny_contacts')
+        .select('telefone, celular')
+        .eq('store_id', storeId)
+        .eq('tiny_id', contactData.tiny_id)
+        .maybeSingle();
+      
+      if (existingContact && (existingContact.telefone || existingContact.celular)) {
+        // Manter telefone existente (não sobrescrever com null)
+        contactDataFinal.telefone = existingContact.telefone || existingContact.celular;
+        console.log(`[SyncTiny] ✅ Mantendo telefone existente no banco: ${contactDataFinal.telefone?.substring(0, 15)}...`);
+      }
+    }
+    
     const { data: contactResult, error: contactError } = await supabase
       .schema('sistemaretiradas')
       .from('tiny_contacts')
-      .upsert(contactData, {
+      .upsert(contactDataFinal, {
         onConflict: 'store_id,tiny_id',
         ignoreDuplicates: false,
       })
