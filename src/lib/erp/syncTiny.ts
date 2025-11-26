@@ -323,9 +323,19 @@ export async function syncTinyOrders(
     let ultimoTinyIdProcessado: string | null = null;
 
     // Processar cada pedido
-    for (const pedidoData of allPedidos) {
+    // Filtrar apenas pedidos faturados (situacao contém "Faturado" ou similar)
+    const pedidosFaturados = allPedidos.filter(p => {
+      const pedido = p.pedido || p;
+      const situacao = (pedido.situacao || '').toString().toLowerCase();
+      // Aceitar pedidos faturados
+      return situacao.includes('faturado') || situacao === 'faturado';
+    });
+
+    console.log(`[SyncTiny] Total de pedidos recebidos: ${allPedidos.length}, Faturados: ${pedidosFaturados.length}`);
+
+    for (const pedidoData of pedidosFaturados) {
       try {
-        const pedido = pedidoData.pedido;
+        const pedido = pedidoData.pedido || pedidoData;
         const cliente = pedido.cliente || {};
 
         // Extrair TODOS os dados possíveis dos produtos para relatórios inteligentes
