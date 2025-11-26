@@ -1575,20 +1575,38 @@ async function syncTinyContact(
     // Damos preferência ABSOLUTA para celular (mais útil para contato)
     const telefoneFinal = (() => {
       // Log detalhado do objeto recebido para diagnóstico
+      const chavesTelefone = Object.keys(cliente).filter(k => {
+        const kLower = k.toLowerCase();
+        return kLower.includes('tel') || 
+               kLower.includes('cel') || 
+               kLower.includes('mobile') || 
+               kLower.includes('whats') ||
+               kLower.includes('fone');
+      });
+      
       console.log(`[SyncTiny] 🔍 Buscando telefone para cliente ${cliente.nome}:`, {
         tem_celular: !!cliente.celular,
+        valor_celular: cliente.celular,
         tem_telefone: !!cliente.telefone,
+        valor_telefone: cliente.telefone,
         tem_mobile: !!cliente.mobile,
+        valor_mobile: cliente.mobile,
         tem_whatsapp: !!cliente.whatsapp,
+        valor_whatsapp: cliente.whatsapp,
         tem_contatos: !!cliente.contatos,
         contatos_length: Array.isArray(cliente.contatos) ? cliente.contatos.length : 0,
-        chaves_disponiveis: Object.keys(cliente).filter(k => 
-          k.toLowerCase().includes('tel') || 
-          k.toLowerCase().includes('cel') || 
-          k.toLowerCase().includes('mobile') || 
-          k.toLowerCase().includes('whats')
-        ),
+        chaves_telefone: chavesTelefone,
+        todas_chaves: Object.keys(cliente),
       });
+      
+      // Log completo do objeto (limitado para não poluir)
+      if (chavesTelefone.length > 0) {
+        const valoresTelefone: Record<string, any> = {};
+        chavesTelefone.forEach(k => {
+          valoresTelefone[k] = cliente[k];
+        });
+        console.log(`[SyncTiny] 📞 Valores de telefone encontrados:`, valoresTelefone);
+      }
 
       // 1. PRIORIDADE MÁXIMA: Celular direto (campos principais)
       const celularDireto = cliente.celular 
