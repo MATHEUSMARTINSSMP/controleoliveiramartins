@@ -77,14 +77,22 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
       console.log('[TinyOrdersList] 📦 Dados recebidos do banco:', {
         total: data?.length || 0,
         primeiro_pedido: data?.[0] ? {
+          id: data[0].id,
           tiny_id: data[0].tiny_id,
           numero_pedido: data[0].numero_pedido,
           valor_total: data[0].valor_total,
+          valor_total_TIPO: typeof data[0].valor_total,
           data_pedido: data[0].data_pedido,
+          data_pedido_TIPO: typeof data[0].data_pedido,
           cliente_nome: data[0].cliente_nome,
           cliente_cpf_cnpj: data[0].cliente_cpf_cnpj,
           vendedor_nome: data[0].vendedor_nome,
         } : null,
+        todos_os_pedidos_valores: data?.slice(0, 5).map(o => ({
+          numero: o.numero_pedido,
+          valor: o.valor_total,
+          data: o.data_pedido,
+        })) || [],
         todas_as_chaves: data?.[0] ? Object.keys(data[0]) : [],
       });
       

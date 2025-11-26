@@ -901,16 +901,11 @@ export async function syncTinyOrders(
 
         if (upsertError) {
           console.error(`[SyncTiny] ❌ Erro ao salvar pedido ${tinyId}:`, upsertError);
-          throw upsertError;
+          errors++;
+          errorDetails.push(`Pedido ${orderData.numero_pedido || orderData.tiny_id}: ${upsertError.message}`);
+          continue; // Pular para o próximo pedido
         } else {
           console.log(`[SyncTiny] ✅ Pedido ${tinyId} salvo com sucesso!`);
-        }
-
-        if (error) {
-          console.error(`Erro ao salvar pedido ${orderData.tiny_id}:`, error);
-          errors++;
-          errorDetails.push(`Pedido ${orderData.numero_pedido || orderData.tiny_id}: ${error.message}`);
-        } else {
           if (existingOrder) {
             updated++;
           } else {
