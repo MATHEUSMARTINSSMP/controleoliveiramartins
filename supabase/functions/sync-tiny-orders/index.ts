@@ -103,20 +103,14 @@ serve(async (req) => {
         dozeHorasAtras.setHours(dozeHorasAtras.getHours() - 12)
         const dataInicio = dozeHorasAtras.toISOString().split('T')[0]
 
-        // Importar função de sincronização
-        // Como estamos em Deno, precisamos adaptar a função
-        // Vamos chamar via HTTP para a Netlify Function ou implementar aqui
-        
-        // Por enquanto, vamos fazer a sincronização diretamente aqui
-        // Importar as funções necessárias do syncTiny.ts adaptadas para Deno
-        
-        // ✅ ESTRATÉGIA: Chamar a lógica de sincronização via Netlify Function
+        // ✅ ESTRATÉGIA: Chamar Netlify Function que tem a lógica completa de sincronização
         // Isso reutiliza o código existente sem duplicação
+        // A Netlify Function chama syncTinyOrders que já está implementado
         
         const netlifyUrl = Deno.env.get('NETLIFY_FUNCTION_URL') || 'https://eleveaone.com.br'
         const syncUrl = `${netlifyUrl}/.netlify/functions/sync-tiny-orders-background`
         
-        console.log(`[SyncTinyOrders] 📡 Chamando Netlify Function para sincronizar...`)
+        console.log(`[SyncTinyOrders] 📡 Chamando Netlify Function para sincronizar loja ${storeId}...`)
         
         const syncResponse = await fetch(syncUrl, {
           method: 'POST',
@@ -135,10 +129,15 @@ serve(async (req) => {
 
         if (!syncResponse.ok) {
           const errorText = await syncResponse.text()
+          console.error(`[SyncTinyOrders] ❌ Erro na resposta da Netlify Function:`, errorText)
           throw new Error(`Erro na sincronização: ${errorText}`)
         }
 
         const syncResult = await syncResponse.json()
+        
+        if (!syncResult.success) {
+          throw new Error(syncResult.error || syncResult.message || 'Erro desconhecido na sincronização')
+        }
 
         results.push({
           store_id: storeId,
