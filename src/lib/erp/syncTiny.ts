@@ -231,9 +231,11 @@ async function fetchContatoCompletoFromTiny(
       estrutura_completa: JSON.stringify(response).substring(0, 1000),
     });
 
-    // A API pode retornar o contato direto ou dentro de um objeto
-    // Tiny ERP v3: GET /contatos/{idContato} retorna o contato diretamente
-    const contatoCompleto = response.contato || response;
+    // ✅ CORREÇÃO BASEADA NA DOCUMENTAÇÃO OFICIAL:
+    // Tiny ERP v3: GET /contatos/{idContato} retorna o contato DIRETAMENTE (não dentro de "contato")
+    // Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html#/Contatos/ObterContatoAction
+    // A resposta é o objeto contato diretamente: { nome, telefone, celular, dataNascimento, ... }
+    const contatoCompleto = response;
     
     console.log(`[SyncTiny] 📋 Contato extraído (response.contato || response):`, {
       tem_contato: !!contatoCompleto,
@@ -281,15 +283,16 @@ async function fetchVendedorCompletoFromTiny(
     console.log(`[SyncTiny] 🔍 Buscando dados completos do vendedor ${vendedorId} no Tiny ERP...`);
 
     // Buscar contato/vendedor pelo ID na API do Tiny
-    // API v3: GET /contatos/{idContato}
+    // API v3: GET /contatos/{idContato} retorna o contato DIRETAMENTE
     const response = await callERPAPI(storeId, `/contatos/${vendedorId}`);
 
-    if (!response || !response.contato) {
+    if (!response || !response.id) {
       console.log(`[SyncTiny] ⚠️ Vendedor ${vendedorId} não encontrado na API do Tiny`);
       return null;
     }
 
-    const contato = response.contato;
+    // ✅ CORREÇÃO: A resposta é o contato diretamente, não dentro de "contato"
+    const contato = response;
     const dadosCompletos = {
       cpf: contato.cpf_cnpj || contato.cpf || contato.dados_extras?.cpf || null,
       email: contato.email || contato.dados_extras?.email || null,
@@ -1611,8 +1614,10 @@ async function fetchProdutoCompletoFromTiny(
     // API v3 OFICIAL: GET /produtos/{idProduto} (sem query params para detalhes)
     const response = await callERPAPI(storeId, `/produtos/${produtoId}`);
 
-    // A API pode retornar o produto diretamente ou dentro de um objeto
-    const produtoCompleto = response?.produto || response;
+    // ✅ CORREÇÃO BASEADA NA DOCUMENTAÇÃO OFICIAL:
+    // Tiny ERP v3: GET /produtos/{idProduto} retorna o produto DIRETAMENTE (não dentro de "produto")
+    // Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html#/Produtos/ObterProdutoAction
+    const produtoCompleto = response;
     
     if (!produtoCompleto || !produtoCompleto.id) {
       console.warn(`[SyncTiny] ⚠️ Detalhes do produto ${produtoId} não encontrados. Resposta:`, JSON.stringify(response).substring(0, 500));
@@ -1664,8 +1669,10 @@ async function fetchPedidoCompletoFromTiny(
     // API v3 OFICIAL: GET /pedidos/{idPedido} (sem query params para detalhes)
     const response = await callERPAPI(storeId, `/pedidos/${pedidoId}`);
 
-    // A API pode retornar o pedido diretamente ou dentro de um objeto
-    const pedidoCompleto = response?.pedido || response;
+    // ✅ CORREÇÃO BASEADA NA DOCUMENTAÇÃO OFICIAL:
+    // Tiny ERP v3: GET /pedidos/{idPedido} retorna o pedido DIRETAMENTE (não dentro de "pedido")
+    // Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html#/Pedidos/ObterPedidoAction
+    const pedidoCompleto = response;
     
     if (!pedidoCompleto || !pedidoCompleto.id) {
       console.warn(`[SyncTiny] ⚠️ Detalhes do pedido ${pedidoId} não encontrados. Resposta:`, JSON.stringify(response).substring(0, 500));
