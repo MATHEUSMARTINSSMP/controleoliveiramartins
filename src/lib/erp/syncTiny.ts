@@ -2217,6 +2217,7 @@ export async function syncTinyContacts(
       semId: 0,
       jaCompletos: 0,
       erros: 0,
+      fornecedoresDescartados: 0,
     };
     
     for (const contatoData of allContatos) {
@@ -2236,6 +2237,26 @@ export async function syncTinyContacts(
         // Log para diagnóstico
         if (!contato.nome) {
           console.warn(`[SyncTiny] ⚠️ Contato sem nome (ID: ${contato.id}), ignorando`);
+          continue;
+        }
+
+        // ✅ FILTRO: Descartar fornecedores - só processar clientes
+        // A API do Tiny retorna tipos em um array: tipos: [{ id, descricao: "Cliente" | "Fornecedor" | ... }]
+        const tipos = contato.tipos || [];
+        const descricoesTipos = tipos.map((t: any) => (t.descricao || '').toLowerCase());
+        const isFornecedor = descricoesTipos.some((desc: string) => 
+          desc.includes('fornecedor') || 
+          desc.includes('supplier') ||
+          desc === 'fornecedor' ||
+          desc === 'supplier'
+        );
+        
+        // Se for fornecedor, descartar
+        if (isFornecedor) {
+          contadores.fornecedoresDescartados++;
+          if (contadores.fornecedoresDescartados <= 5) {
+            console.log(`[SyncTiny] 🚫 Fornecedor descartado: ${contato.nome} (ID: ${contato.id}) - Tipos: ${descricoesTipos.join(', ')}`);
+          }
           continue;
         }
 
@@ -2302,7 +2323,7 @@ export async function syncTinyContacts(
         
         // Log de progresso a cada 50 contatos
         if (contadores.processados % 50 === 0) {
-          console.log(`[SyncTiny] 📊 Progresso: ${contadores.processados}/${contadores.total} contatos processados | ${contadores.comDetalhesBuscados} com busca de detalhes | ${contadores.jaCompletos} já completos | ${contadores.semId} sem ID`);
+          console.log(`[SyncTiny] 📊 Progresso: ${contadores.processados}/${contadores.total} contatos processados | ${contadores.comDetalhesBuscados} com busca de detalhes | ${contadores.jaCompletos} já completos | ${contadores.semId} sem ID | ${contadores.fornecedoresDescartados} fornecedores descartados`);
         }
 
         // Log detalhado para diagnóstico (DEPOIS de buscar detalhes se necessário)
