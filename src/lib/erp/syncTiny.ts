@@ -768,11 +768,26 @@ export async function syncTinyOrders(
 
             console.log(`[SyncTiny] 📅 Data bruta recebida: "${data}" (tipo: ${typeof data})`);
 
-            // ✅ CORREÇÃO: Sempre converter para ISO completo com timezone
+            // ✅ CORREÇÃO: Lidar com diferentes formatos de data
             try {
+              // Se já tem formato ISO completo com T e timezone
+              if (typeof data === 'string' && data.includes('T') && (data.includes('Z') || data.includes('+') || data.includes('-'))) {
+                console.log(`[SyncTiny] ✅ Data já em formato ISO completo: "${data}"`);
+                return data;
+              }
+
+              // Se for apenas data (YYYY-MM-DD) - usar meio-dia no timezone do Brasil
+              if (typeof data === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data)) {
+                // Usar 12:00 (meio-dia) no timezone do Brasil (-03:00)
+                const isoString = `${data}T12:00:00-03:00`;
+                console.log(`[SyncTiny] ✅ Data convertida para ISO com timezone BR: "${isoString}"`);
+                return isoString;
+              }
+
+              // Tentar parsear qualquer outro formato
               const date = new Date(data);
               if (!isNaN(date.getTime())) {
-                const isoString = date.toISOString();  // Sempre retorna com Z (UTC)
+                const isoString = date.toISOString();
                 console.log(`[SyncTiny] ✅ Data convertida para ISO: "${isoString}"`);
                 return isoString;
               }
