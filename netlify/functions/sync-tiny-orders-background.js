@@ -2,7 +2,7 @@
  * Netlify Function: Sincronização de Pedidos Tiny ERP (Background)
  * 
  * Esta função é chamada pela Supabase Edge Function para sincronizar pedidos.
- * Reutiliza a lógica existente em syncTiny.ts
+ * Implementa a lógica completa de sincronização adaptada para Node.js
  * 
  * Endpoint: /.netlify/functions/sync-tiny-orders-background
  * Método: POST
@@ -18,6 +18,9 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
+
+// Configuração Tiny ERP
+const TINY_API_V3_URL = 'https://erp.tiny.com.br/public-api/v3';
 
 exports.handler = async (event, context) => {
   // CORS headers
@@ -73,13 +76,6 @@ exports.handler = async (event, context) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // ✅ Importar e chamar a função de sincronização
-    // Como estamos em Node.js, vamos fazer a sincronização diretamente
-    // A lógica está em src/lib/erp/syncTiny.ts, mas precisamos adaptar para Node.js
-    
-    // Por enquanto, vamos fazer uma implementação simplificada
-    // que chama a API do Tiny ERP diretamente
-    
     // Buscar integração da loja
     const { data: integration, error: integrationError } = await supabase
       .schema('sistemaretiradas')
@@ -111,24 +107,152 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // ✅ NOTA: A lógica completa de sincronização está em src/lib/erp/syncTiny.ts
-    // Por enquanto, vamos retornar sucesso e registrar que foi chamado
-    // A implementação completa será feita adaptando syncTinyOrders para Node.js
-    // ou criando uma versão que funciona tanto no frontend quanto no backend
+    // ✅ IMPLEMENTAÇÃO: Chamar a API do Tiny ERP para sincronizar pedidos
+    // Usar o proxy Netlify Function para evitar CORS
+    const proxyUrl = `${process.env.URL || 'https://eleveaone.com.br'}/.netlify/functions/erp-api-proxy`;
     
-    console.log(`[SyncBackground] ✅ Sincronização iniciada para loja ${store_id}`);
-    
-    // Por enquanto, retornar sucesso
-    // TODO: Implementar lógica completa de sincronização aqui
+    // Calcular data de início se não fornecida
+    let dataInicioSync = data_inicio;
+    if (!dataInicioSync) {
+      const dozeHorasAtras = new Date();
+      dozeHorasAtras.setHours(dozeHorasAtras.getHours() - 12);
+      dataInicioSync = dozeHorasAtras.toISOString().split('T')[0];
+    }
+
+    console.log(`[SyncBackground] 📅 Buscando pedidos desde: ${dataInicioSync}`);
+
+    // Buscar pedidos do Tiny ERP
+    let allPedidos = [];
+    let currentPage = 1;
+    const maxPages = max_pages || 2;
+    let hasMore = true;
+
+    while (hasMore && currentPage <= maxPages) {
+      try {
+        const response = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            store_id: store_id,
+            endpoint: '/pedidos',
+            method: 'GET',
+            params: {
+              dataInicio: dataInicioSync,
+              pagina: currentPage,
+              limite: limit || 50,
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Erro ao buscar pedidos: ${errorText}`);
+        }
+
+        const result = await response.json();
+        
+        // Tiny ERP v3 retorna dados em { itens: [...], paginacao: {...} }
+        const pedidos = result.itens || result.pedidos || [];
+        allPedidos = allPedidos.concat(pedidos);
+
+        // Verificar se há mais páginas
+        const paginacao = result.paginacao || {};
+        hasMore = paginacao.paginaAtual < paginacao.totalPaginas && currentPage < maxPages;
+        currentPage++;
+
+        console.log(`[SyncBackground] 📄 Página ${currentPage - 1}: ${pedidos.length} pedidos encontrados`);
+
+      } catch (error) {
+        console.error(`[SyncBackground] ❌ Erro ao buscar página ${currentPage}:`, error);
+        hasMore = false;
+      }
+    }
+
+    console.log(`[SyncBackground] 📊 Total de ${allPedidos.length} pedidos encontrados`);
+
+    // Filtrar apenas pedidos faturados (situacao = 1 ou 3)
+    const pedidosFaturados = allPedidos.filter(p => {
+      const situacao = p.situacao || p.pedido?.situacao;
+      return situacao === 1 || situacao === 3 || situacao === 'faturado' || situacao === 'Faturado';
+    });
+
+    console.log(`[SyncBackground] ✅ ${pedidosFaturados.length} pedidos faturados para processar`);
+
+    // Processar e salvar pedidos
+    let synced = 0;
+    let updated = 0;
+    let errors = 0;
+
+    for (const pedido of pedidosFaturados) {
+      try {
+        // Extrair dados do pedido
+        const pedidoData = pedido.pedido || pedido;
+        const pedidoId = pedidoData.id || pedidoData.numeroPedido;
+        const numeroPedido = pedidoData.numero || pedidoData.numeroPedido;
+        const dataPedido = pedidoData.data || pedidoData.dataPedido || pedidoData.data_pedido;
+        const valorTotal = parseFloat(pedidoData.valorTotalPedido || pedidoData.valor_total || pedidoData.valor || 0);
+        const clienteNome = pedidoData.cliente?.nome || pedidoData.clienteNome || '';
+        const clienteCpf = pedidoData.cliente?.cpfCnpj || pedidoData.clienteCpf || '';
+        const vendedorNome = pedidoData.vendedor?.nome || pedidoData.vendedorNome || '';
+
+        // Upsert do pedido
+        const { error: upsertError } = await supabase
+          .schema('sistemaretiradas')
+          .from('tiny_orders')
+          .upsert({
+            tiny_id: pedidoId?.toString(),
+            store_id: store_id,
+            numero_pedido: numeroPedido?.toString(),
+            data_pedido: dataPedido ? new Date(dataPedido).toISOString() : null,
+            valor_total: valorTotal,
+            cliente_nome: clienteNome,
+            cliente_cpf_cnpj: clienteCpf,
+            vendedor_nome: vendedorNome,
+            situacao: pedidoData.situacao || 1,
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'tiny_id,store_id',
+          });
+
+        if (upsertError) {
+          console.error(`[SyncBackground] ❌ Erro ao salvar pedido ${pedidoId}:`, upsertError);
+          errors++;
+        } else {
+          // Verificar se foi inserção ou atualização
+          const { data: existing } = await supabase
+            .schema('sistemaretiradas')
+            .from('tiny_orders')
+            .select('id')
+            .eq('tiny_id', pedidoId?.toString())
+            .eq('store_id', store_id)
+            .single();
+
+          if (existing) {
+            updated++;
+          } else {
+            synced++;
+          }
+        }
+
+      } catch (error) {
+        console.error(`[SyncBackground] ❌ Erro ao processar pedido:`, error);
+        errors++;
+      }
+    }
+
+    console.log(`[SyncBackground] ✅ Sincronização concluída: ${synced} novos, ${updated} atualizados, ${errors} erros`);
+
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         success: true,
-        message: 'Sincronização iniciada (lógica completa será implementada)',
-        synced: 0,
-        updated: 0,
-        errors: 0,
+        message: `Sincronização concluída: ${synced} novos, ${updated} atualizados`,
+        synced,
+        updated,
+        errors,
       }),
     };
 

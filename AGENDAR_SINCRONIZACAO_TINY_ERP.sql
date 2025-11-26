@@ -2,12 +2,14 @@
 -- AGENDAR SINCRONIZAÇÃO AUTOMÁTICA TINY ERP
 -- =============================================================================
 -- 
+-- ✅ PRONTO PARA COPIAR E COLAR!
+-- 
 -- INSTRUÇÕES:
--- 1. Substitua 'kktsbnrnlnzyofupegjc' pela URL do seu projeto Supabase
+-- 1. Execute este SQL no SQL Editor do Supabase
+-- 2. Verifique se pg_cron está habilitado (Database → Extensions)
+-- 3. Verifique se a extensão 'http' está habilitada (necessária para net.http_post)
+-- 4. Se a URL do seu projeto for diferente, substitua 'kktsbnrnlnzyofupegjc'
 --    (encontre em: Project Settings → API → Project URL)
--- 2. Execute este SQL no SQL Editor do Supabase
--- 3. Verifique se pg_cron está habilitado (Database → Extensions)
--- 4. Verifique se a extensão 'http' está habilitada (necessária para net.http_post)
 --
 -- =============================================================================
 
