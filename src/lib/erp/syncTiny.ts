@@ -2375,6 +2375,20 @@ export async function syncTinyContacts(
 
     const executionTime = Date.now() - startTime;
 
+    // ✅ Log final com estatísticas completas
+    console.log(`[SyncTiny] 📊 Sincronização de contatos concluída:`, {
+      total_recebidos: contadores.total,
+      processados: contadores.processados,
+      com_detalhes_buscados: contadores.comDetalhesBuscados,
+      ja_completos: contadores.jaCompletos,
+      sem_id: contadores.semId,
+      fornecedores_descartados: contadores.fornecedoresDescartados,
+      erros: contadores.erros,
+      sincronizados: synced,
+      atualizados: updated,
+      tempo_execucao: `${(executionTime / 1000).toFixed(1)}s`,
+    });
+
     // Log detalhado
     await supabase
       .schema('sistemaretiradas')
