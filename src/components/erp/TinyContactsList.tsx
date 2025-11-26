@@ -177,11 +177,12 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
                       {formatCPFCNPJ(contact.cpf_cnpj)}
                     </TableCell>
                     <TableCell>
-                      {/* ✅ Telefone agora contém celular (prioridade) ou telefone fixo */}
-                      {contact.telefone ? (
+                      {/* ✅ Exibir telefone diretamente da coluna do Supabase */}
+                      {/* Prioridade: telefone (que contém celular ou fixo) */}
+                      {contact.telefone || contact.celular ? (
                         <div className="flex items-center gap-1">
                           <Phone className="h-3 w-3 text-muted-foreground" />
-                          {contact.telefone}
+                          {contact.telefone || contact.celular}
                         </div>
                       ) : (
                         '-'
