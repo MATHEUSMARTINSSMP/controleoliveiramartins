@@ -594,6 +594,136 @@ const ERPConfig = () => {
           </Card>
         )}
 
+        {/* Sincronização */}
+        {integration && integration.sync_status === 'CONNECTED' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5" />
+                Sincronização
+              </CardTitle>
+              <CardDescription>
+                Sincronize dados do Tiny ERP. Use Hard Sync para sincronização inicial completa.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Testar Conexão */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleTestConnection}
+                  disabled={testing || syncing}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  {testing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Testando...
+                    </>
+                  ) : (
+                    <>
+                      <TestTube className="mr-2 h-4 w-4" />
+                      Testar Conexão
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Sincronização de Pedidos */}
+              <div className="space-y-2">
+                <Label>Pedidos de Venda:</Label>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleSyncOrders(false)}
+                    disabled={syncing || testing}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    {syncing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sincronizando...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Sincronizar Pedidos
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={() => handleSyncOrders(true)}
+                    disabled={syncing || testing}
+                    variant="default"
+                    className="flex-1 bg-orange-600 hover:bg-orange-700"
+                  >
+                    {syncing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sincronizando...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        🔥 HARD SYNC Pedidos (365 dias)
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Incremental: apenas novos. Hard Sync: últimos 365 dias (pode levar vários minutos).
+                </p>
+              </div>
+
+              {/* Sincronização de Clientes */}
+              <div className="space-y-2">
+                <Label>Clientes:</Label>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleSyncContacts(false)}
+                    disabled={syncing || testing}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    {syncing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sincronizando...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Sincronizar Clientes
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={() => handleSyncContacts(true)}
+                    disabled={syncing || testing}
+                    variant="default"
+                    className="flex-1 bg-orange-600 hover:bg-orange-700"
+                  >
+                    {syncing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sincronizando...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        🔥 HARD SYNC Clientes (Todas)
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Padrão: até 50 páginas. Hard Sync: TODAS as clientes (pode levar vários minutos).
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Info Card */}
         <Card>
           <CardHeader>
@@ -611,6 +741,9 @@ const ERPConfig = () => {
             </p>
             <p>
               • Após salvar, você poderá iniciar o fluxo OAuth para autorizar o acesso.
+            </p>
+            <p className="pt-2 font-semibold">
+              • 🔥 HARD SYNC: Use para sincronização inicial completa. Pode levar vários minutos.
             </p>
           </CardContent>
         </Card>
