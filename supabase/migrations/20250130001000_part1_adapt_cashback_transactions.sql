@@ -154,10 +154,12 @@ BEGIN
             ON cashback_transactions(cliente_id, transaction_type, data_expiracao) 
             WHERE cliente_id IS NOT NULL;
 
+        -- ✅ CORREÇÃO: Não podemos usar NOW() em índices (não é IMMUTABLE)
+        -- Criar índice simples em data_expiracao e transaction_type
+        -- A query de busca por expirando será feita com NOW() na query, não no índice
         CREATE INDEX IF NOT EXISTS idx_cashback_transactions_expirando 
-            ON cashback_transactions(data_expiracao) 
+            ON cashback_transactions(data_expiracao, transaction_type) 
             WHERE data_expiracao IS NOT NULL 
-            AND data_expiracao BETWEEN NOW() AND NOW() + INTERVAL '7 days'
             AND transaction_type = 'EARNED';
     END IF;
 END $$;
