@@ -553,12 +553,16 @@ export default function ERPDashboard() {
         </Card>
       </div>
 
-      {/* Botões de Sincronização */}
+      {/* Botões de Sincronização Manual */}
       <Card>
         <CardHeader>
           <CardTitle>Sincronização Manual</CardTitle>
           <CardDescription>
-            Sincronize pedidos e clientes manualmente do Tiny ERP
+            Sincronize pedidos e clientes manualmente do Tiny ERP (incremental)
+            <br />
+            <span className="text-xs text-muted-foreground">
+              ⚠️ Hard Sync (sincronização completa) disponível apenas em /dev/erp-config
+            </span>
           </CardDescription>
         </CardHeader>
         <CardContent>
