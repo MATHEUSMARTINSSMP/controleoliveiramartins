@@ -112,10 +112,10 @@ export default function ERPDashboard() {
             .select('*', { count: 'exact', head: true })
             .eq('store_id', selectedStoreId);
           
-          // ✅ Sincronização silenciosa - busca apenas últimas 2 horas
-          const duasHorasAtras = new Date();
-          duasHorasAtras.setHours(duasHorasAtras.getHours() - 2);
-          const dataInicio = duasHorasAtras.toISOString().split('T')[0];
+          // ✅ Sincronização silenciosa - busca apenas últimas 12 horas
+          const dozeHorasAtras = new Date();
+          dozeHorasAtras.setHours(dozeHorasAtras.getHours() - 12);
+          const dataInicio = dozeHorasAtras.toISOString().split('T')[0];
           
           const result = await syncTinyOrders(selectedStoreId, {
             dataInicio,
@@ -315,11 +315,11 @@ export default function ERPDashboard() {
       let mensagem: string;
       
       if (periodo === 'agora') {
-        // Buscar apenas última venda (últimas 2 horas)
+        // Buscar apenas última venda (últimas 12 horas)
         const agora = new Date();
-        const duasHorasAtras = new Date(agora);
-        duasHorasAtras.setHours(agora.getHours() - 2);
-        dataInicio = duasHorasAtras.toISOString().split('T')[0];
+        const dozeHorasAtras = new Date(agora);
+        dozeHorasAtras.setHours(agora.getHours() - 12);
+        dataInicio = dozeHorasAtras.toISOString().split('T')[0];
         mensagem = 'Sincronizando última venda...';
       } else if (periodo === 'semana') {
         // Buscar últimos 7 dias
@@ -651,7 +651,7 @@ export default function ERPDashboard() {
                 <span className="text-orange-500 font-bold">•</span>
                 <div>
                   <strong className="text-foreground">Sincronizar Agora:</strong>
-                  <span className="text-muted-foreground"> Busca apenas a última venda (últimas 2 horas)</span>
+                  <span className="text-muted-foreground"> Busca apenas a última venda (últimas 12 horas)</span>
                 </div>
               </div>
               <div className="flex items-start gap-2 text-sm">
