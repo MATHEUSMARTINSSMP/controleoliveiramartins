@@ -2200,38 +2200,53 @@ export async function syncTinyContacts(
           continue;
         }
 
-        // ✅ CORREÇÃO CRÍTICA: A listagem pode não retornar todos os campos
-        // Se telefone, celular ou dataNascimento estão vazios, buscar detalhes completos
-        // Buscar se QUALQUER campo importante estiver vazio (não precisa estar todos vazios)
+        // ✅ CORREÇÃO CRÍTICA: A listagem NÃO retorna telefone, celular ou dataNascimento
+        // SEMPRE buscar detalhes completos quando temos o ID do contato
+        // A listagem só retorna dados básicos, precisamos GET /contatos/{idContato} para dados completos
         let contatoCompleto = contato;
-        const precisaBuscarDetalhes = contato.id && (
-          (!contato.telefone || contato.telefone === '') ||
-          (!contato.celular || contato.celular === '') ||
-          (!contato.dataNascimento || contato.dataNascimento === '')
-        ); // Buscar se tiver ID e QUALQUER campo importante estiver vazio
-
-        if (precisaBuscarDetalhes) {
-          console.log(`[SyncTiny] 🔍 Contato ${contato.nome} sem telefone/data na listagem, buscando detalhes completos...`);
-          try {
-            const contatoDetalhado = await fetchContatoCompletoFromTiny(storeId, contato.id);
-            if (contatoDetalhado) {
-              // Mesclar dados: priorizar detalhes completos, manter dados da listagem como fallback
-              contatoCompleto = {
-                ...contato,
-                ...contatoDetalhado,
-                // Garantir que não perdemos o ID
-                id: contato.id,
-              };
-              console.log(`[SyncTiny] ✅ Detalhes completos obtidos para ${contato.nome}:`, {
-                tem_telefone: !!contatoCompleto.telefone,
-                tem_celular: !!contatoCompleto.celular,
-                tem_dataNascimento: !!contatoCompleto.dataNascimento,
-              });
+        
+        if (contato.id) {
+          // Verificar se realmente precisa buscar (campos vazios ou ausentes)
+          const precisaBuscar = (
+            !contato.telefone || contato.telefone.trim() === '' ||
+            !contato.celular || contato.celular.trim() === '' ||
+            !contato.dataNascimento || contato.dataNascimento.trim() === ''
+          );
+          
+          if (precisaBuscar) {
+            console.log(`[SyncTiny] 🔍 Contato ${contato.nome} (ID: ${contato.id}) - Listagem não tem dados completos, buscando GET /contatos/${contato.id}...`);
+            try {
+              const contatoDetalhado = await fetchContatoCompletoFromTiny(storeId, contato.id);
+              if (contatoDetalhado) {
+                // Mesclar dados: priorizar detalhes completos, manter dados da listagem como fallback
+                contatoCompleto = {
+                  ...contato,
+                  ...contatoDetalhado,
+                  // Garantir que não perdemos o ID e dados importantes da listagem
+                  id: contato.id,
+                  nome: contatoDetalhado.nome || contato.nome,
+                  cpfCnpj: contatoDetalhado.cpfCnpj || contato.cpfCnpj,
+                };
+                console.log(`[SyncTiny] ✅ Detalhes completos obtidos para ${contato.nome}:`, {
+                  tem_telefone: !!contatoCompleto.telefone,
+                  valor_telefone: contatoCompleto.telefone,
+                  tem_celular: !!contatoCompleto.celular,
+                  valor_celular: contatoCompleto.celular,
+                  tem_dataNascimento: !!contatoCompleto.dataNascimento,
+                  valor_dataNascimento: contatoCompleto.dataNascimento,
+                });
+              } else {
+                console.warn(`[SyncTiny] ⚠️ Não foi possível obter detalhes completos de ${contato.nome} (ID: ${contato.id})`);
+              }
+            } catch (error) {
+              console.warn(`[SyncTiny] ⚠️ Erro ao buscar detalhes completos de ${contato.nome}:`, error);
+              // Continuar com dados da listagem mesmo se falhar
             }
-          } catch (error) {
-            console.warn(`[SyncTiny] ⚠️ Erro ao buscar detalhes completos de ${contato.nome}:`, error);
-            // Continuar com dados da listagem mesmo se falhar
+          } else {
+            console.log(`[SyncTiny] ✅ Contato ${contato.nome} já tem todos os dados na listagem, não precisa buscar detalhes`);
           }
+        } else {
+          console.warn(`[SyncTiny] ⚠️ Contato ${contato.nome} não tem ID, não é possível buscar detalhes completos`);
         }
 
         // Log detalhado para diagnóstico
