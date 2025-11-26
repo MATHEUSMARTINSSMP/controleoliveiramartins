@@ -416,7 +416,7 @@ export async function syncTinyOrders(
   let dataFim: string | undefined = options.dataFim;
 
   try {
-    const { dataInicio, dataFim: dataFimParam, limit = 100, maxPages = 50, incremental = true } = options;
+    const { dataInicio, dataFim: dataFimParam, limit = 100, maxPages = 5, incremental = true } = options;
     dataFim = dataFimParam;
 
     // Sincronização incremental - buscar última data E último ID
