@@ -107,7 +107,8 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
         .from('tiny_orders')
         .select('*')
         .eq('store_id', storeId)
-        .order('data_pedido', { ascending: false })
+        .order('data_pedido', { ascending: false, nullsFirst: false })
+        .order('numero_pedido', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
         .limit(limit);
 

@@ -597,68 +597,82 @@ export default function ERPDashboard() {
       </div>
 
       {/* Botões de Sincronização Manual */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Sincronização Manual</CardTitle>
-          <CardDescription>
+      <Card className="border-2">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-xl">Sincronização Manual</CardTitle>
+          <CardDescription className="text-sm">
             Sincronize pedidos manualmente do Tiny ERP
-            <br />
-            <span className="text-xs text-muted-foreground">
-              ⚠️ Hard Sync (sincronização completa) disponível apenas em /dev/erp-config
-            </span>
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            <div className="flex gap-2 flex-wrap">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Button
                 onClick={() => handleSyncOrders('agora')}
                 disabled={syncing || !selectedStoreId}
-                variant="default"
-                className="flex items-center gap-2"
+                className="flex items-center justify-center gap-2 h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-md transition-all"
               >
                 {syncing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  <RefreshCw className="h-4 w-4" />
+                  <RefreshCw className="h-5 w-5" />
                 )}
-                Sincronizar Agora
+                <span className="font-semibold">Sincronizar Agora</span>
               </Button>
               <Button
                 onClick={() => handleSyncOrders('semana')}
                 disabled={syncing || !selectedStoreId}
                 variant="outline"
-                className="flex items-center gap-2"
+                className="flex items-center justify-center gap-2 h-12 border-2 hover:bg-primary/5 transition-all"
               >
                 {syncing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  <RefreshCw className="h-4 w-4" />
+                  <RefreshCw className="h-5 w-5" />
                 )}
-                Sincronizar Semana
+                <span className="font-semibold">Sincronizar Semana</span>
               </Button>
               <Button
                 onClick={() => handleSyncOrders('total')}
                 disabled={syncing || !selectedStoreId}
                 variant="outline"
-                className="flex items-center gap-2"
+                className="flex items-center justify-center gap-2 h-12 border-2 hover:bg-primary/5 transition-all"
               >
                 {syncing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  <RefreshCw className="h-4 w-4" />
+                  <RefreshCw className="h-5 w-5" />
                 )}
-                Sincronização Total
+                <span className="font-semibold">Sincronização Total</span>
               </Button>
             </div>
-            <div className="text-xs text-muted-foreground space-y-1">
-              <p>• <strong>Sincronizar Agora:</strong> Busca apenas a última venda (últimas 2 horas)</p>
-              <p>• <strong>Sincronizar Semana:</strong> Busca os últimos 7 dias</p>
-              <p>• <strong>Sincronização Total:</strong> Atualiza últimos 90 dias (apenas se houver mudanças)</p>
+            <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+              <div className="flex items-start gap-2 text-sm">
+                <span className="text-orange-500 font-bold">•</span>
+                <div>
+                  <strong className="text-foreground">Sincronizar Agora:</strong>
+                  <span className="text-muted-foreground"> Busca apenas a última venda (últimas 2 horas)</span>
+                </div>
+              </div>
+              <div className="flex items-start gap-2 text-sm">
+                <span className="text-primary font-bold">•</span>
+                <div>
+                  <strong className="text-foreground">Sincronizar Semana:</strong>
+                  <span className="text-muted-foreground"> Busca os últimos 7 dias</span>
+                </div>
+              </div>
+              <div className="flex items-start gap-2 text-sm">
+                <span className="text-primary font-bold">•</span>
+                <div>
+                  <strong className="text-foreground">Sincronização Total:</strong>
+                  <span className="text-muted-foreground"> Atualiza últimos 90 dias (apenas se houver mudanças)</span>
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground pt-2 border-t">
-              💡 Sincronização automática ocorre silenciosamente em background a cada 10 segundos
-            </p>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t">
+              <span className="text-lg">💡</span>
+              <span>Sincronização automática ocorre silenciosamente em background a cada 10 segundos</span>
+            </div>
           </div>
         </CardContent>
       </Card>
