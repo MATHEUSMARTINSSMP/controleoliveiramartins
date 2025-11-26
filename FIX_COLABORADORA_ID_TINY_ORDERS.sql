@@ -43,31 +43,8 @@ BEGIN
     END IF;
 END $$;
 
--- Adicionar vendedor_tiny_nome se não existir (pode estar como vendedor_nome)
-DO $$
-BEGIN
-    -- Verificar se existe como vendedor_nome primeiro
-    IF EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_schema = 'sistemaretiradas' 
-        AND table_name = 'tiny_orders' 
-        AND column_name = 'vendedor_nome'
-    ) THEN
-        RAISE NOTICE 'Coluna vendedor_nome já existe (será usada no lugar de vendedor_tiny_nome)';
-    ELSIF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_schema = 'sistemaretiradas' 
-        AND table_name = 'tiny_orders' 
-        AND column_name = 'vendedor_tiny_nome'
-    ) THEN
-        ALTER TABLE tiny_orders 
-        ADD COLUMN vendedor_tiny_nome TEXT;
-        
-        RAISE NOTICE 'Coluna vendedor_tiny_nome adicionada à tabela tiny_orders';
-    ELSE
-        RAISE NOTICE 'Coluna vendedor_tiny_nome já existe na tabela tiny_orders';
-    END IF;
-END $$;
+-- A coluna vendedor_nome já existe na tabela (criada em 20250127040000)
+-- Não precisamos criar vendedor_tiny_nome, usaremos vendedor_nome diretamente
 
 -- Criar índices para performance
 CREATE INDEX IF NOT EXISTS idx_tiny_orders_colaboradora 
@@ -81,7 +58,7 @@ WHERE vendedor_tiny_id IS NOT NULL;
 -- Comentários
 COMMENT ON COLUMN tiny_orders.colaboradora_id IS 'FK para profiles - Vendedora que fez a venda (para cashback e metas)';
 COMMENT ON COLUMN tiny_orders.vendedor_tiny_id IS 'ID do vendedor no Tiny ERP (para matching com colaboradora)';
-COMMENT ON COLUMN tiny_orders.vendedor_tiny_nome IS 'Nome do vendedor no Tiny (para referência)';
+-- vendedor_nome já existe e será usado para armazenar o nome do vendedor
 
 -- Verificar estrutura final
 SELECT 
@@ -91,7 +68,7 @@ SELECT
 FROM information_schema.columns
 WHERE table_schema = 'sistemaretiradas'
   AND table_name = 'tiny_orders'
-  AND column_name IN ('colaboradora_id', 'vendedor_tiny_id', 'vendedor_tiny_nome', 'vendedor_nome')
+  AND column_name IN ('colaboradora_id', 'vendedor_tiny_id', 'vendedor_nome')
 ORDER BY column_name;
 
 -- =============================================================================
