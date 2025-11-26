@@ -120,7 +120,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
         .order('data_pedido', { ascending: false, nullsFirst: false })
         .order('numero_pedido', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
-        .limit(limit);
+        .limit(Math.min(limit, 100)); // ✅ Máximo 100 registros
 
       if (error) throw error;
 
@@ -154,6 +154,8 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
       setLoading(true);
       // ✅ Exibir diretamente as colunas do Supabase (sem JOIN)
       // Usa cliente_telefone e cliente_email que já estão em tiny_orders
+      // ✅ Máximo 100 registros conforme solicitado
+      const maxLimit = Math.min(limit, 100);
       let query = supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
@@ -161,7 +163,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
         .order('data_pedido', { ascending: false, nullsFirst: false })
         .order('numero_pedido', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
-        .limit(limit);
+        .limit(maxLimit);
 
       if (storeId) {
         query = query.eq('store_id', storeId);
@@ -318,7 +320,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
           Pedidos Sincronizados
         </CardTitle>
         <CardDescription>
-          Visualize os pedidos sincronizados do Tiny ERP ({filteredOrders.length} de {orders.length})
+          Visualize os pedidos sincronizados do Tiny ERP ({filteredOrders.length} de {Math.min(orders.length, 100)})
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -369,6 +371,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
               <SelectItem value="100">100 por página</SelectItem>
             </SelectContent>
           </Select>
+          </div>
         </div>
 
         {/* Tabela */}
