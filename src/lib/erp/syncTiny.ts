@@ -222,8 +222,24 @@ async function fetchContatoCompletoFromTiny(
       return null;
     }
 
+    // ✅ LOG DETALHADO: Verificar estrutura da resposta recebida do proxy
+    console.log(`[SyncTiny] 📦 Resposta RAW recebida do proxy para contato ${contatoId}:`, {
+      tem_contato: !!response.contato,
+      tem_id_direto: !!response.id,
+      tipo_response: typeof response,
+      chaves_principais: Object.keys(response).slice(0, 10),
+      estrutura_completa: JSON.stringify(response).substring(0, 1000),
+    });
+
     // A API pode retornar o contato direto ou dentro de um objeto
+    // Tiny ERP v3: GET /contatos/{idContato} retorna o contato diretamente
     const contatoCompleto = response.contato || response;
+    
+    console.log(`[SyncTiny] 📋 Contato extraído (response.contato || response):`, {
+      tem_contato: !!contatoCompleto,
+      tem_id: !!contatoCompleto?.id,
+      chaves: contatoCompleto ? Object.keys(contatoCompleto).slice(0, 15) : [],
+    });
     
     if (!contatoCompleto || !contatoCompleto.id) {
       console.warn(`[SyncTiny] ⚠️ Detalhes do contato ${contatoId} não encontrados. Resposta:`, JSON.stringify(response).substring(0, 500));

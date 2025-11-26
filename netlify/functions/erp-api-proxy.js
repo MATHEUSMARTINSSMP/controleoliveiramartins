@@ -325,7 +325,39 @@ exports.handler = async (event, context) => {
       responseData = { raw: responseText };
     }
 
-    console.log(`[ERP-API-Proxy] Status: ${apiResponse.status}, Resposta:`, JSON.stringify(responseData).substring(0, 500));
+    // ✅ LOG DETALHADO: Verificar estrutura da resposta para endpoints de contatos
+    if (endpoint && endpoint.includes('/contatos')) {
+      console.log(`[ERP-API-Proxy] 📋 Resposta detalhada para ${endpoint}:`, {
+        status: apiResponse.status,
+        tem_contato: !!responseData.contato,
+        tem_data_direto: !responseData.contato && responseData.id,
+        chaves_principais: Object.keys(responseData).slice(0, 10),
+        estrutura_completa: JSON.stringify(responseData).substring(0, 1000),
+      });
+      
+      // Se for GET /contatos/{id} (detalhes completos), logar campos importantes
+      if (endpoint.match(/\/contatos\/\d+$/)) {
+        const contato = responseData.contato || responseData;
+        console.log(`[ERP-API-Proxy] 📞 Campos de telefone/data no contato:`, {
+          tem_telefone: !!contato.telefone,
+          valor_telefone: contato.telefone,
+          tem_celular: !!contato.celular,
+          valor_celular: contato.celular,
+          tem_dataNascimento: !!contato.dataNascimento,
+          valor_dataNascimento: contato.dataNascimento,
+          tem_data_nascimento: !!contato.data_nascimento,
+          valor_data_nascimento: contato.data_nascimento,
+          todas_chaves: Object.keys(contato).filter(k => 
+            k.toLowerCase().includes('tel') || 
+            k.toLowerCase().includes('cel') || 
+            k.toLowerCase().includes('mobile') ||
+            k.toLowerCase().includes('nasc')
+          ),
+        });
+      }
+    }
+
+    console.log(`[ERP-API-Proxy] Status: ${apiResponse.status}, Resposta (primeiros 500 chars):`, JSON.stringify(responseData).substring(0, 500));
 
     // Se erro 401, marcar como erro no banco
     if (apiResponse.status === 401) {
