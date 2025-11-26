@@ -40,19 +40,20 @@ Separar claramente:
 
 ---
 
-### ⏳ FASE 3: Limpeza e Otimização (FUTURO)
+### ✅ FASE 3: Limpeza e Otimização
 **Objetivo**: Migrar dados existentes e remover duplicações
 
 **Tarefas**:
-1. ⏳ Criar script de migração para popular `cliente_id` em pedidos existentes (baseado em CPF/nome)
-2. ⏳ Remover colunas duplicadas de `tiny_orders` após migração (cliente_email, cliente_telefone)
-3. ⏳ Atualizar todos os componentes que leem `tiny_orders` para usar JOIN com `tiny_contacts`
-4. ⏳ Criar índices para otimizar consultas com JOIN
+1. ✅ Criar script de migração para popular `cliente_id` em pedidos existentes (baseado em CPF/nome)
+2. ✅ Preparar migration para remover colunas duplicadas (comentada por segurança)
+3. ✅ Atualizar componentes que leem `tiny_orders` para usar JOIN com `tiny_contacts`
+4. ✅ Criar índices para otimizar consultas com JOIN
 
 **Resultado Esperado**:
-- Dados históricos migrados corretamente
-- Estrutura limpa sem duplicações
-- Performance otimizada
+- ✅ Dados históricos migrados corretamente
+- ✅ Estrutura preparada para remoção de duplicações
+- ✅ Performance otimizada com índices
+- ✅ Componentes atualizados para usar JOIN
 
 ---
 
