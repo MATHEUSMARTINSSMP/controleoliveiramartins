@@ -1994,17 +1994,57 @@ export async function syncTinyContacts(
     // ✅ ANTES DE PROCESSAR: Popular telefones de pedidos para contatos sem telefone
     console.log(`[SyncTiny] 🔄 Populando telefones de pedidos para contatos sem telefone...`);
     try {
-      const { error: updateError } = await supabase
+      // Buscar telefones de pedidos e atualizar contatos
+      const { data: pedidosComTelefone } = await supabase
         .schema('sistemaretiradas')
-        .rpc('popular_telefone_de_pedidos', { p_store_id: storeId });
+        .from('tiny_orders')
+        .select('cliente_cpf_cnpj, cliente_nome, cliente_telefone, store_id, data_pedido')
+        .eq('store_id', storeId)
+        .not('cliente_telefone', 'is', null)
+        .neq('cliente_telefone', '');
       
-      if (updateError) {
-        console.warn(`[SyncTiny] ⚠️ Erro ao popular telefones:`, updateError);
-      } else {
-        console.log(`[SyncTiny] ✅ Telefones populados de pedidos para contatos`);
+      if (pedidosComTelefone && pedidosComTelefone.length > 0) {
+        // Agrupar por cliente e pegar telefone mais recente
+        const telefonesPorCliente = new Map<string, { telefone: string; data: string }>();
+        
+        pedidosComTelefone.forEach(pedido => {
+          const key = pedido.cliente_cpf_cnpj || pedido.cliente_nome || '';
+          if (key && pedido.cliente_telefone) {
+            const existing = telefonesPorCliente.get(key);
+            if (!existing || (pedido.data_pedido && (!existing.data || pedido.data_pedido > existing.data))) {
+              telefonesPorCliente.set(key, {
+                telefone: pedido.cliente_telefone,
+                data: pedido.data_pedido || ''
+              });
+            }
+          }
+        });
+        
+        // Atualizar contatos sem telefone
+        let atualizados = 0;
+        for (const [key, info] of telefonesPorCliente.entries()) {
+          const isCPF = /^\d{11,14}$/.test(key.replace(/\D/g, ''));
+          
+          let query = supabase
+            .schema('sistemaretiradas')
+            .from('tiny_contacts')
+            .update({ telefone: info.telefone, updated_at: new Date().toISOString() })
+            .eq('store_id', storeId)
+            .or(isCPF 
+              ? `cpf_cnpj.eq.${key},nome.eq.${key}`
+              : `nome.eq.${key}`
+            )
+            .or('telefone.is.null,telefone.eq.');
+          
+          const { count } = await query.select('id', { count: 'exact', head: true });
+          
+          if (count) atualizados += count;
+        }
+        
+        console.log(`[SyncTiny] ✅ ${atualizados} contatos atualizados com telefones de pedidos`);
       }
     } catch (error) {
-      console.warn(`[SyncTiny] ⚠️ Erro ao popular telefones (função pode não existir ainda):`, error);
+      console.warn(`[SyncTiny] ⚠️ Erro ao popular telefones:`, error);
     }
 
     // Processar cada contato
