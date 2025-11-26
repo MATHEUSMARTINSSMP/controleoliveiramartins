@@ -325,6 +325,57 @@ exports.handler = async (event, context) => {
       responseData = { raw: responseText };
     }
 
+    // ✅ LOG DETALHADO: Verificar estrutura da resposta para endpoints de pedidos
+    if (endpoint && endpoint.includes('/pedidos')) {
+      const isListagem = !endpoint.match(/\/pedidos\/\d+$/);
+      const isDetalhes = endpoint.match(/\/pedidos\/\d+$/);
+      
+      console.log(`[ERP-API-Proxy] 📦 Resposta detalhada para ${endpoint}:`, {
+        status: apiResponse.status,
+        tipo: isListagem ? 'LISTAGEM (deve ter itens e paginacao)' : 'DETALHES (pedido direto)',
+        tem_pedido_wrapper: !!responseData.pedido,
+        tem_id_direto: !!responseData.id,
+        tem_itens: !!responseData.itens,
+        quantidade_itens: responseData.itens?.length || 0,
+        tem_paginacao: !!responseData.paginacao,
+        chaves_principais: Object.keys(responseData).slice(0, 20),
+        estrutura_completa: JSON.stringify(responseData).substring(0, 2000),
+      });
+      
+      // Se for listagem, verificar se os pedidos têm itens
+      if (isListagem && responseData.itens && Array.isArray(responseData.itens)) {
+        const primeiroPedido = responseData.itens[0];
+        if (primeiroPedido) {
+          console.log(`[ERP-API-Proxy] 📋 Primeiro pedido da listagem:`, {
+            id: primeiroPedido.id,
+            numeroPedido: primeiroPedido.numeroPedido,
+            tem_itens: !!primeiroPedido.itens,
+            quantidade_itens: primeiroPedido.itens?.length || 0,
+            itens_preview: primeiroPedido.itens ? JSON.stringify(primeiroPedido.itens.slice(0, 2)) : 'null/undefined',
+            todas_chaves: Object.keys(primeiroPedido),
+          });
+        }
+      }
+      
+      // Se for detalhes completos, verificar itens
+      if (isDetalhes) {
+        const pedido = responseData;
+        console.log(`[ERP-API-Proxy] 📦 Detalhes completos do pedido:`, {
+          id: pedido.id,
+          numeroPedido: pedido.numeroPedido,
+          tem_itens: !!pedido.itens,
+          quantidade_itens: pedido.itens?.length || 0,
+          itens_preview: pedido.itens ? JSON.stringify(pedido.itens.slice(0, 2)) : 'null/undefined',
+          estrutura_item_exemplo: pedido.itens && pedido.itens[0] ? {
+            keys: Object.keys(pedido.itens[0]),
+            produto: pedido.itens[0].produto,
+            quantidade: pedido.itens[0].quantidade,
+            valorUnitario: pedido.itens[0].valorUnitario,
+          } : null,
+        });
+      }
+    }
+    
     // ✅ LOG DETALHADO: Verificar estrutura da resposta para endpoints de contatos
     if (endpoint && endpoint.includes('/contatos')) {
       // ✅ CORREÇÃO: Verificar se é listagem ou detalhes
