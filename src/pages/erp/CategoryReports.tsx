@@ -159,10 +159,11 @@ export default function CategoryReports() {
       }
 
       // Buscar pedidos no período
+      // ✅ IMPORTANTE: Selecionar todos os campos necessários, incluindo numero_pedido e cliente_nome
       let query = supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
-        .select('id, valor_total, itens, data_pedido, vendedor_nome, colaboradora_id, store_id');
+        .select('id, valor_total, itens, data_pedido, numero_pedido, cliente_nome, vendedor_nome, colaboradora_id, store_id');
 
       if (selectedStore !== 'all') {
         query = query.eq('store_id', selectedStore);
