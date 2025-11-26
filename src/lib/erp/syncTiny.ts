@@ -1012,11 +1012,12 @@ export async function syncTinyOrders(
                 return data;
               }
 
-              // Se for apenas data (YYYY-MM-DD) - usar meio-dia no timezone do Brasil
+              // Se for apenas data (YYYY-MM-DD) - usar meia-noite no timezone do Brasil
+              // ✅ CORREÇÃO: Usar 00:00:00 (meia-noite) em vez de 12:00:00 para evitar confusão
               if (typeof data === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data)) {
-                // Usar 12:00 (meio-dia) no timezone do Brasil (-03:00)
-                const isoString = `${data}T12:00:00-03:00`;
-                console.log(`[SyncTiny] ✅ Data convertida para ISO com timezone BR: "${isoString}"`);
+                // Usar 00:00:00 (meia-noite) no timezone do Brasil (-03:00)
+                const isoString = `${data}T00:00:00-03:00`;
+                console.log(`[SyncTiny] ✅ Data convertida para ISO com timezone BR (meia-noite): "${isoString}"`);
                 return isoString;
               }
 
@@ -1284,11 +1285,19 @@ export async function syncTinyOrders(
         if (orderData.data_pedido && typeof orderData.data_pedido === 'string') {
           // Se não tiver timezone, adicionar (PostgreSQL precisa)
           if (!orderData.data_pedido.includes('T')) {
+            // Se é apenas data, usar meia-noite no timezone do Brasil
             orderData.data_pedido = `${orderData.data_pedido}T00:00:00-03:00`;
           } else if (!orderData.data_pedido.includes('Z') && !orderData.data_pedido.includes('+') && !orderData.data_pedido.includes('-')) {
-            // Se tem T mas não tem timezone, adicionar
-            if (orderData.data_pedido.endsWith('T00:00:00') || orderData.data_pedido.endsWith('T12:00:00')) {
-              orderData.data_pedido = orderData.data_pedido.replace('T00:00:00', 'T00:00:00-03:00').replace('T12:00:00', 'T12:00:00-03:00');
+            // Se tem T mas não tem timezone, adicionar timezone do Brasil
+            // ✅ CORREÇÃO: Normalizar para meia-noite se não tiver hora específica
+            if (orderData.data_pedido.endsWith('T00:00:00')) {
+              orderData.data_pedido = `${orderData.data_pedido}-03:00`;
+            } else if (orderData.data_pedido.endsWith('T12:00:00')) {
+              // Se estava usando 12:00, manter mas adicionar timezone
+              orderData.data_pedido = `${orderData.data_pedido}-03:00`;
+            } else {
+              // Se tem hora específica, apenas adicionar timezone
+              orderData.data_pedido = `${orderData.data_pedido}-03:00`;
             }
           }
         }
