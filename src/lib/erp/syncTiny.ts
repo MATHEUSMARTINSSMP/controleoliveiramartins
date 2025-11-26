@@ -822,16 +822,17 @@ export async function syncTinyOrders(
           valor_total: (() => {
             // API v3 oficial usa: valorTotalPedido (number)
             const valorBruto = pedido.valorTotalPedido  // API v3 oficial (camelCase, number)
+              || pedido.valor  // API v3 pode retornar como 'valor' (string) - visto nos logs
               || pedido.valor_total  // Fallback para snake_case
-              || pedido.valor 
               || pedido.total
               || pedido.valorTotal
               || pedido.valor_total_pedido
               || pedido.total_pedido
               || null;
 
-            if (!valorBruto && valorBruto !== 0) {
+            if (valorBruto === null || valorBruto === undefined) {
               console.warn(`[SyncTiny] ⚠️ Valor não encontrado no pedido ${pedido.id || pedido.numeroPedido || pedido.numero}`);
+              console.warn(`[SyncTiny] ⚠️ Campos testados: valorTotalPedido=${pedido.valorTotalPedido}, valor=${pedido.valor}, valor_total=${pedido.valor_total}`);
               return 0;
             }
 
