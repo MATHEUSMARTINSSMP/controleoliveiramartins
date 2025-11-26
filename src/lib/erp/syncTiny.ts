@@ -813,6 +813,42 @@ export async function syncTinyOrders(
                 : item.subcategoria.nome || item.subcategoria.descricao || null;
             }
             
+            // ✅ TENTAR EXTRAIR TAMANHO E COR DIRETAMENTE DO ITEM (pode vir no item do pedido)
+            let tamanhoDoItem: string | null = null;
+            let corDoItem: string | null = null;
+            
+            if (item.tamanho) {
+              tamanhoDoItem = typeof item.tamanho === 'string' ? item.tamanho : String(item.tamanho);
+            } else if (item.variacao?.tamanho) {
+              tamanhoDoItem = typeof item.variacao.tamanho === 'string' ? item.variacao.tamanho : String(item.variacao.tamanho);
+            } else if (item.grade) {
+              // Tentar extrair da grade do item
+              const grade = Array.isArray(item.grade) ? item.grade : [item.grade];
+              for (const attr of grade) {
+                const chave = String(attr.chave || attr.key || '').toLowerCase();
+                const valor = String(attr.valor || attr.value || '').trim();
+                if ((chave.includes('tamanho') || chave.includes('size')) && valor) {
+                  tamanhoDoItem = valor;
+                }
+              }
+            }
+            
+            if (item.cor) {
+              corDoItem = typeof item.cor === 'string' ? item.cor : String(item.cor);
+            } else if (item.variacao?.cor) {
+              corDoItem = typeof item.variacao.cor === 'string' ? item.variacao.cor : String(item.variacao.cor);
+            } else if (item.grade) {
+              // Tentar extrair da grade do item
+              const grade = Array.isArray(item.grade) ? item.grade : [item.grade];
+              for (const attr of grade) {
+                const chave = String(attr.chave || attr.key || '').toLowerCase();
+                const valor = String(attr.valor || attr.value || '').trim();
+                if ((chave.includes('cor') || chave.includes('color')) && valor) {
+                  corDoItem = valor;
+                }
+              }
+            }
+            
             // Log detalhado para debug
             console.log(`[SyncTiny] 🔍 Processando item:`, {
               produtoId,
@@ -832,17 +868,28 @@ export async function syncTinyOrders(
             let categoria: string | null = categoriaDoItem; // Começar com dados do item
             let subcategoria: string | null = subcategoriaDoItem; // Começar com dados do item
             let marca: string | null = marcaDoItem; // Começar com dados do item
-            let tamanho: string | null = null;
-            let cor: string | null = null;
+            let tamanho: string | null = tamanhoDoItem; // Começar com dados do item
+            let cor: string | null = corDoItem; // Começar com dados do item
             let genero: string | null = null;
             let faixa_etaria: string | null = null;
             let material: string | null = null;
 
+            // ✅ EXTRAIR ID DA VARIAÇÃO DO ITEM (se disponível)
+            // O item do pedido pode ter um ID de variação específico
+            const variacaoId = item.variacao?.id 
+              || item.variacaoId 
+              || item.idVariacao
+              || item.variacao_id
+              || itemData?.variacao?.id
+              || itemData?.variacaoId
+              || null;
+
             // ✅ ALTERNATIVA 2: Buscar detalhes completos APENAS se não temos dados do item
             // Prioridade: dados do item > detalhes completos do produto
-            if (produtoId && (!categoria || !marca)) {
+            // Agora também buscamos se não temos tamanho/cor (mesmo que tenhamos categoria/marca)
+            if (produtoId && (!categoria || !marca || !tamanho || !cor)) {
               try {
-                console.log(`[SyncTiny] 🔍 Buscando detalhes completos do produto ${produtoId} (categoria: ${categoria || 'não encontrada'}, marca: ${marca || 'não encontrada'})...`);
+                console.log(`[SyncTiny] 🔍 Buscando detalhes completos do produto ${produtoId} (categoria: ${categoria || 'não encontrada'}, marca: ${marca || 'não encontrada'}, tamanho: ${tamanho || 'não encontrado'}, cor: ${cor || 'não encontrada'}, variacaoId: ${variacaoId || 'não especificado'})...`);
                 produtoCompleto = await fetchProdutoCompletoFromTiny(storeId, produtoId);
                 
                 if (produtoCompleto) {
@@ -850,6 +897,8 @@ export async function syncTinyOrders(
                     tem_categoria: !!produtoCompleto.categoria,
                     tem_marca: !!produtoCompleto.marca,
                     tem_variacoes: !!produtoCompleto.variacoes,
+                    quantidade_variacoes: produtoCompleto.variacoes?.length || 0,
+                    variacao_id_item: variacaoId,
                     categoria_completa: produtoCompleto.categoria,
                     marca_completa: produtoCompleto.marca,
                     chaves_disponiveis: Object.keys(produtoCompleto).slice(0, 30),
@@ -911,26 +960,58 @@ export async function syncTinyOrders(
                     console.warn(`[SyncTiny] ⚠️ Produto ${produtoId} não tem marca nos detalhes completos`);
                   }
 
-                  // ✅ VARIACOES - API v3 OFICIAL: produto.variacoes[] { grade: [{ chave, valor }] }
-                  // A grade pode conter tamanho, cor, etc.
+                  // ✅ VARIACOES - API v3 OFICIAL: produto.variacoes[] { id, grade: [{ chave, valor }] }
+                  // IMPORTANTE: Buscar a variação específica do item (se tiver variacaoId) ou usar a primeira
                   if (produtoCompleto.variacoes && Array.isArray(produtoCompleto.variacoes) && produtoCompleto.variacoes.length > 0) {
-                    // Pegar a primeira variação (geralmente é a variação do item do pedido)
-                    const variacao = produtoCompleto.variacoes[0];
+                    let variacaoEncontrada: any = null;
                     
-                    if (variacao.grade && Array.isArray(variacao.grade)) {
-                      for (const atributo of variacao.grade) {
-                        const chave = atributo.chave?.toLowerCase() || '';
-                        const valor = atributo.valor || '';
+                    // ✅ CORREÇÃO CRÍTICA: Buscar variação específica se tivermos variacaoId
+                    if (variacaoId) {
+                      variacaoEncontrada = produtoCompleto.variacoes.find((v: any) => 
+                        v.id === variacaoId 
+                        || v.idVariacao === variacaoId
+                        || String(v.id) === String(variacaoId)
+                      );
+                      
+                      if (variacaoEncontrada) {
+                        console.log(`[SyncTiny] ✅ Variação específica encontrada (ID: ${variacaoId})`);
+                      } else {
+                        console.warn(`[SyncTiny] ⚠️ Variação ID ${variacaoId} não encontrada, usando primeira variação`);
+                        variacaoEncontrada = produtoCompleto.variacoes[0];
+                      }
+                    } else {
+                      // Se não tiver variacaoId, usar a primeira variação
+                      variacaoEncontrada = produtoCompleto.variacoes[0];
+                      console.log(`[SyncTiny] ℹ️ Nenhum variacaoId no item, usando primeira variação`);
+                    }
+                    
+                    // Extrair tamanho e cor da grade da variação
+                    if (variacaoEncontrada && variacaoEncontrada.grade && Array.isArray(variacaoEncontrada.grade)) {
+                      console.log(`[SyncTiny] 🔍 Processando grade da variação:`, {
+                        quantidade_atributos: variacaoEncontrada.grade.length,
+                        atributos: variacaoEncontrada.grade.map((a: any) => ({ chave: a.chave, valor: a.valor })),
+                      });
+                      
+                      for (const atributo of variacaoEncontrada.grade) {
+                        const chave = String(atributo.chave || '').toLowerCase();
+                        const valor = String(atributo.valor || '').trim();
                         
-                        if (chave.includes('tamanho') || chave.includes('size')) {
+                        if (!tamanho && (chave.includes('tamanho') || chave.includes('size') || chave === 'tamanho' || chave === 'size')) {
                           tamanho = valor;
-                        } else if (chave.includes('cor') || chave.includes('color')) {
+                          console.log(`[SyncTiny] ✅ Tamanho extraído da variação: "${tamanho}" (chave: "${atributo.chave}")`);
+                        } else if (!cor && (chave.includes('cor') || chave.includes('color') || chave === 'cor' || chave === 'color')) {
                           cor = valor;
-                        } else if (chave.includes('genero') || chave.includes('gender')) {
+                          console.log(`[SyncTiny] ✅ Cor extraída da variação: "${cor}" (chave: "${atributo.chave}")`);
+                        } else if (!genero && (chave.includes('genero') || chave.includes('gender') || chave === 'genero' || chave === 'gender')) {
                           genero = valor;
+                          console.log(`[SyncTiny] ✅ Gênero extraído da variação: "${genero}" (chave: "${atributo.chave}")`);
                         }
                       }
+                    } else if (variacaoEncontrada) {
+                      console.warn(`[SyncTiny] ⚠️ Variação encontrada mas sem grade ou grade inválida`);
                     }
+                  } else {
+                    console.warn(`[SyncTiny] ⚠️ Produto ${produtoId} não tem variações ou variações vazias`);
                   }
 
                   // ✅ DADOS EXTRAS - Pode conter informações adicionais
