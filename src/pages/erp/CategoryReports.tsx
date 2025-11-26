@@ -372,6 +372,10 @@ export default function CategoryReports() {
               order_id: order.id,
               vendedor_nome: order.vendedor_nome,
               colaboradora_id: order.colaboradora_id,
+              // Dados do pedido para relatório de produtos
+              order_data_pedido: order.data_pedido,
+              order_numero_pedido: order.numero_pedido,
+              order_cliente_nome: order.cliente_nome,
             });
 
             orderMap.set(order.id, (orderMap.get(order.id) || 0) + 1);
