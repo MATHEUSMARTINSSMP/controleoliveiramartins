@@ -1896,38 +1896,45 @@ async function syncTinyContact(
       return null;
     }
 
-    // ✅ CORREÇÃO CRÍTICA: Para pedidos APROVADOS e FATURADOS, os dados do cliente podem vir incompletos
-    // Se não temos data de nascimento e temos ID do cliente, buscar detalhes completos
+    // ✅ CORREÇÃO CRÍTICA: Para pedidos APROVADOS e FATURADOS, SEMPRE buscar dados completos
+    // Os dados do cliente podem vir incompletos na listagem, então SEMPRE buscar detalhes se tivermos ID
     let clienteCompleto = cliente;
     
-    // Verificar se temos ID do cliente mas não temos data de nascimento
+    // SEMPRE buscar detalhes completos se tivermos ID do cliente (sem exceção)
     const clienteId = cliente.id || cliente.idContato || null;
-    const temDataNascimento = cliente.dataNascimento || cliente.data_nascimento || cliente.nascimento || null;
     
-    if (clienteId && !temDataNascimento) {
-      console.log(`[SyncTiny] 🔍 Cliente ${cliente.nome} sem data de nascimento, buscando detalhes completos via GET /contatos/${clienteId}...`);
+    if (clienteId) {
+      console.log(`[SyncTiny] 🔍 SEMPRE buscando detalhes completos do cliente ${cliente.nome} via GET /contatos/${clienteId}...`);
       try {
         const clienteDetalhes = await fetchContatoCompletoFromTiny(storeId, clienteId);
         if (clienteDetalhes) {
           // Mesclar dados: priorizar dados completos mas manter dados do pedido se necessário
           clienteCompleto = {
             ...clienteDetalhes,
-            // Manter dados do pedido que podem ser mais atualizados
+            // Manter dados do pedido que podem ser mais atualizados (ex: telefone do pedido)
             ...cliente,
             // Mas usar dados completos para campos faltantes
             dataNascimento: clienteDetalhes.dataNascimento || cliente.dataNascimento,
             telefone: cliente.telefone || clienteDetalhes.telefone,
             celular: cliente.celular || clienteDetalhes.celular,
+            email: cliente.email || clienteDetalhes.email,
+            cpfCnpj: cliente.cpfCnpj || clienteDetalhes.cpfCnpj,
           };
-          console.log(`[SyncTiny] ✅ Detalhes completos do cliente obtidos:`, {
+          console.log(`[SyncTiny] ✅ Dados completos do cliente obtidos:`, {
             tem_dataNascimento: !!clienteCompleto.dataNascimento,
             tem_telefone: !!clienteCompleto.telefone || !!clienteCompleto.celular,
+            tem_email: !!clienteCompleto.email,
+            tem_cpfCnpj: !!clienteCompleto.cpfCnpj,
           });
+        } else {
+          console.warn(`[SyncTiny] ⚠️ Detalhes completos do cliente ${clienteId} não foram encontrados, usando dados do pedido`);
         }
       } catch (error) {
-        console.warn(`[SyncTiny] ⚠️ Erro ao buscar detalhes completos do cliente ${clienteId}:`, error);
+        console.error(`[SyncTiny] ❌ Erro ao buscar detalhes completos do cliente ${clienteId}:`, error);
         // Continuar com dados do pedido mesmo se falhar
       }
+    } else {
+      console.warn(`[SyncTiny] ⚠️ Cliente ${cliente.nome} não tem ID, não é possível buscar detalhes completos`);
     }
 
     // ✅ Buscar data de nascimento - pode estar em vários lugares
@@ -1966,15 +1973,15 @@ async function syncTinyContact(
         const date = new Date(dataNascimento);
         if (!isNaN(date.getTime())) {
           dataNascimentoNormalizada = date.toISOString().split('T')[0]; // YYYY-MM-DD
-          console.log(`[SyncTiny] ✅ Data de nascimento encontrada para ${cliente.nome}: ${dataNascimentoNormalizada}`);
+          console.log(`[SyncTiny] ✅ Data de nascimento encontrada para ${clienteCompleto.nome}: ${dataNascimentoNormalizada}`);
         } else {
-          console.warn(`[SyncTiny] ⚠️ Data de nascimento inválida para ${cliente.nome}: ${dataNascimento}`);
+          console.warn(`[SyncTiny] ⚠️ Data de nascimento inválida para ${clienteCompleto.nome}: ${dataNascimento}`);
         }
       } catch (error) {
-        console.warn(`[SyncTiny] ⚠️ Erro ao parsear data de nascimento para ${cliente.nome}:`, error);
+        console.warn(`[SyncTiny] ⚠️ Erro ao parsear data de nascimento para ${clienteCompleto.nome}:`, error);
       }
     } else {
-      console.warn(`[SyncTiny] ⚠️ Nenhuma data de nascimento encontrada para ${cliente.nome}`);
+      console.warn(`[SyncTiny] ⚠️ Nenhuma data de nascimento encontrada para ${clienteCompleto.nome} mesmo após buscar detalhes completos`);
     }
 
     // ✅ Extrair CPF/CNPJ do cliente (API v3 usa camelCase)
@@ -1991,7 +1998,8 @@ async function syncTinyContact(
     // Damos preferência ABSOLUTA para celular (mais útil para contato)
     const telefoneFinal = (() => {
       // Log detalhado do objeto recebido para diagnóstico
-      const chavesTelefone = Object.keys(cliente).filter(k => {
+      // Usar clienteCompleto (que tem dados completos se foram buscados)
+      const chavesTelefone = Object.keys(clienteCompleto).filter(k => {
         const kLower = k.toLowerCase();
         return kLower.includes('tel') || 
                kLower.includes('cel') || 
@@ -2000,36 +2008,37 @@ async function syncTinyContact(
                kLower.includes('fone');
       });
       
-      console.log(`[SyncTiny] 🔍 Buscando telefone para cliente ${cliente.nome}:`, {
-        tem_celular: !!cliente.celular,
-        valor_celular: cliente.celular,
-        tem_telefone: !!cliente.telefone,
-        valor_telefone: cliente.telefone,
-        tem_mobile: !!cliente.mobile,
-        valor_mobile: cliente.mobile,
-        tem_whatsapp: !!cliente.whatsapp,
-        valor_whatsapp: cliente.whatsapp,
-        tem_contatos: !!cliente.contatos,
-        contatos_length: Array.isArray(cliente.contatos) ? cliente.contatos.length : 0,
+      console.log(`[SyncTiny] 🔍 Buscando telefone para cliente ${clienteCompleto.nome}:`, {
+        tem_celular: !!clienteCompleto.celular,
+        valor_celular: clienteCompleto.celular,
+        tem_telefone: !!clienteCompleto.telefone,
+        valor_telefone: clienteCompleto.telefone,
+        tem_mobile: !!clienteCompleto.mobile,
+        valor_mobile: clienteCompleto.mobile,
+        tem_whatsapp: !!clienteCompleto.whatsapp,
+        valor_whatsapp: clienteCompleto.whatsapp,
+        tem_contatos: !!clienteCompleto.contatos,
+        contatos_length: Array.isArray(clienteCompleto.contatos) ? clienteCompleto.contatos.length : 0,
         chaves_telefone: chavesTelefone,
-        todas_chaves: Object.keys(cliente),
+        todas_chaves: Object.keys(clienteCompleto),
       });
       
       // Log completo do objeto (limitado para não poluir)
       if (chavesTelefone.length > 0) {
         const valoresTelefone: Record<string, any> = {};
         chavesTelefone.forEach(k => {
-          valoresTelefone[k] = cliente[k];
+          valoresTelefone[k] = clienteCompleto[k];
         });
         console.log(`[SyncTiny] 📞 Valores de telefone encontrados:`, valoresTelefone);
       }
 
       // 1. PRIORIDADE MÁXIMA: Celular direto (campos principais)
-      const celularDireto = cliente.celular 
-        || cliente.mobile 
-        || cliente.whatsapp 
-        || cliente.celularAdicional
-        || cliente.celularPrincipal
+      // Usar clienteCompleto (que tem dados completos se foram buscados)
+      const celularDireto = clienteCompleto.celular 
+        || clienteCompleto.mobile 
+        || clienteCompleto.whatsapp 
+        || clienteCompleto.celularAdicional
+        || clienteCompleto.celularPrincipal
         || null;
       
       if (celularDireto && String(celularDireto).trim() !== '') {
@@ -2057,7 +2066,8 @@ async function syncTinyContact(
         }
         
         // Se não encontrou celular, tentar telefone fixo no array
-        for (const contato of cliente.contatos) {
+        // Usar clienteCompleto (que tem dados completos se foram buscados)
+        for (const contato of clienteCompleto.contatos) {
           const telefoneContato = contato.telefone 
             || contato.fone
             || contato.telefonePrincipal
@@ -2086,11 +2096,12 @@ async function syncTinyContact(
       }
       
       // 4. FALLBACK: Dados extras (JSONB)
-      const telefoneExtras = cliente.dados_extras?.celular
-        || cliente.dados_extras?.telefone
-        || cliente.dados_extras?.mobile
-        || cliente.dados_extras?.whatsapp
-        || cliente.dados_extras?.telefoneCelular
+      // Usar clienteCompleto (que tem dados completos se foram buscados)
+      const telefoneExtras = clienteCompleto.dados_extras?.celular
+        || clienteCompleto.dados_extras?.telefone
+        || clienteCompleto.dados_extras?.mobile
+        || clienteCompleto.dados_extras?.whatsapp
+        || clienteCompleto.dados_extras?.telefoneCelular
         || null;
       
       if (telefoneExtras && String(telefoneExtras).trim() !== '') {
@@ -2101,8 +2112,8 @@ async function syncTinyContact(
       
       // 5. FALLBACK FINAL: Verificar se já existe telefone no banco (não sobrescrever com null)
       // Isso evita perder dados que já foram salvos anteriormente
-      console.warn(`[SyncTiny] ⚠️ Nenhum telefone encontrado nos dados recebidos para cliente ${cliente.nome}`);
-      console.warn(`[SyncTiny] ⚠️ Objeto completo recebido:`, JSON.stringify(cliente).substring(0, 500));
+      console.warn(`[SyncTiny] ⚠️ Nenhum telefone encontrado nos dados recebidos para cliente ${clienteCompleto.nome}`);
+      console.warn(`[SyncTiny] ⚠️ Objeto completo recebido:`, JSON.stringify(clienteCompleto).substring(0, 500));
       
       // Retornar null - o upsert não vai sobrescrever se já existir telefone no banco
       return null;
@@ -2238,10 +2249,10 @@ async function syncTinyContact(
       return null;
     }
 
-    console.log(`[SyncTiny] ✅ Cliente sincronizado: ${cliente.nome} → ID: ${contactResult.id.substring(0, 8)}...`);
+    console.log(`[SyncTiny] ✅ Cliente sincronizado: ${clienteCompleto.nome || cliente.nome} → ID: ${contactResult.id.substring(0, 8)}...`);
     return contactResult.id;
   } catch (error: any) {
-    console.error(`[SyncTiny] ❌ Erro ao sincronizar contato ${cliente.nome}:`, error);
+    console.error(`[SyncTiny] ❌ Erro ao sincronizar contato ${clienteCompleto.nome || cliente.nome}:`, error);
     return null;
   }
 }
