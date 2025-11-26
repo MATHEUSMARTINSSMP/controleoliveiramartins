@@ -2199,6 +2199,17 @@ export async function syncTinyContacts(
 
     // Processar cada contato
     // Os contatos já vêm diretos em 'itens', não há objeto 'contato' aninhado
+    console.log(`[SyncTiny] 📊 Iniciando processamento de ${allContatos.length} contatos coletados de ${totalPages} página(s)...`);
+    
+    let contadores = {
+      total: allContatos.length,
+      processados: 0,
+      comDetalhesBuscados: 0,
+      semId: 0,
+      jaCompletos: 0,
+      erros: 0,
+    };
+    
     for (const contatoData of allContatos) {
       try {
         // ✅ CORREÇÃO BASEADA NA DOCUMENTAÇÃO OFICIAL:
@@ -2225,15 +2236,29 @@ export async function syncTinyContacts(
         let contatoCompleto = contato;
         
         if (contato.id) {
-          // Verificar se realmente precisa buscar (campos vazios ou ausentes)
-          const precisaBuscar = (
-            !contato.telefone || contato.telefone.trim() === '' ||
-            !contato.celular || contato.celular.trim() === '' ||
-            !contato.dataNascimento || contato.dataNascimento.trim() === ''
-          );
+          // ✅ CORREÇÃO: Verificar se realmente precisa buscar (campos vazios, undefined ou ausentes)
+          // A listagem SEMPRE retorna telefone/celular como "" (string vazia) ou undefined
+          // SEMPRE precisamos buscar detalhes completos para ter dados reais
+          const telefoneVazio = !contato.telefone || (typeof contato.telefone === 'string' && contato.telefone.trim() === '');
+          const celularVazio = !contato.celular || (typeof contato.celular === 'string' && contato.celular.trim() === '');
+          const dataNascimentoVazia = !contato.dataNascimento || (typeof contato.dataNascimento === 'string' && contato.dataNascimento.trim() === '');
+          
+          const precisaBuscar = telefoneVazio || celularVazio || dataNascimentoVazia;
+          
+          // ✅ LOG DETALHADO: Mostrar por que está ou não buscando
+          console.log(`[SyncTiny] 🔍 Verificando necessidade de buscar detalhes para ${contato.nome} (ID: ${contato.id}):`, {
+            telefone: contato.telefone,
+            telefoneVazio,
+            celular: contato.celular,
+            celularVazio,
+            dataNascimento: contato.dataNascimento,
+            dataNascimentoVazia,
+            precisaBuscar,
+          });
           
           if (precisaBuscar) {
-            console.log(`[SyncTiny] 🔍 Contato ${contato.nome} (ID: ${contato.id}) - Listagem não tem dados completos, buscando GET /contatos/${contato.id}...`);
+            contadores.comDetalhesBuscados++;
+            console.log(`[SyncTiny] 🔍 [${contadores.comDetalhesBuscados}/${contadores.total}] Contato ${contato.nome} (ID: ${contato.id}) - Listagem não tem dados completos, buscando GET /contatos/${contato.id}...`);
             try {
               const contatoDetalhado = await fetchContatoCompletoFromTiny(storeId, contato.id);
               if (contatoDetalhado) {
@@ -2262,10 +2287,21 @@ export async function syncTinyContacts(
               // Continuar com dados da listagem mesmo se falhar
             }
           } else {
-            console.log(`[SyncTiny] ✅ Contato ${contato.nome} já tem todos os dados na listagem, não precisa buscar detalhes`);
+            contadores.jaCompletos++;
+            if (contadores.jaCompletos % 50 === 0) {
+              console.log(`[SyncTiny] ✅ [${contadores.jaCompletos}/${contadores.total}] Contato ${contato.nome} já tem todos os dados na listagem`);
+            }
           }
         } else {
+          contadores.semId++;
           console.warn(`[SyncTiny] ⚠️ Contato ${contato.nome} não tem ID, não é possível buscar detalhes completos`);
+        }
+        
+        contadores.processados++;
+        
+        // Log de progresso a cada 50 contatos
+        if (contadores.processados % 50 === 0) {
+          console.log(`[SyncTiny] 📊 Progresso: ${contadores.processados}/${contadores.total} contatos processados | ${contadores.comDetalhesBuscados} com busca de detalhes | ${contadores.jaCompletos} já completos | ${contadores.semId} sem ID`);
         }
 
         // Log detalhado para diagnóstico (DEPOIS de buscar detalhes se necessário)
