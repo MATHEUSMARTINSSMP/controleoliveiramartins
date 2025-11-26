@@ -1862,21 +1862,54 @@ export async function syncTinyContacts(
     // Os contatos já vêm diretos em 'itens', não há objeto 'contato' aninhado
     for (const contatoData of allContatos) {
       try {
-        // O item já é o contato direto
-        const contato = contatoData.contato || contatoData;
+        // ✅ CORREÇÃO: A API v3 retorna contatos diretos em 'itens', mas pode ter estrutura aninhada
+        // Tentar múltiplas estruturas possíveis
+        let contato: any = null;
+        
+        // Estrutura 1: contatoData.contato (aninhado)
+        if (contatoData.contato && typeof contatoData.contato === 'object') {
+          contato = contatoData.contato;
+        }
+        // Estrutura 2: contatoData direto (API v3 retorna assim)
+        else if (contatoData.id || contatoData.nome) {
+          contato = contatoData;
+        }
+        // Estrutura 3: contatoData.data (algumas APIs retornam assim)
+        else if (contatoData.data && typeof contatoData.data === 'object') {
+          contato = contatoData.data;
+        }
 
         if (!contato || !contato.nome) {
+          console.warn(`[SyncTiny] ⚠️ Contato sem nome, ignorando:`, JSON.stringify(contatoData).substring(0, 200));
           continue;
         }
+
+        // Log detalhado para diagnóstico
+        console.log(`[SyncTiny] 📋 Processando contato: ${contato.nome}`, {
+          id: contato.id,
+          tem_celular: !!contato.celular,
+          tem_telefone: !!contato.telefone,
+          tem_contatos_array: Array.isArray(contato.contatos),
+          chaves: Object.keys(contato).filter(k => 
+            k.toLowerCase().includes('tel') || 
+            k.toLowerCase().includes('cel') || 
+            k.toLowerCase().includes('mobile')
+          ),
+        });
 
         // Verificar se já existe
         const { data: existing } = await supabase
           .schema('sistemaretiradas')
           .from('tiny_contacts')
-          .select('id')
+          .select('id, telefone, celular')
           .eq('store_id', storeId)
-          .eq('tiny_id', String(contato.id || contato.cpf_cnpj || `temp_${Date.now()}`))
+          .eq('tiny_id', String(contato.id || contato.cpfCnpj || contato.cpf_cnpj || `temp_${Date.now()}`))
           .maybeSingle();
+
+        // Se já existe e tem telefone, logar para diagnóstico
+        if (existing && (existing.telefone || existing.celular)) {
+          console.log(`[SyncTiny] ℹ️ Contato já existe com telefone: ${existing.telefone || existing.celular}`);
+        }
 
         await syncTinyContact(storeId, contato);
 
