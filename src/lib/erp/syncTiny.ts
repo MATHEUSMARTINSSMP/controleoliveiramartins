@@ -993,19 +993,70 @@ export async function syncTinyOrders(
                       });
                       
                       for (const atributo of variacaoEncontrada.grade) {
-                        const chave = String(atributo.chave || '').toLowerCase();
-                        const valor = String(atributo.valor || '').trim();
+                        // ✅ CORREÇÃO: Tentar múltiplas formas de acessar chave e valor
+                        const chave = String(
+                          atributo.chave 
+                          || atributo.key
+                          || atributo.nome
+                          || atributo.name
+                          || atributo.atributo
+                          || atributo.attribute
+                          || ''
+                        ).toLowerCase().trim();
                         
-                        if (!tamanho && (chave.includes('tamanho') || chave.includes('size') || chave === 'tamanho' || chave === 'size')) {
+                        const valor = String(
+                          atributo.valor 
+                          || atributo.value
+                          || atributo.descricao
+                          || atributo.desc
+                          || ''
+                        ).trim();
+                        
+                        if (!valor) continue; // Pular atributos sem valor
+                        
+                        // ✅ BUSCAR TAMANHO - múltiplas variações de nome
+                        if (!tamanho && (
+                          chave.includes('tamanho') || 
+                          chave.includes('size') || 
+                          chave === 'tamanho' || 
+                          chave === 'size' ||
+                          chave.includes('tam') ||
+                          chave === 'tam'
+                        )) {
                           tamanho = valor;
-                          console.log(`[SyncTiny] ✅ Tamanho extraído da variação: "${tamanho}" (chave: "${atributo.chave}")`);
-                        } else if (!cor && (chave.includes('cor') || chave.includes('color') || chave === 'cor' || chave === 'color')) {
+                          console.log(`[SyncTiny] ✅ Tamanho extraído da variação: "${tamanho}" (chave original: "${atributo.chave || atributo.key || 'N/A'}")`);
+                        } 
+                        // ✅ BUSCAR COR - múltiplas variações de nome
+                        else if (!cor && (
+                          chave.includes('cor') || 
+                          chave.includes('color') || 
+                          chave === 'cor' || 
+                          chave === 'color' ||
+                          chave.includes('colour')
+                        )) {
                           cor = valor;
-                          console.log(`[SyncTiny] ✅ Cor extraída da variação: "${cor}" (chave: "${atributo.chave}")`);
-                        } else if (!genero && (chave.includes('genero') || chave.includes('gender') || chave === 'genero' || chave === 'gender')) {
+                          console.log(`[SyncTiny] ✅ Cor extraída da variação: "${cor}" (chave original: "${atributo.chave || atributo.key || 'N/A'}")`);
+                        } 
+                        // ✅ BUSCAR GÊNERO
+                        else if (!genero && (
+                          chave.includes('genero') || 
+                          chave.includes('gender') || 
+                          chave === 'genero' || 
+                          chave === 'gender'
+                        )) {
                           genero = valor;
-                          console.log(`[SyncTiny] ✅ Gênero extraído da variação: "${genero}" (chave: "${atributo.chave}")`);
+                          console.log(`[SyncTiny] ✅ Gênero extraído da variação: "${genero}" (chave original: "${atributo.chave || atributo.key || 'N/A'}")`);
                         }
+                      }
+                      
+                      // ✅ LOG FINAL: Verificar se conseguimos extrair
+                      if (!tamanho && !cor) {
+                        console.warn(`[SyncTiny] ⚠️ Nenhum tamanho ou cor extraído da variação. Grade processada:`, 
+                          variacaoEncontrada.grade.map((a: any) => ({ 
+                            chave: a.chave || a.key, 
+                            valor: a.valor || a.value 
+                          }))
+                        );
                       }
                     } else if (variacaoEncontrada) {
                       console.warn(`[SyncTiny] ⚠️ Variação encontrada mas sem grade ou grade inválida`);
