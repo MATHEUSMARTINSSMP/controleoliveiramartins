@@ -5,32 +5,71 @@
 SET search_path TO sistemaretiradas, public;
 
 -- Verificar itens de pedidos recentes (últimos 30 dias)
+-- ✅ CORREÇÃO: Verificar se itens é um array antes de usar jsonb_array_length
+WITH pedidos_com_itens AS (
+    SELECT 
+        id,
+        tiny_id,
+        numero_pedido,
+        data_pedido,
+        situacao,
+        itens,
+        CASE 
+            WHEN jsonb_typeof(itens::jsonb) = 'array' THEN jsonb_array_length(itens::jsonb)
+            ELSE 0
+        END as quantidade_itens
+    FROM tiny_orders
+    WHERE data_pedido >= NOW() - INTERVAL '30 days'
+    AND itens IS NOT NULL
+    AND itens != 'null'::jsonb
+    AND jsonb_typeof(itens::jsonb) = 'array'
+    AND jsonb_array_length(itens::jsonb) > 0
+)
 SELECT 
     '📊 ANÁLISE DE ITENS' as categoria,
-    COUNT(*) as total_itens,
-    COUNT(*) FILTER (WHERE (itens::jsonb->0->>'tamanho') IS NOT NULL AND (itens::jsonb->0->>'tamanho') != '') as tem_tamanho,
-    COUNT(*) FILTER (WHERE (itens::jsonb->0->>'cor') IS NOT NULL AND (itens::jsonb->0->>'cor') != '') as tem_cor,
+    COUNT(*) as total_pedidos,
+    SUM(quantidade_itens) as total_itens,
     COUNT(*) FILTER (
-        WHERE (itens::jsonb->0->>'tamanho') IS NOT NULL 
+        WHERE jsonb_typeof(itens::jsonb) = 'array' 
+        AND jsonb_array_length(itens::jsonb) > 0
+        AND (itens::jsonb->0->>'tamanho') IS NOT NULL 
+        AND (itens::jsonb->0->>'tamanho') != ''
+    ) as pedidos_com_tamanho,
+    COUNT(*) FILTER (
+        WHERE jsonb_typeof(itens::jsonb) = 'array' 
+        AND jsonb_array_length(itens::jsonb) > 0
+        AND (itens::jsonb->0->>'cor') IS NOT NULL 
+        AND (itens::jsonb->0->>'cor') != ''
+    ) as pedidos_com_cor,
+    COUNT(*) FILTER (
+        WHERE jsonb_typeof(itens::jsonb) = 'array' 
+        AND jsonb_array_length(itens::jsonb) > 0
+        AND (itens::jsonb->0->>'tamanho') IS NOT NULL 
         AND (itens::jsonb->0->>'cor') IS NOT NULL 
         AND (itens::jsonb->0->>'tamanho') != ''
         AND (itens::jsonb->0->>'cor') != ''
-    ) as tem_ambos,
+    ) as pedidos_com_ambos,
     ROUND(
-        COUNT(*) FILTER (WHERE (itens::jsonb->0->>'tamanho') IS NOT NULL AND (itens::jsonb->0->>'tamanho') != '')::numeric 
+        COUNT(*) FILTER (
+            WHERE jsonb_typeof(itens::jsonb) = 'array' 
+            AND jsonb_array_length(itens::jsonb) > 0
+            AND (itens::jsonb->0->>'tamanho') IS NOT NULL 
+            AND (itens::jsonb->0->>'tamanho') != ''
+        )::numeric 
         / NULLIF(COUNT(*), 0) * 100, 
         2
     ) as percentual_com_tamanho,
     ROUND(
-        COUNT(*) FILTER (WHERE (itens::jsonb->0->>'cor') IS NOT NULL AND (itens::jsonb->0->>'cor') != '')::numeric 
+        COUNT(*) FILTER (
+            WHERE jsonb_typeof(itens::jsonb) = 'array' 
+            AND jsonb_array_length(itens::jsonb) > 0
+            AND (itens::jsonb->0->>'cor') IS NOT NULL 
+            AND (itens::jsonb->0->>'cor') != ''
+        )::numeric 
         / NULLIF(COUNT(*), 0) * 100, 
         2
     ) as percentual_com_cor
-FROM tiny_orders
-WHERE data_pedido >= NOW() - INTERVAL '30 days'
-AND itens IS NOT NULL
-AND itens != '[]'::jsonb
-AND itens != 'null'::jsonb;
+FROM pedidos_com_itens;
 
 -- Mostrar exemplos de itens sem tamanho/cor
 SELECT 
@@ -39,18 +78,46 @@ SELECT
     numero_pedido,
     data_pedido,
     situacao,
-    jsonb_array_length(itens::jsonb) as quantidade_itens,
-    itens::jsonb->0->>'descricao' as primeiro_item_descricao,
-    itens::jsonb->0->>'codigo' as primeiro_item_codigo,
-    itens::jsonb->0->>'tamanho' as tamanho,
-    itens::jsonb->0->>'cor' as cor,
-    itens::jsonb->0->>'marca' as marca,
-    itens::jsonb->0->>'categoria' as categoria
+    CASE 
+        WHEN jsonb_typeof(itens::jsonb) = 'array' THEN jsonb_array_length(itens::jsonb)
+        ELSE 0
+    END as quantidade_itens,
+    CASE 
+        WHEN jsonb_typeof(itens::jsonb) = 'array' AND jsonb_array_length(itens::jsonb) > 0 
+        THEN itens::jsonb->0->>'descricao'
+        ELSE NULL
+    END as primeiro_item_descricao,
+    CASE 
+        WHEN jsonb_typeof(itens::jsonb) = 'array' AND jsonb_array_length(itens::jsonb) > 0 
+        THEN itens::jsonb->0->>'codigo'
+        ELSE NULL
+    END as primeiro_item_codigo,
+    CASE 
+        WHEN jsonb_typeof(itens::jsonb) = 'array' AND jsonb_array_length(itens::jsonb) > 0 
+        THEN itens::jsonb->0->>'tamanho'
+        ELSE NULL
+    END as tamanho,
+    CASE 
+        WHEN jsonb_typeof(itens::jsonb) = 'array' AND jsonb_array_length(itens::jsonb) > 0 
+        THEN itens::jsonb->0->>'cor'
+        ELSE NULL
+    END as cor,
+    CASE 
+        WHEN jsonb_typeof(itens::jsonb) = 'array' AND jsonb_array_length(itens::jsonb) > 0 
+        THEN itens::jsonb->0->>'marca'
+        ELSE NULL
+    END as marca,
+    CASE 
+        WHEN jsonb_typeof(itens::jsonb) = 'array' AND jsonb_array_length(itens::jsonb) > 0 
+        THEN itens::jsonb->0->>'categoria'
+        ELSE NULL
+    END as categoria
 FROM tiny_orders
 WHERE data_pedido >= NOW() - INTERVAL '30 days'
 AND itens IS NOT NULL
-AND itens != '[]'::jsonb
 AND itens != 'null'::jsonb
+AND jsonb_typeof(itens::jsonb) = 'array'
+AND jsonb_array_length(itens::jsonb) > 0
 AND (
     (itens::jsonb->0->>'tamanho') IS NULL 
     OR (itens::jsonb->0->>'tamanho') = ''
@@ -65,16 +132,37 @@ SELECT
     tiny_id,
     numero_pedido,
     data_pedido,
-    itens::jsonb->0->>'descricao' as primeiro_item_descricao,
-    itens::jsonb->0->>'codigo' as primeiro_item_codigo,
-    itens::jsonb->0->>'tamanho' as tamanho,
-    itens::jsonb->0->>'cor' as cor,
-    itens::jsonb->0->>'marca' as marca
+    CASE 
+        WHEN jsonb_typeof(itens::jsonb) = 'array' AND jsonb_array_length(itens::jsonb) > 0 
+        THEN itens::jsonb->0->>'descricao'
+        ELSE NULL
+    END as primeiro_item_descricao,
+    CASE 
+        WHEN jsonb_typeof(itens::jsonb) = 'array' AND jsonb_array_length(itens::jsonb) > 0 
+        THEN itens::jsonb->0->>'codigo'
+        ELSE NULL
+    END as primeiro_item_codigo,
+    CASE 
+        WHEN jsonb_typeof(itens::jsonb) = 'array' AND jsonb_array_length(itens::jsonb) > 0 
+        THEN itens::jsonb->0->>'tamanho'
+        ELSE NULL
+    END as tamanho,
+    CASE 
+        WHEN jsonb_typeof(itens::jsonb) = 'array' AND jsonb_array_length(itens::jsonb) > 0 
+        THEN itens::jsonb->0->>'cor'
+        ELSE NULL
+    END as cor,
+    CASE 
+        WHEN jsonb_typeof(itens::jsonb) = 'array' AND jsonb_array_length(itens::jsonb) > 0 
+        THEN itens::jsonb->0->>'marca'
+        ELSE NULL
+    END as marca
 FROM tiny_orders
 WHERE data_pedido >= NOW() - INTERVAL '30 days'
 AND itens IS NOT NULL
-AND itens != '[]'::jsonb
 AND itens != 'null'::jsonb
+AND jsonb_typeof(itens::jsonb) = 'array'
+AND jsonb_array_length(itens::jsonb) > 0
 AND (itens::jsonb->0->>'tamanho') IS NOT NULL
 AND (itens::jsonb->0->>'tamanho') != ''
 AND (itens::jsonb->0->>'cor') IS NOT NULL
