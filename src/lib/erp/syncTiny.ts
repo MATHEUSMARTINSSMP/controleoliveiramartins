@@ -152,18 +152,50 @@ async function findCollaboratorByVendedor(
       };
 
       const normalizedVendedorNome = normalizeName(vendedor.nome);
+      
+      console.log(`[SyncTiny] 🔍 Tentando matching por nome: "${vendedor.nome}" (normalizado: "${normalizedVendedorNome}")`);
+      
+      // Tentar match exato primeiro
       const matchByName = colaboradoras.find((colab) => {
         const normalizedColabNome = normalizeName(colab.name || '');
-        return normalizedColabNome === normalizedVendedorNome;
+        const isMatch = normalizedColabNome === normalizedVendedorNome;
+        if (isMatch) {
+          console.log(`[SyncTiny] 🎯 Match encontrado: "${colab.name}" = "${vendedor.nome}"`);
+        }
+        return isMatch;
       });
 
       if (matchByName) {
         console.log(`[SyncTiny] ✅ Vendedora encontrada por nome: ${matchByName.name} (${matchByName.id})`);
         return matchByName.id;
       }
+
+      // Se não encontrou match exato, tentar match parcial (contém)
+      const matchPartial = colaboradoras.find((colab) => {
+        const normalizedColabNome = normalizeName(colab.name || '');
+        // Verificar se o nome do vendedor contém o nome da colaboradora ou vice-versa
+        return normalizedColabNome.includes(normalizedVendedorNome) || 
+               normalizedVendedorNome.includes(normalizedColabNome);
+      });
+
+      if (matchPartial) {
+        console.log(`[SyncTiny] ✅ Vendedora encontrada por nome parcial: ${matchPartial.name} (${matchPartial.id})`);
+        return matchPartial.id;
+      }
+
+      // Log de nomes disponíveis para debug
+      console.log(`[SyncTiny] 📋 Nomes de colaboradoras disponíveis:`, 
+        colaboradoras.map(c => `"${c.name}" (normalizado: "${normalizeName(c.name)}")`).join(', ')
+      );
     }
 
     console.log(`[SyncTiny] ⚠️ Vendedora não encontrada: ${vendedor.nome || vendedor.email || vendedor.cpf || 'N/A'}`);
+    console.log(`[SyncTiny] 📋 Dados do vendedor recebidos:`, {
+      nome: vendedor.nome,
+      email: vendedor.email,
+      cpf: vendedor.cpf,
+      id: vendedor.id,
+    });
     return null;
   } catch (error: any) {
     console.error('[SyncTiny] Erro ao buscar colaboradora:', error);
