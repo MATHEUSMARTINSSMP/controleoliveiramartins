@@ -2236,41 +2236,31 @@ export async function syncTinyContacts(
         let contatoCompleto = contato;
         
         if (contato.id) {
-          // ✅ CORREÇÃO: Verificar se realmente precisa buscar (campos vazios, undefined ou ausentes)
-          // A listagem SEMPRE retorna telefone/celular como "" (string vazia) ou undefined
-          // SEMPRE precisamos buscar detalhes completos para ter dados reais
-          const telefoneVazio = !contato.telefone || (typeof contato.telefone === 'string' && contato.telefone.trim() === '');
-          const celularVazio = !contato.celular || (typeof contato.celular === 'string' && contato.celular.trim() === '');
-          const dataNascimentoVazia = !contato.dataNascimento || (typeof contato.dataNascimento === 'string' && contato.dataNascimento.trim() === '');
+          // ✅ SIMPLIFICAÇÃO: A listagem SEMPRE retorna telefone/celular/dataNascimento vazios
+          // SEMPRE buscar detalhes completos para TODOS os contatos que têm ID
+          // Isso garante que sempre temos os dados completos, sem verificar condições
+          contadores.comDetalhesBuscados++;
           
-          const precisaBuscar = telefoneVazio || celularVazio || dataNascimentoVazia;
+          // Log apenas a cada 10 contatos para não poluir o console
+          if (contadores.comDetalhesBuscados % 10 === 0 || contadores.comDetalhesBuscados <= 5) {
+            console.log(`[SyncTiny] 🔍 [${contadores.comDetalhesBuscados}/${contadores.total}] Buscando detalhes completos para ${contato.nome} (ID: ${contato.id})...`);
+          }
           
-          // ✅ LOG DETALHADO: Mostrar por que está ou não buscando
-          console.log(`[SyncTiny] 🔍 Verificando necessidade de buscar detalhes para ${contato.nome} (ID: ${contato.id}):`, {
-            telefone: contato.telefone,
-            telefoneVazio,
-            celular: contato.celular,
-            celularVazio,
-            dataNascimento: contato.dataNascimento,
-            dataNascimentoVazia,
-            precisaBuscar,
-          });
-          
-          if (precisaBuscar) {
-            contadores.comDetalhesBuscados++;
-            console.log(`[SyncTiny] 🔍 [${contadores.comDetalhesBuscados}/${contadores.total}] Contato ${contato.nome} (ID: ${contato.id}) - Listagem não tem dados completos, buscando GET /contatos/${contato.id}...`);
-            try {
-              const contatoDetalhado = await fetchContatoCompletoFromTiny(storeId, contato.id);
-              if (contatoDetalhado) {
-                // Mesclar dados: priorizar detalhes completos, manter dados da listagem como fallback
-                contatoCompleto = {
-                  ...contato,
-                  ...contatoDetalhado,
-                  // Garantir que não perdemos o ID e dados importantes da listagem
-                  id: contato.id,
-                  nome: contatoDetalhado.nome || contato.nome,
-                  cpfCnpj: contatoDetalhado.cpfCnpj || contato.cpfCnpj,
-                };
+          try {
+            const contatoDetalhado = await fetchContatoCompletoFromTiny(storeId, contato.id);
+            if (contatoDetalhado) {
+              // Mesclar dados: priorizar detalhes completos, manter dados da listagem como fallback
+              contatoCompleto = {
+                ...contato,
+                ...contatoDetalhado,
+                // Garantir que não perdemos o ID e dados importantes da listagem
+                id: contato.id,
+                nome: contatoDetalhado.nome || contato.nome,
+                cpfCnpj: contatoDetalhado.cpfCnpj || contato.cpfCnpj,
+              };
+              
+              // Log apenas para os primeiros 5 ou quando encontrar dados importantes
+              if (contadores.comDetalhesBuscados <= 5 || contatoCompleto.celular || contatoCompleto.telefone || contatoCompleto.dataNascimento) {
                 console.log(`[SyncTiny] ✅ Detalhes completos obtidos para ${contato.nome}:`, {
                   tem_telefone: !!contatoCompleto.telefone,
                   valor_telefone: contatoCompleto.telefone,
@@ -2279,22 +2269,24 @@ export async function syncTinyContacts(
                   tem_dataNascimento: !!contatoCompleto.dataNascimento,
                   valor_dataNascimento: contatoCompleto.dataNascimento,
                 });
-              } else {
+              }
+            } else {
+              if (contadores.comDetalhesBuscados <= 5) {
                 console.warn(`[SyncTiny] ⚠️ Não foi possível obter detalhes completos de ${contato.nome} (ID: ${contato.id})`);
               }
-            } catch (error) {
+            }
+          } catch (error) {
+            contadores.erros++;
+            if (contadores.comDetalhesBuscados <= 5) {
               console.warn(`[SyncTiny] ⚠️ Erro ao buscar detalhes completos de ${contato.nome}:`, error);
-              // Continuar com dados da listagem mesmo se falhar
             }
-          } else {
-            contadores.jaCompletos++;
-            if (contadores.jaCompletos % 50 === 0) {
-              console.log(`[SyncTiny] ✅ [${contadores.jaCompletos}/${contadores.total}] Contato ${contato.nome} já tem todos os dados na listagem`);
-            }
+            // Continuar com dados da listagem mesmo se falhar
           }
         } else {
           contadores.semId++;
-          console.warn(`[SyncTiny] ⚠️ Contato ${contato.nome} não tem ID, não é possível buscar detalhes completos`);
+          if (contadores.semId <= 5) {
+            console.warn(`[SyncTiny] ⚠️ Contato ${contato.nome} não tem ID, não é possível buscar detalhes completos`);
+          }
         }
         
         contadores.processados++;
