@@ -184,78 +184,80 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
             Nenhum cliente encontrado
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>CPF/CNPJ</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>Data de Nascimento</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedContacts.map((contact) => (
-                  <TableRow key={contact.id}>
-                    <TableCell className="font-medium">{contact.nome}</TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {formatCPFCNPJ(contact.cpf_cnpj)}
-                    </TableCell>
-                    <TableCell>
-                      {/* ✅ Exibir telefone diretamente da coluna do Supabase */}
-                      {/* Prioridade: telefone (que contém celular ou fixo) */}
-                      {contact.telefone || contact.celular ? (
-                        <div className="flex items-center gap-1">
-                          <Phone className="h-3 w-3 text-muted-foreground" />
-                          {contact.telefone || contact.celular}
-                        </div>
-                      ) : (
-                        '-'
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {contact.data_nascimento ? (
-                        format(new Date(contact.data_nascimento), 'dd/MM/yyyy', { locale: ptBR })
-                      ) : (
-                        '-'
-                      )}
-                    </TableCell>
+          <>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>CPF/CNPJ</TableHead>
+                    <TableHead>Telefone</TableHead>
+                    <TableHead>Data de Nascimento</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          {/* Paginação */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 pt-4 border-t">
-              <div className="text-sm text-muted-foreground">
-                Mostrando {startIndex + 1} a {Math.min(endIndex, filteredContacts.length)} de {filteredContacts.length} clientes
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Anterior
-                </Button>
-                <div className="text-sm">
-                  Página {currentPage} de {totalPages}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Próxima
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+                </TableHeader>
+                <TableBody>
+                  {paginatedContacts.map((contact) => (
+                    <TableRow key={contact.id}>
+                      <TableCell className="font-medium">{contact.nome}</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {formatCPFCNPJ(contact.cpf_cnpj)}
+                      </TableCell>
+                      <TableCell>
+                        {/* ✅ Exibir telefone diretamente da coluna do Supabase */}
+                        {/* Prioridade: telefone (que contém celular ou fixo) */}
+                        {contact.telefone || contact.celular ? (
+                          <div className="flex items-center gap-1">
+                            <Phone className="h-3 w-3 text-muted-foreground" />
+                            {contact.telefone || contact.celular}
+                          </div>
+                        ) : (
+                          '-'
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {contact.data_nascimento ? (
+                          format(new Date(contact.data_nascimento), 'dd/MM/yyyy', { locale: ptBR })
+                        ) : (
+                          '-'
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-          )}
+            {/* Paginação */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                  Mostrando {startIndex + 1} a {Math.min(endIndex, filteredContacts.length)} de {filteredContacts.length} clientes
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Anterior
+                  </Button>
+                  <div className="text-sm">
+                    Página {currentPage} de {totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Próxima
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
