@@ -1576,13 +1576,31 @@ async function syncTinyContact(
       return null;
     }
 
-    // Buscar data de nascimento - pode estar em vários lugares
-    const dataNascimento = cliente.data_nascimento
+    // ✅ Buscar data de nascimento - pode estar em vários lugares
+    // API v3 usa camelCase: dataNascimento
+    const dataNascimento = cliente.dataNascimento  // API v3 oficial (camelCase)
+      || cliente.data_nascimento  // Fallback para snake_case
       || cliente.nascimento
       || cliente.data_nasc
+      || cliente.dataNasc
+      || cliente.dados_extras?.dataNascimento
       || cliente.dados_extras?.data_nascimento
       || cliente.dados_extras?.nascimento
       || null;
+
+    // Log para diagnóstico
+    if (!dataNascimento) {
+      console.log(`[SyncTiny] 🔍 Buscando data de nascimento para ${cliente.nome}:`, {
+        tem_dataNascimento: !!cliente.dataNascimento,
+        valor_dataNascimento: cliente.dataNascimento,
+        tem_data_nascimento: !!cliente.data_nascimento,
+        valor_data_nascimento: cliente.data_nascimento,
+        chaves_disponiveis: Object.keys(cliente).filter(k => 
+          k.toLowerCase().includes('nasc') || 
+          k.toLowerCase().includes('data')
+        ),
+      });
+    }
 
     // Normalizar data de nascimento para formato DATE
     let dataNascimentoNormalizada: string | null = null;
@@ -1592,10 +1610,15 @@ async function syncTinyContact(
         const date = new Date(dataNascimento);
         if (!isNaN(date.getTime())) {
           dataNascimentoNormalizada = date.toISOString().split('T')[0]; // YYYY-MM-DD
+          console.log(`[SyncTiny] ✅ Data de nascimento encontrada para ${cliente.nome}: ${dataNascimentoNormalizada}`);
+        } else {
+          console.warn(`[SyncTiny] ⚠️ Data de nascimento inválida para ${cliente.nome}: ${dataNascimento}`);
         }
-      } catch {
-        // Se não conseguir parsear, deixar null
+      } catch (error) {
+        console.warn(`[SyncTiny] ⚠️ Erro ao parsear data de nascimento para ${cliente.nome}:`, error);
       }
+    } else {
+      console.warn(`[SyncTiny] ⚠️ Nenhuma data de nascimento encontrada para ${cliente.nome}`);
     }
 
     // ✅ Extrair CPF/CNPJ do cliente (API v3 usa camelCase)
