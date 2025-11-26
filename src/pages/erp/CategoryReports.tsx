@@ -85,6 +85,7 @@ export default function CategoryReports() {
   // Dados
   const [categoryReports, setCategoryReports] = useState<CategoryReport[]>([]);
   const [productReports, setProductReports] = useState<ProductReport[]>([]);
+  const [allProductSalesSorted, setAllProductSalesSorted] = useState<ProductSale[]>([]); // Lista plana ordenada
   const [brandReports, setBrandReports] = useState<BrandReport[]>([]);
   const [sellerReports, setSellerReports] = useState<SellerReport[]>([]);
   
@@ -466,24 +467,88 @@ export default function CategoryReports() {
         report.quantidade_vendida += item.quantidade;
       });
       
-      // Ordenar vendas dentro de cada produto por data e número (mais recentes primeiro)
+      // ✅ NOVA ORDENAÇÃO: Criar lista plana de todas as vendas e ordenar por data e número de pedido
+      // Isso agrupa peças da mesma venda juntas e ordena por data (mais recente primeiro)
+      const allProductSales: ProductSale[] = [];
+      
       productMap.forEach((report) => {
-        report.vendas.sort((a, b) => {
-          // Primeiro por data (mais recente primeiro)
-          const dateA = a.data_pedido ? new Date(a.data_pedido).getTime() : 0;
-          const dateB = b.data_pedido ? new Date(b.data_pedido).getTime() : 0;
-          if (dateB !== dateA) {
-            return dateB - dateA; // Mais recente primeiro
-          }
-          // Se mesma data, ordenar por número do pedido (maior primeiro)
-          const numA = parseInt(a.numero_pedido || '0', 10);
-          const numB = parseInt(b.numero_pedido || '0', 10);
-          return numB - numA;
+        // Adicionar todas as vendas do produto à lista plana
+        report.vendas.forEach((venda) => {
+          allProductSales.push({
+            ...venda,
+            // Manter referência ao produto para exibição
+            produto_id: report.produto_id,
+            codigo: report.codigo,
+            descricao: report.descricao,
+            categoria: report.categoria,
+            marca: report.marca,
+          });
         });
       });
       
-      // Ordenar produtos por total de vendas (maior primeiro)
-      setProductReports(Array.from(productMap.values()).sort((a, b) => b.total_vendas - a.total_vendas));
+      // Ordenar TODAS as vendas por:
+      // 1. Data (mais recente primeiro)
+      // 2. Número do pedido (maior primeiro, para agrupar peças da mesma venda)
+      allProductSales.sort((a, b) => {
+        // Primeiro por data (mais recente primeiro)
+        const dateA = a.data_pedido ? new Date(a.data_pedido).getTime() : 0;
+        const dateB = b.data_pedido ? new Date(b.data_pedido).getTime() : 0;
+        if (dateB !== dateA) {
+          return dateB - dateA; // Mais recente primeiro
+        }
+        // Se mesma data, ordenar por número do pedido (maior primeiro)
+        // Isso agrupa peças da mesma venda juntas
+        const numA = parseInt(a.numero_pedido || '0', 10);
+        const numB = parseInt(b.numero_pedido || '0', 10);
+        if (numB !== numA) {
+          return numB - numA; // Maior número primeiro (peças da mesma venda juntas)
+        }
+        // Se mesmo pedido, manter ordem original (já estão juntas)
+        return 0;
+      });
+      
+      // Salvar lista plana ordenada para exibição
+      setAllProductSalesSorted(allProductSales);
+      
+      // Reorganizar produtos mantendo a estrutura para estatísticas
+      // Criar um novo mapa de produtos com vendas já ordenadas globalmente
+      const sortedProductMap = new Map<string, ProductReport>();
+      
+      allProductSales.forEach((venda) => {
+        const key = venda.produto_id || venda.codigo || venda.descricao || 'unknown';
+        
+        if (!sortedProductMap.has(key)) {
+          sortedProductMap.set(key, {
+            produto_id: venda.produto_id,
+            codigo: venda.codigo,
+            descricao: venda.descricao,
+            categoria: venda.categoria,
+            marca: venda.marca,
+            total_vendas: 0,
+            quantidade_vendida: 0,
+            vendas: [],
+          });
+        }
+        
+        const report = sortedProductMap.get(key)!;
+        report.vendas.push(venda);
+        report.total_vendas += venda.valor_total;
+        report.quantidade_vendida += venda.quantidade;
+      });
+      
+      // Ordenar produtos pela data da venda mais recente (não por total de vendas)
+      const sortedProducts = Array.from(sortedProductMap.values()).sort((a, b) => {
+        // Pegar a data mais recente de cada produto
+        const dateA = a.vendas.length > 0 && a.vendas[0].data_pedido 
+          ? new Date(a.vendas[0].data_pedido).getTime() 
+          : 0;
+        const dateB = b.vendas.length > 0 && b.vendas[0].data_pedido 
+          ? new Date(b.vendas[0].data_pedido).getTime() 
+          : 0;
+        return dateB - dateA; // Mais recente primeiro
+      });
+      
+      setProductReports(sortedProducts);
 
       // Agrupar por marca
       const brandMap = new Map<string, BrandReport>();
@@ -803,30 +868,28 @@ export default function CategoryReports() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {productReports.slice(0, 100).map((report, reportIndex) => 
-                        report.vendas.map((venda, vendaIndex) => (
-                          <TableRow key={`${reportIndex}-${vendaIndex}`}>
-                            <TableCell className="text-xs font-medium">{venda.descricao}</TableCell>
-                            <TableCell className="text-xs text-muted-foreground">{venda.codigo || '-'}</TableCell>
-                            <TableCell className="text-xs">{venda.categoria || '-'}</TableCell>
-                            <TableCell className="text-xs">{venda.marca || '-'}</TableCell>
-                            <TableCell className="text-xs text-right">
-                              {venda.quantidade.toLocaleString('pt-BR')}
-                            </TableCell>
-                            <TableCell className="text-xs text-right font-medium">
-                              {formatCurrency(venda.valor_total)}
-                            </TableCell>
-                            <TableCell className="text-xs">{venda.cliente_nome || '-'}</TableCell>
-                            <TableCell className="text-xs">{venda.numero_pedido || '-'}</TableCell>
-                            <TableCell className="text-xs">
-                              {venda.data_pedido 
-                                ? format(new Date(venda.data_pedido), 'dd/MM/yyyy', { locale: ptBR })
-                                : '-'
-                              }
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
+                      {allProductSalesSorted.slice(0, 100).map((venda, index) => (
+                        <TableRow key={`${venda.order_id}-${index}`}>
+                          <TableCell className="text-xs font-medium">{venda.descricao}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{venda.codigo || '-'}</TableCell>
+                          <TableCell className="text-xs">{venda.categoria || '-'}</TableCell>
+                          <TableCell className="text-xs">{venda.marca || '-'}</TableCell>
+                          <TableCell className="text-xs text-right">
+                            {venda.quantidade.toLocaleString('pt-BR')}
+                          </TableCell>
+                          <TableCell className="text-xs text-right font-medium">
+                            {formatCurrency(venda.valor_total)}
+                          </TableCell>
+                          <TableCell className="text-xs">{venda.cliente_nome || '-'}</TableCell>
+                          <TableCell className="text-xs">{venda.numero_pedido || '-'}</TableCell>
+                          <TableCell className="text-xs">
+                            {venda.data_pedido 
+                              ? format(new Date(venda.data_pedido), 'dd/MM/yyyy', { locale: ptBR })
+                              : '-'
+                            }
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </div>
