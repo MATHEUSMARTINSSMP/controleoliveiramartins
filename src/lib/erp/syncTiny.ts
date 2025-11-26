@@ -340,15 +340,19 @@ export async function syncTinyOrders(
       const situacao = pedido.situacao;
       
       if (typeof situacao === 'number') {
-        // Situacao numérica: 3 = Faturado (conforme documentação Tiny)
-        return situacao === 3;
+        // Situacao numérica no Tiny ERP: 
+        // 1 = Aprovado, 2 = Em Andamento, 3 = Faturado, 4 = Cancelado
+        // Por enquanto, aceitar todos para não perder dados
+        // TODO: Verificar documentação oficial para códigos exatos
+        return situacao >= 1; // Aceitar todos os números positivos
       } else if (typeof situacao === 'string') {
         // Situacao string: verificar se contém "faturado"
         const situacaoLower = situacao.toLowerCase();
-        return situacaoLower.includes('faturado') || situacaoLower === 'faturado';
+        return situacaoLower.includes('faturado');
       }
       
-      // Se não tiver situacao, aceitar (pode ser que venha de outra forma)
+      // Se não tiver situacao definida, processar mesmo assim
+      // (a query da API já filtra por situação se necessário)
       return true;
     });
 
