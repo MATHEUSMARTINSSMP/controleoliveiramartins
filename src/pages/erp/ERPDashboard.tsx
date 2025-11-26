@@ -585,7 +585,7 @@ export default function ERPDashboard() {
         <CardHeader>
           <CardTitle>Sincronização Manual</CardTitle>
           <CardDescription>
-            Sincronize pedidos e clientes manualmente do Tiny ERP (incremental)
+            Sincronize pedidos manualmente do Tiny ERP
             <br />
             <span className="text-xs text-muted-foreground">
               ⚠️ Hard Sync (sincronização completa) disponível apenas em /dev/erp-config
@@ -593,32 +593,56 @@ export default function ERPDashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
-            <Button
-              onClick={handleSyncOrders}
-              disabled={syncing || !selectedStoreId}
-              className="flex items-center gap-2"
-            >
-              {syncing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
-              Sincronizar Pedidos
-            </Button>
-            <Button
-              onClick={handleSyncContacts}
-              disabled={syncing || !selectedStoreId}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              {syncing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
-              Sincronizar Clientes
-            </Button>
+          <div className="space-y-3">
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                onClick={() => handleSyncOrders('agora')}
+                disabled={syncing || !selectedStoreId}
+                variant="default"
+                className="flex items-center gap-2"
+              >
+                {syncing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                Sincronizar Agora
+              </Button>
+              <Button
+                onClick={() => handleSyncOrders('semana')}
+                disabled={syncing || !selectedStoreId}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                {syncing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                Sincronizar Semana
+              </Button>
+              <Button
+                onClick={() => handleSyncOrders('total')}
+                disabled={syncing || !selectedStoreId}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                {syncing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                Sincronização Total
+              </Button>
+            </div>
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p>• <strong>Sincronizar Agora:</strong> Busca apenas a última venda (últimas 2 horas)</p>
+              <p>• <strong>Sincronizar Semana:</strong> Busca os últimos 7 dias</p>
+              <p>• <strong>Sincronização Total:</strong> Atualiza últimos 90 dias (apenas se houver mudanças)</p>
+            </div>
+            <p className="text-xs text-muted-foreground pt-2 border-t">
+              💡 Sincronização automática ocorre silenciosamente em background a cada 10 segundos
+            </p>
           </div>
         </CardContent>
       </Card>
