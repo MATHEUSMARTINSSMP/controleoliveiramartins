@@ -80,7 +80,8 @@ export default function ERPDashboard() {
     }
   }, [selectedStoreId]);
 
-  // ✅ FASE 1: AUTO-REFRESH OTIMIZADO - Sincronização quase em tempo real (5-10s)
+  // ✅ AUTO-REFRESH SILENCIOSO NO BACKGROUND - Sincronização quase em tempo real
+  // Não mostra loading, não interrompe a leitura do usuário
   useEffect(() => {
     if (!selectedStoreId) return;
 
@@ -90,8 +91,7 @@ export default function ERPDashboard() {
     const checkAndSync = async () => {
       // Se já está sincronizando, pular
       if (isSyncing) {
-        console.log('[ERPDashboard] ⏭️ Sincronização já em andamento, pulando...');
-        return;
+        return; // Silencioso, sem log
       }
 
       const { data: integration } = await supabase
@@ -103,31 +103,49 @@ export default function ERPDashboard() {
 
       if (integration && integration.access_token && integration.sync_status === 'CONNECTED') {
         isSyncing = true;
-        const syncStartTime = Date.now();
         
         try {
-          console.log(`[ERPDashboard] 🔄 Auto-sincronização iniciada (${new Date().toLocaleTimeString()})...`);
+          // ✅ Buscar contagem atual de pedidos ANTES da sincronização
+          const { count: countAntes } = await supabase
+            .schema('sistemaretiradas')
+            .from('tiny_orders')
+            .select('*', { count: 'exact', head: true })
+            .eq('store_id', selectedStoreId);
           
-          // ✅ FASE 1: Sincronização incremental otimizada
-          // Busca apenas pedidos novos desde última sincronização
+          // ✅ Sincronização silenciosa - busca apenas últimas 2 horas
+          const duasHorasAtras = new Date();
+          duasHorasAtras.setHours(duasHorasAtras.getHours() - 2);
+          const dataInicio = duasHorasAtras.toISOString().split('T')[0];
+          
           const result = await syncTinyOrders(selectedStoreId, {
+            dataInicio,
             incremental: true,
-            limit: 50, // Limitar para sincronização rápida
-            maxPages: 2, // Máximo 2 páginas por sincronização (100 pedidos)
+            limit: 20, // Poucos registros para ser rápido
+            maxPages: 1, // Apenas 1 página (20 pedidos)
           });
-
-          const syncDuration = Date.now() - syncStartTime;
           
-          if (result.success) {
-            console.log(`[ERPDashboard] ✅ Auto-sincronização concluída em ${syncDuration}ms: ${result.message}`);
+          if (result.success && result.synced > 0) {
+            // ✅ Verificar se há novos pedidos após sincronização
+            const { count: countDepois } = await supabase
+              .schema('sistemaretiradas')
+              .from('tiny_orders')
+              .select('*', { count: 'exact', head: true })
+              .eq('store_id', selectedStoreId);
             
-            // Atualizar KPIs e última sincronização silenciosamente
-            await Promise.all([
-              fetchKPIs(),
-              fetchLastSync(),
-            ]);
-          } else {
-            console.warn(`[ERPDashboard] ⚠️ Auto-sincronização com problemas: ${result.message}`);
+            const novosPedidos = (countDepois || 0) - (countAntes || 0);
+            
+            if (novosPedidos > 0) {
+              // ✅ NOVA VENDA DETECTADA: Mostrar toast e atualizar lista
+              toast.success(`🛒 ${novosPedidos} nova${novosPedidos > 1 ? 's' : ''} venda${novosPedidos > 1 ? 's' : ''} sincronizada${novosPedidos > 1 ? 's' : ''}!`, {
+                duration: 3000,
+              });
+              
+              // Atualizar KPIs silenciosamente
+              await fetchKPIs();
+            }
+            
+            // Atualizar última sincronização silenciosamente
+            await fetchLastSync();
           }
         } catch (error: any) {
           // Erros silenciosos no auto-refresh (não mostrar toast para não poluir)
@@ -138,12 +156,10 @@ export default function ERPDashboard() {
       }
     };
 
-    // ✅ FASE 1: Primeira sincronização após 3 segundos (mais rápido)
+    // Primeira sincronização após 3 segundos
     const initialTimeout = setTimeout(checkAndSync, 3000);
 
-    // ✅ FASE 1: Sincronizar a cada 10 segundos (quase tempo real)
-    // Balanceamento: 10s é rápido o suficiente para ser "quase tempo real"
-    // mas não sobrecarrega a API do Tiny ERP
+    // Sincronizar a cada 10 segundos silenciosamente
     const interval = setInterval(checkAndSync, 10000); // 10 segundos
 
     return () => {
