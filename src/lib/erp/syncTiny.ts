@@ -486,6 +486,12 @@ export async function syncTinyOrders(
       if (response.itens && Array.isArray(response.itens)) {
         pedidos = response.itens;
         console.log(`[SyncTiny] Encontrados ${pedidos.length} pedidos na página ${currentPage} via 'itens'`);
+        
+        // Log detalhado do primeiro pedido para debug
+        if (pedidos.length > 0) {
+          console.log(`[SyncTiny] 📋 EXEMPLO DO PRIMEIRO PEDIDO (estrutura real):`, JSON.stringify(pedidos[0], null, 2).substring(0, 2000));
+          console.log(`[SyncTiny] 📋 Chaves do primeiro pedido:`, Object.keys(pedidos[0]));
+        }
       } else if (response.pedidos && Array.isArray(response.pedidos)) {
         // Fallback para estrutura alternativa
         pedidos = response.pedidos;
@@ -876,13 +882,30 @@ export async function syncTinyOrders(
           .maybeSingle();
 
         // Upsert pedido (insert ou update se já existir)
-        const { error } = await supabase
+        const { error } =         // Log dos dados que serão salvos
+        console.log(`[SyncTiny] 💾 Salvando pedido ${tinyId}:`, {
+          numero_pedido: orderData.numero_pedido,
+          valor_total: orderData.valor_total,
+          data_pedido: orderData.data_pedido,
+          cliente_nome: orderData.cliente_nome,
+          cliente_cpf_cnpj: orderData.cliente_cpf_cnpj ? orderData.cliente_cpf_cnpj.substring(0, 3) + '***' : null,
+          vendedor_nome: orderData.vendedor_nome,
+        });
+
+        const { error: upsertError } = await supabase
           .schema('sistemaretiradas')
           .from('tiny_orders')
           .upsert(orderData, {
             onConflict: 'store_id,tiny_id',
             ignoreDuplicates: false,
           });
+
+        if (upsertError) {
+          console.error(`[SyncTiny] ❌ Erro ao salvar pedido ${tinyId}:`, upsertError);
+          throw upsertError;
+        } else {
+          console.log(`[SyncTiny] ✅ Pedido ${tinyId} salvo com sucesso!`);
+        }
 
         if (error) {
           console.error(`Erro ao salvar pedido ${orderData.tiny_id}:`, error);
