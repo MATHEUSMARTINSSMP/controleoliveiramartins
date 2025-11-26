@@ -76,7 +76,7 @@ ORDER BY column_name;
 -- =============================================================================
 -- ✅ Coluna colaboradora_id adicionada (se não existia)
 -- ✅ Coluna vendedor_tiny_id adicionada (se não existia)
--- ✅ Coluna vendedor_tiny_nome adicionada (se não existia)
+-- ✅ Coluna vendedor_nome já existe (criada em 20250127040000)
 -- ✅ Índices criados para performance
 -- =============================================================================
 
