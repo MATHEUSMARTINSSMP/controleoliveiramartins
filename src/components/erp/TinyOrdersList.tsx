@@ -57,6 +57,45 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
     filterOrders();
   }, [orders, searchTerm, statusFilter, dateFilter]);
 
+  // ✅ AUTO-REFRESH: Atualizar lista automaticamente a cada X segundos
+  useEffect(() => {
+    if (!storeId) return;
+
+    // Atualizar a cada 20 segundos (mais frequente que a sincronização)
+    const interval = setInterval(() => {
+      fetchOrders();
+    }, 20000); // 20 segundos
+
+    return () => clearInterval(interval);
+  }, [storeId]);
+
+  // ✅ REALTIME: Escutar mudanças em tempo real via Supabase Realtime
+  useEffect(() => {
+    if (!storeId) return;
+
+    const channel = supabase
+      .channel(`tiny_orders_${storeId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // INSERT, UPDATE, DELETE
+          schema: 'sistemaretiradas',
+          table: 'tiny_orders',
+          filter: `store_id=eq.${storeId}`,
+        },
+        (payload) => {
+          console.log('[TinyOrdersList] 🔔 Mudança detectada em tempo real:', payload.eventType);
+          // Recarregar lista quando houver mudanças
+          fetchOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [storeId]);
+
   const fetchOrders = async () => {
     try {
       setLoading(true);

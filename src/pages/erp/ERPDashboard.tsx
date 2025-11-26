@@ -80,6 +80,47 @@ export default function ERPDashboard() {
     }
   }, [selectedStoreId]);
 
+  // ✅ AUTO-REFRESH: Sincronização automática a cada X segundos
+  useEffect(() => {
+    if (!selectedStoreId) return;
+
+    // Verificar se a loja tem integração ERP configurada
+    const checkAndSync = async () => {
+      const { data: integration } = await supabase
+        .schema('sistemaretiradas')
+        .from('erp_integrations')
+        .select('id, sistema_erp, access_token, sync_status')
+        .eq('store_id', selectedStoreId)
+        .maybeSingle();
+
+      if (integration && integration.access_token && integration.sync_status === 'CONNECTED') {
+        // Sincronização silenciosa (sem toast)
+        try {
+          await syncTinyOrders(selectedStoreId, {
+            incremental: true,
+          });
+          // Atualizar KPIs e última sincronização silenciosamente
+          await fetchKPIs();
+          await fetchLastSync();
+        } catch (error) {
+          // Erros silenciosos no auto-refresh (não mostrar toast)
+          console.warn('[ERPDashboard] Erro no auto-refresh:', error);
+        }
+      }
+    };
+
+    // Primeira sincronização após 5 segundos
+    const initialTimeout = setTimeout(checkAndSync, 5000);
+
+    // Depois, sincronizar a cada 30 segundos (configurável)
+    const interval = setInterval(checkAndSync, 30000); // 30 segundos
+
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
+  }, [selectedStoreId]);
+
   const fetchStores = async () => {
     try {
       setLoading(true);
