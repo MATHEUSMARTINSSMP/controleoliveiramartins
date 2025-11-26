@@ -369,16 +369,20 @@ export async function callERPAPI(
   // Verificar se houve erro na resposta
   if (!response.ok) {
     // Log detalhado do erro
-    console.error(`[ERPIntegrations] Erro ${response.status} na resposta do proxy:`, {
+    console.error(`[ERPIntegrations] ❌ Erro ${response.status} na resposta do proxy:`, {
       status: response.status,
       statusText: response.statusText,
-      data: JSON.stringify(data).substring(0, 500),
+      endpoint,
+      method,
+      storeId,
+      data: typeof data === 'object' ? JSON.stringify(data).substring(0, 500) : data,
     });
 
     let errorMessage = 'Erro desconhecido';
     
     if (typeof data === 'object' && data !== null) {
-      errorMessage = data.error || data.message || data.raw || JSON.stringify(data);
+      // Priorizar mensagem em português se disponível
+      errorMessage = data.mensagem || data.error || data.message || data.raw || JSON.stringify(data).substring(0, 200);
     } else if (typeof data === 'string') {
       errorMessage = data;
     }
@@ -397,7 +401,11 @@ export async function callERPAPI(
     }
 
     if (response.status === 400) {
-      throw new Error(`Erro na requisição para ${sistemaERP}: ${errorMessage}. Verifique os parâmetros enviados.`);
+      // Mensagem mais clara para erro 400
+      if (errorMessage.includes('POST') && errorMessage.includes('não é compatível')) {
+        throw new Error(`Método HTTP incorreto. O endpoint ${endpoint} requer GET, mas foi usado POST.`);
+      }
+      throw new Error(`Erro na requisição: ${errorMessage}`);
     }
 
     throw new Error(`Erro na API ${sistemaERP} (${response.status}): ${errorMessage}`);
