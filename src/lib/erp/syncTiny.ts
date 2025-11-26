@@ -826,43 +826,8 @@ export async function syncTinyOrders(
           })(),
           cliente_email: cliente.email || null,
           cliente_telefone: cliente.telefone || cliente.fone || cliente.telefoneAdicional || cliente.celular || cliente.mobile || null,
-          valor_total: (() => {
-            // API v3 oficial usa: valorTotalPedido (number)
-            const valorBruto = pedido.valorTotalPedido  // API v3 oficial (camelCase, number)
-              || pedido.valor  // API v3 pode retornar como 'valor' (string) - visto nos logs
-              || pedido.valor_total  // Fallback para snake_case
-              || pedido.total
-              || pedido.valorTotal
-              || pedido.valor_total_pedido
-              || pedido.total_pedido
-              || null;
-
-            if (valorBruto === null || valorBruto === undefined) {
-              console.warn(`[SyncTiny] ⚠️ Valor não encontrado no pedido ${pedido.id || pedido.numeroPedido || pedido.numero}`);
-              console.warn(`[SyncTiny] ⚠️ Campos testados: valorTotalPedido=${pedido.valorTotalPedido}, valor=${pedido.valor}, valor_total=${pedido.valor_total}`);
-              return 0;
-            }
-
-            // Se já é número, usar diretamente
-            if (typeof valorBruto === 'number') {
-              console.log(`[SyncTiny] ✅ Valor encontrado (number): ${valorBruto}`);
-              return valorBruto;
-            }
-
-            // Se é string, fazer parse
-            const valorStr = String(valorBruto);
-            // Remover tudo exceto dígitos, vírgula e ponto
-            const valorLimpo = valorStr.replace(/[^\d,.-]/g, '').replace(',', '.');
-            const valorNum = parseFloat(valorLimpo);
-
-            if (isNaN(valorNum)) {
-              console.warn(`[SyncTiny] ⚠️ Erro ao parsear valor "${valorStr}" do pedido ${pedido.id || pedido.numeroPedido || pedido.numero}`);
-              return 0;
-            }
-
-            console.log(`[SyncTiny] ✅ Valor parseado (string → number): ${valorStr} → ${valorNum}`);
-            return valorNum;
-          })(),
+          // ✅ CORREÇÃO CRÍTICA: valor_total será calculado depois (async)
+          valor_total: 0, // Placeholder - será atualizado abaixo
           // ✅ API v3 oficial usa camelCase
           valor_desconto: pedido.valorDesconto || 0,
           valor_frete: pedido.valorFrete || 0,
@@ -878,6 +843,36 @@ export async function syncTinyOrders(
           sync_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
+
+        // ✅ CORREÇÃO CRÍTICA: Calcular valor_total real
+        // A API de listagem NÃO retorna valor para pedidos aprovados (situacao: 3)
+        const valorBruto = pedido.valor || pedido.valorTotalPedido || null;
+        let valorFinal = 0;
+
+        if (valorBruto) {
+          if (typeof valorBruto === 'number') {
+            valorFinal = valorBruto;
+          } else {
+            const valorLimpo = String(valorBruto).replace(/[^\d,.-]/g, '').replace(',', '.');
+            valorFinal = parseFloat(valorLimpo) || 0;
+          }
+        }
+
+        // Se valor é zero, buscar detalhes completos
+        if (valorFinal === 0) {
+          console.warn(`[SyncTiny] ⚠️ Valor ZERO no pedido ${tinyId} - buscando detalhes...`);
+          const pedidoCompleto = await fetchPedidoCompletoFromTiny(storeId, pedido.id);
+
+          if (pedidoCompleto && pedidoCompleto.valorTotalPedido) {
+            valorFinal = typeof pedidoCompleto.valorTotalPedido === 'number'
+              ? pedidoCompleto.valorTotalPedido
+              : parseFloat(String(pedidoCompleto.valorTotalPedido).replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
+
+            console.log(`[SyncTiny] ✅ Valor encontrado nos detalhes: ${valorFinal}`);
+          }
+        }
+
+        orderData.valor_total = valorFinal;
 
         // Verificar se pedido já existe
         const { data: existingOrder } = await supabase
@@ -1078,6 +1073,34 @@ export async function syncTinyOrders(
       totalPages: 0,
       executionTime,
     };
+  }
+}
+
+/**
+ * Busca detalhes completos de um pedido na API do Tiny ERP
+ * Usado quando a listagem não retorna todos os campos (ex: valor para pedidos aprovados)
+ * 
+ * API v3: GET /pedidos/{idPedido}
+ */
+async function fetchPedidoCompletoFromTiny(
+  storeId: string,
+  pedidoId: string | number
+): Promise<any | null> {
+  try {
+    console.log(`[SyncTiny] 🔍 Buscando detalhes completos do pedido ${pedidoId}...`);
+
+    const response = await callERPAPI(storeId, `/pedidos/${pedidoId}`);
+
+    if (!response || !response.pedido) {
+      console.warn(`[SyncTiny] ⚠️ Detalhes do pedido ${pedidoId} não encontrados`);
+      return null;
+    }
+
+    console.log(`[SyncTiny] ✅ Detalhes do pedido ${pedidoId} encontrados`);
+    return response.pedido;
+  } catch (error: any) {
+    console.error(`[SyncTiny] ❌ Erro ao buscar detalhes do pedido ${pedidoId}:`, error);
+    return null;
   }
 }
 
