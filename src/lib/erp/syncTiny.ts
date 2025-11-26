@@ -2121,18 +2121,18 @@ async function syncTinyContact(
 
     const contactData = {
       store_id: storeId,
-      tiny_id: cliente.id?.toString() || cpfCnpj || `temp_${Date.now()}`,
-      nome: cliente.nome,
-      tipo: cliente.tipoPessoa || cliente.tipo || 'F', // API v3 usa tipoPessoa (camelCase)
+      tiny_id: clienteCompleto.id?.toString() || clienteCompleto.idContato?.toString() || cpfCnpj || `temp_${Date.now()}`,
+      nome: clienteCompleto.nome || cliente.nome,
+      tipo: clienteCompleto.tipoPessoa || clienteCompleto.tipo || cliente.tipoPessoa || cliente.tipo || 'F', // API v3 usa tipoPessoa (camelCase)
       cpf_cnpj: cpfCnpj, // Usar o CPF/CNPJ que encontramos acima
-      email: cliente.email || null,
+      email: clienteCompleto.email || clienteCompleto.emailPrincipal || cliente.email || cliente.emailPrincipal || null,
       // ✅ SALVAR NA COLUNA TELEFONE (priorizando celular)
       telefone: telefoneFinal, // Celular ou telefone (prioridade para celular)
       celular: null, // Manter null para não duplicar (já está em telefone)
       data_nascimento: dataNascimentoNormalizada,
-      endereco: cliente.endereco ? JSON.stringify(cliente.endereco) : null,
-      observacoes: cliente.observacoes || null,
-      dados_extras: cliente.dados_extras ? JSON.stringify(cliente.dados_extras) : null,
+      endereco: clienteCompleto.endereco ? JSON.stringify(clienteCompleto.endereco) : (cliente.endereco ? JSON.stringify(cliente.endereco) : null),
+      observacoes: clienteCompleto.observacoes || cliente.observacoes || null,
+      dados_extras: clienteCompleto.dados_extras ? JSON.stringify(clienteCompleto.dados_extras) : (cliente.dados_extras ? JSON.stringify(cliente.dados_extras) : null),
       sync_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -2226,7 +2226,7 @@ async function syncTinyContact(
       .single();
 
     if (contactError) {
-      console.error(`[SyncTiny] ❌ Erro ao sincronizar contato ${cliente.nome}:`, contactError);
+      console.error(`[SyncTiny] ❌ Erro ao sincronizar contato ${clienteCompleto.nome || cliente.nome}:`, contactError);
       return null;
     }
 
