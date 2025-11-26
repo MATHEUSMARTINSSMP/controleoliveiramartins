@@ -40,15 +40,13 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
   const [filteredContacts, setFilteredContacts] = useState<TinyContact[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
-
   useEffect(() => {
     fetchContacts();
   }, [storeId]);
 
   useEffect(() => {
     filterContacts();
-  }, [contacts, searchTerm, typeFilter]);
+  }, [contacts, searchTerm]);
 
   const fetchContacts = async () => {
     try {
@@ -87,11 +85,6 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
           contact.cpf_cnpj?.toLowerCase().includes(term) ||
           contact.email?.toLowerCase().includes(term)
       );
-    }
-
-    // Filtro por tipo
-    if (typeFilter !== 'all') {
-      filtered = filtered.filter((contact) => contact.tipo === typeFilter);
     }
 
     setFilteredContacts(filtered);
