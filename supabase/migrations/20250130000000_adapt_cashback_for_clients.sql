@@ -99,6 +99,9 @@ BEGIN
         COMMENT ON CONSTRAINT cashback_balance_owner_check ON cashback_balance 
         IS 'Garante que cada registro tem OU colaboradora_id OU cliente_id, nunca ambos ou nenhum';
     END IF;
+    
+    -- Atualizar comentário da coluna colaboradora_id
+    COMMENT ON COLUMN cashback_balance.colaboradora_id IS 'FK para profiles - Colaboradora com saldo (para vendas internas). NULL se for cliente.';
 END $$;
 
 -- Criar índices únicos parciais para garantir unicidade
@@ -109,9 +112,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS cashback_balance_colaboradora_unique
 CREATE UNIQUE INDEX IF NOT EXISTS cashback_balance_cliente_unique 
     ON cashback_balance(cliente_id) 
     WHERE cliente_id IS NOT NULL;
-
-    COMMENT ON COLUMN cashback_balance.colaboradora_id IS 'FK para profiles - Colaboradora com saldo (para vendas internas). NULL se for cliente.';
-END $$;
 
 -- Criar índice para cliente_id
 CREATE INDEX IF NOT EXISTS idx_cashback_balance_cliente_id 
