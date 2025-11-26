@@ -781,7 +781,26 @@ export async function syncTinyOrders(
             // ✅ DADOS BÁSICOS (sempre disponíveis nos itens)
             const codigo = produto.sku || itemData.sku || produto.codigo || itemData.codigo || null;
             const descricao = produto.descricao || itemData.descricao || produto.nome || itemData.nome || null;
-            const produtoId = produto.id || itemData.produto_id || null;
+            
+            // ✅ EXTRAIR PRODUTO ID - Múltiplas tentativas conforme documentação
+            const produtoId = produto.id 
+              || itemData.produto_id 
+              || itemData.produto?.id
+              || item.idProduto
+              || item.produtoId
+              || null;
+            
+            // Log detalhado para debug
+            if (!produtoId) {
+              console.warn(`[SyncTiny] ⚠️ Produto ID não encontrado no item. Estrutura:`, {
+                item_keys: Object.keys(item),
+                produto_keys: Object.keys(produto),
+                itemData_keys: Object.keys(itemData),
+                item_preview: JSON.stringify(item).substring(0, 500),
+              });
+            } else {
+              console.log(`[SyncTiny] ✅ Produto ID encontrado: ${produtoId} para item: ${descricao || codigo || 'sem descrição'}`);
+            }
 
             // ✅ BUSCAR DETALHES COMPLETOS DO PRODUTO se tivermos o ID
             // Segundo documentação oficial: GET /produtos/{idProduto} retorna categoria, marca, etc.
@@ -797,28 +816,62 @@ export async function syncTinyOrders(
 
             if (produtoId) {
               try {
+                console.log(`[SyncTiny] 🔍 Buscando detalhes completos do produto ${produtoId}...`);
                 produtoCompleto = await fetchProdutoCompletoFromTiny(storeId, produtoId);
                 
                 if (produtoCompleto) {
+                  console.log(`[SyncTiny] ✅ Detalhes do produto ${produtoId} recebidos. Estrutura:`, {
+                    tem_categoria: !!produtoCompleto.categoria,
+                    tem_marca: !!produtoCompleto.marca,
+                    tem_variacoes: !!produtoCompleto.variacoes,
+                    categoria_completa: produtoCompleto.categoria,
+                    marca_completa: produtoCompleto.marca,
+                    chaves_disponiveis: Object.keys(produtoCompleto).slice(0, 30),
+                  });
+                  
                   // ✅ CATEGORIA - API v3 OFICIAL: produto.categoria { id, nome, caminhoCompleto }
                   if (produtoCompleto.categoria) {
-                    categoria = produtoCompleto.categoria.nome || produtoCompleto.categoria.descricao || null;
+                    // Tentar múltiplas formas de extrair categoria
+                    categoria = produtoCompleto.categoria.nome 
+                      || produtoCompleto.categoria.descricao 
+                      || produtoCompleto.categoria.descricaoCompleta
+                      || (typeof produtoCompleto.categoria === 'string' ? produtoCompleto.categoria : null)
+                      || null;
                     
                     // Extrair subcategoria do caminho completo (ex: "Roupas > Feminino > Vestidos")
                     if (produtoCompleto.categoria.caminhoCompleto) {
                       const caminho = produtoCompleto.categoria.caminhoCompleto.split(' > ');
                       if (caminho.length > 1) {
-                        subcategoria = caminho[caminho.length - 1]; // Último nível é a subcategoria
+                        // Se tem mais de 2 níveis, o penúltimo pode ser a categoria e o último a subcategoria
+                        if (caminho.length === 2) {
+                          categoria = caminho[0];
+                          subcategoria = caminho[1];
+                        } else if (caminho.length > 2) {
+                          categoria = caminho[caminho.length - 2]; // Penúltimo
+                          subcategoria = caminho[caminho.length - 1]; // Último
+                        } else {
+                          categoria = caminho[0];
+                        }
+                      } else {
+                        categoria = caminho[0];
                       }
                     }
                     
-                    console.log(`[SyncTiny] ✅ Categoria encontrada para produto ${produtoId}: ${categoria}${subcategoria ? ` (sub: ${subcategoria})` : ''}`);
+                    console.log(`[SyncTiny] ✅ Categoria extraída para produto ${produtoId}: ${categoria}${subcategoria ? ` | Subcategoria: ${subcategoria}` : ''}`);
+                  } else {
+                    console.warn(`[SyncTiny] ⚠️ Produto ${produtoId} não tem categoria nos detalhes completos`);
                   }
 
                   // ✅ MARCA - API v3 OFICIAL: produto.marca { id, nome }
                   if (produtoCompleto.marca) {
-                    marca = produtoCompleto.marca.nome || produtoCompleto.marca.descricao || null;
-                    console.log(`[SyncTiny] ✅ Marca encontrada para produto ${produtoId}: ${marca}`);
+                    // Tentar múltiplas formas de extrair marca
+                    marca = produtoCompleto.marca.nome 
+                      || produtoCompleto.marca.descricao
+                      || (typeof produtoCompleto.marca === 'string' ? produtoCompleto.marca : null)
+                      || null;
+                    console.log(`[SyncTiny] ✅ Marca extraída para produto ${produtoId}: ${marca}`);
+                  } else {
+                    console.warn(`[SyncTiny] ⚠️ Produto ${produtoId} não tem marca nos detalhes completos`);
                   }
 
                   // ✅ VARIACOES - API v3 OFICIAL: produto.variacoes[] { grade: [{ chave, valor }] }
