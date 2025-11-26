@@ -33,14 +33,9 @@ interface TinyOrder {
   colaboradora_id: string | null;
   forma_pagamento: string | null;
   sync_at: string;
-  // ✅ FASE 2: Dados completos do cliente via JOIN
-  cliente?: {
-    id: string;
-    nome: string | null;
-    telefone: string | null;
-    email: string | null;
-    cpf_cnpj: string | null;
-  } | null;
+  // ✅ Dados do cliente diretamente de tiny_orders
+  cliente_telefone: string | null;
+  cliente_email: string | null;
 }
 
 interface TinyOrdersListProps {
@@ -67,20 +62,12 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      // ✅ FASE 2: Fazer JOIN com tiny_contacts para obter dados completos do cliente
+      // ✅ Exibir diretamente as colunas do Supabase (sem JOIN)
+      // Usa cliente_telefone e cliente_email que já estão em tiny_orders
       let query = supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
-        .select(`
-          *,
-          cliente:tiny_contacts!cliente_id (
-            id,
-            nome,
-            telefone,
-            email,
-            cpf_cnpj
-          )
-        `)
+        .select('*')
         .order('data_pedido', { ascending: false })
         .limit(limit);
 
@@ -133,10 +120,9 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
         (order) =>
           order.numero_pedido?.toLowerCase().includes(term) ||
           order.cliente_nome?.toLowerCase().includes(term) ||
-          order.cliente?.nome?.toLowerCase().includes(term) ||
           order.vendedor_nome?.toLowerCase().includes(term) ||
-          order.cliente?.email?.toLowerCase().includes(term) ||
-          order.cliente?.telefone?.toLowerCase().includes(term)
+          order.cliente_email?.toLowerCase().includes(term) ||
+          order.cliente_telefone?.toLowerCase().includes(term)
       );
     }
 
@@ -286,17 +272,17 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
                     <TableCell>
                       <div>
                         <div className="font-medium">
-                          {order.cliente?.nome || order.cliente_nome || '-'}
+                          {order.cliente_nome || '-'}
                         </div>
-                        {/* ✅ FASE 2: Usar dados do JOIN com tiny_contacts */}
-                        {order.cliente?.telefone && (
+                        {/* ✅ Exibir diretamente da coluna do Supabase */}
+                        {order.cliente_telefone && (
                           <div className="text-xs text-muted-foreground">
-                            📞 {order.cliente.telefone}
+                            📞 {order.cliente_telefone}
                           </div>
                         )}
-                        {order.cliente?.email && (
+                        {order.cliente_email && (
                           <div className="text-xs text-muted-foreground">
-                            ✉️ {order.cliente.email}
+                            ✉️ {order.cliente_email}
                           </div>
                         )}
                       </div>
