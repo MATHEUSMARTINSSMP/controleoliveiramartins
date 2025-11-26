@@ -399,9 +399,9 @@ const MetasManagementContent = () => {
                 return { ...c, meta: 0, superMeta: 0 };
             }
             return {
-                ...c,
-                meta: parseFloat(individualMeta.toFixed(2)),
-                superMeta: parseFloat(individualSuperMeta.toFixed(2))
+            ...c,
+            meta: parseFloat(individualMeta.toFixed(2)),
+            superMeta: parseFloat(individualSuperMeta.toFixed(2))
             };
         }));
     };
@@ -485,8 +485,8 @@ const MetasManagementContent = () => {
                     .from("goals")
                     .update(storePayload)
                     .eq("id", existingStoreGoal.id)
-                    .select()
-                    .single();
+                .select()
+                .single();
                 if (error) {
                     console.error("Erro ao atualizar meta da loja:", error);
                     throw error;
@@ -511,21 +511,21 @@ const MetasManagementContent = () => {
             const individualPayloads = colabGoals
                 .filter(c => c.recebeMeta) // Filtrar apenas as que recebem meta
                 .map(c => ({
-                    tipo: "INDIVIDUAL",
-                    mes_referencia: mesReferencia,
-                    store_id: selectedStore,
-                    colaboradora_id: c.id,
-                    meta_valor: c.meta,
-                    super_meta_valor: c.superMeta,
-                    ativo: true,
-                    daily_weights: dailyWeights // Inherit weights
-                }));
+                tipo: "INDIVIDUAL",
+                mes_referencia: mesReferencia,
+                store_id: selectedStore,
+                colaboradora_id: c.id,
+                meta_valor: c.meta,
+                super_meta_valor: c.superMeta,
+                ativo: true,
+                daily_weights: dailyWeights // Inherit weights
+            }));
 
             // Para metas individuais, fazer UPDATE ou INSERT individualmente
             for (const payload of individualPayloads) {
                 const { data: existingGoal } = await supabase
                     .schema("sistemaretiradas")
-                    .from("goals")
+                .from("goals")
                     .select("id")
                     .eq("store_id", payload.store_id)
                     .eq("mes_referencia", payload.mes_referencia)
@@ -1028,7 +1028,7 @@ const MetasManagementContent = () => {
                                     >
                                         <Trash className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                                         <span className="hidden sm:inline">Excluir</span>
-                                    </Button>
+                                </Button>
                                 </div>
                             </div>
                         </div>

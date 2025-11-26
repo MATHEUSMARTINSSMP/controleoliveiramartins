@@ -1003,9 +1003,9 @@ export default function BonusManagement() {
                         Voltar
                     </Button>
                     <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent truncate flex-1 min-w-0">
-                        Gerenciar Bônus
-                    </h1>
-                </div>
+                    Gerenciar Bônus
+                </h1>
+            </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-3 sm:mb-4">
                 <Select value={storeFilter} onValueChange={setStoreFilter}>
@@ -1074,7 +1074,7 @@ export default function BonusManagement() {
                                 {bonus.stores?.name && (
                                     <p className="text-[10px] sm:text-xs text-muted-foreground mt-2">
                                         <strong>Loja:</strong> {bonus.stores.name}
-                                    </p>
+                                </p>
                                 )}
                             </CardContent>
                             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-center justify-center bg-black/20 transition-opacity rounded-lg">
@@ -1125,7 +1125,7 @@ export default function BonusManagement() {
                         </div>
 
                         {/* Seção: Categoria de Condição */}
-                        <div>
+                            <div>
                             <Label className="text-xs sm:text-sm font-semibold">Categoria de Condição</Label>
                             <Select
                                 value={formData.categoria_condicao}
@@ -1143,9 +1143,9 @@ export default function BonusManagement() {
                                 }}
                             >
                                 <SelectTrigger className="text-xs sm:text-sm">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
                                     <SelectItem value="BASICA">Condições Básicas (Rankings)</SelectItem>
                                     <SelectItem value="AVANCADA">Filtros Avançados (Metas)</SelectItem>
                                     <SelectItem value="LEGADO">Legado (Compatibilidade)</SelectItem>
@@ -1314,13 +1314,13 @@ export default function BonusManagement() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="PERCENTUAL_META">Meta Percentual</SelectItem>
-                                            <SelectItem value="RANKING">Ranking</SelectItem>
+                                        <SelectItem value="RANKING">Ranking</SelectItem>
                                             <SelectItem value="VALOR_FIXO_VENDAS">Valor Fixo de Vendas</SelectItem>
                                             <SelectItem value="META_SEMANAL">Gincana Semanal (Checkpoint 1)</SelectItem>
                                             <SelectItem value="SUPER_META_SEMANAL">Super Gincana Semanal (Checkpoint Final)</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                             </div>
                         )}
 
@@ -1411,19 +1411,19 @@ export default function BonusManagement() {
                         {/* Loja */}
                         <div>
                             <Label className="text-xs sm:text-sm">Loja</Label>
-                            <Select value={formData.store_id} onValueChange={(v) => setFormData({ ...formData, store_id: v })}>
+                                <Select value={formData.store_id} onValueChange={(v) => setFormData({ ...formData, store_id: v })}>
                                 <SelectTrigger className="text-xs sm:text-sm">
-                                    <SelectValue placeholder="Selecione" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="TODAS">Todas</SelectItem>
-                                    {stores.map((store) => (
-                                        <SelectItem key={store.id} value={store.id}>
-                                            {store.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                        <SelectValue placeholder="Selecione" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="TODAS">Todas</SelectItem>
+                                        {stores.map((store) => (
+                                            <SelectItem key={store.id} value={store.id}>
+                                                {store.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                         </div>
 
                         {/* Seleção de Colaboradoras */}
@@ -1464,8 +1464,8 @@ export default function BonusManagement() {
                                         >
                                             Nenhuma
                                         </Button>
-                                    </div>
-                                </div>
+                            </div>
+                        </div>
 
                                 {loadingCollaborators ? (
                                     <p className="text-xs text-muted-foreground text-center py-2">Carregando colaboradoras...</p>
@@ -1552,20 +1552,20 @@ export default function BonusManagement() {
                         {formData.categoria_condicao === "LEGADO" && (
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                 {(formData.tipo_condicao !== 'META_SEMANAL' && formData.tipo_condicao !== 'SUPER_META_SEMANAL') && (
-                                    <div>
+                            <div>
                                         <Label className="text-xs sm:text-sm">
                                             {formData.tipo_condicao === 'PERCENTUAL_META' ? 'Meta Mínima (%)' : 'Condição'}
                                         </Label>
-                                        <Input
-                                            type="number"
-                                            step="0.01"
+                                <Input
+                                    type="number"
+                                    step="0.01"
                                             value={formData.meta_minima_percentual}
                                             onChange={(e) => setFormData({ ...formData, meta_minima_percentual: e.target.value })}
                                             placeholder={formData.tipo_condicao === 'PERCENTUAL_META' ? "Ex: 100 (para 100%)" : "Valor da condição"}
                                             required={formData.tipo_condicao !== 'META_SEMANAL' && formData.tipo_condicao !== 'SUPER_META_SEMANAL'}
                                             className="text-xs sm:text-sm"
-                                        />
-                                    </div>
+                                />
+                            </div>
                                 )}
                             </div>
                         )}
@@ -1576,7 +1576,7 @@ export default function BonusManagement() {
                                 <Label className="text-xs sm:text-sm font-semibold">Valor do Bônus</Label>
 
                                 {/* Toggle entre Dinheiro e Prêmio Físico */}
-                                <div>
+                            <div>
                                     <Label className="text-xs sm:text-sm">Tipo de Bônus</Label>
                                     <Select
                                         value={formData.is_premio_fisico ? "FISICO" : "DINHEIRO"}
@@ -1624,17 +1624,17 @@ export default function BonusManagement() {
                                             <Label className="text-xs sm:text-sm">
                                                 {formData.tipo === 'PERCENTUAL' ? 'Valor (%)' : 'Valor (R$)'}
                                             </Label>
-                                            <Input
-                                                type="number"
-                                                step="0.01"
-                                                value={formData.valor_bonus}
-                                                onChange={(e) => setFormData({ ...formData, valor_bonus: e.target.value })}
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={formData.valor_bonus}
+                                    onChange={(e) => setFormData({ ...formData, valor_bonus: e.target.value })}
                                                 placeholder={formData.tipo === 'PERCENTUAL' ? 'Ex: 10 (para 10%)' : 'Ex: 500'}
-                                                required
+                                    required
                                                 className="text-xs sm:text-sm"
-                                            />
-                                        </div>
-                                    </div>
+                                />
+                            </div>
+                        </div>
                                 )}
 
                                 {/* Campo de Prêmio Físico (Texto) */}

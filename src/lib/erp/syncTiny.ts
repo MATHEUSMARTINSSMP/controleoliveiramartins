@@ -1896,26 +1896,62 @@ async function syncTinyContact(
       return null;
     }
 
+    // ✅ CORREÇÃO CRÍTICA: Para pedidos APROVADOS e FATURADOS, os dados do cliente podem vir incompletos
+    // Se não temos data de nascimento e temos ID do cliente, buscar detalhes completos
+    let clienteCompleto = cliente;
+    
+    // Verificar se temos ID do cliente mas não temos data de nascimento
+    const clienteId = cliente.id || cliente.idContato || null;
+    const temDataNascimento = cliente.dataNascimento || cliente.data_nascimento || cliente.nascimento || null;
+    
+    if (clienteId && !temDataNascimento) {
+      console.log(`[SyncTiny] 🔍 Cliente ${cliente.nome} sem data de nascimento, buscando detalhes completos via GET /contatos/${clienteId}...`);
+      try {
+        const clienteDetalhes = await fetchContatoCompletoFromTiny(storeId, clienteId);
+        if (clienteDetalhes) {
+          // Mesclar dados: priorizar dados completos mas manter dados do pedido se necessário
+          clienteCompleto = {
+            ...clienteDetalhes,
+            // Manter dados do pedido que podem ser mais atualizados
+            ...cliente,
+            // Mas usar dados completos para campos faltantes
+            dataNascimento: clienteDetalhes.dataNascimento || cliente.dataNascimento,
+            telefone: cliente.telefone || clienteDetalhes.telefone,
+            celular: cliente.celular || clienteDetalhes.celular,
+          };
+          console.log(`[SyncTiny] ✅ Detalhes completos do cliente obtidos:`, {
+            tem_dataNascimento: !!clienteCompleto.dataNascimento,
+            tem_telefone: !!clienteCompleto.telefone || !!clienteCompleto.celular,
+          });
+        }
+      } catch (error) {
+        console.warn(`[SyncTiny] ⚠️ Erro ao buscar detalhes completos do cliente ${clienteId}:`, error);
+        // Continuar com dados do pedido mesmo se falhar
+      }
+    }
+
     // ✅ Buscar data de nascimento - pode estar em vários lugares
     // API v3 usa camelCase: dataNascimento
-    const dataNascimento = cliente.dataNascimento  // API v3 oficial (camelCase)
-      || cliente.data_nascimento  // Fallback para snake_case
-      || cliente.nascimento
-      || cliente.data_nasc
-      || cliente.dataNasc
-      || cliente.dados_extras?.dataNascimento
-      || cliente.dados_extras?.data_nascimento
-      || cliente.dados_extras?.nascimento
+    const dataNascimento = clienteCompleto.dataNascimento  // API v3 oficial (camelCase)
+      || clienteCompleto.data_nascimento  // Fallback para snake_case
+      || clienteCompleto.nascimento
+      || clienteCompleto.data_nasc
+      || clienteCompleto.dataNasc
+      || clienteCompleto.dados_extras?.dataNascimento
+      || clienteCompleto.dados_extras?.data_nascimento
+      || clienteCompleto.dados_extras?.nascimento
       || null;
 
     // Log para diagnóstico
     if (!dataNascimento) {
-      console.log(`[SyncTiny] 🔍 Buscando data de nascimento para ${cliente.nome}:`, {
-        tem_dataNascimento: !!cliente.dataNascimento,
-        valor_dataNascimento: cliente.dataNascimento,
-        tem_data_nascimento: !!cliente.data_nascimento,
-        valor_data_nascimento: cliente.data_nascimento,
-        chaves_disponiveis: Object.keys(cliente).filter(k => 
+      console.log(`[SyncTiny] 🔍 Buscando data de nascimento para ${clienteCompleto.nome}:`, {
+        tem_dataNascimento: !!clienteCompleto.dataNascimento,
+        valor_dataNascimento: clienteCompleto.dataNascimento,
+        tem_data_nascimento: !!clienteCompleto.data_nascimento,
+        valor_data_nascimento: clienteCompleto.data_nascimento,
+        cliente_id: clienteId,
+        busca_detalhes_executada: !!clienteId && !temDataNascimento,
+        chaves_disponiveis: Object.keys(clienteCompleto).filter(k => 
           k.toLowerCase().includes('nasc') || 
           k.toLowerCase().includes('data')
         ),
@@ -1942,11 +1978,12 @@ async function syncTinyContact(
     }
 
     // ✅ Extrair CPF/CNPJ do cliente (API v3 usa camelCase)
-    const cpfCnpj = cliente.cpfCnpj  // API v3 oficial (camelCase)
-      || cliente.cpf_cnpj  // Fallback para snake_case
-      || cliente.cpf
-      || cliente.cnpj
-      || cliente.documento
+    // Usar clienteCompleto (que pode ter dados completos se foram buscados)
+    const cpfCnpj = clienteCompleto.cpfCnpj  // API v3 oficial (camelCase)
+      || clienteCompleto.cpf_cnpj  // Fallback para snake_case
+      || clienteCompleto.cpf
+      || clienteCompleto.cnpj
+      || clienteCompleto.documento
       || null;
 
     // ✅ ESTRATÉGIA ULTRA ROBUSTA: Priorizar CELULAR sobre TELEFONE
@@ -2002,8 +2039,9 @@ async function syncTinyContact(
       }
       
       // 2. PRIORIDADE ALTA: Array de contatos (Tiny ERP pode ter múltiplos contatos)
-      if (Array.isArray(cliente.contatos) && cliente.contatos.length > 0) {
-        for (const contato of cliente.contatos) {
+      // Usar clienteCompleto (que pode ter dados completos se foram buscados)
+      if (Array.isArray(clienteCompleto.contatos) && clienteCompleto.contatos.length > 0) {
+        for (const contato of clienteCompleto.contatos) {
           // Priorizar celular no array de contatos
           const celularContato = contato.celular 
             || contato.mobile 
@@ -2034,10 +2072,11 @@ async function syncTinyContact(
       }
       
       // 3. FALLBACK: Telefone fixo direto
-      const telefoneFixo = cliente.telefone 
-        || cliente.fone 
-        || cliente.telefoneAdicional
-        || cliente.telefonePrincipal
+      // Usar clienteCompleto (que pode ter dados completos se foram buscados)
+      const telefoneFixo = clienteCompleto.telefone 
+        || clienteCompleto.fone 
+        || clienteCompleto.telefoneAdicional
+        || clienteCompleto.telefonePrincipal
         || null;
       
       if (telefoneFixo && String(telefoneFixo).trim() !== '') {
