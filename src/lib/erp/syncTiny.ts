@@ -845,22 +845,32 @@ export async function syncTinyOrders(
         };
 
         // ✅ CORREÇÃO CRÍTICA: Calcular valor_total real
-        // A API de listagem NÃO retorna valor para pedidos aprovados (situacao: 3)
+        // A API de listagem retorna 'valor' como STRING, precisamos fazer parsing ANTES de verificar se é zero
         const valorBruto = pedido.valor || pedido.valorTotalPedido || null;
         let valorFinal = 0;
 
-        if (valorBruto) {
+        // 1. PRIMEIRO: Fazer parsing do valor da listagem
+        if (valorBruto !== null && valorBruto !== undefined) {
           if (typeof valorBruto === 'number') {
             valorFinal = valorBruto;
-          } else {
-            const valorLimpo = String(valorBruto).replace(/[^\d,.-]/g, '').replace(',', '.');
-            valorFinal = parseFloat(valorLimpo) || 0;
+            console.log(`[SyncTiny] ✅ Valor da listagem (number): ${valorFinal}`);
+          } else if (typeof valorBruto === 'string') {
+            // ⚠️ IMPORTANTE: API retorna como STRING, ex: "868.50"
+            const valorLimpo = valorBruto.replace(/[^\d,.-]/g, '').replace(',', '.');
+            valorFinal = parseFloat(valorLimpo);
+
+            if (!isNaN(valorFinal) && valorFinal > 0) {
+              console.log(`[SyncTiny] ✅ Valor da listagem (string → number): "${valorBruto}" → ${valorFinal}`);
+            } else {
+              valorFinal = 0;
+            }
           }
         }
 
-        // Se valor é zero, buscar detalhes completos
-        if (valorFinal === 0) {
-          console.warn(`[SyncTiny] ⚠️ Valor ZERO no pedido ${tinyId} - buscando detalhes...`);
+        // 2. SOMENTE SE AINDA FOR ZERO: Buscar detalhes completos
+        // Isso acontece para pedidos aprovados (situacao: 3) que não têm valor na listagem
+        if (valorFinal === 0 || isNaN(valorFinal)) {
+          console.warn(`[SyncTiny] ⚠️ Valor ZERO/INVÁLIDO no pedido ${tinyId} (situacao: ${pedido.situacao}) - buscando detalhes...`);
           const pedidoCompleto = await fetchPedidoCompletoFromTiny(storeId, pedido.id);
 
           if (pedidoCompleto && pedidoCompleto.valorTotalPedido) {
