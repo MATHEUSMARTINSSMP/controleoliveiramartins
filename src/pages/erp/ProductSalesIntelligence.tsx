@@ -24,7 +24,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, TrendingUp, Package, Filter, BarChart3, PieChart, Calendar, Store, User, Search } from 'lucide-react';
+import { Loader2, TrendingUp, Package, Filter, BarChart3, PieChart, Calendar, Store, User, Search, Clock, Target } from 'lucide-react';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -45,6 +46,7 @@ interface ProductSale {
   store_id: string;
   colaboradora_id: string | null;
   vendedor_nome: string | null;
+  hora_pedido?: number; // Hora do dia (0-23)
 }
 
 interface AggregatedProduct {
@@ -250,6 +252,19 @@ export default function ProductSalesIntelligence() {
             const valorUnitario = Number(item.valor_unitario) || 0;
             const valorTotal = Number(item.valor_total) || quantidade * valorUnitario;
 
+            // Extrair hora do pedido (0-23)
+            let horaPedido: number | undefined = undefined;
+            if (order.data_pedido) {
+              try {
+                const dataPedido = new Date(order.data_pedido);
+                if (!isNaN(dataPedido.getTime())) {
+                  horaPedido = dataPedido.getHours();
+                }
+              } catch (e) {
+                // Ignorar erro de parsing
+              }
+            }
+
             allSales.push({
               id: `${order.id}-${item.codigo || Math.random()}`,
               categoria: item.categoria || 'Sem Categoria',
@@ -266,6 +281,7 @@ export default function ProductSalesIntelligence() {
               store_id: order.store_id,
               colaboradora_id: order.colaboradora_id,
               vendedor_nome: order.vendedor_nome,
+              hora_pedido: horaPedido,
             });
           });
         } catch (error) {
@@ -709,11 +725,16 @@ export default function ProductSalesIntelligence() {
 
       {/* Análises Inteligentes */}
       <Tabs defaultValue="products" className="space-y-4">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="products">Produtos</TabsTrigger>
           <TabsTrigger value="brands">Marcas</TabsTrigger>
           <TabsTrigger value="sizes">Tamanhos</TabsTrigger>
           <TabsTrigger value="colors">Cores</TabsTrigger>
+          <TabsTrigger value="analytics">Análises Avançadas</TabsTrigger>
+          <TabsTrigger value="trends">Tendências</TabsTrigger>
+          <TabsTrigger value="sellers">Vendedores</TabsTrigger>
+          <TabsTrigger value="hours">Horários</TabsTrigger>
+          <TabsTrigger value="tickets">Tickets Médios</TabsTrigger>
         </TabsList>
 
         <TabsContent value="products" className="space-y-4">
@@ -891,6 +912,335 @@ export default function ProductSalesIntelligence() {
                         <TableCell className="text-right">
                           {formatCurrency(cor.total)}
                         </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ✅ NOVA TAB: Análises Avançadas */}
+        <TabsContent value="analytics" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Tamanho Mais Vendido por Marca</CardTitle>
+              <CardDescription>Qual tamanho vende mais em cada marca</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Marca</TableHead>
+                      <TableHead>Tamanho Mais Vendido</TableHead>
+                      <TableHead className="text-right">Quantidade</TableHead>
+                      <TableHead className="text-right">Total Vendas</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tamanhoPorMarca.map((item, index) => (
+                      <TableRow key={`${item.marca}-${index}`}>
+                        <TableCell className="font-medium">{item.marca}</TableCell>
+                        <TableCell><Badge variant="outline">{item.tamanho}</Badge></TableCell>
+                        <TableCell className="text-right font-medium">{item.quantidade.toLocaleString('pt-BR')}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.total)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Tamanho Mais Vendido por Categoria</CardTitle>
+              <CardDescription>Qual tamanho vende mais em cada categoria</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead>Tamanho Mais Vendido</TableHead>
+                      <TableHead className="text-right">Quantidade</TableHead>
+                      <TableHead className="text-right">Total Vendas</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tamanhoPorCategoria.map((item, index) => (
+                      <TableRow key={`${item.categoria}-${index}`}>
+                        <TableCell className="font-medium">{item.categoria}</TableCell>
+                        <TableCell><Badge variant="outline">{item.tamanho}</Badge></TableCell>
+                        <TableCell className="text-right font-medium">{item.quantidade.toLocaleString('pt-BR')}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.total)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ✅ NOVA TAB: Tendências */}
+        <TabsContent value="trends" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Tendência de Venda de Tamanho por Marca</CardTitle>
+              <CardDescription>Evolução de vendas nos últimos 30, 60 e 90 dias</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Marca</TableHead>
+                      <TableHead>Tamanho</TableHead>
+                      <TableHead className="text-right">30 dias</TableHead>
+                      <TableHead className="text-right">60 dias</TableHead>
+                      <TableHead className="text-right">90 dias</TableHead>
+                      <TableHead>Tendência</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tendenciaTamanhoPorMarca.slice(0, 50).map((item, index) => (
+                      <TableRow key={`${item.marca}-${item.tamanho}-${index}`}>
+                        <TableCell className="font-medium">{item.marca}</TableCell>
+                        <TableCell><Badge variant="outline">{item.tamanho}</Badge></TableCell>
+                        <TableCell className="text-right font-medium">{item.periodo_30.toLocaleString('pt-BR')}</TableCell>
+                        <TableCell className="text-right">{item.periodo_60.toLocaleString('pt-BR')}</TableCell>
+                        <TableCell className="text-right">{item.periodo_90.toLocaleString('pt-BR')}</TableCell>
+                        <TableCell>
+                          {item.tendencia === 'crescendo' && <Badge className="bg-green-600"><TrendingUp className="h-3 w-3 mr-1" />Crescendo</Badge>}
+                          {item.tendencia === 'caindo' && <Badge variant="destructive"><TrendingUp className="h-3 w-3 mr-1 rotate-180" />Caindo</Badge>}
+                          {item.tendencia === 'estavel' && <Badge variant="secondary">Estável</Badge>}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ✅ NOVA TAB: Vendedores */}
+        <TabsContent value="sellers" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Marca Mais Vendida por Vendedor</CardTitle>
+              <CardDescription>Qual marca cada vendedor mais vende</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Vendedor</TableHead>
+                      <TableHead>Marca Mais Vendida</TableHead>
+                      <TableHead className="text-right">Quantidade</TableHead>
+                      <TableHead className="text-right">Total Vendas</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {marcaPorVendedor.map((item, index) => (
+                      <TableRow key={`${item.vendedor}-${index}`}>
+                        <TableCell className="font-medium">{item.vendedor}</TableCell>
+                        <TableCell><Badge variant="outline">{item.marca}</Badge></TableCell>
+                        <TableCell className="text-right font-medium">{item.quantidade.toLocaleString('pt-BR')}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.total)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Ticket Médio de Marca por Vendedor</CardTitle>
+              <CardDescription>Performance de cada vendedor por marca</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Vendedor</TableHead>
+                      <TableHead>Marca</TableHead>
+                      <TableHead className="text-right">Ticket Médio</TableHead>
+                      <TableHead className="text-right">Total Vendas</TableHead>
+                      <TableHead className="text-right">Pedidos</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {ticketMedioMarcaPorVendedor.slice(0, 50).map((item, index) => (
+                      <TableRow key={`${item.vendedor}-${item.marca}-${index}`}>
+                        <TableCell className="font-medium">{item.vendedor}</TableCell>
+                        <TableCell><Badge variant="outline">{item.marca}</Badge></TableCell>
+                        <TableCell className="text-right font-medium">{formatCurrency(item.ticket_medio)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.total)}</TableCell>
+                        <TableCell className="text-right">{item.pedidos}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ✅ NOVA TAB: Horários */}
+        <TabsContent value="hours" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Vendas por Horário</CardTitle>
+              <CardDescription>Distribuição de vendas ao longo do dia</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[400px] mb-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={vendasPorHorario}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="hora" label={{ value: 'Hora do Dia', position: 'insideBottom', offset: -5 }} tickFormatter={(value) => `${value}h`} />
+                    <YAxis />
+                    <Tooltip formatter={(value: number) => value.toLocaleString('pt-BR')} labelFormatter={(label) => `${label}h`} />
+                    <Legend />
+                    <Bar dataKey="quantidade" fill="#8884d8" name="Quantidade Vendida" />
+                    <Bar dataKey="pedidos" fill="#82ca9d" name="Número de Pedidos" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Horário</TableHead>
+                      <TableHead className="text-right">Quantidade Vendida</TableHead>
+                      <TableHead className="text-right">Total Vendas</TableHead>
+                      <TableHead className="text-right">Nº Pedidos</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {vendasPorHorario.map((item) => (
+                      <TableRow key={item.hora}>
+                        <TableCell className="font-medium">{item.hora}h</TableCell>
+                        <TableCell className="text-right font-medium">{item.quantidade.toLocaleString('pt-BR')}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.total)}</TableCell>
+                        <TableCell className="text-right">{item.pedidos}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ✅ NOVA TAB: Tickets Médios */}
+        <TabsContent value="tickets" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Ticket Médio por Tamanho</CardTitle>
+              <CardDescription>Valor médio dos pedidos por tamanho</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Tamanho</TableHead>
+                      <TableHead className="text-right">Ticket Médio</TableHead>
+                      <TableHead className="text-right">Total Vendas</TableHead>
+                      <TableHead className="text-right">Quantidade</TableHead>
+                      <TableHead className="text-right">Pedidos</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {ticketMedioPorTamanho.map((item, index) => (
+                      <TableRow key={`${item.tamanho}-${index}`}>
+                        <TableCell className="font-medium"><Badge variant="outline">{item.tamanho}</Badge></TableCell>
+                        <TableCell className="text-right font-medium text-lg">{formatCurrency(item.ticket_medio)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.total_vendas)}</TableCell>
+                        <TableCell className="text-right">{item.quantidade.toLocaleString('pt-BR')}</TableCell>
+                        <TableCell className="text-right">{item.pedidos}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Ticket Médio por Marca</CardTitle>
+              <CardDescription>Valor médio dos pedidos por marca</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Marca</TableHead>
+                      <TableHead className="text-right">Ticket Médio</TableHead>
+                      <TableHead className="text-right">Total Vendas</TableHead>
+                      <TableHead className="text-right">Quantidade</TableHead>
+                      <TableHead className="text-right">Pedidos</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {ticketMedioPorMarca.map((item, index) => (
+                      <TableRow key={`${item.marca}-${index}`}>
+                        <TableCell className="font-medium"><Badge variant="outline">{item.marca}</Badge></TableCell>
+                        <TableCell className="text-right font-medium text-lg">{formatCurrency(item.ticket_medio)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.total_vendas)}</TableCell>
+                        <TableCell className="text-right">{item.quantidade.toLocaleString('pt-BR')}</TableCell>
+                        <TableCell className="text-right">{item.pedidos}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Ticket Médio por Horário</CardTitle>
+              <CardDescription>Valor médio dos pedidos em cada horário do dia</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[400px] mb-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={ticketMedioPorHorario}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="hora" label={{ value: 'Hora do Dia', position: 'insideBottom', offset: -5 }} tickFormatter={(value) => `${value}h`} />
+                    <YAxis />
+                    <Tooltip formatter={(value: number) => formatCurrency(value)} labelFormatter={(label) => `${label}h`} />
+                    <Legend />
+                    <Bar dataKey="ticket_medio" fill="#8884d8" name="Ticket Médio" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Horário</TableHead>
+                      <TableHead className="text-right">Ticket Médio</TableHead>
+                      <TableHead className="text-right">Total Vendas</TableHead>
+                      <TableHead className="text-right">Pedidos</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {ticketMedioPorHorario.map((item) => (
+                      <TableRow key={item.hora}>
+                        <TableCell className="font-medium">{item.hora}h</TableCell>
+                        <TableCell className="text-right font-medium text-lg">{formatCurrency(item.ticket_medio)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.total)}</TableCell>
+                        <TableCell className="text-right">{item.pedidos}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
