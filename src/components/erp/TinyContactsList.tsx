@@ -177,10 +177,11 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
                       {formatCPFCNPJ(contact.cpf_cnpj)}
                     </TableCell>
                     <TableCell>
-                      {contact.telefone || contact.celular ? (
+                      {/* ✅ Telefone agora contém celular (prioridade) ou telefone fixo */}
+                      {contact.telefone ? (
                         <div className="flex items-center gap-1">
                           <Phone className="h-3 w-3 text-muted-foreground" />
-                          {contact.celular || contact.telefone}
+                          {contact.telefone}
                         </div>
                       ) : (
                         '-'
