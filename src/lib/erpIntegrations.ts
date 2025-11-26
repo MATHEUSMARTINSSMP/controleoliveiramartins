@@ -311,62 +311,10 @@ export async function callERPAPI(
     throw new Error('Token de acesso não encontrado. Reautorize a conexão.');
   }
 
-  // Verificar se token está expirado
-  const now = new Date();
-  const expiresAt = integration.token_expires_at ? new Date(integration.token_expires_at) : null;
-  
-  let accessToken = integration.access_token;
-  let refreshToken = integration.refresh_token;
-
-  // Se token expirado, renovar
-  if (expiresAt && expiresAt <= now) {
-    console.log(`[ERPAPI] Token expirado, renovando para loja ${storeId}...`);
-    
-    if (!refreshToken || !integration.client_id || !integration.client_secret) {
-      throw new Error('Token expirado e credenciais incompletas. Reautorize a conexão.');
-    }
-
-    try {
-      const newTokens = await refreshAccessToken(
-        refreshToken,
-        storeId,
-        sistemaERP,
-        integration.client_id,
-        integration.client_secret
-      );
-      accessToken = newTokens.access_token;
-      refreshToken = newTokens.refresh_token;
-
-      // Atualizar no banco
-      const newExpiresAt = new Date();
-      newExpiresAt.setSeconds(newExpiresAt.getSeconds() + newTokens.expires_in);
-
-      await supabase
-        .schema('sistemaretiradas')
-        .from('erp_integrations')
-        .update({
-          access_token: newTokens.access_token,
-          refresh_token: newTokens.refresh_token,
-          token_expires_at: newExpiresAt.toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', integration.id);
-
-      console.log(`[ERPAPI] Token renovado com sucesso para loja ${storeId}`);
-    } catch (error: any) {
-      console.error(`[ERPAPI] Erro ao renovar token:`, error);
-      await supabase
-        .schema('sistemaretiradas')
-        .from('erp_integrations')
-        .update({
-          sync_status: 'ERROR',
-          error_message: error.message,
-        })
-        .eq('id', integration.id);
-      
-      throw new Error('Erro ao renovar token. Reautorize a conexão.');
-    }
-  }
+  // ✅ RENOVAÇÃO AUTOMÁTICA: O proxy (Netlify Function) faz a renovação automaticamente
+  // Não precisamos renovar aqui no frontend - evita problemas de CORS
+  // O proxy verifica se o token está expirado e renova antes de fazer a requisição
+  console.log(`[ERPIntegrations] Token encontrado para loja ${storeId}. O proxy fará renovação automática se necessário.`);
 
   // Determinar método HTTP
   // Tiny ERP v3: GET para listagem, POST para outras operações

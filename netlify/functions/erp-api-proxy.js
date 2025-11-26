@@ -26,22 +26,38 @@ const ERP_CONFIGS = {
 };
 
 /**
- * Atualiza o access token se estiver expirado
+ * ✅ RENOVAÇÃO AUTOMÁTICA DE TOKEN
+ * Atualiza o access token se estiver expirado ou próximo de expirar
+ * Esta função roda no servidor (Netlify Function), então não tem problemas de CORS
  */
 async function refreshTokenIfNeeded(supabaseAdmin, integration) {
-  if (!integration.token_expires_at) return integration.access_token;
+  // Se não tem data de expiração, usar token atual
+  if (!integration.token_expires_at) {
+    console.log('[ERP-API-Proxy] Token sem data de expiração, usando token atual');
+    return integration.access_token;
+  }
 
   const expiresAt = new Date(integration.token_expires_at);
   const now = new Date();
   const timeUntilExpiry = expiresAt.getTime() - now.getTime();
+  const minutesUntilExpiry = timeUntilExpiry / (60 * 1000);
 
-  // Se expira em menos de 5 minutos, renovar
-  if (timeUntilExpiry < 5 * 60 * 1000 && integration.refresh_token) {
-    console.log('[ERP-API-Proxy] Token expirando, renovando...');
+  console.log(`[ERP-API-Proxy] Token expira em ${minutesUntilExpiry.toFixed(1)} minutos`);
+
+  // ✅ RENOVAR SE: expirado OU expira em menos de 10 minutos
+  const shouldRefresh = timeUntilExpiry < 10 * 60 * 1000; // 10 minutos
+
+  if (shouldRefresh && integration.refresh_token) {
+    console.log('[ERP-API-Proxy] 🔄 Token expirando/expirado, renovando automaticamente...');
     
     const config = ERP_CONFIGS[integration.sistema_erp || 'TINY'];
     if (!config) {
       throw new Error(`Sistema ERP ${integration.sistema_erp} não suportado`);
+    }
+
+    if (!integration.client_id || !integration.client_secret) {
+      console.error('[ERP-API-Proxy] ❌ Credenciais incompletas para renovação');
+      throw new Error('Credenciais incompletas. Reautorize a conexão.');
     }
 
     const tokenUrl = config.oauthTokenUrl;
@@ -53,45 +69,88 @@ async function refreshTokenIfNeeded(supabaseAdmin, integration) {
     tokenBody.append('client_id', integration.client_id);
     tokenBody.append('client_secret', integration.client_secret);
     
+    // Tiny ERP requer redirect_uri no refresh token
     if (integration.sistema_erp === 'TINY') {
       tokenBody.append('redirect_uri', redirectUri);
     }
 
-    const tokenResponse = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: tokenBody.toString(),
-    });
+    console.log('[ERP-API-Proxy] Fazendo requisição de renovação para:', tokenUrl);
 
-    if (!tokenResponse.ok) {
-      const error = await tokenResponse.text();
-      console.error('[ERP-API-Proxy] Erro ao renovar token:', error);
-      throw new Error('Erro ao renovar token de acesso');
+    let tokenResponse;
+    try {
+      tokenResponse = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: tokenBody.toString(),
+      });
+    } catch (fetchError) {
+      console.error('[ERP-API-Proxy] ❌ Erro de rede ao renovar token:', fetchError);
+      throw new Error(`Erro de rede ao renovar token: ${fetchError.message}`);
     }
 
-    const tokenData = await tokenResponse.json();
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error('[ERP-API-Proxy] ❌ Erro ao renovar token:', {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        error: errorText,
+      });
+      
+      // Atualizar status no banco
+      await supabaseAdmin
+        .schema('sistemaretiradas')
+        .from('erp_integrations')
+        .update({
+          sync_status: 'ERROR',
+          error_message: `Erro ao renovar token: ${tokenResponse.status} ${errorText.substring(0, 200)}`,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', integration.id);
+      
+      throw new Error(`Erro ao renovar token: ${tokenResponse.status} ${errorText.substring(0, 100)}`);
+    }
+
+    let tokenData;
+    try {
+      tokenData = await tokenResponse.json();
+    } catch (parseError) {
+      console.error('[ERP-API-Proxy] ❌ Erro ao parsear resposta de renovação:', parseError);
+      throw new Error('Resposta de renovação inválida');
+    }
+
+    console.log('[ERP-API-Proxy] ✅ Token renovado com sucesso');
     
     // Calcular data de expiração
     const expiresIn = tokenData.expires_in || 3600; // Padrão 1 hora
     const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
     // Atualizar no banco
-    await supabaseAdmin
+    const { error: updateError } = await supabaseAdmin
       .schema('sistemaretiradas')
       .from('erp_integrations')
       .update({
         access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token || integration.refresh_token,
+        refresh_token: tokenData.refresh_token || integration.refresh_token, // Manter refresh_token antigo se não vier novo
         token_expires_at: tokenExpiresAt,
+        sync_status: 'CONNECTED',
+        error_message: null, // Limpar erro anterior
         updated_at: new Date().toISOString(),
       })
       .eq('id', integration.id);
 
+    if (updateError) {
+      console.error('[ERP-API-Proxy] ⚠️ Erro ao atualizar token no banco:', updateError);
+      // Continuar mesmo assim - o token foi renovado
+    }
+
+    console.log(`[ERP-API-Proxy] ✅ Token renovado e salvo. Expira em ${expiresIn}s (${(expiresIn / 60).toFixed(1)} minutos)`);
     return tokenData.access_token;
   }
 
+  // Token ainda válido
+  console.log(`[ERP-API-Proxy] ✅ Token válido, usando token atual`);
   return integration.access_token;
 }
 
