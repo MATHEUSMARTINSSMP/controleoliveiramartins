@@ -6,6 +6,7 @@ SET search_path TO sistemaretiradas, public;
 
 -- Verificar itens de pedidos recentes (últimos 30 dias)
 -- ✅ CORREÇÃO: Verificar se itens é um array antes de usar jsonb_array_length
+-- ✅ CORREÇÃO: Verificar tipo JSONB antes de usar funções de array
 WITH pedidos_com_itens AS (
     SELECT 
         id,
@@ -15,15 +16,20 @@ WITH pedidos_com_itens AS (
         situacao,
         itens,
         CASE 
+            WHEN itens IS NULL THEN 0
+            WHEN itens::text = 'null' THEN 0
             WHEN jsonb_typeof(itens::jsonb) = 'array' THEN jsonb_array_length(itens::jsonb)
             ELSE 0
         END as quantidade_itens
     FROM tiny_orders
     WHERE data_pedido >= NOW() - INTERVAL '30 days'
     AND itens IS NOT NULL
-    AND itens != 'null'::jsonb
+    AND itens::text != 'null'
     AND jsonb_typeof(itens::jsonb) = 'array'
-    AND jsonb_array_length(itens::jsonb) > 0
+    AND CASE 
+        WHEN jsonb_typeof(itens::jsonb) = 'array' THEN jsonb_array_length(itens::jsonb) > 0
+        ELSE false
+    END
 )
 SELECT 
     '📊 ANÁLISE DE ITENS' as categoria,

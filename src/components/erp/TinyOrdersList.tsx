@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Search, Calendar, DollarSign, User, Package, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Search, Calendar, DollarSign, User, Package, ChevronLeft, ChevronRight, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -35,6 +35,9 @@ interface TinyOrder {
   colaboradora_id: string | null;
   forma_pagamento: string | null;
   sync_at: string;
+  // ✅ CASHBACK: Dados de cashback gerado para este pedido
+  cashback_gerado?: number | null;
+  cashback_validade?: string | null;
 }
 
 interface TinyOrdersListProps {
@@ -173,30 +176,52 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
 
       if (error) throw error;
       
-      // Log detalhado dos dados recebidos do banco
-      console.log('[TinyOrdersList] 📦 Dados recebidos do banco:', {
-        total: data?.length || 0,
-        primeiro_pedido: data?.[0] ? {
-          id: data[0].id,
-          tiny_id: data[0].tiny_id,
-          numero_pedido: data[0].numero_pedido,
-          valor_total: data[0].valor_total,
-          valor_total_TIPO: typeof data[0].valor_total,
-          data_pedido: data[0].data_pedido,
-          data_pedido_TIPO: typeof data[0].data_pedido,
-          cliente_nome: data[0].cliente_nome,
-          cliente_cpf_cnpj: data[0].cliente_cpf_cnpj,
-          vendedor_nome: data[0].vendedor_nome,
-        } : null,
-        todos_os_pedidos_valores: data?.slice(0, 5).map(o => ({
-          numero: o.numero_pedido,
-          valor: o.valor_total,
-          data: o.data_pedido,
-        })) || [],
-        todas_as_chaves: data?.[0] ? Object.keys(data[0]) : [],
-      });
-      
-      setOrders(data || []);
+      // ✅ BUSCAR DADOS DE CASHBACK PARA CADA PEDIDO
+      if (data && data.length > 0) {
+        const orderIds = data.map(o => o.id);
+        
+        // Buscar transações de cashback relacionadas aos pedidos
+        const { data: cashbackTransactions } = await supabase
+          .schema('sistemaretiradas')
+          .from('cashback_transactions')
+          .select('tiny_order_id, amount, data_expiracao, transaction_type')
+          .in('tiny_order_id', orderIds)
+          .eq('transaction_type', 'EARNED');
+        
+        // Criar mapa de cashback por pedido
+        const cashbackMap = new Map<string, { amount: number; expiracao: string | null }>();
+        cashbackTransactions?.forEach((transaction: any) => {
+          if (transaction.tiny_order_id) {
+            const existing = cashbackMap.get(transaction.tiny_order_id);
+            if (existing) {
+              existing.amount += Number(transaction.amount || 0);
+              // Pegar a data de expiração mais próxima
+              if (transaction.data_expiracao && (!existing.expiracao || transaction.data_expiracao < existing.expiracao)) {
+                existing.expiracao = transaction.data_expiracao;
+              }
+            } else {
+              cashbackMap.set(transaction.tiny_order_id, {
+                amount: Number(transaction.amount || 0),
+                expiracao: transaction.data_expiracao || null,
+              });
+            }
+          }
+        });
+        
+        // Adicionar dados de cashback aos pedidos
+        const ordersWithCashback = data.map((order: any) => {
+          const cashback = cashbackMap.get(order.id);
+          return {
+            ...order,
+            cashback_gerado: cashback?.amount || null,
+            cashback_validade: cashback?.expiracao || null,
+          };
+        });
+        
+        setOrders(ordersWithCashback);
+      } else {
+        setOrders(data || []);
+      }
     } catch (error: any) {
       console.error('Erro ao buscar pedidos:', error);
     } finally {
@@ -390,6 +415,8 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
                     <TableHead>Cliente</TableHead>
                     <TableHead>Vendedor</TableHead>
                     <TableHead>Valor</TableHead>
+                    <TableHead>Cashback Gerado</TableHead>
+                    <TableHead>Validade</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -437,6 +464,25 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
                           <DollarSign className="h-3 w-3 text-muted-foreground" />
                           {formatCurrency(order.valor_total || 0)}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {order.cashback_gerado && order.cashback_gerado > 0 ? (
+                          <div className="flex items-center gap-1 text-green-600 font-medium">
+                            <Gift className="h-3 w-3" />
+                            {formatCurrency(order.cashback_gerado)}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {order.cashback_validade ? (
+                          <div className="text-xs">
+                            {formatDate(order.cashback_validade)}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
