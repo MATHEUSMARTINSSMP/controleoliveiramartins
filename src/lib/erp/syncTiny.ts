@@ -11,63 +11,173 @@ import { supabase } from '@/integrations/supabase/client';
 import { callERPAPI } from '@/lib/erpIntegrations';
 
 interface TinyPedido {
-  pedido: {
-    id: string;
-    numero: string;
+  // A API v3 retorna o pedido diretamente, não dentro de um objeto "pedido"
+  // Mas para compatibilidade, aceitamos ambos os formatos
+  pedido?: {
+    // Formato legado (snake_case)
+    id?: string | number;
+    numero?: string;
     numero_ecommerce?: string;
-    situacao: string;
-    data_pedido: string;
+    situacao?: string | number;
+    data_pedido?: string;
     data_prevista?: string;
-    cliente: {
-      nome: string;
-      tipo: string; // 'F' ou 'J'
-      cpf_cnpj?: string;
-      email?: string;
-      fone?: string;
-      celular?: string;
-      endereco?: any;
-    };
-    valor_total: string;
-    valor_desconto?: string;
-    valor_frete?: string;
+    cliente?: any;
+    valor_total?: string | number;
+    valor_desconto?: string | number;
+    valor_frete?: string | number;
     forma_pagamento?: string;
     forma_envio?: string;
     endereco_entrega?: any;
-    itens: Array<{
-      item: {
-        codigo?: string;
-        descricao: string;
-        quantidade: string;
-        valor_unitario: string;
-        valor_total: string;
-        categoria?: string;
-        subcategoria?: string;
-        dados_extras?: any;
-      };
-    }>;
+    itens?: Array<any>;
     observacoes?: string;
-    vendedor?: {
-      id?: string;
-      nome?: string;
-      email?: string;
-      cpf?: string; // CPF pode vir direto no vendedor
-      dados_extras?: any;
-    };
+    vendedor?: any;
     dados_extras?: any;
   };
+  // Formato oficial API v3 (camelCase)
+  id?: number;
+  numeroPedido?: number;
+  situacao?: number; // 8, 0, 3, 4, 1, 7, 5, 6, 2, 9
+  data?: string; // Data de criação do pedido
+  dataPrevista?: string;
+  dataEnvio?: string;
+  dataEntrega?: string;
+  dataFaturamento?: string;
+  valorTotalPedido?: number; // Valor total do pedido
+  valorTotalProdutos?: number;
+  valorDesconto?: number;
+  valorFrete?: number;
+  valorOutrasDespesas?: number;
+  observacoes?: string;
+  observacoesInternas?: string;
+  numeroOrdemCompra?: string;
+  idNotaFiscal?: number;
+  cliente?: {
+    id?: number;
+    nome?: string;
+    codigo?: string;
+    fantasia?: string;
+    tipoPessoa?: string; // 'F' ou 'J' (camelCase)
+    cpfCnpj?: string; // camelCase
+    inscricaoEstadual?: string;
+    rg?: string;
+    telefone?: string;
+    celular?: string;
+    email?: string;
+    endereco?: {
+      endereco?: string;
+      numero?: string;
+      complemento?: string;
+      bairro?: string;
+      municipio?: string;
+      cep?: string;
+      uf?: string;
+      pais?: string;
+    };
+  };
+  enderecoEntrega?: {
+    endereco?: string;
+    numero?: string;
+    complemento?: string;
+    bairro?: string;
+    municipio?: string;
+    cep?: string;
+    uf?: string;
+    pais?: string;
+    nomeDestinatario?: string;
+    cpfCnpj?: string;
+    tipoPessoa?: string;
+  };
+  ecommerce?: {
+    id?: number;
+    nome?: string;
+    numeroPedidoEcommerce?: string;
+    numeroPedidoCanalVenda?: string;
+    canalVenda?: string;
+  };
+  vendedor?: {
+    id?: number;
+    nome?: string;
+  };
+  transportador?: any;
+  deposito?: any;
+  naturezaOperacao?: any;
+  intermediador?: any;
+  pagamento?: any;
+  listaPreco?: any;
+  itens?: Array<{
+    produto?: {
+      id?: number;
+      sku?: string;
+      descricao?: string;
+    };
+    quantidade?: number;
+    valorUnitario?: number;
+    infoAdicional?: string;
+    // Formato legado (snake_case)
+    item?: any;
+    dados_extras?: any;
+  }>;
+  pagamentosIntegrados?: Array<any>;
 }
 
 interface TinyContato {
   contato: {
-    id: string;
+    id: number;
     nome: string;
-    tipo: string; // 'F' ou 'J'
-    cpf_cnpj?: string;
-    email?: string;
-    fone?: string;
+    codigo?: string;
+    fantasia?: string;
+    tipoPessoa: string; // 'F' ou 'J' (camelCase conforme API v3)
+    cpfCnpj?: string; // camelCase conforme API v3
+    inscricaoEstadual?: string;
+    rg?: string;
+    telefone?: string;
     celular?: string;
-    endereco?: any;
+    telefoneAdicional?: string;
+    email?: string;
+    emailNfe?: string;
+    site?: string;
+    dataNascimento?: string; // camelCase conforme API v3
+    naturalidade?: string;
+    nomePai?: string;
+    nomeMae?: string;
+    cpfPai?: string;
+    cpfMae?: string;
+    limiteCredito?: number;
+    situacao?: string;
     observacoes?: string;
+    dataCriacao?: string;
+    dataAtualizacao?: string;
+    endereco?: {
+      endereco?: string;
+      numero?: string;
+      complemento?: string;
+      bairro?: string;
+      municipio?: string;
+      cep?: string;
+      uf?: string;
+      pais?: string;
+    };
+    enderecoCobranca?: any;
+    vendedor?: {
+      id: number;
+      nome: string;
+    };
+    tipos?: Array<{
+      id: number;
+      descricao: string;
+    }>;
+    contatos?: Array<{
+      nome: string;
+      telefone: string;
+      ramal?: string;
+      email?: string;
+      setor?: string;
+      id: number;
+    }>;
+    // Campos legados (para compatibilidade)
+    tipo?: string; // Fallback para tipoPessoa
+    cpf_cnpj?: string; // Fallback para cpfCnpj
+    fone?: string; // Fallback para telefone
     dados_extras?: any;
   };
 }
@@ -465,12 +575,15 @@ export async function syncTinyOrders(
         // Log detalhado do pedido completo para debug
         console.log(`[SyncTiny] 📦 Processando pedido completo:`, {
           id: pedido.id,
+          numeroPedido: pedido.numeroPedido,
           numero: pedido.numero,
+          valorTotalPedido: pedido.valorTotalPedido,
           valor_total: pedido.valor_total,
           valor: pedido.valor,
-          data_pedido: pedido.data_pedido,
           data: pedido.data,
+          data_pedido: pedido.data_pedido,
           dataCriacao: pedido.dataCriacao,
+          situacao: pedido.situacao,
           todas_as_chaves: Object.keys(pedido),
         });
 
@@ -617,19 +730,21 @@ export async function syncTinyOrders(
         }
 
         // Preparar dados do pedido
-        const tinyId = String(pedido.id || pedido.numero || `temp_${Date.now()}`);
+        // API v3 usa: id (number), numeroPedido (number)
+        const tinyId = String(pedido.id || pedido.numeroPedido || pedido.numero || `temp_${Date.now()}`);
         ultimoTinyIdProcessado = tinyId; // Atualizar último ID processado
         
         const orderData = {
           store_id: storeId,
           tiny_id: tinyId,
-          numero_pedido: pedido.numero?.toString() || null,
-          numero_ecommerce: pedido.numero_ecommerce?.toString() || null,
-          situacao: pedido.situacao || null,
+          numero_pedido: (pedido.numeroPedido || pedido.numero)?.toString() || null,
+          numero_ecommerce: (pedido.ecommerce?.numeroPedidoEcommerce || pedido.numero_ecommerce)?.toString() || null,
+          situacao: pedido.situacao?.toString() || null, // API v3 retorna número (8, 0, 3, 4, 1, 7, 5, 6, 2, 9)
           data_pedido: (() => {
-            // Tentar vários campos possíveis conforme documentação Tiny ERP v3
-            const data = pedido.data_pedido 
-              || pedido.data 
+            // API v3 oficial usa: data (data de criação), dataFaturamento, dataEntrega
+            const data = pedido.data  // API v3 oficial (camelCase)
+              || pedido.dataFaturamento  // Data de faturamento
+              || pedido.data_pedido  // Fallback para snake_case
               || pedido.dataCriacao
               || pedido.data_criacao
               || pedido.dataPedido
@@ -637,7 +752,7 @@ export async function syncTinyOrders(
               || null;
 
             if (!data) {
-              console.warn(`[SyncTiny] ⚠️ Data não encontrada no pedido ${pedido.id || pedido.numero}`);
+              console.warn(`[SyncTiny] ⚠️ Data não encontrada no pedido ${pedido.id || pedido.numeroPedido || pedido.numero}`);
               return null;
             }
 
@@ -665,16 +780,22 @@ export async function syncTinyOrders(
             
             return null;
           })(),
-          data_prevista: pedido.data_prevista 
-            ? (pedido.data_prevista.includes('T') ? pedido.data_prevista : `${pedido.data_prevista}T00:00:00`)
-            : null,
+          data_prevista: (() => {
+            const data = pedido.dataPrevista  // API v3 oficial (camelCase)
+              || pedido.data_prevista  // Fallback para snake_case
+              || null;
+            if (!data) return null;
+            return data.includes('T') ? data : `${data}T00:00:00`;
+          })(),
           cliente_nome: cliente.nome || null,
           cliente_cpf_cnpj: (() => {
-            // Tentar vários campos possíveis
-            const cpfCnpj = cliente.cpf_cnpj 
+            // API v3 usa camelCase: cpfCnpj
+            const cpfCnpj = cliente.cpfCnpj  // API v3 oficial (camelCase)
+              || cliente.cpf_cnpj  // Fallback para snake_case
               || cliente.cpf 
               || cliente.cnpj
               || cliente.documento
+              || cliente.dados_extras?.cpfCnpj
               || cliente.dados_extras?.cpf_cnpj
               || cliente.dados_extras?.cpf
               || cliente.dados_extras?.cnpj
@@ -687,10 +808,11 @@ export async function syncTinyOrders(
             return cpfCnpj;
           })(),
           cliente_email: cliente.email || null,
-          cliente_telefone: cliente.fone || cliente.telefone || cliente.celular || cliente.mobile || null,
+          cliente_telefone: cliente.telefone || cliente.fone || cliente.telefoneAdicional || cliente.celular || cliente.mobile || null,
           valor_total: (() => {
-            // Tentar vários campos possíveis conforme documentação Tiny ERP v3
-            const valorBruto = pedido.valor_total 
+            // API v3 oficial usa: valorTotalPedido (number)
+            const valorBruto = pedido.valorTotalPedido  // API v3 oficial (camelCase, number)
+              || pedido.valor_total  // Fallback para snake_case
               || pedido.valor 
               || pedido.total
               || pedido.valorTotal
@@ -698,22 +820,29 @@ export async function syncTinyOrders(
               || pedido.total_pedido
               || null;
 
-            if (!valorBruto) {
-              console.warn(`[SyncTiny] ⚠️ Valor não encontrado no pedido ${pedido.id || pedido.numero}`);
+            if (!valorBruto && valorBruto !== 0) {
+              console.warn(`[SyncTiny] ⚠️ Valor não encontrado no pedido ${pedido.id || pedido.numeroPedido || pedido.numero}`);
               return 0;
             }
 
+            // Se já é número, usar diretamente
+            if (typeof valorBruto === 'number') {
+              console.log(`[SyncTiny] ✅ Valor encontrado (number): ${valorBruto}`);
+              return valorBruto;
+            }
+
+            // Se é string, fazer parse
             const valorStr = String(valorBruto);
             // Remover tudo exceto dígitos, vírgula e ponto
             const valorLimpo = valorStr.replace(/[^\d,.-]/g, '').replace(',', '.');
             const valorNum = parseFloat(valorLimpo);
             
             if (isNaN(valorNum)) {
-              console.warn(`[SyncTiny] ⚠️ Erro ao parsear valor "${valorStr}" do pedido ${pedido.id || pedido.numero}`);
+              console.warn(`[SyncTiny] ⚠️ Erro ao parsear valor "${valorStr}" do pedido ${pedido.id || pedido.numeroPedido || pedido.numero}`);
               return 0;
             }
 
-            console.log(`[SyncTiny] ✅ Valor parseado: ${valorStr} → ${valorNum}`);
+            console.log(`[SyncTiny] ✅ Valor parseado (string → number): ${valorStr} → ${valorNum}`);
             return valorNum;
           })(),
           valor_desconto: parseFloat(String(pedido.valor_desconto || '0').replace(',', '.')),
@@ -878,13 +1007,13 @@ async function syncTinyContact(
 
     const contactData = {
       store_id: storeId,
-      tiny_id: cliente.id?.toString() || cliente.cpf_cnpj || `temp_${Date.now()}`,
+      tiny_id: cliente.id?.toString() || cpfCnpj || `temp_${Date.now()}`,
       nome: cliente.nome,
-      tipo: cliente.tipo || 'F',
+      tipo: cliente.tipoPessoa || cliente.tipo || 'F', // API v3 usa tipoPessoa (camelCase)
       cpf_cnpj: cpfCnpj, // Usar o CPF/CNPJ que encontramos acima
       email: cliente.email || null,
-      telefone: cliente.fone || cliente.telefone || null,
-      celular: cliente.celular || cliente.mobile || cliente.whatsapp || null,
+      telefone: cliente.telefone || cliente.fone || cliente.telefoneAdicional || null, // API v3 usa telefone
+      celular: cliente.celular || cliente.mobile || cliente.whatsapp || null, // API v3 usa celular
       data_nascimento: dataNascimentoNormalizada,
       endereco: cliente.endereco ? JSON.stringify(cliente.endereco) : null,
       observacoes: cliente.observacoes || null,
