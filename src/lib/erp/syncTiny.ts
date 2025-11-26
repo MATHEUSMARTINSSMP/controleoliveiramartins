@@ -899,7 +899,7 @@ export async function syncTinyOrders(
         });
 
         // 🔍 DIAGNÓSTICO: Log detalhado dos TIPOS de dados ANTES do upsert
-        console.log(`[SyncTiny] 🔍 Tipos de dados ANTES do upsert (pedido ${tinyId}):`, {
+        console.log(`[SyncTiny] 🔍 Tipos de dados ANTES do save (pedido ${tinyId}):`, {
           valor_total_TIPO: typeof orderData.valor_total,
           valor_total_VALOR: orderData.valor_total,
           data_pedido_TIPO: typeof orderData.data_pedido,
@@ -908,16 +908,37 @@ export async function syncTinyOrders(
           cliente_cpf_cnpj_VALOR: orderData.cliente_cpf_cnpj ? orderData.cliente_cpf_cnpj.substring(0, 3) + '***' : null,
         });
 
-        // Upsert pedido (insert ou update se já existir)
-        // ✅ ADICIONADO .select() para retornar dados salvos e validar
-        const { data: upsertedData, error: upsertError } = await supabase
-          .schema('sistemaretiradas')
-          .from('tiny_orders')
-          .upsert(orderData, {
-            onConflict: 'store_id,tiny_id',
-            ignoreDuplicates: false,
-          })
-          .select('tiny_id, numero_pedido, valor_total, data_pedido, cliente_cpf_cnpj');
+        // ✅ CORREÇÃO: Usar UPDATE/INSERT explícito em vez de upsert
+        // Isso garante que registros existentes sejam ATUALIZADOS
+        let upsertedData: any[] = [];
+        let upsertError: any = null;
+
+        if (existingOrder) {
+          // UPDATE explícito para pedido existente
+          console.log(`[SyncTiny] 🔄 Pedido ${tinyId} já existe (id: ${existingOrder.id}), fazendo UPDATE...`);
+
+          const { data, error } = await supabase
+            .schema('sistemaretiradas')
+            .from('tiny_orders')
+            .update(orderData)
+            .eq('id', existingOrder.id)
+            .select('tiny_id, numero_pedido, valor_total, data_pedido, cliente_cpf_cnpj');
+
+          upsertedData = data || [];
+          upsertError = error;
+        } else {
+          // INSERT para pedido novo
+          console.log(`[SyncTiny] ➕ Pedido ${tinyId} é novo, fazendo INSERT...`);
+
+          const { data, error } = await supabase
+            .schema('sistemaretiradas')
+            .from('tiny_orders')
+            .insert(orderData)
+            .select('tiny_id, numero_pedido, valor_total, data_pedido, cliente_cpf_cnpj');
+
+          upsertedData = data || [];
+          upsertError = error;
+        }
 
         if (upsertError) {
           console.error(`[SyncTiny] ❌ Erro ao salvar pedido ${tinyId}:`, upsertError);
