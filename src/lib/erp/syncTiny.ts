@@ -860,84 +860,182 @@ export async function syncTinyOrders(
           updated_at: new Date().toISOString(),
         };
 
-        // ✅ CORREÇÃO CRÍTICA: Calcular valor_total real
-        // A API de listagem retorna 'valor' como STRING, precisamos fazer parsing ANTES de verificar se é zero
-        const valorBruto = pedido.valor || pedido.valorTotalPedido || null;
+        // ✅ ESTRATÉGIA ROBUSTA E CRIATIVA: Calcular valor_total usando MÚLTIPLAS FONTES
+        // Implementamos uma cascata de estratégias para garantir que sempre temos o valor
+        
         let valorFinal = 0;
+        let estrategiaUsada = '';
+        const estrategias = [];
 
-        // 1. PRIMEIRO: Fazer parsing do valor da listagem
-        if (valorBruto !== null && valorBruto !== undefined) {
-          if (typeof valorBruto === 'number') {
-            valorFinal = valorBruto;
-            console.log(`[SyncTiny] ✅ Valor da listagem (number): ${valorFinal}`);
-          } else if (typeof valorBruto === 'string') {
-            // ⚠️ IMPORTANTE: API retorna como STRING, ex: "868.50"
-            const valorLimpo = valorBruto.replace(/[^\d,.-]/g, '').replace(',', '.');
-            valorFinal = parseFloat(valorLimpo);
+        // ============================================================================
+        // ESTRATÉGIA 1: Valor direto da listagem (mais rápido)
+        // ============================================================================
+        const valorBrutoListagem = pedido.valor || pedido.valorTotalPedido || null;
+        
+        if (valorBrutoListagem !== null && valorBrutoListagem !== undefined) {
+          let valorParsed = 0;
+          
+          if (typeof valorBrutoListagem === 'number') {
+            valorParsed = valorBrutoListagem;
+          } else if (typeof valorBrutoListagem === 'string' && valorBrutoListagem.trim() !== '') {
+            // API pode retornar como STRING: "598.00" ou "598,00"
+            const valorLimpo = valorBrutoListagem.replace(/[^\d,.-]/g, '').replace(',', '.');
+            valorParsed = parseFloat(valorLimpo);
+          }
 
-            if (!isNaN(valorFinal) && valorFinal > 0) {
-              console.log(`[SyncTiny] ✅ Valor da listagem (string → number): "${valorBruto}" → ${valorFinal}`);
-            } else {
-              valorFinal = 0;
-            }
+          if (!isNaN(valorParsed) && valorParsed > 0) {
+            valorFinal = valorParsed;
+            estrategiaUsada = 'Listagem (valor direto)';
+            estrategias.push({ estrategia: estrategiaUsada, valor: valorFinal });
+            console.log(`[SyncTiny] ✅ ESTRATÉGIA 1: Valor da listagem → ${valorFinal}`);
+          } else {
+            estrategias.push({ estrategia: 'Listagem (valor direto)', valor: 0, motivo: 'valor inválido ou zerado' });
+          }
+        } else {
+          estrategias.push({ estrategia: 'Listagem (valor direto)', valor: 0, motivo: 'valor não disponível' });
+        }
+
+        // ============================================================================
+        // ESTRATÉGIA 2: Calcular a partir dos itens da LISTAGEM (se disponível)
+        // ============================================================================
+        if (valorFinal === 0 && pedido.itens && Array.isArray(pedido.itens) && pedido.itens.length > 0) {
+          let valorCalculado = 0;
+          for (const item of pedido.itens) {
+            const quantidade = item.quantidade || item.qtd || 0;
+            const valorUnitario = item.valorUnitario || item.valor_unitario || item.preco || item.valor || 0;
+            valorCalculado += quantidade * valorUnitario;
+          }
+          
+          if (valorCalculado > 0) {
+            valorFinal = valorCalculado;
+            estrategiaUsada = 'Listagem (cálculo pelos itens)';
+            estrategias.push({ estrategia: estrategiaUsada, valor: valorFinal });
+            console.log(`[SyncTiny] ✅ ESTRATÉGIA 2: Valor calculado dos itens da listagem → ${valorFinal}`);
+          } else {
+            estrategias.push({ estrategia: 'Listagem (cálculo pelos itens)', valor: 0, motivo: 'itens sem valor válido' });
           }
         }
 
-        // 2. SOMENTE SE AINDA FOR ZERO: Buscar detalhes completos
-        // Isso acontece para pedidos aprovados (situacao: 3) que não têm valor na listagem
-        // Segundo a documentação oficial: GET /pedidos/{idPedido} retorna valorTotalPedido (number)
-        if (valorFinal === 0 || isNaN(valorFinal) || !valorFinal) {
-          console.warn(`[SyncTiny] ⚠️ Valor ZERO/INVÁLIDO no pedido ${tinyId} (situacao: ${pedido.situacao}) - buscando detalhes completos via GET /pedidos/${pedido.id}...`);
+        // ============================================================================
+        // ESTRATÉGIA 3: Buscar detalhes completos via GET /pedidos/{idPedido}
+        // ============================================================================
+        if (valorFinal === 0 || isNaN(valorFinal)) {
+          console.warn(`[SyncTiny] ⚠️ Valor ainda ZERO após estratégias 1-2. Pedido ${tinyId} (situacao: ${pedido.situacao}). Buscando detalhes completos...`);
           
           const pedidoCompleto = await fetchPedidoCompletoFromTiny(storeId, pedido.id);
 
           if (pedidoCompleto) {
-            // API v3 OFICIAL: valorTotalPedido é number
-            // Mas também pode vir como string em alguns casos
+            // 3.1: valorTotalPedido dos detalhes (FONTE PRINCIPAL)
             const valorTotalPedido = pedidoCompleto.valorTotalPedido;
             
             if (valorTotalPedido !== null && valorTotalPedido !== undefined) {
-              if (typeof valorTotalPedido === 'number') {
-                valorFinal = valorTotalPedido;
-                console.log(`[SyncTiny] ✅ Valor encontrado nos detalhes (number): ${valorFinal}`);
-              } else if (typeof valorTotalPedido === 'string') {
-                const valorLimpo = valorTotalPedido.replace(/[^\d,.-]/g, '').replace(',', '.');
-                valorFinal = parseFloat(valorLimpo);
-                
-                if (!isNaN(valorFinal) && valorFinal > 0) {
-                  console.log(`[SyncTiny] ✅ Valor encontrado nos detalhes (string → number): "${valorTotalPedido}" → ${valorFinal}`);
-                } else {
-                  console.warn(`[SyncTiny] ⚠️ Erro ao parsear valorTotalPedido dos detalhes: "${valorTotalPedido}"`);
-                }
-              }
-            } else {
-              // Se não tiver valorTotalPedido, tentar calcular a partir dos itens
-              console.warn(`[SyncTiny] ⚠️ valorTotalPedido não encontrado nos detalhes. Tentando calcular a partir dos itens...`);
+              let valorParsed = 0;
               
-              if (pedidoCompleto.itens && Array.isArray(pedidoCompleto.itens)) {
-                let valorCalculado = 0;
-                for (const item of pedidoCompleto.itens) {
-                  const quantidade = item.quantidade || 0;
-                  const valorUnitario = item.valorUnitario || 0;
-                  valorCalculado += quantidade * valorUnitario;
-                }
+              if (typeof valorTotalPedido === 'number') {
+                valorParsed = valorTotalPedido;
+              } else if (typeof valorTotalPedido === 'string') {
+                const valorLimpo = String(valorTotalPedido).replace(/[^\d,.-]/g, '').replace(',', '.');
+                valorParsed = parseFloat(valorLimpo);
+              }
+
+              if (!isNaN(valorParsed) && valorParsed > 0) {
+                valorFinal = valorParsed;
+                estrategiaUsada = 'Detalhes (valorTotalPedido)';
+                estrategias.push({ estrategia: estrategiaUsada, valor: valorFinal });
+                console.log(`[SyncTiny] ✅ ESTRATÉGIA 3.1: valorTotalPedido dos detalhes → ${valorFinal}`);
+              }
+            }
+
+            // 3.2: Calcular a partir dos itens dos DETALHES (se ainda não temos valor)
+            if (valorFinal === 0 && pedidoCompleto.itens && Array.isArray(pedidoCompleto.itens) && pedidoCompleto.itens.length > 0) {
+              let valorCalculadoItens = 0;
+              
+              for (const item of pedidoCompleto.itens) {
+                const quantidade = item.quantidade || 0;
+                const valorUnitario = item.valorUnitario || 0;
+                valorCalculadoItens += quantidade * valorUnitario;
+              }
+              
+              if (valorCalculadoItens > 0) {
+                // Aplicar desconto e frete se disponíveis
+                const desconto = parseFloat(String(pedidoCompleto.valorDesconto || pedidoCompleto.valor_desconto || 0));
+                const frete = parseFloat(String(pedidoCompleto.valorFrete || pedidoCompleto.valor_frete || 0));
+                const outrasDespesas = parseFloat(String(pedidoCompleto.valorOutrasDespesas || pedidoCompleto.valor_outras_despesas || 0));
                 
-                // Subtrair desconto e adicionar frete se houver
-                const desconto = pedidoCompleto.valorDesconto || 0;
-                const frete = pedidoCompleto.valorFrete || 0;
-                valorFinal = valorCalculado - desconto + frete;
+                valorFinal = valorCalculadoItens - desconto + frete + outrasDespesas;
                 
                 if (valorFinal > 0) {
-                  console.log(`[SyncTiny] ✅ Valor calculado a partir dos itens: ${valorFinal} (produtos: ${valorCalculado}, desconto: ${desconto}, frete: ${frete})`);
+                  estrategiaUsada = 'Detalhes (cálculo pelos itens)';
+                  estrategias.push({ estrategia: estrategiaUsada, valor: valorFinal, detalhes: { produtos: valorCalculadoItens, desconto, frete, outrasDespesas } });
+                  console.log(`[SyncTiny] ✅ ESTRATÉGIA 3.2: Valor calculado dos itens dos detalhes → ${valorFinal} (produtos: ${valorCalculadoItens}, desconto: ${desconto}, frete: ${frete}, outras: ${outrasDespesas})`);
                 }
               }
             }
+
+            // 3.3: Calcular a partir das parcelas de pagamento (ESTRATÉGIA CRIATIVA!)
+            if (valorFinal === 0 && pedidoCompleto.pagamento && pedidoCompleto.pagamento.parcelas) {
+              const parcelas = pedidoCompleto.pagamento.parcelas;
+              
+              if (Array.isArray(parcelas) && parcelas.length > 0) {
+                let valorTotalParcelas = 0;
+                
+                for (const parcela of parcelas) {
+                  const valorParcela = parseFloat(String(parcela.valor || 0));
+                  if (!isNaN(valorParcela) && valorParcela > 0) {
+                    valorTotalParcelas += valorParcela;
+                  }
+                }
+                
+                if (valorTotalParcelas > 0) {
+                  valorFinal = valorTotalParcelas;
+                  estrategiaUsada = 'Detalhes (soma das parcelas)';
+                  estrategias.push({ estrategia: estrategiaUsada, valor: valorFinal, quantidadeParcelas: parcelas.length });
+                  console.log(`[SyncTiny] ✅ ESTRATÉGIA 3.3: Valor calculado pela soma das parcelas → ${valorFinal} (${parcelas.length} parcela(s))`);
+                }
+              }
+            }
+
+            // 3.4: Usar valorTotalProdutos + ajustes (FALLBACK CRIATIVO)
+            if (valorFinal === 0 && pedidoCompleto.valorTotalProdutos) {
+              const valorProdutos = parseFloat(String(pedidoCompleto.valorTotalProdutos || 0));
+              const desconto = parseFloat(String(pedidoCompleto.valorDesconto || 0));
+              const frete = parseFloat(String(pedidoCompleto.valorFrete || 0));
+              const outrasDespesas = parseFloat(String(pedidoCompleto.valorOutrasDespesas || 0));
+              
+              valorFinal = valorProdutos - desconto + frete + outrasDespesas;
+              
+              if (valorFinal > 0) {
+                estrategiaUsada = 'Detalhes (valorTotalProdutos + ajustes)';
+                estrategias.push({ estrategia: estrategiaUsada, valor: valorFinal });
+                console.log(`[SyncTiny] ✅ ESTRATÉGIA 3.4: valorTotalProdutos + ajustes → ${valorFinal}`);
+              }
+            }
           } else {
-            console.error(`[SyncTiny] ❌ Não foi possível buscar detalhes do pedido ${pedido.id}`);
+            console.error(`[SyncTiny] ❌ ESTRATÉGIA 3: Não foi possível buscar detalhes do pedido ${pedido.id}`);
+            estrategias.push({ estrategia: 'Detalhes (API)', valor: 0, motivo: 'erro ao buscar detalhes' });
           }
         }
 
-        orderData.valor_total = valorFinal;
+        // ============================================================================
+        // VALIDAÇÃO FINAL E LOG DE DIAGNÓSTICO
+        // ============================================================================
+        if (valorFinal === 0 || isNaN(valorFinal)) {
+          console.error(`[SyncTiny] ❌❌❌ CRÍTICO: Nenhuma estratégia conseguiu obter o valor para o pedido ${tinyId}!`);
+          console.error(`[SyncTiny] ❌ Todas as estratégias tentadas:`, JSON.stringify(estrategias, null, 2));
+          console.error(`[SyncTiny] ❌ Dados disponíveis na listagem:`, {
+            tem_valor: !!pedido.valor,
+            tem_valorTotalPedido: !!pedido.valorTotalPedido,
+            tem_itens: !!pedido.itens,
+            quantidade_itens: pedido.itens?.length || 0,
+            situacao: pedido.situacao,
+            todas_as_chaves: Object.keys(pedido),
+          });
+        } else {
+          console.log(`[SyncTiny] ✅✅✅ VALOR FINAL OBTIDO: ${valorFinal} (via ${estrategiaUsada})`);
+          console.log(`[SyncTiny] 📊 Resumo de todas as estratégias:`, JSON.stringify(estrategias, null, 2));
+        }
+
+        orderData.valor_total = valorFinal > 0 ? valorFinal : 0; // Garantir que nunca seja negativo
 
         // Verificar se pedido já existe
         const { data: existingOrder } = await supabase
@@ -1172,16 +1270,25 @@ async function fetchPedidoCompletoFromTiny(
       return null;
     }
 
-    // Log detalhado dos campos importantes
+    // Log detalhado dos campos importantes para diagnóstico
     console.log(`[SyncTiny] ✅ Detalhes do pedido ${pedidoId} encontrados:`, {
       id: pedidoCompleto.id,
       numeroPedido: pedidoCompleto.numeroPedido,
+      // Valores disponíveis
       valorTotalPedido: pedidoCompleto.valorTotalPedido,
       valorTotalProdutos: pedidoCompleto.valorTotalProdutos,
       valorDesconto: pedidoCompleto.valorDesconto,
       valorFrete: pedidoCompleto.valorFrete,
-      situacao: pedidoCompleto.situacao,
+      valorOutrasDespesas: pedidoCompleto.valorOutrasDespesas,
+      // Itens
       tem_itens: pedidoCompleto.itens ? pedidoCompleto.itens.length : 0,
+      quantidade_itens: pedidoCompleto.itens?.length || 0,
+      // Pagamento
+      tem_pagamento: !!pedidoCompleto.pagamento,
+      tem_parcelas: pedidoCompleto.pagamento?.parcelas ? pedidoCompleto.pagamento.parcelas.length : 0,
+      // Outros
+      situacao: pedidoCompleto.situacao,
+      todas_as_chaves_valor: Object.keys(pedidoCompleto).filter(k => k.toLowerCase().includes('valor')),
       chaves_disponiveis: Object.keys(pedidoCompleto),
     });
 
