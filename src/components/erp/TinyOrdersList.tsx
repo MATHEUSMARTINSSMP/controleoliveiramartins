@@ -12,7 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Search, Calendar, DollarSign, User, Package } from 'lucide-react';
+import { Loader2, Search, Calendar, DollarSign, User, Package, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -59,6 +60,12 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
     filterOrders();
     setCurrentPage(1); // Resetar para primeira página quando filtros mudarem
   }, [orders, searchTerm, statusFilter, dateFilter]);
+
+  // Calcular paginação
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
 
   // Calcular paginação
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
@@ -321,8 +328,9 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {/* Filtros */}
-        <div className="mb-4 grid gap-4 md:grid-cols-3">
+        {/* Filtros e Paginação */}
+        <div className="mb-4 space-y-4">
+          <div className="grid gap-4 md:grid-cols-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -352,6 +360,19 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
               <SelectItem value="today">Hoje</SelectItem>
               <SelectItem value="week">Últimos 7 dias</SelectItem>
               <SelectItem value="month">Último mês</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+            setItemsPerPage(Number(value));
+            setCurrentPage(1);
+          }}>
+            <SelectTrigger>
+              <SelectValue placeholder="Itens por página" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="20">20 por página</SelectItem>
+              <SelectItem value="50">50 por página</SelectItem>
+              <SelectItem value="100">100 por página</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -424,6 +445,37 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
               </TableBody>
             </Table>
           </div>
+          {/* Paginação */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Mostrando {startIndex + 1} a {Math.min(endIndex, filteredOrders.length)} de {filteredOrders.length} pedidos
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Anterior
+                </Button>
+                <div className="text-sm">
+                  Página {currentPage} de {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Próxima
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         )}
       </CardContent>
     </Card>
