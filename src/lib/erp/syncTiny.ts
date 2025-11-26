@@ -549,20 +549,19 @@ export async function syncTinyOrders(
       const situacao = pedido.situacao;
       
       if (typeof situacao === 'number') {
-        // Situacao numérica no Tiny ERP: 
-        // 1 = Aprovado, 2 = Em Andamento, 3 = Faturado, 4 = Cancelado
-        // Por enquanto, aceitar todos para não perder dados
-        // TODO: Verificar documentação oficial para códigos exatos
-        return situacao >= 1; // Aceitar todos os números positivos
+        // API v3 OFICIAL - Códigos de situação:
+        // 8 = Dados Incompletos, 0 = Aberta, 3 = Aprovada, 4 = Preparando Envio,
+        // 1 = Faturada, 7 = Pronto Envio, 5 = Enviada, 6 = Entregue, 2 = Cancelada, 9 = Não Entregue
+        // Filtrar apenas pedidos faturados (1) conforme solicitado pelo usuário
+        return situacao === 1; // 1 = Faturada (API v3 oficial)
       } else if (typeof situacao === 'string') {
-        // Situacao string: verificar se contém "faturado"
+        // Fallback para formato string
         const situacaoLower = situacao.toLowerCase();
-        return situacaoLower.includes('faturado');
+        return situacaoLower.includes('faturado') || situacaoLower.includes('faturada');
       }
       
-      // Se não tiver situacao definida, processar mesmo assim
-      // (a query da API já filtra por situação se necessário)
-      return true;
+      // Se não tiver situacao definida, não processar (evitar dados incompletos)
+      return false;
     });
 
     console.log(`[SyncTiny] Total de pedidos recebidos: ${allPedidos.length}, Faturados: ${pedidosFaturados.length}`);
@@ -588,9 +587,16 @@ export async function syncTinyOrders(
         });
 
         // Extrair TODOS os dados possíveis dos produtos para relatórios inteligentes
+        // API v3 OFICIAL: itens[] = { produto: { id, sku, descricao }, quantidade: number, valorUnitario: number, infoAdicional }
         const itensComCategorias = pedido.itens?.map((item: any) => {
+          // API v3 OFICIAL: item.produto, item.quantidade, item.valorUnitario
+          const produto = item.produto || {}; // API v3: produto { id, sku, descricao }
+          const quantidade = item.quantidade || 0; // API v3: number
+          const valorUnitario = item.valorUnitario || 0; // API v3: number
+          const infoAdicional = item.infoAdicional || null; // API v3: string
+          
+          // Fallback para formato legado (snake_case)
           const itemData = item.item || item;
-          const produto = itemData.produto || {};
           
           // Extrair categoria e subcategoria
           const categoria = itemData.categoria 
@@ -640,17 +646,17 @@ export async function syncTinyOrders(
             || produto.variacao?.cor
             || null;
           
-          // Extrair código do produto
-          const codigo = itemData.codigo
+          // Extrair código do produto - API v3 OFICIAL: produto.sku
+          const codigo = produto.sku  // API v3 oficial (camelCase)
+            || itemData.sku
             || produto.codigo
             || produto.codigo_produto
-            || itemData.sku
-            || produto.sku
+            || itemData.codigo
             || null;
           
-          // Extrair descrição completa
-          const descricao = itemData.descricao
-            || produto.descricao
+          // Extrair descrição completa - API v3 OFICIAL: produto.descricao
+          const descricao = produto.descricao  // API v3 oficial (camelCase)
+            || itemData.descricao
             || produto.nome
             || itemData.nome
             || null;
