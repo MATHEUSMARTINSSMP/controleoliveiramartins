@@ -317,11 +317,23 @@ export async function callERPAPI(
   console.log(`[ERPIntegrations] Token encontrado para loja ${storeId}. O proxy fará renovação automática se necessário.`);
 
   // Determinar método HTTP
-  // Tiny ERP v3: GET para listagem, POST para outras operações
+  // Tiny ERP v3: GET para listagem e detalhes, POST apenas para operações específicas
   const endpointStr = String(endpoint || '');
-  const method = sistemaERP === 'TINY' && (endpointStr.includes('/pedidos') || endpointStr.includes('/contatos')) 
-    ? 'GET'  // Endpoints de listagem são GET
-    : 'POST'; // Outros endpoints são POST
+  
+  // ✅ CORREÇÃO: Endpoints de detalhes (com ID) e listagem são sempre GET
+  // GET /pedidos (listagem)
+  // GET /pedidos/{id} (detalhes)
+  // GET /contatos (listagem)
+  // GET /contatos/{id} (detalhes)
+  // GET /produtos/{id} (detalhes)
+  const isGetEndpoint = sistemaERP === 'TINY' && (
+    endpointStr.includes('/pedidos') || 
+    endpointStr.includes('/contatos') || 
+    endpointStr.includes('/produtos/') ||  // Detalhes de produto
+    endpointStr.match(/\/produtos\/\d+$/)   // Produto por ID
+  );
+  
+  const method = isGetEndpoint ? 'GET' : 'POST';
 
   // Fazer requisição via Netlify Function (proxy) para evitar CORS
   // O frontend não pode fazer requisições diretas para erp.tiny.com.br devido a CORS
