@@ -189,11 +189,13 @@ export async function syncTinyOrders(
 }> {
   const startTime = Date.now();
   
-  // Definir dataInicioSync no escopo externo para estar disponível no catch
+  // Definir variáveis no escopo externo para estar disponível no catch
   let dataInicioSync: string | undefined = options.dataInicio;
+  let dataFim: string | undefined = options.dataFim;
   
   try {
-    const { dataInicio, dataFim, limit = 100, maxPages = 50, incremental = true } = options;
+    const { dataInicio, dataFim: dataFimParam, limit = 100, maxPages = 50, incremental = true } = options;
+    dataFim = dataFimParam;
 
     // Sincronização incremental - buscar última data E último ID
     dataInicioSync = dataInicio;
@@ -248,7 +250,9 @@ export async function syncTinyOrders(
       const params: Record<string, any> = {
         pagina: currentPage,
         limite: limit,
-        situacao: 'faturado', // Apenas pedidos faturados (vendidos)
+        // situacao: código numérico (ex: 3 = faturado, conforme documentação Tiny ERP v3)
+        // Removendo situacao por enquanto - vamos buscar todos e filtrar depois se necessário
+        // Ou usar filtro por data apenas
       };
 
       if (dataInicioSync) {
