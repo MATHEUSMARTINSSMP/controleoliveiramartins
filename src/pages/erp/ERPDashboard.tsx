@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, RefreshCw, Package, Users, DollarSign, TrendingUp, AlertCircle, CheckCircle2, LogOut, Settings } from 'lucide-react';
+import { Loader2, RefreshCw, Package, Users, DollarSign, TrendingUp, AlertCircle, CheckCircle2, LogOut, Settings, Gift } from 'lucide-react';
 import { toast } from 'sonner';
 import { syncTinyOrders, syncTinyContacts } from '@/lib/erp/syncTiny';
 import TinyOrdersList from '@/components/erp/TinyOrdersList';
@@ -502,6 +502,14 @@ export default function ERPDashboard() {
               variant="outline"
             >
               Inteligência de Produtos
+            </Button>
+            <Button
+              onClick={() => navigate('/erp/cashback-management')}
+              variant="outline"
+              className="gap-2"
+            >
+              <Gift className="h-4 w-4" />
+              Cashback
             </Button>
             {profile?.role === 'ADMIN' && (
               <Button
