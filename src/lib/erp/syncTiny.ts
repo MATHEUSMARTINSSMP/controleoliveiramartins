@@ -954,6 +954,12 @@ export async function syncTinyOrders(
           })
         );
 
+        // Log final dos itens processados
+        console.log(`[SyncTiny] ✅ Pedido ${pedido.id} processado: ${itensComCategorias.length} itens com categorias`);
+        if (itensComCategorias.length === 0) {
+          console.warn(`[SyncTiny] ⚠️ ATENÇÃO: Pedido ${pedido.id} foi salvo SEM ITENS!`);
+        }
+        
         // Identificar vendedora/colaboradora
         let colaboradoraId: string | null = null;
         if (pedido.vendedor && pedido.vendedor.id) {
