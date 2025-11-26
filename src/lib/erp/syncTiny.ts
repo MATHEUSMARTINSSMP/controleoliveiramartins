@@ -2202,12 +2202,13 @@ export async function syncTinyContacts(
 
         // ✅ CORREÇÃO CRÍTICA: A listagem pode não retornar todos os campos
         // Se telefone, celular ou dataNascimento estão vazios, buscar detalhes completos
+        // Buscar se QUALQUER campo importante estiver vazio (não precisa estar todos vazios)
         let contatoCompleto = contato;
-        const precisaBuscarDetalhes = (
-          (!contato.telefone || contato.telefone === '') &&
-          (!contato.celular || contato.celular === '') &&
+        const precisaBuscarDetalhes = contato.id && (
+          (!contato.telefone || contato.telefone === '') ||
+          (!contato.celular || contato.celular === '') ||
           (!contato.dataNascimento || contato.dataNascimento === '')
-        ) && contato.id; // Só buscar se tiver ID
+        ); // Buscar se tiver ID e QUALQUER campo importante estiver vazio
 
         if (precisaBuscarDetalhes) {
           console.log(`[SyncTiny] 🔍 Contato ${contato.nome} sem telefone/data na listagem, buscando detalhes completos...`);
