@@ -175,6 +175,7 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
               <SelectItem value="100">100 por página</SelectItem>
             </SelectContent>
           </Select>
+          </div>
         </div>
 
         {/* Tabela */}
@@ -224,6 +225,37 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
               </TableBody>
             </Table>
           </div>
+          {/* Paginação */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Mostrando {startIndex + 1} a {Math.min(endIndex, filteredContacts.length)} de {filteredContacts.length} clientes
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Anterior
+                </Button>
+                <div className="text-sm">
+                  Página {currentPage} de {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Próxima
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         )}
       </CardContent>
     </Card>
