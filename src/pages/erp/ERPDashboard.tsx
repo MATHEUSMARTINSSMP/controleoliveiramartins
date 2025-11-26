@@ -272,6 +272,8 @@ export default function ERPDashboard() {
     }
   };
 
+  // ✅ SEGURANÇA: Sincronização manual apenas incremental (não hard sync)
+  // Hard Sync fica APENAS no painel dev (/dev/erp-config) para evitar uso indevido
   const handleSyncOrders = async () => {
     if (!selectedStoreId) {
       toast.error('Selecione uma loja');
@@ -293,10 +295,13 @@ export default function ERPDashboard() {
 
     try {
       setSyncing(true);
-      toast.info('Sincronizando pedidos...');
+      toast.info('Sincronizando pedidos (incremental)...');
 
+      // ✅ SEGURANÇA: Apenas sincronização incremental (não hard sync)
+      // Hard sync disponível apenas em /dev/erp-config
       const result = await syncTinyOrders(selectedStoreId, {
         incremental: true,
+        hardSync: false, // Sempre false no dashboard normal
       });
 
       if (result.success) {
@@ -330,6 +335,8 @@ export default function ERPDashboard() {
     }
   };
 
+  // ✅ SEGURANÇA: Sincronização manual apenas padrão (não hard sync)
+  // Hard Sync fica APENAS no painel dev (/dev/erp-config) para evitar uso indevido
   const handleSyncContacts = async () => {
     if (!selectedStoreId) {
       toast.error('Selecione uma loja');
@@ -353,7 +360,11 @@ export default function ERPDashboard() {
       setSyncing(true);
       toast.info('Sincronizando clientes...');
 
-      const result = await syncTinyContacts(selectedStoreId);
+      // ✅ SEGURANÇA: Apenas sincronização padrão (não hard sync)
+      // Hard sync disponível apenas em /dev/erp-config
+      const result = await syncTinyContacts(selectedStoreId, {
+        hardSync: false, // Sempre false no dashboard normal
+      });
 
       if (result.success) {
         toast.success(result.message);
