@@ -2231,7 +2231,7 @@ async function syncTinyContact(
     }
 
     if (!contactResult || !contactResult.id) {
-      console.warn(`[SyncTiny] ⚠️ Cliente sincronizado mas ID não retornado: ${cliente.nome}`);
+      console.warn(`[SyncTiny] ⚠️ Cliente sincronizado mas ID não retornado: ${clienteCompleto.nome || cliente.nome}`);
       // Tentar buscar o ID pelo tiny_id
       const { data: existingContact } = await supabase
         .schema('sistemaretiradas')
