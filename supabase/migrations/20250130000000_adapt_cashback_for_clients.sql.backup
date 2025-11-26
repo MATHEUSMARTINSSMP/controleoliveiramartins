@@ -11,68 +11,104 @@ SET search_path TO sistemaretiradas, public;
 -- 1. ADAPTAR cashback_transactions PARA SUPORTAR CLIENTES
 -- =============================================================================
 
--- Adicionar campos para suportar clientes (não só colaboradoras)
+-- Verificar se a tabela existe antes de alterar
 DO $$
 BEGIN
-    -- Adicionar cliente_id (FK para tiny_contacts)
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+    -- Verificar se a tabela cashback_transactions existe
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
         WHERE table_schema = 'sistemaretiradas' 
-        AND table_name = 'cashback_transactions' 
-        AND column_name = 'cliente_id'
+        AND table_name = 'cashback_transactions'
     ) THEN
-        ALTER TABLE cashback_transactions 
-        ADD COLUMN cliente_id UUID REFERENCES tiny_contacts(id) ON DELETE CASCADE;
-        
-        COMMENT ON COLUMN cashback_transactions.cliente_id IS 'FK para tiny_contacts - Cliente que ganhou cashback (para vendas do Tiny ERP)';
-    END IF;
+        -- Adicionar cliente_id (FK para tiny_contacts)
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_schema = 'sistemaretiradas' 
+            AND table_name = 'cashback_transactions' 
+            AND column_name = 'cliente_id'
+        ) THEN
+            ALTER TABLE cashback_transactions 
+            ADD COLUMN cliente_id UUID REFERENCES tiny_contacts(id) ON DELETE CASCADE;
+            
+            COMMENT ON COLUMN cashback_transactions.cliente_id IS 'FK para tiny_contacts - Cliente que ganhou cashback (para vendas do Tiny ERP)';
+        END IF;
 
-    -- Adicionar tiny_order_id (FK para tiny_orders)
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_schema = 'sistemaretiradas' 
-        AND table_name = 'cashback_transactions' 
-        AND column_name = 'tiny_order_id'
-    ) THEN
-        ALTER TABLE cashback_transactions 
-        ADD COLUMN tiny_order_id UUID REFERENCES tiny_orders(id) ON DELETE SET NULL;
-        
-        COMMENT ON COLUMN cashback_transactions.tiny_order_id IS 'FK para tiny_orders - Pedido do Tiny ERP que gerou cashback';
-    END IF;
+        -- Adicionar tiny_order_id (FK para tiny_orders)
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_schema = 'sistemaretiradas' 
+            AND table_name = 'cashback_transactions' 
+            AND column_name = 'tiny_order_id'
+        ) THEN
+            -- Verificar se tiny_orders existe antes de criar FK
+            IF EXISTS (
+                SELECT 1 FROM information_schema.tables 
+                WHERE table_schema = 'sistemaretiradas' 
+                AND table_name = 'tiny_orders'
+            ) THEN
+                ALTER TABLE cashback_transactions 
+                ADD COLUMN tiny_order_id UUID REFERENCES tiny_orders(id) ON DELETE SET NULL;
+                
+                COMMENT ON COLUMN cashback_transactions.tiny_order_id IS 'FK para tiny_orders - Pedido do Tiny ERP que gerou cashback';
+            END IF;
+        END IF;
 
-    -- Tornar colaboradora_id opcional (agora pode ser cliente OU colaboradora)
-    -- Não precisamos alterar a coluna, apenas o comentário
-    COMMENT ON COLUMN cashback_transactions.colaboradora_id IS 'FK para profiles - Colaboradora que ganhou cashback (para vendas internas). NULL se for cliente.';
+        -- Tornar colaboradora_id opcional (agora pode ser cliente OU colaboradora)
+        -- Não precisamos alterar a coluna, apenas o comentário
+        COMMENT ON COLUMN cashback_transactions.colaboradora_id IS 'FK para profiles - Colaboradora que ganhou cashback (para vendas internas). NULL se for cliente.';
+    END IF; -- Fim da verificação de existência da tabela
 END $$;
 
--- Criar índices para os novos campos
-CREATE INDEX IF NOT EXISTS idx_cashback_transactions_cliente_id 
-    ON cashback_transactions(cliente_id) 
-    WHERE cliente_id IS NOT NULL;
+-- Criar índices para os novos campos (apenas se a tabela existir)
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'sistemaretiradas' 
+        AND table_name = 'cashback_transactions'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_cashback_transactions_cliente_id 
+            ON cashback_transactions(cliente_id) 
+            WHERE cliente_id IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS idx_cashback_transactions_tiny_order_id 
-    ON cashback_transactions(tiny_order_id) 
-    WHERE tiny_order_id IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_cashback_transactions_tiny_order_id 
+            ON cashback_transactions(tiny_order_id) 
+            WHERE tiny_order_id IS NOT NULL;
+    END IF;
+END $$;
 
 -- =============================================================================
 -- 2. ADAPTAR cashback_balance PARA SUPORTAR CLIENTES
 -- =============================================================================
 
--- Adicionar suporte para clientes em cashback_balance
+-- Verificar se a tabela existe antes de alterar
 DO $$
 BEGIN
-    -- Adicionar cliente_id (FK para tiny_contacts)
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+    -- Verificar se a tabela cashback_balance existe
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
         WHERE table_schema = 'sistemaretiradas' 
-        AND table_name = 'cashback_balance' 
-        AND column_name = 'cliente_id'
+        AND table_name = 'cashback_balance'
     ) THEN
-        ALTER TABLE cashback_balance 
-        ADD COLUMN cliente_id UUID REFERENCES tiny_contacts(id) ON DELETE CASCADE;
-        
-        COMMENT ON COLUMN cashback_balance.cliente_id IS 'FK para tiny_contacts - Cliente com saldo de cashback (para vendas do Tiny ERP)';
-    END IF;
+        -- Adicionar cliente_id (FK para tiny_contacts)
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_schema = 'sistemaretiradas' 
+            AND table_name = 'cashback_balance' 
+            AND column_name = 'cliente_id'
+        ) THEN
+            -- Verificar se tiny_contacts existe antes de criar FK
+            IF EXISTS (
+                SELECT 1 FROM information_schema.tables 
+                WHERE table_schema = 'sistemaretiradas' 
+                AND table_name = 'tiny_contacts'
+            ) THEN
+                ALTER TABLE cashback_balance 
+                ADD COLUMN cliente_id UUID REFERENCES tiny_contacts(id) ON DELETE CASCADE;
+                
+                COMMENT ON COLUMN cashback_balance.cliente_id IS 'FK para tiny_contacts - Cliente com saldo de cashback (para vendas do Tiny ERP)';
+            END IF;
+        END IF;
 
     -- Tornar colaboradora_id opcional
     -- Remover constraint UNIQUE se existir e criar nova que permite NULL
@@ -100,23 +136,33 @@ BEGIN
         IS 'Garante que cada registro tem OU colaboradora_id OU cliente_id, nunca ambos ou nenhum';
     END IF;
     
-    -- Atualizar comentário da coluna colaboradora_id
-    COMMENT ON COLUMN cashback_balance.colaboradora_id IS 'FK para profiles - Colaboradora com saldo (para vendas internas). NULL se for cliente.';
+        -- Atualizar comentário da coluna colaboradora_id
+        COMMENT ON COLUMN cashback_balance.colaboradora_id IS 'FK para profiles - Colaboradora com saldo (para vendas internas). NULL se for cliente.';
+    END IF; -- Fim da verificação de existência da tabela
 END $$;
 
--- Criar índices únicos parciais para garantir unicidade
-CREATE UNIQUE INDEX IF NOT EXISTS cashback_balance_colaboradora_unique 
-    ON cashback_balance(colaboradora_id) 
-    WHERE colaboradora_id IS NOT NULL;
+-- Criar índices únicos parciais para garantir unicidade (apenas se a tabela existir)
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'sistemaretiradas' 
+        AND table_name = 'cashback_balance'
+    ) THEN
+        CREATE UNIQUE INDEX IF NOT EXISTS cashback_balance_colaboradora_unique 
+            ON cashback_balance(colaboradora_id) 
+            WHERE colaboradora_id IS NOT NULL;
 
-CREATE UNIQUE INDEX IF NOT EXISTS cashback_balance_cliente_unique 
-    ON cashback_balance(cliente_id) 
-    WHERE cliente_id IS NOT NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS cashback_balance_cliente_unique 
+            ON cashback_balance(cliente_id) 
+            WHERE cliente_id IS NOT NULL;
 
--- Criar índice para cliente_id
-CREATE INDEX IF NOT EXISTS idx_cashback_balance_cliente_id 
-    ON cashback_balance(cliente_id) 
-    WHERE cliente_id IS NOT NULL;
+        -- Criar índice para cliente_id
+        CREATE INDEX IF NOT EXISTS idx_cashback_balance_cliente_id 
+            ON cashback_balance(cliente_id) 
+            WHERE cliente_id IS NOT NULL;
+    END IF;
+END $$;
 
 -- =============================================================================
 -- 3. FUNÇÃO: Calcular Cashback para Tiny Order
@@ -141,6 +187,22 @@ BEGIN
     IF NEW.situacao NOT IN ('1', '3') THEN
         RETURN NEW;
     END IF;
+
+    -- ✅ CORREÇÃO: Verificar se é UPDATE e se a situação mudou para faturado/aprovado
+    -- Se for UPDATE e já estava faturado/aprovado, não processar novamente (evitar duplicação)
+    IF TG_OP = 'UPDATE' THEN
+        -- Se já estava faturado/aprovado antes, não processar novamente
+        IF OLD.situacao IN ('1', '3') AND NEW.situacao IN ('1', '3') THEN
+            RETURN NEW; -- Já foi processado antes
+        END IF;
+        -- Se mudou de não-faturado para faturado/aprovado, processar
+        IF OLD.situacao NOT IN ('1', '3') AND NEW.situacao IN ('1', '3') THEN
+            -- Continuar processamento abaixo
+        ELSE
+            RETURN NEW; -- Não mudou para faturado/aprovado
+        END IF;
+    END IF;
+    -- Se for INSERT e está faturado/aprovado, processar normalmente
 
     -- Verificar se tem cliente_id
     IF NEW.cliente_id IS NULL THEN
@@ -237,6 +299,7 @@ COMMENT ON FUNCTION calculate_cashback_for_tiny_order() IS 'Calcula e aplica cas
 DROP TRIGGER IF EXISTS trigger_calculate_cashback_tiny_order ON tiny_orders;
 
 -- Criar trigger após INSERT ou UPDATE (se situacao mudou para faturado/aprovado)
+-- NOTA: TG_OP não pode ser usado na cláusula WHEN, então verificamos dentro da função
 CREATE TRIGGER trigger_calculate_cashback_tiny_order
     AFTER INSERT OR UPDATE ON tiny_orders
     FOR EACH ROW
@@ -244,12 +307,6 @@ CREATE TRIGGER trigger_calculate_cashback_tiny_order
         NEW.valor_total > 0 
         AND NEW.cliente_id IS NOT NULL
         AND NEW.situacao IN ('1', '3') -- Faturado ou Aprovado
-        AND (
-            -- INSERT: sempre processar se for faturado/aprovado
-            TG_OP = 'INSERT' OR
-            -- UPDATE: processar se situacao mudou para faturado/aprovado
-            (TG_OP = 'UPDATE' AND OLD.situacao NOT IN ('1', '3') AND NEW.situacao IN ('1', '3'))
-        )
     )
     EXECUTE FUNCTION calculate_cashback_for_tiny_order();
 
