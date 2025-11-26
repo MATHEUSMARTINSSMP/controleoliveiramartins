@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, TrendingUp, Package, Filter, BarChart3, PieChart, Calendar, Store, User, Search, Clock, Target } from 'lucide-react';
+import { Loader2, TrendingUp, Package, Filter, BarChart3, PieChart, Calendar, Store, User, Search, Clock, Target, ArrowLeft } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -813,12 +813,23 @@ export default function ProductSalesIntelligence() {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
+      {/* Header com botão voltar */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Inteligência de Vendas de Produtos</h1>
-          <p className="text-muted-foreground">
-            Análise avançada e inteligente de produtos vendidos
-          </p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/erp/dashboard')}
+            title="Voltar para Dashboard"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Inteligência de Vendas de Produtos</h1>
+            <p className="text-muted-foreground">
+              Análise avançada e inteligente de produtos vendidos
+            </p>
+          </div>
         </div>
       </div>
 
