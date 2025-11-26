@@ -1035,7 +1035,24 @@ export async function syncTinyOrders(
           console.log(`[SyncTiny] 📊 Resumo de todas as estratégias:`, JSON.stringify(estrategias, null, 2));
         }
 
-        orderData.valor_total = valorFinal > 0 ? valorFinal : 0; // Garantir que nunca seja negativo
+        // ✅ GARANTIR TIPO CORRETO: valor_total deve ser number, nunca string
+        // PostgreSQL DECIMAL(10,2) espera number, não string
+        orderData.valor_total = typeof valorFinal === 'number' && !isNaN(valorFinal) && valorFinal > 0 
+          ? Number(valorFinal.toFixed(2)) // Garantir 2 casas decimais e tipo number
+          : 0;
+
+        // ✅ VALIDAÇÃO CRÍTICA: Garantir que data_pedido está no formato correto
+        if (orderData.data_pedido && typeof orderData.data_pedido === 'string') {
+          // Se não tiver timezone, adicionar (PostgreSQL precisa)
+          if (!orderData.data_pedido.includes('T')) {
+            orderData.data_pedido = `${orderData.data_pedido}T00:00:00-03:00`;
+          } else if (!orderData.data_pedido.includes('Z') && !orderData.data_pedido.includes('+') && !orderData.data_pedido.includes('-')) {
+            // Se tem T mas não tem timezone, adicionar
+            if (orderData.data_pedido.endsWith('T00:00:00') || orderData.data_pedido.endsWith('T12:00:00')) {
+              orderData.data_pedido = orderData.data_pedido.replace('T00:00:00', 'T00:00:00-03:00').replace('T12:00:00', 'T12:00:00-03:00');
+            }
+          }
+        }
 
         // Verificar se pedido já existe
         const { data: existingOrder } = await supabase
@@ -1105,17 +1122,30 @@ export async function syncTinyOrders(
           continue; // Pular para o próximo pedido
         }
 
-        // ✅ VALIDAÇÃO: Verificar dados realmente salvos no banco
+        // ✅ VALIDAÇÃO CRÍTICA: Verificar dados realmente salvos no banco
         if (upsertedData && upsertedData.length > 0) {
           const savedOrder = upsertedData[0];
 
           console.log(`[SyncTiny] ✅ Dados SALVOS no banco (pedido ${tinyId}):`, {
             valor_total_SALVO: savedOrder.valor_total,
             valor_total_TIPO_SALVO: typeof savedOrder.valor_total,
+            valor_total_ENVIADO: orderData.valor_total,
+            valor_total_TIPO_ENVIADO: typeof orderData.valor_total,
             data_pedido_SALVA: savedOrder.data_pedido,
             data_pedido_TIPO_SALVA: typeof savedOrder.data_pedido,
+            data_pedido_ENVIADA: orderData.data_pedido,
             cliente_cpf_cnpj_SALVO: savedOrder.cliente_cpf_cnpj ? savedOrder.cliente_cpf_cnpj.substring(0, 3) + '***' : null,
+            cliente_cpf_cnpj_ENVIADO: orderData.cliente_cpf_cnpj ? orderData.cliente_cpf_cnpj.substring(0, 3) + '***' : null,
           });
+
+          // ⚠️ ALERTA CRÍTICO se valores não baterem
+          if (orderData.valor_total > 0 && (!savedOrder.valor_total || savedOrder.valor_total === 0)) {
+            console.error(`[SyncTiny] ⚠️⚠️⚠️ ATENÇÃO CRÍTICA: Valor enviado (${orderData.valor_total}) não foi salvo corretamente (${savedOrder.valor_total})`);
+          }
+
+          if (orderData.data_pedido && !savedOrder.data_pedido) {
+            console.error(`[SyncTiny] ⚠️⚠️⚠️ ATENÇÃO CRÍTICA: Data enviada (${orderData.data_pedido}) não foi salva corretamente (${savedOrder.data_pedido})`);
+          }
 
           // 🚨 ALERTAS: Comparar dados enviados vs salvos
           let hasDiscrepancy = false;
