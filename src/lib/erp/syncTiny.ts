@@ -183,6 +183,18 @@ interface TinyContato {
 }
 
 /**
+ * Cache global para contatos (evita múltiplas requisições do mesmo contato na mesma sincronização)
+ */
+const contatoCache: Record<string, any> = {};
+
+/**
+ * Limpa o cache de contatos (chamar no início de cada sincronização)
+ */
+function limparCacheContatos(): void {
+  Object.keys(contatoCache).forEach(key => delete contatoCache[key]);
+}
+
+/**
  * Busca dados completos de um contato na API do Tiny ERP usando o ID
  * Retorna telefone, celular, dataNascimento e outros dados completos
  * 
@@ -194,7 +206,14 @@ async function fetchContatoCompletoFromTiny(
   contatoId: number | string
 ): Promise<any | null> {
   try {
-    console.log(`[SyncTiny] 🔍 Buscando detalhes completos do contato ${contatoId}...`);
+    // ✅ Cache para evitar múltiplas requisições do mesmo contato
+    const cacheKey = `${storeId}_contato_${contatoId}`;
+    if (contatoCache[cacheKey]) {
+      console.log(`[SyncTiny] ⚡ Cache hit para contato ${contatoId}`);
+      return contatoCache[cacheKey];
+    }
+
+    console.log(`[SyncTiny] 🔍 Buscando detalhes completos do contato ${contatoId} via GET /contatos/${contatoId}...`);
     
     const response = await callERPAPI(storeId, `/contatos/${contatoId}`, {});
     
@@ -206,6 +225,11 @@ async function fetchContatoCompletoFromTiny(
     // A API pode retornar o contato direto ou dentro de um objeto
     const contatoCompleto = response.contato || response;
     
+    if (!contatoCompleto || !contatoCompleto.id) {
+      console.warn(`[SyncTiny] ⚠️ Detalhes do contato ${contatoId} não encontrados. Resposta:`, JSON.stringify(response).substring(0, 500));
+      return null;
+    }
+    
     console.log(`[SyncTiny] ✅ Detalhes completos recebidos para contato ${contatoId}:`, {
       nome: contatoCompleto.nome,
       tem_telefone: !!contatoCompleto.telefone,
@@ -216,7 +240,11 @@ async function fetchContatoCompletoFromTiny(
       valor_dataNascimento: contatoCompleto.dataNascimento,
       tem_contatos_array: Array.isArray(contatoCompleto.contatos),
       contatos_length: Array.isArray(contatoCompleto.contatos) ? contatoCompleto.contatos.length : 0,
+      todas_chaves: Object.keys(contatoCompleto),
     });
+
+    // Salvar no cache
+    contatoCache[cacheKey] = contatoCompleto;
 
     return contatoCompleto;
   } catch (error: any) {
