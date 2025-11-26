@@ -861,6 +861,27 @@ export async function syncTinyOrders(
         // Isso garante que o cliente existe em tiny_contacts antes do pedido
         let clienteId: string | null = null;
         if (pedido.cliente) {
+          // ✅ CORREÇÃO: Extrair telefone do pedido se não estiver no cliente
+          // O telefone pode vir em pedido.cliente.telefone, pedido.clienteTelefone, ou já estar salvo em tiny_orders
+          const telefoneDoPedido = pedido.cliente.telefone 
+            || pedido.cliente.celular
+            || pedido.clienteTelefone
+            || pedido.clienteCelular
+            || pedido.telefoneCliente
+            || pedido.celularCliente
+            || null;
+          
+          // Se encontrou telefone no pedido mas não no cliente, adicionar ao objeto cliente
+          if (telefoneDoPedido && !pedido.cliente.telefone && !pedido.cliente.celular) {
+            console.log(`[SyncTiny] 📞 Telefone encontrado no pedido: ${telefoneDoPedido.substring(0, 15)}...`);
+            // Priorizar celular sobre telefone fixo
+            if (telefoneDoPedido.length >= 10) { // Celular geralmente tem 10+ dígitos
+              pedido.cliente.celular = telefoneDoPedido;
+            } else {
+              pedido.cliente.telefone = telefoneDoPedido;
+            }
+          }
+          
           clienteId = await syncTinyContact(storeId, pedido.cliente, tinyId);
           if (!clienteId) {
             console.warn(`[SyncTiny] ⚠️ Cliente não foi sincronizado: ${pedido.cliente.nome || 'Sem nome'}`);
@@ -953,8 +974,23 @@ export async function syncTinyOrders(
             }
             return cpfCnpj;
           })(),
-          // ✅ REMOVIDO: cliente_email e cliente_telefone (agora em tiny_contacts via FK)
-          // Para obter telefone/email: fazer JOIN com tiny_contacts usando cliente_id
+          // ✅ MANTIDO TEMPORARIAMENTE: cliente_telefone para compatibilidade e para usar como fallback
+          // Quando não encontramos telefone na API, buscamos em pedidos existentes
+          // TODO: Remover após migração completa (FASE 3)
+          cliente_telefone: (() => {
+            // Extrair telefone do cliente do pedido para salvar em tiny_orders
+            // Isso permite buscar telefone de pedidos antigos quando sincronizamos novos contatos
+            const telefone = pedido.cliente?.telefone 
+              || pedido.cliente?.celular
+              || pedido.clienteTelefone
+              || pedido.clienteCelular
+              || pedido.telefoneCliente
+              || pedido.celularCliente
+              || null;
+            return telefone;
+          })(),
+          // ✅ REMOVIDO: cliente_email (agora em tiny_contacts via FK)
+          // Para obter email: fazer JOIN com tiny_contacts usando cliente_id
           // ✅ CORREÇÃO CRÍTICA: valor_total será calculado depois (async)
           valor_total: 0, // Placeholder - será atualizado abaixo
           // ✅ API v3 oficial usa camelCase
@@ -1714,7 +1750,7 @@ async function syncTinyContact(
     let contactDataFinal = { ...contactData };
     
     if (!telefoneFinal) {
-      // Se não encontramos telefone nos dados recebidos, verificar se já existe no banco
+      // ✅ ESTRATÉGIA 1: Verificar se já existe telefone no tiny_contacts
       const { data: existingContact } = await supabase
         .schema('sistemaretiradas')
         .from('tiny_contacts')
@@ -1726,7 +1762,44 @@ async function syncTinyContact(
       if (existingContact && (existingContact.telefone || existingContact.celular)) {
         // Manter telefone existente (não sobrescrever com null)
         contactDataFinal.telefone = existingContact.telefone || existingContact.celular;
-        console.log(`[SyncTiny] ✅ Mantendo telefone existente no banco: ${contactDataFinal.telefone?.substring(0, 15)}...`);
+        console.log(`[SyncTiny] ✅ Mantendo telefone existente em tiny_contacts: ${contactDataFinal.telefone?.substring(0, 15)}...`);
+      } else {
+        // ✅ ESTRATÉGIA 2: Buscar telefone em pedidos existentes (tiny_orders.cliente_telefone)
+        // Isso é útil para "consumidor final" que não tem cadastro completo
+        // Buscar por CPF primeiro (mais preciso), depois por nome
+        let pedidoComTelefone = null;
+        
+        if (contactData.cpf_cnpj) {
+          const { data } = await supabase
+            .schema('sistemaretiradas')
+            .from('tiny_orders')
+            .select('cliente_telefone')
+            .eq('store_id', storeId)
+            .eq('cliente_cpf_cnpj', contactData.cpf_cnpj)
+            .not('cliente_telefone', 'is', null)
+            .limit(1)
+            .maybeSingle();
+          pedidoComTelefone = data;
+        }
+        
+        // Se não encontrou por CPF, tentar por nome
+        if (!pedidoComTelefone?.cliente_telefone && contactData.nome) {
+          const { data } = await supabase
+            .schema('sistemaretiradas')
+            .from('tiny_orders')
+            .select('cliente_telefone')
+            .eq('store_id', storeId)
+            .eq('cliente_nome', contactData.nome)
+            .not('cliente_telefone', 'is', null)
+            .limit(1)
+            .maybeSingle();
+          pedidoComTelefone = data;
+        }
+        
+        if (pedidoComTelefone && pedidoComTelefone.cliente_telefone) {
+          contactDataFinal.telefone = pedidoComTelefone.cliente_telefone;
+          console.log(`[SyncTiny] ✅ Telefone encontrado em pedido existente (tiny_orders): ${contactDataFinal.telefone?.substring(0, 15)}...`);
+        }
       }
     }
     

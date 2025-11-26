@@ -133,8 +133,10 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
         (order) =>
           order.numero_pedido?.toLowerCase().includes(term) ||
           order.cliente_nome?.toLowerCase().includes(term) ||
+          order.cliente?.nome?.toLowerCase().includes(term) ||
           order.vendedor_nome?.toLowerCase().includes(term) ||
-          order.cliente_email?.toLowerCase().includes(term)
+          order.cliente?.email?.toLowerCase().includes(term) ||
+          order.cliente?.telefone?.toLowerCase().includes(term)
       );
     }
 
@@ -283,9 +285,19 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
                     </TableCell>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{order.cliente_nome || '-'}</div>
-                        {order.cliente_email && (
-                          <div className="text-xs text-muted-foreground">{order.cliente_email}</div>
+                        <div className="font-medium">
+                          {order.cliente?.nome || order.cliente_nome || '-'}
+                        </div>
+                        {/* ✅ FASE 2: Usar dados do JOIN com tiny_contacts */}
+                        {order.cliente?.telefone && (
+                          <div className="text-xs text-muted-foreground">
+                            📞 {order.cliente.telefone}
+                          </div>
+                        )}
+                        {order.cliente?.email && (
+                          <div className="text-xs text-muted-foreground">
+                            ✉️ {order.cliente.email}
+                          </div>
                         )}
                       </div>
                     </TableCell>
