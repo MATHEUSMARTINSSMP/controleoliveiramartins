@@ -35,6 +35,20 @@ interface CategoryReport {
   ticket_medio: number;
 }
 
+interface ProductSale {
+  produto_id: string | null;
+  codigo: string | null;
+  descricao: string | null;
+  categoria: string | null;
+  marca: string | null;
+  quantidade: number;
+  valor_total: number;
+  cliente_nome: string | null;
+  numero_pedido: string | null;
+  data_pedido: string | null;
+  order_id: string;
+}
+
 interface ProductReport {
   produto_id: string | null;
   codigo: string | null;
@@ -43,8 +57,7 @@ interface ProductReport {
   marca: string | null;
   total_vendas: number;
   quantidade_vendida: number;
-  quantidade_pedidos: number;
-  ticket_medio: number;
+  vendas: ProductSale[]; // Lista de vendas individuais
 }
 
 interface BrandReport {
@@ -407,11 +420,16 @@ export default function CategoryReports() {
       });
       setCategoryReports(Array.from(categoryMap.values()).sort((a, b) => b.total_vendas - a.total_vendas));
 
-      // Agrupar por produto
+      // Agrupar por produto - mas manter vendas individuais
       const productMap = new Map<string, ProductReport>();
+      
       allItems.forEach((item) => {
         const key = item.produto_id || item.codigo || item.descricao || 'unknown';
+        
         if (!productMap.has(key)) {
+          // Buscar dados do pedido para este item
+          const order = orders.find(o => o.id === item.order_id);
+          
           productMap.set(key, {
             produto_id: item.produto_id,
             codigo: item.codigo,
@@ -420,29 +438,51 @@ export default function CategoryReports() {
             marca: item.marca,
             total_vendas: 0,
             quantidade_vendida: 0,
-            quantidade_pedidos: 0,
-            ticket_medio: 0,
+            vendas: [],
           });
         }
+        
         const report = productMap.get(key)!;
+        
+        // Buscar dados do pedido para este item
+        const order = orders.find(o => o.id === item.order_id);
+        
+        // Adicionar venda individual
+        report.vendas.push({
+          produto_id: item.produto_id,
+          codigo: item.codigo,
+          descricao: item.descricao,
+          categoria: item.categoria,
+          marca: item.marca,
+          quantidade: item.quantidade,
+          valor_total: item.valor_total,
+          cliente_nome: order?.cliente_nome || null,
+          numero_pedido: order?.numero_pedido || null,
+          data_pedido: order?.data_pedido || null,
+          order_id: item.order_id,
+        });
+        
         report.total_vendas += item.valor_total;
         report.quantidade_vendida += item.quantidade;
       });
-      const productOrders = new Map<string, Set<string>>();
-      allItems.forEach((item) => {
-        const key = item.produto_id || item.codigo || item.descricao || 'unknown';
-        if (!productOrders.has(key)) {
-          productOrders.set(key, new Set());
-        }
-        productOrders.get(key)!.add(item.order_id);
+      
+      // Ordenar vendas dentro de cada produto por data e número (mais recentes primeiro)
+      productMap.forEach((report) => {
+        report.vendas.sort((a, b) => {
+          // Primeiro por data (mais recente primeiro)
+          const dateA = a.data_pedido ? new Date(a.data_pedido).getTime() : 0;
+          const dateB = b.data_pedido ? new Date(b.data_pedido).getTime() : 0;
+          if (dateB !== dateA) {
+            return dateB - dateA; // Mais recente primeiro
+          }
+          // Se mesma data, ordenar por número do pedido (maior primeiro)
+          const numA = parseInt(a.numero_pedido || '0', 10);
+          const numB = parseInt(b.numero_pedido || '0', 10);
+          return numB - numA;
+        });
       });
-      productOrders.forEach((orderSet, key) => {
-        const report = productMap.get(key);
-        if (report) {
-          report.quantidade_pedidos = orderSet.size;
-          report.ticket_medio = report.quantidade_vendida > 0 ? report.total_vendas / report.quantidade_vendida : 0;
-        }
-      });
+      
+      // Ordenar produtos por total de vendas (maior primeiro)
       setProductReports(Array.from(productMap.values()).sort((a, b) => b.total_vendas - a.total_vendas));
 
       // Agrupar por marca
@@ -751,37 +791,42 @@ export default function CategoryReports() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Descrição</TableHead>
-                        <TableHead>Código</TableHead>
-                        <TableHead>Categoria</TableHead>
-                        <TableHead>Marca</TableHead>
-                        <TableHead className="text-right">Qtd. Vendida</TableHead>
-                        <TableHead className="text-right">Total Vendas</TableHead>
-                        <TableHead className="text-right">Qtd. Pedidos</TableHead>
-                        <TableHead className="text-right">Ticket Médio</TableHead>
+                        <TableHead className="text-xs">Descrição</TableHead>
+                        <TableHead className="text-xs">Código</TableHead>
+                        <TableHead className="text-xs">Categoria</TableHead>
+                        <TableHead className="text-xs">Marca</TableHead>
+                        <TableHead className="text-xs text-right">Qtd.</TableHead>
+                        <TableHead className="text-xs text-right">Valor</TableHead>
+                        <TableHead className="text-xs">Cliente</TableHead>
+                        <TableHead className="text-xs">Nº Venda</TableHead>
+                        <TableHead className="text-xs">Data</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {productReports.slice(0, 100).map((report, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="font-medium">{report.descricao}</TableCell>
-                          <TableCell className="text-muted-foreground">{report.codigo || '-'}</TableCell>
-                          <TableCell>{report.categoria || '-'}</TableCell>
-                          <TableCell>{report.marca || '-'}</TableCell>
-                          <TableCell className="text-right">
-                            {report.quantidade_vendida.toLocaleString('pt-BR')}
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
-                            {formatCurrency(report.total_vendas)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {report.quantidade_pedidos.toLocaleString('pt-BR')}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(report.ticket_medio)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {productReports.slice(0, 100).map((report, reportIndex) => 
+                        report.vendas.map((venda, vendaIndex) => (
+                          <TableRow key={`${reportIndex}-${vendaIndex}`}>
+                            <TableCell className="text-xs font-medium">{venda.descricao}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{venda.codigo || '-'}</TableCell>
+                            <TableCell className="text-xs">{venda.categoria || '-'}</TableCell>
+                            <TableCell className="text-xs">{venda.marca || '-'}</TableCell>
+                            <TableCell className="text-xs text-right">
+                              {venda.quantidade.toLocaleString('pt-BR')}
+                            </TableCell>
+                            <TableCell className="text-xs text-right font-medium">
+                              {formatCurrency(venda.valor_total)}
+                            </TableCell>
+                            <TableCell className="text-xs">{venda.cliente_nome || '-'}</TableCell>
+                            <TableCell className="text-xs">{venda.numero_pedido || '-'}</TableCell>
+                            <TableCell className="text-xs">
+                              {venda.data_pedido 
+                                ? format(new Date(venda.data_pedido), 'dd/MM/yyyy', { locale: ptBR })
+                                : '-'
+                              }
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
                     </TableBody>
                   </Table>
                 </div>
