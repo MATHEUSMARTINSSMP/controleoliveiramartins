@@ -27,15 +27,13 @@ interface TinyOrder {
   cliente_id: string | null; // ✅ FASE 2: FK para tiny_contacts
   cliente_nome: string | null; // Mantido para histórico rápido
   cliente_cpf_cnpj: string | null; // Mantido para histórico rápido
-  cliente_email: string | null; // ⚠️ Será removido na FASE 3
+  cliente_telefone: string | null; // ✅ Exibir diretamente do Supabase
+  cliente_email: string | null; // ✅ Exibir diretamente do Supabase
   valor_total: number;
   vendedor_nome: string | null;
   colaboradora_id: string | null;
   forma_pagamento: string | null;
   sync_at: string;
-  // ✅ Dados do cliente diretamente de tiny_orders
-  cliente_telefone: string | null;
-  cliente_email: string | null;
 }
 
 interface TinyOrdersListProps {
