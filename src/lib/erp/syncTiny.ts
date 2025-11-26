@@ -1390,15 +1390,37 @@ export async function syncTinyOrders(
  * API v3 OFICIAL: GET /produtos/{idProduto}
  * Retorna: { categoria: { id, nome, caminhoCompleto }, marca: { id, nome }, variacoes: [...], ... }
  */
+/**
+ * Cache global para produtos (evita múltiplas requisições do mesmo produto na mesma sincronização)
+ */
+const produtoCache: Record<string, any> = {};
+
+/**
+ * Limpa o cache de produtos (chamar no início de cada sincronização)
+ */
+function limparCacheProdutos(): void {
+  Object.keys(produtoCache).forEach(key => delete produtoCache[key]);
+}
+
+/**
+ * Busca detalhes completos de um produto na API do Tiny ERP
+ * Usado para obter categoria, marca, subcategoria, variações, etc.
+ * 
+ * API v3 OFICIAL: GET /produtos/{idProduto}
+ * Retorna: { categoria: { id, nome, caminhoCompleto }, marca: { id, nome }, variacoes: [...], ... }
+ * 
+ * Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html#/Produtos/GetProduto
+ */
 async function fetchProdutoCompletoFromTiny(
   storeId: string,
   produtoId: string | number
 ): Promise<any | null> {
   try {
-    // Cache simples para evitar múltiplas requisições do mesmo produto
-    const cacheKey = `produto_${produtoId}`;
-    if ((fetchProdutoCompletoFromTiny as any).cache && (fetchProdutoCompletoFromTiny as any).cache[cacheKey]) {
-      return (fetchProdutoCompletoFromTiny as any).cache[cacheKey];
+    // ✅ Cache para evitar múltiplas requisições do mesmo produto
+    const cacheKey = `${storeId}_produto_${produtoId}`;
+    if (produtoCache[cacheKey]) {
+      console.log(`[SyncTiny] ⚡ Cache hit para produto ${produtoId}`);
+      return produtoCache[cacheKey];
     }
 
     console.log(`[SyncTiny] 🔍 Buscando detalhes completos do produto ${produtoId} via GET /produtos/${produtoId}...`);
@@ -1432,11 +1454,8 @@ async function fetchProdutoCompletoFromTiny(
       chaves_disponiveis: Object.keys(produtoCompleto),
     });
 
-    // Inicializar cache se não existir
-    if (!(fetchProdutoCompletoFromTiny as any).cache) {
-      (fetchProdutoCompletoFromTiny as any).cache = {};
-    }
-    (fetchProdutoCompletoFromTiny as any).cache[cacheKey] = produtoCompleto;
+    // Salvar no cache
+    produtoCache[cacheKey] = produtoCompleto;
 
     return produtoCompleto;
   } catch (error: any) {
