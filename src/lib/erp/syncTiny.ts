@@ -1991,6 +1991,22 @@ export async function syncTinyContacts(
     let errors = 0;
     const errorDetails: string[] = [];
 
+    // ✅ ANTES DE PROCESSAR: Popular telefones de pedidos para contatos sem telefone
+    console.log(`[SyncTiny] 🔄 Populando telefones de pedidos para contatos sem telefone...`);
+    try {
+      const { error: updateError } = await supabase
+        .schema('sistemaretiradas')
+        .rpc('popular_telefone_de_pedidos', { p_store_id: storeId });
+      
+      if (updateError) {
+        console.warn(`[SyncTiny] ⚠️ Erro ao popular telefones:`, updateError);
+      } else {
+        console.log(`[SyncTiny] ✅ Telefones populados de pedidos para contatos`);
+      }
+    } catch (error) {
+      console.warn(`[SyncTiny] ⚠️ Erro ao popular telefones (função pode não existir ainda):`, error);
+    }
+
     // Processar cada contato
     // Os contatos já vêm diretos em 'itens', não há objeto 'contato' aninhado
     for (const contatoData of allContatos) {
