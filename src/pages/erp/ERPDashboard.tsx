@@ -80,12 +80,20 @@ export default function ERPDashboard() {
     }
   }, [selectedStoreId]);
 
-  // ✅ AUTO-REFRESH: Sincronização automática a cada X segundos
+  // ✅ FASE 1: AUTO-REFRESH OTIMIZADO - Sincronização quase em tempo real (5-10s)
   useEffect(() => {
     if (!selectedStoreId) return;
 
+    let isSyncing = false; // Prevenir múltiplas sincronizações simultâneas
+
     // Verificar se a loja tem integração ERP configurada
     const checkAndSync = async () => {
+      // Se já está sincronizando, pular
+      if (isSyncing) {
+        console.log('[ERPDashboard] ⏭️ Sincronização já em andamento, pulando...');
+        return;
+      }
+
       const { data: integration } = await supabase
         .schema('sistemaretiradas')
         .from('erp_integrations')
@@ -94,26 +102,49 @@ export default function ERPDashboard() {
         .maybeSingle();
 
       if (integration && integration.access_token && integration.sync_status === 'CONNECTED') {
-        // Sincronização silenciosa (sem toast)
+        isSyncing = true;
+        const syncStartTime = Date.now();
+        
         try {
-          await syncTinyOrders(selectedStoreId, {
+          console.log(`[ERPDashboard] 🔄 Auto-sincronização iniciada (${new Date().toLocaleTimeString()})...`);
+          
+          // ✅ FASE 1: Sincronização incremental otimizada
+          // Busca apenas pedidos novos desde última sincronização
+          const result = await syncTinyOrders(selectedStoreId, {
             incremental: true,
+            limit: 50, // Limitar para sincronização rápida
+            maxPages: 2, // Máximo 2 páginas por sincronização (100 pedidos)
           });
-          // Atualizar KPIs e última sincronização silenciosamente
-          await fetchKPIs();
-          await fetchLastSync();
-        } catch (error) {
-          // Erros silenciosos no auto-refresh (não mostrar toast)
-          console.warn('[ERPDashboard] Erro no auto-refresh:', error);
+
+          const syncDuration = Date.now() - syncStartTime;
+          
+          if (result.success) {
+            console.log(`[ERPDashboard] ✅ Auto-sincronização concluída em ${syncDuration}ms: ${result.message}`);
+            
+            // Atualizar KPIs e última sincronização silenciosamente
+            await Promise.all([
+              fetchKPIs(),
+              fetchLastSync(),
+            ]);
+          } else {
+            console.warn(`[ERPDashboard] ⚠️ Auto-sincronização com problemas: ${result.message}`);
+          }
+        } catch (error: any) {
+          // Erros silenciosos no auto-refresh (não mostrar toast para não poluir)
+          console.warn('[ERPDashboard] ⚠️ Erro no auto-refresh:', error.message || error);
+        } finally {
+          isSyncing = false;
         }
       }
     };
 
-    // Primeira sincronização após 5 segundos
-    const initialTimeout = setTimeout(checkAndSync, 5000);
+    // ✅ FASE 1: Primeira sincronização após 3 segundos (mais rápido)
+    const initialTimeout = setTimeout(checkAndSync, 3000);
 
-    // Depois, sincronizar a cada 30 segundos (configurável)
-    const interval = setInterval(checkAndSync, 30000); // 30 segundos
+    // ✅ FASE 1: Sincronizar a cada 10 segundos (quase tempo real)
+    // Balanceamento: 10s é rápido o suficiente para ser "quase tempo real"
+    // mas não sobrecarrega a API do Tiny ERP
+    const interval = setInterval(checkAndSync, 10000); // 10 segundos
 
     return () => {
       clearTimeout(initialTimeout);

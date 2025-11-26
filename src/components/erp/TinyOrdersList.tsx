@@ -57,14 +57,15 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
     filterOrders();
   }, [orders, searchTerm, statusFilter, dateFilter]);
 
-  // ✅ AUTO-REFRESH: Atualizar lista automaticamente a cada X segundos
+  // ✅ FASE 1: AUTO-REFRESH OTIMIZADO - Atualizar lista mais frequentemente
   useEffect(() => {
     if (!storeId) return;
 
-    // Atualizar a cada 20 segundos (mais frequente que a sincronização)
+    // ✅ FASE 1: Atualizar a cada 8 segundos (mais frequente que sincronização de 10s)
+    // Isso garante que quando novos pedidos chegarem, a lista atualiza rapidamente
     const interval = setInterval(() => {
       fetchOrders();
-    }, 20000); // 20 segundos
+    }, 8000); // 8 segundos
 
     return () => clearInterval(interval);
   }, [storeId]);

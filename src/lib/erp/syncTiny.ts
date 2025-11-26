@@ -509,7 +509,7 @@ export async function syncTinyOrders(
     const { dataInicio, dataFim: dataFimParam, limit = 100, maxPages = 5, incremental = true } = options;
     dataFim = dataFimParam;
 
-    // Sincronização incremental - buscar última data E último ID
+    // ✅ FASE 1: Sincronização incremental otimizada - buscar última data E último ID
     dataInicioSync = dataInicio;
     let ultimoTinyIdSync: string | null = null;
 
@@ -517,7 +517,7 @@ export async function syncTinyOrders(
       const { data: lastSync } = await supabase
         .schema('sistemaretiradas')
         .from('erp_sync_logs')
-        .select('data_fim, ultimo_tiny_id_sincronizado')
+        .select('data_fim, ultimo_tiny_id_sincronizado, sync_at')
         .eq('store_id', storeId)
         .eq('sistema_erp', 'TINY')
         .eq('tipo_sync', 'PEDIDOS')
@@ -527,27 +527,44 @@ export async function syncTinyOrders(
         .maybeSingle();
 
       if (lastSync?.data_fim) {
-        // Sincronizar desde a última data (inclusive)
+        // ✅ FASE 1: Para sincronização quase em tempo real, usar apenas últimas horas
+        // Em vez de 1 dia antes, usar apenas 2 horas antes para ser mais eficiente
         const lastDate = new Date(lastSync.data_fim);
-        lastDate.setDate(lastDate.getDate() - 1); // 1 dia antes para garantir que não perde nada
-        dataInicioSync = lastDate.toISOString().split('T')[0];
+        const duasHorasAtras = new Date(lastDate);
+        duasHorasAtras.setHours(duasHorasAtras.getHours() - 2); // 2 horas antes
+        
+        // Se última sincronização foi há menos de 1 hora, usar apenas 1 hora atrás
+        const agora = new Date();
+        const tempoDesdeUltimaSync = agora.getTime() - new Date(lastSync.sync_at).getTime();
+        const umaHoraAtras = new Date(agora);
+        umaHoraAtras.setHours(umaHoraAtras.getHours() - 1);
+        
+        if (tempoDesdeUltimaSync < 60 * 60 * 1000) {
+          // Última sync foi há menos de 1 hora, usar apenas 1 hora atrás
+          dataInicioSync = umaHoraAtras.toISOString().split('T')[0];
+          console.log(`[SyncTiny] ⚡ Sincronização rápida (última sync há ${Math.round(tempoDesdeUltimaSync / 1000 / 60)}min) - buscando desde: ${dataInicioSync}`);
+        } else {
+          // Última sync foi há mais tempo, usar 2 horas atrás
+          dataInicioSync = duasHorasAtras.toISOString().split('T')[0];
+          console.log(`[SyncTiny] 🔄 Sincronização incremental desde: ${dataInicioSync}, último ID: ${ultimoTinyIdSync || 'N/A'}`);
+        }
+        
         ultimoTinyIdSync = lastSync.ultimo_tiny_id_sincronizado || null;
-        console.log(`[SyncTiny] Sincronização incremental desde: ${dataInicioSync}, último ID: ${ultimoTinyIdSync || 'N/A'}`);
       } else {
-        // Se não há sincronização anterior, sincronizar últimos 7 dias por padrão
+        // Se não há sincronização anterior, sincronizar últimos 3 dias (reduzido de 7 para ser mais rápido)
         const hoje = new Date();
-        const seteDiasAtras = new Date(hoje);
-        seteDiasAtras.setDate(hoje.getDate() - 7);
-        dataInicioSync = seteDiasAtras.toISOString().split('T')[0];
-        console.log(`[SyncTiny] Primeira sincronização - sincronizando últimos 7 dias desde: ${dataInicioSync}`);
+        const tresDiasAtras = new Date(hoje);
+        tresDiasAtras.setDate(hoje.getDate() - 3);
+        dataInicioSync = tresDiasAtras.toISOString().split('T')[0];
+        console.log(`[SyncTiny] 🆕 Primeira sincronização - sincronizando últimos 3 dias desde: ${dataInicioSync}`);
       }
     } else if (!dataInicio) {
-      // Se não é incremental e não tem dataInicio, também usar últimos 7 dias
+      // Se não é incremental e não tem dataInicio, usar últimos 3 dias (reduzido de 7)
       const hoje = new Date();
-      const seteDiasAtras = new Date(hoje);
-      seteDiasAtras.setDate(hoje.getDate() - 7);
-      dataInicioSync = seteDiasAtras.toISOString().split('T')[0];
-      console.log(`[SyncTiny] Sem data inicial definida - sincronizando últimos 7 dias desde: ${dataInicioSync}`);
+      const tresDiasAtras = new Date(hoje);
+      tresDiasAtras.setDate(hoje.getDate() - 3);
+      dataInicioSync = tresDiasAtras.toISOString().split('T')[0];
+      console.log(`[SyncTiny] 📅 Sem data inicial definida - sincronizando últimos 3 dias desde: ${dataInicioSync}`);
     }
 
     // Endpoint conforme documentação oficial
