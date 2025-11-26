@@ -427,9 +427,6 @@ export default function CategoryReports() {
         const key = item.produto_id || item.codigo || item.descricao || 'unknown';
         
         if (!productMap.has(key)) {
-          // Buscar dados do pedido para este item
-          const order = orders.find(o => o.id === item.order_id);
-          
           productMap.set(key, {
             produto_id: item.produto_id,
             codigo: item.codigo,
@@ -444,9 +441,7 @@ export default function CategoryReports() {
         
         const report = productMap.get(key)!;
         
-        // Buscar dados do pedido para este item
-        const order = orders.find(o => o.id === item.order_id);
-        
+        // Usar dados do pedido que já foram adicionados ao item
         // Adicionar venda individual
         report.vendas.push({
           produto_id: item.produto_id,
@@ -456,9 +451,9 @@ export default function CategoryReports() {
           marca: item.marca,
           quantidade: item.quantidade,
           valor_total: item.valor_total,
-          cliente_nome: order?.cliente_nome || null,
-          numero_pedido: order?.numero_pedido || null,
-          data_pedido: order?.data_pedido || null,
+          cliente_nome: item.order_cliente_nome || null,
+          numero_pedido: item.order_numero_pedido || null,
+          data_pedido: item.order_data_pedido || null,
           order_id: item.order_id,
         });
         
