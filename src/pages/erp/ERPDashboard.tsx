@@ -366,6 +366,26 @@ export default function ERPDashboard() {
             >
               Inteligência de Produtos
             </Button>
+            {profile?.role === 'ADMIN' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/dev/erp-config')}
+                className="gap-2"
+              >
+                <Settings className="h-4 w-4" />
+                Configurações
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+              className="gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Sair
+            </Button>
           </div>
         </div>
       </div>
