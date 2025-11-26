@@ -866,21 +866,19 @@ export async function syncTinyOrders(
                       || null;
                     
                     // Extrair subcategoria do caminho completo (ex: "Roupas > Feminino > Vestidos")
+                    // REGRA: Tudo antes do último ">" é categoria, o último item é subcategoria
                     if (produtoCompleto.categoria.caminhoCompleto) {
                       const caminho = produtoCompleto.categoria.caminhoCompleto.split(' > ');
                       if (caminho.length > 1) {
-                        // Se tem mais de 2 níveis, o penúltimo pode ser a categoria e o último a subcategoria
-                        if (caminho.length === 2) {
-                          categoria = caminho[0];
-                          subcategoria = caminho[1];
-                        } else if (caminho.length > 2) {
-                          categoria = caminho[caminho.length - 2]; // Penúltimo
-                          subcategoria = caminho[caminho.length - 1]; // Último
-                        } else {
-                          categoria = caminho[0];
-                        }
+                        // Último item é sempre a subcategoria
+                        subcategoria = caminho[caminho.length - 1];
+                        
+                        // Tudo antes do último ">" é a categoria (juntar todos os níveis anteriores)
+                        categoria = caminho.slice(0, -1).join(' > ');
                       } else {
+                        // Se só tem um nível, é apenas categoria (sem subcategoria)
                         categoria = caminho[0];
+                        subcategoria = null;
                       }
                     }
                     
