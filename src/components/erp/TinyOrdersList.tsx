@@ -48,6 +48,8 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
+  const [itemsPerPage, setItemsPerPage] = useState<number>(20);
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   useEffect(() => {
     fetchOrders();
@@ -55,7 +57,14 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
 
   useEffect(() => {
     filterOrders();
+    setCurrentPage(1); // Resetar para primeira página quando filtros mudarem
   }, [orders, searchTerm, statusFilter, dateFilter]);
+
+  // Calcular paginação
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
 
   // ✅ AUTO-REFRESH SILENCIOSO - Atualizar lista quando houver novas vendas
   // Não mostra loading, apenas atualiza a lista silenciosamente
@@ -365,7 +374,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.map((order) => (
+                {paginatedOrders.map((order) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">
                       {order.numero_pedido || order.numero_ecommerce || order.tiny_id}
