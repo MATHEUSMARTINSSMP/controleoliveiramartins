@@ -192,7 +192,7 @@ async function fetchVendedorCompletoFromTiny(
 ): Promise<{ cpf?: string; email?: string; nome?: string } | null> {
   try {
     console.log(`[SyncTiny] 🔍 Buscando dados completos do vendedor ${vendedorId} no Tiny ERP...`);
-    
+
     // Buscar contato/vendedor pelo ID na API do Tiny
     // API v3: GET /contatos/{idContato}
     const response = await callERPAPI(storeId, `/contatos/${vendedorId}`);
@@ -279,7 +279,7 @@ async function findCollaboratorByVendedor(
       return null;
     }
 
-    console.log(`[SyncTiny] 📋 Colaboradoras disponíveis na loja (${colaboradoras.length}):`, 
+    console.log(`[SyncTiny] 📋 Colaboradoras disponíveis na loja (${colaboradoras.length}):`,
       colaboradoras.map(c => ({ nome: c.name, email: c.email, cpf: c.cpf?.substring(0, 3) + '***' }))
     );
 
@@ -317,9 +317,9 @@ async function findCollaboratorByVendedor(
       };
 
       const normalizedVendedorNome = normalizeName(vendedorCompleto.nome);
-      
+
       console.log(`[SyncTiny] 🔍 Tentando matching por nome: "${vendedorCompleto.nome}" (normalizado: "${normalizedVendedorNome}")`);
-      
+
       // Tentar match exato primeiro
       const matchByName = colaboradoras.find((colab) => {
         const normalizedColabNome = normalizeName(colab.name || '');
@@ -339,8 +339,8 @@ async function findCollaboratorByVendedor(
       const matchPartial = colaboradoras.find((colab) => {
         const normalizedColabNome = normalizeName(colab.name || '');
         // Verificar se o nome do vendedor contém o nome da colaboradora ou vice-versa
-        return normalizedColabNome.includes(normalizedVendedorNome) || 
-               normalizedVendedorNome.includes(normalizedColabNome);
+        return normalizedColabNome.includes(normalizedVendedorNome) ||
+          normalizedVendedorNome.includes(normalizedColabNome);
       });
 
       if (matchPartial) {
@@ -349,7 +349,7 @@ async function findCollaboratorByVendedor(
       }
 
       // Log de nomes disponíveis para debug
-      console.log(`[SyncTiny] 📋 Nomes de colaboradoras disponíveis:`, 
+      console.log(`[SyncTiny] 📋 Nomes de colaboradoras disponíveis:`,
         colaboradoras.map(c => `"${c.name}" (normalizado: "${normalizeName(c.name)}")`).join(', ')
       );
     }
@@ -395,11 +395,11 @@ export async function syncTinyOrders(
   executionTime: number;
 }> {
   const startTime = Date.now();
-  
+
   // Definir variáveis no escopo externo para estar disponível no catch
   let dataInicioSync: string | undefined = options.dataInicio;
   let dataFim: string | undefined = options.dataFim;
-  
+
   try {
     const { dataInicio, dataFim: dataFimParam, limit = 100, maxPages = 50, incremental = true } = options;
     dataFim = dataFimParam;
@@ -407,7 +407,7 @@ export async function syncTinyOrders(
     // Sincronização incremental - buscar última data E último ID
     dataInicioSync = dataInicio;
     let ultimoTinyIdSync: string | null = null;
-    
+
     if (incremental && !dataInicio) {
       const { data: lastSync } = await supabase
         .schema('sistemaretiradas')
@@ -473,18 +473,18 @@ export async function syncTinyOrders(
 
       // API v3 usa GET para listar pedidos
       const response = await callERPAPI(storeId, '/pedidos', params);
-      
+
       // Verificar estrutura da resposta conforme documentação Tiny ERP v3
       // A API v3 retorna: { itens: [...], paginacao: {...} }
       let pedidos: TinyPedido[] = [];
-      
+
       console.log(`[SyncTiny] Resposta recebida (página ${currentPage}):`, JSON.stringify(response).substring(0, 500));
-      
+
       // Tiny ERP v3 retorna: { itens: [...], paginacao: {...} }
       if (response.itens && Array.isArray(response.itens)) {
         pedidos = response.itens;
         console.log(`[SyncTiny] Encontrados ${pedidos.length} pedidos na página ${currentPage} via 'itens'`);
-        
+
         // Log detalhado do primeiro pedido para debug
         if (pedidos.length > 0) {
           console.log(`[SyncTiny] 📋 EXEMPLO DO PRIMEIRO PEDIDO (estrutura real):`, JSON.stringify(pedidos[0], null, 2).substring(0, 2000));
@@ -551,7 +551,7 @@ export async function syncTinyOrders(
     const pedidosFaturados = allPedidos.filter(p => {
       const pedido = p.pedido || p;
       const situacao = pedido.situacao;
-      
+
       if (typeof situacao === 'number') {
         // API v3 OFICIAL - Códigos de situação:
         // 8 = Dados Incompletos, 0 = Aberta, 3 = Aprovada, 4 = Preparando Envio,
@@ -563,7 +563,7 @@ export async function syncTinyOrders(
         const situacaoLower = situacao.toLowerCase();
         return situacaoLower.includes('faturado') || situacaoLower.includes('faturada');
       }
-      
+
       // Se não tiver situacao definida, não processar (evitar dados incompletos)
       return false;
     });
@@ -598,25 +598,25 @@ export async function syncTinyOrders(
           const quantidade = item.quantidade || 0; // API v3: number
           const valorUnitario = item.valorUnitario || 0; // API v3: number
           const infoAdicional = item.infoAdicional || null; // API v3: string
-          
+
           // Fallback para formato legado (snake_case)
           const itemData = item.item || item;
-          
+
           // Extrair categoria e subcategoria
-          const categoria = itemData.categoria 
-            || itemData.categoria_produto 
-            || itemData.categoria_id 
-            || produto.categoria 
+          const categoria = itemData.categoria
+            || itemData.categoria_produto
+            || itemData.categoria_id
+            || produto.categoria
             || produto.categoria_produto
             || null;
-          
-          const subcategoria = itemData.subcategoria 
-            || itemData.subcategoria_produto 
-            || itemData.subcategoria_id 
-            || produto.subcategoria 
+
+          const subcategoria = itemData.subcategoria
+            || itemData.subcategoria_produto
+            || itemData.subcategoria_id
+            || produto.subcategoria
             || produto.subcategoria_produto
             || null;
-          
+
           // Extrair marca (pode estar em vários lugares)
           const marca = itemData.marca
             || itemData.marca_produto
@@ -627,7 +627,7 @@ export async function syncTinyOrders(
             || itemData.dados_extras?.marca
             || produto.dados_extras?.marca
             || null;
-          
+
           // Extrair tamanho
           const tamanho = itemData.tamanho
             || itemData.tamanho_produto
@@ -638,7 +638,7 @@ export async function syncTinyOrders(
             || itemData.variacao?.tamanho
             || produto.variacao?.tamanho
             || null;
-          
+
           // Extrair cor
           const cor = itemData.cor
             || itemData.cor_produto
@@ -649,7 +649,7 @@ export async function syncTinyOrders(
             || itemData.variacao?.cor
             || produto.variacao?.cor
             || null;
-          
+
           // Extrair código do produto - API v3 OFICIAL: produto.sku
           const codigo = produto.sku  // API v3 oficial (camelCase)
             || itemData.sku
@@ -657,33 +657,33 @@ export async function syncTinyOrders(
             || produto.codigo_produto
             || itemData.codigo
             || null;
-          
+
           // Extrair descrição completa - API v3 OFICIAL: produto.descricao
           const descricao = produto.descricao  // API v3 oficial (camelCase)
             || itemData.descricao
             || produto.nome
             || itemData.nome
             || null;
-          
+
           // Extrair outras informações úteis
           const genero = itemData.genero
             || produto.genero
             || itemData.dados_extras?.genero
             || produto.dados_extras?.genero
             || null;
-          
+
           const faixa_etaria = itemData.faixa_etaria
             || produto.faixa_etaria
             || itemData.dados_extras?.faixa_etaria
             || produto.dados_extras?.faixa_etaria
             || null;
-          
+
           const material = itemData.material
             || produto.material
             || itemData.dados_extras?.material
             || produto.dados_extras?.material
             || null;
-          
+
           return {
             ...itemData,
             // Dados organizados para relatórios
@@ -717,7 +717,7 @@ export async function syncTinyOrders(
 
           // Tentar buscar CPF do vendedor nos dados do pedido (pode não vir)
           const vendedorCPF = pedido.vendedor.cpf
-            || pedido.vendedor.dados_extras?.cpf 
+            || pedido.vendedor.dados_extras?.cpf
             || pedido.vendedor.dados_extras?.cpf_cnpj
             || pedido.dados_extras?.vendedor_cpf
             || null;
@@ -743,7 +743,7 @@ export async function syncTinyOrders(
         // API v3 usa: id (number), numeroPedido (number)
         const tinyId = String(pedido.id || pedido.numeroPedido || pedido.numero || `temp_${Date.now()}`);
         ultimoTinyIdProcessado = tinyId; // Atualizar último ID processado
-        
+
         const orderData = {
           store_id: storeId,
           tiny_id: tinyId,
@@ -767,27 +767,19 @@ export async function syncTinyOrders(
             }
 
             console.log(`[SyncTiny] 📅 Data bruta recebida: "${data}" (tipo: ${typeof data})`);
-            
-            // Se já tem formato ISO completo com T e hora
-            if (typeof data === 'string' && data.includes('T')) {
-              return data;
-            }
-            
-            // Se for apenas data (YYYY-MM-DD)
-            if (typeof data === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data)) {
-              return `${data}T00:00:00`;
-            }
-            
-            // Tentar parsear qualquer formato
+
+            // ✅ CORREÇÃO: Sempre converter para ISO completo com timezone
             try {
               const date = new Date(data);
               if (!isNaN(date.getTime())) {
-                return date.toISOString();
+                const isoString = date.toISOString();  // Sempre retorna com Z (UTC)
+                console.log(`[SyncTiny] ✅ Data convertida para ISO: "${isoString}"`);
+                return isoString;
               }
-            } catch {
-              // Ignorar erro de parsing
+            } catch (error) {
+              console.error(`[SyncTiny] ❌ Erro ao converter data "${data}":`, error);
             }
-            
+
             return null;
           })(),
           data_prevista: (() => {
@@ -802,7 +794,7 @@ export async function syncTinyOrders(
             // API v3 usa camelCase: cpfCnpj
             const cpfCnpj = cliente.cpfCnpj  // API v3 oficial (camelCase)
               || cliente.cpf_cnpj  // Fallback para snake_case
-              || cliente.cpf 
+              || cliente.cpf
               || cliente.cnpj
               || cliente.documento
               || cliente.dados_extras?.cpfCnpj
@@ -847,7 +839,7 @@ export async function syncTinyOrders(
             // Remover tudo exceto dígitos, vírgula e ponto
             const valorLimpo = valorStr.replace(/[^\d,.-]/g, '').replace(',', '.');
             const valorNum = parseFloat(valorLimpo);
-            
+
             if (isNaN(valorNum)) {
               console.warn(`[SyncTiny] ⚠️ Erro ao parsear valor "${valorStr}" do pedido ${pedido.id || pedido.numeroPedido || pedido.numero}`);
               return 0;
@@ -890,32 +882,91 @@ export async function syncTinyOrders(
           vendedor_nome: orderData.vendedor_nome,
         });
 
+        // 🔍 DIAGNÓSTICO: Log detalhado dos TIPOS de dados ANTES do upsert
+        console.log(`[SyncTiny] 🔍 Tipos de dados ANTES do upsert (pedido ${tinyId}):`, {
+          valor_total_TIPO: typeof orderData.valor_total,
+          valor_total_VALOR: orderData.valor_total,
+          data_pedido_TIPO: typeof orderData.data_pedido,
+          data_pedido_VALOR: orderData.data_pedido,
+          cliente_cpf_cnpj_TIPO: typeof orderData.cliente_cpf_cnpj,
+          cliente_cpf_cnpj_VALOR: orderData.cliente_cpf_cnpj ? orderData.cliente_cpf_cnpj.substring(0, 3) + '***' : null,
+        });
+
         // Upsert pedido (insert ou update se já existir)
-        const { error: upsertError } = await supabase
+        // ✅ ADICIONADO .select() para retornar dados salvos e validar
+        const { data: upsertedData, error: upsertError } = await supabase
           .schema('sistemaretiradas')
           .from('tiny_orders')
           .upsert(orderData, {
             onConflict: 'store_id,tiny_id',
             ignoreDuplicates: false,
-          });
+          })
+          .select('tiny_id, numero_pedido, valor_total, data_pedido, cliente_cpf_cnpj');
 
         if (upsertError) {
           console.error(`[SyncTiny] ❌ Erro ao salvar pedido ${tinyId}:`, upsertError);
           errors++;
           errorDetails.push(`Pedido ${orderData.numero_pedido || orderData.tiny_id}: ${upsertError.message}`);
           continue; // Pular para o próximo pedido
-        } else {
-          console.log(`[SyncTiny] ✅ Pedido ${tinyId} salvo com sucesso!`);
-          if (existingOrder) {
-            updated++;
-          } else {
-            synced++;
+        }
+
+        // ✅ VALIDAÇÃO: Verificar dados realmente salvos no banco
+        if (upsertedData && upsertedData.length > 0) {
+          const savedOrder = upsertedData[0];
+
+          console.log(`[SyncTiny] ✅ Dados SALVOS no banco (pedido ${tinyId}):`, {
+            valor_total_SALVO: savedOrder.valor_total,
+            valor_total_TIPO_SALVO: typeof savedOrder.valor_total,
+            data_pedido_SALVA: savedOrder.data_pedido,
+            data_pedido_TIPO_SALVA: typeof savedOrder.data_pedido,
+            cliente_cpf_cnpj_SALVO: savedOrder.cliente_cpf_cnpj ? savedOrder.cliente_cpf_cnpj.substring(0, 3) + '***' : null,
+          });
+
+          // 🚨 ALERTAS: Comparar dados enviados vs salvos
+          let hasDiscrepancy = false;
+
+          // Validar valor_total
+          if (orderData.valor_total > 0 && (!savedOrder.valor_total || savedOrder.valor_total === 0)) {
+            console.error(`[SyncTiny] ⚠️⚠️⚠️ VALOR INCORRETO (pedido ${tinyId}):`);
+            console.error(`  → Enviado: ${orderData.valor_total} (tipo: ${typeof orderData.valor_total})`);
+            console.error(`  → Salvo: ${savedOrder.valor_total} (tipo: ${typeof savedOrder.valor_total})`);
+            hasDiscrepancy = true;
           }
 
-          // Sincronizar cliente também
-          if (cliente.nome) {
-            await syncTinyContact(storeId, cliente, orderData.tiny_id);
+          // Validar data_pedido
+          if (orderData.data_pedido && !savedOrder.data_pedido) {
+            console.error(`[SyncTiny] ⚠️⚠️⚠️ DATA INCORRETA (pedido ${tinyId}):`);
+            console.error(`  → Enviada: ${orderData.data_pedido} (tipo: ${typeof orderData.data_pedido})`);
+            console.error(`  → Salva: ${savedOrder.data_pedido} (tipo: ${typeof savedOrder.data_pedido})`);
+            hasDiscrepancy = true;
           }
+
+          // Validar CPF/CNPJ
+          if (orderData.cliente_cpf_cnpj && !savedOrder.cliente_cpf_cnpj) {
+            console.error(`[SyncTiny] ⚠️⚠️⚠️ CPF/CNPJ INCORRETO (pedido ${tinyId}):`);
+            console.error(`  → Enviado: ${orderData.cliente_cpf_cnpj.substring(0, 3)}*** (tipo: ${typeof orderData.cliente_cpf_cnpj})`);
+            console.error(`  → Salvo: ${savedOrder.cliente_cpf_cnpj} (tipo: ${typeof savedOrder.cliente_cpf_cnpj})`);
+            hasDiscrepancy = true;
+          }
+
+          if (!hasDiscrepancy) {
+            console.log(`[SyncTiny] ✅ Pedido ${tinyId} salvo com sucesso! Todos os dados conferem.`);
+          } else {
+            console.error(`[SyncTiny] ⚠️ Pedido ${tinyId} salvo MAS com discrepâncias nos dados!`);
+          }
+        } else {
+          console.warn(`[SyncTiny] ⚠️ Pedido ${tinyId} - upsert não retornou dados!`);
+        }
+
+        if (existingOrder) {
+          updated++;
+        } else {
+          synced++;
+        }
+
+        // Sincronizar cliente também
+        if (cliente.nome) {
+          await syncTinyContact(storeId, cliente, orderData.tiny_id);
         }
       } catch (error: any) {
         console.error(`Erro ao processar pedido:`, error);
@@ -960,7 +1011,7 @@ export async function syncTinyOrders(
   } catch (error: any) {
     console.error('Erro na sincronização de pedidos:', error);
     const executionTime = Date.now() - startTime;
-    
+
     // Log detalhado de erro
     await supabase
       .schema('sistemaretiradas')
@@ -1007,13 +1058,13 @@ async function syncTinyContact(
     }
 
     // Buscar data de nascimento - pode estar em vários lugares
-    const dataNascimento = cliente.data_nascimento 
-      || cliente.nascimento 
-      || cliente.data_nasc 
+    const dataNascimento = cliente.data_nascimento
+      || cliente.nascimento
+      || cliente.data_nasc
       || cliente.dados_extras?.data_nascimento
       || cliente.dados_extras?.nascimento
       || null;
-    
+
     // Normalizar data de nascimento para formato DATE
     let dataNascimentoNormalizada: string | null = null;
     if (dataNascimento) {
@@ -1081,7 +1132,7 @@ export async function syncTinyContacts(
   executionTime: number;
 }> {
   const startTime = Date.now();
-  
+
   try {
     const { limit = 100, maxPages = 50 } = options;
 
@@ -1100,13 +1151,13 @@ export async function syncTinyContacts(
       console.log(`[SyncTiny] Buscando contatos página ${currentPage}...`);
 
       const response = await callERPAPI(storeId, '/contatos', params);
-      
+
       // Verificar estrutura da resposta
       // Tiny ERP v3 pode retornar: { contatos: [...] } ou { retorno: { contatos: [...] } }
       let contatos: TinyContato[] = [];
-      
+
       console.log(`[SyncTiny] Resposta recebida (página ${currentPage}):`, JSON.stringify(response).substring(0, 500));
-      
+
       // Tiny ERP v3 retorna: { itens: [...], paginacao: {...} }
       if (response.itens && Array.isArray(response.itens)) {
         contatos = response.itens;
@@ -1182,7 +1233,7 @@ export async function syncTinyContacts(
           .maybeSingle();
 
         await syncTinyContact(storeId, contato);
-        
+
         if (existing) {
           updated++;
         } else {
@@ -1227,7 +1278,7 @@ export async function syncTinyContacts(
   } catch (error: any) {
     console.error('Erro na sincronização de contatos:', error);
     const executionTime = Date.now() - startTime;
-    
+
     return {
       success: false,
       message: error.message || 'Erro ao sincronizar contatos',
