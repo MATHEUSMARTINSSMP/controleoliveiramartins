@@ -229,6 +229,9 @@ async function fetchVendedorCompletoFromTiny(
  * Se tiver vendedor.id, busca dados completos no Tiny primeiro para pegar CPF
  * CPF está disponível no cadastro do Tiny e no profile do sistema
  */
+// ✅ CACHE de vendedores para evitar requisições repetidas
+const vendedoresCache = new Map<string, any>();
+
 async function findCollaboratorByVendedor(
   storeId: string,
   vendedor: { id?: string; nome?: string; email?: string; cpf?: string }
@@ -240,14 +243,26 @@ async function findCollaboratorByVendedor(
   // Se tiver ID do vendedor mas não tiver CPF, buscar dados completos no Tiny
   let vendedorCompleto = { ...vendedor };
   if (vendedor.id && !vendedor.cpf) {
-    const dadosCompletos = await fetchVendedorCompletoFromTiny(storeId, vendedor.id);
-    if (dadosCompletos) {
-      vendedorCompleto = {
-        ...vendedor,
-        cpf: dadosCompletos.cpf || vendedor.cpf,
-        email: dadosCompletos.email || vendedor.email,
-        nome: dadosCompletos.nome || vendedor.nome,
-      };
+    // ✅ VERIFICAR CACHE PRIMEIRO
+    const cacheKey = `${storeId}:${vendedor.id}`;
+
+    if (vendedoresCache.has(cacheKey)) {
+      console.log(`[SyncTiny] 💾 Vendedor ${vendedor.id} encontrado no cache`);
+      vendedorCompleto = vendedoresCache.get(cacheKey)!;
+    } else {
+      console.log(`[SyncTiny] 🔍 Buscando vendedor ${vendedor.id} na API (não está no cache)`);
+      const dadosCompletos = await fetchVendedorCompletoFromTiny(storeId, vendedor.id);
+      if (dadosCompletos) {
+        vendedorCompleto = {
+          ...vendedor,
+          cpf: dadosCompletos.cpf || vendedor.cpf,
+          email: dadosCompletos.email || vendedor.email,
+          nome: dadosCompletos.nome || vendedor.nome,
+        };
+        // ✅ SALVAR NO CACHE
+        vendedoresCache.set(cacheKey, vendedorCompleto);
+        console.log(`[SyncTiny] 💾 Vendedor ${vendedor.id} salvo no cache`);
+      }
     }
   }
 
