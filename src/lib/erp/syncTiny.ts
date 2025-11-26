@@ -2249,14 +2249,18 @@ export async function syncTinyContacts(
           console.warn(`[SyncTiny] ⚠️ Contato ${contato.nome} não tem ID, não é possível buscar detalhes completos`);
         }
 
-        // Log detalhado para diagnóstico
-        console.log(`[SyncTiny] 📋 Processando contato: ${contatoCompleto.nome}`, {
+        // Log detalhado para diagnóstico (DEPOIS de buscar detalhes se necessário)
+        console.log(`[SyncTiny] 📋 Processando contato FINAL: ${contatoCompleto.nome}`, {
           id: contatoCompleto.id,
           tem_celular: !!contatoCompleto.celular,
+          valor_celular: contatoCompleto.celular,
           tem_telefone: !!contatoCompleto.telefone,
+          valor_telefone: contatoCompleto.telefone,
           tem_dataNascimento: !!contatoCompleto.dataNascimento,
+          valor_dataNascimento: contatoCompleto.dataNascimento,
           tem_contatos_array: Array.isArray(contatoCompleto.contatos),
-          chaves: Object.keys(contatoCompleto).filter(k => 
+          contatos_length: Array.isArray(contatoCompleto.contatos) ? contatoCompleto.contatos.length : 0,
+          chaves_telefone: Object.keys(contatoCompleto).filter(k => 
             k.toLowerCase().includes('tel') || 
             k.toLowerCase().includes('cel') || 
             k.toLowerCase().includes('mobile') ||
