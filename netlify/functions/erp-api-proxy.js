@@ -327,18 +327,28 @@ exports.handler = async (event, context) => {
 
     // ✅ LOG DETALHADO: Verificar estrutura da resposta para endpoints de contatos
     if (endpoint && endpoint.includes('/contatos')) {
+      // ✅ CORREÇÃO: Verificar se é listagem ou detalhes
+      const isListagem = !endpoint.match(/\/contatos\/\d+$/);
+      const isDetalhes = endpoint.match(/\/contatos\/\d+$/);
+      
       console.log(`[ERP-API-Proxy] 📋 Resposta detalhada para ${endpoint}:`, {
         status: apiResponse.status,
-        tem_contato: !!responseData.contato,
-        tem_data_direto: !responseData.contato && responseData.id,
-        chaves_principais: Object.keys(responseData).slice(0, 10),
+        tipo: isListagem ? 'LISTAGEM (deve ter itens e paginacao)' : 'DETALHES (contato direto)',
+        tem_contato_wrapper: !!responseData.contato,
+        tem_id_direto: !!responseData.id,
+        tem_itens: !!responseData.itens,
+        tem_paginacao: !!responseData.paginacao,
+        chaves_principais: Object.keys(responseData).slice(0, 15),
         estrutura_completa: JSON.stringify(responseData).substring(0, 1000),
       });
       
       // Se for GET /contatos/{id} (detalhes completos), logar campos importantes
+      // ✅ CORREÇÃO: A documentação oficial mostra que GET /contatos/{id} retorna o contato DIRETAMENTE
+      // Não há wrapper "contato", a resposta é o objeto contato em si
       if (endpoint.match(/\/contatos\/\d+$/)) {
-        const contato = responseData.contato || responseData;
-        console.log(`[ERP-API-Proxy] 📞 Campos de telefone/data no contato:`, {
+        // responseData JÁ É o contato diretamente (não responseData.contato)
+        const contato = responseData;
+        console.log(`[ERP-API-Proxy] 📞 Campos de telefone/data no contato (DIRETO):`, {
           tem_telefone: !!contato.telefone,
           valor_telefone: contato.telefone,
           tem_celular: !!contato.celular,
@@ -353,6 +363,7 @@ exports.handler = async (event, context) => {
             k.toLowerCase().includes('mobile') ||
             k.toLowerCase().includes('nasc')
           ),
+          estrutura_verificada: 'responseData é o contato diretamente (sem wrapper)',
         });
       }
     }

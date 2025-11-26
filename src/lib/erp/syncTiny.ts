@@ -2201,25 +2201,21 @@ export async function syncTinyContacts(
     // Os contatos já vêm diretos em 'itens', não há objeto 'contato' aninhado
     for (const contatoData of allContatos) {
       try {
-        // ✅ CORREÇÃO: A API v3 retorna contatos diretos em 'itens', mas pode ter estrutura aninhada
-        // Tentar múltiplas estruturas possíveis
-        let contato: any = null;
+        // ✅ CORREÇÃO BASEADA NA DOCUMENTAÇÃO OFICIAL:
+        // A listagem GET /contatos retorna { itens: [...], paginacao: {...} }
+        // Cada item em 'itens' JÁ É um contato direto (não há wrapper)
+        // contatoData JÁ É o contato diretamente do array itens
+        let contato: any = contatoData;
         
-        // Estrutura 1: contatoData.contato (aninhado)
-        if (contatoData.contato && typeof contatoData.contato === 'object') {
-          contato = contatoData.contato;
+        // ✅ VALIDAÇÃO: Verificar se contatoData tem estrutura mínima de contato
+        if (!contato || (!contato.id && !contato.nome)) {
+          console.warn(`[SyncTiny] ⚠️ Contato inválido na listagem, ignorando:`, JSON.stringify(contatoData).substring(0, 200));
+          continue;
         }
-        // Estrutura 2: contatoData direto (API v3 retorna assim)
-        else if (contatoData.id || contatoData.nome) {
-          contato = contatoData;
-        }
-        // Estrutura 3: contatoData.data (algumas APIs retornam assim)
-        else if (contatoData.data && typeof contatoData.data === 'object') {
-          contato = contatoData.data;
-        }
-
-        if (!contato || !contato.nome) {
-          console.warn(`[SyncTiny] ⚠️ Contato sem nome, ignorando:`, JSON.stringify(contatoData).substring(0, 200));
+        
+        // Log para diagnóstico
+        if (!contato.nome) {
+          console.warn(`[SyncTiny] ⚠️ Contato sem nome (ID: ${contato.id}), ignorando`);
           continue;
         }
 
