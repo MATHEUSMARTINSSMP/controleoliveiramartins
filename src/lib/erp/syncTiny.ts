@@ -1095,6 +1095,14 @@ async function syncTinyContact(
       }
     }
 
+    // ✅ Extrair CPF/CNPJ do cliente (API v3 usa camelCase)
+    const cpfCnpj = cliente.cpfCnpj  // API v3 oficial (camelCase)
+      || cliente.cpf_cnpj  // Fallback para snake_case
+      || cliente.cpf
+      || cliente.cnpj
+      || cliente.documento
+      || null;
+
     const contactData = {
       store_id: storeId,
       tiny_id: cliente.id?.toString() || cpfCnpj || `temp_${Date.now()}`,
