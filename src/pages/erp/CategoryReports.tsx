@@ -4,6 +4,8 @@
  * 
  * Agrupa vendas por categoria/subcategoria e mostra totais, quantidades, ticket médio
  * Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html
+ * 
+ * Fix: DollarSign import corrigido
  */
 
 import { useEffect, useState } from 'react';
