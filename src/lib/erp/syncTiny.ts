@@ -104,9 +104,19 @@ async function findCollaboratorByVendedor(
       .eq('active', true)
       .eq('store_id', storeId);
 
-    if (error || !colaboradoras || colaboradoras.length === 0) {
+    if (error) {
+      console.error(`[SyncTiny] ❌ Erro ao buscar colaboradoras:`, error);
       return null;
     }
+
+    if (!colaboradoras || colaboradoras.length === 0) {
+      console.log(`[SyncTiny] ⚠️ Nenhuma colaboradora encontrada para a loja ${storeId}`);
+      return null;
+    }
+
+    console.log(`[SyncTiny] 📋 Colaboradoras disponíveis na loja (${colaboradoras.length}):`, 
+      colaboradoras.map(c => ({ nome: c.name, email: c.email, cpf: c.cpf?.substring(0, 3) + '***' }))
+    );
 
     // Tentar matching por CPF primeiro (mais confiável)
     if (normalizedCPF && normalizedCPF.length >= 11) {
