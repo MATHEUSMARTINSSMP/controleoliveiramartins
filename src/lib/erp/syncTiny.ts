@@ -183,6 +183,49 @@ interface TinyContato {
 }
 
 /**
+ * Busca dados completos de um contato na API do Tiny ERP usando o ID
+ * Retorna telefone, celular, dataNascimento e outros dados completos
+ * 
+ * Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html#/Contatos/ObterContatoAction
+ * Endpoint: GET /contatos/{idContato}
+ */
+async function fetchContatoCompletoFromTiny(
+  storeId: string,
+  contatoId: number | string
+): Promise<any | null> {
+  try {
+    console.log(`[SyncTiny] 🔍 Buscando detalhes completos do contato ${contatoId}...`);
+    
+    const response = await callERPAPI(storeId, `/contatos/${contatoId}`, {});
+    
+    if (!response) {
+      console.warn(`[SyncTiny] ⚠️ Resposta vazia ao buscar contato ${contatoId}`);
+      return null;
+    }
+
+    // A API pode retornar o contato direto ou dentro de um objeto
+    const contatoCompleto = response.contato || response;
+    
+    console.log(`[SyncTiny] ✅ Detalhes completos recebidos para contato ${contatoId}:`, {
+      nome: contatoCompleto.nome,
+      tem_telefone: !!contatoCompleto.telefone,
+      valor_telefone: contatoCompleto.telefone,
+      tem_celular: !!contatoCompleto.celular,
+      valor_celular: contatoCompleto.celular,
+      tem_dataNascimento: !!contatoCompleto.dataNascimento,
+      valor_dataNascimento: contatoCompleto.dataNascimento,
+      tem_contatos_array: Array.isArray(contatoCompleto.contatos),
+      contatos_length: Array.isArray(contatoCompleto.contatos) ? contatoCompleto.contatos.length : 0,
+    });
+
+    return contatoCompleto;
+  } catch (error: any) {
+    console.error(`[SyncTiny] ❌ Erro ao buscar detalhes do contato ${contatoId}:`, error);
+    return null;
+  }
+}
+
+/**
  * Busca dados completos do vendedor na API do Tiny ERP usando o ID
  * Retorna CPF, email e outros dados completos do contato
  */
@@ -2129,16 +2172,51 @@ export async function syncTinyContacts(
           continue;
         }
 
+        // ✅ CORREÇÃO CRÍTICA: A listagem pode não retornar todos os campos
+        // Se telefone, celular ou dataNascimento estão vazios, buscar detalhes completos
+        let contatoCompleto = contato;
+        const precisaBuscarDetalhes = (
+          (!contato.telefone || contato.telefone === '') &&
+          (!contato.celular || contato.celular === '') &&
+          (!contato.dataNascimento || contato.dataNascimento === '')
+        ) && contato.id; // Só buscar se tiver ID
+
+        if (precisaBuscarDetalhes) {
+          console.log(`[SyncTiny] 🔍 Contato ${contato.nome} sem telefone/data na listagem, buscando detalhes completos...`);
+          try {
+            const contatoDetalhado = await fetchContatoCompletoFromTiny(storeId, contato.id);
+            if (contatoDetalhado) {
+              // Mesclar dados: priorizar detalhes completos, manter dados da listagem como fallback
+              contatoCompleto = {
+                ...contato,
+                ...contatoDetalhado,
+                // Garantir que não perdemos o ID
+                id: contato.id,
+              };
+              console.log(`[SyncTiny] ✅ Detalhes completos obtidos para ${contato.nome}:`, {
+                tem_telefone: !!contatoCompleto.telefone,
+                tem_celular: !!contatoCompleto.celular,
+                tem_dataNascimento: !!contatoCompleto.dataNascimento,
+              });
+            }
+          } catch (error) {
+            console.warn(`[SyncTiny] ⚠️ Erro ao buscar detalhes completos de ${contato.nome}:`, error);
+            // Continuar com dados da listagem mesmo se falhar
+          }
+        }
+
         // Log detalhado para diagnóstico
-        console.log(`[SyncTiny] 📋 Processando contato: ${contato.nome}`, {
-          id: contato.id,
-          tem_celular: !!contato.celular,
-          tem_telefone: !!contato.telefone,
-          tem_contatos_array: Array.isArray(contato.contatos),
-          chaves: Object.keys(contato).filter(k => 
+        console.log(`[SyncTiny] 📋 Processando contato: ${contatoCompleto.nome}`, {
+          id: contatoCompleto.id,
+          tem_celular: !!contatoCompleto.celular,
+          tem_telefone: !!contatoCompleto.telefone,
+          tem_dataNascimento: !!contatoCompleto.dataNascimento,
+          tem_contatos_array: Array.isArray(contatoCompleto.contatos),
+          chaves: Object.keys(contatoCompleto).filter(k => 
             k.toLowerCase().includes('tel') || 
             k.toLowerCase().includes('cel') || 
-            k.toLowerCase().includes('mobile')
+            k.toLowerCase().includes('mobile') ||
+            k.toLowerCase().includes('nasc')
           ),
         });
 
@@ -2148,7 +2226,7 @@ export async function syncTinyContacts(
           .from('tiny_contacts')
           .select('id, telefone, celular')
           .eq('store_id', storeId)
-          .eq('tiny_id', String(contato.id || contato.cpfCnpj || contato.cpf_cnpj || `temp_${Date.now()}`))
+          .eq('tiny_id', String(contatoCompleto.id || contatoCompleto.cpfCnpj || contatoCompleto.cpf_cnpj || `temp_${Date.now()}`))
           .maybeSingle();
 
         // Se já existe e tem telefone, logar para diagnóstico
@@ -2156,7 +2234,7 @@ export async function syncTinyContacts(
           console.log(`[SyncTiny] ℹ️ Contato já existe com telefone: ${existing.telefone || existing.celular}`);
         }
 
-        await syncTinyContact(storeId, contato);
+        await syncTinyContact(storeId, contatoCompleto);
 
         if (existing) {
           updated++;
