@@ -80,8 +80,20 @@ export default function ProductSalesIntelligence() {
   const [selectedStore, setSelectedStore] = useState<string>('all');
   const [selectedColaboradora, setSelectedColaboradora] = useState<string>('all');
   const [periodPreset, setPeriodPreset] = useState<PeriodPreset>('last30');
-  const [dateStart, setDateStart] = useState<string>('');
-  const [dateEnd, setDateEnd] = useState<string>('');
+  
+  // ✅ CORREÇÃO: Inicializar datas com valores padrão (últimos 30 dias)
+  const getInitialDates = () => {
+    const today = new Date();
+    const start = subDays(today, 30);
+    return {
+      start: format(start, 'yyyy-MM-dd'),
+      end: format(today, 'yyyy-MM-dd'),
+    };
+  };
+  
+  const initialDates = getInitialDates();
+  const [dateStart, setDateStart] = useState<string>(initialDates.start);
+  const [dateEnd, setDateEnd] = useState<string>(initialDates.end);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Filtros de produto
@@ -465,6 +477,321 @@ export default function ProductSalesIntelligence() {
       .sort((a, b) => b.quantidade - a.quantidade)
       .slice(0, 10);
   }, [filteredAndAggregated]);
+
+  // ✅ ANÁLISES AVANÇADAS - TODAS AS ANÁLISES SOLICITADAS
+  const tamanhoPorMarca = useMemo(() => {
+    const marcaTamanhoMap = new Map<string, Map<string, { quantidade: number; total: number }>>();
+    
+    filteredAndAggregated.forEach((agg) => {
+      if (!agg.marca || !agg.tamanho) return;
+      
+      if (!marcaTamanhoMap.has(agg.marca)) {
+        marcaTamanhoMap.set(agg.marca, new Map());
+      }
+      
+      const tamanhos = marcaTamanhoMap.get(agg.marca)!;
+      if (!tamanhos.has(agg.tamanho)) {
+        tamanhos.set(agg.tamanho, { quantidade: 0, total: 0 });
+      }
+      
+      const dados = tamanhos.get(agg.tamanho)!;
+      dados.quantidade += agg.quantidade_vendida;
+      dados.total += agg.total_vendas;
+    });
+    
+    return Array.from(marcaTamanhoMap.entries()).map(([marca, tamanhos]) => {
+      let maiorTamanho = '';
+      let maiorQuantidade = 0;
+      let maiorTotal = 0;
+      
+      tamanhos.forEach((dados, tamanho) => {
+        if (dados.quantidade > maiorQuantidade) {
+          maiorQuantidade = dados.quantidade;
+          maiorTotal = dados.total;
+          maiorTamanho = tamanho;
+        }
+      });
+      
+      return { marca, tamanho: maiorTamanho, quantidade: maiorQuantidade, total: maiorTotal };
+    }).sort((a, b) => b.quantidade - a.quantidade);
+  }, [filteredAndAggregated]);
+
+  const tamanhoPorCategoria = useMemo(() => {
+    const categoriaTamanhoMap = new Map<string, Map<string, { quantidade: number; total: number }>>();
+    
+    filteredAndAggregated.forEach((agg) => {
+      if (!agg.categoria || !agg.tamanho) return;
+      
+      if (!categoriaTamanhoMap.has(agg.categoria)) {
+        categoriaTamanhoMap.set(agg.categoria, new Map());
+      }
+      
+      const tamanhos = categoriaTamanhoMap.get(agg.categoria)!;
+      if (!tamanhos.has(agg.tamanho)) {
+        tamanhos.set(agg.tamanho, { quantidade: 0, total: 0 });
+      }
+      
+      const dados = tamanhos.get(agg.tamanho)!;
+      dados.quantidade += agg.quantidade_vendida;
+      dados.total += agg.total_vendas;
+    });
+    
+    return Array.from(categoriaTamanhoMap.entries()).map(([categoria, tamanhos]) => {
+      let maiorTamanho = '';
+      let maiorQuantidade = 0;
+      let maiorTotal = 0;
+      
+      tamanhos.forEach((dados, tamanho) => {
+        if (dados.quantidade > maiorQuantidade) {
+          maiorQuantidade = dados.quantidade;
+          maiorTotal = dados.total;
+          maiorTamanho = tamanho;
+        }
+      });
+      
+      return { categoria, tamanho: maiorTamanho, quantidade: maiorQuantidade, total: maiorTotal };
+    }).sort((a, b) => b.quantidade - a.quantidade);
+  }, [filteredAndAggregated]);
+
+  const ticketMedioPorTamanho = useMemo(() => {
+    const tamanhoMap = new Map<string, { total: number; quantidade: number; vendas: number }>();
+    
+    rawSales.forEach((sale) => {
+      if (!sale.tamanho) return;
+      
+      if (!tamanhoMap.has(sale.tamanho)) {
+        tamanhoMap.set(sale.tamanho, { total: 0, quantidade: 0, vendas: 0 });
+      }
+      
+      const dados = tamanhoMap.get(sale.tamanho)!;
+      dados.total += sale.valor_total;
+      dados.quantidade += sale.quantidade;
+      dados.vendas += 1;
+    });
+    
+    return Array.from(tamanhoMap.entries())
+      .map(([tamanho, dados]) => ({
+        tamanho,
+        ticket_medio: dados.vendas > 0 ? dados.total / dados.vendas : 0,
+        quantidade: dados.quantidade,
+        total: dados.total,
+      }))
+      .sort((a, b) => b.ticket_medio - a.ticket_medio);
+  }, [rawSales]);
+
+  const ticketMedioPorMarca = useMemo(() => {
+    const marcaMap = new Map<string, { total: number; quantidade: number; vendas: number }>();
+    
+    rawSales.forEach((sale) => {
+      if (!sale.marca) return;
+      
+      if (!marcaMap.has(sale.marca)) {
+        marcaMap.set(sale.marca, { total: 0, quantidade: 0, vendas: 0 });
+      }
+      
+      const dados = marcaMap.get(sale.marca)!;
+      dados.total += sale.valor_total;
+      dados.quantidade += sale.quantidade;
+      dados.vendas += 1;
+    });
+    
+    return Array.from(marcaMap.entries())
+      .map(([marca, dados]) => ({
+        marca,
+        ticket_medio: dados.vendas > 0 ? dados.total / dados.vendas : 0,
+        quantidade: dados.quantidade,
+        total: dados.total,
+      }))
+      .sort((a, b) => b.ticket_medio - a.ticket_medio);
+  }, [rawSales]);
+
+  const marcaPorVendedor = useMemo(() => {
+    const vendedorMarcaMap = new Map<string, Map<string, { quantidade: number; total: number }>>();
+    
+    rawSales.forEach((sale) => {
+      if (!sale.vendedor_nome || !sale.marca) return;
+      
+      if (!vendedorMarcaMap.has(sale.vendedor_nome)) {
+        vendedorMarcaMap.set(sale.vendedor_nome, new Map());
+      }
+      
+      const marcas = vendedorMarcaMap.get(sale.vendedor_nome)!;
+      if (!marcas.has(sale.marca)) {
+        marcas.set(sale.marca, { quantidade: 0, total: 0 });
+      }
+      
+      const dados = marcas.get(sale.marca)!;
+      dados.quantidade += sale.quantidade;
+      dados.total += sale.valor_total;
+    });
+    
+    return Array.from(vendedorMarcaMap.entries()).map(([vendedor, marcas]) => {
+      let maiorMarca = '';
+      let maiorQuantidade = 0;
+      let maiorTotal = 0;
+      
+      marcas.forEach((dados, marca) => {
+        if (dados.quantidade > maiorQuantidade) {
+          maiorQuantidade = dados.quantidade;
+          maiorTotal = dados.total;
+          maiorMarca = marca;
+        }
+      });
+      
+      return { vendedor, marca: maiorMarca, quantidade: maiorQuantidade, total: maiorTotal };
+    }).sort((a, b) => b.quantidade - a.quantidade);
+  }, [rawSales]);
+
+  const ticketMedioMarcaPorVendedor = useMemo(() => {
+    const vendedorMarcaMap = new Map<string, Map<string, { total: number; vendas: number }>>();
+    
+    rawSales.forEach((sale) => {
+      if (!sale.vendedor_nome || !sale.marca) return;
+      
+      if (!vendedorMarcaMap.has(sale.vendedor_nome)) {
+        vendedorMarcaMap.set(sale.vendedor_nome, new Map());
+      }
+      
+      const marcas = vendedorMarcaMap.get(sale.vendedor_nome)!;
+      if (!marcas.has(sale.marca)) {
+        marcas.set(sale.marca, { total: 0, vendas: 0 });
+      }
+      
+      const dados = marcas.get(sale.marca)!;
+      dados.total += sale.valor_total;
+      dados.vendas += 1;
+    });
+    
+    const result: Array<{ vendedor: string; marca: string; ticket_medio: number }> = [];
+    
+    vendedorMarcaMap.forEach((marcas, vendedor) => {
+      marcas.forEach((dados, marca) => {
+        result.push({
+          vendedor,
+          marca,
+          ticket_medio: dados.vendas > 0 ? dados.total / dados.vendas : 0,
+        });
+      });
+    });
+    
+    return result.sort((a, b) => b.ticket_medio - a.ticket_medio);
+  }, [rawSales]);
+
+  const vendasPorHorario = useMemo(() => {
+    const horarioMap = new Map<number, { quantidade: number; vendas: number }>();
+    
+    rawSales.forEach((sale) => {
+      if (sale.hora_pedido === undefined) return;
+      
+      if (!horarioMap.has(sale.hora_pedido)) {
+        horarioMap.set(sale.hora_pedido, { quantidade: 0, vendas: 0 });
+      }
+      
+      const dados = horarioMap.get(sale.hora_pedido)!;
+      dados.quantidade += sale.quantidade;
+      dados.vendas += 1;
+    });
+    
+    return Array.from(horarioMap.entries())
+      .map(([hora, dados]) => ({
+        hora,
+        quantidade: dados.quantidade,
+        vendas: dados.vendas,
+        label: `${hora.toString().padStart(2, '0')}:00`,
+      }))
+      .sort((a, b) => a.hora - b.hora);
+  }, [rawSales]);
+
+  const ticketMedioPorHorario = useMemo(() => {
+    const horarioMap = new Map<number, { total: number; vendas: number }>();
+    
+    rawSales.forEach((sale) => {
+      if (sale.hora_pedido === undefined) return;
+      
+      if (!horarioMap.has(sale.hora_pedido)) {
+        horarioMap.set(sale.hora_pedido, { total: 0, vendas: 0 });
+      }
+      
+      const dados = horarioMap.get(sale.hora_pedido)!;
+      dados.total += sale.valor_total;
+      dados.vendas += 1;
+    });
+    
+    return Array.from(horarioMap.entries())
+      .map(([hora, dados]) => ({
+        hora,
+        ticket_medio: dados.vendas > 0 ? dados.total / dados.vendas : 0,
+        total: dados.total,
+        vendas: dados.vendas,
+        label: `${hora.toString().padStart(2, '0')}:00`,
+      }))
+      .sort((a, b) => b.ticket_medio - a.ticket_medio);
+  }, [rawSales]);
+
+  const tendenciaTamanhoPorMarca = useMemo(() => {
+    const hoje = new Date();
+    const data30 = subDays(hoje, 30);
+    const data60 = subDays(hoje, 60);
+    const data90 = subDays(hoje, 90);
+
+    const marcaTamanhoMap = new Map<string, Map<string, { periodo_30: number; periodo_60: number; periodo_90: number }>>();
+
+    rawSales.forEach((sale) => {
+      if (!sale.marca || !sale.tamanho || !sale.data_pedido) return;
+
+      const dataVenda = new Date(sale.data_pedido);
+      const key = `${sale.marca}|${sale.tamanho}`;
+
+      if (!marcaTamanhoMap.has(sale.marca)) {
+        marcaTamanhoMap.set(sale.marca, new Map());
+      }
+
+      const tamanhos = marcaTamanhoMap.get(sale.marca)!;
+      if (!tamanhos.has(sale.tamanho)) {
+        tamanhos.set(sale.tamanho, { periodo_30: 0, periodo_60: 0, periodo_90: 0 });
+      }
+
+      const dados = tamanhos.get(sale.tamanho)!;
+
+      if (dataVenda >= data30) {
+        dados.periodo_30 += sale.quantidade;
+      }
+      if (dataVenda >= data60) {
+        dados.periodo_60 += sale.quantidade;
+      }
+      if (dataVenda >= data90) {
+        dados.periodo_90 += sale.quantidade;
+      }
+    });
+
+    const result: Array<{ marca: string; tamanho: string; periodo_30: number; periodo_60: number; periodo_90: number; tendencia: 'crescendo' | 'caindo' | 'estavel' }> = [];
+
+    marcaTamanhoMap.forEach((tamanhos, marca) => {
+      tamanhos.forEach((dados, tamanho) => {
+        const media30 = dados.periodo_30 / 30;
+        const media60 = (dados.periodo_60 - dados.periodo_30) / 30;
+        const media90 = (dados.periodo_90 - dados.periodo_60) / 30;
+
+        let tendencia: 'crescendo' | 'caindo' | 'estavel' = 'estavel';
+        if (media30 > media60 * 1.1) {
+          tendencia = 'crescendo';
+        } else if (media30 < media60 * 0.9) {
+          tendencia = 'caindo';
+        }
+
+        result.push({
+          marca,
+          tamanho,
+          periodo_30: dados.periodo_30,
+          periodo_60: dados.periodo_60 - dados.periodo_30,
+          periodo_90: dados.periodo_90 - dados.periodo_60,
+          tendencia,
+        });
+      });
+    });
+
+    return result.sort((a, b) => b.periodo_30 - a.periodo_30);
+  }, [rawSales]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -942,7 +1269,7 @@ export default function ProductSalesIntelligence() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {tamanhoPorMarca.map((item, index) => (
+                    {(tamanhoPorMarca || []).map((item, index) => (
                       <TableRow key={`${item.marca}-${index}`}>
                         <TableCell className="font-medium">{item.marca}</TableCell>
                         <TableCell><Badge variant="outline">{item.tamanho}</Badge></TableCell>
@@ -1008,7 +1335,7 @@ export default function ProductSalesIntelligence() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {tendenciaTamanhoPorMarca.slice(0, 50).map((item, index) => (
+                    {(tendenciaTamanhoPorMarca || []).slice(0, 50).map((item, index) => (
                       <TableRow key={`${item.marca}-${item.tamanho}-${index}`}>
                         <TableCell className="font-medium">{item.marca}</TableCell>
                         <TableCell><Badge variant="outline">{item.tamanho}</Badge></TableCell>
