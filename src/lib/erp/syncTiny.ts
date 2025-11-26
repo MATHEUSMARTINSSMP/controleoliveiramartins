@@ -1822,6 +1822,25 @@ async function syncTinyContact(
         if (pedidoComTelefone && pedidoComTelefone.cliente_telefone) {
           contactDataFinal.telefone = pedidoComTelefone.cliente_telefone;
           console.log(`[SyncTiny] ✅ Telefone encontrado em pedido existente (tiny_orders): ${contactDataFinal.telefone?.substring(0, 15)}...`);
+        } else {
+          // ✅ ESTRATÉGIA 3: Buscar telefone mais recente de qualquer pedido do cliente
+          // Útil para quando o cliente não tem telefone mas já fez pedidos
+          const { data: pedidoMaisRecente } = await supabase
+            .schema('sistemaretiradas')
+            .from('tiny_orders')
+            .select('cliente_telefone')
+            .eq('store_id', storeId)
+            .not('cliente_telefone', 'is', null)
+            .neq('cliente_telefone', '')
+            .or(`cliente_cpf_cnpj.eq.${contactData.cpf_cnpj},cliente_nome.eq.${contactData.nome}`)
+            .order('data_pedido', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          if (pedidoMaisRecente && pedidoMaisRecente.cliente_telefone) {
+            contactDataFinal.telefone = pedidoMaisRecente.cliente_telefone;
+            console.log(`[SyncTiny] ✅ Telefone encontrado no pedido mais recente: ${contactDataFinal.telefone?.substring(0, 15)}...`);
+          }
         }
       }
     }
