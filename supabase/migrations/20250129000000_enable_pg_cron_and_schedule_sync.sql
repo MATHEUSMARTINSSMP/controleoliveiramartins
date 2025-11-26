@@ -61,36 +61,62 @@ $$;
 -- =============================================================================
 
 -- Verificar se pg_cron está disponível antes de agendar
+-- NOTA: O agendamento será feito manualmente após habilitar pg_cron
+-- Esta seção apenas documenta o processo
+
+-- =============================================================================
+-- INSTRUÇÕES PARA AGENDAR MANUALMENTE:
+-- =============================================================================
+-- 1. Habilite pg_cron no Supabase Dashboard: Database → Extensions → pg_cron
+-- 2. Configure SUPABASE_SERVICE_ROLE_KEY como secret em Edge Functions
+-- 3. Execute o SQL abaixo no SQL Editor (substitua SEU_PROJETO_SUPABASE pela URL real):
+--
+-- SELECT cron.schedule(
+--     'sync-tiny-orders-automatic',
+--     '*/30 * * * *',
+--     $$
+--     SELECT net.http_post(
+--         url := 'https://SEU_PROJETO_SUPABASE.supabase.co/functions/v1/sync-tiny-orders',
+--         headers := jsonb_build_object(
+--             'Content-Type', 'application/json',
+--             'Authorization', 'Bearer ' || current_setting('app.service_role_key', true)
+--         )::jsonb,
+--         body := '{}'::jsonb
+--     ) AS request_id;
+--     $$
+-- );
+-- =============================================================================
+
+-- Tentar agendar automaticamente (pode falhar se pg_cron não estiver habilitado)
 DO $$
 BEGIN
-    -- Tentar agendar a sincronização
-    -- NOTA: A URL da Edge Function precisa ser configurada
-    -- Substitua 'SEU_PROJETO_SUPABASE' pela URL do seu projeto
-    
-    PERFORM cron.schedule(
-        'sync-tiny-orders-automatic',
-        '*/30 * * * *', -- A cada 30 minutos
-        $$
-        SELECT
-            net.http_post(
-                url := 'https://SEU_PROJETO_SUPABASE.supabase.co/functions/v1/sync-tiny-orders',
+    -- Verificar se pg_cron está disponível
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+        -- Tentar agendar (pode falhar se não tiver permissão)
+        PERFORM cron.schedule(
+            'sync-tiny-orders-automatic',
+            '*/30 * * * *',
+            'SELECT net.http_post(
+                url := ''https://SEU_PROJETO_SUPABASE.supabase.co/functions/v1/sync-tiny-orders'',
                 headers := jsonb_build_object(
-                    'Content-Type', 'application/json',
-                    'Authorization', 'Bearer ' || current_setting('app.service_role_key', true)
+                    ''Content-Type'', ''application/json'',
+                    ''Authorization'', ''Bearer '' || current_setting(''app.service_role_key'', true)
                 )::jsonb,
-                body := '{}'::jsonb
-            ) AS request_id;
-        $$
-    );
-    
-    RAISE NOTICE 'Sincronização automática agendada: a cada 30 minutos';
+                body := ''{}''::jsonb
+            ) AS request_id;'
+        );
+        
+        RAISE NOTICE 'Sincronização automática agendada: a cada 30 minutos';
+    ELSE
+        RAISE NOTICE 'pg_cron não está habilitado. Habilite no Supabase Dashboard e execute o agendamento manualmente.';
+    END IF;
     
     EXCEPTION WHEN OTHERS THEN
         -- Se falhar, logar instruções
         RAISE NOTICE 'Não foi possível agendar automaticamente. Execute manualmente:';
         RAISE NOTICE '1. Habilite pg_cron no Supabase Dashboard';
         RAISE NOTICE '2. Configure SUPABASE_SERVICE_ROLE_KEY como secret';
-        RAISE NOTICE '3. Execute o SQL de agendamento manualmente (ver documentação)';
+        RAISE NOTICE '3. Execute o SQL de agendamento manualmente (ver comentários acima)';
 END $$;
 
 -- =============================================================================
