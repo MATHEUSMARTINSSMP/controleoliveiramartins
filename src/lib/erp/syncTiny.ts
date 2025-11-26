@@ -728,48 +728,42 @@ export async function syncTinyOrders(
         // ⚠️ IMPORTANTE: Os itens do pedido NÃO trazem categoria, marca, subcategoria
         // Para obter esses dados, precisamos buscar detalhes completos via GET /produtos/{idProduto}
         
-        // ✅ CORREÇÃO CRÍTICA: A listagem pode não trazer itens, precisamos buscar detalhes completos
+        // ✅ CORREÇÃO CRÍTICA: SEMPRE buscar detalhes completos para obter itens
         // Segundo documentação oficial Tiny ERP v3: GET /pedidos (listagem) NÃO retorna itens
         // Itens só vêm em GET /pedidos/{id} (detalhes completos)
-        let itensParaProcessar = pedido.itens || [];
+        // Portanto, SEMPRE precisamos buscar detalhes completos de cada pedido
         
-        console.log(`[SyncTiny] 🔍 Verificando itens do pedido ${pedido.id}:`, {
-          tem_itens_listagem: !!pedido.itens,
-          quantidade_itens_listagem: pedido.itens?.length || 0,
-          itens_tipo: typeof pedido.itens,
-          itens_is_array: Array.isArray(pedido.itens),
-          itens_preview: pedido.itens ? JSON.stringify(pedido.itens).substring(0, 200) : 'null/undefined',
-        });
+        console.log(`[SyncTiny] 🔍 Buscando detalhes completos do pedido ${pedido.id} para obter itens...`);
+        let itensParaProcessar: any[] = [];
         
-        // ✅ SEMPRE buscar detalhes completos para obter itens
-        // A documentação oficial confirma que a listagem não traz itens
-        if (!itensParaProcessar || itensParaProcessar.length === 0) {
-          console.log(`[SyncTiny] ⚠️ Pedido ${pedido.id} não tem itens na listagem (esperado). Buscando detalhes completos...`);
-          try {
-            const pedidoCompleto = await fetchPedidoCompletoFromTiny(storeId, pedido.id);
-            if (pedidoCompleto && pedidoCompleto.itens && Array.isArray(pedidoCompleto.itens) && pedidoCompleto.itens.length > 0) {
-              itensParaProcessar = pedidoCompleto.itens;
-              console.log(`[SyncTiny] ✅ Encontrados ${itensParaProcessar.length} itens nos detalhes completos do pedido ${pedido.id}`);
-              console.log(`[SyncTiny] 📋 Primeiro item (exemplo):`, {
-                keys: Object.keys(itensParaProcessar[0] || {}),
-                produto: itensParaProcessar[0]?.produto,
-                quantidade: itensParaProcessar[0]?.quantidade,
-                valorUnitario: itensParaProcessar[0]?.valorUnitario,
-                item_completo: JSON.stringify(itensParaProcessar[0]).substring(0, 500),
-              });
-            } else {
-              console.warn(`[SyncTiny] ⚠️ Pedido ${pedido.id} não tem itens nem nos detalhes completos. Resposta:`, {
-                tem_pedidoCompleto: !!pedidoCompleto,
-                tem_itens: !!pedidoCompleto?.itens,
-                quantidade_itens: pedidoCompleto?.itens?.length || 0,
-                estrutura: pedidoCompleto ? Object.keys(pedidoCompleto).slice(0, 20) : 'null',
-              });
-            }
-          } catch (error) {
-            console.error(`[SyncTiny] ❌ Erro ao buscar detalhes do pedido ${pedido.id} para obter itens:`, error);
+        try {
+          const pedidoCompleto = await fetchPedidoCompletoFromTiny(storeId, pedido.id);
+          
+          if (pedidoCompleto && pedidoCompleto.itens && Array.isArray(pedidoCompleto.itens) && pedidoCompleto.itens.length > 0) {
+            itensParaProcessar = pedidoCompleto.itens;
+            console.log(`[SyncTiny] ✅ Encontrados ${itensParaProcessar.length} itens nos detalhes completos do pedido ${pedido.id}`);
+            console.log(`[SyncTiny] 📋 Primeiro item (exemplo):`, {
+              keys: Object.keys(itensParaProcessar[0] || {}),
+              produto: itensParaProcessar[0]?.produto,
+              produto_id: itensParaProcessar[0]?.produto?.id,
+              produto_sku: itensParaProcessar[0]?.produto?.sku,
+              produto_descricao: itensParaProcessar[0]?.produto?.descricao,
+              quantidade: itensParaProcessar[0]?.quantidade,
+              valorUnitario: itensParaProcessar[0]?.valorUnitario,
+              item_completo: JSON.stringify(itensParaProcessar[0]).substring(0, 800),
+            });
+          } else {
+            console.warn(`[SyncTiny] ⚠️ Pedido ${pedido.id} não tem itens nos detalhes completos. Resposta:`, {
+              tem_pedidoCompleto: !!pedidoCompleto,
+              tem_itens: !!pedidoCompleto?.itens,
+              quantidade_itens: pedidoCompleto?.itens?.length || 0,
+              itens_tipo: typeof pedidoCompleto?.itens,
+              estrutura: pedidoCompleto ? Object.keys(pedidoCompleto).slice(0, 20) : 'null',
+              pedido_completo_preview: pedidoCompleto ? JSON.stringify(pedidoCompleto).substring(0, 1000) : 'null',
+            });
           }
-        } else {
-          console.log(`[SyncTiny] ✅ Pedido ${pedido.id} tem ${itensParaProcessar.length} itens na listagem (raro, mas possível)`);
+        } catch (error) {
+          console.error(`[SyncTiny] ❌ Erro ao buscar detalhes do pedido ${pedido.id} para obter itens:`, error);
         }
         
         // Processar itens de forma assíncrona para buscar detalhes quando necessário
