@@ -2307,12 +2307,14 @@ async function syncTinyContact(
       .single();
 
     if (contactError) {
-      console.error(`[SyncTiny] ❌ Erro ao sincronizar contato ${clienteCompleto.nome || cliente.nome}:`, contactError);
+      const nomeCliente = (clienteCompleto?.nome || cliente?.nome || 'Desconhecido');
+      console.error(`[SyncTiny] ❌ Erro ao sincronizar contato ${nomeCliente}:`, contactError);
       return null;
     }
 
     if (!contactResult || !contactResult.id) {
-      console.warn(`[SyncTiny] ⚠️ Cliente sincronizado mas ID não retornado: ${clienteCompleto.nome || cliente.nome}`);
+      const nomeCliente = (clienteCompleto?.nome || cliente?.nome || 'Desconhecido');
+      console.warn(`[SyncTiny] ⚠️ Cliente sincronizado mas ID não retornado: ${nomeCliente}`);
       // Tentar buscar o ID pelo tiny_id
       const { data: existingContact } = await supabase
         .schema('sistemaretiradas')
@@ -2330,10 +2332,12 @@ async function syncTinyContact(
       return null;
     }
 
-    console.log(`[SyncTiny] ✅ Cliente sincronizado: ${clienteCompleto.nome || cliente.nome} → ID: ${contactResult.id.substring(0, 8)}...`);
+    const nomeCliente = (clienteCompleto?.nome || cliente?.nome || 'Desconhecido');
+    console.log(`[SyncTiny] ✅ Cliente sincronizado: ${nomeCliente} → ID: ${contactResult.id.substring(0, 8)}...`);
     return contactResult.id;
   } catch (error: any) {
-    console.error(`[SyncTiny] ❌ Erro ao sincronizar contato ${clienteCompleto.nome || cliente.nome}:`, error);
+    const nomeCliente = (clienteCompleto?.nome || cliente?.nome || 'Desconhecido');
+    console.error(`[SyncTiny] ❌ Erro ao sincronizar contato ${nomeCliente}:`, error);
     return null;
   }
 }
