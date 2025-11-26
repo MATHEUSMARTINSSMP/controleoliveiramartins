@@ -790,33 +790,59 @@ export async function syncTinyOrders(
               || item.produtoId
               || null;
             
-            // Log detalhado para debug
-            if (!produtoId) {
-              console.warn(`[SyncTiny] ⚠️ Produto ID não encontrado no item. Estrutura:`, {
-                item_keys: Object.keys(item),
-                produto_keys: Object.keys(produto),
-                itemData_keys: Object.keys(itemData),
-                item_preview: JSON.stringify(item).substring(0, 500),
-              });
-            } else {
-              console.log(`[SyncTiny] ✅ Produto ID encontrado: ${produtoId} para item: ${descricao || codigo || 'sem descrição'}`);
+            // ✅ ALTERNATIVA 1: Verificar se categoria/marca já vêm no item do pedido
+            // Alguns ERPs podem enviar dados básicos junto com o item
+            let categoriaDoItem: string | null = null;
+            let marcaDoItem: string | null = null;
+            let subcategoriaDoItem: string | null = null;
+            
+            // Tentar extrair do item diretamente (pode vir em diferentes formatos)
+            if (item.categoria) {
+              categoriaDoItem = typeof item.categoria === 'string' 
+                ? item.categoria 
+                : item.categoria.nome || item.categoria.descricao || null;
             }
+            if (item.marca) {
+              marcaDoItem = typeof item.marca === 'string' 
+                ? item.marca 
+                : item.marca.nome || item.marca.descricao || null;
+            }
+            if (item.subcategoria) {
+              subcategoriaDoItem = typeof item.subcategoria === 'string' 
+                ? item.subcategoria 
+                : item.subcategoria.nome || item.subcategoria.descricao || null;
+            }
+            
+            // Log detalhado para debug
+            console.log(`[SyncTiny] 🔍 Processando item:`, {
+              produtoId,
+              codigo,
+              descricao: descricao?.substring(0, 50),
+              categoria_do_item: categoriaDoItem,
+              marca_do_item: marcaDoItem,
+              subcategoria_do_item: subcategoriaDoItem,
+              item_keys: Object.keys(item).slice(0, 20),
+              produto_keys: Object.keys(produto).slice(0, 10),
+            });
 
-            // ✅ BUSCAR DETALHES COMPLETOS DO PRODUTO se tivermos o ID
+            // ✅ ALTERNATIVA 2: BUSCAR DETALHES COMPLETOS DO PRODUTO se tivermos o ID
             // Segundo documentação oficial: GET /produtos/{idProduto} retorna categoria, marca, etc.
+            // Usar dados do item como fallback se já estiverem disponíveis
             let produtoCompleto: any = null;
-            let categoria: string | null = null;
-            let subcategoria: string | null = null;
-            let marca: string | null = null;
+            let categoria: string | null = categoriaDoItem; // Começar com dados do item
+            let subcategoria: string | null = subcategoriaDoItem; // Começar com dados do item
+            let marca: string | null = marcaDoItem; // Começar com dados do item
             let tamanho: string | null = null;
             let cor: string | null = null;
             let genero: string | null = null;
             let faixa_etaria: string | null = null;
             let material: string | null = null;
 
-            if (produtoId) {
+            // ✅ ALTERNATIVA 2: Buscar detalhes completos APENAS se não temos dados do item
+            // Prioridade: dados do item > detalhes completos do produto
+            if (produtoId && (!categoria || !marca)) {
               try {
-                console.log(`[SyncTiny] 🔍 Buscando detalhes completos do produto ${produtoId}...`);
+                console.log(`[SyncTiny] 🔍 Buscando detalhes completos do produto ${produtoId} (categoria: ${categoria || 'não encontrada'}, marca: ${marca || 'não encontrada'})...`);
                 produtoCompleto = await fetchProdutoCompletoFromTiny(storeId, produtoId);
                 
                 if (produtoCompleto) {
@@ -830,7 +856,8 @@ export async function syncTinyOrders(
                   });
                   
                   // ✅ CATEGORIA - API v3 OFICIAL: produto.categoria { id, nome, caminhoCompleto }
-                  if (produtoCompleto.categoria) {
+                  // Só atualizar se não tivermos categoria do item
+                  if (!categoria && produtoCompleto.categoria) {
                     // Tentar múltiplas formas de extrair categoria
                     categoria = produtoCompleto.categoria.nome 
                       || produtoCompleto.categoria.descricao 
@@ -857,20 +884,25 @@ export async function syncTinyOrders(
                       }
                     }
                     
-                    console.log(`[SyncTiny] ✅ Categoria extraída para produto ${produtoId}: ${categoria}${subcategoria ? ` | Subcategoria: ${subcategoria}` : ''}`);
-                  } else {
+                    console.log(`[SyncTiny] ✅ Categoria extraída dos detalhes para produto ${produtoId}: ${categoria}${subcategoria ? ` | Subcategoria: ${subcategoria}` : ''}`);
+                  } else if (produtoCompleto.categoria && categoria) {
+                    console.log(`[SyncTiny] ℹ️ Categoria já disponível do item (${categoria}), mantendo.`);
+                  } else if (!produtoCompleto.categoria) {
                     console.warn(`[SyncTiny] ⚠️ Produto ${produtoId} não tem categoria nos detalhes completos`);
                   }
 
                   // ✅ MARCA - API v3 OFICIAL: produto.marca { id, nome }
-                  if (produtoCompleto.marca) {
+                  // Só atualizar se não tivermos marca do item
+                  if (!marca && produtoCompleto.marca) {
                     // Tentar múltiplas formas de extrair marca
                     marca = produtoCompleto.marca.nome 
                       || produtoCompleto.marca.descricao
                       || (typeof produtoCompleto.marca === 'string' ? produtoCompleto.marca : null)
                       || null;
-                    console.log(`[SyncTiny] ✅ Marca extraída para produto ${produtoId}: ${marca}`);
-                  } else {
+                    console.log(`[SyncTiny] ✅ Marca extraída dos detalhes para produto ${produtoId}: ${marca}`);
+                  } else if (produtoCompleto.marca && marca) {
+                    console.log(`[SyncTiny] ℹ️ Marca já disponível do item (${marca}), mantendo.`);
+                  } else if (!produtoCompleto.marca) {
                     console.warn(`[SyncTiny] ⚠️ Produto ${produtoId} não tem marca nos detalhes completos`);
                   }
 
