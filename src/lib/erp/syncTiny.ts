@@ -728,9 +728,30 @@ export async function syncTinyOrders(
         // ⚠️ IMPORTANTE: Os itens do pedido NÃO trazem categoria, marca, subcategoria
         // Para obter esses dados, precisamos buscar detalhes completos via GET /produtos/{idProduto}
         
+        // ✅ CORREÇÃO CRÍTICA: A listagem pode não trazer itens, precisamos buscar detalhes completos
+        let itensParaProcessar = pedido.itens || [];
+        
+        // Se não há itens na listagem, buscar detalhes completos do pedido
+        if (!itensParaProcessar || itensParaProcessar.length === 0) {
+          console.log(`[SyncTiny] ⚠️ Pedido ${pedido.id} não tem itens na listagem. Buscando detalhes completos...`);
+          try {
+            const pedidoCompleto = await fetchPedidoCompletoFromTiny(storeId, pedido.id);
+            if (pedidoCompleto && pedidoCompleto.itens && Array.isArray(pedidoCompleto.itens) && pedidoCompleto.itens.length > 0) {
+              itensParaProcessar = pedidoCompleto.itens;
+              console.log(`[SyncTiny] ✅ Encontrados ${itensParaProcessar.length} itens nos detalhes completos do pedido ${pedido.id}`);
+            } else {
+              console.warn(`[SyncTiny] ⚠️ Pedido ${pedido.id} não tem itens nem nos detalhes completos`);
+            }
+          } catch (error) {
+            console.error(`[SyncTiny] ❌ Erro ao buscar detalhes do pedido ${pedido.id} para obter itens:`, error);
+          }
+        } else {
+          console.log(`[SyncTiny] ✅ Pedido ${pedido.id} tem ${itensParaProcessar.length} itens na listagem`);
+        }
+        
         // Processar itens de forma assíncrona para buscar detalhes quando necessário
         const itensComCategorias = await Promise.all(
-          (pedido.itens || []).map(async (item: any) => {
+          itensParaProcessar.map(async (item: any) => {
             // API v3 OFICIAL: item.produto, item.quantidade, item.valorUnitario
             const produto = item.produto || {}; // API v3: produto { id, sku, descricao }
             const quantidade = item.quantidade || 0; // API v3: number
@@ -1117,7 +1138,7 @@ export async function syncTinyOrders(
           forma_pagamento: pedido.pagamento?.formaPagamento?.nome || null,
           forma_envio: pedido.transportador?.formaEnvio?.nome || null,
           endereco_entrega: pedido.enderecoEntrega ? JSON.stringify(pedido.enderecoEntrega) : null,
-          itens: JSON.stringify(itensComCategorias),
+          itens: itensComCategorias.length > 0 ? JSON.stringify(itensComCategorias) : null,
           observacoes: pedido.observacoes || null,
           vendedor_nome: pedido.vendedor?.nome || pedido.vendedor_nome || null, // Coluna já existe na tabela (criada em 20250127040000)
           vendedor_tiny_id: pedido.vendedor?.id?.toString() || null, // Será adicionada pela migration
