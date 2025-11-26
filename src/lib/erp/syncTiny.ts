@@ -669,9 +669,25 @@ export async function syncTinyOrders(
             ? (pedido.data_prevista.includes('T') ? pedido.data_prevista : `${pedido.data_prevista}T00:00:00`)
             : null,
           cliente_nome: cliente.nome || null,
-          cliente_cpf_cnpj: cliente.cpf_cnpj || null,
+          cliente_cpf_cnpj: (() => {
+            // Tentar vários campos possíveis
+            const cpfCnpj = cliente.cpf_cnpj 
+              || cliente.cpf 
+              || cliente.cnpj
+              || cliente.documento
+              || cliente.dados_extras?.cpf_cnpj
+              || cliente.dados_extras?.cpf
+              || cliente.dados_extras?.cnpj
+              || null;
+            if (cpfCnpj) {
+              console.log(`[SyncTiny] ✅ CPF/CNPJ do cliente encontrado: ${cpfCnpj.substring(0, 3)}***`);
+            } else {
+              console.warn(`[SyncTiny] ⚠️ CPF/CNPJ não encontrado para cliente ${cliente.nome}`);
+            }
+            return cpfCnpj;
+          })(),
           cliente_email: cliente.email || null,
-          cliente_telefone: cliente.fone || cliente.celular || null,
+          cliente_telefone: cliente.fone || cliente.telefone || cliente.celular || cliente.mobile || null,
           valor_total: (() => {
             // Tentar vários campos possíveis conforme documentação Tiny ERP v3
             const valorBruto = pedido.valor_total 
