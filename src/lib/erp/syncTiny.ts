@@ -489,6 +489,7 @@ export async function syncTinyOrders(
     limit?: number;
     maxPages?: number; // Limite de páginas para paginação
     incremental?: boolean; // Sincronização incremental (apenas novos)
+    hardSync?: boolean; // ✅ HARD SYNC: Buscar pedidos dos últimos 365 dias
   } = {}
 ): Promise<{
   success: boolean;
@@ -506,14 +507,23 @@ export async function syncTinyOrders(
   let dataFim: string | undefined = options.dataFim;
 
   try {
-    const { dataInicio, dataFim: dataFimParam, limit = 100, maxPages = 5, incremental = true } = options;
+    const { dataInicio, dataFim: dataFimParam, limit = 100, maxPages: maxPagesParam = 5, incremental = true, hardSync = false } = options;
+    // ✅ HARD SYNC: Se hardSync = true, aumentar limite de páginas
+    const maxPages = hardSync ? 999 : maxPagesParam; // Hard sync: até 999 páginas (99.900 pedidos)
     dataFim = dataFimParam;
 
     // ✅ FASE 1: Sincronização incremental otimizada - buscar última data E último ID
     dataInicioSync = dataInicio;
     let ultimoTinyIdSync: string | null = null;
 
-    if (incremental && !dataInicio) {
+    // ✅ HARD SYNC: Se hardSync = true, buscar últimos 365 dias
+    if (hardSync && !dataInicio) {
+      const hoje = new Date();
+      const umAnoAtras = new Date(hoje);
+      umAnoAtras.setDate(hoje.getDate() - 365);
+      dataInicioSync = umAnoAtras.toISOString().split('T')[0];
+      console.log(`[SyncTiny] 🔥 HARD SYNC: Buscando pedidos dos últimos 365 dias desde: ${dataInicioSync}`);
+    } else if (incremental && !dataInicio) {
       const { data: lastSync } = await supabase
         .schema('sistemaretiradas')
         .from('erp_sync_logs')
@@ -2076,6 +2086,7 @@ export async function syncTinyContacts(
   options: {
     limit?: number;
     maxPages?: number;
+    hardSync?: boolean; // ✅ HARD SYNC: Buscar TODAS as clientes sem limite
   } = {}
 ): Promise<{
   success: boolean;
@@ -2089,7 +2100,9 @@ export async function syncTinyContacts(
   const startTime = Date.now();
 
   try {
-    const { limit = 100, maxPages = 50 } = options;
+    // ✅ HARD SYNC: Se hardSync = true, buscar TODAS as clientes (sem limite de páginas)
+    const { limit = 100, maxPages: maxPagesParam, hardSync = false } = options;
+    const maxPages = hardSync ? 9999 : (maxPagesParam || 50); // Hard sync: sem limite prático
 
     let allContatos: TinyContato[] = [];
     let currentPage = 1;

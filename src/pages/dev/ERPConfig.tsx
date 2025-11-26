@@ -227,7 +227,7 @@ const ERPConfig = () => {
     }
   };
 
-  const handleSyncOrders = async () => {
+  const handleSyncOrders = async (hardSync: boolean = false) => {
     if (!selectedStoreId) {
       toast.error("Selecione uma loja primeiro");
       return;
@@ -240,12 +240,17 @@ const ERPConfig = () => {
 
     setSyncing(true);
     try {
-      toast.info("Sincronizando pedidos de venda...");
-      // PASSO 10: Sincronização incremental habilitada por padrão
+      if (hardSync) {
+        toast.info("🔥 HARD SYNC: Sincronizando TODOS os pedidos dos últimos 365 dias... Isso pode levar vários minutos.");
+      } else {
+        toast.info("Sincronizando pedidos de venda (incremental)...");
+      }
+      
       const result = await syncTinyOrders(selectedStoreId, {
         limit: 100, // Registros por página
-        maxPages: 50, // Máximo de 50 páginas (5000 pedidos)
-        incremental: true, // Sincronizar apenas novos/atualizados
+        maxPages: hardSync ? 999 : 50, // Hard sync: até 999 páginas (99.900 pedidos)
+        incremental: !hardSync, // Hard sync: não é incremental
+        hardSync: hardSync, // Flag para hard sync
       });
       
       if (result.success) {
@@ -257,6 +262,45 @@ const ERPConfig = () => {
     } catch (error: any) {
       console.error("Erro ao sincronizar pedidos:", error);
       toast.error(error.message || "Erro ao sincronizar pedidos");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleSyncContacts = async (hardSync: boolean = false) => {
+    if (!selectedStoreId) {
+      toast.error("Selecione uma loja primeiro");
+      return;
+    }
+
+    if (!integration || integration.sync_status !== 'CONNECTED') {
+      toast.error("Conecte a integração OAuth primeiro");
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      if (hardSync) {
+        toast.info("🔥 HARD SYNC: Sincronizando TODAS as clientes... Isso pode levar vários minutos.");
+      } else {
+        toast.info("Sincronizando clientes...");
+      }
+      
+      const result = await syncTinyContacts(selectedStoreId, {
+        limit: 100,
+        maxPages: hardSync ? 9999 : 50, // Hard sync: sem limite prático
+        hardSync: hardSync,
+      });
+      
+      if (result.success) {
+        toast.success(result.message);
+        await fetchIntegration();
+      } else {
+        toast.error(result.message);
+      }
+    } catch (error: any) {
+      console.error("Erro ao sincronizar clientes:", error);
+      toast.error(error.message || "Erro ao sincronizar clientes");
     } finally {
       setSyncing(false);
     }
