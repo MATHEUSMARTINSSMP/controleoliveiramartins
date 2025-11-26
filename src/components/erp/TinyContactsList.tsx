@@ -12,7 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Search, User, Mail, Phone, Building2, Calendar } from 'lucide-react';
+import { Loader2, Search, User, Mail, Phone, Building2, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -40,13 +41,22 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
   const [filteredContacts, setFilteredContacts] = useState<TinyContact[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [itemsPerPage, setItemsPerPage] = useState<number>(20);
+  const [currentPage, setCurrentPage] = useState<number>(1);
   useEffect(() => {
     fetchContacts();
   }, [storeId]);
 
   useEffect(() => {
     filterContacts();
+    setCurrentPage(1); // Resetar para primeira página quando filtros mudarem
   }, [contacts, searchTerm]);
+
+  // Calcular paginação
+  const totalPages = Math.ceil(filteredContacts.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedContacts = filteredContacts.slice(startIndex, endIndex);
 
   const fetchContacts = async () => {
     try {
@@ -136,12 +146,13 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
           Clientes Sincronizados
         </CardTitle>
         <CardDescription>
-          Visualize os clientes sincronizados do Tiny ERP ({filteredContacts.length} de {contacts.length})
+          Visualize os clientes sincronizados do Tiny ERP ({filteredContacts.length} de {Math.min(contacts.length, 100)})
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {/* Filtros */}
-        <div className="mb-4 grid gap-4 md:grid-cols-2">
+        {/* Filtros e Paginação */}
+        <div className="mb-4 space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -151,6 +162,19 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
               className="pl-9"
             />
           </div>
+          <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+            setItemsPerPage(Number(value));
+            setCurrentPage(1);
+          }}>
+            <SelectTrigger>
+              <SelectValue placeholder="Itens por página" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="20">20 por página</SelectItem>
+              <SelectItem value="50">50 por página</SelectItem>
+              <SelectItem value="100">100 por página</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Tabela */}
@@ -170,7 +194,7 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredContacts.map((contact) => (
+                {paginatedContacts.map((contact) => (
                   <TableRow key={contact.id}>
                     <TableCell className="font-medium">{contact.nome}</TableCell>
                     <TableCell className="font-mono text-sm">
