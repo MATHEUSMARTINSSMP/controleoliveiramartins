@@ -863,11 +863,12 @@ export async function syncTinyOrders(
             console.log(`[SyncTiny] ✅ Valor parseado (string → number): ${valorStr} → ${valorNum}`);
             return valorNum;
           })(),
-          valor_desconto: parseFloat(String(pedido.valor_desconto || '0').replace(',', '.')),
-          valor_frete: parseFloat(String(pedido.valor_frete || '0').replace(',', '.')),
-          forma_pagamento: pedido.forma_pagamento || null,
-          forma_envio: pedido.forma_envio || null,
-          endereco_entrega: pedido.endereco_entrega ? JSON.stringify(pedido.endereco_entrega) : null,
+          // ✅ API v3 oficial usa camelCase
+          valor_desconto: pedido.valorDesconto || 0,
+          valor_frete: pedido.valorFrete || 0,
+          forma_pagamento: pedido.pagamento?.formaPagamento?.nome || null,
+          forma_envio: pedido.transportador?.formaEnvio?.nome || null,
+          endereco_entrega: pedido.enderecoEntrega ? JSON.stringify(pedido.enderecoEntrega) : null,
           itens: JSON.stringify(itensComCategorias),
           observacoes: pedido.observacoes || null,
           vendedor_nome: pedido.vendedor?.nome || pedido.vendedor_nome || null, // Coluna já existe na tabela (criada em 20250127040000)
