@@ -332,12 +332,24 @@ export async function syncTinyOrders(
     let ultimoTinyIdProcessado: string | null = null;
 
     // Processar cada pedido
-    // Filtrar apenas pedidos faturados (situacao contém "Faturado" ou similar)
+    // Filtrar apenas pedidos faturados
+    // situacao pode ser número (1, 2, 3, etc) ou string
+    // No Tiny ERP v3, situacao 3 geralmente é "Faturado"
     const pedidosFaturados = allPedidos.filter(p => {
       const pedido = p.pedido || p;
-      const situacao = (pedido.situacao || '').toString().toLowerCase();
-      // Aceitar pedidos faturados
-      return situacao.includes('faturado') || situacao === 'faturado';
+      const situacao = pedido.situacao;
+      
+      if (typeof situacao === 'number') {
+        // Situacao numérica: 3 = Faturado (conforme documentação Tiny)
+        return situacao === 3;
+      } else if (typeof situacao === 'string') {
+        // Situacao string: verificar se contém "faturado"
+        const situacaoLower = situacao.toLowerCase();
+        return situacaoLower.includes('faturado') || situacaoLower === 'faturado';
+      }
+      
+      // Se não tiver situacao, aceitar (pode ser que venha de outra forma)
+      return true;
     });
 
     console.log(`[SyncTiny] Total de pedidos recebidos: ${allPedidos.length}, Faturados: ${pedidosFaturados.length}`);
@@ -763,11 +775,13 @@ export async function syncTinyContacts(
     const errorDetails: string[] = [];
 
     // Processar cada contato
+    // Os contatos já vêm diretos em 'itens', não há objeto 'contato' aninhado
     for (const contatoData of allContatos) {
       try {
-        const contato = contatoData.contato;
+        // O item já é o contato direto
+        const contato = contatoData.contato || contatoData;
 
-        if (!contato.nome) {
+        if (!contato || !contato.nome) {
           continue;
         }
 
