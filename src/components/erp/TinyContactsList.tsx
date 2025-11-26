@@ -65,6 +65,21 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
       const { data, error } = await query;
 
       if (error) throw error;
+      
+      // Log detalhado dos dados recebidos do banco
+      console.log('[TinyContactsList] 👤 Dados recebidos do banco:', {
+        total: data?.length || 0,
+        primeiro_cliente: data?.[0] ? {
+          tiny_id: data[0].tiny_id,
+          nome: data[0].nome,
+          cpf_cnpj: data[0].cpf_cnpj,
+          telefone: data[0].telefone,
+          celular: data[0].celular,
+          data_nascimento: data[0].data_nascimento,
+        } : null,
+        todas_as_chaves: data?.[0] ? Object.keys(data[0]) : [],
+      });
+      
       setContacts(data || []);
     } catch (error: any) {
       console.error('Erro ao buscar clientes:', error);

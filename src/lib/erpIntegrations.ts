@@ -370,7 +370,8 @@ export async function callERPAPI(
 
   // Determinar método HTTP
   // Tiny ERP v3: GET para listagem, POST para outras operações
-  const method = sistemaERP === 'TINY' && (endpoint.includes('/pedidos') || endpoint.includes('/contatos')) 
+  const endpointStr = String(endpoint || '');
+  const method = sistemaERP === 'TINY' && (endpointStr.includes('/pedidos') || endpointStr.includes('/contatos')) 
     ? 'GET'  // Endpoints de listagem são GET
     : 'POST'; // Outros endpoints são POST
 

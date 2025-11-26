@@ -194,10 +194,8 @@ async function fetchVendedorCompletoFromTiny(
     console.log(`[SyncTiny] 🔍 Buscando dados completos do vendedor ${vendedorId} no Tiny ERP...`);
     
     // Buscar contato/vendedor pelo ID na API do Tiny
-    const response = await callERPAPI(storeId, {
-      endpoint: `/contatos/${vendedorId}`,
-      method: 'GET',
-    });
+    // API v3: GET /contatos/{idContato}
+    const response = await callERPAPI(storeId, `/contatos/${vendedorId}`);
 
     if (!response || !response.contato) {
       console.log(`[SyncTiny] ⚠️ Vendedor ${vendedorId} não encontrado na API do Tiny`);
@@ -881,8 +879,7 @@ export async function syncTinyOrders(
           .eq('tiny_id', orderData.tiny_id)
           .maybeSingle();
 
-        // Upsert pedido (insert ou update se já existir)
-        const { error } =         // Log dos dados que serão salvos
+        // Log dos dados que serão salvos
         console.log(`[SyncTiny] 💾 Salvando pedido ${tinyId}:`, {
           numero_pedido: orderData.numero_pedido,
           valor_total: orderData.valor_total,
@@ -892,6 +889,7 @@ export async function syncTinyOrders(
           vendedor_nome: orderData.vendedor_nome,
         });
 
+        // Upsert pedido (insert ou update se já existir)
         const { error: upsertError } = await supabase
           .schema('sistemaretiradas')
           .from('tiny_orders')

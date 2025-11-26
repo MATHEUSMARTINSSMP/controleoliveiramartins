@@ -72,6 +72,22 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
       const { data, error } = await query;
 
       if (error) throw error;
+      
+      // Log detalhado dos dados recebidos do banco
+      console.log('[TinyOrdersList] 📦 Dados recebidos do banco:', {
+        total: data?.length || 0,
+        primeiro_pedido: data?.[0] ? {
+          tiny_id: data[0].tiny_id,
+          numero_pedido: data[0].numero_pedido,
+          valor_total: data[0].valor_total,
+          data_pedido: data[0].data_pedido,
+          cliente_nome: data[0].cliente_nome,
+          cliente_cpf_cnpj: data[0].cliente_cpf_cnpj,
+          vendedor_nome: data[0].vendedor_nome,
+        } : null,
+        todas_as_chaves: data?.[0] ? Object.keys(data[0]) : [],
+      });
+      
       setOrders(data || []);
     } catch (error: any) {
       console.error('Erro ao buscar pedidos:', error);
