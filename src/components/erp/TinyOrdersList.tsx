@@ -175,8 +175,33 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
     try {
-      return format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: ptBR });
-    } catch {
+      // ✅ CORREÇÃO: A data vem do banco como string ISO, mas pode estar em UTC
+      // Precisamos interpretar corretamente o timezone
+      let date: Date;
+      
+      // Se a string tem timezone explícito (ex: -03:00, +00:00, Z)
+      if (dateString.includes('T') && (dateString.includes('Z') || dateString.includes('+') || dateString.includes('-'))) {
+        date = new Date(dateString);
+      } 
+      // Se não tem timezone, assumir que é horário local do Brasil (UTC-3)
+      else if (dateString.includes('T')) {
+        // Adicionar timezone do Brasil se não tiver
+        const dateWithTimezone = dateString.endsWith('Z') 
+          ? dateString.replace('Z', '-03:00')
+          : dateString.includes('+') || dateString.includes('-')
+            ? dateString
+            : `${dateString}-03:00`;
+        date = new Date(dateWithTimezone);
+      }
+      // Se é apenas data (YYYY-MM-DD), criar como meia-noite no timezone local
+      else {
+        date = new Date(`${dateString}T00:00:00-03:00`);
+      }
+      
+      // Formatar para horário local do Brasil
+      return format(date, 'dd/MM/yyyy HH:mm', { locale: ptBR });
+    } catch (error) {
+      console.warn('[TinyOrdersList] Erro ao formatar data:', dateString, error);
       return dateString;
     }
   };
