@@ -127,24 +127,48 @@ export default function CategoryReports() {
     try {
       setLoading(true);
 
+      console.log('[Relatórios] 🔍 Iniciando busca de relatórios...', {
+        selectedStore,
+        dateStart,
+        dateEnd,
+      });
+
+      // Primeiro, verificar se há pedidos no banco (sem filtros de data para diagnóstico)
+      const { count: totalOrdersCount, error: totalError } = await supabase
+        .schema('sistemaretiradas')
+        .from('tiny_orders')
+        .select('*', { count: 'exact', head: true });
+
+      if (totalError) {
+        console.error('[Relatórios] ❌ Erro ao contar pedidos totais:', totalError);
+      } else {
+        console.log(`[Relatórios] 📊 Total de pedidos no banco: ${totalOrdersCount || 0}`);
+      }
+
       // Buscar pedidos no período
       let query = supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
-        .select('id, valor_total, itens, data_pedido, vendedor_nome, colaboradora_id');
+        .select('id, valor_total, itens, data_pedido, vendedor_nome, colaboradora_id, store_id');
 
       if (selectedStore !== 'all') {
         query = query.eq('store_id', selectedStore);
+        console.log(`[Relatórios] 🔍 Filtrando por loja: ${selectedStore}`);
       }
 
       if (dateStart) {
-        query = query.gte('data_pedido', `${dateStart}T00:00:00`);
+        const dateStartFormatted = `${dateStart}T00:00:00`;
+        query = query.gte('data_pedido', dateStartFormatted);
+        console.log(`[Relatórios] 🔍 Data início: ${dateStartFormatted}`);
       }
 
       if (dateEnd) {
-        query = query.lte('data_pedido', `${dateEnd}T23:59:59`);
+        const dateEndFormatted = `${dateEnd}T23:59:59`;
+        query = query.lte('data_pedido', dateEndFormatted);
+        console.log(`[Relatórios] 🔍 Data fim: ${dateEndFormatted}`);
       }
 
+      console.log('[Relatórios] 🔍 Executando query...');
       const { data: orders, error } = await query;
 
       if (error) throw error;
