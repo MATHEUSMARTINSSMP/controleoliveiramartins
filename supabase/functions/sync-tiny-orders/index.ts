@@ -26,6 +26,102 @@ interface SyncResult {
   message: string;
 }
 
+/**
+ * Verifica se há nova venda comparando último pedido no banco vs API
+ * Retorna true se há nova venda, false caso contrário
+ * Esta função implementa POLLING INTELIGENTE para evitar requisições desnecessárias
+ */
+async function verificarNovaVenda(
+  supabase: any,
+  storeId: string,
+  netlifyUrl: string
+): Promise<boolean> {
+  try {
+    console.log(`[SyncTiny] 🔍 Verificando se há nova venda para loja ${storeId}...`);
+
+    // 1. Buscar último pedido no banco
+    const { data: ultimoPedidoBanco } = await supabase
+      .schema('sistemaretiradas')
+      .from('tiny_orders')
+      .select('numero_pedido, data_pedido')
+      .eq('store_id', storeId)
+      .not('numero_pedido', 'is', null)
+      .order('numero_pedido', { ascending: false })
+      .limit(1)
+      .single();
+
+    console.log(`[SyncTiny] 📊 Último pedido no banco:`, {
+      numero: ultimoPedidoBanco?.numero_pedido,
+      data: ultimoPedidoBanco?.data_pedido,
+    });
+
+    // 2. Buscar último pedido na API (requisição leve, apenas listagem)
+    const checkUrl = `${netlifyUrl}/.netlify/functions/erp-api-proxy`;
+    
+    const checkResponse = await fetch(checkUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        store_id: storeId,
+        endpoint: '/pedidos',
+        params: {
+          situacao: '9,8', // Aprovado e Faturado
+          limit: 1,
+          ordenar: 'numeroPedido|DESC', // Último pedido primeiro
+        },
+        method: 'GET',
+      }),
+    });
+
+    if (!checkResponse.ok) {
+      console.warn(`[SyncTiny] ⚠️ Erro ao verificar última venda na API:`, checkResponse.status);
+      // Em caso de erro, assumir que há nova venda (sincronizar por segurança)
+      return true;
+    }
+
+    const checkData = await checkResponse.json();
+    const pedidos = checkData?.pedidos || checkData?.response?.pedidos || [];
+    const ultimoPedidoAPI = pedidos[0];
+
+    console.log(`[SyncTiny] 📊 Último pedido na API:`, {
+      numero: ultimoPedidoAPI?.numeroPedido,
+      data: ultimoPedidoAPI?.data,
+    });
+
+    // 3. Comparar
+    if (!ultimoPedidoBanco) {
+      // Se não há pedidos no banco, há nova venda (primeira sincronização)
+      console.log(`[SyncTiny] ✅ Primeira sincronização para loja ${storeId}`);
+      return true;
+    }
+
+    if (!ultimoPedidoAPI || !ultimoPedidoAPI.numeroPedido) {
+      // Se não há pedidos na API, não há nova venda
+      console.log(`[SyncTiny] ℹ️ Nenhum pedido encontrado na API`);
+      return false;
+    }
+
+    // Comparar números de pedido
+    const numeroBanco = ultimoPedidoBanco.numero_pedido;
+    const numeroAPI = ultimoPedidoAPI.numeroPedido;
+
+    if (numeroAPI > numeroBanco) {
+      console.log(`[SyncTiny] ✅ NOVA VENDA DETECTADA! API: ${numeroAPI} > Banco: ${numeroBanco}`);
+      return true;
+    }
+
+    console.log(`[SyncTiny] ℹ️ Sem mudanças. Último pedido: ${numeroBanco}`);
+    return false;
+
+  } catch (error) {
+    console.error(`[SyncTiny] ❌ Erro ao verificar nova venda:`, error);
+    // Em caso de erro, assumir que há nova venda (sincronizar por segurança)
+    return true;
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -88,13 +184,6 @@ serve(async (req) => {
       if (!integration) {
         throw new Error(`Integração não encontrada ou não conectada para loja ${storeData.name}`);
       }
-      
-      // ✅ OBTER URL DO NETLIFY (usar variável de ambiente ou URL padrão)
-      // Tentar múltiplas variáveis de ambiente (Netlify pode usar diferentes nomes)
-      const netlifyUrl = Deno.env.get('NETLIFY_FUNCTION_URL') || 
-                        Deno.env.get('NETLIFY_URL') || 
-                        Deno.env.get('DEPLOY_PRIME_URL') ||
-                        'https://eleveaone.com.br';
       
       // ✅ Determinar qual Netlify Function chamar
       const functionName = syncType === 'CONTACTS' ? 'sync-tiny-contacts-background' : 'sync-tiny-orders-background';
@@ -169,6 +258,12 @@ serve(async (req) => {
     // ✅ SINCRONIZAÇÃO AUTOMÁTICA (via cron)
     console.log('[SyncTinyOrders] 🚀 Iniciando sincronização automática...')
 
+    // Obter URL do Netlify
+    const netlifyUrl = Deno.env.get('NETLIFY_FUNCTION_URL') || 
+                      Deno.env.get('NETLIFY_URL') || 
+                      Deno.env.get('DEPLOY_PRIME_URL') ||
+                      'https://eleveaone.com.br';
+
     // 1. Buscar todas as lojas com integração ERP ativa
     const { data: integrations, error: integrationsError } = await supabase
       .schema('sistemaretiradas')
@@ -217,16 +312,35 @@ serve(async (req) => {
       const storeId = integration.store_id
       const storeName = (integration.stores as any)?.name || 'Loja Desconhecida'
       
-      console.log(`[SyncTinyOrders] 🔄 Sincronizando loja: ${storeName} (${storeId})`)
+      console.log(`[SyncTinyOrders] 🔄 Processando loja: ${storeName} (${storeId})`)
 
       try {
+        // ✅ POLLING INTELIGENTE: Verificar se há nova venda antes de sincronizar
+        // Isso reduz drasticamente o custo de requisições desnecessárias
+        const temNovaVenda = await verificarNovaVenda(supabase, storeId, netlifyUrl);
+
+        if (!temNovaVenda) {
+          console.log(`[SyncTinyOrders] ⏭️ Sem nova venda detectada para loja ${storeName}. Pulando sincronização.`);
+          results.push({
+            store_id: storeId,
+            store_name: storeName,
+            success: true,
+            synced: 0,
+            updated: 0,
+            errors: 0,
+            message: 'Sem nova venda detectada. Sincronização não necessária.',
+          });
+          continue; // Pular para próxima loja
+        }
+
+        console.log(`[SyncTinyOrders] ✅ Nova venda detectada para loja ${storeName}! Iniciando sincronização...`);
+
         // Sincronização automática: últimas 12 horas
         const dozeHorasAtras = new Date()
         dozeHorasAtras.setHours(dozeHorasAtras.getHours() - 12)
         const dataInicio = dozeHorasAtras.toISOString().split('T')[0]
 
         // ✅ ESTRATÉGIA: Chamar Netlify Function que tem a lógica completa de sincronização
-        const netlifyUrl = Deno.env.get('NETLIFY_FUNCTION_URL') || 'https://eleveaone.com.br'
         const syncUrl = `${netlifyUrl}/.netlify/functions/sync-tiny-orders-background`
         
         console.log(`[SyncTinyOrders] 📡 Chamando Netlify Function para sincronizar loja ${storeId}...`)

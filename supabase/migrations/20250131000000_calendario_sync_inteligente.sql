@@ -28,10 +28,10 @@ SELECT cron.unschedule('sync-tiny-orders-automatic') WHERE EXISTS (
 );
 
 -- =============================================================================
--- JOB 1: HARD SYNC SEMANAL (Domingo 02:00)
+-- JOB 1: HARD SYNC MENSAL (Dia 1 de cada mês às 02:00)
 -- =============================================================================
 -- Verifica TUDO desde o começo (desde 2010-01-01)
--- Frequência: 1x por semana (Domingo 02:00)
+-- Frequência: 1x a cada 30 dias (Dia 1 de cada mês às 02:00)
 
 DO $$
 DECLARE
@@ -49,15 +49,18 @@ BEGIN
     
     service_role_key := current_setting('app.service_role_key', true);
     
-    -- Remover job se já existir
+    -- Remover job antigo se já existir
     PERFORM cron.unschedule('sync-weekly-full') WHERE EXISTS (
         SELECT 1 FROM cron.job WHERE jobname = 'sync-weekly-full'
     );
+    PERFORM cron.unschedule('sync-monthly-full') WHERE EXISTS (
+        SELECT 1 FROM cron.job WHERE jobname = 'sync-monthly-full'
+    );
     
-    -- Criar job semanal
+    -- Criar job mensal (a cada 30 dias)
     PERFORM cron.schedule(
-        'sync-weekly-full',
-        '0 2 * * 0', -- Todo domingo às 02:00
+        'sync-monthly-full',
+        '0 2 1 * *', -- Dia 1 de cada mês às 02:00 (aproximadamente a cada 30 dias)
         $$
         SELECT net.http_post(
             url := supabase_url || '/functions/v1/sync-tiny-orders',
@@ -76,7 +79,7 @@ BEGIN
         $$
     );
     
-    RAISE NOTICE '✅ Job 1 criado: Hard Sync Semanal (Domingo 02:00)';
+    RAISE NOTICE '✅ Job 1 criado: Hard Sync Mensal (Dia 1 de cada mês às 02:00 - a cada 30 dias)';
 END $$;
 
 -- =============================================================================
@@ -305,7 +308,7 @@ BEGIN
     RAISE NOTICE '✅ CALENDÁRIO DE SINCRONIZAÇÃO CRIADO!';
     RAISE NOTICE '';
     RAISE NOTICE 'Jobs criados:';
-    RAISE NOTICE '1. sync-weekly-full: Domingo 02:00 (Hard Sync completo)';
+    RAISE NOTICE '1. sync-monthly-full: Dia 1 de cada mês às 02:00 (Hard Sync completo - a cada 30 dias)';
     RAISE NOTICE '2. sync-daily-7days: Diariamente 03:00 (Últimos 7 dias)';
     RAISE NOTICE '3. sync-twice-daily-24h-06: Diariamente 06:00 (Últimas 24h)';
     RAISE NOTICE '4. sync-twice-daily-24h-18: Diariamente 18:00 (Últimas 24h)';

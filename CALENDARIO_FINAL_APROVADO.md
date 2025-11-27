@@ -10,7 +10,7 @@ Seu calendário está **EXCELENTE**! A estratégia em camadas é muito inteligen
 
 | Frequência | Tipo de Sync | Período | Horário Cron | Parâmetros | Justificativa |
 |------------|--------------|---------|--------------|------------|---------------|
-| **1x por semana** | Hard Sync Absoluto | Desde 2010-01-01 | `0 2 * * 0` (Domingo 02:00) | `max_pages: 99999, limit: 100` | Verificação completa garantida |
+| **1x a cada 30 dias** | Hard Sync Absoluto | Desde 2010-01-01 | `0 2 1 * *` (Dia 1 de cada mês 02:00) | `max_pages: 99999, limit: 100` | Verificação completa garantida |
 | **1x por dia** | Sync 7 dias | Últimos 7 dias | `0 3 * * *` (03:00) | `max_pages: 50, limit: 100` | Cobertura semanal |
 | **2x por dia** | Sync 24h | Últimas 24 horas | `0 6,18 * * *` (06:00 e 18:00) | `max_pages: 20, limit: 100` | Cobertura diária |
 | **A cada 1 minuto** | Push Sync | Últimos 1 minuto | `*/1 * * * *` | `limit: 1, max_pages: 1` | Mínimo possível (1440x/dia) - Quase tempo real |
@@ -21,7 +21,7 @@ Seu calendário está **EXCELENTE**! A estratégia em camadas é muito inteligen
 ## ✅ PONTOS FORTES DO SEU CALENDÁRIO
 
 ### **1. Estratégia em Camadas** ⭐⭐⭐⭐⭐
-- ✅ **Hard sync semanal**: Garante que nada seja perdido
+- ✅ **Hard sync mensal (30 dias)**: Garante que nada seja perdido
 - ✅ **Sync diário 7 dias**: Cobertura semanal garantida
 - ✅ **Sync 2x por dia 24h**: Cobertura diária garantida
 - ✅ **Sync frequente**: Dados quase em tempo real

@@ -4,7 +4,7 @@
 
 Implementar um sistema de sincronização com **múltiplas frequências** otimizadas:
 
-1. **1 vez por semana**: Verificação completa desde o começo (hard sync absoluto)
+1. **1 vez a cada 30 dias**: Verificação completa desde o começo (hard sync absoluto)
 2. **1 vez por dia**: Verificação dos últimos 7 dias
 3. **2 vezes por dia**: Verificação das últimas 24h
 4. **A cada 30 segundos**: Verificação "push" de novas vendas (apenas última venda)
@@ -16,7 +16,7 @@ Implementar um sistema de sincronização com **múltiplas frequências** otimiz
 
 | Frequência | Tipo de Sync | Período | Horário | Descrição |
 |------------|--------------|---------|---------|-----------|
-| **1x por semana** | Hard Sync Absoluto | Desde 2010-01-01 | Domingo 02:00 | Verificação completa de tudo |
+| **1x a cada 30 dias** | Hard Sync Absoluto | Desde 2010-01-01 | Dia 1 de cada mês 02:00 | Verificação completa de tudo |
 | **1x por dia** | Sync 7 dias | Últimos 7 dias | 03:00 | Verificação semanal |
 | **2x por dia** | Sync 24h | Últimas 24 horas | 06:00 e 18:00 | Verificação diária |
 | **30 em 30 segundos** | Push Sync | Última venda | Contínuo | Verificação quase em tempo real |
@@ -29,7 +29,7 @@ Implementar um sistema de sincronização com **múltiplas frequências** otimiz
 ### **Opção 1: Múltiplos Jobs no pg_cron**
 
 Criar 4 jobs diferentes no pg_cron:
-1. `sync-weekly-full` - Domingo 02:00
+1. `sync-monthly-full` - Dia 1 de cada mês às 02:00 (a cada 30 dias)
 2. `sync-daily-7days` - Diariamente 03:00
 3. `sync-twice-daily-24h` - 06:00 e 18:00
 4. `sync-30min-incremental` - A cada 30 minutos
