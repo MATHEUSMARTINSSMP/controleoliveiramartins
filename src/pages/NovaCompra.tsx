@@ -522,9 +522,14 @@ const NovaCompra = () => {
                           <Select
                             value={item.tipo_desconto}
                             onValueChange={(value: "financeiro" | "percentual") => {
-                              updateItem(index, "tipo_desconto", value);
-                              // Limpar desconto ao mudar tipo
-                              updateItem(index, "desconto_beneficio", "");
+                              // Atualizar tipo e limpar desconto em uma única operação para evitar race condition
+                              const newItems = [...items];
+                              newItems[index] = { 
+                                ...newItems[index], 
+                                tipo_desconto: value,
+                                desconto_beneficio: "" // Limpar desconto ao mudar tipo
+                              };
+                              setItems(newItems);
                             }}
                           >
                             <SelectTrigger className="w-full">
