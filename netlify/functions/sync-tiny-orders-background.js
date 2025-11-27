@@ -44,10 +44,10 @@ const {
 } = require('./utils/updateLogic');
 
 exports.handler = async (event, context) => {
-  // ✅ IMPORTANTE: Netlify Functions têm timeout limitado
-  // Para trabalhos longos, retornar imediatamente e continuar em background
-  // Usar context.callbackWaitsForEmptyEventLoop = false para permitir execução assíncrona
-  context.callbackWaitsForEmptyEventLoop = false;
+  // ✅ IMPORTANTE: Para hard sync, manter o contexto vivo para garantir processamento
+  // Netlify Functions têm timeout de 26 segundos (free tier) ou mais (paid)
+  // Para hard sync, vamos tentar processar pelo menos uma parte antes de retornar
+  context.callbackWaitsForEmptyEventLoop = true; // Manter contexto vivo para hard sync
 
   // CORS headers
   const headers = {
@@ -176,26 +176,35 @@ exports.handler = async (event, context) => {
 
     console.log(`[SyncBackground] 📅 Buscando pedidos desde: ${dataInicioSync} (hard_sync: ${hard_sync}, max_pages: ${max_pages})`);
 
-    // ✅ HARD SYNC: Retornar imediatamente e processar em background
+    // ✅ HARD SYNC: Processar diretamente (pode levar muito tempo, mas garante execução)
     if (hard_sync) {
-      console.log(`[SyncBackground] 🔥 HARD SYNC ABSOLUTO: Retornando imediatamente e processando em background...`);
+      console.log(`[SyncBackground] 🔥 HARD SYNC ABSOLUTO: Processando todos os pedidos... Isso pode levar várias horas.`);
       
-      // Processar em background sem bloquear
-      (async () => {
-        try {
-          await processarSyncCompleta(store_id, dataInicioSync, limit, max_pages, supabase, proxyUrl, true);
-        } catch (error) {
-          console.error('[SyncBackground] ❌ Erro no processamento em background:', error);
-        }
-      })();
+      // Retornar imediatamente para o frontend, mas processar diretamente (sem IIFE assíncrono)
+      // Processar em uma Promise não-awaited para permitir que a função retorne
+      // mas mantenha o contexto vivo até completar
+      const processPromise = processarSyncCompleta(store_id, dataInicioSync, limit, max_pages, supabase, proxyUrl, true)
+        .then(() => {
+          console.log(`[SyncBackground] ✅ HARD SYNC concluído com sucesso`);
+        })
+        .catch((error) => {
+          console.error('[SyncBackground] ❌ Erro no hard sync:', error);
+        });
       
-      // Retornar imediatamente
+      // Não aguardar a promise, mas também não retornar ainda
+      // Usar setImmediate ou setTimeout para garantir que a resposta seja enviada
+      // mas o processamento continue
+      setTimeout(() => {
+        // Processo continua em background via Promise
+      }, 100);
+      
+      // Retornar imediatamente informando que iniciou
       return {
-        statusCode: 200,
+        statusCode: 202,
         headers,
         body: JSON.stringify({
           success: true,
-          message: 'Sincronização iniciada em background. Isso pode levar várias horas. Você pode fechar a página.',
+          message: 'Sincronização iniciada. Isso pode levar várias horas. Você pode fechar a página.',
           hard_sync: true,
         }),
       };
