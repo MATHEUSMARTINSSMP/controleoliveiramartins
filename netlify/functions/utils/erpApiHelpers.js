@@ -115,6 +115,21 @@ async function fetchPedidoCompletoFromTiny(storeId, pedidoId) {
       tem_data: !!pedidoCompleto.data,
     });
 
+    // 🔍 DEBUG: Logar TODOS os campos do pedido para identificar campos de data
+    console.log(`[ERPHelpers] 🔍 TODOS OS CAMPOS DO PEDIDO ${pedidoId}:`, Object.keys(pedidoCompleto));
+    console.log(`[ERPHelpers] 🔍 CAMPOS DE DATA:`, {
+      dataCriacao: pedidoCompleto.dataCriacao,
+      dataAtualizacao: pedidoCompleto.dataAtualizacao,
+      data: pedidoCompleto.data,
+      dataFaturamento: pedidoCompleto.dataFaturamento,
+      dataEnvio: pedidoCompleto.dataEnvio,
+      dataPedido: pedidoCompleto.dataPedido,
+      data_pedido: pedidoCompleto.data_pedido,
+      data_criacao: pedidoCompleto.data_criacao,
+      created_at: pedidoCompleto.created_at,
+      createdAt: pedidoCompleto.createdAt,
+    });
+
     // Cache
     cache.pedidos[cacheKey] = pedidoCompleto;
 
