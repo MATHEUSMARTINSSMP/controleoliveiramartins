@@ -1248,6 +1248,7 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
         } else {
           dataPedido = dataBase;
         }
+        console.log(`[SyncBackground] ✅ Pedido ${tinyId}: Usando dataCriacao com hora real: ${dataPedido}`);
       }
     }
   }
@@ -1344,6 +1345,14 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     const dataPart = dataBase.includes('T') ? dataBase.split('T')[0] : dataBase;
     dataPedido = `${dataPart}T00:00:00-03:00`;
     console.warn(`[SyncBackground] ⚠️ Pedido ${tinyId}: Data sem hora real disponível, usando 00:00:00 como fallback`);
+    console.warn(`[SyncBackground] 📊 Dados disponíveis:`, {
+      dataCriacao: pedidoCompleto?.dataCriacao,
+      dataAtualizacao: pedidoCompleto?.dataAtualizacao,
+      data: pedidoCompleto?.data,
+      dataFaturamento: pedidoCompleto?.dataFaturamento,
+      pedido_dataCriacao: pedido.dataCriacao,
+      pedido_data: pedido.data,
+    });
   }
 
   // Calcular valor total
