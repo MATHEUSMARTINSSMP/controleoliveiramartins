@@ -200,6 +200,8 @@ exports.handler = async (event, context) => {
           }),
         });
 
+        console.log(`[SyncBackground] 📡 Chamando API Tiny - Página ${currentPage}, Data: ${dataInicioSync}, Limite: ${limit || 50}`);
+
         if (!response.ok) {
           const errorText = await response.text();
           throw new Error(`Erro ao buscar pedidos: ${errorText}`);
