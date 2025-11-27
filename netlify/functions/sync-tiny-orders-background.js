@@ -524,10 +524,13 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
 
   console.log(`[SyncBackground] 📊 Total de ${allPedidos.length} pedidos encontrados`);
 
-  // Filtrar apenas pedidos faturados (situacao = 1 ou 3)
+  // Filtrar pedidos faturados E aprovados (situacao = 1, 3, 6, ou strings equivalentes)
   const pedidosFaturados = allPedidos.filter(p => {
     const situacao = p.situacao || p.pedido?.situacao;
-    return situacao === 1 || situacao === 3 || situacao === 'faturado' || situacao === 'Faturado';
+    // 1 = Aprovado, 3 = Faturado, 6 = Aprovado (pode variar por versão da API)
+    return situacao === 1 || situacao === 3 || situacao === 6 ||
+      situacao === 'aprovado' || situacao === 'Aprovado' ||
+      situacao === 'faturado' || situacao === 'Faturado';
   });
 
   console.log(`[SyncBackground] ✅ ${pedidosFaturados.length} pedidos faturados para processar`);
@@ -618,10 +621,16 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
       }
 
       // Salvar pedido completo
+      // ✅ IMPORTANTE: Preservar data_pedido original se o pedido já existe
+      const finalOrderData = existingOrder ? {
+        ...orderData,
+        data_pedido: existingOrder.data_pedido, // Manter data original
+      } : orderData;
+
       const { error: upsertError } = await supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
-        .upsert(orderData, {
+        .upsert(finalOrderData, {
           onConflict: 'tiny_id,store_id',
         });
 
@@ -631,7 +640,7 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
       } else {
         if (existingOrder) {
           updated++;
-          console.log(`[SyncBackground] ✅ Pedido ${tinyId} atualizado`);
+          console.log(`[SyncBackground] ✅ Pedido ${tinyId} atualizado (data preservada: ${existingOrder.data_pedido})`);
         } else {
           synced++;
           console.log(`[SyncBackground] ✅ Pedido ${tinyId} criado`);
@@ -1341,12 +1350,17 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
       dataPedido = `${dataPedido}-03:00`;
     }
   } else if (dataBase) {
-    // 6. Último recurso: usar data base com horário ATUAL (sincronização em tempo real)
+    // 6. Último recurso: usar data base com horário ATUAL no fuso de Macapá (UTC-3)
     const dataPart = dataBase.includes('T') ? dataBase.split('T')[0] : dataBase;
+
+    // Criar data no fuso de Macapá (UTC-3)
     const agora = new Date();
-    const horaAtual = agora.toISOString().split('T')[1].split('.')[0]; // HH:mm:ss
+    // Ajustar para UTC-3 (Macapá)
+    const macapaTime = new Date(agora.getTime() - (3 * 60 * 60 * 1000));
+    const horaAtual = macapaTime.toISOString().split('T')[1].split('.')[0]; // HH:mm:ss
+
     dataPedido = `${dataPart}T${horaAtual}-03:00`;
-    console.warn(`[SyncBackground] ⏰ Pedido ${tinyId}: Usando horário atual (${horaAtual}) pois API não retornou hora real`);
+    console.warn(`[SyncBackground] ⏰ Pedido ${tinyId}: Usando horário atual de Macapá (${horaAtual}) pois API não retornou hora real`);
     console.warn(`[SyncBackground] 📊 Dados disponíveis:`, {
       dataCriacao: pedidoCompleto?.dataCriacao,
       dataAtualizacao: pedidoCompleto?.dataAtualizacao,
