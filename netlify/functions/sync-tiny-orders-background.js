@@ -292,8 +292,8 @@ exports.handler = async (event, context) => {
 
         // ✅ TAREFA 4: Processar itens completos com extração de dados
         const itensProcessados = await Promise.all(
-          (pedidoCompleto.itens || []).map(async (item) => {
-            return await processarItemCompleto(store_id, item, pedidoCompleto.id);
+          (itensParaProcessar || []).map(async (item) => {
+            return await processarItemCompleto(store_id, item, pedidoCompleto?.id || pedido.id);
           })
         );
 
@@ -399,7 +399,7 @@ async function processarItemCompleto(storeId, itemData, pedidoId) {
 
   const codigo = produto.sku || itemData.sku || produto.codigo || itemData.codigo || null;
   const descricao = produto.descricao || itemData.descricao || produto.nome || itemData.nome || null;
-  const produtoId = produto.id || itemData.produto_id || itemData.produto?.id || item.idProduto || item.produtoId || null;
+  const produtoId = produto.id || itemData.produto_id || itemData.produto?.id || itemData.idProduto || itemData.produtoId || null;
 
   // Variáveis para dados extraídos
   let categoria = null;
@@ -412,21 +412,21 @@ async function processarItemCompleto(storeId, itemData, pedidoId) {
   let material = null;
 
   // Tentar extrair do item diretamente
-  if (item.categoria) {
-    categoria = typeof item.categoria === 'string' ? item.categoria : (item.categoria.nome || item.categoria.descricao || null);
+  if (itemData.categoria) {
+    categoria = typeof itemData.categoria === 'string' ? itemData.categoria : (itemData.categoria.nome || itemData.categoria.descricao || null);
   }
-  if (item.marca) {
-    marca = typeof item.marca === 'string' ? item.marca : (item.marca.nome || item.marca.descricao || null);
+  if (itemData.marca) {
+    marca = typeof itemData.marca === 'string' ? itemData.marca : (itemData.marca.nome || itemData.marca.descricao || null);
   }
-  if (item.tamanho) {
-    tamanho = normalizeTamanho(item.tamanho);
+  if (itemData.tamanho) {
+    tamanho = normalizeTamanho(itemData.tamanho);
   }
-  if (item.cor) {
-    cor = normalizeCor(item.cor);
+  if (itemData.cor) {
+    cor = normalizeCor(itemData.cor);
   }
 
   // Extrair ID da variação
-  const variacaoId = item.variacao?.id || item.variacaoId || item.idVariacao || item.variacao_id || null;
+  const variacaoId = itemData.variacao?.id || itemData.variacaoId || itemData.idVariacao || itemData.variacao_id || null;
 
   // ✅ BUSCAR DETALHES COMPLETOS DO PRODUTO se tivermos produtoId
   if (produtoId) {
