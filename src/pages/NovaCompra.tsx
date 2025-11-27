@@ -471,11 +471,13 @@ const NovaCompra = () => {
                   const venda = parseFloat(item.preco_venda) || 0;
                   const descontoValor = parseFloat(item.desconto_beneficio) || 0;
                   
-                  // Calcular desconto baseado no tipo
+                  // ✅ Calcular desconto baseado no tipo - IMPORTANTE: verificar tipo antes de calcular
                   let desconto = 0;
-                  if (item.tipo_desconto === "percentual") {
+                  if (item.tipo_desconto === "percentual" && descontoValor > 0) {
+                    // Desconto percentual: calcular como porcentagem do preço de venda
                     desconto = (venda * descontoValor) / 100;
-                  } else {
+                  } else if (item.tipo_desconto === "financeiro" && descontoValor > 0) {
+                    // Desconto financeiro: usar valor direto em reais
                     desconto = descontoValor;
                   }
                   
