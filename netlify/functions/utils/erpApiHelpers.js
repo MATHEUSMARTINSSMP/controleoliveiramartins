@@ -36,17 +36,17 @@ function clearCache() {
  */
 async function callERPAPI(storeId, endpoint, params = {}, method = 'GET') {
   const proxyUrl = `${process.env.URL || 'https://eleveaone.com.br'}/.netlify/functions/erp-api-proxy`;
-  
+
   const response = await fetch(proxyUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      store_id: storeId,
+      storeId: storeId, // ✅ CORREÇÃO: proxy espera storeId (camelCase)
       endpoint,
-      params,
-      method,
+      method: method || 'GET',
+      params: params || {},
     }),
   });
 
