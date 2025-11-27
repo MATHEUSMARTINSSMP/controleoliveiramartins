@@ -181,14 +181,14 @@ exports.handler = async (event, context) => {
     // Então vamos processar diretamente, mas otimizar para não dar timeout
     if (hard_sync) {
       console.log(`[SyncBackground] 🔥 HARD SYNC ABSOLUTO: Processando todos os pedidos... Isso pode levar várias horas.`);
-      
+
       // Retornar status 202 primeiro para o frontend saber que iniciou
       // Mas processar diretamente depois (isso mantém o contexto vivo)
       // Processar diretamente na função principal garante execução
       try {
         // Processar diretamente (isso vai demorar muito, mas garante que executa)
         const resultado = await processarSyncCompleta(store_id, dataInicioSync, limit, max_pages, supabase, proxyUrl, true);
-        
+
         return {
           statusCode: 200,
           headers,
@@ -434,7 +434,7 @@ exports.handler = async (event, context) => {
  */
 async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, supabase, proxyUrl, hardSync = false) {
   console.log(`[SyncBackground] 🔄 Iniciando processamento completo em background... (hardSync: ${hardSync})`);
-  
+
   // Buscar pedidos do Tiny ERP
   let allPedidos = [];
   let currentPage = 1;
@@ -448,7 +448,7 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
           try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 segundos timeout
-            
+
             const response = await fetch(proxyUrl, {
               method: 'POST',
               headers: {
@@ -461,12 +461,12 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
                 params: {
                   dataInicio: dataInicioSync,
                   pagina: currentPage,
-                  limite: limit || 50,
+                  limite: limit || 100,
                 },
               }),
               signal: controller.signal,
             });
-            
+
             clearTimeout(timeoutId);
             return response;
           } catch (error) {
@@ -477,9 +477,9 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
           }
         }
       };
-      
+
       console.log(`[SyncBackground] 📡 Chamando API Tiny - Página ${currentPage}, Data: ${dataInicioSync}, Limite: ${limit || 50}`);
-      
+
       const response = await fetchWithRetry();
 
       if (!response.ok) {
@@ -500,9 +500,14 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
 
       console.log(`[SyncBackground] 📄 Página ${currentPage - 1}: ${pedidos.length} pedidos encontrados`);
 
+      // ✅ Rate Limiting: Aguardar 1 segundo entre páginas para evitar 429 Too Many Requests
+      if (hasMore) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
     } catch (error) {
       console.error(`[SyncBackground] ❌ Erro ao buscar página ${currentPage} após todas as tentativas:`, error);
-      
+
       // ✅ Para hard sync, continuar tentando próximas páginas ao invés de parar completamente
       // Isso permite que mesmo com alguns timeouts, o processo continue sincronizando o que conseguir
       if (hardSync && currentPage < maxPages) {
@@ -640,7 +645,7 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
   }
 
   console.log(`[SyncBackground] ✅ Sincronização concluída: ${synced} novos, ${updated} atualizados, ${errors} erros`);
-  
+
   return {
     synced,
     updated,
@@ -942,12 +947,12 @@ async function processarItemCompleto(storeId, itemData, pedidoId) {
         // ✅ ESTRATÉGIA MELHORADA: Buscar cor válida na parte sem tamanho
         // Tentar de trás para frente (última parte primeiro, depois partes anteriores)
         let corEncontrada = null;
-        
+
         if (partesPorHifen.length > 1) {
           // Tentar as partes de trás para frente até encontrar uma cor válida
           for (let i = partesPorHifen.length - 1; i >= 0; i--) {
             const parte = partesPorHifen[i].trim();
-            
+
             // Validar tamanho básico
             if (parte.length < 30 && parte.length > 2 && !/^\d+$/.test(parte)) {
               // ✅ VALIDAÇÃO: Usar normalizeCor que valida contra o mapa de cores válidas
@@ -960,26 +965,26 @@ async function processarItemCompleto(storeId, itemData, pedidoId) {
             }
           }
         }
-        
+
         // ✅ Se não encontrou na separação por hífen, buscar na descrição completa
         if (!corEncontrada) {
           console.log(`[SyncBackground] ⚠️ Não encontrou cor válida nas partes separadas, tentando busca na descrição completa`);
-          
+
           // Tentar primeiro na parte sem tamanho
           corEncontrada = extrairCorDaDescricao(parteSemTamanho);
-          
+
           // Se não encontrou, tentar na descrição completa
           if (!corEncontrada) {
             corEncontrada = extrairCorDaDescricao(descricao);
           }
-          
+
           if (corEncontrada) {
             console.log(`[SyncBackground] ✅ Cor encontrada na descrição: "${corEncontrada}"`);
           } else {
             console.log(`[SyncBackground] ❌ Nenhuma cor válida encontrada na descrição`);
           }
         }
-        
+
         if (corEncontrada) {
           cor = corEncontrada;
         }
@@ -1230,21 +1235,33 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
   // 1. Priorizar dataCriacao do pedido completo (mais confiável)
   if (pedidoCompleto?.dataCriacao) {
     dataBase = pedidoCompleto.dataCriacao;
-    const horaPart = dataBase.split('T')?.[1]?.split(/[+\-Z]/)?.[0];
-    temHoraReal = horaPart && !horaPart.startsWith('00:00:00');
-    if (temHoraReal) {
-      dataPedido = dataBase;
+    // ✅ CORREÇÃO: Suportar separador T ou espaço
+    const separador = dataBase.includes('T') ? 'T' : (dataBase.includes(' ') ? ' ' : null);
+
+    if (separador) {
+      const horaPart = dataBase.split(separador)?.[1]?.split(/[+\-Z]/)?.[0];
+      temHoraReal = horaPart && !horaPart.startsWith('00:00:00');
+      if (temHoraReal) {
+        // Normalizar para ISO se for espaço
+        if (separador === ' ') {
+          dataPedido = dataBase.replace(' ', 'T');
+        } else {
+          dataPedido = dataBase;
+        }
+      }
     }
   }
 
   // 2. Se não tem hora real, tentar dataAtualizacao do pedido completo
   if (!temHoraReal && pedidoCompleto?.dataAtualizacao) {
     const dataAtualizacao = pedidoCompleto.dataAtualizacao;
-    if (dataAtualizacao.includes('T')) {
-      const horaPart = dataAtualizacao.split('T')[1]?.split(/[+\-Z]/)?.[0];
+    const separador = dataAtualizacao.includes('T') ? 'T' : (dataAtualizacao.includes(' ') ? ' ' : null);
+
+    if (separador) {
+      const horaPart = dataAtualizacao.split(separador)[1]?.split(/[+\-Z]/)?.[0];
       if (horaPart && !horaPart.startsWith('00:00:00')) {
         // Usar data base do pedido mas com hora de atualização
-        const dataPart = (dataBase || dataAtualizacao).split('T')[0];
+        const dataPart = (dataBase || dataAtualizacao).split(separador)[0];
         dataPedido = `${dataPart}T${horaPart}-03:00`;
         temHoraReal = true;
       }
@@ -1260,13 +1277,17 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     ].filter(Boolean);
 
     for (const dataAlt of datasAlternativas) {
-      if (dataAlt && typeof dataAlt === 'string' && dataAlt.includes('T')) {
-        const horaPart = dataAlt.split('T')[1]?.split(/[+\-Z]/)?.[0];
-        if (horaPart && !horaPart.startsWith('00:00:00')) {
-          const dataPart = (dataBase || dataAlt).split('T')[0];
-          dataPedido = `${dataPart}T${horaPart}-03:00`;
-          temHoraReal = true;
-          break;
+      if (dataAlt && typeof dataAlt === 'string') {
+        const separador = dataAlt.includes('T') ? 'T' : (dataAlt.includes(' ') ? ' ' : null);
+
+        if (separador) {
+          const horaPart = dataAlt.split(separador)[1]?.split(/[+\-Z]/)?.[0];
+          if (horaPart && !horaPart.startsWith('00:00:00')) {
+            const dataPart = (dataBase || dataAlt).split(separador)[0];
+            dataPedido = `${dataPart}T${horaPart}-03:00`;
+            temHoraReal = true;
+            break;
+          }
         }
       }
     }
@@ -1284,10 +1305,17 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
 
     for (const dataOrig of datasOriginais) {
       if (dataOrig && typeof dataOrig === 'string') {
-        if (dataOrig.includes('T')) {
-          const horaPart = dataOrig.split('T')[1]?.split(/[+\-Z]/)?.[0];
-          if (horaPart && !horaPart.startsWith('00:00:00')) {
-            dataPedido = dataOrig;
+        // ✅ CORREÇÃO: Suportar separador T ou espaço
+        const separador = dataOrig.includes('T') ? 'T' : (dataOrig.includes(' ') ? ' ' : null);
+
+        if (separador) {
+          const parts = dataOrig.split(separador);
+          const dataPart = parts[0];
+          const horaPart = parts[1]?.split(/[+\-Z]/)?.[0]; // Remover timezone se houver
+
+          if (horaPart && !horaPart.startsWith('00:00:00') && horaPart.length >= 5) {
+            // Reconstruir em formato ISO
+            dataPedido = `${dataPart}T${horaPart}`;
             temHoraReal = true;
             break;
           } else {

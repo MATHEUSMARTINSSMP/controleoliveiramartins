@@ -82,28 +82,28 @@ const TAMANHOS_VALIDOS = [
 // ✅ FUNÇÃO PARA NORMALIZAR TAMANHOS (SEMPRE EM MAIÚSCULA)
 function normalizeTamanho(tamanho: string | null | undefined): string | null {
   if (!tamanho) return null;
-  
+
   // Converter para maiúscula e remover espaços
   const normalized = String(tamanho)
     .toUpperCase()
     .trim()
     .replace(/[^A-Z0-9]/g, ''); // Remove caracteres especiais, mantém apenas letras maiúsculas e números
-  
+
   // Verificar se está na lista de tamanhos válidos (comparação case-insensitive)
-  const match = TAMANHOS_VALIDOS.find(t => 
-    normalized === t || 
-    normalized.includes(t) || 
+  const match = TAMANHOS_VALIDOS.find(t =>
+    normalized === t ||
+    normalized.includes(t) ||
     t.includes(normalized) ||
     normalized.replace(/[^A-Z0-9]/g, '') === t.replace(/[^A-Z0-9]/g, '')
   );
-  
+
   if (match) {
     // Retornar o tamanho normalizado padrão em MAIÚSCULA
     if (match === 'UNICO' || match === 'ÚNICO') return 'U';
     if (match === 'UNIDADE') return 'U';
     return match.toUpperCase();
   }
-  
+
   // Se não encontrou match exato, retornar o tamanho original em MAIÚSCULA
   // Pode ser um tamanho não padrão, mas sempre em maiúscula
   return String(tamanho).trim().toUpperCase();
@@ -116,12 +116,12 @@ export default function ProductSalesIntelligence() {
   const [rawSales, setRawSales] = useState<ProductSale[]>([]);
   const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
   const [colaboradoras, setColaboradoras] = useState<Array<{ id: string; name: string }>>([]);
-  
+
   // Filtros
   const [selectedStore, setSelectedStore] = useState<string>('all');
   const [selectedColaboradora, setSelectedColaboradora] = useState<string>('all');
   const [periodPreset, setPeriodPreset] = useState<PeriodPreset>('last30');
-  
+
   // ✅ CORREÇÃO: Inicializar datas com valores padrão (últimos 30 dias)
   const getInitialDates = () => {
     const today = new Date();
@@ -131,12 +131,12 @@ export default function ProductSalesIntelligence() {
       end: format(today, 'yyyy-MM-dd'),
     };
   };
-  
+
   const initialDates = getInitialDates();
   const [dateStart, setDateStart] = useState<string>(initialDates.start);
   const [dateEnd, setDateEnd] = useState<string>(initialDates.end);
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // Filtros de produto
   const [filterCategoria, setFilterCategoria] = useState<string>('all');
   const [filterSubcategoria, setFilterSubcategoria] = useState<string>('all');
@@ -144,7 +144,7 @@ export default function ProductSalesIntelligence() {
   const [filterTamanho, setFilterTamanho] = useState<string>('all');
   const [filterCor, setFilterCor] = useState<string>('all');
   const [filterGenero, setFilterGenero] = useState<string>('all');
-  
+
   // Opções únicas para filtros
   const [uniqueCategories, setUniqueCategories] = useState<string[]>([]);
   const [uniqueSubcategories, setUniqueSubcategories] = useState<string[]>([]);
@@ -152,7 +152,7 @@ export default function ProductSalesIntelligence() {
   const [uniqueTamanhos, setUniqueTamanhos] = useState<string[]>([]);
   const [uniqueCores, setUniqueCores] = useState<string[]>([]);
   const [uniqueGeneros, setUniqueGeneros] = useState<string[]>([]);
-  
+
   // ✅ Controle de visibilidade de colunas na tabela de produtos
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
     rank: true,
@@ -165,6 +165,9 @@ export default function ProductSalesIntelligence() {
     totalVendas: true,
     ticketMedio: true,
   });
+
+  // ✅ Estado para agrupamento na tabela principal
+  const [groupBy, setGroupBy] = useState<'product' | 'brand' | 'category' | 'seller'>('product');
 
   useEffect(() => {
     if (authLoading) return;
@@ -292,7 +295,7 @@ export default function ProductSalesIntelligence() {
   const fetchSales = async () => {
     try {
       setLoading(true);
-      
+
       let query = supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
@@ -313,30 +316,40 @@ export default function ProductSalesIntelligence() {
       orders?.forEach((order) => {
         try {
           const itens = typeof order.itens === 'string' ? JSON.parse(order.itens) : order.itens || [];
-          
+
           itens.forEach((item: any) => {
             const quantidade = Number(item.quantidade) || 0;
             // ✅ CORREÇÃO: Tentar múltiplas formas de extrair valor
-            const valorUnitario = Number(
-              item.valor_unitario 
+            // ✅ CORREÇÃO: Função auxiliar para converter valores monetários
+            const parseMoney = (val: any): number => {
+              if (typeof val === 'number') return val;
+              if (!val) return 0;
+              if (typeof val === 'string') {
+                // Remover R$, espaços e substituir vírgula por ponto
+                const clean = val.replace('R$', '').trim().replace(/\./g, '').replace(',', '.');
+                const num = parseFloat(clean);
+                return isNaN(num) ? 0 : num;
+              }
+              return 0;
+            };
+
+            const valorUnitario = parseMoney(
+              item.valor_unitario
               || item.valorUnitario
               || item.valor_unit
               || item.valorUnit
               || item.preco
               || item.preco_unitario
-              || 0
             );
-            // ✅ CORREÇÃO: Tentar múltiplas formas de extrair valor total
-            const valorTotal = Number(
-              item.valor_total 
+
+            const valorTotal = parseMoney(
+              item.valor_total
               || item.valorTotal
               || item.valor
               || item.total
               || item.subtotal
-              || (quantidade * valorUnitario)
-              || 0
-            );
-            
+            ) || (quantidade * valorUnitario);
+
             // Log para debug se valor for zero
             if (valorTotal === 0 && quantidade > 0) {
               console.warn(`[ProductIntelligence] ⚠️ Item sem valor:`, {
@@ -361,7 +374,7 @@ export default function ProductSalesIntelligence() {
                   data_original: dataStr,
                   pedido_id: order.id,
                 });
-                
+
                 // ✅ ESTRATÉGIA 1: Tentar extrair diretamente da string ISO
                 // Formatos possíveis:
                 // - "2025-11-26T14:30:00-03:00" -> hora = 14
@@ -369,25 +382,25 @@ export default function ProductSalesIntelligence() {
                 // - "2025-11-26T14:30:00Z" -> converter UTC para BRT (-3)
                 // - "2025-11-26 14:30:00" -> hora = 14
                 // - "2025-11-26T00:00:00" -> PODE SER QUE NÃO TENHA HORA, buscar no item ou pedido completo
-                
+
                 if (dataStr.includes('T')) {
                   // Extrair parte da hora: "2025-11-26T14:30:00-03:00" -> "14:30:00"
                   const horaPart = dataStr.split('T')[1]?.split(/[+\-Z]/)[0]?.trim();
-                  
+
                   if (horaPart) {
                     const partesHora = horaPart.split(':');
                     if (partesHora.length >= 1) {
                       const hora = parseInt(partesHora[0], 10);
-                      
+
                       if (!isNaN(hora) && hora >= 0 && hora <= 23) {
                         // Se a hora é 00:00:00, pode ser que não tenhamos a hora real
                         // Nesse caso, tentar buscar do item ou assumir que é meia-noite mesmo
-                        
+
                         if (hora === 0 && horaPart.startsWith('00:00:00')) {
                           // Hora é 00:00:00 - pode ser que não temos hora real
                           // Verificar se o item tem alguma informação de hora
                           console.log(`[ProductIntelligence] ⚠️ Hora é 00:00:00, pode não ser a hora real do pedido`);
-                          
+
                           // Tentar buscar hora do item se disponível
                           if (item.data_venda && typeof item.data_venda === 'string') {
                             const dataVendaStr = String(item.data_venda);
@@ -402,7 +415,7 @@ export default function ProductSalesIntelligence() {
                               }
                             }
                           }
-                          
+
                           // Se não encontrou, usar 00 mesmo (ou tentar inferir de outro campo)
                           if (horaPedido === undefined) {
                             horaPedido = 0;
@@ -434,25 +447,25 @@ export default function ProductSalesIntelligence() {
                     }
                   }
                 }
-                
+
                 // ✅ ESTRATÉGIA 2: Se ainda não tem hora, tentar usar Date (pode ter problemas de timezone)
                 if (horaPedido === undefined) {
                   const dataPedido = new Date(dataStr);
                   if (!isNaN(dataPedido.getTime())) {
                     // Pegar hora no timezone local do navegador
                     let horaLocal = dataPedido.getHours();
-                    
+
                     // Ajustar se estiver em UTC
                     if (dataStr.endsWith('Z') || dataStr.includes('+00:00')) {
                       // Converter UTC para horário de Brasília (UTC-3)
                       horaLocal = (horaLocal - 3 + 24) % 24;
                     }
-                    
+
                     horaPedido = horaLocal;
                     console.log(`[ProductIntelligence] 📅 Hora extraída via Date: ${horaPedido} (data original: ${dataStr})`);
                   }
                 }
-                
+
                 // Log detalhado para debug
                 if (horaPedido !== undefined) {
                   console.log(`[ProductIntelligence] ✅ Hora final extraída:`, {
@@ -583,7 +596,7 @@ export default function ProductSalesIntelligence() {
 
     filtered.forEach((sale) => {
       const key = `${sale.codigo || sale.descricao || 'unknown'}-${sale.marca || 'no-brand'}-${sale.tamanho || 'no-size'}-${sale.cor || 'no-color'}`;
-      
+
       if (!aggregated.has(key)) {
         aggregated.set(key, {
           categoria: sale.categoria || 'Sem Categoria',
@@ -678,29 +691,29 @@ export default function ProductSalesIntelligence() {
   // ✅ ANÁLISES AVANÇADAS - TODAS AS ANÁLISES SOLICITADAS
   const tamanhoPorMarca = useMemo(() => {
     const marcaTamanhoMap = new Map<string, Map<string, { quantidade: number; total: number }>>();
-    
+
     filteredAndAggregated.forEach((agg) => {
       if (!agg.marca || !agg.tamanho) return;
-      
+
       if (!marcaTamanhoMap.has(agg.marca)) {
         marcaTamanhoMap.set(agg.marca, new Map());
       }
-      
+
       const tamanhos = marcaTamanhoMap.get(agg.marca)!;
       if (!tamanhos.has(agg.tamanho)) {
         tamanhos.set(agg.tamanho, { quantidade: 0, total: 0 });
       }
-      
+
       const dados = tamanhos.get(agg.tamanho)!;
       dados.quantidade += agg.quantidade_vendida;
       dados.total += agg.total_vendas;
     });
-    
+
     return Array.from(marcaTamanhoMap.entries()).map(([marca, tamanhos]) => {
       let maiorTamanho = '';
       let maiorQuantidade = 0;
       let maiorTotal = 0;
-      
+
       tamanhos.forEach((dados, tamanho) => {
         if (dados.quantidade > maiorQuantidade) {
           maiorQuantidade = dados.quantidade;
@@ -708,36 +721,36 @@ export default function ProductSalesIntelligence() {
           maiorTamanho = tamanho;
         }
       });
-      
+
       return { marca, tamanho: maiorTamanho, quantidade: maiorQuantidade, total: maiorTotal };
     }).sort((a, b) => b.quantidade - a.quantidade);
   }, [filteredAndAggregated]);
 
   const tamanhoPorCategoria = useMemo(() => {
     const categoriaTamanhoMap = new Map<string, Map<string, { quantidade: number; total: number }>>();
-    
+
     filteredAndAggregated.forEach((agg) => {
       if (!agg.categoria || !agg.tamanho) return;
-      
+
       if (!categoriaTamanhoMap.has(agg.categoria)) {
         categoriaTamanhoMap.set(agg.categoria, new Map());
       }
-      
+
       const tamanhos = categoriaTamanhoMap.get(agg.categoria)!;
       if (!tamanhos.has(agg.tamanho)) {
         tamanhos.set(agg.tamanho, { quantidade: 0, total: 0 });
       }
-      
+
       const dados = tamanhos.get(agg.tamanho)!;
       dados.quantidade += agg.quantidade_vendida;
       dados.total += agg.total_vendas;
     });
-    
+
     return Array.from(categoriaTamanhoMap.entries()).map(([categoria, tamanhos]) => {
       let maiorTamanho = '';
       let maiorQuantidade = 0;
       let maiorTotal = 0;
-      
+
       tamanhos.forEach((dados, tamanho) => {
         if (dados.quantidade > maiorQuantidade) {
           maiorQuantidade = dados.quantidade;
@@ -745,88 +758,90 @@ export default function ProductSalesIntelligence() {
           maiorTamanho = tamanho;
         }
       });
-      
+
       return { categoria, tamanho: maiorTamanho, quantidade: maiorQuantidade, total: maiorTotal };
     }).sort((a, b) => b.quantidade - a.quantidade);
   }, [filteredAndAggregated]);
 
   const ticketMedioPorTamanho = useMemo(() => {
     const tamanhoMap = new Map<string, { total: number; quantidade: number; vendas: number }>();
-    
+
     rawSales.forEach((sale) => {
       if (!sale.tamanho) return;
-      
+
       if (!tamanhoMap.has(sale.tamanho)) {
         tamanhoMap.set(sale.tamanho, { total: 0, quantidade: 0, vendas: 0 });
       }
-      
+
       const dados = tamanhoMap.get(sale.tamanho)!;
       dados.total += sale.valor_total;
       dados.quantidade += sale.quantidade;
       dados.vendas += 1;
     });
-    
+
     return Array.from(tamanhoMap.entries())
       .map(([tamanho, dados]) => ({
         tamanho,
         ticket_medio: dados.vendas > 0 ? dados.total / dados.vendas : 0,
         quantidade: dados.quantidade,
         total: dados.total,
+        pedidos: dados.vendas,
       }))
       .sort((a, b) => b.ticket_medio - a.ticket_medio);
   }, [rawSales]);
 
   const ticketMedioPorMarca = useMemo(() => {
     const marcaMap = new Map<string, { total: number; quantidade: number; vendas: number }>();
-    
+
     rawSales.forEach((sale) => {
       if (!sale.marca) return;
-      
+
       if (!marcaMap.has(sale.marca)) {
         marcaMap.set(sale.marca, { total: 0, quantidade: 0, vendas: 0 });
       }
-      
+
       const dados = marcaMap.get(sale.marca)!;
       dados.total += sale.valor_total;
       dados.quantidade += sale.quantidade;
       dados.vendas += 1;
     });
-    
+
     return Array.from(marcaMap.entries())
       .map(([marca, dados]) => ({
         marca,
         ticket_medio: dados.vendas > 0 ? dados.total / dados.vendas : 0,
         quantidade: dados.quantidade,
         total: dados.total,
+        pedidos: dados.vendas,
       }))
       .sort((a, b) => b.ticket_medio - a.ticket_medio);
   }, [rawSales]);
 
   const marcaPorVendedor = useMemo(() => {
     const vendedorMarcaMap = new Map<string, Map<string, { quantidade: number; total: number }>>();
-    
+
     rawSales.forEach((sale) => {
       if (!sale.vendedor_nome || !sale.marca) return;
-      
+
       if (!vendedorMarcaMap.has(sale.vendedor_nome)) {
         vendedorMarcaMap.set(sale.vendedor_nome, new Map());
       }
-      
+
       const marcas = vendedorMarcaMap.get(sale.vendedor_nome)!;
       if (!marcas.has(sale.marca)) {
         marcas.set(sale.marca, { quantidade: 0, total: 0 });
       }
-      
+
       const dados = marcas.get(sale.marca)!;
       dados.quantidade += sale.quantidade;
       dados.total += sale.valor_total;
     });
-    
+
     return Array.from(vendedorMarcaMap.entries()).map(([vendedor, marcas]) => {
       let maiorMarca = '';
       let maiorQuantidade = 0;
       let maiorTotal = 0;
-      
+
       marcas.forEach((dados, marca) => {
         if (dados.quantidade > maiorQuantidade) {
           maiorQuantidade = dados.quantidade;
@@ -834,33 +849,33 @@ export default function ProductSalesIntelligence() {
           maiorMarca = marca;
         }
       });
-      
+
       return { vendedor, marca: maiorMarca, quantidade: maiorQuantidade, total: maiorTotal };
     }).sort((a, b) => b.quantidade - a.quantidade);
   }, [rawSales]);
 
   const ticketMedioMarcaPorVendedor = useMemo(() => {
     const vendedorMarcaMap = new Map<string, Map<string, { total: number; vendas: number }>>();
-    
+
     rawSales.forEach((sale) => {
       if (!sale.vendedor_nome || !sale.marca) return;
-      
+
       if (!vendedorMarcaMap.has(sale.vendedor_nome)) {
         vendedorMarcaMap.set(sale.vendedor_nome, new Map());
       }
-      
+
       const marcas = vendedorMarcaMap.get(sale.vendedor_nome)!;
       if (!marcas.has(sale.marca)) {
         marcas.set(sale.marca, { total: 0, vendas: 0 });
       }
-      
+
       const dados = marcas.get(sale.marca)!;
       dados.total += sale.valor_total;
       dados.vendas += 1;
     });
-    
+
     const result: Array<{ vendedor: string; marca: string; ticket_medio: number; total: number; vendas: number }> = [];
-    
+
     vendedorMarcaMap.forEach((marcas, vendedor) => {
       marcas.forEach((dados, marca) => {
         result.push({
@@ -872,30 +887,32 @@ export default function ProductSalesIntelligence() {
         });
       });
     });
-    
+
     return result.sort((a, b) => b.ticket_medio - a.ticket_medio);
   }, [rawSales]);
 
   const vendasPorHorario = useMemo(() => {
-    const horarioMap = new Map<number, { quantidade: number; vendas: number }>();
-    
+    const horarioMap = new Map<number, { quantidade: number; vendas: number; total: number }>();
+
     rawSales.forEach((sale) => {
       if (sale.hora_pedido === undefined) return;
-      
+
       if (!horarioMap.has(sale.hora_pedido)) {
-        horarioMap.set(sale.hora_pedido, { quantidade: 0, vendas: 0 });
+        horarioMap.set(sale.hora_pedido, { quantidade: 0, vendas: 0, total: 0 });
       }
-      
+
       const dados = horarioMap.get(sale.hora_pedido)!;
       dados.quantidade += sale.quantidade;
       dados.vendas += 1;
+      dados.total += sale.valor_total;
     });
-    
+
     return Array.from(horarioMap.entries())
       .map(([hora, dados]) => ({
         hora,
         quantidade: dados.quantidade,
-        vendas: dados.vendas,
+        pedidos: dados.vendas,
+        total: dados.total,
         label: `${hora.toString().padStart(2, '0')}:00`,
       }))
       .sort((a, b) => a.hora - b.hora);
@@ -903,25 +920,25 @@ export default function ProductSalesIntelligence() {
 
   const ticketMedioPorHorario = useMemo(() => {
     const horarioMap = new Map<number, { total: number; vendas: number }>();
-    
+
     rawSales.forEach((sale) => {
       if (sale.hora_pedido === undefined) return;
-      
+
       if (!horarioMap.has(sale.hora_pedido)) {
         horarioMap.set(sale.hora_pedido, { total: 0, vendas: 0 });
       }
-      
+
       const dados = horarioMap.get(sale.hora_pedido)!;
       dados.total += sale.valor_total;
       dados.vendas += 1;
     });
-    
+
     return Array.from(horarioMap.entries())
       .map(([hora, dados]) => ({
         hora,
         ticket_medio: dados.vendas > 0 ? dados.total / dados.vendas : 0,
         total: dados.total,
-        vendas: dados.vendas,
+        pedidos: dados.vendas,
         label: `${hora.toString().padStart(2, '0')}:00`,
       }))
       .sort((a, b) => b.ticket_medio - a.ticket_medio);
@@ -1266,6 +1283,7 @@ export default function ProductSalesIntelligence() {
       <Tabs defaultValue="products" className="space-y-4">
         <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="products">Produtos</TabsTrigger>
+          <TabsTrigger value="categories">Categorias</TabsTrigger>
           <TabsTrigger value="brands">Marcas</TabsTrigger>
           <TabsTrigger value="sizes">Tamanhos</TabsTrigger>
           <TabsTrigger value="colors">Cores</TabsTrigger>
@@ -1286,114 +1304,243 @@ export default function ProductSalesIntelligence() {
                     Ranking completo de produtos por valor total de vendas
                   </CardDescription>
                 </div>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <Columns className="h-4 w-4 mr-2" />
-                      Colunas
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Exibir/Ocultar Colunas</DialogTitle>
-                      <DialogDescription>
-                        Selecione quais colunas deseja exibir na tabela
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      {[
-                        { key: 'rank', label: 'Rank' },
-                        { key: 'descricao', label: 'Descrição' },
-                        { key: 'categoria', label: 'Categoria' },
-                        { key: 'marca', label: 'Marca' },
-                        { key: 'tamanho', label: 'Tamanho' },
-                        { key: 'cor', label: 'Cor' },
-                        { key: 'quantidade', label: 'Qtd. Vendida' },
-                        { key: 'totalVendas', label: 'Total Vendas' },
-                        { key: 'ticketMedio', label: 'Ticket Médio' },
-                      ].map((col) => (
-                        <div key={col.key} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={col.key}
-                            checked={visibleColumns[col.key] ?? true}
-                            onCheckedChange={(checked) => {
-                              setVisibleColumns(prev => ({
-                                ...prev,
-                                [col.key]: checked as boolean,
-                              }));
-                            }}
-                          />
-                          <Label
-                            htmlFor={col.key}
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                          >
-                            {col.label}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                <div className="flex items-center gap-2">
+                  <Select value={groupBy} onValueChange={(v) => setGroupBy(v as any)}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Agrupar por..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="product">Produto (Padrão)</SelectItem>
+                      <SelectItem value="brand">Marca</SelectItem>
+                      <SelectItem value="category">Categoria</SelectItem>
+                      <SelectItem value="seller">Vendedor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Columns className="h-4 w-4 mr-2" />
+                        Colunas
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Exibir/Ocultar Colunas</DialogTitle>
+                        <DialogDescription>
+                          Selecione quais colunas deseja exibir na tabela
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        {[
+                          { key: 'rank', label: 'Rank' },
+                          { key: 'descricao', label: 'Descrição' },
+                          { key: 'categoria', label: 'Categoria' },
+                          { key: 'marca', label: 'Marca' },
+                          { key: 'tamanho', label: 'Tamanho' },
+                          { key: 'cor', label: 'Cor' },
+                          { key: 'quantidade', label: 'Qtd. Vendida' },
+                          { key: 'totalVendas', label: 'Total Vendas' },
+                          { key: 'ticketMedio', label: 'Ticket Médio' },
+                        ].map((col) => (
+                          <div key={col.key} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={col.key}
+                              checked={visibleColumns[col.key] ?? true}
+                              onCheckedChange={(checked) => {
+                                setVisibleColumns(prev => ({
+                                  ...prev,
+                                  [col.key]: checked as boolean,
+                                }));
+                              }}
+                            />
+                            <Label
+                              htmlFor={col.key}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              {col.label}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                {groupBy === 'product' ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {visibleColumns.rank && <TableHead>Rank</TableHead>}
+                        {visibleColumns.descricao && <TableHead>Descrição</TableHead>}
+                        {visibleColumns.categoria && <TableHead>Categoria</TableHead>}
+                        {visibleColumns.marca && <TableHead>Marca</TableHead>}
+                        {visibleColumns.tamanho && <TableHead>Tamanho</TableHead>}
+                        {visibleColumns.cor && <TableHead>Cor</TableHead>}
+                        {visibleColumns.quantidade && <TableHead className="text-right">Qtd. Vendida</TableHead>}
+                        {visibleColumns.totalVendas && <TableHead className="text-right">Total Vendas</TableHead>}
+                        {visibleColumns.ticketMedio && <TableHead className="text-right">Ticket Médio</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredAndAggregated.slice(0, 50).map((agg, index) => (
+                        <TableRow key={index}>
+                          {visibleColumns.rank && <TableCell className="font-medium">#{index + 1}</TableCell>}
+                          {visibleColumns.descricao && (
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{agg.descricao || agg.codigo || 'Sem descrição'}</div>
+                                {agg.codigo && (
+                                  <div className="text-xs text-muted-foreground">Cód: {agg.codigo}</div>
+                                )}
+                              </div>
+                            </TableCell>
+                          )}
+                          {visibleColumns.categoria && (
+                            <TableCell>
+                              <Badge variant="outline">{agg.categoria}</Badge>
+                              {agg.subcategoria && (
+                                <Badge variant="secondary" className="ml-1">{agg.subcategoria}</Badge>
+                              )}
+                            </TableCell>
+                          )}
+                          {visibleColumns.marca && <TableCell>{agg.marca || '-'}</TableCell>}
+                          {visibleColumns.tamanho && <TableCell>{agg.tamanho || '-'}</TableCell>}
+                          {visibleColumns.cor && <TableCell>{agg.cor || ''}</TableCell>}
+                          {visibleColumns.quantidade && (
+                            <TableCell className="text-right font-medium">
+                              {agg.quantidade_vendida.toLocaleString('pt-BR')}
+                            </TableCell>
+                          )}
+                          {visibleColumns.totalVendas && (
+                            <TableCell className="text-right font-medium">
+                              {formatCurrency(agg.total_vendas)}
+                            </TableCell>
+                          )}
+                          {visibleColumns.ticketMedio && (
+                            <TableCell className="text-right">
+                              {formatCurrency(agg.ticket_medio)}
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Rank</TableHead>
+                        <TableHead>
+                          {groupBy === 'brand' ? 'Marca' :
+                            groupBy === 'category' ? 'Categoria' :
+                              groupBy === 'seller' ? 'Vendedor' : 'Item'}
+                        </TableHead>
+                        <TableHead className="text-right">Total Vendas</TableHead>
+                        <TableHead className="text-right">Quantidade</TableHead>
+                        <TableHead className="text-right">Ticket Médio</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(() => {
+                        const groupedMap = new Map<string, { total: number; quantidade: number }>();
+                        filteredAndAggregated.forEach((agg) => {
+                          let key = '';
+                          if (groupBy === 'brand') key = agg.marca || 'Sem Marca';
+                          else if (groupBy === 'category') key = agg.categoria || 'Sem Categoria';
+                          else if (groupBy === 'seller') key = agg.vendedor_nome || 'Sem Vendedor';
+
+                          if (!groupedMap.has(key)) {
+                            groupedMap.set(key, { total: 0, quantidade: 0 });
+                          }
+                          const g = groupedMap.get(key)!;
+                          g.total += agg.total_vendas;
+                          g.quantidade += agg.quantidade_vendida;
+                        });
+
+                        const sortedGroup = Array.from(groupedMap.entries())
+                          .map(([key, data]) => ({ key, ...data }))
+                          .sort((a, b) => b.total - a.total);
+
+                        return sortedGroup.map((item, index) => (
+                          <TableRow key={item.key}>
+                            <TableCell className="font-medium">#{index + 1}</TableCell>
+                            <TableCell className="font-medium">{item.key}</TableCell>
+                            <TableCell className="text-right font-medium">
+                              {formatCurrency(item.total)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {item.quantidade.toLocaleString('pt-BR')}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(item.quantidade > 0 ? item.total / item.quantidade : 0)}
+                            </TableCell>
+                          </TableRow>
+                        ));
+                      })()}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ✅ NOVA TAB: Categorias */}
+        <TabsContent value="categories" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Categorias Mais Vendidas</CardTitle>
+              <CardDescription>
+                Análise de vendas por categoria
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {visibleColumns.rank && <TableHead>Rank</TableHead>}
-                      {visibleColumns.descricao && <TableHead>Descrição</TableHead>}
-                      {visibleColumns.categoria && <TableHead>Categoria</TableHead>}
-                      {visibleColumns.marca && <TableHead>Marca</TableHead>}
-                      {visibleColumns.tamanho && <TableHead>Tamanho</TableHead>}
-                      {visibleColumns.cor && <TableHead>Cor</TableHead>}
-                      {visibleColumns.quantidade && <TableHead className="text-right">Qtd. Vendida</TableHead>}
-                      {visibleColumns.totalVendas && <TableHead className="text-right">Total Vendas</TableHead>}
-                      {visibleColumns.ticketMedio && <TableHead className="text-right">Ticket Médio</TableHead>}
+                      <TableHead>Rank</TableHead>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead className="text-right">Total Vendas</TableHead>
+                      <TableHead className="text-right">Quantidade</TableHead>
+                      <TableHead className="text-right">Ticket Médio</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAndAggregated.slice(0, 50).map((agg, index) => (
-                      <TableRow key={index}>
-                        {visibleColumns.rank && <TableCell className="font-medium">#{index + 1}</TableCell>}
-                        {visibleColumns.descricao && (
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{agg.descricao || agg.codigo || 'Sem descrição'}</div>
-                              {agg.codigo && (
-                                <div className="text-xs text-muted-foreground">Cód: {agg.codigo}</div>
-                              )}
-                            </div>
-                          </TableCell>
-                        )}
-                        {visibleColumns.categoria && (
-                          <TableCell>
-                            <Badge variant="outline">{agg.categoria}</Badge>
-                            {agg.subcategoria && (
-                              <Badge variant="secondary" className="ml-1">{agg.subcategoria}</Badge>
-                            )}
-                          </TableCell>
-                        )}
-                        {visibleColumns.marca && <TableCell>{agg.marca || '-'}</TableCell>}
-                        {visibleColumns.tamanho && <TableCell>{agg.tamanho || '-'}</TableCell>}
-                        {visibleColumns.cor && <TableCell>{agg.cor || ''}</TableCell>}
-                        {visibleColumns.quantidade && (
+                    {(() => {
+                      const categoriaMap = new Map<string, { total: number; quantidade: number }>();
+                      filteredAndAggregated.forEach((agg) => {
+                        if (!agg.categoria) return;
+                        if (!categoriaMap.has(agg.categoria)) {
+                          categoriaMap.set(agg.categoria, { total: 0, quantidade: 0 });
+                        }
+                        const c = categoriaMap.get(agg.categoria)!;
+                        c.total += agg.total_vendas;
+                        c.quantidade += agg.quantidade_vendida;
+                      });
+                      const topCategorias = Array.from(categoriaMap.entries())
+                        .map(([categoria, data]) => ({ categoria, ...data }))
+                        .sort((a, b) => b.total - a.total);
+
+                      return topCategorias.map((cat, index) => (
+                        <TableRow key={cat.categoria}>
+                          <TableCell className="font-medium">#{index + 1}</TableCell>
+                          <TableCell className="font-medium">{cat.categoria}</TableCell>
                           <TableCell className="text-right font-medium">
-                            {agg.quantidade_vendida.toLocaleString('pt-BR')}
+                            {formatCurrency(cat.total)}
                           </TableCell>
-                        )}
-                        {visibleColumns.totalVendas && (
-                          <TableCell className="text-right font-medium">
-                            {formatCurrency(agg.total_vendas)}
-                          </TableCell>
-                        )}
-                        {visibleColumns.ticketMedio && (
                           <TableCell className="text-right">
-                            {formatCurrency(agg.ticket_medio)}
+                            {cat.quantidade.toLocaleString('pt-BR')}
                           </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
+                          <TableCell className="text-right">
+                            {formatCurrency(cat.quantidade > 0 ? cat.total / cat.quantidade : 0)}
+                          </TableCell>
+                        </TableRow>
+                      ));
+                    })()}
                   </TableBody>
                 </Table>
               </div>
@@ -1765,7 +1912,7 @@ export default function ProductSalesIntelligence() {
                       <TableRow key={`${item.tamanho}-${index}`}>
                         <TableCell className="font-medium"><Badge variant="outline">{item.tamanho}</Badge></TableCell>
                         <TableCell className="text-right font-medium text-lg">{formatCurrency(item.ticket_medio)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(item.total_vendas)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.total)}</TableCell>
                         <TableCell className="text-right">{item.quantidade.toLocaleString('pt-BR')}</TableCell>
                         <TableCell className="text-right">{item.pedidos}</TableCell>
                       </TableRow>
@@ -1797,7 +1944,7 @@ export default function ProductSalesIntelligence() {
                       <TableRow key={`${item.marca}-${index}`}>
                         <TableCell className="font-medium"><Badge variant="outline">{item.marca}</Badge></TableCell>
                         <TableCell className="text-right font-medium text-lg">{formatCurrency(item.ticket_medio)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(item.total_vendas)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.total)}</TableCell>
                         <TableCell className="text-right">{item.quantidade.toLocaleString('pt-BR')}</TableCell>
                         <TableCell className="text-right">{item.pedidos}</TableCell>
                       </TableRow>
@@ -1851,7 +1998,7 @@ export default function ProductSalesIntelligence() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+    </div >
   );
 }
 

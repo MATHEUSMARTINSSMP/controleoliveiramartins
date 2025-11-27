@@ -98,6 +98,7 @@ const CORES_VALIDAS = [
   'VIOLETA',
   'ROXO',
   'CINZA',
+  'BRANCO',
 ];
 
 /**
@@ -108,7 +109,7 @@ const CORES_VALIDAS = [
  */
 function normalizeCor(cor) {
   if (!cor) return null;
-  
+
   // Normalizar: remover acentuação, converter para maiúscula, remover caracteres especiais
   const normalize = (str) => {
     return String(str)
@@ -119,51 +120,56 @@ function normalizeCor(cor) {
       .replace(/[^A-Z0-9\s]/g, '') // Remove caracteres especiais, mantém letras, números e espaços
       .replace(/\s+/g, ' '); // Normaliza espaços múltiplos
   };
-  
+
   let corNormalizada = normalize(cor);
-  
+
   // ✅ CONVERSÃO: PB = PRETO E BRANCO
   if (corNormalizada === 'PB' || corNormalizada === 'P B') {
     corNormalizada = 'PRETO E BRANCO';
   }
-  
+
+  // ✅ CONVERSÃO: WHITE = BRANCO (mas manter OFF WHITE como OFF WHITE)
+  if (corNormalizada === 'WHITE' && !corNormalizada.includes('OFF')) {
+    corNormalizada = 'BRANCO';
+  }
+
   // ✅ ESTRATÉGIA 1: Verificar match exato primeiro (mais rápido)
   const matchExato = CORES_VALIDAS.find(c => c === corNormalizada);
   if (matchExato) {
     return matchExato;
   }
-  
+
   // ✅ ESTRATÉGIA 2: Verificar cores compostas primeiro (ex: "OFF WHITE" antes de "OFF")
   // Ordenar cores por tamanho (mais longas primeiro) para priorizar cores compostas
   const coresOrdenadas = [...CORES_VALIDAS].sort((a, b) => b.length - a.length);
-  
+
   for (const corValida of coresOrdenadas) {
     // Normalizar espaços e hífens para comparação
     const corValidaNormalizada = corValida.replace(/[-_]/g, ' ').trim();
     const corInputNormalizada = corNormalizada.replace(/[-_]/g, ' ').trim();
-    
+
     // ✅ Match exato após normalização
     if (corValidaNormalizada === corInputNormalizada) {
       return corValida;
     }
-    
+
     // ✅ Match parcial (um contém o outro)
     if (corValidaNormalizada.includes(corInputNormalizada) || corInputNormalizada.includes(corValidaNormalizada)) {
       // ✅ VALIDAÇÃO CRÍTICA: "OFF" sozinho não é cor válida, apenas "OFF WHITE", "OFF DARK", "OFF BLUE"
       if (corInputNormalizada === 'OFF' && !corValidaNormalizada.startsWith('OFF ')) {
         continue; // Pular "OFF" isolado se não for parte de cor composta
       }
-      
+
       // ✅ VALIDAÇÃO: Ignorar cores muito curtas que podem ser falsos positivos
       // Ex: "OFF" sozinho, palavras comuns de 2-3 letras
       if (corInputNormalizada.length <= 3 && corValidaNormalizada.length <= 3 && corValidaNormalizada !== corInputNormalizada) {
         continue;
       }
-      
+
       return corValida;
     }
   }
-  
+
   // ✅ ESTRATÉGIA 3: Verificar match sem espaços (para cores compostas como "OFF-WHITE")
   const corSemEspacos = corNormalizada.replace(/[-_\s]/g, '');
   for (const corValida of coresOrdenadas) {
@@ -176,7 +182,7 @@ function normalizeCor(cor) {
       return corValida;
     }
   }
-  
+
   // Se não encontrou match válido, retornar null (não é uma cor válida)
   console.warn(`[Normalization] ⚠️ Cor não reconhecida: "${cor}" (normalizada: "${corNormalizada}")`);
   return null;
@@ -190,17 +196,17 @@ function normalizeCor(cor) {
  */
 function extrairCorDaDescricao(descricao) {
   if (!descricao) return null;
-  
+
   let descricaoUpper = String(descricao).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  
+
   // ✅ CONVERSÃO: PB = PRETO E BRANCO (substituir na descrição antes de buscar)
   descricaoUpper = descricaoUpper.replace(/\bPB\b/g, 'PRETO E BRANCO');
   descricaoUpper = descricaoUpper.replace(/\bP B\b/g, 'PRETO E BRANCO');
-  
+
   // ✅ Priorizar cores compostas (mais longas primeiro) para evitar falsos positivos
   // Ex: "OFF WHITE" antes de "OFF", "VERDE MILITAR" antes de "VERDE"
   const coresOrdenadas = [...CORES_VALIDAS].sort((a, b) => b.length - a.length);
-  
+
   // ✅ ESTRATÉGIA 1: Buscar cores compostas completas primeiro (ex: "OFF WHITE", "VERDE MILITAR")
   // Essas devem ser encontradas antes de cores simples para evitar falsos positivos
   for (const corValida of coresOrdenadas) {
@@ -209,12 +215,12 @@ function extrairCorDaDescricao(descricao) {
     const corNormalizada = corValida.replace(/\s+/g, '[\\s\\-]?'); // Aceitar espaço ou hífen opcional
     // Usar word boundary para evitar match parcial em palavras maiores
     const regex = new RegExp(`\\b${corNormalizada.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-    
+
     if (regex.test(descricaoUpper)) {
       return corValida;
     }
   }
-  
+
   // ✅ ESTRATÉGIA 2: Buscar cores simples (apenas se não encontrar composta)
   // Mas evitar cores muito curtas que podem ser falsos positivos
   for (const corValida of coresOrdenadas) {
@@ -228,15 +234,15 @@ function extrairCorDaDescricao(descricao) {
       }
       // Outras cores curtas como "RED", "BLUE" são válidas, continuar
     }
-    
+
     // Buscar palavra completa (word boundary)
     const regex = new RegExp(`\\b${corValida.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-    
+
     if (regex.test(descricaoUpper)) {
       return corValida;
     }
   }
-  
+
   return null;
 }
 
