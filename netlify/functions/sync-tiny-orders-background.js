@@ -428,22 +428,43 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
 
   while (hasMore && currentPage <= maxPages) {
     try {
-      const response = await fetch(proxyUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          storeId: storeId,
-          endpoint: '/pedidos',
-          method: 'GET',
-          params: {
-            dataInicio: dataInicioSync,
-            pagina: currentPage,
-            limite: limit || 50,
-          },
-        }),
-      });
+      // ✅ Adicionar timeout maior e retry logic para evitar ConnectTimeoutError
+      const fetchWithRetry = async (retries = 3, delay = 5000) => {
+        for (let attempt = 1; attempt <= retries; attempt++) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 segundos timeout
+            
+            const response = await fetch(proxyUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                storeId: storeId,
+                endpoint: '/pedidos',
+                method: 'GET',
+                params: {
+                  dataInicio: dataInicioSync,
+                  pagina: currentPage,
+                  limite: limit || 50,
+                },
+              }),
+              signal: controller.signal,
+            });
+            
+            clearTimeout(timeoutId);
+            return response;
+          } catch (error) {
+            if (attempt === retries) throw error;
+            console.log(`[SyncBackground] ⚠️ Tentativa ${attempt}/${retries} falhou, aguardando ${delay}ms antes de tentar novamente...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            delay *= 1.5; // Aumentar delay exponencialmente
+          }
+        }
+      };
+      
+      const response = await fetchWithRetry();
 
       console.log(`[SyncBackground] 📡 Chamando API Tiny - Página ${currentPage}, Data: ${dataInicioSync}, Limite: ${limit || 50}`);
 

@@ -269,13 +269,26 @@ const ERPConfig = () => {
         throw new Error(`Erro ao iniciar sincronização: ${fetchError.message}`);
       });
 
-      if (!response.ok) {
+      // ✅ Para hard sync, aceitar status 202 (Accepted) como sucesso
+      // Status 202 indica que a requisição foi aceita para processamento assíncrono
+      const isAccepted = response.status === 202;
+      const isOk = response.ok || isAccepted;
+      
+      if (!isOk) {
         const errorText = await response.text();
         throw new Error(`Erro na sincronização: ${errorText || response.statusText}`);
       }
 
       // Verificar se a resposta está vazia antes de fazer parse
       const responseText = await response.text();
+      
+      // ✅ Se status 202 e resposta vazia, considerar sucesso (processamento em background)
+      if (isAccepted && (!responseText || responseText.trim() === '')) {
+        toast.success(`✅ Hard sync iniciado em background! Você pode fechar a página. Isso pode levar várias horas.`);
+        await fetchIntegration();
+        return;
+      }
+      
       if (!responseText || responseText.trim() === '') {
         throw new Error('Resposta vazia do servidor. Tente novamente.');
       }
@@ -284,12 +297,18 @@ const ERPConfig = () => {
       try {
         data = JSON.parse(responseText);
       } catch (parseError: any) {
+        // ✅ Se status 202 e parse falhou, ainda considerar sucesso para hard sync
+        if (isAccepted) {
+          toast.success(`✅ Hard sync iniciado em background! Você pode fechar a página. Isso pode levar várias horas.`);
+          await fetchIntegration();
+          return;
+        }
         console.error('Erro ao fazer parse da resposta:', parseError);
         throw new Error(`Erro ao processar resposta do servidor: ${parseError.message}`);
       }
       
-      if (data?.success) {
-        toast.success(`✅ Sincronização iniciada em background! Você pode fechar a página. ${data.message || 'Processando...'}`);
+      if (data?.success || isAccepted) {
+        toast.success(`✅ Sincronização iniciada em background! Você pode fechar a página. ${data?.message || 'Processando...'}`);
         await fetchIntegration();
       } else {
         throw new Error(data?.error || data?.message || 'Erro ao iniciar sincronização');
@@ -347,8 +366,25 @@ const ERPConfig = () => {
         throw new Error(`Erro na sincronização: ${errorText || response.statusText}`);
       }
 
+      // ✅ Para hard sync, aceitar status 202 (Accepted) como sucesso
+      const isAccepted = response.status === 202;
+      const isOk = response.ok || isAccepted;
+      
+      if (!isOk) {
+        const errorText = await response.text();
+        throw new Error(`Erro na sincronização: ${errorText || response.statusText}`);
+      }
+
       // Verificar se a resposta está vazia antes de fazer parse
       const responseText = await response.text();
+      
+      // ✅ Se status 202 e resposta vazia, considerar sucesso (processamento em background)
+      if (isAccepted && (!responseText || responseText.trim() === '')) {
+        toast.success(`✅ Hard sync de clientes iniciado em background! Você pode fechar a página. Isso pode levar várias horas.`);
+        await fetchIntegration();
+        return;
+      }
+      
       if (!responseText || responseText.trim() === '') {
         throw new Error('Resposta vazia do servidor. Tente novamente.');
       }
@@ -357,12 +393,18 @@ const ERPConfig = () => {
       try {
         data = JSON.parse(responseText);
       } catch (parseError: any) {
+        // ✅ Se status 202 e parse falhou, ainda considerar sucesso para hard sync
+        if (isAccepted) {
+          toast.success(`✅ Hard sync de clientes iniciado em background! Você pode fechar a página. Isso pode levar várias horas.`);
+          await fetchIntegration();
+          return;
+        }
         console.error('Erro ao fazer parse da resposta:', parseError);
         throw new Error(`Erro ao processar resposta do servidor: ${parseError.message}`);
       }
       
-      if (data?.success) {
-        toast.success(`✅ Sincronização de clientes iniciada em background! Você pode fechar a página. ${data.message || 'Processando...'}`);
+      if (data?.success || isAccepted) {
+        toast.success(`✅ Sincronização de clientes iniciada em background! Você pode fechar a página. ${data?.message || 'Processando...'}`);
         await fetchIntegration();
       } else {
         throw new Error(data?.error || data?.message || 'Erro ao iniciar sincronização');
