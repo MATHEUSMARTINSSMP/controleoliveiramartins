@@ -29,6 +29,7 @@ interface Parcela {
   purchases: {
     colaboradora_id: string;
     item: string;
+    num_parcelas: number;
     profiles: {
       name: string;
     };
@@ -82,7 +83,8 @@ const Lancamentos = () => {
           *,
           purchases!inner(
             colaboradora_id,
-            item
+            item,
+            num_parcelas
           )
         `)
         .order("competencia", { ascending: true })
@@ -417,7 +419,9 @@ const Lancamentos = () => {
                                   <TableCell className="font-medium">
                                     {parcela.purchases.profiles.name}
                                   </TableCell>
-                                  <TableCell>{parcela.n_parcela}</TableCell>
+                                  <TableCell>
+                                    {parcela.n_parcela}/{parcela.purchases.num_parcelas || parcela.n_parcela}
+                                  </TableCell>
                                   <TableCell>
                                     {parcela.competencia.slice(0, 4)}/{parcela.competencia.slice(4)}
                                   </TableCell>
