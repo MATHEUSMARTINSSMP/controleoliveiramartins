@@ -493,12 +493,38 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
       const pedidos = result.itens || result.pedidos || [];
       allPedidos = allPedidos.concat(pedidos);
 
-      // Verificar se há mais páginas
+      // ✅ Verificar se há mais páginas - lógica mais robusta
       const paginacao = result.paginacao || {};
-      hasMore = paginacao.paginaAtual < paginacao.totalPaginas && currentPage < maxPages;
-      currentPage++;
+      const paginaAtual = paginacao.paginaAtual || paginacao.pagina || currentPage;
+      const totalPaginas = paginacao.totalPaginas || paginacao.total_paginas || paginacao.pages || 0;
+      const totalRegistros = paginacao.totalRegistros || paginacao.total_registros || paginacao.total || 0;
 
-      console.log(`[SyncBackground] 📄 Página ${currentPage - 1}: ${pedidos.length} pedidos encontrados`);
+      console.log(`[SyncBackground] 📄 Página ${currentPage}: ${pedidos.length} pedidos encontrados`);
+      console.log(`[SyncBackground] 📊 Paginação: página atual=${paginaAtual}, total páginas=${totalPaginas}, total registros=${totalRegistros}`);
+
+      // ✅ Para hard sync: continuar enquanto houver pedidos OU enquanto houver páginas
+      // Se não tiver informação de paginação, continuar se trouxe pedidos na página atual
+      if (hardSync) {
+        // Hard sync: continuar até não ter mais dados ou atingir maxPages
+        if (pedidos.length === 0) {
+          // Se a página não trouxe nenhum pedido, não há mais dados
+          hasMore = false;
+          console.log(`[SyncBackground] ✅ Fim dos dados: página ${currentPage} retornou 0 pedidos`);
+        } else if (totalPaginas > 0) {
+          // Se temos informação de paginação, usar ela
+          hasMore = paginaAtual < totalPaginas && currentPage < maxPages;
+          console.log(`[SyncBackground] 📊 Usando paginação: ${paginaAtual}/${totalPaginas}, hasMore=${hasMore}`);
+        } else {
+          // Se não temos paginação mas trouxe pedidos, continuar
+          hasMore = currentPage < maxPages && pedidos.length > 0;
+          console.log(`[SyncBackground] 📊 Sem paginação, continuando: pedidos nesta página=${pedidos.length}, hasMore=${hasMore}`);
+        }
+      } else {
+        // Sync incremental: usar paginação normal
+        hasMore = (paginaAtual < totalPaginas || (totalPaginas === 0 && pedidos.length > 0)) && currentPage < maxPages;
+      }
+
+      currentPage++;
 
       // ✅ Rate Limiting: Aguardar 1 segundo entre páginas para evitar 429 Too Many Requests
       if (hasMore) {
