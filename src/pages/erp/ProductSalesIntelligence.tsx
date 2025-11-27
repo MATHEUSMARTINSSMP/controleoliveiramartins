@@ -25,7 +25,10 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Loader2, TrendingUp, Package, Filter, BarChart3, PieChart, Calendar, Store, User, Search, Clock, Target, ArrowLeft, DollarSign } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Loader2, TrendingUp, Package, Filter, BarChart3, PieChart, Calendar, Store, User, Search, Clock, Target, ArrowLeft, DollarSign, Columns } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -149,6 +152,19 @@ export default function ProductSalesIntelligence() {
   const [uniqueTamanhos, setUniqueTamanhos] = useState<string[]>([]);
   const [uniqueCores, setUniqueCores] = useState<string[]>([]);
   const [uniqueGeneros, setUniqueGeneros] = useState<string[]>([]);
+  
+  // ✅ Controle de visibilidade de colunas na tabela de produtos
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
+    rank: true,
+    descricao: true,
+    categoria: true,
+    marca: true,
+    tamanho: true,
+    cor: true,
+    quantidade: true,
+    totalVendas: true,
+    ticketMedio: true,
+  });
 
   useEffect(() => {
     if (authLoading) return;
@@ -1263,57 +1279,119 @@ export default function ProductSalesIntelligence() {
         <TabsContent value="products" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Produtos Mais Vendidos</CardTitle>
-              <CardDescription>
-                Ranking completo de produtos por valor total de vendas
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Produtos Mais Vendidos</CardTitle>
+                  <CardDescription>
+                    Ranking completo de produtos por valor total de vendas
+                  </CardDescription>
+                </div>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Columns className="h-4 w-4 mr-2" />
+                      Colunas
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Exibir/Ocultar Colunas</DialogTitle>
+                      <DialogDescription>
+                        Selecione quais colunas deseja exibir na tabela
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      {[
+                        { key: 'rank', label: 'Rank' },
+                        { key: 'descricao', label: 'Descrição' },
+                        { key: 'categoria', label: 'Categoria' },
+                        { key: 'marca', label: 'Marca' },
+                        { key: 'tamanho', label: 'Tamanho' },
+                        { key: 'cor', label: 'Cor' },
+                        { key: 'quantidade', label: 'Qtd. Vendida' },
+                        { key: 'totalVendas', label: 'Total Vendas' },
+                        { key: 'ticketMedio', label: 'Ticket Médio' },
+                      ].map((col) => (
+                        <div key={col.key} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={col.key}
+                            checked={visibleColumns[col.key] ?? true}
+                            onCheckedChange={(checked) => {
+                              setVisibleColumns(prev => ({
+                                ...prev,
+                                [col.key]: checked as boolean,
+                              }));
+                            }}
+                          />
+                          <Label
+                            htmlFor={col.key}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {col.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Rank</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead>Marca</TableHead>
-                      <TableHead>Tamanho</TableHead>
-                      <TableHead>Cor</TableHead>
-                      <TableHead className="text-right">Qtd. Vendida</TableHead>
-                      <TableHead className="text-right">Total Vendas</TableHead>
-                      <TableHead className="text-right">Ticket Médio</TableHead>
+                      {visibleColumns.rank && <TableHead>Rank</TableHead>}
+                      {visibleColumns.descricao && <TableHead>Descrição</TableHead>}
+                      {visibleColumns.categoria && <TableHead>Categoria</TableHead>}
+                      {visibleColumns.marca && <TableHead>Marca</TableHead>}
+                      {visibleColumns.tamanho && <TableHead>Tamanho</TableHead>}
+                      {visibleColumns.cor && <TableHead>Cor</TableHead>}
+                      {visibleColumns.quantidade && <TableHead className="text-right">Qtd. Vendida</TableHead>}
+                      {visibleColumns.totalVendas && <TableHead className="text-right">Total Vendas</TableHead>}
+                      {visibleColumns.ticketMedio && <TableHead className="text-right">Ticket Médio</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredAndAggregated.slice(0, 50).map((agg, index) => (
                       <TableRow key={index}>
-                        <TableCell className="font-medium">#{index + 1}</TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{agg.descricao || agg.codigo || 'Sem descrição'}</div>
-                            {agg.codigo && (
-                              <div className="text-xs text-muted-foreground">Cód: {agg.codigo}</div>
+                        {visibleColumns.rank && <TableCell className="font-medium">#{index + 1}</TableCell>}
+                        {visibleColumns.descricao && (
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{agg.descricao || agg.codigo || 'Sem descrição'}</div>
+                              {agg.codigo && (
+                                <div className="text-xs text-muted-foreground">Cód: {agg.codigo}</div>
+                              )}
+                            </div>
+                          </TableCell>
+                        )}
+                        {visibleColumns.categoria && (
+                          <TableCell>
+                            <Badge variant="outline">{agg.categoria}</Badge>
+                            {agg.subcategoria && (
+                              <Badge variant="secondary" className="ml-1">{agg.subcategoria}</Badge>
                             )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{agg.categoria}</Badge>
-                          {agg.subcategoria && (
-                            <Badge variant="secondary" className="ml-1">{agg.subcategoria}</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>{agg.marca || '-'}</TableCell>
-                        <TableCell>{agg.tamanho || '-'}</TableCell>
-                        <TableCell>{agg.cor || '-'}</TableCell>
-                        <TableCell className="text-right font-medium">
-                          {agg.quantidade_vendida.toLocaleString('pt-BR')}
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(agg.total_vendas)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(agg.ticket_medio)}
-                        </TableCell>
+                          </TableCell>
+                        )}
+                        {visibleColumns.marca && <TableCell>{agg.marca || '-'}</TableCell>}
+                        {visibleColumns.tamanho && <TableCell>{agg.tamanho || '-'}</TableCell>}
+                        {visibleColumns.cor && <TableCell>{agg.cor || '-'}</TableCell>}
+                        {visibleColumns.quantidade && (
+                          <TableCell className="text-right font-medium">
+                            {agg.quantidade_vendida.toLocaleString('pt-BR')}
+                          </TableCell>
+                        )}
+                        {visibleColumns.totalVendas && (
+                          <TableCell className="text-right font-medium">
+                            {formatCurrency(agg.total_vendas)}
+                          </TableCell>
+                        )}
+                        {visibleColumns.ticketMedio && (
+                          <TableCell className="text-right">
+                            {formatCurrency(agg.ticket_medio)}
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
