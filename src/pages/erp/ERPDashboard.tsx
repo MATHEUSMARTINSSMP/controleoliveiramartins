@@ -259,6 +259,16 @@ export default function ERPDashboard() {
 
       const netlifyFunctionUrl = '/.netlify/functions/sync-tiny-orders-background';
 
+      console.log(`[ERPDashboard] 🚀 Chamando Netlify Function: ${netlifyFunctionUrl}`);
+      console.log(`[ERPDashboard] 📦 Payload:`, {
+        store_id: selectedStoreId,
+        data_inicio: dataInicio,
+        incremental: periodo === 'total',
+        limit: periodo === 'agora' ? 1 : 100,
+        max_pages: periodo === 'agora' ? 1 : (periodo === 'semana' ? 10 : 50),
+        hard_sync: false,
+      });
+
       const response = await fetch(netlifyFunctionUrl, {
         method: 'POST',
         headers: {
