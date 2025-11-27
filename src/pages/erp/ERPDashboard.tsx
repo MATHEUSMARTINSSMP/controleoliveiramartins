@@ -264,8 +264,6 @@ export default function ERPDashboard() {
         store_id: selectedStoreId,
         data_inicio: dataInicio,
         incremental: periodo === 'total',
-        limit: periodo === 'agora' ? 1 : 100,
-        max_pages: periodo === 'agora' ? 1 : (periodo === 'semana' ? 10 : 50),
         hard_sync: false,
       });
 
@@ -278,8 +276,6 @@ export default function ERPDashboard() {
           store_id: selectedStoreId,
           data_inicio: dataInicio,
           incremental: periodo === 'total',
-          limit: periodo === 'agora' ? 1 : 100,
-          max_pages: periodo === 'agora' ? 1 : (periodo === 'semana' ? 10 : 50),
           hard_sync: false,
         }),
       }).catch((fetchError: any) => {
