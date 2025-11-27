@@ -1415,24 +1415,34 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
       valorTotal = parseFloat(pedido.valorTotalPedido);
       console.log(`[SyncBackground] ✅ Valor total extraído de pedido.valorTotalPedido: ${valorTotal}`);
     }
-    // Prioridade 3: Calcular a partir dos itens (fallback confiável)
+    // Prioridade 3: valor do pedido completo (campo direto)
+    else if (pedidoCompleto?.valor) {
+      valorTotal = parseFloat(pedidoCompleto.valor);
+      console.log(`[SyncBackground] ✅ Valor total extraído de pedidoCompleto.valor: ${valorTotal}`);
+    }
+    // Prioridade 4: valor do pedido original (campo direto)
+    else if (pedido.valor) {
+      valorTotal = parseFloat(pedido.valor);
+      console.log(`[SyncBackground] ✅ Valor total extraído de pedido.valor: ${valorTotal}`);
+    }
+    // Prioridade 5: Calcular a partir dos itens (fallback confiável)
     else if (itensComCategorias && itensComCategorias.length > 0) {
       valorTotal = itensComCategorias.reduce((sum, item) => {
         return sum + (parseFloat(item.valorUnitario || 0) * parseFloat(item.quantidade || 0));
       }, 0);
       console.log(`[SyncBackground] ✅ Valor total calculado a partir dos itens: ${valorTotal}`);
     }
-    // Prioridade 4: valor_pedido do pedido completo (fallback para pedidos aprovados)
+    // Prioridade 6: valor_pedido do pedido completo (fallback para pedidos aprovados)
     else if (pedidoCompleto?.valor_pedido) {
       valorTotal = parseFloat(pedidoCompleto.valor_pedido);
       console.log(`[SyncBackground] ✅ Valor total extraído de pedidoCompleto.valor_pedido (fallback): ${valorTotal}`);
     }
-    // Prioridade 5: valor_pedido do pedido original
+    // Prioridade 7: valor_pedido do pedido original
     else if (pedido.valor_pedido) {
       valorTotal = parseFloat(pedido.valor_pedido);
       console.log(`[SyncBackground] ✅ Valor total extraído de pedido.valor_pedido (fallback): ${valorTotal}`);
     }
-    // Prioridade 6: Calcular a partir das parcelas (para pedidos aprovados)
+    // Prioridade 8: Calcular a partir das parcelas (para pedidos aprovados)
     else if (pedidoCompleto?.parcelas && Array.isArray(pedidoCompleto.parcelas) && pedidoCompleto.parcelas.length > 0) {
       valorTotal = pedidoCompleto.parcelas.reduce((sum, parcela) => {
         return sum + (parseFloat(parcela.valor || parcela.valorParcela || 0));
@@ -1445,6 +1455,8 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
       console.warn(`[SyncBackground] ⚠️ Valor total zerado para pedido ${tinyId}. Campos disponíveis:`, {
         pedidoCompleto_valorTotalPedido: pedidoCompleto?.valorTotalPedido,
         pedido_valorTotalPedido: pedido.valorTotalPedido,
+        pedidoCompleto_valor: pedidoCompleto?.valor,
+        pedido_valor: pedido.valor,
         pedidoCompleto_valor_pedido: pedidoCompleto?.valor_pedido,
         pedido_valor_pedido: pedido.valor_pedido,
         pedido_total_pedido: pedido.total_pedido,
