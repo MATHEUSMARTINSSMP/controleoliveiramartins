@@ -1376,7 +1376,7 @@ export default function ProductSalesIntelligence() {
                         )}
                         {visibleColumns.marca && <TableCell>{agg.marca || '-'}</TableCell>}
                         {visibleColumns.tamanho && <TableCell>{agg.tamanho || '-'}</TableCell>}
-                        {visibleColumns.cor && <TableCell>{agg.cor || '-'}</TableCell>}
+                        {visibleColumns.cor && <TableCell>{agg.cor || ''}</TableCell>}
                         {visibleColumns.quantidade && (
                           <TableCell className="text-right font-medium">
                             {agg.quantidade_vendida.toLocaleString('pt-BR')}
