@@ -334,53 +334,70 @@ export default function ProductSalesIntelligence() {
               });
             }
 
-            // ✅ CORREÇÃO: Extrair hora do pedido no timezone correto (Brasil UTC-3)
+            // ✅ CORREÇÃO CRÍTICA: Extrair hora do pedido diretamente da string (evitar problemas de timezone)
             let horaPedido: number | undefined = undefined;
             if (order.data_pedido) {
               try {
-                // A data pode vir em UTC ou com timezone, precisamos converter para horário local do Brasil
-                let dataPedido: Date;
-                
                 const dataStr = String(order.data_pedido);
                 
-                // Se a string já tem timezone explícito (ex: -03:00, +00:00, Z)
-                if (dataStr.includes('T') && (dataStr.includes('Z') || dataStr.includes('+') || dataStr.includes('-'))) {
-                  dataPedido = new Date(dataStr);
-                  // Converter de UTC para horário de Brasília (UTC-3)
-                  // Se estiver em UTC, subtrair 3 horas
-                  if (dataStr.endsWith('Z') || dataStr.includes('+00:00')) {
-                    dataPedido = new Date(dataPedido.getTime() - (3 * 60 * 60 * 1000));
+                // ✅ ESTRATÉGIA 1: Extrair hora diretamente da string (mais confiável)
+                // Formatos possíveis:
+                // - "2024-01-30T14:30:00-03:00" -> 14
+                // - "2024-01-30T14:30:00" -> 14
+                // - "2024-01-30T14:30:00Z" -> precisa converter de UTC
+                // - "2024-01-30 14:30:00" -> 14
+                
+                if (dataStr.includes('T')) {
+                  // Extrair parte da hora: "2024-01-30T14:30:00" -> "14:30:00"
+                  const horaPart = dataStr.split('T')[1]?.split(/[+\-Z]/)[0]; // Remove timezone
+                  if (horaPart) {
+                    const hora = parseInt(horaPart.split(':')[0], 10);
+                    if (!isNaN(hora) && hora >= 0 && hora <= 23) {
+                      // Se tem 'Z' no final, está em UTC, converter para horário de Brasília (-3 horas)
+                      if (dataStr.endsWith('Z') || dataStr.includes('+00:00')) {
+                        horaPedido = (hora - 3 + 24) % 24; // Subtrair 3 horas e garantir que fique entre 0-23
+                      } 
+                      // Se tem timezone do Brasil (-03:00), usar a hora diretamente
+                      else if (dataStr.includes('-03:00') || dataStr.includes('-03')) {
+                        horaPedido = hora;
+                      }
+                      // Se não tem timezone explícito, assumir que já está no horário local
+                      else {
+                        horaPedido = hora;
+                      }
+                    }
                   }
-                } 
-                // Se não tem timezone mas tem hora, assumir que é horário local do Brasil
-                else if (dataStr.includes('T')) {
-                  // Tentar parsear como está
-                  dataPedido = new Date(dataStr);
-                  // Se o parse resultou em UTC, ajustar
-                  const offset = dataPedido.getTimezoneOffset(); // em minutos
-                  if (offset !== 180) { // 180 = UTC-3 (Brasil)
-                    // Ajustar para horário de Brasília
-                    dataPedido = new Date(dataPedido.getTime() - (offset * 60 * 1000) - (3 * 60 * 60 * 1000));
+                } else if (dataStr.includes(' ')) {
+                  // Formato alternativo: "2024-01-30 14:30:00"
+                  const horaPart = dataStr.split(' ')[1];
+                  if (horaPart) {
+                    const hora = parseInt(horaPart.split(':')[0], 10);
+                    if (!isNaN(hora) && hora >= 0 && hora <= 23) {
+                      horaPedido = hora;
+                    }
                   }
-                }
-                // Se é apenas data (YYYY-MM-DD), não temos hora
-                else {
-                  dataPedido = new Date(`${dataStr}T12:00:00-03:00`); // Meio-dia como padrão
                 }
                 
-                if (!isNaN(dataPedido.getTime())) {
-                  // Usar getHours() que já está no timezone correto após o ajuste
-                  horaPedido = dataPedido.getHours();
-                  
-                  // Log para debug
-                  if (order.id) {
-                    console.log(`[ProductIntelligence] 📅 Hora extraída do pedido ${order.id}:`, {
-                      data_original: order.data_pedido,
-                      data_ajustada: dataPedido.toISOString(),
-                      hora: horaPedido,
-                      hora_formatada: `${horaPedido.toString().padStart(2, '0')}:00`,
-                    });
+                // ✅ ESTRATÉGIA 2: Se não conseguiu extrair da string, usar Date mas ajustar timezone
+                if (horaPedido === undefined) {
+                  const dataPedido = new Date(dataStr);
+                  if (!isNaN(dataPedido.getTime())) {
+                    // Se a data original tinha 'Z' (UTC), ajustar para horário de Brasília
+                    let horaLocal = dataPedido.getHours();
+                    if (dataStr.endsWith('Z') || dataStr.includes('+00:00')) {
+                      horaLocal = (horaLocal - 3 + 24) % 24;
+                    }
+                    horaPedido = horaLocal;
                   }
+                }
+                
+                // Log para debug
+                if (horaPedido !== undefined && order.id) {
+                  console.log(`[ProductIntelligence] 📅 Hora extraída do pedido:`, {
+                    data_original: order.data_pedido,
+                    hora_extraida: horaPedido,
+                    hora_formatada: `${horaPedido.toString().padStart(2, '0')}:00`,
+                  });
                 }
               } catch (e) {
                 console.error(`[ProductIntelligence] ❌ Erro ao extrair hora do pedido:`, e, order.data_pedido);
