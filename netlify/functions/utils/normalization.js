@@ -51,6 +51,8 @@ function normalizeTamanho(tamanho) {
 const CORES_VALIDAS = [
   'PRETO',
   'BLACK',
+  'PRETO E BRANCO',
+  'PB',
   'GRAFITE',
   'OFF DARK',
   'OFF WHITE',
