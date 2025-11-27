@@ -334,73 +334,128 @@ export default function ProductSalesIntelligence() {
               });
             }
 
-            // ✅ CORREÇÃO CRÍTICA: Extrair hora do pedido diretamente da string (evitar problemas de timezone)
+            // ✅ CORREÇÃO CRÍTICA: Extrair hora do pedido de forma robusta
+            // O problema: data_pedido pode vir apenas com data (00:00:00) ou com hora completa
+            // Precisamos buscar a hora real do pedido, não apenas da data de criação
             let horaPedido: number | undefined = undefined;
             if (order.data_pedido) {
               try {
                 const dataStr = String(order.data_pedido);
+                console.log(`[ProductIntelligence] 🔍 Analisando data_pedido para extrair hora:`, {
+                  data_original: dataStr,
+                  pedido_id: order.id,
+                });
                 
-                // ✅ ESTRATÉGIA 1: Extrair hora diretamente da string (mais confiável)
+                // ✅ ESTRATÉGIA 1: Tentar extrair diretamente da string ISO
                 // Formatos possíveis:
-                // - "2024-01-30T14:30:00-03:00" -> 14
-                // - "2024-01-30T14:30:00" -> 14
-                // - "2024-01-30T14:30:00Z" -> precisa converter de UTC
-                // - "2024-01-30 14:30:00" -> 14
+                // - "2025-11-26T14:30:00-03:00" -> hora = 14
+                // - "2025-11-26T14:30:00" -> hora = 14
+                // - "2025-11-26T14:30:00Z" -> converter UTC para BRT (-3)
+                // - "2025-11-26 14:30:00" -> hora = 14
+                // - "2025-11-26T00:00:00" -> PODE SER QUE NÃO TENHA HORA, buscar no item ou pedido completo
                 
                 if (dataStr.includes('T')) {
-                  // Extrair parte da hora: "2024-01-30T14:30:00" -> "14:30:00"
-                  const horaPart = dataStr.split('T')[1]?.split(/[+\-Z]/)[0]; // Remove timezone
+                  // Extrair parte da hora: "2025-11-26T14:30:00-03:00" -> "14:30:00"
+                  const horaPart = dataStr.split('T')[1]?.split(/[+\-Z]/)[0]?.trim();
+                  
                   if (horaPart) {
-                    const hora = parseInt(horaPart.split(':')[0], 10);
-                    if (!isNaN(hora) && hora >= 0 && hora <= 23) {
-                      // Se tem 'Z' no final, está em UTC, converter para horário de Brasília (-3 horas)
-                      if (dataStr.endsWith('Z') || dataStr.includes('+00:00')) {
-                        horaPedido = (hora - 3 + 24) % 24; // Subtrair 3 horas e garantir que fique entre 0-23
-                      } 
-                      // Se tem timezone do Brasil (-03:00), usar a hora diretamente
-                      else if (dataStr.includes('-03:00') || dataStr.includes('-03')) {
-                        horaPedido = hora;
-                      }
-                      // Se não tem timezone explícito, assumir que já está no horário local
-                      else {
-                        horaPedido = hora;
+                    const partesHora = horaPart.split(':');
+                    if (partesHora.length >= 1) {
+                      const hora = parseInt(partesHora[0], 10);
+                      
+                      if (!isNaN(hora) && hora >= 0 && hora <= 23) {
+                        // Se a hora é 00:00:00, pode ser que não tenhamos a hora real
+                        // Nesse caso, tentar buscar do item ou assumir que é meia-noite mesmo
+                        
+                        if (hora === 0 && horaPart.startsWith('00:00:00')) {
+                          // Hora é 00:00:00 - pode ser que não temos hora real
+                          // Verificar se o item tem alguma informação de hora
+                          console.log(`[ProductIntelligence] ⚠️ Hora é 00:00:00, pode não ser a hora real do pedido`);
+                          
+                          // Tentar buscar hora do item se disponível
+                          if (item.data_venda && typeof item.data_venda === 'string') {
+                            const dataVendaStr = String(item.data_venda);
+                            if (dataVendaStr.includes('T')) {
+                              const horaVenda = dataVendaStr.split('T')[1]?.split(/[+\-Z]/)[0]?.split(':')[0];
+                              if (horaVenda) {
+                                const horaItem = parseInt(horaVenda, 10);
+                                if (!isNaN(horaItem) && horaItem >= 0 && horaItem <= 23 && horaItem !== 0) {
+                                  horaPedido = horaItem;
+                                  console.log(`[ProductIntelligence] ✅ Hora encontrada no item: ${horaItem}`);
+                                }
+                              }
+                            }
+                          }
+                          
+                          // Se não encontrou, usar 00 mesmo (ou tentar inferir de outro campo)
+                          if (horaPedido === undefined) {
+                            horaPedido = 0;
+                          }
+                        } else {
+                          // Hora válida e não é 00:00:00
+                          // Ajustar timezone se necessário
+                          if (dataStr.endsWith('Z') || dataStr.includes('+00:00')) {
+                            // UTC -> BRT: subtrair 3 horas
+                            horaPedido = (hora - 3 + 24) % 24;
+                          } else if (dataStr.includes('-03:00') || dataStr.includes('-03')) {
+                            // Já está em horário de Brasília
+                            horaPedido = hora;
+                          } else {
+                            // Sem timezone explícito, assumir horário local
+                            horaPedido = hora;
+                          }
+                        }
                       }
                     }
                   }
                 } else if (dataStr.includes(' ')) {
-                  // Formato alternativo: "2024-01-30 14:30:00"
-                  const horaPart = dataStr.split(' ')[1];
+                  // Formato alternativo: "2025-11-26 14:30:00"
+                  const horaPart = dataStr.split(' ')[1]?.split(':')[0];
                   if (horaPart) {
-                    const hora = parseInt(horaPart.split(':')[0], 10);
+                    const hora = parseInt(horaPart, 10);
                     if (!isNaN(hora) && hora >= 0 && hora <= 23) {
                       horaPedido = hora;
                     }
                   }
                 }
                 
-                // ✅ ESTRATÉGIA 2: Se não conseguiu extrair da string, usar Date mas ajustar timezone
+                // ✅ ESTRATÉGIA 2: Se ainda não tem hora, tentar usar Date (pode ter problemas de timezone)
                 if (horaPedido === undefined) {
                   const dataPedido = new Date(dataStr);
                   if (!isNaN(dataPedido.getTime())) {
-                    // Se a data original tinha 'Z' (UTC), ajustar para horário de Brasília
+                    // Pegar hora no timezone local do navegador
                     let horaLocal = dataPedido.getHours();
+                    
+                    // Ajustar se estiver em UTC
                     if (dataStr.endsWith('Z') || dataStr.includes('+00:00')) {
+                      // Converter UTC para horário de Brasília (UTC-3)
                       horaLocal = (horaLocal - 3 + 24) % 24;
                     }
+                    
                     horaPedido = horaLocal;
+                    console.log(`[ProductIntelligence] 📅 Hora extraída via Date: ${horaPedido} (data original: ${dataStr})`);
                   }
                 }
                 
-                // Log para debug
-                if (horaPedido !== undefined && order.id) {
-                  console.log(`[ProductIntelligence] 📅 Hora extraída do pedido:`, {
+                // Log detalhado para debug
+                if (horaPedido !== undefined) {
+                  console.log(`[ProductIntelligence] ✅ Hora final extraída:`, {
+                    pedido_id: order.id,
                     data_original: order.data_pedido,
                     hora_extraida: horaPedido,
                     hora_formatada: `${horaPedido.toString().padStart(2, '0')}:00`,
                   });
+                } else {
+                  console.warn(`[ProductIntelligence] ⚠️ Não foi possível extrair hora do pedido:`, {
+                    pedido_id: order.id,
+                    data_original: order.data_pedido,
+                  });
                 }
               } catch (e) {
-                console.error(`[ProductIntelligence] ❌ Erro ao extrair hora do pedido:`, e, order.data_pedido);
+                console.error(`[ProductIntelligence] ❌ Erro ao extrair hora do pedido:`, e, {
+                  pedido_id: order.id,
+                  data_pedido: order.data_pedido,
+                });
               }
             }
 

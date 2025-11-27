@@ -1379,6 +1379,7 @@ export async function syncTinyOrders(
           data_pedido: (() => {
             // ✅ PRIORIDADE: Buscar dataCriacao primeiro (pode ter hora completa)
             // API v3 oficial usa: data (data de criação), dataFaturamento, dataEntrega
+            // IMPORTANTE: Tentar buscar data com hora completa primeiro
             let data = pedido.dataCriacao  // Priorizar dataCriacao (pode ter hora)
               || pedido.data_criacao
               || pedido.data  // API v3 oficial (camelCase)
@@ -1395,29 +1396,68 @@ export async function syncTinyOrders(
 
             console.log(`[SyncTiny] 📅 Data bruta recebida: "${data}" (tipo: ${typeof data})`);
 
-            // ✅ CORREÇÃO: Lidar com diferentes formatos de data
+            // ✅ CORREÇÃO: Lidar com diferentes formatos de data, preservando hora quando disponível
             try {
-              // Se já tem formato ISO completo com T e timezone
+              // Se já tem formato ISO completo com T e timezone (inclui hora)
               if (typeof data === 'string' && data.includes('T') && (data.includes('Z') || data.includes('+') || data.includes('-'))) {
-                console.log(`[SyncTiny] ✅ Data já em formato ISO completo: "${data}"`);
-                return data;
+                // Verificar se tem hora além de 00:00:00
+                const horaPart = data.split('T')[1]?.split(/[+\-Z]/)[0];
+                if (horaPart && !horaPart.startsWith('00:00:00')) {
+                  console.log(`[SyncTiny] ✅ Data já em formato ISO completo COM HORA: "${data}"`);
+                  return data;
+                } else {
+                  console.log(`[SyncTiny] ⚠️ Data ISO completa mas sem hora real (00:00:00): "${data}"`);
+                  // Continuar para tentar outras fontes ou retornar como está
+                }
               }
 
-              // Se for apenas data (YYYY-MM-DD) - usar meia-noite no timezone do Brasil
-              // ✅ CORREÇÃO: Usar 00:00:00 (meia-noite) em vez de 12:00:00 para evitar confusão
+              // Se for apenas data (YYYY-MM-DD) - buscar hora de outras fontes ou usar 00:00:00
               if (typeof data === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data)) {
-                // Usar 00:00:00 (meia-noite) no timezone do Brasil (-03:00)
-                const isoString = `${data}T00:00:00-03:00`;
-                console.log(`[SyncTiny] ✅ Data convertida para ISO com timezone BR (meia-noite): "${isoString}"`);
-                return isoString;
+                // Tentar buscar hora de dataAtualizacao ou outro campo que possa ter hora
+                let horaCompleta = null;
+                
+                // Tentar buscar de dataAtualizacao (pode ter hora de atualização mais recente)
+                if (pedido.dataAtualizacao && typeof pedido.dataAtualizacao === 'string' && pedido.dataAtualizacao.includes('T')) {
+                  const dataAtualizacao = pedido.dataAtualizacao;
+                  const horaPart = dataAtualizacao.split('T')[1]?.split(/[+\-Z]/)[0];
+                  if (horaPart && !horaPart.startsWith('00:00:00')) {
+                    horaCompleta = horaPart;
+                    console.log(`[SyncTiny] ✅ Hora encontrada em dataAtualizacao: "${horaCompleta}"`);
+                  }
+                }
+                
+                // Se encontrou hora, usar; senão usar 00:00:00
+                if (horaCompleta) {
+                  const isoString = `${data}T${horaCompleta}-03:00`;
+                  console.log(`[SyncTiny] ✅ Data convertida com hora de dataAtualizacao: "${isoString}"`);
+                  return isoString;
+                } else {
+                  // Usar 00:00:00 (meia-noite) no timezone do Brasil (-03:00)
+                  const isoString = `${data}T00:00:00-03:00`;
+                  console.log(`[SyncTiny] ⚠️ Data sem hora disponível, usando meia-noite: "${isoString}"`);
+                  return isoString;
+                }
               }
 
               // Tentar parsear qualquer outro formato
               const date = new Date(data);
               if (!isNaN(date.getTime())) {
-                const isoString = date.toISOString();
-                console.log(`[SyncTiny] ✅ Data convertida para ISO: "${isoString}"`);
-                return isoString;
+                // Se a data original tinha hora diferente de 00:00:00, preservar
+                const hora = date.getHours();
+                const minutos = date.getMinutes();
+                const segundos = date.getSeconds();
+                
+                if (hora !== 0 || minutos !== 0 || segundos !== 0) {
+                  // Data tem hora real, preservar
+                  const isoString = date.toISOString();
+                  console.log(`[SyncTiny] ✅ Data convertida para ISO com hora preservada: "${isoString}"`);
+                  return isoString;
+                } else {
+                  // Data sem hora real, usar ISO padrão
+                  const isoString = date.toISOString();
+                  console.log(`[SyncTiny] ⚠️ Data convertida para ISO sem hora real: "${isoString}"`);
+                  return isoString;
+                }
               }
             } catch (error) {
               console.error(`[SyncTiny] ❌ Erro ao converter data "${data}":`, error);
