@@ -368,23 +368,63 @@ exports.handler = async (event, context) => {
         }
 
         // ✅ TAREFA 8: Salvar pedido completo
-        const { error: upsertError } = await supabase
+        let orderSavedId = null;
+        const { error: upsertError, data: savedOrder } = await supabase
           .schema('sistemaretiradas')
           .from('tiny_orders')
           .upsert(orderData, {
             onConflict: 'tiny_id,store_id',
-          });
+          })
+          .select('id')
+          .single();
 
         if (upsertError) {
           console.error(`[SyncBackground] ❌ Erro ao salvar pedido ${tinyId}:`, upsertError);
           errors++;
         } else {
+          orderSavedId = savedOrder?.id || existingOrder?.id;
+          
           if (existingOrder) {
             updated++;
             console.log(`[SyncBackground] ✅ Pedido ${tinyId} atualizado`);
           } else {
             synced++;
             console.log(`[SyncBackground] ✅ Pedido ${tinyId} criado`);
+          }
+          
+          // ✅ TAREFA 9: Gerar cashback se o pedido foi criado/atualizado e tem cliente e valor
+          if (orderSavedId && clienteId && orderData.valor_total > 0) {
+            try {
+              // Verificar se o pedido está faturado/aprovado (situacao 3 ou 9)
+              const situacao = pedidoCompleto?.situacao || pedido.situacao || pedidoCompleto?.situacaoPedido || 0;
+              
+              // Gerar cashback apenas para pedidos faturados (situacao 3) ou aprovados (situacao 9)
+              if (situacao === 3 || situacao === 9) {
+                console.log(`[SyncBackground] 💰 Gerando cashback para pedido ${tinyId} (cliente: ${clienteId.substring(0, 8)}..., valor: ${orderData.valor_total})`);
+                
+                const { data: cashbackResult, error: cashbackError } = await supabase
+                  .schema('sistemaretiradas')
+                  .rpc('gerar_cashback', {
+                    p_tiny_order_id: orderSavedId,
+                    p_cliente_id: clienteId,
+                    p_store_id: store_id,
+                    p_valor_total: orderData.valor_total
+                  });
+                
+                if (cashbackError) {
+                  console.error(`[SyncBackground] ❌ Erro ao gerar cashback para pedido ${tinyId}:`, cashbackError);
+                } else if (cashbackResult && cashbackResult.success) {
+                  console.log(`[SyncBackground] ✅ Cashback gerado: R$ ${cashbackResult.amount} (libera em ${cashbackResult.data_liberacao})`);
+                } else {
+                  console.log(`[SyncBackground] ℹ️ Cashback não gerado: ${cashbackResult?.message || 'Motivo desconhecido'}`);
+                }
+              } else {
+                console.log(`[SyncBackground] ℹ️ Cashback não gerado: pedido ${tinyId} não está faturado/aprovado (situação: ${situacao})`);
+              }
+            } catch (cashbackException) {
+              console.error(`[SyncBackground] ❌ Exceção ao gerar cashback para pedido ${tinyId}:`, cashbackException);
+              // Não falhar a sincronização do pedido por causa do cashback
+            }
           }
         }
 
