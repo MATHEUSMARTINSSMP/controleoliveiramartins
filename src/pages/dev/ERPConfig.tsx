@@ -274,7 +274,19 @@ const ERPConfig = () => {
         throw new Error(`Erro na sincronização: ${errorText || response.statusText}`);
       }
 
-      const data = await response.json();
+      // Verificar se a resposta está vazia antes de fazer parse
+      const responseText = await response.text();
+      if (!responseText || responseText.trim() === '') {
+        throw new Error('Resposta vazia do servidor. Tente novamente.');
+      }
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError: any) {
+        console.error('Erro ao fazer parse da resposta:', parseError);
+        throw new Error(`Erro ao processar resposta do servidor: ${parseError.message}`);
+      }
       
       if (data?.success) {
         toast.success(`✅ Sincronização iniciada em background! Você pode fechar a página. ${data.message || 'Processando...'}`);
@@ -335,7 +347,19 @@ const ERPConfig = () => {
         throw new Error(`Erro na sincronização: ${errorText || response.statusText}`);
       }
 
-      const data = await response.json();
+      // Verificar se a resposta está vazia antes de fazer parse
+      const responseText = await response.text();
+      if (!responseText || responseText.trim() === '') {
+        throw new Error('Resposta vazia do servidor. Tente novamente.');
+      }
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError: any) {
+        console.error('Erro ao fazer parse da resposta:', parseError);
+        throw new Error(`Erro ao processar resposta do servidor: ${parseError.message}`);
+      }
       
       if (data?.success) {
         toast.success(`✅ Sincronização de clientes iniciada em background! Você pode fechar a página. ${data.message || 'Processando...'}`);
