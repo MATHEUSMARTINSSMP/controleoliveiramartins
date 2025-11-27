@@ -13,8 +13,8 @@ Seu calendário está **EXCELENTE**! A estratégia em camadas é muito inteligen
 | **1x por semana** | Hard Sync Absoluto | Desde 2010-01-01 | `0 2 * * 0` (Domingo 02:00) | `max_pages: 99999, limit: 100` | Verificação completa garantida |
 | **1x por dia** | Sync 7 dias | Últimos 7 dias | `0 3 * * *` (03:00) | `max_pages: 50, limit: 100` | Cobertura semanal |
 | **2x por dia** | Sync 24h | Últimas 24 horas | `0 6,18 * * *` (06:00 e 18:00) | `max_pages: 20, limit: 100` | Cobertura diária |
-| **A cada 5 minutos** | Push Sync | Últimos 5 minutos | `*/5 * * * *` | `limit: 1, max_pages: 1` | Quase tempo real (288x/dia) |
-| **A cada 30 minutos** | Incremental | Últimas 2 horas | `*/30 * * * *` | `max_pages: 5, limit: 100` | Atualização regular |
+| **A cada 1 minuto** | Push Sync | Últimos 1 minuto | `*/1 * * * *` | `limit: 1, max_pages: 1` | Mínimo possível (1440x/dia) - Quase tempo real |
+| **A cada 60 minutos** | Incremental | Últimas 2 horas | `0 * * * *` | `max_pages: 5, limit: 100` | Atualização regular (24x/dia) |
 
 ---
 
@@ -39,7 +39,7 @@ Seu calendário está **EXCELENTE**! A estratégia em camadas é muito inteligen
 
 ## ⚠️ AJUSTE TÉCNICO NECESSÁRIO
 
-### **30 Segundos → 5 Minutos**
+### **30 Segundos → 1 Minuto**
 
 **Motivo:**
 - ❌ **pg_cron não suporta segundos** (mínimo é 1 minuto)
@@ -47,7 +47,8 @@ Seu calendário está **EXCELENTE**! A estratégia em camadas é muito inteligen
 - ⚠️ **Risco de rate limiting** da API
 
 **Solução:**
-- ✅ **5 minutos** ainda é muito rápido (288x por dia)
+- ✅ **1 minuto** é o mínimo possível do pg_cron (1440 verificações/dia)
+- ✅ Com polling inteligente, sincroniza apenas quando há nova venda
 - ✅ Ainda garante dados quase em tempo real
 - ✅ Muito mais eficiente e viável
 
