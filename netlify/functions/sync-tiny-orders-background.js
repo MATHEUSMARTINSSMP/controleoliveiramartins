@@ -23,6 +23,11 @@ const { createClient } = require('@supabase/supabase-js');
 const TINY_API_V3_URL = 'https://erp.tiny.com.br/public-api/v3';
 
 exports.handler = async (event, context) => {
+  // ✅ IMPORTANTE: Netlify Functions têm timeout limitado
+  // Para trabalhos longos, retornar imediatamente e continuar em background
+  // Usar context.callbackWaitsForEmptyEventLoop = false para permitir execução assíncrona
+  context.callbackWaitsForEmptyEventLoop = false;
+
   // CORS headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -49,6 +54,8 @@ exports.handler = async (event, context) => {
   }
 
   try {
+    // ✅ Para trabalhos muito longos (hard sync), executar de forma assíncrona
+    // Retornar imediatamente e continuar processamento em background
     const body = JSON.parse(event.body || '{}');
     const { store_id, data_inicio, incremental = true, limit = 50, max_pages = 2, hard_sync = false } = body;
 

@@ -337,30 +337,42 @@ export default function ERPDashboard() {
       }
       
       // ✅ TODAS AS SINCRONIZAÇÕES MANUAIS RODAM EM BACKGROUND
+      // Chamar diretamente a Netlify Function (backend) para rodar em background
       toast.info(`${mensagem} (em background - você pode fechar a página)`);
 
-      const { data, error } = await supabase.functions.invoke('sync-tiny-orders', {
-        body: {
+      const netlifyFunctionUrl = '/.netlify/functions/sync-tiny-orders-background';
+      
+      const response = await fetch(netlifyFunctionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           store_id: selectedStoreId,
-          sync_type: 'ORDERS',
-          hard_sync: false,
           data_inicio: dataInicio,
           incremental: periodo === 'total',
           limit: periodo === 'agora' ? 1 : 100,
           max_pages: periodo === 'agora' ? 1 : (periodo === 'semana' ? 10 : 50),
-        },
+          hard_sync: false,
+        }),
+      }).catch((fetchError: any) => {
+        console.error("❌ Erro ao chamar Netlify Function:", fetchError);
+        throw new Error(`Erro ao iniciar sincronização: ${fetchError.message}`);
       });
 
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro na sincronização: ${errorText || response.statusText}`);
       }
 
+      const data = await response.json();
+      
       if (data?.success) {
         toast.success(`✅ ${data.message || 'Sincronização iniciada em background! Você pode fechar a página.'}`);
         await fetchKPIs();
         await fetchLastSync();
       } else {
-        throw new Error(data?.error || 'Erro ao iniciar sincronização');
+        throw new Error(data?.error || data?.message || 'Erro ao iniciar sincronização');
       }
     } catch (error: any) {
       console.error('Erro ao sincronizar pedidos:', error);
