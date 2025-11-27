@@ -12,8 +12,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Search, User, Mail, Phone, Building2, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Search, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShoppingBag, TrendingUp, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -31,18 +32,29 @@ interface TinyContact {
   sync_at: string;
 }
 
+interface CustomerStats {
+  lastPurchase: { date: string; value: number } | null;
+  totalPurchases: { count: number; value: number };
+  cashbackBalance: number;
+  topProducts: Array<{ descricao: string; quantidade: number }>;
+  purchaseFrequency: number; // days between purchases
+}
+
 interface TinyContactsListProps {
   storeId?: string;
   limit?: number;
 }
 
-export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsListProps) {
+export default function TinyContactsList({ storeId, limit = 10000 }: TinyContactsListProps) {
   const [contacts, setContacts] = useState<TinyContact[]>([]);
   const [filteredContacts, setFilteredContacts] = useState<TinyContact[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [itemsPerPage, setItemsPerPage] = useState<number>(20);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [customerStats, setCustomerStats] = useState<Map<string, CustomerStats>>(new Map());
+  const [loadingStats, setLoadingStats] = useState<Set<string>>(new Set());
   useEffect(() => {
     fetchContacts();
   }, [storeId]);
@@ -75,7 +87,7 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
       const { data, error } = await query;
 
       if (error) throw error;
-      
+
       // Log detalhado dos dados recebidos do banco
       console.log('[TinyContactsList] 👤 Dados recebidos do banco:', {
         total: data?.length || 0,
@@ -89,7 +101,7 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
         } : null,
         todas_as_chaves: data?.[0] ? Object.keys(data[0]) : [],
       });
-      
+
       setContacts(data || []);
     } catch (error: any) {
       console.error('Erro ao buscar clientes:', error);
@@ -101,18 +113,118 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
   const filterContacts = () => {
     let filtered = [...contacts];
 
-    // Filtro por busca (nome, CPF/CNPJ, email)
+    // Filtro por busca (nome, CPF/CNPJ, email, telefone)
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (contact) =>
           contact.nome?.toLowerCase().includes(term) ||
           contact.cpf_cnpj?.toLowerCase().includes(term) ||
-          contact.email?.toLowerCase().includes(term)
+          contact.email?.toLowerCase().includes(term) ||
+          contact.telefone?.toLowerCase().includes(term) ||
+          contact.celular?.toLowerCase().includes(term)
       );
     }
 
     setFilteredContacts(filtered);
+  };
+
+  const fetchCustomerStats = async (contactId: string, tinyId: string) => {
+    if (customerStats.has(contactId) || loadingStats.has(contactId)) return;
+
+    setLoadingStats(prev => new Set(prev).add(contactId));
+
+    try {
+      // Buscar vendas do cliente
+      const { data: vendas, error } = await supabase
+        .schema('sistemaretiradas')
+        .from('vendas')
+        .select('*')
+        .eq('cliente_tiny_id', tinyId)
+        .order('data_pedido', { ascending: false });
+
+      if (error) throw error;
+
+      if (!vendas || vendas.length === 0) {
+        setCustomerStats(prev => new Map(prev).set(contactId, {
+          lastPurchase: null,
+          totalPurchases: { count: 0, value: 0 },
+          cashbackBalance: 0,
+          topProducts: [],
+          purchaseFrequency: 0,
+        }));
+        return;
+      }
+
+      // Última compra
+      const lastPurchase = vendas[0] ? {
+        date: vendas[0].data_pedido,
+        value: vendas[0].valor_total || 0,
+      } : null;
+
+      // Total de compras
+      const totalPurchases = {
+        count: vendas.length,
+        value: vendas.reduce((sum, v) => sum + (v.valor_total || 0), 0),
+      };
+
+      // Top produtos (agrupar por descrição)
+      const productMap = new Map<string, number>();
+      vendas.forEach(venda => {
+        const desc = venda.produto_descricao || 'Produto sem descrição';
+        productMap.set(desc, (productMap.get(desc) || 0) + (venda.quantidade || 1));
+      });
+      const topProducts = Array.from(productMap.entries())
+        .map(([descricao, quantidade]) => ({ descricao, quantidade }))
+        .sort((a, b) => b.quantidade - a.quantidade)
+        .slice(0, 3);
+
+      // Frequência de compra (média de dias entre compras)
+      let purchaseFrequency = 0;
+      if (vendas.length > 1) {
+        const dates = vendas.map(v => new Date(v.data_pedido).getTime()).sort((a, b) => b - a);
+        const intervals = [];
+        for (let i = 0; i < dates.length - 1; i++) {
+          intervals.push((dates[i] - dates[i + 1]) / (1000 * 60 * 60 * 24));
+        }
+        purchaseFrequency = Math.round(intervals.reduce((sum, i) => sum + i, 0) / intervals.length);
+      }
+
+      // Buscar saldo de cashback
+      const { data: cashbackData } = await supabase
+        .schema('sistemaretiradas')
+        .from('cashback_balances')
+        .select('saldo_disponivel')
+        .eq('cliente_id', contactId)
+        .single();
+
+      setCustomerStats(prev => new Map(prev).set(contactId, {
+        lastPurchase,
+        totalPurchases,
+        cashbackBalance: cashbackData?.saldo_disponivel || 0,
+        topProducts,
+        purchaseFrequency,
+      }));
+    } catch (error) {
+      console.error('Erro ao buscar estatísticas do cliente:', error);
+    } finally {
+      setLoadingStats(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(contactId);
+        return newSet;
+      });
+    }
+  };
+
+  const toggleRow = (contactId: string, tinyId: string) => {
+    const newExpanded = new Set(expandedRows);
+    if (newExpanded.has(contactId)) {
+      newExpanded.delete(contactId);
+    } else {
+      newExpanded.add(contactId);
+      fetchCustomerStats(contactId, tinyId);
+    }
+    setExpandedRows(newExpanded);
   };
 
   const formatCPFCNPJ = (cpfCnpj: string | null) => {
@@ -146,35 +258,35 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
           Clientes Sincronizados
         </CardTitle>
         <CardDescription>
-          Visualize os clientes sincronizados do Tiny ERP ({filteredContacts.length} de {Math.min(contacts.length, 100)})
+          Visualize os clientes sincronizados do Tiny ERP ({filteredContacts.length} {filteredContacts.length === contacts.length ? 'clientes' : `de ${contacts.length} clientes`})
         </CardDescription>
       </CardHeader>
       <CardContent>
         {/* Filtros e Paginação */}
         <div className="mb-4 space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome, CPF/CNPJ, email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <Select value={itemsPerPage.toString()} onValueChange={(value) => {
-            setItemsPerPage(Number(value));
-            setCurrentPage(1);
-          }}>
-            <SelectTrigger>
-              <SelectValue placeholder="Itens por página" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="20">20 por página</SelectItem>
-              <SelectItem value="50">50 por página</SelectItem>
-              <SelectItem value="100">100 por página</SelectItem>
-            </SelectContent>
-          </Select>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome, CPF/CNPJ, email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+              setItemsPerPage(Number(value));
+              setCurrentPage(1);
+            }}>
+              <SelectTrigger>
+                <SelectValue placeholder="Itens por página" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="20">20 por página</SelectItem>
+                <SelectItem value="50">50 por página</SelectItem>
+                <SelectItem value="100">100 por página</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -189,40 +301,117 @@ export default function TinyContactsList({ storeId, limit = 50 }: TinyContactsLi
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12"></TableHead>
                     <TableHead>Nome</TableHead>
                     <TableHead>CPF/CNPJ</TableHead>
                     <TableHead>Telefone</TableHead>
-                    <TableHead>Data de Nascimento</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedContacts.map((contact) => (
-                    <TableRow key={contact.id}>
-                      <TableCell className="font-medium">{contact.nome}</TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {formatCPFCNPJ(contact.cpf_cnpj)}
-                      </TableCell>
-                      <TableCell>
-                        {/* ✅ Exibir telefone diretamente da coluna do Supabase */}
-                        {/* Prioridade: telefone (que contém celular ou fixo) */}
-                        {contact.telefone || contact.celular ? (
-                          <div className="flex items-center gap-1">
-                            <Phone className="h-3 w-3 text-muted-foreground" />
-                            {contact.telefone || contact.celular}
-                          </div>
-                        ) : (
-                          '-'
+                  {paginatedContacts.map((contact) => {
+                    const isExpanded = expandedRows.has(contact.id);
+                    const stats = customerStats.get(contact.id);
+                    const isLoadingStats = loadingStats.has(contact.id);
+
+                    return (
+                      <>
+                        <TableRow key={contact.id} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(contact.id, contact.tiny_id)}>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </Button>
+                          </TableCell>
+                          <TableCell className="font-medium">{contact.nome}</TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {formatCPFCNPJ(contact.cpf_cnpj)}
+                          </TableCell>
+                          <TableCell>
+                            {contact.telefone || contact.celular || '-'}
+                          </TableCell>
+                        </TableRow>
+                        {isExpanded && (
+                          <TableRow key={`${contact.id}-details`}>
+                            <TableCell colSpan={4} className="bg-muted/30 p-4">
+                              {isLoadingStats ? (
+                                <div className="flex items-center justify-center py-4">
+                                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                </div>
+                              ) : stats ? (
+                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                                  {/* Última Compra */}
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                                      <ShoppingBag className="h-4 w-4" />
+                                      Última Compra
+                                    </div>
+                                    {stats.lastPurchase ? (
+                                      <>
+                                        <div className="text-sm">
+                                          {format(new Date(stats.lastPurchase.date), 'dd/MM/yyyy', { locale: ptBR })}
+                                        </div>
+                                        <div className="text-lg font-bold">
+                                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.lastPurchase.value)}
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="text-sm text-muted-foreground">Nenhuma compra</div>
+                                    )}
+                                  </div>
+
+                                  {/* Total de Compras */}
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                                      <TrendingUp className="h-4 w-4" />
+                                      Total de Compras
+                                    </div>
+                                    <div className="text-sm">{stats.totalPurchases.count} pedidos</div>
+                                    <div className="text-lg font-bold">
+                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.totalPurchases.value)}
+                                    </div>
+                                  </div>
+
+                                  {/* Cashback */}
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                                      <Gift className="h-4 w-4" />
+                                      Saldo Cashback
+                                    </div>
+                                    <div className="text-lg font-bold">
+                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.cashbackBalance)}
+                                    </div>
+                                    {stats.purchaseFrequency > 0 && (
+                                      <div className="text-xs text-muted-foreground">
+                                        Compra a cada {stats.purchaseFrequency} dias
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Top Produtos */}
+                                  <div className="space-y-1">
+                                    <div className="text-sm font-medium text-muted-foreground">Top Produtos</div>
+                                    {stats.topProducts.length > 0 ? (
+                                      <div className="space-y-1">
+                                        {stats.topProducts.map((product, idx) => (
+                                          <div key={idx} className="flex items-center justify-between text-xs">
+                                            <span className="truncate max-w-[150px]">{product.descricao}</span>
+                                            <Badge variant="secondary" className="ml-2">{product.quantidade}x</Badge>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="text-sm text-muted-foreground">Nenhum produto</div>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-sm text-muted-foreground">Nenhum dado disponível</div>
+                              )}
+                            </TableCell>
+                          </TableRow>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        {contact.data_nascimento ? (
-                          format(new Date(contact.data_nascimento), 'dd/MM/yyyy', { locale: ptBR })
-                        ) : (
-                          '-'
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                      </>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
