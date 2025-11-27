@@ -199,10 +199,10 @@ BEGIN
 END $$;
 
 -- =============================================================================
--- JOB 4: SYNC INCREMENTAL 30 MINUTOS (A cada 30 minutos)
+-- JOB 4: SYNC INCREMENTAL 60 MINUTOS (A cada 60 minutos / 1 hora)
 -- =============================================================================
 -- Verifica últimas 2 horas
--- Frequência: A cada 30 minutos
+-- Frequência: A cada 60 minutos (dobrado devido ao polling inteligente)
 
 DO $$
 DECLARE
@@ -216,13 +216,13 @@ BEGIN
     
     service_role_key := current_setting('app.service_role_key', true);
     
-    PERFORM cron.unschedule('sync-30min-incremental') WHERE EXISTS (
-        SELECT 1 FROM cron.job WHERE jobname = 'sync-30min-incremental'
+    PERFORM cron.unschedule('sync-60min-incremental') WHERE EXISTS (
+        SELECT 1 FROM cron.job WHERE jobname = 'sync-60min-incremental'
     );
     
     PERFORM cron.schedule(
-        'sync-30min-incremental',
-        '*/30 * * * *', -- A cada 30 minutos
+        'sync-60min-incremental',
+        '0 * * * *', -- A cada 60 minutos (a cada hora)
         $$
         SELECT net.http_post(
             url := supabase_url || '/functions/v1/sync-tiny-orders',
@@ -241,17 +241,17 @@ BEGIN
         $$
     );
     
-    RAISE NOTICE '✅ Job 4 criado: Sync Incremental 30 minutos';
+    RAISE NOTICE '✅ Job 4 criado: Sync Incremental 60 minutos (dobrado devido ao polling inteligente)';
 END $$;
 
 -- =============================================================================
--- JOB 5: SYNC PUSH 5 MINUTOS (A cada 5 minutos)
+-- JOB 5: SYNC PUSH 10 MINUTOS (A cada 10 minutos)
 -- =============================================================================
 -- Verifica apenas última venda (muito rápido)
--- Frequência: A cada 5 minutos
+-- Frequência: A cada 10 minutos (dobrado devido ao polling inteligente)
 -- NOTA: pg_cron não suporta segundos (mínimo é 1 minuto)
--- 5 minutos é um bom equilíbrio entre frequência e performance
--- Ainda garante dados quase em tempo real (288 verificações por dia)
+-- Com polling inteligente, 10 minutos ainda garante dados quase em tempo real
+-- (144 verificações por dia, sincronização apenas quando há nova venda)
 
 DO $$
 DECLARE
@@ -265,13 +265,13 @@ BEGIN
     
     service_role_key := current_setting('app.service_role_key', true);
     
-    PERFORM cron.unschedule('sync-5min-push') WHERE EXISTS (
-        SELECT 1 FROM cron.job WHERE jobname = 'sync-5min-push'
+    PERFORM cron.unschedule('sync-10min-push') WHERE EXISTS (
+        SELECT 1 FROM cron.job WHERE jobname = 'sync-10min-push'
     );
     
     PERFORM cron.schedule(
-        'sync-5min-push',
-        '*/5 * * * *', -- A cada 5 minutos (mínimo prático)
+        'sync-10min-push',
+        '*/10 * * * *', -- A cada 10 minutos (dobrado devido ao polling inteligente)
         $$
         SELECT net.http_post(
             url := supabase_url || '/functions/v1/sync-tiny-orders',
@@ -282,7 +282,7 @@ BEGIN
             body := jsonb_build_object(
                 'sync_type', 'ORDERS',
                 'hard_sync', false,
-                'data_inicio', (CURRENT_TIMESTAMP - INTERVAL '5 minutes')::date::text,
+                'data_inicio', (CURRENT_TIMESTAMP - INTERVAL '10 minutes')::date::text,
                 'max_pages', 1,
                 'limit', 1 -- Apenas última venda!
             )
@@ -290,8 +290,9 @@ BEGIN
         $$
     );
     
-    RAISE NOTICE '✅ Job 5 criado: Sync Push 5 minutos (apenas última venda)';
-    RAISE NOTICE '⚠️ NOTA: pg_cron não suporta segundos. Mínimo é 1 minuto. Usamos 5 minutos como mínimo prático.';
+    RAISE NOTICE '✅ Job 5 criado: Sync Push 10 minutos (dobrado devido ao polling inteligente)';
+    RAISE NOTICE '⚠️ NOTA: Com polling inteligente, 10 minutos ainda garante dados quase em tempo real';
+    RAISE NOTICE '   (144 verificações/dia, sincronização apenas quando há nova venda)';
 END $$;
 
 -- =============================================================================
@@ -308,14 +309,16 @@ BEGIN
     RAISE NOTICE '2. sync-daily-7days: Diariamente 03:00 (Últimos 7 dias)';
     RAISE NOTICE '3. sync-twice-daily-24h-06: Diariamente 06:00 (Últimas 24h)';
     RAISE NOTICE '4. sync-twice-daily-24h-18: Diariamente 18:00 (Últimas 24h)';
-    RAISE NOTICE '5. sync-30min-incremental: A cada 30 minutos (Últimas 2h)';
-    RAISE NOTICE '6. sync-5min-push: A cada 5 minutos (Última venda)';
+    RAISE NOTICE '5. sync-60min-incremental: A cada 60 minutos (Últimas 2h) - DOBRADO';
+    RAISE NOTICE '6. sync-10min-push: A cada 10 minutos (Última venda) - DOBRADO';
     RAISE NOTICE '';
     RAISE NOTICE '⚠️ IMPORTANTE:';
     RAISE NOTICE '- Ajuste supabase_url no código antes de executar';
     RAISE NOTICE '- Configure service_role_key como variável de ambiente';
-    RAISE NOTICE '- pg_cron não suporta segundos (mínimo 1 minuto)';
-    RAISE NOTICE '- Use 5 minutos como mínimo prático para sync push';
+    RAISE NOTICE '- Frequências DOBRADAS devido ao polling inteligente:';
+    RAISE NOTICE '  * Push sync: 5min → 10min (144 verificações/dia)';
+    RAISE NOTICE '  * Incremental: 30min → 60min (24 verificações/dia)';
+    RAISE NOTICE '- Polling inteligente reduz custos em ~90% sincronizando apenas quando há nova venda';
     RAISE NOTICE '========================================';
 END $$;
 

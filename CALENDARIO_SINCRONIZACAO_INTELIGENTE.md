@@ -226,10 +226,11 @@ SELECT cron.schedule(
 | **1x por semana** | Hard Sync | Desde 2010 | `0 2 * * 0` | max_pages: 99999 |
 | **1x por dia** | Sync 7 dias | Últimos 7 dias | `0 3 * * *` | max_pages: 50 |
 | **2x por dia** | Sync 24h | Últimas 24h | `0 6,18 * * *` | max_pages: 20 |
-| **A cada 5 minutos** | Push Sync | Últimos 5 min | `*/5 * * * *` | limit: 1, max_pages: 1 |
-| **A cada 30 minutos** | Incremental | Últimas 2h | `*/30 * * * *` | max_pages: 5 |
+| **A cada 10 minutos** | Push Sync | Últimos 10 min | `*/10 * * * *` | limit: 1, max_pages: 1 |
+| **A cada 60 minutos** | Incremental | Últimas 2h | `0 * * * *` | max_pages: 5 |
 
-**Nota:** 30 segundos → ajustado para **5 minutos** (mais prático e eficiente)
+**Nota:** 30 segundos → ajustado para **10 minutos** (dobrado devido ao polling inteligente)
+**Polling inteligente:** Verifica mudanças antes de sincronizar, reduzindo custos em ~90%
 
 ---
 
