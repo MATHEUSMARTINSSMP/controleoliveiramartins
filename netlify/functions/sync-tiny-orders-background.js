@@ -34,6 +34,7 @@ const {
   normalizeCPFCNPJ,
   normalizeTelefone,
   normalizeNome,
+  extrairCorDaDescricao,
 } = require('./utils/normalization');
 
 const {
@@ -890,37 +891,36 @@ async function processarItemCompleto(storeId, itemData, pedidoId) {
           // A última parte antes do tamanho geralmente é a cor
           const possivelCor = partesPorHifen[partesPorHifen.length - 1].trim();
 
-          // Validar se não é muito longo (ex: < 30 chars) e não é código numérico puro
+          // ✅ VALIDAÇÃO: Usar normalizeCor que valida contra o mapa de cores válidas
+          // Isso evita pegar palavras que não são cores (ex: "OFF" isolado, nomes de modelos)
           if (possivelCor.length < 30 && possivelCor.length > 2 && !/^\d+$/.test(possivelCor)) {
-            cor = normalizeCor(possivelCor);
-            console.log(`[SyncBackground] ✅ Cor extraída da descrição: "${cor}"`);
+            const corValidada = normalizeCor(possivelCor);
+            if (corValidada) {
+              cor = corValidada;
+              console.log(`[SyncBackground] ✅ Cor extraída e validada da descrição: "${cor}"`);
+            } else {
+              console.log(`[SyncBackground] ❌ Cor rejeitada (não está no mapa de cores válidas): "${possivelCor}"`);
+            }
           } else {
             console.log(`[SyncBackground] ❌ Cor rejeitada (muito longa ou numérica): "${possivelCor}"`);
           }
         } else {
-          // ✅ FALLBACK: Procurar palavras de cor conhecidas na descrição
-          console.log(`[SyncBackground] ⚠️ Sem hífen detectável, tentando busca por palavras-chave de cor`);
-
-          const coresConhecidas = [
-            'PRETO', 'BRANCO', 'VERMELHO', 'AZUL', 'VERDE', 'AMARELO', 'ROSA', 'ROXO', 'LARANJA',
-            'MARROM', 'CINZA', 'BEGE', 'NUDE', 'OFF-WHITE', 'OFF WHITE', 'OFFWHITE',
-            'VINHO', 'MOSTARDA', 'TERRACOTA', 'CARAMELO', 'CORAL', 'TURQUESA',
-            'PINK', 'BLACK', 'WHITE', 'RED', 'BLUE', 'GREEN', 'YELLOW', 'PURPLE', 'ORANGE',
-            'RADIANTE', 'ESCURO', 'CLARO', 'NAVY', 'MARINHO'
-          ];
-
-          const palavras = parteSemTamanho.toUpperCase().split(/\s+/);
-          const corEncontrada = palavras.find(palavra =>
-            coresConhecidas.some(corConhecida =>
-              palavra.includes(corConhecida) || corConhecida.includes(palavra)
-            )
-          );
-
-          if (corEncontrada) {
-            cor = normalizeCor(corEncontrada);
-            console.log(`[SyncBackground] ✅ Cor encontrada por palavra-chave: "${cor}"`);
+          // ✅ FALLBACK: Usar função extrairCorDaDescricao que usa o mapa de cores válidas
+          console.log(`[SyncBackground] ⚠️ Sem hífen detectável, tentando busca por cores válidas na descrição`);
+          
+          const corExtraida = extrairCorDaDescricao(parteSemTamanho);
+          if (corExtraida) {
+            cor = corExtraida;
+            console.log(`[SyncBackground] ✅ Cor encontrada e validada: "${cor}"`);
           } else {
-            console.log(`[SyncBackground] ❌ Nenhuma cor conhecida encontrada`);
+            // Tentar buscar na descrição completa se não encontrou na parte sem tamanho
+            const corExtraidaCompleta = extrairCorDaDescricao(descricao);
+            if (corExtraidaCompleta) {
+              cor = corExtraidaCompleta;
+              console.log(`[SyncBackground] ✅ Cor encontrada na descrição completa: "${cor}"`);
+            } else {
+              console.log(`[SyncBackground] ❌ Nenhuma cor válida encontrada na descrição`);
+            }
           }
         }
       }
