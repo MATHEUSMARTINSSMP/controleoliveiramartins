@@ -621,50 +621,58 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
         continue;
       }
 
-      // ✅ CRÍTICO: Garantir que data_pedido NUNCA mude se já existe pedido
-      // A função prepararDadosPedidoCompleto já deve ter usado existingOrder.data_pedido,
-      // mas fazemos double-check aqui para garantir
-      const finalOrderData = existingOrder && existingOrder.data_pedido ? {
-        ...orderData,
-        data_pedido: existingOrder.data_pedido, // SEMPRE manter data original travada - NUNCA mudar
-        // Preservar valor existente SE for > 0, senão usar o novo valor (pode ser > 0)
-        valor_total: (existingOrder.valor_total > 0 && orderData.valor_total === 0) 
-          ? existingOrder.valor_total 
-          : (orderData.valor_total > 0 ? orderData.valor_total : existingOrder.valor_total),
-      } : orderData;
-      
-      // ✅ LOG DE DEBUG: Verificar se data_pedido está sendo preservada
+      // ✅ CRÍTICO: Se pedido já existe, fazer UPDATE sem data_pedido (nunca atualizar)
+      // Se é novo pedido, fazer INSERT com data_pedido completa
       if (existingOrder && existingOrder.data_pedido) {
-        if (finalOrderData.data_pedido !== existingOrder.data_pedido) {
-          console.error(`[SyncBackground] ❌ ERRO CRÍTICO: data_pedido foi alterada para pedido ${tinyId}!`);
-          console.error(`[SyncBackground]   Original: ${existingOrder.data_pedido}`);
-          console.error(`[SyncBackground]   Novo: ${finalOrderData.data_pedido}`);
-          // Forçar usar a original
-          finalOrderData.data_pedido = existingOrder.data_pedido;
+        // ✅ PEDIDO EXISTE: Fazer UPDATE excluindo data_pedido (NUNCA atualizar)
+        const { data_pedido, ...orderDataSemData } = orderData;
+        
+        // Preservar valor se já existe e não é zero
+        const valorFinal = (existingOrder.valor_total > 0 && orderData.valor_total === 0) 
+          ? existingOrder.valor_total 
+          : (orderData.valor_total > 0 ? orderData.valor_total : existingOrder.valor_total);
+        
+        const updateData = {
+          ...orderDataSemData,
+          valor_total: valorFinal,
+          // data_pedido NÃO está incluída - nunca será atualizada!
+        };
+        
+        console.log(`[SyncBackground] 🔒 Pedido ${tinyId} (EXISTENTE): Fazendo UPDATE sem data_pedido (travada: ${existingOrder.data_pedido})`);
+        
+        const { error: updateError } = await supabase
+          .schema('sistemaretiradas')
+          .from('tiny_orders')
+          .update(updateData)
+          .eq('tiny_id', tinyId)
+          .eq('store_id', storeId);
+          
+        if (updateError) {
+          console.error(`[SyncBackground] ❌ Erro ao atualizar pedido ${tinyId}:`, updateError);
+          errors++;
         } else {
-          console.log(`[SyncBackground] ✅ Pedido ${tinyId}: data_pedido preservada corretamente: ${finalOrderData.data_pedido}`);
-        }
-      }
-
-      const { error: upsertError } = await supabase
-        .schema('sistemaretiradas')
-        .from('tiny_orders')
-        .upsert(finalOrderData, {
-          onConflict: 'tiny_id,store_id',
-        });
-
-      if (upsertError) {
-        console.error(`[SyncBackground] ❌ Erro ao salvar pedido ${tinyId}:`, upsertError);
-        errors++;
-      } else {
-        if (existingOrder) {
           updated++;
-          console.log(`[SyncBackground] ✅ Pedido ${tinyId} atualizado (data preservada: ${existingOrder.data_pedido})`);
+          console.log(`[SyncBackground] ✅ Pedido ${tinyId} atualizado (data_pedido preservada: ${existingOrder.data_pedido})`);
+        }
+      } else {
+        // ✅ NOVO PEDIDO: Fazer INSERT com data_pedido completa
+        console.log(`[SyncBackground] 📝 Pedido ${tinyId} (NOVO): Fazendo INSERT com data_pedido: ${orderData.data_pedido}`);
+        
+        const { error: insertError } = await supabase
+          .schema('sistemaretiradas')
+          .from('tiny_orders')
+          .insert(orderData);
+          
+        if (insertError) {
+          console.error(`[SyncBackground] ❌ Erro ao inserir pedido ${tinyId}:`, insertError);
+          errors++;
         } else {
           synced++;
-          console.log(`[SyncBackground] ✅ Pedido ${tinyId} criado`);
+          console.log(`[SyncBackground] ✅ Pedido ${tinyId} inserido com data_pedido: ${orderData.data_pedido}`);
         }
       }
+
+      // ✅ Contadores já são atualizados acima no if/else separado
 
     } catch (error) {
       console.error(`[SyncBackground] ❌ Erro ao processar pedido:`, error);
