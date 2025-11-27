@@ -528,9 +528,7 @@ const NovaCompra = () => {
                             }}
                           >
                             <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Selecione o tipo">
-                                {item.tipo_desconto === "percentual" ? "Percentual (%)" : "Financeiro (R$)"}
-                              </SelectValue>
+                              <SelectValue placeholder="Selecione o tipo" />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="financeiro">Financeiro (R$)</SelectItem>
