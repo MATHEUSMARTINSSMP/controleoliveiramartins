@@ -12,8 +12,9 @@ import { callERPAPI } from '@/lib/erpIntegrations';
 
 // ✅ TAMANHOS VÁLIDOS PARA NORMALIZAÇÃO (SEMPRE EM MAIÚSCULA)
 const TAMANHOS_VALIDOS = [
-  'PP', 'P', 'M', 'G', 'GG', 'XGG', 'XXXG', 'XXXXG',
-  '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54',
+  'XP', 'PP', 'P', 'M', 'G', 'GG', 'XGG', 'XXGG', 'G1', 'G2', 'G3', 'GGG',
+  '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48',
+  '50', '52', '54', '56', '58', '60', '62', '64', '66', '68',
   'U', 'UNICO', 'ÚNICO', 'UNIDADE'
 ];
 
@@ -1218,18 +1219,36 @@ export async function syncTinyOrders(
               }
             }
 
+            // (TAMANHOS_VALIDOS já definido no escopo global)
+
+            // ... (código existente) ...
+
             // ✅ FALLBACKS: Tentar extrair dos dados do item (caso já venham no pedido)
             if (!categoria) {
-              categoria = itemData.categoria
+              let categoriaRaw = itemData.categoria
                 || itemData.categoria_produto
                 || itemData.categoria_id
                 || produto.categoria?.nome
                 || produto.categoria
                 || produto.categoria_produto
                 || null;
+
+              // ✅ LÓGICA DE SEPARAÇÃO: "Categoria -> Subcategoria"
+              if (categoriaRaw && typeof categoriaRaw === 'string' && categoriaRaw.includes('->')) {
+                const partes = categoriaRaw.split('->').map((p: string) => p.trim());
+                if (partes.length >= 2) {
+                  categoria = partes[0];
+                  subcategoria = partes[1]; // A parte depois da seta é a subcategoria
+                } else {
+                  categoria = categoriaRaw;
+                }
+              } else {
+                categoria = categoriaRaw;
+              }
             }
 
             if (!subcategoria) {
+              // Se ainda não temos subcategoria (não veio do split acima), tentar campos diretos
               subcategoria = itemData.subcategoria
                 || itemData.subcategoria_produto
                 || itemData.subcategoria_id
