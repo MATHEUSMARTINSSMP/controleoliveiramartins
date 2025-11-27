@@ -102,7 +102,7 @@ export default function ERPDashboard() {
 
       if (integration && integration.access_token && integration.sync_status === 'CONNECTED') {
         isSyncing = true;
-        
+
         try {
           // ✅ Buscar contagem atual de pedidos ANTES da sincronização
           const { count: countAntes } = await supabase
@@ -110,19 +110,19 @@ export default function ERPDashboard() {
             .from('tiny_orders')
             .select('*', { count: 'exact', head: true })
             .eq('store_id', selectedStoreId);
-          
+
           // ✅ Sincronização silenciosa - busca apenas últimas 12 horas
           const dozeHorasAtras = new Date();
           dozeHorasAtras.setHours(dozeHorasAtras.getHours() - 12);
           const dataInicio = dozeHorasAtras.toISOString().split('T')[0];
-          
+
           const result = await syncTinyOrders(selectedStoreId, {
             dataInicio,
             incremental: true,
             limit: 20, // Poucos registros para ser rápido
             maxPages: 1, // Apenas 1 página (20 pedidos)
           });
-          
+
           if (result.success && result.synced > 0) {
             // ✅ Verificar se há novos pedidos após sincronização
             const { count: countDepois } = await supabase
@@ -130,19 +130,19 @@ export default function ERPDashboard() {
               .from('tiny_orders')
               .select('*', { count: 'exact', head: true })
               .eq('store_id', selectedStoreId);
-            
+
             const novosPedidos = (countDepois || 0) - (countAntes || 0);
-            
+
             if (novosPedidos > 0) {
               // ✅ NOVA VENDA DETECTADA: Mostrar toast e atualizar lista
               toast.success(`🛒 ${novosPedidos} nova${novosPedidos > 1 ? 's' : ''} venda${novosPedidos > 1 ? 's' : ''} sincronizada${novosPedidos > 1 ? 's' : ''}!`, {
                 duration: 3000,
               });
-              
+
               // Atualizar KPIs silenciosamente
               await fetchKPIs();
             }
-            
+
             // Atualizar última sincronização silenciosamente
             await fetchLastSync();
           }
@@ -179,10 +179,10 @@ export default function ERPDashboard() {
 
       // Se for LOJA, filtrar apenas sua loja
       // Para LOJA, usar store_default se store_id não estiver disponível
-      const lojaStoreId = profile?.role === 'LOJA' 
+      const lojaStoreId = profile?.role === 'LOJA'
         ? (profile.store_id || profile.store_default)
         : null;
-      
+
       if (lojaStoreId) {
         query = query.eq('id', lojaStoreId);
       }
@@ -205,12 +205,12 @@ export default function ERPDashboard() {
             .select('store_id')
             .eq('active', true)
             .not('access_token', 'is', null);
-          
+
           const storesWithIntegration = integrations?.map(i => i.store_id) || [];
-          
+
           // Tentar selecionar primeira loja com integração
           const storeWithIntegration = data.find(s => storesWithIntegration.includes(s.id));
-          
+
           if (storeWithIntegration) {
             setSelectedStoreId(storeWithIntegration.id);
           } else if (data.length > 0) {
@@ -309,10 +309,10 @@ export default function ERPDashboard() {
 
     try {
       setSyncing(true);
-      
+
       let dataInicio: string | undefined;
       let mensagem: string;
-      
+
       if (periodo === 'agora') {
         // ✅ CORREÇÃO: Buscar APENAS A ÚLTIMA VENDA (últimas 2 horas, limite 1, apenas 1 página)
         const agora = new Date();
@@ -335,13 +335,13 @@ export default function ERPDashboard() {
         dataInicio = noventaDiasAtras.toISOString().split('T')[0];
         mensagem = 'Sincronização total (últimos 90 dias)...';
       }
-      
+
       // ✅ TODAS AS SINCRONIZAÇÕES MANUAIS RODAM EM BACKGROUND
       // Chamar diretamente a Netlify Function (backend) para rodar em background
       toast.info(`${mensagem} (em background - você pode fechar a página)`);
 
       const netlifyFunctionUrl = '/.netlify/functions/sync-tiny-orders-background';
-      
+
       const response = await fetch(netlifyFunctionUrl, {
         method: 'POST',
         headers: {
@@ -359,6 +359,14 @@ export default function ERPDashboard() {
         console.error("❌ Erro ao chamar Netlify Function:", fetchError);
         throw new Error(`Erro ao iniciar sincronização: ${fetchError.message}`);
       });
+
+      // ✅ CORREÇÃO: Netlify Background Functions retornam 202 Accepted imediatamente
+      // Isso significa que o processo iniciou com sucesso em background
+      if (response.status === 202) {
+        toast.success(`✅ Sincronização iniciada em background! Você pode fechar a página.`);
+        setSyncing(false);
+        return;
+      }
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -378,7 +386,7 @@ export default function ERPDashboard() {
         console.error('Erro ao fazer parse da resposta:', parseError);
         throw new Error(`Erro ao processar resposta do servidor: ${parseError.message}`);
       }
-      
+
       if (data?.success) {
         toast.success(`✅ ${data.message || 'Sincronização iniciada em background! Você pode fechar a página.'}`);
         await fetchKPIs();
@@ -389,7 +397,7 @@ export default function ERPDashboard() {
     } catch (error: any) {
       console.error('Erro ao sincronizar pedidos:', error);
       const errorMessage = error.message || 'Erro ao sincronizar pedidos';
-      
+
       // Se for erro de token, mostrar mensagem específica com botão de reautorização
       if (errorMessage.includes('renovar token') || errorMessage.includes('Reautorize')) {
         toast.error(errorMessage, {
@@ -451,7 +459,7 @@ export default function ERPDashboard() {
     } catch (error: any) {
       console.error('Erro ao sincronizar clientes:', error);
       const errorMessage = error.message || 'Erro ao sincronizar clientes';
-      
+
       // Se for erro de token, mostrar mensagem específica com botão de reautorização
       if (errorMessage.includes('renovar token') || errorMessage.includes('Reautorize')) {
         toast.error(errorMessage, {
