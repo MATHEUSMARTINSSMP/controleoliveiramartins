@@ -527,8 +527,10 @@ const NovaCompra = () => {
                               updateItem(index, "desconto_beneficio", "");
                             }}
                           >
-                            <SelectTrigger>
-                              <SelectValue />
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Selecione o tipo">
+                                {item.tipo_desconto === "percentual" ? "Percentual (%)" : "Financeiro (R$)"}
+                              </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="financeiro">Financeiro (R$)</SelectItem>
