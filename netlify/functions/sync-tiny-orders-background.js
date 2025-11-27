@@ -1255,162 +1255,60 @@ async function findCollaboratorByVendedor(supabase, storeId, vendedor) {
  * Prepara dados completos do pedido para salvar
  */
 function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId, colaboradoraId, itensComCategorias, tinyId, existingOrder = null) {
-  // ✅ CRÍTICO: Se já existe pedido, SEMPRE usar data_pedido original (TRAVADO) e PULAR extração
+  // ✅ NOVA LÓGICA SIMPLES: 
+  // - Se já existe pedido: SEMPRE usar data_pedido que já está gravada (TRAVADA)
+  // - Se é novo pedido: Pegar DATA do Tiny + HORÁRIO ATUAL de Macapá = TRAVAR para sempre
+  // - NÃO tentar extrair hora do Tiny, evitar conflitos
+  
   let dataPedido = null;
-  let dataBase = null;
   
   if (existingOrder && existingOrder.data_pedido) {
-    // ✅ CRÍTICO: Pedido já existe - usar data_pedido travada e PULAR toda extração
-    // NUNCA recalcular ou alterar a data_pedido de um pedido existente
+    // ✅ PEDIDO JÁ EXISTE: Usar data_pedido gravada e TRAVADA (nunca alterar)
     dataPedido = existingOrder.data_pedido;
     console.log(`[SyncBackground] 🔒 Pedido ${tinyId}: Data_pedido TRAVADA (não será alterada): ${dataPedido}`);
-    // Retornar imediatamente sem fazer mais processamento de data
   } else {
-    // ✅ NOVO PEDIDO: Extrair data/hora normalmente
-    let temHoraReal = false;
-
-    // 1. Priorizar dataCriacao do pedido completo (mais confiável)
+    // ✅ NOVO PEDIDO: Pegar DATA do Tiny + HORÁRIO ATUAL de Macapá
+    
+    // 1. Extrair apenas a DATA (sem hora) do Tiny - tentar múltiplas fontes
+    let dataDoTiny = null;
+    
+    // Tentar do pedido completo primeiro
     if (pedidoCompleto?.dataCriacao) {
-      dataBase = pedidoCompleto.dataCriacao;
-      // ✅ CORREÇÃO: Suportar separador T ou espaço
-      const separador = dataBase.includes('T') ? 'T' : (dataBase.includes(' ') ? ' ' : null);
-
-      if (separador) {
-        const horaPart = dataBase.split(separador)?.[1]?.split(/[+\-Z]/)?.[0];
-        temHoraReal = horaPart && !horaPart.startsWith('00:00:00');
-        if (temHoraReal) {
-          // Normalizar para ISO se for espaço
-          if (separador === ' ') {
-            dataPedido = dataBase.replace(' ', 'T');
-          } else {
-            dataPedido = dataBase;
-          }
-          console.log(`[SyncBackground] ✅ Pedido ${tinyId}: Usando dataCriacao com hora real: ${dataPedido}`);
-        }
-      }
+      const dataComHora = pedidoCompleto.dataCriacao;
+      dataDoTiny = dataComHora.split('T')[0] || dataComHora.split(' ')[0];
+    } else if (pedidoCompleto?.data) {
+      dataDoTiny = pedidoCompleto.data.split('T')[0] || pedidoCompleto.data.split(' ')[0];
+    } else if (pedidoCompleto?.dataFaturamento) {
+      dataDoTiny = pedidoCompleto.dataFaturamento.split('T')[0] || pedidoCompleto.dataFaturamento.split(' ')[0];
     }
-
-    // 2. Se não tem hora real, tentar dataAtualizacao do pedido completo
-    if (!temHoraReal && pedidoCompleto?.dataAtualizacao) {
-      const dataAtualizacao = pedidoCompleto.dataAtualizacao;
-      const separador = dataAtualizacao.includes('T') ? 'T' : (dataAtualizacao.includes(' ') ? ' ' : null);
-
-      if (separador) {
-        const horaPart = dataAtualizacao.split(separador)[1]?.split(/[+\-Z]/)?.[0];
-        if (horaPart && !horaPart.startsWith('00:00:00')) {
-          // Usar data base do pedido mas com hora de atualização
-          const dataPart = (dataBase || dataAtualizacao).split(separador)[0];
-          dataPedido = `${dataPart}T${horaPart}-03:00`;
-          temHoraReal = true;
-        }
-      }
-    }
-
-    // 3. Tentar outras datas do pedido completo (data, dataFaturamento)
-    if (!temHoraReal) {
-      const datasAlternativas = [
-        pedidoCompleto?.data,
-        pedidoCompleto?.dataFaturamento,
-        pedidoCompleto?.dataEnvio,
-      ].filter(Boolean);
-
-      for (const dataAlt of datasAlternativas) {
-        if (dataAlt && typeof dataAlt === 'string') {
-          const separador = dataAlt.includes('T') ? 'T' : (dataAlt.includes(' ') ? ' ' : null);
-
-          if (separador) {
-            const horaPart = dataAlt.split(separador)[1]?.split(/[+\-Z]/)?.[0];
-            if (horaPart && !horaPart.startsWith('00:00:00')) {
-              const dataPart = (dataBase || dataAlt).split(separador)[0];
-              dataPedido = `${dataPart}T${horaPart}-03:00`;
-              temHoraReal = true;
-              break;
-            }
-          }
-        }
-      }
-    }
-
-    // 4. Se ainda não tem, tentar do pedido original
-    if (!dataPedido) {
-      const datasOriginais = [
-        pedido.dataCriacao,
-        pedido.data_criacao,
-        pedido.data,
-        pedido.dataFaturamento,
-        pedido.data_faturamento,
-      ].filter(Boolean);
-
-      for (const dataOrig of datasOriginais) {
-        if (dataOrig && typeof dataOrig === 'string') {
-          // ✅ CORREÇÃO: Suportar separador T ou espaço
-          const separador = dataOrig.includes('T') ? 'T' : (dataOrig.includes(' ') ? ' ' : null);
-
-          if (separador) {
-            const parts = dataOrig.split(separador);
-            const dataPart = parts[0];
-            const horaPart = parts[1]?.split(/[+\-Z]/)?.[0]; // Remover timezone se houver
-
-            if (horaPart && !horaPart.startsWith('00:00:00') && horaPart.length >= 5) {
-              // Reconstruir em formato ISO
-              dataPedido = `${dataPart}T${horaPart}`;
-              temHoraReal = true;
-              break;
-            } else {
-              // Tem data mas sem hora real, usar como base
-              if (!dataBase) {
-                dataBase = dataOrig;
-              }
-            }
-          } else {
-            // Apenas data, usar como base
-            if (!dataBase) {
-              dataBase = dataOrig;
-            }
-          }
-        }
-      }
-    }
-
-    // 5. Se temos data base mas não tem hora real, adicionar timezone
-    if (dataPedido && dataPedido.includes('T')) {
-      if (!dataPedido.includes('Z') && !dataPedido.includes('+') && !dataPedido.includes('-', 10)) {
-        dataPedido = `${dataPedido}-03:00`;
-      }
-    } else if (dataBase && !dataPedido) {
-      // 6. ✅ Último recurso: usar horário local ATUAL (só na primeira vez) e TRAVAR
-      // Para novos pedidos sem hora real, usar horário atual de Macapá (UTC-3) como fallback inteligente
-      // Mas este horário será TRAVADO para sempre após primeira sincronização
-      const dataPart = dataBase.includes('T') ? dataBase.split('T')[0] : dataBase;
-      
-      // Criar data no fuso de Macapá (UTC-3) usando horário atual
-      const agora = new Date();
-      // Ajustar para UTC-3 (Macapá)
-      const macapaTime = new Date(agora.getTime() - (3 * 60 * 60 * 1000));
-      const horaAtual = macapaTime.toISOString().split('T')[1].split('.')[0]; // HH:mm:ss
-      
-      dataPedido = `${dataPart}T${horaAtual}-03:00`;
-      console.log(`[SyncBackground] ⏰ Pedido ${tinyId}: Usando horário local atual de Macapá (${horaAtual}) como fallback - SERÁ TRAVADO NA PRIMEIRA SINCRONIZAÇÃO`);
-      console.log(`[SyncBackground] 📊 Dados disponíveis:`, {
-        dataCriacao: pedidoCompleto?.dataCriacao,
-        dataAtualizacao: pedidoCompleto?.dataAtualizacao,
-        data: pedidoCompleto?.data,
-        dataFaturamento: pedidoCompleto?.dataFaturamento,
-        pedido_dataCriacao: pedido.dataCriacao,
-        pedido_data: pedido.data,
-      });
+    // Tentar do pedido original
+    else if (pedido.dataCriacao) {
+      dataDoTiny = pedido.dataCriacao.split('T')[0] || pedido.dataCriacao.split(' ')[0];
+    } else if (pedido.data) {
+      dataDoTiny = pedido.data.split('T')[0] || pedido.data.split(' ')[0];
+    } else if (pedido.data_criacao) {
+      dataDoTiny = pedido.data_criacao.split('T')[0] || pedido.data_criacao.split(' ')[0];
     }
     
-    // ✅ GARANTIR: Se não temos data ainda, criar uma data mínima válida
-    if (!dataPedido) {
-      const dataPart = pedido.data || pedido.dataCriacao || new Date().toISOString().split('T')[0];
+    // Se não encontrou data do Tiny, usar data atual
+    if (!dataDoTiny) {
       const agora = new Date();
-      const macapaTime = new Date(agora.getTime() - (3 * 60 * 60 * 1000));
-      const horaAtual = macapaTime.toISOString().split('T')[1].split('.')[0];
-      dataPedido = `${dataPart}T${horaAtual}-03:00`;
-      console.warn(`[SyncBackground] ⚠️ Pedido ${tinyId}: Nenhuma data encontrada, usando data/hora atual de Macapá: ${dataPedido}`);
+      dataDoTiny = agora.toISOString().split('T')[0];
+      console.warn(`[SyncBackground] ⚠️ Pedido ${tinyId}: Nenhuma data encontrada no Tiny, usando data atual: ${dataDoTiny}`);
     }
-  } // FIM DO BLOCO else (novo pedido)
+    
+    // 2. Pegar HORÁRIO ATUAL de Macapá (UTC-3)
+    const agora = new Date();
+    // Ajustar para UTC-3 (Macapá)
+    const macapaTime = new Date(agora.getTime() - (3 * 60 * 60 * 1000));
+    const horaAtual = macapaTime.toISOString().split('T')[1].split('.')[0]; // HH:mm:ss
+    
+    // 3. Combinar: DATA do Tiny + HORÁRIO ATUAL de Macapá
+    dataPedido = `${dataDoTiny}T${horaAtual}-03:00`;
+    
+    console.log(`[SyncBackground] ⏰ Pedido ${tinyId} (NOVO): Data do Tiny (${dataDoTiny}) + Hora atual Macapá (${horaAtual}) = ${dataPedido}`);
+    console.log(`[SyncBackground] 🔒 Esta data_pedido será TRAVADA para sempre após primeira sincronização`);
+  }
 
   // ✅ Calcular valor total - Priorizar campos principais e simplificar
   // Se já existe pedido no banco e tem valor > 0, preservar
