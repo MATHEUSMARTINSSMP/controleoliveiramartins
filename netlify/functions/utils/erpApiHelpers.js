@@ -55,7 +55,20 @@ async function callERPAPI(storeId, endpoint, params = {}, method = 'GET') {
     throw new Error(`Erro ao chamar API: ${response.status} - ${errorText}`);
   }
 
-  return await response.json();
+  // Verificar se a resposta está vazia antes de fazer parse
+  const responseText = await response.text();
+  if (!responseText || responseText.trim() === '') {
+    console.warn(`[ERPHelpers] ⚠️ Resposta vazia do endpoint ${endpoint}`);
+    return null;
+  }
+
+  try {
+    return JSON.parse(responseText);
+  } catch (e) {
+    console.error(`[ERPHelpers] ❌ Erro ao fazer parse JSON da resposta:`, e.message);
+    console.error(`[ERPHelpers] Resposta recebida:`, responseText.substring(0, 500));
+    throw new Error(`Resposta inválida do servidor: ${e.message}`);
+  }
 }
 
 /**

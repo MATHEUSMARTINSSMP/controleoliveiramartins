@@ -317,6 +317,20 @@ exports.handler = async (event, context) => {
     const responseText = await apiResponse.text();
     let responseData;
     
+    // Verificar se a resposta está vazia
+    if (!responseText || responseText.trim() === '') {
+      console.warn('[ERP-API-Proxy] ⚠️ Resposta vazia do Tiny ERP API');
+      return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify({ 
+          success: false, 
+          error: 'Resposta vazia do servidor',
+          endpoint 
+        }),
+      };
+    }
+    
     try {
       responseData = JSON.parse(responseText);
     } catch (e) {
