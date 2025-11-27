@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Search, Calendar, DollarSign, User, Package, ChevronLeft, ChevronRight, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -54,6 +55,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [itemsPerPage, setItemsPerPage] = useState<number>(20);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchOrders();
@@ -139,6 +141,17 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
             // Remover duplicados e adicionar novos no topo
             const existingIds = new Set(prevOrders.map((o) => o.id));
             const novosSemDuplicados = novosPedidos.filter((o) => !existingIds.has(o.id));
+
+            // 🔔 Mostrar notificação toast para novas vendas
+            if (novosSemDuplicados.length > 0) {
+              const primeiroNovo = novosSemDuplicados[0];
+              toast({
+                title: "🎉 Nova Venda!",
+                description: `Pedido ${primeiroNovo.numero_pedido || primeiroNovo.tiny_id} - ${primeiroNovo.cliente_nome || 'Cliente'} - ${formatCurrency(primeiroNovo.valor_total || 0)}`,
+                duration: 5000,
+              });
+            }
+
             return [...novosSemDuplicados, ...prevOrders];
           });
         } else {
@@ -175,11 +188,11 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
       const { data, error } = await query;
 
       if (error) throw error;
-      
+
       // ✅ BUSCAR DADOS DE CASHBACK PARA CADA PEDIDO
       if (data && data.length > 0) {
         const orderIds = data.map(o => o.id);
-        
+
         // Buscar transações de cashback relacionadas aos pedidos
         const { data: cashbackTransactions } = await supabase
           .schema('sistemaretiradas')
@@ -187,7 +200,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
           .select('tiny_order_id, amount, data_expiracao, transaction_type')
           .in('tiny_order_id', orderIds)
           .eq('transaction_type', 'EARNED');
-        
+
         // Criar mapa de cashback por pedido
         const cashbackMap = new Map<string, { amount: number; expiracao: string | null }>();
         cashbackTransactions?.forEach((transaction: any) => {
@@ -207,7 +220,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
             }
           }
         });
-        
+
         // Adicionar dados de cashback aos pedidos
         const ordersWithCashback = data.map((order: any) => {
           const cashback = cashbackMap.get(order.id);
@@ -217,7 +230,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
             cashback_validade: cashback?.expiracao || null,
           };
         });
-        
+
         setOrders(ordersWithCashback);
       } else {
         setOrders(data || []);
@@ -299,15 +312,15 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
       // ✅ CORREÇÃO: A data vem do banco como string ISO, mas pode estar em UTC
       // Precisamos interpretar corretamente o timezone
       let date: Date;
-      
+
       // Se a string tem timezone explícito (ex: -03:00, +00:00, Z)
       if (dateString.includes('T') && (dateString.includes('Z') || dateString.includes('+') || dateString.includes('-'))) {
         date = new Date(dateString);
-      } 
+      }
       // Se não tem timezone, assumir que é horário local do Brasil (UTC-3)
       else if (dateString.includes('T')) {
         // Adicionar timezone do Brasil se não tiver
-        const dateWithTimezone = dateString.endsWith('Z') 
+        const dateWithTimezone = dateString.endsWith('Z')
           ? dateString.replace('Z', '-03:00')
           : dateString.includes('+') || dateString.includes('-')
             ? dateString
@@ -318,7 +331,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
       else {
         date = new Date(`${dateString}T00:00:00-03:00`);
       }
-      
+
       // Formatar para horário local do Brasil
       return format(date, 'dd/MM/yyyy HH:mm', { locale: ptBR });
     } catch (error) {
@@ -352,50 +365,50 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
         {/* Filtros e Paginação */}
         <div className="mb-4 space-y-4">
           <div className="grid gap-4 md:grid-cols-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por número, cliente, vendedor..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filtrar por status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os status</SelectItem>
-              <SelectItem value="faturado">Faturado</SelectItem>
-              <SelectItem value="aprovado">Aprovado</SelectItem>
-              <SelectItem value="cancelado">Cancelado</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filtrar por data" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as datas</SelectItem>
-              <SelectItem value="today">Hoje</SelectItem>
-              <SelectItem value="week">Últimos 7 dias</SelectItem>
-              <SelectItem value="month">Último mês</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={itemsPerPage.toString()} onValueChange={(value) => {
-            setItemsPerPage(Number(value));
-            setCurrentPage(1);
-          }}>
-            <SelectTrigger>
-              <SelectValue placeholder="Itens por página" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="20">20 por página</SelectItem>
-              <SelectItem value="50">50 por página</SelectItem>
-              <SelectItem value="100">100 por página</SelectItem>
-            </SelectContent>
-          </Select>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por número, cliente, vendedor..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filtrar por status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os status</SelectItem>
+                <SelectItem value="faturado">Faturado</SelectItem>
+                <SelectItem value="aprovado">Aprovado</SelectItem>
+                <SelectItem value="cancelado">Cancelado</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={dateFilter} onValueChange={setDateFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filtrar por data" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as datas</SelectItem>
+                <SelectItem value="today">Hoje</SelectItem>
+                <SelectItem value="week">Últimos 7 dias</SelectItem>
+                <SelectItem value="month">Último mês</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+              setItemsPerPage(Number(value));
+              setCurrentPage(1);
+            }}>
+              <SelectTrigger>
+                <SelectValue placeholder="Itens por página" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="20">20 por página</SelectItem>
+                <SelectItem value="50">50 por página</SelectItem>
+                <SelectItem value="100">100 por página</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
