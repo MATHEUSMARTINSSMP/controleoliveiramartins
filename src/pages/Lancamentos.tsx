@@ -400,7 +400,7 @@ const Lancamentos = () => {
                                   </TableCell>
                                   <TableCell>
                                     <div 
-                                      className="font-mono text-sm font-semibold text-primary cursor-pointer hover:text-primary/80 transition-colors inline-flex items-center gap-1"
+                                      className="font-mono text-xs font-medium text-primary/90 cursor-pointer hover:text-primary transition-colors"
                                       onClick={() => {
                                         const newExpanded = new Set(expandedParcelas);
                                         if (!isExpanded) {
@@ -411,9 +411,7 @@ const Lancamentos = () => {
                                         setExpandedParcelas(newExpanded);
                                       }}
                                     >
-                                      <span className="bg-primary/10 px-2 py-1 rounded border border-primary/20">
-                                        {compraIdShort}
-                                      </span>
+                                      {compraIdShort}
                                     </div>
                                   </TableCell>
                                   <TableCell className="font-medium">
@@ -493,13 +491,13 @@ const Lancamentos = () => {
                                     <TableCell colSpan={8} className="bg-muted/30 p-4">
                                       <div className="space-y-3">
                                         <div className="text-sm font-semibold text-foreground mb-3">
-                                          📦 Produtos da Compra <span className="font-mono text-xs text-muted-foreground">({compraIdShort})</span>
+                                          📦 Produtos da Compra <span className="font-mono text-xs text-muted-foreground font-normal">({compraIdShort})</span>
                                         </div>
                                         <div className="grid gap-2">
                                           {parcela.purchases.item.split(',').map((item, idx) => (
-                                            <div key={idx} className="flex items-start gap-2 py-2 px-3 bg-background/50 rounded-md border border-border/30">
-                                              <span className="text-primary font-medium mt-0.5">•</span>
-                                              <span className="text-sm text-foreground flex-1">{item.trim()}</span>
+                                            <div key={idx} className="flex items-start gap-2 py-1.5 px-3 bg-background/60 rounded border border-border/20">
+                                              <span className="text-primary font-semibold mt-0.5">•</span>
+                                              <span className="text-sm text-foreground flex-1 leading-relaxed">{item.trim()}</span>
                                             </div>
                                           ))}
                                         </div>
