@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, Undo2, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Undo2, Trash2, ChevronDown, ChevronRight, Package } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
@@ -399,9 +399,10 @@ const Lancamentos = () => {
                                     </CollapsibleTrigger>
                                   </TableCell>
                                   <TableCell>
-                                    <div 
-                                      className="font-mono text-xs font-medium text-primary/90 cursor-pointer hover:text-primary transition-colors"
-                                      onClick={() => {
+                                    <button
+                                      className="font-mono text-xs font-semibold text-primary hover:underline transition-colors"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
                                         const newExpanded = new Set(expandedParcelas);
                                         if (!isExpanded) {
                                           newExpanded.add(parcela.id);
@@ -412,7 +413,7 @@ const Lancamentos = () => {
                                       }}
                                     >
                                       {compraIdShort}
-                                    </div>
+                                    </button>
                                   </TableCell>
                                   <TableCell className="font-medium">
                                     {parcela.purchases.profiles.name}
@@ -488,16 +489,17 @@ const Lancamentos = () => {
                                 </TableRow>
                                 <CollapsibleContent asChild>
                                   <TableRow>
-                                    <TableCell colSpan={8} className="bg-muted/30 p-4">
+                                    <TableCell colSpan={8} className="bg-muted/40 p-5">
                                       <div className="space-y-3">
-                                        <div className="text-sm font-semibold text-foreground mb-3">
-                                          📦 Produtos da Compra <span className="font-mono text-xs text-muted-foreground font-normal">({compraIdShort})</span>
+                                        <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                                          <Package className="h-4 w-4 text-primary" />
+                                          Produtos da Compra
+                                          <span className="font-mono text-xs text-muted-foreground font-normal ml-1">({compraIdShort})</span>
                                         </div>
-                                        <div className="grid gap-2">
+                                        <div className="space-y-1.5">
                                           {parcela.purchases.item.split(',').map((item, idx) => (
-                                            <div key={idx} className="flex items-start gap-2 py-1.5 px-3 bg-background/60 rounded border border-border/20">
-                                              <span className="text-primary font-semibold mt-0.5">•</span>
-                                              <span className="text-sm text-foreground flex-1 leading-relaxed">{item.trim()}</span>
+                                            <div key={idx} className="text-sm text-foreground py-1.5 px-3 bg-background/80 rounded-md border border-border/30">
+                                              {item.trim()}
                                             </div>
                                           ))}
                                         </div>
