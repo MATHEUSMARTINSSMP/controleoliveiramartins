@@ -621,16 +621,30 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
         continue;
       }
 
-      // ✅ CRÍTICO: Preservar data_pedido sempre, mas permitir atualizar valor_total se for melhor
-      // Nunca mudar data_pedido após primeira sincronização
-      const finalOrderData = existingOrder ? {
+      // ✅ CRÍTICO: Garantir que data_pedido NUNCA mude se já existe pedido
+      // A função prepararDadosPedidoCompleto já deve ter usado existingOrder.data_pedido,
+      // mas fazemos double-check aqui para garantir
+      const finalOrderData = existingOrder && existingOrder.data_pedido ? {
         ...orderData,
-        data_pedido: existingOrder.data_pedido, // SEMPRE manter data original travada
+        data_pedido: existingOrder.data_pedido, // SEMPRE manter data original travada - NUNCA mudar
         // Preservar valor existente SE for > 0, senão usar o novo valor (pode ser > 0)
         valor_total: (existingOrder.valor_total > 0 && orderData.valor_total === 0) 
           ? existingOrder.valor_total 
           : (orderData.valor_total > 0 ? orderData.valor_total : existingOrder.valor_total),
       } : orderData;
+      
+      // ✅ LOG DE DEBUG: Verificar se data_pedido está sendo preservada
+      if (existingOrder && existingOrder.data_pedido) {
+        if (finalOrderData.data_pedido !== existingOrder.data_pedido) {
+          console.error(`[SyncBackground] ❌ ERRO CRÍTICO: data_pedido foi alterada para pedido ${tinyId}!`);
+          console.error(`[SyncBackground]   Original: ${existingOrder.data_pedido}`);
+          console.error(`[SyncBackground]   Novo: ${finalOrderData.data_pedido}`);
+          // Forçar usar a original
+          finalOrderData.data_pedido = existingOrder.data_pedido;
+        } else {
+          console.log(`[SyncBackground] ✅ Pedido ${tinyId}: data_pedido preservada corretamente: ${finalOrderData.data_pedido}`);
+        }
+      }
 
       const { error: upsertError } = await supabase
         .schema('sistemaretiradas')
@@ -1486,13 +1500,18 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
   }
 
   // Preparar objeto do pedido
+  // ✅ CRÍTICO: Se já existe pedido, usar SEMPRE a data_pedido original (NUNCA recalcular)
+  const finalDataPedido = (existingOrder && existingOrder.data_pedido) 
+    ? existingOrder.data_pedido 
+    : dataPedido;
+    
   const orderData = {
     store_id: storeId,
     tiny_id: tinyId,
     numero_pedido: (pedido.numeroPedido || pedido.numero)?.toString() || null,
     numero_ecommerce: (pedido.ecommerce?.numeroPedidoEcommerce || pedido.numero_ecommerce)?.toString() || null,
     situacao: pedido.situacao?.toString() || null,
-    data_pedido: dataPedido,
+    data_pedido: finalDataPedido,
     cliente_id: clienteId,
     cliente_nome: pedido.cliente?.nome || null,
     cliente_cpf_cnpj: normalizeCPFCNPJ(pedido.cliente?.cpfCnpj || pedido.cliente?.cpf || pedido.cliente?.cnpj || null),
