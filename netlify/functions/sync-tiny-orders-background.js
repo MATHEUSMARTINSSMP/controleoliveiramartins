@@ -441,15 +441,25 @@ async function processarItemCompleto(supabase, storeId, item) {
           // Separar categoria e subcategoria do caminhoCompleto
           if (produtoCompleto.categoria.caminhoCompleto) {
             const caminhoCompletoStr = String(produtoCompleto.categoria.caminhoCompleto).trim();
-            // ✅ CORREÇÃO: Suportar diferentes separadores (> ou >>)
-            const caminho = caminhoCompletoStr.split(/\s*>>?\s*/).map(s => s.trim()).filter(s => s.length > 0);
+            console.log(`[SyncBackground] 📂 Caminho completo original: "${caminhoCompletoStr}"`);
+
+            // ✅ CORREÇÃO ROBUSTA: Suportar TODOS os formatos de separador
+            // Formatos suportados: "A > B", "A >> B", "A->B", "A->>B", "A>B", "A>>B"
+            const caminho = caminhoCompletoStr
+              .split(/\s*-?>>?\s*/)  // Split por >, >>, ->, ->>
+              .map(s => s.trim())
+              .filter(s => s.length > 0);
+
+            console.log(`[SyncBackground] 📂 Caminho separado: [${caminho.join(', ')}]`);
 
             if (caminho.length > 1) {
               subcategoria = caminho[caminho.length - 1];
               categoria = caminho.slice(0, -1).join(' > ');
+              console.log(`[SyncBackground] ✅ Categoria: "${categoria}" | Subcategoria: "${subcategoria}"`);
             } else if (caminho.length === 1) {
               categoria = caminho[0];
               subcategoria = null;
+              console.log(`[SyncBackground] ✅ Categoria única: "${categoria}"`);
             }
           }
         }
@@ -615,13 +625,25 @@ async function processarItemCompleto(supabase, storeId, item) {
     // ✅ CORREÇÃO: Regex mais flexível (aceita espaço opcional antes do hífen, ou "Tam:", ou apenas o número no fim)
     // Padrões suportados: " - 42", " - P", " Tam: 42", " 42" (arriscado, mas comum)
 
-    // Regex 1: Padrão " - X" ou " - XX"
-    let regexTamanho = /[\s-]+\s([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)$/i;
-    let matchTamanho = descricao.match(regexTamanho);
+    // ✅ REGEX ULTRA-ROBUSTO: Suporta TODOS os formatos comuns
+    // Formatos: " - 42", " -42", "- 42", "-42", " 42", "Tam: 42", "Tam:42", "Tamanho: 42"
 
-    // Regex 2: Padrão "Tam: X"
+    let regexTamanho = null;
+    let matchTamanho = null;
+
+    // Regex 1: Padrão com hífen (mais comum): " - X", " -X", "- X", "-X"
+    regexTamanho = /[\s-]*-[\s]*([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)\s*$/i;
+    matchTamanho = descricao.match(regexTamanho);
+
+    // Regex 2: Padrão "Tam:" ou "Tamanho:"
     if (!matchTamanho) {
-      regexTamanho = /Tam:?\s*([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)/i;
+      regexTamanho = /Tam(?:anho)?:?\s*([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)/i;
+      matchTamanho = descricao.match(regexTamanho);
+    }
+
+    // Regex 3: Padrão sem hífen no final (arriscado, mas comum): " X" no final
+    if (!matchTamanho) {
+      regexTamanho = /\s+([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)\s*$/i;
       matchTamanho = descricao.match(regexTamanho);
     }
 
@@ -635,19 +657,35 @@ async function processarItemCompleto(supabase, storeId, item) {
       if (!cor) {
         // Pegar tudo antes do match do tamanho
         const parteSemTamanho = descricao.substring(0, matchTamanho.index).trim();
+        console.log(`[SyncBackground] 🎨 Parte sem tamanho: "${parteSemTamanho}"`);
 
-        // Tentar separar por hífen
-        const partesPorHifen = parteSemTamanho.split(/\s-\s/);
+        // ✅ ESTRATÉGIA MELHORADA: Tentar múltiplos padrões de separação
+
+        // Padrão 1: Separar por hífen com espaços: " - "
+        let partesPorHifen = parteSemTamanho.split(/\s+-\s+/);
+
+        // Padrão 2: Se não funcionou, tentar hífen sem espaços obrigatórios: "-"
+        if (partesPorHifen.length === 1) {
+          partesPorHifen = parteSemTamanho.split(/-/);
+        }
+
+        console.log(`[SyncBackground] 🎨 Partes separadas por hífen: [${partesPorHifen.join(', ')}]`);
+
         if (partesPorHifen.length > 1) {
           // A última parte antes do tamanho geralmente é a cor
           // Ex: "VESTIDO - TIVOLI - OFF-WHITE" -> "OFF-WHITE"
+          // Ex: "VESTIDO TIVOLI OFF-WHITE" -> "OFF-WHITE"
           const possivelCor = partesPorHifen[partesPorHifen.length - 1].trim();
 
-          // Validar se não é muito longo (ex: < 25 chars) e não é código
-          if (possivelCor.length < 25 && possivelCor.length > 2 && !/\d/.test(possivelCor)) {
+          // Validar se não é muito longo (ex: < 30 chars) e não é código numérico puro
+          if (possivelCor.length < 30 && possivelCor.length > 2 && !/^\d+$/.test(possivelCor)) {
             cor = normalizeCor(possivelCor);
-            console.log(`[SyncBackground] ✅ Cor extraída da descrição (padrão hífen): "${cor}"`);
+            console.log(`[SyncBackground] ✅ Cor extraída da descrição: "${cor}"`);
+          } else {
+            console.log(`[SyncBackground] ❌ Cor rejeitada (muito longa ou numérica): "${possivelCor}"`);
           }
+        } else {
+          console.log(`[SyncBackground] ⚠️ Não foi possível separar cor (sem hífen detectável)`);
         }
       }
     }
