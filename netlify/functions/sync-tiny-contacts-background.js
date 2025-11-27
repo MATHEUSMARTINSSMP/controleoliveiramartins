@@ -277,7 +277,6 @@ exports.handler = async (event, context) => {
           telefone: telefone || celular || null, // Priorizar telefone, usar celular como fallback
           email,
           data_nascimento: dataNascimentoNormalizada,
-          tipo_pessoa: contatoCompleto.tipoPessoa || contatoCompleto.tipo_pessoa || 'F',
           updated_at: new Date().toISOString(),
         };
 

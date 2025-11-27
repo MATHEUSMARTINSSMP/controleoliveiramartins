@@ -802,7 +802,6 @@ async function syncTinyContact(supabase, storeId, cliente, pedidoId) {
       telefone,
       email,
       data_nascimento: dataNascimentoNormalizada,
-      tipo_pessoa: clienteCompleto.tipoPessoa || clienteCompleto.tipo_pessoa || 'F',
       updated_at: new Date().toISOString(),
     };
 
