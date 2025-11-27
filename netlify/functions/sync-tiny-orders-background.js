@@ -442,6 +442,8 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
 
   while (hasMore && currentPage <= maxPages) {
     try {
+      const limite = hardSync ? 200 : (limit || 100); // Definir limite aqui para usar no cálculo de páginas
+      
       // ✅ Adicionar timeout maior e retry logic para evitar ConnectTimeoutError
       const fetchWithRetry = async (retries = 3, delay = 5000) => {
         for (let attempt = 1; attempt <= retries; attempt++) {
@@ -461,7 +463,7 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
                 params: {
                   dataInicio: dataInicioSync,
                   pagina: currentPage,
-                  limite: hardSync ? 200 : (limit || 100), // Hard sync usa 200 por página para ser mais rápido
+                  limite: limite, // Usar a variável limite definida acima
                 },
               }),
               signal: controller.signal,
@@ -478,7 +480,7 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
         }
       };
 
-      console.log(`[SyncBackground] 📡 Chamando API Tiny - Página ${currentPage}, Data: ${dataInicioSync}, Limite: ${limit || 50}`);
+      console.log(`[SyncBackground] 📡 Chamando API Tiny - Página ${currentPage}, Data: ${dataInicioSync}, Limite: ${limite}`);
 
       const response = await fetchWithRetry();
 
@@ -496,32 +498,47 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
       // ✅ Verificar se há mais páginas - lógica mais robusta
       const paginacao = result.paginacao || {};
       const paginaAtual = paginacao.paginaAtual || paginacao.pagina || currentPage;
-      const totalPaginas = paginacao.totalPaginas || paginacao.total_paginas || paginacao.pages || 0;
+      let totalPaginas = paginacao.totalPaginas || paginacao.total_paginas || paginacao.pages || 0;
       const totalRegistros = paginacao.totalRegistros || paginacao.total_registros || paginacao.total || 0;
 
+      // ✅ Se totalPaginas = 0 mas temos totalRegistros, calcular o número de páginas
+      if (totalPaginas === 0 && totalRegistros > 0 && limite > 0) {
+        totalPaginas = Math.ceil(totalRegistros / limite);
+        console.log(`[SyncBackground] 🔢 Calculando total de páginas: ${totalRegistros} registros ÷ ${limite} por página = ${totalPaginas} páginas`);
+      }
+
       console.log(`[SyncBackground] 📄 Página ${currentPage}: ${pedidos.length} pedidos encontrados`);
-      console.log(`[SyncBackground] 📊 Paginação: página atual=${paginaAtual}, total páginas=${totalPaginas}, total registros=${totalRegistros}`);
+      console.log(`[SyncBackground] 📊 Paginação: página atual=${paginaAtual}, total páginas=${totalPaginas}, total registros=${totalRegistros}, já processados=${allPedidos.length}`);
 
       // ✅ Para hard sync: continuar enquanto houver pedidos OU enquanto houver páginas
-      // Se não tiver informação de paginação, continuar se trouxe pedidos na página atual
       if (hardSync) {
-        // Hard sync: continuar até não ter mais dados ou atingir maxPages
+        // Hard sync: continuar até não ter mais dados
         if (pedidos.length === 0) {
           // Se a página não trouxe nenhum pedido, não há mais dados
           hasMore = false;
           console.log(`[SyncBackground] ✅ Fim dos dados: página ${currentPage} retornou 0 pedidos`);
         } else if (totalPaginas > 0) {
-          // Se temos informação de paginação, usar ela
-          hasMore = paginaAtual < totalPaginas && currentPage < maxPages;
+          // Se temos informação de paginação (calculada ou da API), usar ela
+          hasMore = paginaAtual < totalPaginas;
           console.log(`[SyncBackground] 📊 Usando paginação: ${paginaAtual}/${totalPaginas}, hasMore=${hasMore}`);
+        } else if (totalRegistros > 0) {
+          // Se temos totalRegistros mas não conseguimos calcular páginas, verificar se já processamos todos
+          hasMore = allPedidos.length < totalRegistros;
+          console.log(`[SyncBackground] 📊 Verificando por total de registros: já processados=${allPedidos.length}, total=${totalRegistros}, hasMore=${hasMore}`);
         } else {
-          // Se não temos paginação mas trouxe pedidos, continuar
-          hasMore = currentPage < maxPages && pedidos.length > 0;
-          console.log(`[SyncBackground] 📊 Sem paginação, continuando: pedidos nesta página=${pedidos.length}, hasMore=${hasMore}`);
+          // Se não temos nenhuma informação de paginação, parar se não trouxe pedidos
+          hasMore = pedidos.length > 0;
+          console.log(`[SyncBackground] ⚠️ Sem informação de paginação, continuando apenas se trouxe pedidos: pedidos=${pedidos.length}, hasMore=${hasMore}`);
         }
       } else {
         // Sync incremental: usar paginação normal
-        hasMore = (paginaAtual < totalPaginas || (totalPaginas === 0 && pedidos.length > 0)) && currentPage < maxPages;
+        if (totalPaginas > 0) {
+          hasMore = paginaAtual < totalPaginas && currentPage < maxPages;
+        } else if (totalRegistros > 0) {
+          hasMore = allPedidos.length < totalRegistros && currentPage < maxPages;
+        } else {
+          hasMore = pedidos.length > 0 && currentPage < maxPages;
+        }
       }
 
       currentPage++;
