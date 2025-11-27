@@ -175,6 +175,31 @@ exports.handler = async (event, context) => {
 
     console.log(`[SyncBackground] 📅 Buscando pedidos desde: ${dataInicioSync} (hard_sync: ${hard_sync}, max_pages: ${max_pages})`);
 
+    // ✅ HARD SYNC: Retornar imediatamente e processar em background
+    if (hard_sync) {
+      console.log(`[SyncBackground] 🔥 HARD SYNC ABSOLUTO: Retornando imediatamente e processando em background...`);
+      
+      // Processar em background sem bloquear
+      (async () => {
+        try {
+          await processarSyncCompleta(store_id, dataInicioSync, limit, max_pages, supabase, proxyUrl);
+        } catch (error) {
+          console.error('[SyncBackground] ❌ Erro no processamento em background:', error);
+        }
+      })();
+      
+      // Retornar imediatamente
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          success: true,
+          message: 'Sincronização iniciada em background. Isso pode levar várias horas. Você pode fechar a página.',
+          hard_sync: true,
+        }),
+      };
+    }
+
     // Buscar pedidos do Tiny ERP
     let allPedidos = [];
     let currentPage = 1;
@@ -389,6 +414,187 @@ exports.handler = async (event, context) => {
 /**
  * Processa um item completo do pedido, extraindo tamanho, cor, categoria, marca
  */
+/**
+ * Função auxiliar para processar sincronização completa (usado em background para hard sync)
+ */
+async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, supabase, proxyUrl) {
+  console.log(`[SyncBackground] 🔄 Iniciando processamento completo em background...`);
+  
+  // Buscar pedidos do Tiny ERP
+  let allPedidos = [];
+  let currentPage = 1;
+  let hasMore = true;
+
+  while (hasMore && currentPage <= maxPages) {
+    try {
+      const response = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          storeId: storeId,
+          endpoint: '/pedidos',
+          method: 'GET',
+          params: {
+            dataInicio: dataInicioSync,
+            pagina: currentPage,
+            limite: limit || 50,
+          },
+        }),
+      });
+
+      console.log(`[SyncBackground] 📡 Chamando API Tiny - Página ${currentPage}, Data: ${dataInicioSync}, Limite: ${limit || 50}`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro ao buscar pedidos: ${errorText}`);
+      }
+
+      const result = await response.json();
+
+      // Tiny ERP v3 retorna dados em { itens: [...], paginacao: {...} }
+      const pedidos = result.itens || result.pedidos || [];
+      allPedidos = allPedidos.concat(pedidos);
+
+      // Verificar se há mais páginas
+      const paginacao = result.paginacao || {};
+      hasMore = paginacao.paginaAtual < paginacao.totalPaginas && currentPage < maxPages;
+      currentPage++;
+
+      console.log(`[SyncBackground] 📄 Página ${currentPage - 1}: ${pedidos.length} pedidos encontrados`);
+
+    } catch (error) {
+      console.error(`[SyncBackground] ❌ Erro ao buscar página ${currentPage}:`, error);
+      hasMore = false;
+    }
+  }
+
+  console.log(`[SyncBackground] 📊 Total de ${allPedidos.length} pedidos encontrados`);
+
+  // Filtrar apenas pedidos faturados (situacao = 1 ou 3)
+  const pedidosFaturados = allPedidos.filter(p => {
+    const situacao = p.situacao || p.pedido?.situacao;
+    return situacao === 1 || situacao === 3 || situacao === 'faturado' || situacao === 'Faturado';
+  });
+
+  console.log(`[SyncBackground] ✅ ${pedidosFaturados.length} pedidos faturados para processar`);
+
+  // Limpar cache no início da sincronização
+  clearCache();
+
+  // Processar e salvar pedidos
+  let synced = 0;
+  let updated = 0;
+  let errors = 0;
+
+  for (const pedidoData of pedidosFaturados) {
+    try {
+      const pedido = pedidoData.pedido || pedidoData;
+      const tinyId = String(pedido.id || pedido.numeroPedido || `temp_${Date.now()}`);
+
+      console.log(`[SyncBackground] 📦 Processando pedido ${tinyId}...`);
+
+      // Buscar detalhes completos do pedido
+      let pedidoCompleto = null;
+      try {
+        pedidoCompleto = await fetchPedidoCompletoFromTiny(storeId, pedido.id);
+        if (pedidoCompleto) {
+          Object.assign(pedido, pedidoCompleto);
+          console.log(`[SyncBackground] ✅ Detalhes completos recebidos, dados mesclados`);
+        }
+      } catch (error) {
+        console.error(`[SyncBackground] ❌ Erro ao buscar detalhes do pedido ${pedido.id}:`, error);
+      }
+
+      // Buscar itens do pedido completo
+      let itensParaProcessar = [];
+      if (pedidoCompleto && pedidoCompleto.itens && Array.isArray(pedidoCompleto.itens) && pedidoCompleto.itens.length > 0) {
+        itensParaProcessar = pedidoCompleto.itens;
+        console.log(`[SyncBackground] ✅ Encontrados ${itensParaProcessar.length} itens nos detalhes completos`);
+      } else {
+        console.warn(`[SyncBackground] ⚠️ Pedido ${pedido.id} não tem itens nos detalhes completos`);
+      }
+
+      // Sincronizar cliente ANTES de salvar pedido
+      let clienteId = null;
+      if (pedido.cliente) {
+        console.log(`[SyncBackground] 👤 Sincronizando cliente: ${pedido.cliente.nome || 'Sem nome'}`);
+        clienteId = await syncTinyContact(supabase, storeId, pedido.cliente, tinyId);
+        if (clienteId) {
+          console.log(`[SyncBackground] ✅ Cliente sincronizado com ID: ${clienteId.substring(0, 8)}...`);
+        } else {
+          console.warn(`[SyncBackground] ⚠️ Cliente não foi sincronizado`);
+        }
+      }
+
+      // Processar itens completos com extração de dados
+      const itensProcessados = await Promise.all(
+        (itensParaProcessar || []).map(async (item) => {
+          return await processarItemCompleto(storeId, item, pedidoCompleto?.id || pedido.id);
+        })
+      );
+
+      console.log(`[SyncBackground] ✅ Pedido ${pedido.id} processado: ${itensProcessados.length} itens com categorias`);
+
+      // Buscar colaboradora pelo vendedor
+      let colaboradoraId = null;
+      if (pedido.vendedor && pedido.vendedor.id) {
+        colaboradoraId = await findCollaboratorByVendedor(supabase, storeId, pedido.vendedor);
+        if (colaboradoraId) {
+          console.log(`[SyncBackground] ✅ Colaboradora encontrada: ${colaboradoraId.substring(0, 8)}...`);
+        }
+      }
+
+      // Preparar dados do pedido completo
+      const orderData = prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId, colaboradoraId, itensProcessados, tinyId);
+
+      // Verificar se precisa atualizar
+      const { data: existingOrder } = await supabase
+        .schema('sistemaretiradas')
+        .from('tiny_orders')
+        .select('*')
+        .eq('store_id', storeId)
+        .eq('tiny_id', tinyId)
+        .maybeSingle();
+
+      const precisaAtualizar = !existingOrder || shouldUpdateOrder(existingOrder, orderData);
+
+      if (!precisaAtualizar && existingOrder) {
+        console.log(`[SyncBackground] ℹ️ Pedido ${tinyId} não precisa ser atualizado`);
+        continue;
+      }
+
+      // Salvar pedido completo
+      const { error: upsertError } = await supabase
+        .schema('sistemaretiradas')
+        .from('tiny_orders')
+        .upsert(orderData, {
+          onConflict: 'tiny_id,store_id',
+        });
+
+      if (upsertError) {
+        console.error(`[SyncBackground] ❌ Erro ao salvar pedido ${tinyId}:`, upsertError);
+        errors++;
+      } else {
+        if (existingOrder) {
+          updated++;
+          console.log(`[SyncBackground] ✅ Pedido ${tinyId} atualizado`);
+        } else {
+          synced++;
+          console.log(`[SyncBackground] ✅ Pedido ${tinyId} criado`);
+        }
+      }
+
+    } catch (error) {
+      console.error(`[SyncBackground] ❌ Erro ao processar pedido:`, error);
+      errors++;
+    }
+  }
+
+  console.log(`[SyncBackground] ✅ Sincronização concluída: ${synced} novos, ${updated} atualizados, ${errors} erros`);
+}
+
 async function processarItemCompleto(storeId, itemData, pedidoId) {
   console.log(`[SyncBackground] 🚀 v2.2 - VERSÃO COM EXTRAÇÃO ATIVA`);
   console.log(`[SyncBackground] 📄 Processando item:`, itemData);
