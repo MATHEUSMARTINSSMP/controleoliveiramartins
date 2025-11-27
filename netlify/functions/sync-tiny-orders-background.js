@@ -1186,15 +1186,72 @@ async function syncTinyContact(supabase, storeId, cliente, pedidoId) {
       Object.assign(contatoData, merged);
     }
 
-    // Upsert
-    const { data: savedContact, error: upsertError } = await supabase
-      .schema('sistemaretiradas')
-      .from('tiny_contacts')
-      .upsert(contatoData, {
-        onConflict: existingContact && existingContact.id ? 'id' : (cpfCnpj ? 'store_id,cpf_cnpj' : 'store_id,tiny_id'),
-      })
-      .select()
-      .single();
+    // Upsert - usar abordagem mais segura
+    let savedContact = null;
+    let upsertError = null;
+
+    if (existingContact && existingContact.id) {
+      // Se já existe, fazer UPDATE
+      const { data, error } = await supabase
+        .schema('sistemaretiradas')
+        .from('tiny_contacts')
+        .update(contatoData)
+        .eq('id', existingContact.id)
+        .select()
+        .single();
+      savedContact = data;
+      upsertError = error;
+    } else {
+      // Se não existe, tentar INSERT
+      // Primeiro verificar se já existe por tiny_id ou cpf_cnpj
+      let existingByTiny = null;
+      if (tinyId) {
+        const { data } = await supabase
+          .schema('sistemaretiradas')
+          .from('tiny_contacts')
+          .select('id')
+          .eq('store_id', storeId)
+          .eq('tiny_id', tinyId)
+          .maybeSingle();
+        existingByTiny = data;
+      }
+
+      let existingByCpf = null;
+      if (cpfCnpj) {
+        const { data } = await supabase
+          .schema('sistemaretiradas')
+          .from('tiny_contacts')
+          .select('id')
+          .eq('store_id', storeId)
+          .eq('cpf_cnpj', cpfCnpj)
+          .maybeSingle();
+        existingByCpf = data;
+      }
+
+      if (existingByTiny || existingByCpf) {
+        // Já existe, fazer UPDATE
+        const idToUpdate = existingByTiny?.id || existingByCpf?.id;
+        const { data, error } = await supabase
+          .schema('sistemaretiradas')
+          .from('tiny_contacts')
+          .update(contatoData)
+          .eq('id', idToUpdate)
+          .select()
+          .single();
+        savedContact = data;
+        upsertError = error;
+      } else {
+        // Não existe, fazer INSERT
+        const { data, error } = await supabase
+          .schema('sistemaretiradas')
+          .from('tiny_contacts')
+          .insert(contatoData)
+          .select()
+          .single();
+        savedContact = data;
+        upsertError = error;
+      }
+    }
 
     if (upsertError) {
       console.error(`[SyncBackground] ❌ Erro ao salvar contato:`, upsertError);

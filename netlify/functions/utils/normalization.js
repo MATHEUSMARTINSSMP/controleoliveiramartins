@@ -222,7 +222,7 @@ function extrairCorDaDescricao(descricao) {
   }
 
   // ✅ ESTRATÉGIA 2: Buscar cores simples (apenas se não encontrar composta)
-  // Mas evitar cores muito curtas que podem ser falsos positivos
+  // Melhorar regex para encontrar cores mesmo quando estão no meio da descrição
   for (const corValida of coresOrdenadas) {
     // ✅ IGNORAR cores muito curtas que podem ser falsos positivos
     // Ex: "OFF" sozinho não é cor válida, apenas "OFF WHITE", "OFF DARK", "OFF BLUE"
@@ -235,8 +235,12 @@ function extrairCorDaDescricao(descricao) {
       // Outras cores curtas como "RED", "BLUE" são válidas, continuar
     }
 
-    // Buscar palavra completa (word boundary)
-    const regex = new RegExp(`\\b${corValida.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    // ✅ MELHORIA: Usar regex mais flexível que aceita a cor mesmo quando está no meio de outras palavras
+    // Ex: "MID LARANJA CALMA" deve encontrar "LARANJA"
+    // Usar lookbehind e lookahead para garantir que não está no meio de uma palavra maior
+    const escaped = corValida.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Aceitar a cor mesmo se tiver espaços antes/depois ou se estiver no meio de outras palavras
+    const regex = new RegExp(`(^|\\s)${escaped}(\\s|$|-)`, 'i');
 
     if (regex.test(descricaoUpper)) {
       return corValida;
