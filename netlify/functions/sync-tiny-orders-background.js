@@ -19,8 +19,28 @@
 
 const { createClient } = require('@supabase/supabase-js');
 
-// Configuração Tiny ERP
-const TINY_API_V3_URL = 'https://erp.tiny.com.br/public-api/v3';
+// Importar funções auxiliares
+const {
+  fetchPedidoCompletoFromTiny,
+  fetchProdutoCompletoFromTiny,
+  fetchContatoCompletoFromTiny,
+  fetchVendedorCompletoFromTiny,
+  clearCache,
+} = require('./utils/erpApiHelpers');
+
+const {
+  normalizeTamanho,
+  normalizeCor,
+  normalizeCPFCNPJ,
+  normalizeTelefone,
+  normalizeNome,
+} = require('./utils/normalization');
+
+const {
+  shouldUpdateOrder,
+  shouldUpdateContact,
+  mergeDataPreservingExisting,
+} = require('./utils/updateLogic');
 
 exports.handler = async (event, context) => {
   // ✅ IMPORTANTE: Netlify Functions têm timeout limitado
@@ -194,59 +214,115 @@ exports.handler = async (event, context) => {
 
     console.log(`[SyncBackground] ✅ ${pedidosFaturados.length} pedidos faturados para processar`);
 
+    // Limpar cache no início da sincronização
+    clearCache();
+
     // Processar e salvar pedidos
     let synced = 0;
     let updated = 0;
     let errors = 0;
 
-    for (const pedido of pedidosFaturados) {
+    for (const pedidoData of pedidosFaturados) {
       try {
-        // Extrair dados do pedido
-        const pedidoData = pedido.pedido || pedido;
-        const pedidoId = pedidoData.id || pedidoData.numeroPedido;
-        const numeroPedido = pedidoData.numero || pedidoData.numeroPedido;
-        const dataPedido = pedidoData.data || pedidoData.dataPedido || pedidoData.data_pedido;
-        const valorTotal = parseFloat(pedidoData.valorTotalPedido || pedidoData.valor_total || pedidoData.valor || 0);
-        const clienteNome = pedidoData.cliente?.nome || pedidoData.clienteNome || '';
-        const clienteCpf = pedidoData.cliente?.cpfCnpj || pedidoData.clienteCpf || '';
-        const vendedorNome = pedidoData.vendedor?.nome || pedidoData.vendedorNome || '';
+        const pedido = pedidoData.pedido || pedidoData;
+        const tinyId = String(pedido.id || pedido.numeroPedido || `temp_${Date.now()}`);
 
-        // Upsert do pedido
+        console.log(`[SyncBackground] 📦 Processando pedido ${tinyId}...`);
+
+        // ✅ TAREFA 1: Buscar detalhes completos do pedido
+        console.log(`[SyncBackground] 🔍 Buscando detalhes completos do pedido ${pedido.id}...`);
+        let pedidoCompleto = null;
+        
+        try {
+          pedidoCompleto = await fetchPedidoCompletoFromTiny(store_id, pedido.id);
+          
+          if (pedidoCompleto) {
+            // Mesclar dados do pedido completo com o pedido da listagem
+            Object.assign(pedido, pedidoCompleto);
+            console.log(`[SyncBackground] ✅ Detalhes completos recebidos, dados mesclados`);
+          }
+        } catch (error) {
+          console.error(`[SyncBackground] ❌ Erro ao buscar detalhes do pedido ${pedido.id}:`, error);
+        }
+
+        // ✅ TAREFA 2: Buscar itens do pedido completo
+        let itensParaProcessar = [];
+        if (pedidoCompleto && pedidoCompleto.itens && Array.isArray(pedidoCompleto.itens) && pedidoCompleto.itens.length > 0) {
+          itensParaProcessar = pedidoCompleto.itens;
+          console.log(`[SyncBackground] ✅ Encontrados ${itensParaProcessar.length} itens nos detalhes completos`);
+        } else {
+          console.warn(`[SyncBackground] ⚠️ Pedido ${pedido.id} não tem itens nos detalhes completos`);
+        }
+
+        // ✅ TAREFA 3: Sincronizar cliente ANTES de salvar pedido
+        let clienteId = null;
+        if (pedido.cliente) {
+          console.log(`[SyncBackground] 👤 Sincronizando cliente: ${pedido.cliente.nome || 'Sem nome'}`);
+          
+          clienteId = await syncTinyContact(supabase, store_id, pedido.cliente, tinyId);
+          
+          if (clienteId) {
+            console.log(`[SyncBackground] ✅ Cliente sincronizado com ID: ${clienteId.substring(0, 8)}...`);
+          } else {
+            console.warn(`[SyncBackground] ⚠️ Cliente não foi sincronizado`);
+          }
+        }
+
+        // ✅ TAREFA 4: Processar itens completos com extração de dados
+        const itensComCategorias = await Promise.all(
+          itensParaProcessar.map(async (item) => {
+            return await processarItemCompleto(supabase, store_id, item);
+          })
+        );
+
+        console.log(`[SyncBackground] ✅ Pedido ${pedido.id} processado: ${itensComCategorias.length} itens com categorias`);
+
+        // ✅ TAREFA 5: Buscar colaboradora pelo vendedor
+        let colaboradoraId = null;
+        if (pedido.vendedor && pedido.vendedor.id) {
+          colaboradoraId = await findCollaboratorByVendedor(supabase, store_id, pedido.vendedor);
+          if (colaboradoraId) {
+            console.log(`[SyncBackground] ✅ Colaboradora encontrada: ${colaboradoraId.substring(0, 8)}...`);
+          }
+        }
+
+        // ✅ TAREFA 6: Preparar dados do pedido completo
+        const orderData = prepararDadosPedidoCompleto(store_id, pedido, pedidoCompleto, clienteId, colaboradoraId, itensComCategorias, tinyId);
+
+        // ✅ TAREFA 7: Verificar se precisa atualizar
+        const { data: existingOrder } = await supabase
+          .schema('sistemaretiradas')
+          .from('tiny_orders')
+          .select('*')
+          .eq('store_id', store_id)
+          .eq('tiny_id', tinyId)
+          .maybeSingle();
+
+        const precisaAtualizar = !existingOrder || shouldUpdateOrder(existingOrder, orderData);
+
+        if (!precisaAtualizar && existingOrder) {
+          console.log(`[SyncBackground] ℹ️ Pedido ${tinyId} não precisa ser atualizado`);
+          continue;
+        }
+
+        // ✅ TAREFA 8: Salvar pedido completo
         const { error: upsertError } = await supabase
           .schema('sistemaretiradas')
           .from('tiny_orders')
-          .upsert({
-            tiny_id: pedidoId?.toString(),
-            store_id: store_id,
-            numero_pedido: numeroPedido?.toString(),
-            data_pedido: dataPedido ? new Date(dataPedido).toISOString() : null,
-            valor_total: valorTotal,
-            cliente_nome: clienteNome,
-            cliente_cpf_cnpj: clienteCpf,
-            vendedor_nome: vendedorNome,
-            situacao: pedidoData.situacao || 1,
-            updated_at: new Date().toISOString(),
-          }, {
+          .upsert(orderData, {
             onConflict: 'tiny_id,store_id',
           });
 
         if (upsertError) {
-          console.error(`[SyncBackground] ❌ Erro ao salvar pedido ${pedidoId}:`, upsertError);
+          console.error(`[SyncBackground] ❌ Erro ao salvar pedido ${tinyId}:`, upsertError);
           errors++;
         } else {
-          // Verificar se foi inserção ou atualização
-          const { data: existing } = await supabase
-            .schema('sistemaretiradas')
-            .from('tiny_orders')
-            .select('id')
-            .eq('tiny_id', pedidoId?.toString())
-            .eq('store_id', store_id)
-            .single();
-
-          if (existing) {
+          if (existingOrder) {
             updated++;
+            console.log(`[SyncBackground] ✅ Pedido ${tinyId} atualizado`);
           } else {
             synced++;
+            console.log(`[SyncBackground] ✅ Pedido ${tinyId} criado`);
           }
         }
 
@@ -283,3 +359,550 @@ exports.handler = async (event, context) => {
     };
   }
 };
+
+// =============================================================================
+// FUNÇÕES AUXILIARES
+// =============================================================================
+
+/**
+ * Processa um item completo do pedido, extraindo tamanho, cor, categoria, marca
+ */
+async function processarItemCompleto(supabase, storeId, item) {
+  const produto = item.produto || {};
+  const quantidade = item.quantidade || 0;
+  const valorUnitario = item.valorUnitario || 0;
+  const infoAdicional = item.infoAdicional || null;
+  const itemData = item.item || item;
+
+  const codigo = produto.sku || itemData.sku || produto.codigo || itemData.codigo || null;
+  const descricao = produto.descricao || itemData.descricao || produto.nome || itemData.nome || null;
+  const produtoId = produto.id || itemData.produto_id || itemData.produto?.id || item.idProduto || item.produtoId || null;
+
+  // Variáveis para dados extraídos
+  let categoria = null;
+  let subcategoria = null;
+  let marca = null;
+  let tamanho = null;
+  let cor = null;
+  let genero = null;
+  let faixa_etaria = null;
+  let material = null;
+
+  // Tentar extrair do item diretamente
+  if (item.categoria) {
+    categoria = typeof item.categoria === 'string' ? item.categoria : (item.categoria.nome || item.categoria.descricao || null);
+  }
+  if (item.marca) {
+    marca = typeof item.marca === 'string' ? item.marca : (item.marca.nome || item.marca.descricao || null);
+  }
+  if (item.tamanho) {
+    tamanho = normalizeTamanho(item.tamanho);
+  }
+  if (item.cor) {
+    cor = normalizeCor(item.cor);
+  }
+
+  // Extrair ID da variação
+  const variacaoId = item.variacao?.id || item.variacaoId || item.idVariacao || item.variacao_id || null;
+
+  // ✅ BUSCAR DETALHES COMPLETOS DO PRODUTO se tivermos produtoId
+  if (produtoId) {
+    try {
+      console.log(`[SyncBackground] 🔍 Buscando detalhes completos do produto ${produtoId}...`);
+      const produtoCompleto = await fetchProdutoCompletoFromTiny(storeId, produtoId);
+
+      if (produtoCompleto) {
+        // Extrair categoria e subcategoria
+        if (!categoria && produtoCompleto.categoria) {
+          categoria = produtoCompleto.categoria.nome || produtoCompleto.categoria.descricao || null;
+          
+          // Separar categoria e subcategoria do caminhoCompleto
+          if (produtoCompleto.categoria.caminhoCompleto) {
+            const caminhoCompletoStr = String(produtoCompleto.categoria.caminhoCompleto).trim();
+            const caminho = caminhoCompletoStr.split(' > ').map(s => s.trim()).filter(s => s.length > 0);
+
+            if (caminho.length > 1) {
+              subcategoria = caminho[caminho.length - 1];
+              categoria = caminho.slice(0, -1).join(' > ');
+            } else if (caminho.length === 1) {
+              categoria = caminho[0];
+              subcategoria = null;
+            }
+          }
+        }
+
+        // Extrair marca
+        if (!marca && produtoCompleto.marca) {
+          marca = produtoCompleto.marca.nome || produtoCompleto.marca.descricao || null;
+        }
+
+        // ✅ EXTRAIR TAMANHO E COR DAS VARIAÇÕES
+        // IMPORTANTE: variações podem vir como ARRAY ou como OBJETO JSON
+        let variacoesArray = null;
+        
+        if (produtoCompleto.variacoes) {
+          if (Array.isArray(produtoCompleto.variacoes)) {
+            // Caso 1: Variações como array
+            variacoesArray = produtoCompleto.variacoes;
+            console.log(`[SyncBackground] ✅ Variações recebidas como ARRAY (${variacoesArray.length} variações)`);
+          } else if (typeof produtoCompleto.variacoes === 'object') {
+            // Caso 2: Variações como objeto JSON - converter para array
+            console.log(`[SyncBackground] ⚠️ Variações recebidas como OBJETO JSON, convertendo para array...`);
+            variacoesArray = Object.values(produtoCompleto.variacoes);
+            console.log(`[SyncBackground] ✅ Convertido para array (${variacoesArray.length} variações)`);
+          }
+        }
+
+        if (variacoesArray && variacoesArray.length > 0) {
+          let variacaoEncontrada = null;
+
+          // Buscar variação específica se tivermos variacaoId
+          if (variacaoId) {
+            variacaoEncontrada = variacoesArray.find(v =>
+              v.id === variacaoId || v.idVariacao === variacaoId || String(v.id) === String(variacaoId)
+            );
+            if (variacaoEncontrada) {
+              console.log(`[SyncBackground] ✅ Variação específica encontrada (ID: ${variacaoId})`);
+            } else {
+              console.log(`[SyncBackground] ⚠️ Variação ID ${variacaoId} não encontrada, tentando todas as variações`);
+            }
+          }
+
+          // Se não encontrou, tentar todas as variações
+          if (!variacaoEncontrada) {
+            for (const variacao of variacoesArray) {
+              if (tamanho && cor) break;
+
+              // Verificar se grade é array ou objeto
+              let gradeArray = null;
+              if (variacao.grade) {
+                if (Array.isArray(variacao.grade)) {
+                  gradeArray = variacao.grade;
+                } else if (typeof variacao.grade === 'object') {
+                  // Grade como objeto JSON - converter para array
+                  gradeArray = Object.values(variacao.grade);
+                  console.log(`[SyncBackground] ⚠️ Grade recebida como OBJETO JSON, convertendo para array...`);
+                }
+              }
+
+              if (gradeArray && gradeArray.length > 0) {
+                for (const atributo of gradeArray) {
+                  const chave = String(atributo.chave || atributo.key || atributo.nome || '').toLowerCase().trim();
+                  const valor = String(atributo.valor || atributo.value || atributo.descricao || '').trim();
+
+                  if (!valor) continue;
+
+                  // Buscar tamanho
+                  if (!tamanho && (chave.includes('tamanho') || chave.includes('size') || chave === 'tam')) {
+                    tamanho = normalizeTamanho(valor);
+                    variacaoEncontrada = variacao;
+                    console.log(`[SyncBackground] ✅ Tamanho extraído da variação: "${tamanho}" (chave: "${chave}")`);
+                  }
+
+                  // Buscar cor
+                  if (!cor && (chave.includes('cor') || chave.includes('color') || chave.includes('colour'))) {
+                    cor = normalizeCor(valor);
+                    if (!variacaoEncontrada) variacaoEncontrada = variacao;
+                    console.log(`[SyncBackground] ✅ Cor extraída da variação: "${cor}" (chave: "${chave}")`);
+                  }
+
+                  // Buscar gênero
+                  if (!genero && (chave.includes('genero') || chave.includes('gender'))) {
+                    genero = valor;
+                  }
+                }
+              }
+            }
+          } else if (variacaoEncontrada) {
+            // Extrair da variação específica encontrada
+            let gradeArray = null;
+            if (variacaoEncontrada.grade) {
+              if (Array.isArray(variacaoEncontrada.grade)) {
+                gradeArray = variacaoEncontrada.grade;
+              } else if (typeof variacaoEncontrada.grade === 'object') {
+                // Grade como objeto JSON - converter para array
+                gradeArray = Object.values(variacaoEncontrada.grade);
+                console.log(`[SyncBackground] ⚠️ Grade da variação específica recebida como OBJETO JSON, convertendo...`);
+              }
+            }
+
+            if (gradeArray && gradeArray.length > 0) {
+              for (const atributo of gradeArray) {
+                const chave = String(atributo.chave || atributo.key || atributo.nome || '').toLowerCase().trim();
+                const valor = String(atributo.valor || atributo.value || atributo.descricao || '').trim();
+
+                if (!tamanho && (chave.includes('tamanho') || chave.includes('size') || chave === 'tam')) {
+                  tamanho = normalizeTamanho(valor);
+                  console.log(`[SyncBackground] ✅ Tamanho extraído da variação específica: "${tamanho}"`);
+                }
+                if (!cor && (chave.includes('cor') || chave.includes('color') || chave.includes('colour'))) {
+                  cor = normalizeCor(valor);
+                  console.log(`[SyncBackground] ✅ Cor extraída da variação específica: "${cor}"`);
+                }
+                if (!genero && (chave.includes('genero') || chave.includes('gender'))) {
+                  genero = valor;
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`[SyncBackground] ⚠️ Erro ao buscar detalhes do produto ${produtoId}:`, error.message);
+    }
+  }
+
+  // Fallbacks dos dados do item
+  if (!categoria) {
+    categoria = itemData.categoria || produto.categoria?.nome || produto.categoria || null;
+  }
+  if (!marca) {
+    marca = itemData.marca?.nome || itemData.marca || produto.marca?.nome || produto.marca || null;
+  }
+  if (!tamanho) {
+    tamanho = normalizeTamanho(itemData.tamanho || produto.tamanho || null);
+  }
+  if (!cor) {
+    cor = normalizeCor(itemData.cor || produto.cor || null);
+  }
+
+  // ✅ ESTRATÉGIA FINAL: Extrair tamanho e cor da descrição do produto
+  // Exemplo: "VESTIDO TIVOLI OFF-WHITE - 42" -> Tamanho: 42, Cor: OFF-WHITE
+  if ((!tamanho || !cor) && descricao) {
+    console.log(`[SyncBackground] 🔍 Tentando extrair variações da descrição: "${descricao}"`);
+
+    // 1. Tentar extrair TAMANHO no final (padrão " - 42" ou " - P")
+    // Regex para tamanhos numéricos (34-56) ou letras (PP-XGG)
+    const regexTamanho = /\s-\s([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO)$/i;
+    const matchTamanho = descricao.match(regexTamanho);
+
+    if (matchTamanho && matchTamanho[1]) {
+      if (!tamanho) {
+        tamanho = normalizeTamanho(matchTamanho[1]);
+        console.log(`[SyncBackground] ✅ Tamanho extraído da descrição: "${tamanho}"`);
+      }
+
+      // 2. Tentar extrair COR (o que vem antes do tamanho)
+      // Ex: "VESTIDO TIVOLI OFF-WHITE - 42" -> "VESTIDO TIVOLI OFF-WHITE"
+      if (!cor) {
+        const parteSemTamanho = descricao.substring(0, matchTamanho.index).trim();
+        // Assumir que a cor é a última palavra ou conjunto de palavras após o último hífen (se houver outro hífen)
+        // Ex: "VESTIDO - TIVOLI - OFF-WHITE" -> "OFF-WHITE"
+        const partesPorHifen = parteSemTamanho.split(' - ');
+        if (partesPorHifen.length > 1) {
+          const possivelCor = partesPorHifen[partesPorHifen.length - 1].trim();
+          // Validar se não é muito longo para ser uma cor (ex: < 20 chars)
+          if (possivelCor.length < 20 && possivelCor.length > 2) {
+            cor = normalizeCor(possivelCor);
+            console.log(`[SyncBackground] ✅ Cor extraída da descrição (padrão hífen): "${cor}"`);
+          }
+        }
+      }
+    }
+  }
+
+  return {
+    ...itemData,
+    produto_id: produtoId,
+    codigo,
+    descricao,
+    quantidade,
+    valorUnitario,
+    infoAdicional,
+    categoria,
+    subcategoria,
+    marca,
+    tamanho,
+    cor,
+    genero,
+    faixa_etaria,
+    material,
+  };
+}
+
+/**
+ * Sincroniza um cliente/contato do Tiny ERP
+ */
+async function syncTinyContact(supabase, storeId, cliente, pedidoId) {
+  try {
+    if (!cliente.nome) {
+      console.warn(`[SyncBackground] ⚠️ Cliente sem nome, ignorando sincronização`);
+      return null;
+    }
+
+    let clienteCompleto = cliente;
+    const clienteId = cliente.id || cliente.idContato || null;
+
+    // ✅ SEMPRE buscar detalhes completos se tivermos ID
+    if (clienteId) {
+      try {
+        const clienteDetalhes = await fetchContatoCompletoFromTiny(storeId, clienteId);
+        if (clienteDetalhes) {
+          clienteCompleto = {
+            ...clienteDetalhes,
+            ...cliente,
+            dataNascimento: clienteDetalhes.dataNascimento || cliente.dataNascimento,
+            telefone: cliente.telefone || clienteDetalhes.telefone,
+            celular: cliente.celular || clienteDetalhes.celular,
+            email: cliente.email || clienteDetalhes.email,
+            cpfCnpj: cliente.cpfCnpj || clienteDetalhes.cpfCnpj,
+          };
+        }
+      } catch (error) {
+        console.error(`[SyncBackground] ❌ Erro ao buscar detalhes completos do cliente ${clienteId}:`, error);
+      }
+    }
+
+    // Normalizar dados
+    const dataNascimento = clienteCompleto.dataNascimento || clienteCompleto.data_nascimento || null;
+    const cpfCnpj = normalizeCPFCNPJ(clienteCompleto.cpfCnpj || clienteCompleto.cpf_cnpj || clienteCompleto.cpf || clienteCompleto.cnpj || null);
+    const telefone = normalizeTelefone(clienteCompleto.telefone || clienteCompleto.celular || null);
+    const email = clienteCompleto.email || null;
+    const nome = normalizeNome(clienteCompleto.nome);
+
+    // Normalizar data de nascimento
+    let dataNascimentoNormalizada = null;
+    if (dataNascimento) {
+      try {
+        const date = new Date(dataNascimento);
+        if (!isNaN(date.getTime())) {
+          dataNascimentoNormalizada = date.toISOString().split('T')[0];
+        }
+      } catch (error) {
+        console.warn(`[SyncBackground] ⚠️ Erro ao parsear data de nascimento:`, error);
+      }
+    }
+
+    // Preparar dados do contato
+    const contatoData = {
+      store_id: storeId,
+      tiny_id: clienteId?.toString() || null,
+      nome,
+      cpf_cnpj: cpfCnpj,
+      telefone,
+      email,
+      data_nascimento: dataNascimentoNormalizada,
+      tipo_pessoa: clienteCompleto.tipoPessoa || clienteCompleto.tipo_pessoa || 'F',
+      updated_at: new Date().toISOString(),
+    };
+
+    // Verificar se já existe
+    let existingContact = null;
+    if (cpfCnpj) {
+      const { data } = await supabase
+        .schema('sistemaretiradas')
+        .from('tiny_contacts')
+        .select('*')
+        .eq('store_id', storeId)
+        .eq('cpf_cnpj', cpfCnpj)
+        .maybeSingle();
+      existingContact = data;
+    }
+
+    if (!existingContact && clienteId) {
+      const { data } = await supabase
+        .schema('sistemaretiradas')
+        .from('tiny_contacts')
+        .select('*')
+        .eq('store_id', storeId)
+        .eq('tiny_id', clienteId.toString())
+        .maybeSingle();
+      existingContact = data;
+    }
+
+    // Mesclar dados preservando existentes
+    if (existingContact) {
+      contatoData.id = existingContact.id;
+      const merged = mergeDataPreservingExisting(existingContact, contatoData);
+      Object.assign(contatoData, merged);
+    }
+
+    // Upsert
+    const { data: savedContact, error: upsertError } = await supabase
+      .schema('sistemaretiradas')
+      .from('tiny_contacts')
+      .upsert(contatoData, {
+        onConflict: existingContact && existingContact.id ? 'id' : (cpfCnpj ? 'store_id,cpf_cnpj' : 'store_id,tiny_id'),
+      })
+      .select()
+      .single();
+
+    if (upsertError) {
+      console.error(`[SyncBackground] ❌ Erro ao salvar contato:`, upsertError);
+      return null;
+    }
+
+    return savedContact.id;
+
+  } catch (error) {
+    console.error(`[SyncBackground] ❌ Erro ao sincronizar contato:`, error);
+    return null;
+  }
+}
+
+/**
+ * Busca colaboradora pelo vendedor
+ */
+async function findCollaboratorByVendedor(supabase, storeId, vendedor) {
+  try {
+    if (!vendedor.nome && !vendedor.email && !vendedor.cpf && !vendedor.id) {
+      return null;
+    }
+
+    // Buscar dados completos do vendedor se tiver ID
+    let vendedorCompleto = { ...vendedor };
+    if (vendedor.id && !vendedor.cpf) {
+      try {
+        const dadosCompletos = await fetchVendedorCompletoFromTiny(storeId, vendedor.id);
+        if (dadosCompletos) {
+          vendedorCompleto = {
+            ...vendedor,
+            cpf: dadosCompletos.cpf || vendedor.cpf,
+            email: dadosCompletos.email || vendedor.email,
+            nome: dadosCompletos.nome || vendedor.nome,
+          };
+        }
+      } catch (error) {
+        console.warn(`[SyncBackground] ⚠️ Erro ao buscar vendedor completo:`, error);
+      }
+    }
+
+    // Buscar colaboradoras da loja
+    const { data: colaboradoras } = await supabase
+      .schema('sistemaretiradas')
+      .from('profiles')
+      .select('id, name, email, cpf')
+      .eq('role', 'COLABORADORA')
+      .eq('active', true)
+      .eq('store_id', storeId);
+
+    if (!colaboradoras || colaboradoras.length === 0) {
+      return null;
+    }
+
+    const normalizeCPF = (cpf) => cpf ? String(cpf).replace(/\D/g, '') : null;
+    const normalizedVendedorCPF = normalizeCPF(vendedorCompleto.cpf);
+
+    // Tentar matching por CPF primeiro
+    if (normalizedVendedorCPF && normalizedVendedorCPF.length >= 11) {
+      const matchByCPF = colaboradoras.find((colab) => {
+        const colabCPF = normalizeCPF(colab.cpf);
+        return colabCPF && colabCPF === normalizedVendedorCPF;
+      });
+      if (matchByCPF) {
+        return matchByCPF.id;
+      }
+    }
+
+    // Tentar matching por email
+    if (vendedorCompleto.email) {
+      const matchByEmail = colaboradoras.find(
+        (colab) => colab.email && colab.email.toLowerCase() === vendedorCompleto.email?.toLowerCase()
+      );
+      if (matchByEmail) {
+        return matchByEmail.id;
+      }
+    }
+
+    // Tentar matching por nome
+    if (vendedorCompleto.nome) {
+      const normalizeName = (name) => {
+        return name
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .trim();
+      };
+
+      const normalizedVendedorNome = normalizeName(vendedorCompleto.nome);
+      const matchByName = colaboradoras.find((colab) => {
+        const normalizedColabNome = normalizeName(colab.name || '');
+        return normalizedColabNome === normalizedVendedorNome;
+      });
+
+      if (matchByName) {
+        return matchByName.id;
+      }
+    }
+
+    return null;
+
+  } catch (error) {
+    console.error(`[SyncBackground] ❌ Erro ao buscar colaboradora:`, error);
+    return null;
+  }
+}
+
+/**
+ * Prepara dados completos do pedido para salvar
+ */
+function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId, colaboradoraId, itensComCategorias, tinyId) {
+  // Extrair data com hora completa
+  let dataPedido = null;
+  if (pedidoCompleto?.dataCriacao) {
+    dataPedido = pedidoCompleto.dataCriacao;
+    const horaPart = dataPedido.split('T')?.[1]?.split(/[+\-Z]/)?.[0];
+    if (!horaPart || horaPart.startsWith('00:00:00')) {
+      // Tentar buscar hora de dataAtualizacao
+      if (pedidoCompleto.dataAtualizacao && pedidoCompleto.dataAtualizacao.includes('T')) {
+        const horaAtualizacao = pedidoCompleto.dataAtualizacao.split('T')[1]?.split(/[+\-Z]/)?.[0];
+        if (horaAtualizacao && !horaAtualizacao.startsWith('00:00:00')) {
+          dataPedido = `${dataPedido.split('T')[0]}T${horaAtualizacao}-03:00`;
+        }
+      }
+    }
+  } else if (pedido.dataCriacao) {
+    dataPedido = pedido.dataCriacao;
+  } else if (pedido.data) {
+    dataPedido = pedido.data;
+  }
+
+  // Se não tem hora, adicionar timezone
+  if (dataPedido && dataPedido.includes('T') && !dataPedido.includes('Z') && !dataPedido.includes('+') && !dataPedido.includes('-', 10)) {
+    dataPedido = `${dataPedido}-03:00`;
+  } else if (dataPedido && !dataPedido.includes('T')) {
+    dataPedido = `${dataPedido}T00:00:00-03:00`;
+  }
+
+  // Calcular valor total
+  let valorTotal = 0;
+  if (pedidoCompleto?.valorTotalPedido) {
+    valorTotal = parseFloat(pedidoCompleto.valorTotalPedido);
+  } else if (pedido.valorTotalPedido) {
+    valorTotal = parseFloat(pedido.valorTotalPedido);
+  } else if (itensComCategorias && itensComCategorias.length > 0) {
+    valorTotal = itensComCategorias.reduce((sum, item) => {
+      return sum + (parseFloat(item.valorUnitario || 0) * parseFloat(item.quantidade || 0));
+    }, 0);
+  }
+
+  // Preparar objeto do pedido
+  const orderData = {
+    store_id: storeId,
+    tiny_id: tinyId,
+    numero_pedido: (pedido.numeroPedido || pedido.numero)?.toString() || null,
+    numero_ecommerce: (pedido.ecommerce?.numeroPedidoEcommerce || pedido.numero_ecommerce)?.toString() || null,
+    situacao: pedido.situacao?.toString() || null,
+    data_pedido: dataPedido,
+    cliente_id: clienteId,
+    cliente_nome: pedido.cliente?.nome || null,
+    cliente_cpf_cnpj: normalizeCPFCNPJ(pedido.cliente?.cpfCnpj || pedido.cliente?.cpf || pedido.cliente?.cnpj || null),
+    cliente_telefone: normalizeTelefone(pedido.cliente?.telefone || pedido.cliente?.celular || null),
+    valor_total: valorTotal || 0,
+    valor_desconto: parseFloat(pedido.valorDesconto || pedido.valor_desconto || 0),
+    valor_frete: parseFloat(pedido.valorFrete || pedido.valor_frete || 0),
+    forma_pagamento: pedido.pagamento?.formaPagamento?.nome || null,
+    forma_envio: pedido.transportador?.formaEnvio?.nome || null,
+    endereco_entrega: pedido.enderecoEntrega || null,
+    itens: itensComCategorias.length > 0 ? itensComCategorias : null,
+    observacoes: pedido.observacoes || null,
+    vendedor_nome: pedido.vendedor?.nome || pedido.vendedor_nome || null,
+    vendedor_tiny_id: pedido.vendedor?.id?.toString() || null,
+    colaboradora_id: colaboradoraId,
+    dados_extras: pedido.dados_extras || null,
+    sync_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  return orderData;
+}

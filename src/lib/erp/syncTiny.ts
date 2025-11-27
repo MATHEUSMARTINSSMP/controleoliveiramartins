@@ -768,11 +768,21 @@ export async function syncTinyOrders(
         // Itens só vêm em GET /pedidos/{id} (detalhes completos)
         // Portanto, SEMPRE precisamos buscar detalhes completos de cada pedido
 
-        console.log(`[SyncTiny] 🔍 Buscando detalhes completos do pedido ${pedido.id} para obter itens...`);
+        console.log(`[SyncTiny] 🔍 Buscando detalhes completos do pedido ${pedido.id} para obter itens e data/hora completa...`);
         let itensParaProcessar: any[] = [];
+        let pedidoCompleto: any = null; // ✅ Usar pedido completo para extrair data/hora real
 
         try {
-          const pedidoCompleto = await fetchPedidoCompletoFromTiny(storeId, pedido.id);
+          pedidoCompleto = await fetchPedidoCompletoFromTiny(storeId, pedido.id);
+
+          // ✅ CORREÇÃO: Usar pedido completo para obter data/hora real
+          // O pedido completo geralmente tem dataCriacao com hora completa
+          if (pedidoCompleto) {
+            // Mesclar dados do pedido completo com o pedido da listagem
+            // O pedido completo tem mais informações, incluindo hora real
+            Object.assign(pedido, pedidoCompleto);
+            console.log(`[SyncTiny] ✅ Pedido completo recebido, dados mesclados para usar data/hora real`);
+          }
 
           if (pedidoCompleto && pedidoCompleto.itens && Array.isArray(pedidoCompleto.itens) && pedidoCompleto.itens.length > 0) {
             itensParaProcessar = pedidoCompleto.itens;
@@ -997,13 +1007,29 @@ export async function syncTinyOrders(
 
                   // ✅ CORREÇÃO CRÍTICA: TAMANHO E COR VÊM DAS VARIAÇÕES, NÃO DA CATEGORIA
                   // API v3 OFICIAL: produto.variacoes[] { id, grade: [{ chave, valor }] }
+                  // IMPORTANTE: variações podem vir como ARRAY ou como OBJETO JSON
                   // IMPORTANTE: Se não tivermos variacaoId, tentar TODAS as variações até encontrar tamanho/cor
-                  if (produtoCompleto.variacoes && Array.isArray(produtoCompleto.variacoes) && produtoCompleto.variacoes.length > 0) {
+                  let variacoesArray: any[] | null = null;
+                  
+                  if (produtoCompleto.variacoes) {
+                    if (Array.isArray(produtoCompleto.variacoes)) {
+                      // Caso 1: Variações como array
+                      variacoesArray = produtoCompleto.variacoes;
+                      console.log(`[SyncTiny] ✅ Variações recebidas como ARRAY (${variacoesArray.length} variações)`);
+                    } else if (typeof produtoCompleto.variacoes === 'object') {
+                      // Caso 2: Variações como objeto JSON - converter para array
+                      console.log(`[SyncTiny] ⚠️ Variações recebidas como OBJETO JSON, convertendo para array...`);
+                      variacoesArray = Object.values(produtoCompleto.variacoes);
+                      console.log(`[SyncTiny] ✅ Convertido para array (${variacoesArray.length} variações)`);
+                    }
+                  }
+
+                  if (variacoesArray && variacoesArray.length > 0) {
                     let variacaoEncontrada: any = null;
 
                     // ✅ ESTRATÉGIA 1: Buscar variação específica se tivermos variacaoId
                     if (variacaoId) {
-                      variacaoEncontrada = produtoCompleto.variacoes.find((v: any) =>
+                      variacaoEncontrada = variacoesArray.find((v: any) =>
                         v.id === variacaoId
                         || v.idVariacao === variacaoId
                         || String(v.id) === String(variacaoId)
@@ -1020,13 +1046,25 @@ export async function syncTinyOrders(
                     // ✅ ESTRATÉGIA 2: Se não encontrou variação específica ou não tem variacaoId, 
                     // tentar TODAS as variações até encontrar tamanho e cor
                     if (!variacaoEncontrada) {
-                      console.log(`[SyncTiny] 🔍 Tentando todas as ${produtoCompleto.variacoes.length} variações para encontrar tamanho/cor...`);
+                      console.log(`[SyncTiny] 🔍 Tentando todas as ${variacoesArray.length} variações para encontrar tamanho/cor...`);
 
-                      for (const variacao of produtoCompleto.variacoes) {
+                      for (const variacao of variacoesArray) {
                         if (tamanho && cor) break; // Já encontrou ambos, parar
 
-                        if (variacao.grade && Array.isArray(variacao.grade)) {
-                          for (const atributo of variacao.grade) {
+                        // Verificar se grade é array ou objeto
+                        let gradeArray: any[] | null = null;
+                        if (variacao.grade) {
+                          if (Array.isArray(variacao.grade)) {
+                            gradeArray = variacao.grade;
+                          } else if (typeof variacao.grade === 'object') {
+                            // Grade como objeto JSON - converter para array
+                            gradeArray = Object.values(variacao.grade);
+                            console.log(`[SyncTiny] ⚠️ Grade recebida como OBJETO JSON, convertendo para array...`);
+                          }
+                        }
+
+                        if (gradeArray && gradeArray.length > 0) {
+                          for (const atributo of gradeArray) {
                             // ✅ CORREÇÃO: Tentar múltiplas formas de acessar chave e valor
                             const chave = String(
                               atributo.chave
@@ -1089,25 +1127,39 @@ export async function syncTinyOrders(
 
                       // ✅ LOG FINAL: Verificar se conseguimos extrair
                       if (!tamanho && !cor) {
-                        console.warn(`[SyncTiny] ⚠️ Nenhum tamanho ou cor extraído após tentar todas as ${produtoCompleto.variacoes.length} variações.`);
-                        console.warn(`[SyncTiny] ⚠️ Estrutura das variações:`, produtoCompleto.variacoes.map((v: any) => ({
+                        console.warn(`[SyncTiny] ⚠️ Nenhum tamanho ou cor extraído após tentar todas as ${variacoesArray.length} variações.`);
+                        console.warn(`[SyncTiny] ⚠️ Estrutura das variações:`, variacoesArray.map((v: any) => ({
                           id: v.id,
                           tem_grade: !!v.grade,
-                          grade_length: v.grade?.length || 0,
-                          grade_preview: v.grade?.slice(0, 3).map((g: any) => ({ chave: g.chave || g.key, valor: g.valor || g.value }))
+                          grade_type: Array.isArray(v.grade) ? 'array' : typeof v.grade,
+                          grade_length: Array.isArray(v.grade) ? v.grade.length : (typeof v.grade === 'object' ? Object.keys(v.grade).length : 0),
+                          grade_preview: Array.isArray(v.grade) 
+                            ? v.grade.slice(0, 3).map((g: any) => ({ chave: g.chave || g.key, valor: g.valor || g.value }))
+                            : (typeof v.grade === 'object' ? Object.values(v.grade).slice(0, 3) : [])
                         })));
                       } else {
                         console.log(`[SyncTiny] ✅ Extração concluída: tamanho="${tamanho || 'não encontrado'}", cor="${cor || 'não encontrada'}"`);
                       }
                     } else {
                       // ✅ ESTRATÉGIA 3: Se encontrou variação específica, extrair dela
-                      if (variacaoEncontrada && variacaoEncontrada.grade && Array.isArray(variacaoEncontrada.grade)) {
+                      let gradeArray: any[] | null = null;
+                      if (variacaoEncontrada.grade) {
+                        if (Array.isArray(variacaoEncontrada.grade)) {
+                          gradeArray = variacaoEncontrada.grade;
+                        } else if (typeof variacaoEncontrada.grade === 'object') {
+                          // Grade como objeto JSON - converter para array
+                          gradeArray = Object.values(variacaoEncontrada.grade);
+                          console.log(`[SyncTiny] ⚠️ Grade da variação específica recebida como OBJETO JSON, convertendo...`);
+                        }
+                      }
+
+                      if (gradeArray && gradeArray.length > 0) {
                         console.log(`[SyncTiny] 🔍 Processando grade da variação específica (ID: ${variacaoEncontrada.id}):`, {
-                          quantidade_atributos: variacaoEncontrada.grade.length,
-                          atributos: variacaoEncontrada.grade.map((a: any) => ({ chave: a.chave || a.key, valor: a.valor || a.value })),
+                          quantidade_atributos: gradeArray.length,
+                          atributos: gradeArray.map((a: any) => ({ chave: a.chave || a.key, valor: a.valor || a.value })),
                         });
 
-                        for (const atributo of variacaoEncontrada.grade) {
+                        for (const atributo of gradeArray) {
                           const chave = String(
                             atributo.chave
                             || atributo.key
@@ -1437,64 +1489,126 @@ export async function syncTinyOrders(
           numero_ecommerce: (pedido.ecommerce?.numeroPedidoEcommerce || pedido.numero_ecommerce)?.toString() || null,
           situacao: pedido.situacao?.toString() || null, // API v3 retorna número (8, 0, 3, 4, 1, 7, 5, 6, 2, 9)
           data_pedido: (() => {
-            // ✅ PRIORIDADE: Buscar dataCriacao primeiro (pode ter hora completa)
-            // API v3 oficial usa: data (data de criação), dataFaturamento, dataEntrega
-            // IMPORTANTE: Tentar buscar data com hora completa primeiro
-            let data = pedido.dataCriacao  // Priorizar dataCriacao (pode ter hora)
-              || pedido.data_criacao
-              || pedido.data  // API v3 oficial (camelCase)
-              || pedido.dataFaturamento  // Data de faturamento
-              || pedido.data_pedido  // Fallback para snake_case
-              || pedido.dataPedido
-              || pedido.data_criacao_pedido
-              || null;
+            // ✅ CORREÇÃO CRÍTICA: Priorizar data do pedido completo (tem hora real)
+            // O pedido completo geralmente tem dataCriacao com hora completa
+            // API v3 oficial usa: data (data de criação), dataCriacao, dataFaturamento
+            // IMPORTANTE: Buscar data com hora completa do pedido completo primeiro
+            
+            // ✅ ESTRATÉGIA: Tentar múltiplas fontes de data, priorizando as que têm hora
+            let data = null;
+            let temHoraReal = false;
+
+            // 1. Tentar dataCriacao do pedido completo (geralmente tem hora completa)
+            if (pedidoCompleto?.dataCriacao) {
+              data = pedidoCompleto.dataCriacao;
+              const horaPart = data.split('T')?.[1]?.split(/[+\-Z]/)?.[0];
+              temHoraReal = horaPart && !horaPart.startsWith('00:00:00');
+              if (temHoraReal) {
+                console.log(`[SyncTiny] ✅ Data com hora real encontrada em pedidoCompleto.dataCriacao: "${data}"`);
+                return data; // Retornar imediatamente se tem hora real
+              }
+            }
+
+            // 2. Tentar dataCriacao do pedido original
+            if (!data || !temHoraReal) {
+              data = pedido.dataCriacao || pedido.data_criacao || null;
+              if (data) {
+                const horaPart = data.split('T')?.[1]?.split(/[+\-Z]/)?.[0];
+                temHoraReal = horaPart && !horaPart.startsWith('00:00:00');
+                if (temHoraReal) {
+                  console.log(`[SyncTiny] ✅ Data com hora real encontrada em pedido.dataCriacao: "${data}"`);
+                  return data;
+                }
+              }
+            }
+
+            // 3. Tentar data do pedido completo
+            if (!data || !temHoraReal) {
+              data = pedidoCompleto?.data || null;
+              if (data) {
+                const horaPart = data.split('T')?.[1]?.split(/[+\-Z]/)?.[0];
+                temHoraReal = horaPart && !horaPart.startsWith('00:00:00');
+                if (temHoraReal) {
+                  console.log(`[SyncTiny] ✅ Data com hora real encontrada em pedidoCompleto.data: "${data}"`);
+                  return data;
+                }
+              }
+            }
+
+            // 4. Tentar outros campos do pedido original
+            if (!data) {
+              data = pedido.data  // API v3 oficial (camelCase)
+                || pedido.dataFaturamento  // Data de faturamento
+                || pedido.data_pedido  // Fallback para snake_case
+                || pedido.dataPedido
+                || pedido.data_criacao_pedido
+                || null;
+            }
 
             if (!data) {
               console.warn(`[SyncTiny] ⚠️ Data não encontrada no pedido ${pedido.id || pedido.numeroPedido || pedido.numero}`);
               return null;
             }
 
-            console.log(`[SyncTiny] 📅 Data bruta recebida: "${data}" (tipo: ${typeof data})`);
+            console.log(`[SyncTiny] 📅 Data bruta recebida: "${data}" (tipo: ${typeof data}, tem hora real: ${temHoraReal})`);
 
             // ✅ CORREÇÃO: Lidar com diferentes formatos de data, preservando hora quando disponível
             try {
               // Se já tem formato ISO completo com T e timezone (inclui hora)
-              if (typeof data === 'string' && data.includes('T') && (data.includes('Z') || data.includes('+') || data.includes('-'))) {
-                // Verificar se tem hora além de 00:00:00
+              if (typeof data === 'string' && data.includes('T')) {
+                // Verificar se tem hora real além de 00:00:00
                 const horaPart = data.split('T')[1]?.split(/[+\-Z]/)[0];
-                if (horaPart && !horaPart.startsWith('00:00:00')) {
-                  console.log(`[SyncTiny] ✅ Data já em formato ISO completo COM HORA: "${data}"`);
+                temHoraReal = horaPart && !horaPart.startsWith('00:00:00');
+                
+                if (temHoraReal) {
+                  // Ajustar timezone se não tiver (assumir timezone do Brasil -03:00)
+                  if (!data.includes('Z') && !data.includes('+') && !data.includes('-', 10)) {
+                    data = data.replace(/T(\d{2}:\d{2}:\d{2})/, 'T$1-03:00');
+                  }
+                  console.log(`[SyncTiny] ✅ Data com hora real preservada: "${data}"`);
                   return data;
                 } else {
-                  console.log(`[SyncTiny] ⚠️ Data ISO completa mas sem hora real (00:00:00): "${data}"`);
-                  // Continuar para tentar outras fontes ou retornar como está
+                  console.log(`[SyncTiny] ⚠️ Data ISO completa mas sem hora real (${horaPart}): "${data}"`);
                 }
               }
 
-              // Se for apenas data (YYYY-MM-DD) - buscar hora de outras fontes ou usar 00:00:00
+              // Se for apenas data (YYYY-MM-DD) - tentar buscar hora de outras fontes
               if (typeof data === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data)) {
-                // Tentar buscar hora de dataAtualizacao ou outro campo que possa ter hora
+                // Tentar buscar hora de dataAtualizacao do pedido completo (mais confiável)
                 let horaCompleta = null;
 
-                // Tentar buscar de dataAtualizacao (pode ter hora de atualização mais recente)
-                if (pedido.dataAtualizacao && typeof pedido.dataAtualizacao === 'string' && pedido.dataAtualizacao.includes('T')) {
+                // Priorizar dataAtualizacao do pedido completo
+                if (pedidoCompleto?.dataAtualizacao && typeof pedidoCompleto.dataAtualizacao === 'string' && pedidoCompleto.dataAtualizacao.includes('T')) {
+                  const dataAtualizacao = pedidoCompleto.dataAtualizacao;
+                  const horaPart = dataAtualizacao.split('T')[1]?.split(/[+\-Z]/)[0];
+                  if (horaPart && !horaPart.startsWith('00:00:00')) {
+                    horaCompleta = horaPart;
+                    console.log(`[SyncTiny] ✅ Hora encontrada em pedidoCompleto.dataAtualizacao: "${horaCompleta}"`);
+                  }
+                }
+
+                // Se não encontrou, tentar dataAtualizacao do pedido original
+                if (!horaCompleta && pedido.dataAtualizacao && typeof pedido.dataAtualizacao === 'string' && pedido.dataAtualizacao.includes('T')) {
                   const dataAtualizacao = pedido.dataAtualizacao;
                   const horaPart = dataAtualizacao.split('T')[1]?.split(/[+\-Z]/)[0];
                   if (horaPart && !horaPart.startsWith('00:00:00')) {
                     horaCompleta = horaPart;
-                    console.log(`[SyncTiny] ✅ Hora encontrada em dataAtualizacao: "${horaCompleta}"`);
+                    console.log(`[SyncTiny] ✅ Hora encontrada em pedido.dataAtualizacao: "${horaCompleta}"`);
                   }
                 }
 
-                // Se encontrou hora, usar; senão usar 00:00:00
+                // Se encontrou hora, usar
                 if (horaCompleta) {
                   const isoString = `${data}T${horaCompleta}-03:00`;
-                  console.log(`[SyncTiny] ✅ Data convertida com hora de dataAtualizacao: "${isoString}"`);
+                  console.log(`[SyncTiny] ✅ Data convertida com hora real: "${isoString}"`);
                   return isoString;
                 } else {
-                  // Usar 00:00:00 (meia-noite) no timezone do Brasil (-03:00)
+                  // ⚠️ AVISO: Sem hora disponível, mas não usar 00:00:00 fixo
+                  // Usar data atual (NOW) como fallback apenas se necessário
+                  // Ou usar meia-noite apenas como último recurso
                   const isoString = `${data}T00:00:00-03:00`;
-                  console.log(`[SyncTiny] ⚠️ Data sem hora disponível, usando meia-noite: "${isoString}"`);
+                  console.warn(`[SyncTiny] ⚠️ Data sem hora disponível, usando meia-noite como fallback: "${isoString}"`);
+                  console.warn(`[SyncTiny] ⚠️ NOTA: Se o horário estiver incorreto, verifique se o Tiny ERP retorna dataCriacao com hora completa`);
                   return isoString;
                 }
               }
@@ -1502,20 +1616,21 @@ export async function syncTinyOrders(
               // Tentar parsear qualquer outro formato
               const date = new Date(data);
               if (!isNaN(date.getTime())) {
-                // Se a data original tinha hora diferente de 00:00:00, preservar
+                // Verificar se tem hora real
                 const hora = date.getHours();
                 const minutos = date.getMinutes();
                 const segundos = date.getSeconds();
+                temHoraReal = hora !== 0 || minutos !== 0 || segundos !== 0;
 
-                if (hora !== 0 || minutos !== 0 || segundos !== 0) {
+                if (temHoraReal) {
                   // Data tem hora real, preservar
                   const isoString = date.toISOString();
                   console.log(`[SyncTiny] ✅ Data convertida para ISO com hora preservada: "${isoString}"`);
                   return isoString;
                 } else {
-                  // Data sem hora real, usar ISO padrão
+                  // Data sem hora real, converter para ISO mas avisar
                   const isoString = date.toISOString();
-                  console.log(`[SyncTiny] ⚠️ Data convertida para ISO sem hora real: "${isoString}"`);
+                  console.warn(`[SyncTiny] ⚠️ Data convertida para ISO sem hora real: "${isoString}"`);
                   return isoString;
                 }
               }
