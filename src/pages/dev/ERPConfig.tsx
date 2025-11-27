@@ -240,24 +240,34 @@ const ERPConfig = () => {
 
     setSyncing(true);
     try {
+      // ✅ TODAS AS SINCRONIZAÇÕES MANUAIS RODAM EM BACKGROUND
       if (hardSync) {
-        toast.info("🔥 HARD SYNC ABSOLUTO: Sincronizando TODOS os pedidos desde sempre... Isso pode levar MUITO tempo (horas).");
+        toast.info("🔥 HARD SYNC ABSOLUTO: Iniciando sincronização em background... Você pode fechar a página! Isso pode levar HORAS.");
       } else {
-        toast.info("Sincronizando pedidos de venda (incremental)...");
+        toast.info("🔄 Sincronização incremental iniciada em background... Você pode fechar a página!");
       }
       
-      const result = await syncTinyOrders(selectedStoreId, {
-        limit: 100, // Registros por página
-        maxPages: hardSync ? 999 : 50, // Hard sync: até 999 páginas (99.900 pedidos)
-        incremental: !hardSync, // Hard sync: não é incremental
-        hardSync: hardSync, // Flag para hard sync
+      const { data, error } = await supabase.functions.invoke('sync-tiny-orders', {
+        body: {
+          store_id: selectedStoreId,
+          sync_type: 'ORDERS',
+          hard_sync: hardSync,
+          data_inicio: hardSync ? '2010-01-01' : undefined,
+          max_pages: hardSync ? 99999 : 50,
+          limit: 100,
+          incremental: !hardSync,
+        },
       });
-      
-      if (result.success) {
-        toast.success(result.message);
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.success) {
+        toast.success(`✅ Sincronização iniciada em background! Você pode fechar a página. ${data.message || 'Processando...'}`);
         await fetchIntegration();
       } else {
-        toast.error(result.message);
+        throw new Error(data?.error || 'Erro ao iniciar sincronização');
       }
     } catch (error: any) {
       console.error("Erro ao sincronizar pedidos:", error);
@@ -280,23 +290,32 @@ const ERPConfig = () => {
 
     setSyncing(true);
     try {
+      // ✅ TODAS AS SINCRONIZAÇÕES MANUAIS RODAM EM BACKGROUND
       if (hardSync) {
-        toast.info("🔥 HARD SYNC ABSOLUTO: Sincronizando TODAS as clientes desde sempre... Isso pode levar MUITO tempo (horas).");
+        toast.info("🔥 HARD SYNC ABSOLUTO: Sincronizando TODAS as clientes em background... Você pode fechar a página! Isso pode levar HORAS.");
       } else {
-        toast.info("Sincronizando clientes...");
+        toast.info("🔄 Sincronização de clientes iniciada em background... Você pode fechar a página!");
       }
       
-      const result = await syncTinyContacts(selectedStoreId, {
-        limit: 100,
-        maxPages: hardSync ? 9999 : 50, // Hard sync: sem limite prático
-        hardSync: hardSync,
+      const { data, error } = await supabase.functions.invoke('sync-tiny-orders', {
+        body: {
+          store_id: selectedStoreId,
+          sync_type: 'CONTACTS',
+          hard_sync: hardSync,
+          max_pages: hardSync ? 9999 : 50,
+          limit: 100,
+        },
       });
-      
-      if (result.success) {
-        toast.success(result.message);
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.success) {
+        toast.success(`✅ Sincronização de clientes iniciada em background! Você pode fechar a página. ${data.message || 'Processando...'}`);
         await fetchIntegration();
       } else {
-        toast.error(result.message);
+        throw new Error(data?.error || 'Erro ao iniciar sincronização');
       }
     } catch (error: any) {
       console.error("Erro ao sincronizar clientes:", error);

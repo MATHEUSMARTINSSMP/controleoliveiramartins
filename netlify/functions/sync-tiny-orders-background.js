@@ -50,7 +50,7 @@ exports.handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body || '{}');
-    const { store_id, data_inicio, incremental = true, limit = 50, max_pages = 2 } = body;
+    const { store_id, data_inicio, incremental = true, limit = 50, max_pages = 2, hard_sync = false } = body;
 
     if (!store_id) {
       return {
@@ -111,20 +111,27 @@ exports.handler = async (event, context) => {
     // Usar o proxy Netlify Function para evitar CORS
     const proxyUrl = `${process.env.URL || 'https://eleveaone.com.br'}/.netlify/functions/erp-api-proxy`;
     
-    // Calcular data de início se não fornecida
+    // ✅ Calcular data de início se não fornecida
     let dataInicioSync = data_inicio;
     if (!dataInicioSync) {
-      const dozeHorasAtras = new Date();
-      dozeHorasAtras.setHours(dozeHorasAtras.getHours() - 12);
-      dataInicioSync = dozeHorasAtras.toISOString().split('T')[0];
+      if (hard_sync) {
+        // Hard sync: desde 2010-01-01
+        dataInicioSync = '2010-01-01';
+        console.log(`[SyncBackground] 🔥 HARD SYNC: Buscando desde ${dataInicioSync}`);
+      } else {
+        // Sincronização normal: últimas 12 horas
+        const dozeHorasAtras = new Date();
+        dozeHorasAtras.setHours(dozeHorasAtras.getHours() - 12);
+        dataInicioSync = dozeHorasAtras.toISOString().split('T')[0];
+      }
     }
 
-    console.log(`[SyncBackground] 📅 Buscando pedidos desde: ${dataInicioSync}`);
+    console.log(`[SyncBackground] 📅 Buscando pedidos desde: ${dataInicioSync} (hard_sync: ${hard_sync}, max_pages: ${max_pages})`);
 
     // Buscar pedidos do Tiny ERP
     let allPedidos = [];
     let currentPage = 1;
-    const maxPages = max_pages || 2;
+    const maxPages = max_pages || (hard_sync ? 99999 : 2); // Hard sync: muito mais páginas
     let hasMore = true;
 
     while (hasMore && currentPage <= maxPages) {

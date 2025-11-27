@@ -1,10 +1,9 @@
 /**
- * Supabase Edge Function: Sincronização Automática de Pedidos Tiny ERP
+ * Supabase Edge Function: Sincronização de Pedidos/Clientes Tiny ERP
  * 
- * Esta função roda em background (agendada via pg_cron) para sincronizar
- * pedidos do Tiny ERP mesmo quando a página está fechada.
- * 
- * Execução: A cada 30 minutos (configurável)
+ * Esta função suporta:
+ * 1. Sincronização MANUAL (chamada do frontend) - roda em background
+ * 2. Sincronização AUTOMÁTICA (agendada via pg_cron)
  * 
  * Documentação: https://supabase.com/docs/guides/functions
  */
@@ -45,6 +44,112 @@ serve(async (req) => {
       }
     })
 
+    // ✅ DETECTAR SE É CHAMADA MANUAL (HARD SYNC) OU AUTOMÁTICA (CRON)
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Se não tiver body, é chamada automática (cron)
+      body = {};
+    }
+
+    const isManualSync = body.store_id && (body.sync_type === 'ORDERS' || body.sync_type === 'CONTACTS');
+    const syncType = body.sync_type || 'ORDERS'; // 'ORDERS' ou 'CONTACTS'
+    
+    if (isManualSync) {
+      // ✅ SINCRONIZAÇÃO MANUAL (chamada do frontend) - roda em background
+      console.log(`[SyncTiny] 🔥 SINCRONIZAÇÃO MANUAL ${syncType} iniciada em background...`);
+      
+      const storeId = body.store_id;
+      const hardSync = body.hard_sync === true;
+      
+      // Buscar dados da loja
+      const { data: storeData } = await supabase
+        .schema('sistemaretiradas')
+        .from('stores')
+        .select('id, name')
+        .eq('id', storeId)
+        .single();
+      
+      if (!storeData) {
+        throw new Error(`Loja ${storeId} não encontrada`);
+      }
+      
+      // Buscar integração
+      const { data: integration } = await supabase
+        .schema('sistemaretiradas')
+        .from('erp_integrations')
+        .select('*')
+        .eq('store_id', storeId)
+        .eq('sistema_erp', 'TINY')
+        .eq('sync_status', 'CONNECTED')
+        .single();
+      
+      if (!integration) {
+        throw new Error(`Integração não encontrada ou não conectada para loja ${storeData.name}`);
+      }
+      
+      const netlifyUrl = Deno.env.get('NETLIFY_FUNCTION_URL') || 'https://eleveaone.com.br'
+      
+      // ✅ Determinar qual Netlify Function chamar
+      const functionName = syncType === 'CONTACTS' ? 'sync-tiny-contacts-background' : 'sync-tiny-orders-background';
+      const syncUrl = `${netlifyUrl}/.netlify/functions/${functionName}`;
+      
+      // ✅ Parâmetros para pedidos
+      let syncBody: any = {
+        store_id: storeId,
+      };
+      
+      if (syncType === 'ORDERS') {
+        syncBody = {
+          ...syncBody,
+          data_inicio: hardSync ? (body.data_inicio || '2010-01-01') : body.data_inicio,
+          incremental: body.incremental !== undefined ? body.incremental : !hardSync,
+          limit: body.limit || 100,
+          max_pages: hardSync ? (body.max_pages || 99999) : (body.max_pages || 50),
+          hard_sync: hardSync,
+        };
+      } else if (syncType === 'CONTACTS') {
+        syncBody = {
+          ...syncBody,
+          limit: body.limit || 100,
+          max_pages: hardSync ? (body.max_pages || 9999) : (body.max_pages || 50),
+          hard_sync: hardSync,
+        };
+      }
+      
+      console.log(`[SyncTiny] 📡 Chamando Netlify Function ${functionName} para sincronizar loja ${storeData.name}...`);
+      console.log(`[SyncTiny] 📋 Parâmetros:`, JSON.stringify(syncBody, null, 2));
+      
+      // ✅ IMPORTANTE: Chamar assíncrono e retornar imediatamente (fire and forget)
+      // Isso permite que a função rode em background sem esperar a resposta
+      fetch(syncUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+        },
+        body: JSON.stringify(syncBody),
+      }).catch(err => {
+        console.error(`[SyncTiny] ❌ Erro ao iniciar sync em background:`, err);
+      });
+      
+      // Retornar imediatamente (fire and forget)
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Sincronização ${syncType === 'ORDERS' ? 'de pedidos' : 'de clientes'} iniciada em background para loja ${storeData.name}. Você pode fechar a página!`,
+          sync_type: syncType,
+          hard_sync: hardSync,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
+
+    // ✅ SINCRONIZAÇÃO AUTOMÁTICA (via cron)
     console.log('[SyncTinyOrders] 🚀 Iniciando sincronização automática...')
 
     // 1. Buscar todas as lojas com integração ERP ativa
@@ -98,15 +203,12 @@ serve(async (req) => {
       console.log(`[SyncTinyOrders] 🔄 Sincronizando loja: ${storeName} (${storeId})`)
 
       try {
-        // Calcular data de início (últimas 12 horas)
+        // Sincronização automática: últimas 12 horas
         const dozeHorasAtras = new Date()
         dozeHorasAtras.setHours(dozeHorasAtras.getHours() - 12)
         const dataInicio = dozeHorasAtras.toISOString().split('T')[0]
 
         // ✅ ESTRATÉGIA: Chamar Netlify Function que tem a lógica completa de sincronização
-        // Isso reutiliza o código existente sem duplicação
-        // A Netlify Function chama syncTinyOrders que já está implementado
-        
         const netlifyUrl = Deno.env.get('NETLIFY_FUNCTION_URL') || 'https://eleveaone.com.br'
         const syncUrl = `${netlifyUrl}/.netlify/functions/sync-tiny-orders-background`
         
@@ -227,4 +329,3 @@ serve(async (req) => {
     )
   }
 })
-

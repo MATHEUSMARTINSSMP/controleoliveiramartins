@@ -336,22 +336,31 @@ export default function ERPDashboard() {
         mensagem = 'Sincronização total (últimos 90 dias)...';
       }
       
-      toast.info(mensagem);
+      // ✅ TODAS AS SINCRONIZAÇÕES MANUAIS RODAM EM BACKGROUND
+      toast.info(`${mensagem} (em background - você pode fechar a página)`);
 
-      const result = await syncTinyOrders(selectedStoreId, {
-        dataInicio,
-        incremental: periodo === 'total', // Total usa incremental para só atualizar mudanças
-        hardSync: false,
-        limit: periodo === 'agora' ? 1 : 100, // ✅ CORREÇÃO: Agora: APENAS 1 pedido (última venda)
-        maxPages: periodo === 'agora' ? 1 : (periodo === 'semana' ? 10 : 50), // Agora: 1 página com 1 pedido
+      const { data, error } = await supabase.functions.invoke('sync-tiny-orders', {
+        body: {
+          store_id: selectedStoreId,
+          sync_type: 'ORDERS',
+          hard_sync: false,
+          data_inicio: dataInicio,
+          incremental: periodo === 'total',
+          limit: periodo === 'agora' ? 1 : 100,
+          max_pages: periodo === 'agora' ? 1 : (periodo === 'semana' ? 10 : 50),
+        },
       });
 
-      if (result.success) {
-        toast.success(result.message);
+      if (error) {
+        throw error;
+      }
+
+      if (data?.success) {
+        toast.success(`✅ ${data.message || 'Sincronização iniciada em background! Você pode fechar a página.'}`);
         await fetchKPIs();
         await fetchLastSync();
       } else {
-        toast.error(result.message);
+        throw new Error(data?.error || 'Erro ao iniciar sincronização');
       }
     } catch (error: any) {
       console.error('Erro ao sincronizar pedidos:', error);
