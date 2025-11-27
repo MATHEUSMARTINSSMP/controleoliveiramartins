@@ -192,8 +192,10 @@ function extrairCorDaDescricao(descricao) {
   const coresOrdenadas = [...CORES_VALIDAS].sort((a, b) => b.length - a.length);
   
   // ✅ ESTRATÉGIA 1: Buscar cores compostas completas primeiro (ex: "OFF WHITE", "VERDE MILITAR")
+  // Essas devem ser encontradas antes de cores simples para evitar falsos positivos
   for (const corValida of coresOrdenadas) {
-    // Normalizar espaços e hífens: "OFF WHITE" também aceita "OFF-WHITE"
+    // Normalizar espaços e hífens: "OFF WHITE" também aceita "OFF-WHITE" ou "OFFWHITE"
+    // Criar regex flexível que aceita espaço, hífen ou sem separador
     const corNormalizada = corValida.replace(/\s+/g, '[\\s\\-]?'); // Aceitar espaço ou hífen opcional
     // Usar word boundary para evitar match parcial em palavras maiores
     const regex = new RegExp(`\\b${corNormalizada.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
@@ -204,13 +206,20 @@ function extrairCorDaDescricao(descricao) {
   }
   
   // ✅ ESTRATÉGIA 2: Buscar cores simples (apenas se não encontrar composta)
-  // Mas evitar cores muito curtas que podem ser parte de outras palavras
+  // Mas evitar cores muito curtas que podem ser falsos positivos
   for (const corValida of coresOrdenadas) {
-    // Ignorar cores muito curtas que podem ser falsos positivos (ex: "OFF" sozinho)
-    if (corValida.length <= 3 && !['OFF WHITE', 'OFF DARK', 'OFF BLUE'].some(c => corValida.includes(c))) {
-      continue; // Pular cores muito curtas que não são compostas
+    // ✅ IGNORAR cores muito curtas que podem ser falsos positivos
+    // Ex: "OFF" sozinho não é cor válida, apenas "OFF WHITE", "OFF DARK", "OFF BLUE"
+    if (corValida.length <= 3) {
+      // Verificar se é uma cor válida curta que pode estar sozinha (ex: "RED", "BLUE")
+      // Mas ignorar "OFF" que sempre precisa estar acompanhado
+      if (corValida === 'OFF') {
+        continue; // Ignorar "OFF" isolado
+      }
+      // Outras cores curtas como "RED", "BLUE" são válidas, continuar
     }
     
+    // Buscar palavra completa (word boundary)
     const regex = new RegExp(`\\b${corValida.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
     
     if (regex.test(descricaoUpper)) {
