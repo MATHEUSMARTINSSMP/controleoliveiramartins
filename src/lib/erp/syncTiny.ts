@@ -20,28 +20,28 @@ const TAMANHOS_VALIDOS = [
 // ✅ FUNÇÃO PARA NORMALIZAR TAMANHOS (SEMPRE EM MAIÚSCULA)
 function normalizeTamanho(tamanho: string | null | undefined): string | null {
   if (!tamanho) return null;
-  
+
   // Converter para maiúscula e remover espaços
   const normalized = String(tamanho)
     .toUpperCase()
     .trim()
     .replace(/[^A-Z0-9]/g, ''); // Remove caracteres especiais, mantém apenas letras maiúsculas e números
-  
+
   // Verificar se está na lista de tamanhos válidos (comparação case-insensitive)
-  const match = TAMANHOS_VALIDOS.find(t => 
-    normalized === t || 
-    normalized.includes(t) || 
+  const match = TAMANHOS_VALIDOS.find(t =>
+    normalized === t ||
+    normalized.includes(t) ||
     t.includes(normalized) ||
     normalized.replace(/[^A-Z0-9]/g, '') === t.replace(/[^A-Z0-9]/g, '')
   );
-  
+
   if (match) {
     // Retornar o tamanho normalizado padrão em MAIÚSCULA
     if (match === 'UNICO' || match === 'ÚNICO') return 'U';
     if (match === 'UNIDADE') return 'U';
     return match.toUpperCase();
   }
-  
+
   // Se não encontrou match exato, retornar o tamanho original em MAIÚSCULA
   return String(tamanho).trim().toUpperCase();
 }
@@ -250,9 +250,9 @@ async function fetchContatoCompletoFromTiny(
     }
 
     console.log(`[SyncTiny] 🔍 Buscando detalhes completos do contato ${contatoId} via GET /contatos/${contatoId}...`);
-    
+
     const response = await callERPAPI(storeId, `/contatos/${contatoId}`, {});
-    
+
     if (!response) {
       console.warn(`[SyncTiny] ⚠️ Resposta vazia ao buscar contato ${contatoId}`);
       return null;
@@ -272,18 +272,18 @@ async function fetchContatoCompletoFromTiny(
     // Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html#/Contatos/ObterContatoAction
     // A resposta é o objeto contato diretamente: { nome, telefone, celular, dataNascimento, ... }
     const contatoCompleto = response;
-    
+
     console.log(`[SyncTiny] 📋 Contato extraído (response.contato || response):`, {
       tem_contato: !!contatoCompleto,
       tem_id: !!contatoCompleto?.id,
       chaves: contatoCompleto ? Object.keys(contatoCompleto).slice(0, 15) : [],
     });
-    
+
     if (!contatoCompleto || !contatoCompleto.id) {
       console.warn(`[SyncTiny] ⚠️ Detalhes do contato ${contatoId} não encontrados. Resposta:`, JSON.stringify(response).substring(0, 500));
       return null;
     }
-    
+
     console.log(`[SyncTiny] ✅ Detalhes completos recebidos para contato ${contatoId}:`, {
       nome: contatoCompleto.nome,
       tem_telefone: !!contatoCompleto.telefone,
@@ -576,13 +576,13 @@ export async function syncTinyOrders(
         const lastDate = new Date(lastSync.data_fim);
         const duasHorasAtras = new Date(lastDate);
         duasHorasAtras.setHours(duasHorasAtras.getHours() - 2); // 2 horas antes
-        
+
         // Se última sincronização foi há menos de 1 hora, usar apenas 1 hora atrás
         const agora = new Date();
         const tempoDesdeUltimaSync = agora.getTime() - new Date(lastSync.sync_at).getTime();
         const umaHoraAtras = new Date(agora);
         umaHoraAtras.setHours(umaHoraAtras.getHours() - 1);
-        
+
         if (tempoDesdeUltimaSync < 60 * 60 * 1000) {
           // Última sync foi há menos de 1 hora, usar apenas 1 hora atrás
           dataInicioSync = umaHoraAtras.toISOString().split('T')[0];
@@ -592,7 +592,7 @@ export async function syncTinyOrders(
           dataInicioSync = duasHorasAtras.toISOString().split('T')[0];
           console.log(`[SyncTiny] 🔄 Sincronização incremental desde: ${dataInicioSync}, último ID: ${ultimoTinyIdSync || 'N/A'}`);
         }
-        
+
         ultimoTinyIdSync = lastSync.ultimo_tiny_id_sincronizado || null;
       } else {
         // Se não há sincronização anterior, sincronizar últimos 3 dias (reduzido de 7 para ser mais rápido)
@@ -761,18 +761,18 @@ export async function syncTinyOrders(
         // API v3 OFICIAL: itens[] = { produto: { id, sku, descricao }, quantidade: number, valorUnitario: number, infoAdicional }
         // ⚠️ IMPORTANTE: Os itens do pedido NÃO trazem categoria, marca, subcategoria
         // Para obter esses dados, precisamos buscar detalhes completos via GET /produtos/{idProduto}
-        
+
         // ✅ CORREÇÃO CRÍTICA: SEMPRE buscar detalhes completos para obter itens
         // Segundo documentação oficial Tiny ERP v3: GET /pedidos (listagem) NÃO retorna itens
         // Itens só vêm em GET /pedidos/{id} (detalhes completos)
         // Portanto, SEMPRE precisamos buscar detalhes completos de cada pedido
-        
+
         console.log(`[SyncTiny] 🔍 Buscando detalhes completos do pedido ${pedido.id} para obter itens...`);
         let itensParaProcessar: any[] = [];
-        
+
         try {
           const pedidoCompleto = await fetchPedidoCompletoFromTiny(storeId, pedido.id);
-          
+
           if (pedidoCompleto && pedidoCompleto.itens && Array.isArray(pedidoCompleto.itens) && pedidoCompleto.itens.length > 0) {
             itensParaProcessar = pedidoCompleto.itens;
             console.log(`[SyncTiny] ✅ Encontrados ${itensParaProcessar.length} itens nos detalhes completos do pedido ${pedido.id}`);
@@ -799,7 +799,7 @@ export async function syncTinyOrders(
         } catch (error) {
           console.error(`[SyncTiny] ❌ Erro ao buscar detalhes do pedido ${pedido.id} para obter itens:`, error);
         }
-        
+
         // Processar itens de forma assíncrona para buscar detalhes quando necessário
         const itensComCategorias = await Promise.all(
           itensParaProcessar.map(async (item: any) => {
@@ -815,42 +815,42 @@ export async function syncTinyOrders(
             // ✅ DADOS BÁSICOS (sempre disponíveis nos itens)
             const codigo = produto.sku || itemData.sku || produto.codigo || itemData.codigo || null;
             const descricao = produto.descricao || itemData.descricao || produto.nome || itemData.nome || null;
-            
+
             // ✅ EXTRAIR PRODUTO ID - Múltiplas tentativas conforme documentação
-            const produtoId = produto.id 
-              || itemData.produto_id 
+            const produtoId = produto.id
+              || itemData.produto_id
               || itemData.produto?.id
               || item.idProduto
               || item.produtoId
               || null;
-            
+
             // ✅ ALTERNATIVA 1: Verificar se categoria/marca já vêm no item do pedido
             // Alguns ERPs podem enviar dados básicos junto com o item
             let categoriaDoItem: string | null = null;
             let marcaDoItem: string | null = null;
             let subcategoriaDoItem: string | null = null;
-            
+
             // Tentar extrair do item diretamente (pode vir em diferentes formatos)
             if (item.categoria) {
-              categoriaDoItem = typeof item.categoria === 'string' 
-                ? item.categoria 
+              categoriaDoItem = typeof item.categoria === 'string'
+                ? item.categoria
                 : item.categoria.nome || item.categoria.descricao || null;
             }
             if (item.marca) {
-              marcaDoItem = typeof item.marca === 'string' 
-                ? item.marca 
+              marcaDoItem = typeof item.marca === 'string'
+                ? item.marca
                 : item.marca.nome || item.marca.descricao || null;
             }
             if (item.subcategoria) {
-              subcategoriaDoItem = typeof item.subcategoria === 'string' 
-                ? item.subcategoria 
+              subcategoriaDoItem = typeof item.subcategoria === 'string'
+                ? item.subcategoria
                 : item.subcategoria.nome || item.subcategoria.descricao || null;
             }
-            
+
             // ✅ TENTAR EXTRAIR TAMANHO E COR DIRETAMENTE DO ITEM (pode vir no item do pedido)
             let tamanhoDoItem: string | null = null;
             let corDoItem: string | null = null;
-            
+
             if (item.tamanho) {
               tamanhoDoItem = typeof item.tamanho === 'string' ? item.tamanho : String(item.tamanho);
             } else if (item.variacao?.tamanho) {
@@ -866,7 +866,7 @@ export async function syncTinyOrders(
                 }
               }
             }
-            
+
             if (item.cor) {
               corDoItem = typeof item.cor === 'string' ? item.cor : String(item.cor);
             } else if (item.variacao?.cor) {
@@ -882,7 +882,7 @@ export async function syncTinyOrders(
                 }
               }
             }
-            
+
             // Log detalhado para debug
             console.log(`[SyncTiny] 🔍 Processando item:`, {
               produtoId,
@@ -910,8 +910,8 @@ export async function syncTinyOrders(
 
             // ✅ EXTRAIR ID DA VARIAÇÃO DO ITEM (se disponível)
             // O item do pedido pode ter um ID de variação específico
-            const variacaoId = item.variacao?.id 
-              || item.variacaoId 
+            const variacaoId = item.variacao?.id
+              || item.variacaoId
               || item.idVariacao
               || item.variacao_id
               || itemData?.variacao?.id
@@ -925,7 +925,7 @@ export async function syncTinyOrders(
               try {
                 console.log(`[SyncTiny] 🔍 Buscando detalhes completos do produto ${produtoId} (categoria: ${categoria || 'não encontrada'}, marca: ${marca || 'não encontrada'}, tamanho: ${tamanho || 'não encontrado'}, cor: ${cor || 'não encontrada'}, variacaoId: ${variacaoId || 'não especificado'})...`);
                 produtoCompleto = await fetchProdutoCompletoFromTiny(storeId, produtoId);
-                
+
                 if (produtoCompleto) {
                   console.log(`[SyncTiny] ✅ Detalhes do produto ${produtoId} recebidos. Estrutura:`, {
                     tem_categoria: !!produtoCompleto.categoria,
@@ -937,32 +937,32 @@ export async function syncTinyOrders(
                     marca_completa: produtoCompleto.marca,
                     chaves_disponiveis: Object.keys(produtoCompleto).slice(0, 30),
                   });
-                  
+
                   // ✅ CATEGORIA - API v3 OFICIAL: produto.categoria { id, nome, caminhoCompleto }
                   // Só atualizar se não tivermos categoria do item
                   if (!categoria && produtoCompleto.categoria) {
                     // Tentar múltiplas formas de extrair categoria
-                    categoria = produtoCompleto.categoria.nome 
-                      || produtoCompleto.categoria.descricao 
+                    categoria = produtoCompleto.categoria.nome
+                      || produtoCompleto.categoria.descricao
                       || produtoCompleto.categoria.descricaoCompleta
                       || (typeof produtoCompleto.categoria === 'string' ? produtoCompleto.categoria : null)
                       || null;
-                    
+
                     // Extrair subcategoria do caminho completo (ex: "Calça > Calça Alfaiataria")
                     // REGRA: Tudo antes do último ">" é categoria, o último item é subcategoria
                     if (produtoCompleto.categoria.caminhoCompleto) {
                       const caminhoCompletoStr = String(produtoCompleto.categoria.caminhoCompleto).trim();
                       const caminho = caminhoCompletoStr.split(' > ').map(s => s.trim()).filter(s => s.length > 0);
-                      
+
                       console.log(`[SyncTiny] 🔍 Processando caminhoCompleto: "${caminhoCompletoStr}" → Array:`, caminho);
-                      
+
                       if (caminho.length > 1) {
                         // Último item é sempre a subcategoria
                         subcategoria = caminho[caminho.length - 1];
-                        
+
                         // Tudo antes do último ">" é a categoria (juntar todos os níveis anteriores)
                         categoria = caminho.slice(0, -1).join(' > ');
-                        
+
                         console.log(`[SyncTiny] ✅ Separado: categoria="${categoria}", subcategoria="${subcategoria}"`);
                       } else if (caminho.length === 1) {
                         // Se só tem um nível, é apenas categoria (sem subcategoria)
@@ -971,7 +971,7 @@ export async function syncTinyOrders(
                         console.log(`[SyncTiny] ✅ Apenas categoria: "${categoria}" (sem subcategoria)`);
                       }
                     }
-                    
+
                     console.log(`[SyncTiny] ✅ Categoria extraída dos detalhes para produto ${produtoId}: ${categoria}${subcategoria ? ` | Subcategoria: ${subcategoria}` : ''}`);
                   } else if (produtoCompleto.categoria && categoria) {
                     console.log(`[SyncTiny] ℹ️ Categoria já disponível do item (${categoria}), mantendo.`);
@@ -983,7 +983,7 @@ export async function syncTinyOrders(
                   // Só atualizar se não tivermos marca do item
                   if (!marca && produtoCompleto.marca) {
                     // Tentar múltiplas formas de extrair marca
-                    marca = produtoCompleto.marca.nome 
+                    marca = produtoCompleto.marca.nome
                       || produtoCompleto.marca.descricao
                       || (typeof produtoCompleto.marca === 'string' ? produtoCompleto.marca : null)
                       || null;
@@ -999,15 +999,15 @@ export async function syncTinyOrders(
                   // IMPORTANTE: Se não tivermos variacaoId, tentar TODAS as variações até encontrar tamanho/cor
                   if (produtoCompleto.variacoes && Array.isArray(produtoCompleto.variacoes) && produtoCompleto.variacoes.length > 0) {
                     let variacaoEncontrada: any = null;
-                    
+
                     // ✅ ESTRATÉGIA 1: Buscar variação específica se tivermos variacaoId
                     if (variacaoId) {
-                      variacaoEncontrada = produtoCompleto.variacoes.find((v: any) => 
-                        v.id === variacaoId 
+                      variacaoEncontrada = produtoCompleto.variacoes.find((v: any) =>
+                        v.id === variacaoId
                         || v.idVariacao === variacaoId
                         || String(v.id) === String(variacaoId)
                       );
-                      
+
                       if (variacaoEncontrada) {
                         console.log(`[SyncTiny] ✅ Variação específica encontrada (ID: ${variacaoId})`);
                       } else {
@@ -1015,20 +1015,20 @@ export async function syncTinyOrders(
                         variacaoEncontrada = null; // Vai tentar todas abaixo
                       }
                     }
-                    
+
                     // ✅ ESTRATÉGIA 2: Se não encontrou variação específica ou não tem variacaoId, 
                     // tentar TODAS as variações até encontrar tamanho e cor
                     if (!variacaoEncontrada) {
                       console.log(`[SyncTiny] 🔍 Tentando todas as ${produtoCompleto.variacoes.length} variações para encontrar tamanho/cor...`);
-                      
+
                       for (const variacao of produtoCompleto.variacoes) {
                         if (tamanho && cor) break; // Já encontrou ambos, parar
-                        
+
                         if (variacao.grade && Array.isArray(variacao.grade)) {
                           for (const atributo of variacao.grade) {
                             // ✅ CORREÇÃO: Tentar múltiplas formas de acessar chave e valor
                             const chave = String(
-                              atributo.chave 
+                              atributo.chave
                               || atributo.key
                               || atributo.nome
                               || atributo.name
@@ -1036,22 +1036,22 @@ export async function syncTinyOrders(
                               || atributo.attribute
                               || ''
                             ).toLowerCase().trim();
-                            
+
                             const valor = String(
-                              atributo.valor 
+                              atributo.valor
                               || atributo.value
                               || atributo.descricao
                               || atributo.desc
                               || ''
                             ).trim();
-                            
+
                             if (!valor) continue; // Pular atributos sem valor
-                            
+
                             // ✅ BUSCAR TAMANHO - múltiplas variações de nome
                             if (!tamanho && (
-                              chave.includes('tamanho') || 
-                              chave.includes('size') || 
-                              chave === 'tamanho' || 
+                              chave.includes('tamanho') ||
+                              chave.includes('size') ||
+                              chave === 'tamanho' ||
                               chave === 'size' ||
                               chave.includes('tam') ||
                               chave === 'tam'
@@ -1059,24 +1059,24 @@ export async function syncTinyOrders(
                               tamanho = normalizeTamanho(valor); // ✅ NORMALIZAR para MAIÚSCULA
                               variacaoEncontrada = variacao; // Marcar qual variação tem o tamanho
                               console.log(`[SyncTiny] ✅ Tamanho extraído da variação ID ${variacao.id}: "${tamanho}" (chave: "${atributo.chave || atributo.key || 'N/A'}")`);
-                            } 
+                            }
                             // ✅ BUSCAR COR - múltiplas variações de nome
                             if (!cor && (
-                              chave.includes('cor') || 
-                              chave.includes('color') || 
-                              chave === 'cor' || 
+                              chave.includes('cor') ||
+                              chave.includes('color') ||
+                              chave === 'cor' ||
                               chave === 'color' ||
                               chave.includes('colour')
                             )) {
                               cor = String(valor).trim().toUpperCase(); // ✅ Normalizar cor para maiúscula
                               if (!variacaoEncontrada) variacaoEncontrada = variacao; // Marcar variação se ainda não tiver
                               console.log(`[SyncTiny] ✅ Cor extraída da variação ID ${variacao.id}: "${cor}" (chave: "${atributo.chave || atributo.key || 'N/A'}")`);
-                            } 
+                            }
                             // ✅ BUSCAR GÊNERO
                             if (!genero && (
-                              chave.includes('genero') || 
-                              chave.includes('gender') || 
-                              chave === 'genero' || 
+                              chave.includes('genero') ||
+                              chave.includes('gender') ||
+                              chave === 'genero' ||
                               chave === 'gender'
                             )) {
                               genero = valor;
@@ -1085,7 +1085,7 @@ export async function syncTinyOrders(
                           }
                         }
                       }
-                      
+
                       // ✅ LOG FINAL: Verificar se conseguimos extrair
                       if (!tamanho && !cor) {
                         console.warn(`[SyncTiny] ⚠️ Nenhum tamanho ou cor extraído após tentar todas as ${produtoCompleto.variacoes.length} variações.`);
@@ -1105,51 +1105,51 @@ export async function syncTinyOrders(
                           quantidade_atributos: variacaoEncontrada.grade.length,
                           atributos: variacaoEncontrada.grade.map((a: any) => ({ chave: a.chave || a.key, valor: a.valor || a.value })),
                         });
-                        
+
                         for (const atributo of variacaoEncontrada.grade) {
                           const chave = String(
-                            atributo.chave 
+                            atributo.chave
                             || atributo.key
                             || atributo.nome
                             || atributo.name
                             || ''
                           ).toLowerCase().trim();
-                          
+
                           const valor = String(
-                            atributo.valor 
+                            atributo.valor
                             || atributo.value
                             || atributo.descricao
                             || atributo.desc
                             || ''
                           ).trim();
-                          
+
                           if (!valor) continue;
-                          
+
                           if (!tamanho && (
-                            chave.includes('tamanho') || 
-                            chave.includes('size') || 
-                            chave === 'tamanho' || 
+                            chave.includes('tamanho') ||
+                            chave.includes('size') ||
+                            chave === 'tamanho' ||
                             chave === 'size' ||
                             chave.includes('tam') ||
                             chave === 'tam'
                           )) {
                             tamanho = normalizeTamanho(valor); // ✅ NORMALIZAR para MAIÚSCULA
                             console.log(`[SyncTiny] ✅ Tamanho extraído: "${tamanho}"`);
-                          } 
+                          }
                           if (!cor && (
-                            chave.includes('cor') || 
-                            chave.includes('color') || 
-                            chave === 'cor' || 
+                            chave.includes('cor') ||
+                            chave.includes('color') ||
+                            chave === 'cor' ||
                             chave === 'color' ||
                             chave.includes('colour')
                           )) {
                             cor = String(valor).trim().toUpperCase(); // ✅ Normalizar cor para maiúscula
                             console.log(`[SyncTiny] ✅ Cor extraída: "${cor}"`);
-                          } 
+                          }
                           if (!genero && (
-                            chave.includes('genero') || 
-                            chave.includes('gender') || 
-                            chave === 'genero' || 
+                            chave.includes('genero') ||
+                            chave.includes('gender') ||
+                            chave === 'genero' ||
                             chave === 'gender'
                           )) {
                             genero = valor;
@@ -1174,6 +1174,47 @@ export async function syncTinyOrders(
               } catch (error: any) {
                 console.warn(`[SyncTiny] ⚠️ Erro ao buscar detalhes do produto ${produtoId}:`, error.message);
                 // Continuar sem os detalhes - usar fallbacks abaixo
+              }
+            }
+
+            // ✅ ESTRATÉGIA 4 (FALLBACK): Extrair da descrição do produto
+            // Exemplo: "VESTIDO TIVOLI OFF-WHITE - 42" -> Tamanho: 42, Cor: OFF-WHITE
+            if (!tamanho || !cor) {
+              const descricao = itemData.descricao || itemData.produto?.descricao || '';
+              if (descricao) {
+                console.log(`[SyncTiny] 🔍 Tentando extrair variações da descrição: "${descricao}"`);
+
+                // 1. Tentar extrair TAMANHO no final (padrão " - 42" ou " - P")
+                // Regex para tamanhos numéricos (34-56) ou letras (PP-XGG)
+                const regexTamanho = /\s-\s([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO)$/i;
+                const matchTamanho = descricao.match(regexTamanho);
+
+                if (matchTamanho && matchTamanho[1]) {
+                  if (!tamanho) {
+                    tamanho = normalizeTamanho(matchTamanho[1]);
+                    console.log(`[SyncTiny] ✅ Tamanho extraído da descrição: "${tamanho}"`);
+                  }
+
+                  // 2. Tentar extrair COR (o que vem antes do tamanho)
+                  // Ex: "VESTIDO TIVOLI OFF-WHITE - 42" -> "VESTIDO TIVOLI OFF-WHITE"
+                  if (!cor) {
+                    const parteSemTamanho = descricao.substring(0, matchTamanho.index).trim();
+                    // Assumir que a cor é a última palavra ou conjunto de palavras após o último hífen (se houver outro hífen)
+                    // Ex: "VESTIDO - TIVOLI - OFF-WHITE" -> "OFF-WHITE"
+                    const partesPorHifen = parteSemTamanho.split(' - ');
+                    if (partesPorHifen.length > 1) {
+                      const possivelCor = partesPorHifen[partesPorHifen.length - 1].trim();
+                      // Validar se não é muito longo para ser uma cor (ex: < 20 chars)
+                      if (possivelCor.length < 20 && possivelCor.length > 2) {
+                        cor = possivelCor.toUpperCase();
+                        console.log(`[SyncTiny] ✅ Cor extraída da descrição (padrão hífen): "${cor}"`);
+                      }
+                    } else {
+                      // Se não tem hífen, tentar pegar a última palavra se parecer uma cor conhecida
+                      // (Lógica simplificada - melhor não chutar se não tiver certeza)
+                    }
+                  }
+                }
               }
             }
 
@@ -1295,7 +1336,7 @@ export async function syncTinyOrders(
         if (itensComCategorias.length === 0) {
           console.warn(`[SyncTiny] ⚠️ ATENÇÃO: Pedido ${pedido.id} foi salvo SEM ITENS!`);
         }
-        
+
         // Identificar vendedora/colaboradora
         let colaboradoraId: string | null = null;
         if (pedido.vendedor && pedido.vendedor.id) {
@@ -1343,14 +1384,14 @@ export async function syncTinyOrders(
         if (pedido.cliente) {
           // ✅ CORREÇÃO: Extrair telefone do pedido se não estiver no cliente
           // O telefone pode vir em pedido.cliente.telefone, pedido.clienteTelefone, ou já estar salvo em tiny_orders
-          const telefoneDoPedido = pedido.cliente.telefone 
+          const telefoneDoPedido = pedido.cliente.telefone
             || pedido.cliente.celular
             || pedido.clienteTelefone
             || pedido.clienteCelular
             || pedido.telefoneCliente
             || pedido.celularCliente
             || null;
-          
+
           // Se encontrou telefone no pedido mas não no cliente, adicionar ao objeto cliente
           if (telefoneDoPedido && !pedido.cliente.telefone && !pedido.cliente.celular) {
             console.log(`[SyncTiny] 📞 Telefone encontrado no pedido: ${telefoneDoPedido.substring(0, 15)}...`);
@@ -1361,7 +1402,7 @@ export async function syncTinyOrders(
               pedido.cliente.telefone = telefoneDoPedido;
             }
           }
-          
+
           clienteId = await syncTinyContact(storeId, pedido.cliente, tinyId);
           if (!clienteId) {
             console.warn(`[SyncTiny] ⚠️ Cliente não foi sincronizado: ${pedido.cliente.nome || 'Sem nome'}`);
@@ -1415,7 +1456,7 @@ export async function syncTinyOrders(
               if (typeof data === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data)) {
                 // Tentar buscar hora de dataAtualizacao ou outro campo que possa ter hora
                 let horaCompleta = null;
-                
+
                 // Tentar buscar de dataAtualizacao (pode ter hora de atualização mais recente)
                 if (pedido.dataAtualizacao && typeof pedido.dataAtualizacao === 'string' && pedido.dataAtualizacao.includes('T')) {
                   const dataAtualizacao = pedido.dataAtualizacao;
@@ -1425,7 +1466,7 @@ export async function syncTinyOrders(
                     console.log(`[SyncTiny] ✅ Hora encontrada em dataAtualizacao: "${horaCompleta}"`);
                   }
                 }
-                
+
                 // Se encontrou hora, usar; senão usar 00:00:00
                 if (horaCompleta) {
                   const isoString = `${data}T${horaCompleta}-03:00`;
@@ -1446,7 +1487,7 @@ export async function syncTinyOrders(
                 const hora = date.getHours();
                 const minutos = date.getMinutes();
                 const segundos = date.getSeconds();
-                
+
                 if (hora !== 0 || minutos !== 0 || segundos !== 0) {
                   // Data tem hora real, preservar
                   const isoString = date.toISOString();
@@ -1502,7 +1543,7 @@ export async function syncTinyOrders(
           cliente_telefone: (() => {
             // Extrair telefone do cliente do pedido para salvar em tiny_orders
             // Isso permite buscar telefone de pedidos antigos quando sincronizamos novos contatos
-            const telefone = pedido.cliente?.telefone 
+            const telefone = pedido.cliente?.telefone
               || pedido.cliente?.celular
               || pedido.clienteTelefone
               || pedido.clienteCelular
@@ -1520,20 +1561,23 @@ export async function syncTinyOrders(
           valor_frete: pedido.valorFrete || 0,
           forma_pagamento: pedido.pagamento?.formaPagamento?.nome || null,
           forma_envio: pedido.transportador?.formaEnvio?.nome || null,
-          endereco_entrega: pedido.enderecoEntrega ? JSON.stringify(pedido.enderecoEntrega) : null,
-          itens: itensComCategorias.length > 0 ? JSON.stringify(itensComCategorias) : null,
+          // ✅ CORREÇÃO CRÍTICA: Não usar JSON.stringify em colunas JSONB
+          // O Supabase/PostgreSQL trata string como JSON scalar, não como objeto/array
+          endereco_entrega: pedido.enderecoEntrega || null,
+          itens: itensComCategorias.length > 0 ? itensComCategorias : null,
           observacoes: pedido.observacoes || null,
+          // Campos adicionais
           vendedor_nome: pedido.vendedor?.nome || pedido.vendedor_nome || null, // Coluna já existe na tabela (criada em 20250127040000)
           vendedor_tiny_id: pedido.vendedor?.id?.toString() || null, // Será adicionada pela migration
           colaboradora_id: colaboradoraId, // Será adicionada pela migration
-          dados_extras: pedido.dados_extras ? JSON.stringify(pedido.dados_extras) : null,
+          dados_extras: pedido.dados_extras || null,
           sync_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
 
         // ✅ ESTRATÉGIA ROBUSTA E CRIATIVA: Calcular valor_total usando MÚLTIPLAS FONTES
         // Implementamos uma cascata de estratégias para garantir que sempre temos o valor
-        
+
         let valorFinal = 0;
         let estrategiaUsada = '';
         const estrategias = [];
@@ -1542,10 +1586,10 @@ export async function syncTinyOrders(
         // ESTRATÉGIA 1: Valor direto da listagem (mais rápido)
         // ============================================================================
         const valorBrutoListagem = pedido.valor || pedido.valorTotalPedido || null;
-        
+
         if (valorBrutoListagem !== null && valorBrutoListagem !== undefined) {
           let valorParsed = 0;
-          
+
           if (typeof valorBrutoListagem === 'number') {
             valorParsed = valorBrutoListagem;
           } else if (typeof valorBrutoListagem === 'string' && valorBrutoListagem.trim() !== '') {
@@ -1576,7 +1620,7 @@ export async function syncTinyOrders(
             const valorUnitario = item.valorUnitario || item.valor_unitario || item.preco || item.valor || 0;
             valorCalculado += quantidade * valorUnitario;
           }
-          
+
           if (valorCalculado > 0) {
             valorFinal = valorCalculado;
             estrategiaUsada = 'Listagem (cálculo pelos itens)';
@@ -1592,16 +1636,16 @@ export async function syncTinyOrders(
         // ============================================================================
         if (valorFinal === 0 || isNaN(valorFinal)) {
           console.warn(`[SyncTiny] ⚠️ Valor ainda ZERO após estratégias 1-2. Pedido ${tinyId} (situacao: ${pedido.situacao}). Buscando detalhes completos...`);
-          
+
           const pedidoCompleto = await fetchPedidoCompletoFromTiny(storeId, pedido.id);
 
           if (pedidoCompleto) {
             // 3.1: valorTotalPedido dos detalhes (FONTE PRINCIPAL)
             const valorTotalPedido = pedidoCompleto.valorTotalPedido;
-            
+
             if (valorTotalPedido !== null && valorTotalPedido !== undefined) {
               let valorParsed = 0;
-              
+
               if (typeof valorTotalPedido === 'number') {
                 valorParsed = valorTotalPedido;
               } else if (typeof valorTotalPedido === 'string') {
@@ -1620,21 +1664,21 @@ export async function syncTinyOrders(
             // 3.2: Calcular a partir dos itens dos DETALHES (se ainda não temos valor)
             if (valorFinal === 0 && pedidoCompleto.itens && Array.isArray(pedidoCompleto.itens) && pedidoCompleto.itens.length > 0) {
               let valorCalculadoItens = 0;
-              
+
               for (const item of pedidoCompleto.itens) {
                 const quantidade = item.quantidade || 0;
                 const valorUnitario = item.valorUnitario || 0;
                 valorCalculadoItens += quantidade * valorUnitario;
               }
-              
+
               if (valorCalculadoItens > 0) {
                 // Aplicar desconto e frete se disponíveis
                 const desconto = parseFloat(String(pedidoCompleto.valorDesconto || pedidoCompleto.valor_desconto || 0));
                 const frete = parseFloat(String(pedidoCompleto.valorFrete || pedidoCompleto.valor_frete || 0));
                 const outrasDespesas = parseFloat(String(pedidoCompleto.valorOutrasDespesas || pedidoCompleto.valor_outras_despesas || 0));
-                
+
                 valorFinal = valorCalculadoItens - desconto + frete + outrasDespesas;
-                
+
                 if (valorFinal > 0) {
                   estrategiaUsada = 'Detalhes (cálculo pelos itens)';
                   estrategias.push({ estrategia: estrategiaUsada, valor: valorFinal, detalhes: { produtos: valorCalculadoItens, desconto, frete, outrasDespesas } });
@@ -1646,17 +1690,17 @@ export async function syncTinyOrders(
             // 3.3: Calcular a partir das parcelas de pagamento (ESTRATÉGIA CRIATIVA!)
             if (valorFinal === 0 && pedidoCompleto.pagamento && pedidoCompleto.pagamento.parcelas) {
               const parcelas = pedidoCompleto.pagamento.parcelas;
-              
+
               if (Array.isArray(parcelas) && parcelas.length > 0) {
                 let valorTotalParcelas = 0;
-                
+
                 for (const parcela of parcelas) {
                   const valorParcela = parseFloat(String(parcela.valor || 0));
                   if (!isNaN(valorParcela) && valorParcela > 0) {
                     valorTotalParcelas += valorParcela;
                   }
                 }
-                
+
                 if (valorTotalParcelas > 0) {
                   valorFinal = valorTotalParcelas;
                   estrategiaUsada = 'Detalhes (soma das parcelas)';
@@ -1672,9 +1716,9 @@ export async function syncTinyOrders(
               const desconto = parseFloat(String(pedidoCompleto.valorDesconto || 0));
               const frete = parseFloat(String(pedidoCompleto.valorFrete || 0));
               const outrasDespesas = parseFloat(String(pedidoCompleto.valorOutrasDespesas || 0));
-              
+
               valorFinal = valorProdutos - desconto + frete + outrasDespesas;
-              
+
               if (valorFinal > 0) {
                 estrategiaUsada = 'Detalhes (valorTotalProdutos + ajustes)';
                 estrategias.push({ estrategia: estrategiaUsada, valor: valorFinal });
@@ -1708,7 +1752,7 @@ export async function syncTinyOrders(
 
         // ✅ GARANTIR TIPO CORRETO: valor_total deve ser number, nunca string
         // PostgreSQL DECIMAL(10,2) espera number, não string
-        orderData.valor_total = typeof valorFinal === 'number' && !isNaN(valorFinal) && valorFinal > 0 
+        orderData.valor_total = typeof valorFinal === 'number' && !isNaN(valorFinal) && valorFinal > 0
           ? Number(valorFinal.toFixed(2)) // Garantir 2 casas decimais e tipo number
           : 0;
 
@@ -1892,11 +1936,11 @@ export async function syncTinyOrders(
         .eq('store_id', storeId)
         .not('cliente_telefone', 'is', null)
         .neq('cliente_telefone', '');
-      
+
       if (pedidosComTelefone && pedidosComTelefone.length > 0) {
         // Agrupar por cliente e pegar telefone mais recente
         const telefonesPorCliente = new Map<string, { telefone: string; data: string }>();
-        
+
         pedidosComTelefone.forEach(pedido => {
           const key = pedido.cliente_cpf_cnpj || pedido.cliente_nome || '';
           if (key && pedido.cliente_telefone) {
@@ -1909,28 +1953,28 @@ export async function syncTinyOrders(
             }
           }
         });
-        
+
         // Atualizar contatos sem telefone
         let atualizados = 0;
         for (const [key, info] of telefonesPorCliente.entries()) {
           const isCPF = /^\d{11,14}$/.test(key.replace(/\D/g, ''));
-          
+
           let query = supabase
             .schema('sistemaretiradas')
             .from('tiny_contacts')
             .update({ telefone: info.telefone, updated_at: new Date().toISOString() })
             .eq('store_id', storeId)
-            .or(isCPF 
+            .or(isCPF
               ? `cpf_cnpj.eq.${key},nome.eq.${key}`
               : `nome.eq.${key}`
             )
             .or('telefone.is.null,telefone.eq.');
-          
+
           const { count } = await query.select('id', { count: 'exact', head: true });
-          
+
           if (count) atualizados += count;
         }
-        
+
         console.log(`[SyncTiny] ✅ ${atualizados} contatos atualizados com telefones de pedidos`);
       }
     } catch (error) {
@@ -2058,7 +2102,7 @@ async function fetchProdutoCompletoFromTiny(
     // Tiny ERP v3: GET /produtos/{idProduto} retorna o produto DIRETAMENTE (não dentro de "produto")
     // Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html#/Produtos/ObterProdutoAction
     const produtoCompleto = response;
-    
+
     if (!produtoCompleto || !produtoCompleto.id) {
       console.warn(`[SyncTiny] ⚠️ Detalhes do produto ${produtoId} não encontrados. Resposta:`, JSON.stringify(response).substring(0, 500));
       return null;
@@ -2113,7 +2157,7 @@ async function fetchPedidoCompletoFromTiny(
     // Tiny ERP v3: GET /pedidos/{idPedido} retorna o pedido DIRETAMENTE (não dentro de "pedido")
     // Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html#/Pedidos/ObterPedidoAction
     const pedidoCompleto = response;
-    
+
     if (!pedidoCompleto || !pedidoCompleto.id) {
       console.warn(`[SyncTiny] ⚠️ Detalhes do pedido ${pedidoId} não encontrados. Resposta:`, JSON.stringify(response).substring(0, 500));
       return null;
@@ -2169,10 +2213,10 @@ async function syncTinyContact(
     // ✅ CORREÇÃO CRÍTICA: Para pedidos APROVADOS e FATURADOS, SEMPRE buscar dados completos
     // Os dados do cliente podem vir incompletos na listagem, então SEMPRE buscar detalhes se tivermos ID
     let clienteCompleto = cliente;
-    
+
     // SEMPRE buscar detalhes completos se tivermos ID do cliente (sem exceção)
     const clienteId = cliente.id || cliente.idContato || null;
-    
+
     if (clienteId) {
       console.log(`[SyncTiny] 🔍 SEMPRE buscando detalhes completos do cliente ${cliente.nome} via GET /contatos/${clienteId}...`);
       try {
@@ -2228,8 +2272,8 @@ async function syncTinyContact(
         valor_data_nascimento: clienteCompleto.data_nascimento,
         cliente_id: clienteId,
         busca_detalhes_executada: !!clienteId && !temDataNascimento,
-        chaves_disponiveis: Object.keys(clienteCompleto).filter(k => 
-          k.toLowerCase().includes('nasc') || 
+        chaves_disponiveis: Object.keys(clienteCompleto).filter(k =>
+          k.toLowerCase().includes('nasc') ||
           k.toLowerCase().includes('data')
         ),
       });
@@ -2271,13 +2315,13 @@ async function syncTinyContact(
       // Usar clienteCompleto (que tem dados completos se foram buscados)
       const chavesTelefone = Object.keys(clienteCompleto).filter(k => {
         const kLower = k.toLowerCase();
-        return kLower.includes('tel') || 
-               kLower.includes('cel') || 
-               kLower.includes('mobile') || 
-               kLower.includes('whats') ||
-               kLower.includes('fone');
+        return kLower.includes('tel') ||
+          kLower.includes('cel') ||
+          kLower.includes('mobile') ||
+          kLower.includes('whats') ||
+          kLower.includes('fone');
       });
-      
+
       console.log(`[SyncTiny] 🔍 Buscando telefone para cliente ${clienteCompleto.nome}:`, {
         tem_celular: !!clienteCompleto.celular,
         valor_celular: clienteCompleto.celular,
@@ -2292,7 +2336,7 @@ async function syncTinyContact(
         chaves_telefone: chavesTelefone,
         todas_chaves: Object.keys(clienteCompleto),
       });
-      
+
       // Log completo do objeto (limitado para não poluir)
       if (chavesTelefone.length > 0) {
         const valoresTelefone: Record<string, any> = {};
@@ -2304,45 +2348,45 @@ async function syncTinyContact(
 
       // 1. PRIORIDADE MÁXIMA: Celular direto (campos principais)
       // Usar clienteCompleto (que tem dados completos se foram buscados)
-      const celularDireto = clienteCompleto.celular 
-        || clienteCompleto.mobile 
-        || clienteCompleto.whatsapp 
+      const celularDireto = clienteCompleto.celular
+        || clienteCompleto.mobile
+        || clienteCompleto.whatsapp
         || clienteCompleto.celularAdicional
         || clienteCompleto.celularPrincipal
         || null;
-      
+
       if (celularDireto && String(celularDireto).trim() !== '') {
         const celularLimpo = String(celularDireto).trim();
         console.log(`[SyncTiny] ✅ Telefone encontrado (CELULAR DIRETO): ${celularLimpo.substring(0, 15)}...`);
         return celularLimpo;
       }
-      
+
       // 2. PRIORIDADE ALTA: Array de contatos (Tiny ERP pode ter múltiplos contatos)
       // Usar clienteCompleto (que pode ter dados completos se foram buscados)
       if (Array.isArray(clienteCompleto.contatos) && clienteCompleto.contatos.length > 0) {
         for (const contato of clienteCompleto.contatos) {
           // Priorizar celular no array de contatos
-          const celularContato = contato.celular 
-            || contato.mobile 
+          const celularContato = contato.celular
+            || contato.mobile
             || contato.whatsapp
             || contato.telefoneCelular
             || null;
-          
+
           if (celularContato && String(celularContato).trim() !== '') {
             const celularLimpo = String(celularContato).trim();
             console.log(`[SyncTiny] ✅ Telefone encontrado (CELULAR EM CONTATOS[]): ${celularLimpo.substring(0, 15)}...`);
             return celularLimpo;
           }
         }
-        
+
         // Se não encontrou celular, tentar telefone fixo no array
         // Usar clienteCompleto (que tem dados completos se foram buscados)
         for (const contato of clienteCompleto.contatos) {
-          const telefoneContato = contato.telefone 
+          const telefoneContato = contato.telefone
             || contato.fone
             || contato.telefonePrincipal
             || null;
-          
+
           if (telefoneContato && String(telefoneContato).trim() !== '') {
             const telefoneLimpo = String(telefoneContato).trim();
             console.log(`[SyncTiny] ✅ Telefone encontrado (FIXO EM CONTATOS[]): ${telefoneLimpo.substring(0, 15)}...`);
@@ -2350,21 +2394,21 @@ async function syncTinyContact(
           }
         }
       }
-      
+
       // 3. FALLBACK: Telefone fixo direto
       // Usar clienteCompleto (que pode ter dados completos se foram buscados)
-      const telefoneFixo = clienteCompleto.telefone 
-        || clienteCompleto.fone 
+      const telefoneFixo = clienteCompleto.telefone
+        || clienteCompleto.fone
         || clienteCompleto.telefoneAdicional
         || clienteCompleto.telefonePrincipal
         || null;
-      
+
       if (telefoneFixo && String(telefoneFixo).trim() !== '') {
         const telefoneLimpo = String(telefoneFixo).trim();
         console.log(`[SyncTiny] ✅ Telefone encontrado (FIXO DIRETO): ${telefoneLimpo.substring(0, 15)}...`);
         return telefoneLimpo;
       }
-      
+
       // 4. FALLBACK: Dados extras (JSONB)
       // Usar clienteCompleto (que tem dados completos se foram buscados)
       const telefoneExtras = clienteCompleto.dados_extras?.celular
@@ -2373,18 +2417,18 @@ async function syncTinyContact(
         || clienteCompleto.dados_extras?.whatsapp
         || clienteCompleto.dados_extras?.telefoneCelular
         || null;
-      
+
       if (telefoneExtras && String(telefoneExtras).trim() !== '') {
         const telefoneLimpo = String(telefoneExtras).trim();
         console.log(`[SyncTiny] ✅ Telefone encontrado (DADOS_EXTRAS): ${telefoneLimpo.substring(0, 15)}...`);
         return telefoneLimpo;
       }
-      
+
       // 5. FALLBACK FINAL: Verificar se já existe telefone no banco (não sobrescrever com null)
       // Isso evita perder dados que já foram salvos anteriormente
       console.warn(`[SyncTiny] ⚠️ Nenhum telefone encontrado nos dados recebidos para cliente ${clienteCompleto.nome}`);
       console.warn(`[SyncTiny] ⚠️ Objeto completo recebido:`, JSON.stringify(clienteCompleto).substring(0, 500));
-      
+
       // Retornar null - o upsert não vai sobrescrever se já existir telefone no banco
       return null;
     })();
@@ -2410,7 +2454,7 @@ async function syncTinyContact(
     // ✅ CORREÇÃO CRÍTICA: Simplificar busca de telefone para evitar múltiplas requisições
     // Verificar apenas uma vez se o contato já existe e manter telefone existente
     let contactDataFinal = { ...contactData };
-    
+
     // ✅ ESTRATÉGIA SIMPLIFICADA: Verificar uma única vez se já existe contato
     const { data: existingContact } = await supabase
       .schema('sistemaretiradas')
@@ -2419,13 +2463,13 @@ async function syncTinyContact(
       .eq('store_id', storeId)
       .eq('tiny_id', contactData.tiny_id)
       .maybeSingle();
-    
+
     // Se não tem telefone nos dados recebidos mas já existe no banco, manter o existente
     if (!telefoneFinal && existingContact && (existingContact.telefone || existingContact.celular)) {
       contactDataFinal.telefone = existingContact.telefone || existingContact.celular;
       console.log(`[SyncTiny] ✅ Mantendo telefone existente: ${contactDataFinal.telefone?.substring(0, 15)}...`);
     }
-    
+
     // ✅ Fazer upsert diretamente - evitar múltiplas queries
     const { data: contactResult, error: contactError } = await supabase
       .schema('sistemaretiradas')
@@ -2591,11 +2635,11 @@ export async function syncTinyContacts(
         .eq('store_id', storeId)
         .not('cliente_telefone', 'is', null)
         .neq('cliente_telefone', '');
-      
+
       if (pedidosComTelefone && pedidosComTelefone.length > 0) {
         // Agrupar por cliente e pegar telefone mais recente
         const telefonesPorCliente = new Map<string, { telefone: string; data: string }>();
-        
+
         pedidosComTelefone.forEach(pedido => {
           const key = pedido.cliente_cpf_cnpj || pedido.cliente_nome || '';
           if (key && pedido.cliente_telefone) {
@@ -2608,28 +2652,28 @@ export async function syncTinyContacts(
             }
           }
         });
-        
+
         // Atualizar contatos sem telefone
         let atualizados = 0;
         for (const [key, info] of telefonesPorCliente.entries()) {
           const isCPF = /^\d{11,14}$/.test(key.replace(/\D/g, ''));
-          
+
           let query = supabase
             .schema('sistemaretiradas')
             .from('tiny_contacts')
             .update({ telefone: info.telefone, updated_at: new Date().toISOString() })
             .eq('store_id', storeId)
-            .or(isCPF 
+            .or(isCPF
               ? `cpf_cnpj.eq.${key},nome.eq.${key}`
               : `nome.eq.${key}`
             )
             .or('telefone.is.null,telefone.eq.');
-          
+
           const { count } = await query.select('id', { count: 'exact', head: true });
-          
+
           if (count) atualizados += count;
         }
-        
+
         console.log(`[SyncTiny] ✅ ${atualizados} contatos atualizados com telefones de pedidos`);
       }
     } catch (error) {
@@ -2639,7 +2683,7 @@ export async function syncTinyContacts(
     // Processar cada contato
     // Os contatos já vêm diretos em 'itens', não há objeto 'contato' aninhado
     console.log(`[SyncTiny] 📊 Iniciando processamento de ${allContatos.length} contatos coletados de ${totalPages} página(s)...`);
-    
+
     let contadores = {
       total: allContatos.length,
       processados: 0,
@@ -2649,7 +2693,7 @@ export async function syncTinyContacts(
       erros: 0,
       fornecedoresDescartados: 0,
     };
-    
+
     for (const contatoData of allContatos) {
       try {
         // ✅ CORREÇÃO BASEADA NA DOCUMENTAÇÃO OFICIAL:
@@ -2657,13 +2701,13 @@ export async function syncTinyContacts(
         // Cada item em 'itens' JÁ É um contato direto (não há wrapper)
         // contatoData JÁ É o contato diretamente do array itens
         let contato: any = contatoData;
-        
+
         // ✅ VALIDAÇÃO: Verificar se contatoData tem estrutura mínima de contato
         if (!contato || (!contato.id && !contato.nome)) {
           console.warn(`[SyncTiny] ⚠️ Contato inválido na listagem, ignorando:`, JSON.stringify(contatoData).substring(0, 200));
           continue;
         }
-        
+
         // Log para diagnóstico
         if (!contato.nome) {
           console.warn(`[SyncTiny] ⚠️ Contato sem nome (ID: ${contato.id}), ignorando`);
@@ -2674,13 +2718,13 @@ export async function syncTinyContacts(
         // A API do Tiny retorna tipos em um array: tipos: [{ id, descricao: "Cliente" | "Fornecedor" | ... }]
         const tipos = contato.tipos || [];
         const descricoesTipos = tipos.map((t: any) => (t.descricao || '').toLowerCase());
-        const isFornecedor = descricoesTipos.some((desc: string) => 
-          desc.includes('fornecedor') || 
+        const isFornecedor = descricoesTipos.some((desc: string) =>
+          desc.includes('fornecedor') ||
           desc.includes('supplier') ||
           desc === 'fornecedor' ||
           desc === 'supplier'
         );
-        
+
         // Se for fornecedor, descartar
         if (isFornecedor) {
           contadores.fornecedoresDescartados++;
@@ -2694,18 +2738,18 @@ export async function syncTinyContacts(
         // SEMPRE buscar detalhes completos quando temos o ID do contato
         // A listagem só retorna dados básicos, precisamos GET /contatos/{idContato} para dados completos
         let contatoCompleto = contato;
-        
+
         if (contato.id) {
           // ✅ SIMPLIFICAÇÃO: A listagem SEMPRE retorna telefone/celular/dataNascimento vazios
           // SEMPRE buscar detalhes completos para TODOS os contatos que têm ID
           // Isso garante que sempre temos os dados completos, sem verificar condições
           contadores.comDetalhesBuscados++;
-          
+
           // Log apenas a cada 10 contatos para não poluir o console
           if (contadores.comDetalhesBuscados % 10 === 0 || contadores.comDetalhesBuscados <= 5) {
             console.log(`[SyncTiny] 🔍 [${contadores.comDetalhesBuscados}/${contadores.total}] Buscando detalhes completos para ${contato.nome} (ID: ${contato.id})...`);
           }
-          
+
           try {
             const contatoDetalhado = await fetchContatoCompletoFromTiny(storeId, contato.id);
             if (contatoDetalhado) {
@@ -2718,7 +2762,7 @@ export async function syncTinyContacts(
                 nome: contatoDetalhado.nome || contato.nome,
                 cpfCnpj: contatoDetalhado.cpfCnpj || contato.cpfCnpj,
               };
-              
+
               // Log apenas para os primeiros 5 ou quando encontrar dados importantes
               if (contadores.comDetalhesBuscados <= 5 || contatoCompleto.celular || contatoCompleto.telefone || contatoCompleto.dataNascimento) {
                 console.log(`[SyncTiny] ✅ Detalhes completos obtidos para ${contato.nome}:`, {
@@ -2748,9 +2792,9 @@ export async function syncTinyContacts(
             console.warn(`[SyncTiny] ⚠️ Contato ${contato.nome} não tem ID, não é possível buscar detalhes completos`);
           }
         }
-        
+
         contadores.processados++;
-        
+
         // Log de progresso a cada 50 contatos
         if (contadores.processados % 50 === 0) {
           console.log(`[SyncTiny] 📊 Progresso: ${contadores.processados}/${contadores.total} contatos processados | ${contadores.comDetalhesBuscados} com busca de detalhes | ${contadores.jaCompletos} já completos | ${contadores.semId} sem ID | ${contadores.fornecedoresDescartados} fornecedores descartados`);
@@ -2767,9 +2811,9 @@ export async function syncTinyContacts(
           valor_dataNascimento: contatoCompleto.dataNascimento,
           tem_contatos_array: Array.isArray(contatoCompleto.contatos),
           contatos_length: Array.isArray(contatoCompleto.contatos) ? contatoCompleto.contatos.length : 0,
-          chaves_telefone: Object.keys(contatoCompleto).filter(k => 
-            k.toLowerCase().includes('tel') || 
-            k.toLowerCase().includes('cel') || 
+          chaves_telefone: Object.keys(contatoCompleto).filter(k =>
+            k.toLowerCase().includes('tel') ||
+            k.toLowerCase().includes('cel') ||
             k.toLowerCase().includes('mobile') ||
             k.toLowerCase().includes('nasc')
           ),
