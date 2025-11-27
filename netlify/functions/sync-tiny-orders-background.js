@@ -176,38 +176,43 @@ exports.handler = async (event, context) => {
 
     console.log(`[SyncBackground] 📅 Buscando pedidos desde: ${dataInicioSync} (hard_sync: ${hard_sync}, max_pages: ${max_pages})`);
 
-    // ✅ HARD SYNC: Processar diretamente (pode levar muito tempo, mas garante execução)
+    // ✅ HARD SYNC: Processar diretamente chamando a função normalmente
+    // O problema do background assíncrono é que Netlify pode encerrar o contexto
+    // Então vamos processar diretamente, mas otimizar para não dar timeout
     if (hard_sync) {
       console.log(`[SyncBackground] 🔥 HARD SYNC ABSOLUTO: Processando todos os pedidos... Isso pode levar várias horas.`);
       
-      // Retornar imediatamente para o frontend, mas processar diretamente (sem IIFE assíncrono)
-      // Processar em uma Promise não-awaited para permitir que a função retorne
-      // mas mantenha o contexto vivo até completar
-      const processPromise = processarSyncCompleta(store_id, dataInicioSync, limit, max_pages, supabase, proxyUrl, true)
-        .then(() => {
-          console.log(`[SyncBackground] ✅ HARD SYNC concluído com sucesso`);
-        })
-        .catch((error) => {
-          console.error('[SyncBackground] ❌ Erro no hard sync:', error);
-        });
-      
-      // Não aguardar a promise, mas também não retornar ainda
-      // Usar setImmediate ou setTimeout para garantir que a resposta seja enviada
-      // mas o processamento continue
-      setTimeout(() => {
-        // Processo continua em background via Promise
-      }, 100);
-      
-      // Retornar imediatamente informando que iniciou
-      return {
-        statusCode: 202,
-        headers,
-        body: JSON.stringify({
-          success: true,
-          message: 'Sincronização iniciada. Isso pode levar várias horas. Você pode fechar a página.',
-          hard_sync: true,
-        }),
-      };
+      // Retornar status 202 primeiro para o frontend saber que iniciou
+      // Mas processar diretamente depois (isso mantém o contexto vivo)
+      // Processar diretamente na função principal garante execução
+      try {
+        // Processar diretamente (isso vai demorar muito, mas garante que executa)
+        const resultado = await processarSyncCompleta(store_id, dataInicioSync, limit, max_pages, supabase, proxyUrl, true);
+        
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            success: true,
+            message: `Hard sync concluído: ${resultado.synced || 0} novos, ${resultado.updated || 0} atualizados`,
+            hard_sync: true,
+            synced: resultado.synced || 0,
+            updated: resultado.updated || 0,
+            errors: resultado.errors || 0,
+          }),
+        };
+      } catch (error) {
+        console.error('[SyncBackground] ❌ Erro no hard sync:', error);
+        return {
+          statusCode: 500,
+          headers,
+          body: JSON.stringify({
+            success: false,
+            error: error.message || 'Erro ao processar hard sync',
+            hard_sync: true,
+          }),
+        };
+      }
     }
 
     // Buscar pedidos do Tiny ERP
@@ -635,6 +640,12 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
   }
 
   console.log(`[SyncBackground] ✅ Sincronização concluída: ${synced} novos, ${updated} atualizados, ${errors} erros`);
+  
+  return {
+    synced,
+    updated,
+    errors,
+  };
 }
 
 async function processarItemCompleto(storeId, itemData, pedidoId) {
