@@ -227,14 +227,14 @@ serve(async (req) => {
           ...syncBody,
           data_inicio: hardSync ? (body.data_inicio || '2010-01-01') : body.data_inicio,
           incremental: body.incremental !== undefined ? body.incremental : !hardSync,
-          limit: body.limit || 100,
+          limit: hardSync ? 200 : (body.limit || 100), // Hard sync usa 200 por página
           max_pages: hardSync ? (body.max_pages || 99999) : (body.max_pages || 50),
           hard_sync: hardSync,
         };
       } else if (syncType === 'CONTACTS') {
         syncBody = {
           ...syncBody,
-          limit: body.limit || 100,
+          limit: hardSync ? 200 : (body.limit || 100), // Hard sync usa 200 por página
           max_pages: hardSync ? (body.max_pages || 9999) : (body.max_pages || 50),
           hard_sync: hardSync,
         };

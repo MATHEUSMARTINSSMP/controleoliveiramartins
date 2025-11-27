@@ -461,7 +461,7 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
                 params: {
                   dataInicio: dataInicioSync,
                   pagina: currentPage,
-                  limite: limit || 100,
+                  limite: hard_sync ? 200 : (limit || 100), // Hard sync usa 200 por página para ser mais rápido
                 },
               }),
               signal: controller.signal,

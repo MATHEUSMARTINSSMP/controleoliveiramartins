@@ -353,13 +353,27 @@ export default function TinyContactsList({ storeId, limit = 10000 }: TinyContact
                         </TableRow>
                         {isExpanded && (
                           <TableRow key={`${contact.id}-details`}>
-                            <TableCell colSpan={4} className="bg-muted/30 p-4">
+                            <TableCell colSpan={4} className="bg-muted/30 p-6">
                               {isLoadingStats ? (
                                 <div className="flex items-center justify-center py-4">
                                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                                 </div>
                               ) : stats ? (
-                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+                                  {/* Data de Nascimento */}
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                                      <Calendar className="h-4 w-4" />
+                                      Data de Nascimento
+                                    </div>
+                                    {contact.data_nascimento ? (
+                                      <div className="text-sm font-medium">
+                                        {format(new Date(contact.data_nascimento), 'dd/MM/yyyy', { locale: ptBR })}
+                                      </div>
+                                    ) : (
+                                      <div className="text-sm text-muted-foreground">Não informada</div>
+                                    )}
+                                  </div>
                                   {/* Última Compra */}
                                   <div className="space-y-1">
                                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">

@@ -262,7 +262,7 @@ const ERPConfig = () => {
             hard_sync: true,
             data_inicio: '2010-01-01',
             max_pages: 99999,
-            limit: 100,
+            limit: hardSync ? undefined : 100, // Hard sync sem limite
           }),
         }).catch((fetchError: any) => {
           console.error("❌ Erro ao chamar Edge Function:", fetchError);
