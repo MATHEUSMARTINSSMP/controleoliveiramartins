@@ -1371,16 +1371,50 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     });
   }
 
-  // Calcular valor total
+  // ✅ Calcular valor total - IMPORTANTE: Pedidos aprovados podem ter valor em campos diferentes
   let valorTotal = 0;
+  
+  // Prioridade 1: valorTotalPedido do pedido completo
   if (pedidoCompleto?.valorTotalPedido) {
     valorTotal = parseFloat(pedidoCompleto.valorTotalPedido);
-  } else if (pedido.valorTotalPedido) {
+    console.log(`[SyncBackground] ✅ Valor total extraído de pedidoCompleto.valorTotalPedido: ${valorTotal}`);
+  } 
+  // Prioridade 2: valor_pedido do pedido completo (fallback para pedidos aprovados)
+  else if (pedidoCompleto?.valor_pedido) {
+    valorTotal = parseFloat(pedidoCompleto.valor_pedido);
+    console.log(`[SyncBackground] ✅ Valor total extraído de pedidoCompleto.valor_pedido (fallback): ${valorTotal}`);
+  }
+  // Prioridade 3: valorTotalPedido do pedido original
+  else if (pedido.valorTotalPedido) {
     valorTotal = parseFloat(pedido.valorTotalPedido);
-  } else if (itensComCategorias && itensComCategorias.length > 0) {
+    console.log(`[SyncBackground] ✅ Valor total extraído de pedido.valorTotalPedido: ${valorTotal}`);
+  }
+  // Prioridade 4: valor_pedido do pedido original (fallback para pedidos aprovados)
+  else if (pedido.valor_pedido) {
+    valorTotal = parseFloat(pedido.valor_pedido);
+    console.log(`[SyncBackground] ✅ Valor total extraído de pedido.valor_pedido (fallback): ${valorTotal}`);
+  }
+  // Prioridade 5: total_pedido do pedido original
+  else if (pedido.total_pedido) {
+    valorTotal = parseFloat(pedido.total_pedido);
+    console.log(`[SyncBackground] ✅ Valor total extraído de pedido.total_pedido: ${valorTotal}`);
+  }
+  // Prioridade 6: Calcular a partir dos itens
+  else if (itensComCategorias && itensComCategorias.length > 0) {
     valorTotal = itensComCategorias.reduce((sum, item) => {
       return sum + (parseFloat(item.valorUnitario || 0) * parseFloat(item.quantidade || 0));
     }, 0);
+    console.log(`[SyncBackground] ✅ Valor total calculado a partir dos itens: ${valorTotal}`);
+  }
+  
+  // ✅ Log se valor for zero para debug
+  if (valorTotal === 0) {
+    console.warn(`[SyncBackground] ⚠️ Valor total zerado para pedido ${tinyId}. Campos disponíveis:`, {
+      valorTotalPedido: pedidoCompleto?.valorTotalPedido || pedido.valorTotalPedido,
+      valor_pedido: pedidoCompleto?.valor_pedido || pedido.valor_pedido,
+      total_pedido: pedido.total_pedido,
+      itens_length: itensComCategorias?.length || 0,
+    });
   }
 
   // Preparar objeto do pedido
