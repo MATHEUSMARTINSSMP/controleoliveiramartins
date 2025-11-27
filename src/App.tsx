@@ -27,6 +27,7 @@ import ERPLogin from "./pages/erp/ERPLogin";
 import ERPDashboard from "./pages/erp/ERPDashboard";
 import CategoryReports from "./pages/erp/CategoryReports";
 import ProductSalesIntelligence from "./pages/erp/ProductSalesIntelligence";
+import CustomerIntelligence from "./pages/erp/CustomerIntelligence";
 import CashbackManagement from "./pages/erp/CashbackManagement";
 import Seed from "./pages/Seed";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -68,6 +69,7 @@ const App = () => (
             <Route path="/erp/dashboard" element={<ERPDashboard />} />
             <Route path="/erp/category-reports" element={<CategoryReports />} />
             <Route path="/erp/product-intelligence" element={<ProductSalesIntelligence />} />
+            <Route path="/erp/customer-intelligence" element={<CustomerIntelligence />} />
             <Route path="/erp/cashback-management" element={<CashbackManagement />} />
             <Route path="/loja" element={<LojaDashboard />} />
             <Route path="/me" element={<ColaboradoraDashboard />} />

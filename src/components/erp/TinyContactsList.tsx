@@ -64,6 +64,15 @@ export default function TinyContactsList({ storeId, limit = 10000 }: TinyContact
     setCurrentPage(1); // Resetar para primeira página quando filtros mudarem
   }, [contacts, searchTerm]);
 
+  // Recalcular paginação quando itemsPerPage mudar
+  useEffect(() => {
+    // Ajustar currentPage se estiver fora do range após mudança de itemsPerPage
+    const newTotalPages = Math.ceil(filteredContacts.length / itemsPerPage);
+    if (currentPage > newTotalPages && newTotalPages > 0) {
+      setCurrentPage(newTotalPages);
+    }
+  }, [itemsPerPage, filteredContacts.length]);
+
   // Calcular paginação
   const totalPages = Math.ceil(filteredContacts.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -216,13 +225,21 @@ export default function TinyContactsList({ storeId, limit = 10000 }: TinyContact
     }
   };
 
-  const toggleRow = (contactId: string, tinyId: string) => {
+  const toggleRow = (contactId: string, tinyId: string, event?: React.MouseEvent) => {
+    // Prevenir propagação se o clique foi no botão
+    if (event) {
+      event.stopPropagation();
+    }
+
     const newExpanded = new Set(expandedRows);
     if (newExpanded.has(contactId)) {
       newExpanded.delete(contactId);
     } else {
       newExpanded.add(contactId);
-      fetchCustomerStats(contactId, tinyId);
+      // Buscar stats apenas se ainda não temos
+      if (!customerStats.has(contactId) && !loadingStats.has(contactId)) {
+        fetchCustomerStats(contactId, tinyId);
+      }
     }
     setExpandedRows(newExpanded);
   };
@@ -315,17 +332,17 @@ export default function TinyContactsList({ storeId, limit = 10000 }: TinyContact
 
                     return (
                       <>
-                        <TableRow key={contact.id} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(contact.id, contact.tiny_id)}>
-                          <TableCell>
+                        <TableRow key={contact.id} className="cursor-pointer hover:bg-muted/50">
+                          <TableCell onClick={(e) => toggleRow(contact.id, contact.tiny_id, e)}>
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                               {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                             </Button>
                           </TableCell>
-                          <TableCell className="font-medium">{contact.nome}</TableCell>
-                          <TableCell className="font-mono text-sm">
+                          <TableCell className="font-medium" onClick={(e) => toggleRow(contact.id, contact.tiny_id, e)}>{contact.nome}</TableCell>
+                          <TableCell className="font-mono text-sm" onClick={(e) => toggleRow(contact.id, contact.tiny_id, e)}>
                             {formatCPFCNPJ(contact.cpf_cnpj)}
                           </TableCell>
-                          <TableCell>
+                          <TableCell onClick={(e) => toggleRow(contact.id, contact.tiny_id, e)}>
                             {contact.telefone || contact.celular || '-'}
                           </TableCell>
                         </TableRow>

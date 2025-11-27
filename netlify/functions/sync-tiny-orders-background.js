@@ -524,11 +524,11 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
 
   console.log(`[SyncBackground] 📊 Total de ${allPedidos.length} pedidos encontrados`);
 
-  // Filtrar pedidos faturados E aprovados (situacao = 1, 3, 6, ou strings equivalentes)
+  // Filtrar pedidos aprovados E faturados (situacao = 1 ou 3)
   const pedidosFaturados = allPedidos.filter(p => {
     const situacao = p.situacao || p.pedido?.situacao;
-    // 1 = Aprovado, 3 = Faturado, 6 = Aprovado (pode variar por versão da API)
-    return situacao === 1 || situacao === 3 || situacao === 6 ||
+    // 1 = Aprovado, 3 = Faturado
+    return situacao === 1 || situacao === 3 ||
       situacao === 'aprovado' || situacao === 'Aprovado' ||
       situacao === 'faturado' || situacao === 'Faturado';
   });
