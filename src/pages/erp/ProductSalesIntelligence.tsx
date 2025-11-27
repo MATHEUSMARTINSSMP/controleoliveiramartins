@@ -24,7 +24,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, TrendingUp, Package, Filter, BarChart3, PieChart, Calendar, Store, User, Search, Clock, Target, ArrowLeft } from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Loader2, TrendingUp, Package, Filter, BarChart3, PieChart, Calendar, Store, User, Search, Clock, Target, ArrowLeft, DollarSign } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -67,6 +68,43 @@ interface AggregatedProduct {
 }
 
 type PeriodPreset = 'today' | 'yesterday' | 'last7' | 'last30' | 'last90' | 'thisMonth' | 'lastMonth' | 'thisYear' | 'lastYear' | 'custom';
+
+// ✅ TAMANHOS VÁLIDOS PARA NORMALIZAÇÃO (sempre em MAIÚSCULA)
+const TAMANHOS_VALIDOS = [
+  'PP', 'P', 'M', 'G', 'GG', 'XGG', 'XXXG', 'XXXXG',
+  '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54',
+  'U', 'UNICO', 'ÚNICO', 'UNIDADE'
+];
+
+// ✅ FUNÇÃO PARA NORMALIZAR TAMANHOS (SEMPRE EM MAIÚSCULA)
+function normalizeTamanho(tamanho: string | null | undefined): string | null {
+  if (!tamanho) return null;
+  
+  // Converter para maiúscula e remover espaços
+  const normalized = String(tamanho)
+    .toUpperCase()
+    .trim()
+    .replace(/[^A-Z0-9]/g, ''); // Remove caracteres especiais, mantém apenas letras maiúsculas e números
+  
+  // Verificar se está na lista de tamanhos válidos (comparação case-insensitive)
+  const match = TAMANHOS_VALIDOS.find(t => 
+    normalized === t || 
+    normalized.includes(t) || 
+    t.includes(normalized) ||
+    normalized.replace(/[^A-Z0-9]/g, '') === t.replace(/[^A-Z0-9]/g, '')
+  );
+  
+  if (match) {
+    // Retornar o tamanho normalizado padrão em MAIÚSCULA
+    if (match === 'UNICO' || match === 'ÚNICO') return 'U';
+    if (match === 'UNIDADE') return 'U';
+    return match.toUpperCase();
+  }
+  
+  // Se não encontrou match exato, retornar o tamanho original em MAIÚSCULA
+  // Pode ser um tamanho não padrão, mas sempre em maiúscula
+  return String(tamanho).trim().toUpperCase();
+}
 
 export default function ProductSalesIntelligence() {
   const { profile, loading: authLoading } = useAuth();
@@ -262,28 +300,102 @@ export default function ProductSalesIntelligence() {
           
           itens.forEach((item: any) => {
             const quantidade = Number(item.quantidade) || 0;
-            const valorUnitario = Number(item.valor_unitario) || 0;
-            const valorTotal = Number(item.valor_total) || quantidade * valorUnitario;
+            // ✅ CORREÇÃO: Tentar múltiplas formas de extrair valor
+            const valorUnitario = Number(
+              item.valor_unitario 
+              || item.valorUnitario
+              || item.valor_unit
+              || item.valorUnit
+              || item.preco
+              || item.preco_unitario
+              || 0
+            );
+            // ✅ CORREÇÃO: Tentar múltiplas formas de extrair valor total
+            const valorTotal = Number(
+              item.valor_total 
+              || item.valorTotal
+              || item.valor
+              || item.total
+              || item.subtotal
+              || (quantidade * valorUnitario)
+              || 0
+            );
+            
+            // Log para debug se valor for zero
+            if (valorTotal === 0 && quantidade > 0) {
+              console.warn(`[ProductIntelligence] ⚠️ Item sem valor:`, {
+                codigo: item.codigo,
+                descricao: item.descricao?.substring(0, 50),
+                quantidade,
+                valorUnitario,
+                valor_total_item: item.valor_total,
+                valorTotal_item: item.valorTotal,
+                todas_chaves: Object.keys(item),
+              });
+            }
 
-            // Extrair hora do pedido (0-23)
+            // ✅ CORREÇÃO: Extrair hora do pedido no timezone correto (Brasil UTC-3)
             let horaPedido: number | undefined = undefined;
             if (order.data_pedido) {
               try {
-                const dataPedido = new Date(order.data_pedido);
+                // A data pode vir em UTC ou com timezone, precisamos converter para horário local do Brasil
+                let dataPedido: Date;
+                
+                const dataStr = String(order.data_pedido);
+                
+                // Se a string já tem timezone explícito (ex: -03:00, +00:00, Z)
+                if (dataStr.includes('T') && (dataStr.includes('Z') || dataStr.includes('+') || dataStr.includes('-'))) {
+                  dataPedido = new Date(dataStr);
+                  // Converter de UTC para horário de Brasília (UTC-3)
+                  // Se estiver em UTC, subtrair 3 horas
+                  if (dataStr.endsWith('Z') || dataStr.includes('+00:00')) {
+                    dataPedido = new Date(dataPedido.getTime() - (3 * 60 * 60 * 1000));
+                  }
+                } 
+                // Se não tem timezone mas tem hora, assumir que é horário local do Brasil
+                else if (dataStr.includes('T')) {
+                  // Tentar parsear como está
+                  dataPedido = new Date(dataStr);
+                  // Se o parse resultou em UTC, ajustar
+                  const offset = dataPedido.getTimezoneOffset(); // em minutos
+                  if (offset !== 180) { // 180 = UTC-3 (Brasil)
+                    // Ajustar para horário de Brasília
+                    dataPedido = new Date(dataPedido.getTime() - (offset * 60 * 1000) - (3 * 60 * 60 * 1000));
+                  }
+                }
+                // Se é apenas data (YYYY-MM-DD), não temos hora
+                else {
+                  dataPedido = new Date(`${dataStr}T12:00:00-03:00`); // Meio-dia como padrão
+                }
+                
                 if (!isNaN(dataPedido.getTime())) {
+                  // Usar getHours() que já está no timezone correto após o ajuste
                   horaPedido = dataPedido.getHours();
+                  
+                  // Log para debug
+                  if (order.id) {
+                    console.log(`[ProductIntelligence] 📅 Hora extraída do pedido ${order.id}:`, {
+                      data_original: order.data_pedido,
+                      data_ajustada: dataPedido.toISOString(),
+                      hora: horaPedido,
+                      hora_formatada: `${horaPedido.toString().padStart(2, '0')}:00`,
+                    });
+                  }
                 }
               } catch (e) {
-                // Ignorar erro de parsing
+                console.error(`[ProductIntelligence] ❌ Erro ao extrair hora do pedido:`, e, order.data_pedido);
               }
             }
 
+            // ✅ NORMALIZAR TAMANHO
+            const tamanhoNormalizado = normalizeTamanho(item.tamanho);
+            
             allSales.push({
               id: `${order.id}-${item.codigo || Math.random()}`,
               categoria: item.categoria || 'Sem Categoria',
               subcategoria: item.subcategoria || null,
               marca: item.marca || null,
-              tamanho: item.tamanho || null,
+              tamanho: tamanhoNormalizado, // ✅ Usar tamanho normalizado
               cor: item.cor || null,
               codigo: item.codigo || null,
               descricao: item.descricao || null,
@@ -662,7 +774,7 @@ export default function ProductSalesIntelligence() {
       dados.vendas += 1;
     });
     
-    const result: Array<{ vendedor: string; marca: string; ticket_medio: number }> = [];
+    const result: Array<{ vendedor: string; marca: string; ticket_medio: number; total: number; vendas: number }> = [];
     
     vendedorMarcaMap.forEach((marcas, vendedor) => {
       marcas.forEach((dados, marca) => {
@@ -670,6 +782,8 @@ export default function ProductSalesIntelligence() {
           vendedor,
           marca,
           ticket_medio: dados.vendas > 0 ? dados.total / dados.vendas : 0,
+          total: dados.total,
+          vendas: dados.vendas,
         });
       });
     });
@@ -1423,7 +1537,7 @@ export default function ProductSalesIntelligence() {
                         <TableCell><Badge variant="outline">{item.marca}</Badge></TableCell>
                         <TableCell className="text-right font-medium">{formatCurrency(item.ticket_medio)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(item.total)}</TableCell>
-                        <TableCell className="text-right">{item.pedidos}</TableCell>
+                        <TableCell className="text-right">{item.vendas}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
