@@ -52,7 +52,6 @@ const CORES_VALIDAS = [
   'PRETO',
   'BLACK',
   'PRETO E BRANCO',
-  'PB',
   'GRAFITE',
   'OFF DARK',
   'OFF WHITE',
@@ -121,7 +120,12 @@ function normalizeCor(cor) {
       .replace(/\s+/g, ' '); // Normaliza espaços múltiplos
   };
   
-  const corNormalizada = normalize(cor);
+  let corNormalizada = normalize(cor);
+  
+  // ✅ CONVERSÃO: PB = PRETO E BRANCO
+  if (corNormalizada === 'PB' || corNormalizada === 'P B') {
+    corNormalizada = 'PRETO E BRANCO';
+  }
   
   // ✅ ESTRATÉGIA 1: Verificar match exato primeiro (mais rápido)
   const matchExato = CORES_VALIDAS.find(c => c === corNormalizada);
@@ -187,7 +191,11 @@ function normalizeCor(cor) {
 function extrairCorDaDescricao(descricao) {
   if (!descricao) return null;
   
-  const descricaoUpper = String(descricao).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  let descricaoUpper = String(descricao).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  
+  // ✅ CONVERSÃO: PB = PRETO E BRANCO (substituir na descrição antes de buscar)
+  descricaoUpper = descricaoUpper.replace(/\bPB\b/g, 'PRETO E BRANCO');
+  descricaoUpper = descricaoUpper.replace(/\bP B\b/g, 'PRETO E BRANCO');
   
   // ✅ Priorizar cores compostas (mais longas primeiro) para evitar falsos positivos
   // Ex: "OFF WHITE" antes de "OFF", "VERDE MILITAR" antes de "VERDE"
