@@ -1238,10 +1238,23 @@ async function findCollaboratorByVendedor(supabase, storeId, vendedor) {
  * Prepara dados completos do pedido para salvar
  */
 function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId, colaboradoraId, itensComCategorias, tinyId, existingOrder = null) {
+  // ✅ CRÍTICO: Se já existe pedido, SEMPRE usar data_pedido original (TRAVADO)
+  if (existingOrder && existingOrder.data_pedido) {
+    console.log(`[SyncBackground] 🔒 Pedido ${tinyId}: Usando data_pedido original travada: ${existingOrder.data_pedido}`);
+    // Continuar com a função para calcular outros campos, mas data_pedido já está decidida
+    // Vamos definir dataPedido agora e pular toda a lógica de extração
+  }
+  
   // ✅ EXTRAÇÃO ROBUSTA DE DATA/HORA: Tentar múltiplas fontes antes de usar fallback
-  let dataPedido = null;
+  let dataPedido = existingOrder?.data_pedido || null;
   let temHoraReal = false;
   let dataBase = null;
+  
+  // Se já temos data do pedido existente, pular extração
+  if (dataPedido) {
+    // Data já está travada, não precisa extrair
+    temHoraReal = dataPedido.includes('T') && !dataPedido.includes('T00:00:00');
+  }
 
   // 1. Priorizar dataCriacao do pedido completo (mais confiável)
   if (pedidoCompleto?.dataCriacao) {
@@ -1351,30 +1364,41 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     if (!dataPedido.includes('Z') && !dataPedido.includes('+') && !dataPedido.includes('-', 10)) {
       dataPedido = `${dataPedido}-03:00`;
     }
-  } else if (dataBase) {
-    // 6. ✅ Último recurso: se já existe pedido no banco, usar data_pedido original
-    // Se não existe, usar data base com horário padrão (não usar horário atual!)
-    if (existingOrder && existingOrder.data_pedido) {
-      // Usar data_pedido original - NUNCA mudar!
-      dataPedido = existingOrder.data_pedido;
-      console.log(`[SyncBackground] 🔒 Pedido ${tinyId}: Mantendo data_pedido original: ${dataPedido}`);
-    } else {
-      // Para novos pedidos, usar data base com horário padrão (meia-noite)
-      const dataPart = dataBase.includes('T') ? dataBase.split('T')[0] : dataBase;
-      dataPedido = `${dataPart}T00:00:00-03:00`;
-      console.warn(`[SyncBackground] ⚠️ Pedido ${tinyId}: Usando horário padrão (00:00:00) pois API não retornou hora real`);
-      console.warn(`[SyncBackground] 📊 Dados disponíveis:`, {
-        dataCriacao: pedidoCompleto?.dataCriacao,
-        dataAtualizacao: pedidoCompleto?.dataAtualizacao,
-        data: pedidoCompleto?.data,
-        dataFaturamento: pedidoCompleto?.dataFaturamento,
-        pedido_dataCriacao: pedido.dataCriacao,
-        pedido_data: pedido.data,
-      });
-    }
+  } else if (dataBase && !dataPedido) {
+    // 6. ✅ Último recurso: usar horário local ATUAL (só na primeira vez) e TRAVAR
+    // Para novos pedidos sem hora real, usar horário atual de Macapá (UTC-3) como fallback inteligente
+    // Mas este horário será TRAVADO para sempre após primeira sincronização
+    const dataPart = dataBase.includes('T') ? dataBase.split('T')[0] : dataBase;
+    
+    // Criar data no fuso de Macapá (UTC-3) usando horário atual
+    const agora = new Date();
+    // Ajustar para UTC-3 (Macapá)
+    const macapaTime = new Date(agora.getTime() - (3 * 60 * 60 * 1000));
+    const horaAtual = macapaTime.toISOString().split('T')[1].split('.')[0]; // HH:mm:ss
+    
+    dataPedido = `${dataPart}T${horaAtual}-03:00`;
+    console.log(`[SyncBackground] ⏰ Pedido ${tinyId}: Usando horário local atual de Macapá (${horaAtual}) como fallback - SERÁ TRAVADO NA PRIMEIRA SINCRONIZAÇÃO`);
+    console.log(`[SyncBackground] 📊 Dados disponíveis:`, {
+      dataCriacao: pedidoCompleto?.dataCriacao,
+      dataAtualizacao: pedidoCompleto?.dataAtualizacao,
+      data: pedidoCompleto?.data,
+      dataFaturamento: pedidoCompleto?.dataFaturamento,
+      pedido_dataCriacao: pedido.dataCriacao,
+      pedido_data: pedido.data,
+    });
+  }
+  
+  // ✅ GARANTIR: Se não temos data ainda, criar uma data mínima válida
+  if (!dataPedido) {
+    const dataPart = pedido.data || pedido.dataCriacao || new Date().toISOString().split('T')[0];
+    const agora = new Date();
+    const macapaTime = new Date(agora.getTime() - (3 * 60 * 60 * 1000));
+    const horaAtual = macapaTime.toISOString().split('T')[1].split('.')[0];
+    dataPedido = `${dataPart}T${horaAtual}-03:00`;
+    console.warn(`[SyncBackground] ⚠️ Pedido ${tinyId}: Nenhuma data encontrada, usando data/hora atual de Macapá: ${dataPedido}`);
   }
 
-  // ✅ Calcular valor total - IMPORTANTE: Pedidos aprovados podem ter valor em campos diferentes
+  // ✅ Calcular valor total - Priorizar campos principais e simplificar
   // Se já existe pedido no banco e tem valor > 0, preservar
   let valorTotal = 0;
   
@@ -1383,44 +1407,39 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     valorTotal = parseFloat(existingOrder.valor_total);
     console.log(`[SyncBackground] 🔒 Pedido ${tinyId}: Mantendo valor_total original: ${valorTotal}`);
   } else {
-    // Prioridade 1: valorTotalPedido do pedido completo
+    // Prioridade 1: valorTotalPedido do pedido completo (mais confiável)
     if (pedidoCompleto?.valorTotalPedido) {
       valorTotal = parseFloat(pedidoCompleto.valorTotalPedido);
       console.log(`[SyncBackground] ✅ Valor total extraído de pedidoCompleto.valorTotalPedido: ${valorTotal}`);
     } 
-    // Prioridade 2: valor_pedido do pedido completo (fallback para pedidos aprovados)
-    else if (pedidoCompleto?.valor_pedido) {
-      valorTotal = parseFloat(pedidoCompleto.valor_pedido);
-      console.log(`[SyncBackground] ✅ Valor total extraído de pedidoCompleto.valor_pedido (fallback): ${valorTotal}`);
-    }
-    // Prioridade 3: Calcular a partir das parcelas (para pedidos aprovados)
-    else if (pedidoCompleto?.parcelas && Array.isArray(pedidoCompleto.parcelas) && pedidoCompleto.parcelas.length > 0) {
-      valorTotal = pedidoCompleto.parcelas.reduce((sum, parcela) => {
-        return sum + (parseFloat(parcela.valor || parcela.valorParcela || 0));
-      }, 0);
-      console.log(`[SyncBackground] ✅ Valor total calculado a partir das parcelas: ${valorTotal}`);
-    }
-    // Prioridade 4: valorTotalPedido do pedido original
+    // Prioridade 2: valorTotalPedido do pedido original
     else if (pedido.valorTotalPedido) {
       valorTotal = parseFloat(pedido.valorTotalPedido);
       console.log(`[SyncBackground] ✅ Valor total extraído de pedido.valorTotalPedido: ${valorTotal}`);
     }
-    // Prioridade 5: valor_pedido do pedido original (fallback para pedidos aprovados)
-    else if (pedido.valor_pedido) {
-      valorTotal = parseFloat(pedido.valor_pedido);
-      console.log(`[SyncBackground] ✅ Valor total extraído de pedido.valor_pedido (fallback): ${valorTotal}`);
-    }
-    // Prioridade 6: total_pedido do pedido original
-    else if (pedido.total_pedido) {
-      valorTotal = parseFloat(pedido.total_pedido);
-      console.log(`[SyncBackground] ✅ Valor total extraído de pedido.total_pedido: ${valorTotal}`);
-    }
-    // Prioridade 7: Calcular a partir dos itens
+    // Prioridade 3: Calcular a partir dos itens (fallback confiável)
     else if (itensComCategorias && itensComCategorias.length > 0) {
       valorTotal = itensComCategorias.reduce((sum, item) => {
         return sum + (parseFloat(item.valorUnitario || 0) * parseFloat(item.quantidade || 0));
       }, 0);
       console.log(`[SyncBackground] ✅ Valor total calculado a partir dos itens: ${valorTotal}`);
+    }
+    // Prioridade 4: valor_pedido do pedido completo (fallback para pedidos aprovados)
+    else if (pedidoCompleto?.valor_pedido) {
+      valorTotal = parseFloat(pedidoCompleto.valor_pedido);
+      console.log(`[SyncBackground] ✅ Valor total extraído de pedidoCompleto.valor_pedido (fallback): ${valorTotal}`);
+    }
+    // Prioridade 5: valor_pedido do pedido original
+    else if (pedido.valor_pedido) {
+      valorTotal = parseFloat(pedido.valor_pedido);
+      console.log(`[SyncBackground] ✅ Valor total extraído de pedido.valor_pedido (fallback): ${valorTotal}`);
+    }
+    // Prioridade 6: Calcular a partir das parcelas (para pedidos aprovados)
+    else if (pedidoCompleto?.parcelas && Array.isArray(pedidoCompleto.parcelas) && pedidoCompleto.parcelas.length > 0) {
+      valorTotal = pedidoCompleto.parcelas.reduce((sum, parcela) => {
+        return sum + (parseFloat(parcela.valor || parcela.valorParcela || 0));
+      }, 0);
+      console.log(`[SyncBackground] ✅ Valor total calculado a partir das parcelas: ${valorTotal}`);
     }
     
     // ✅ Log se valor for zero para debug
