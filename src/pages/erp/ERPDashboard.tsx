@@ -264,6 +264,8 @@ export default function ERPDashboard() {
         store_id: selectedStoreId,
         data_inicio: dataInicio,
         incremental: periodo === 'total',
+        limit: 100, // Limite por página (API Tiny)
+        max_pages: 999, // SEM LIMITE - busca todas as páginas disponíveis
         hard_sync: false,
       });
 
@@ -276,6 +278,8 @@ export default function ERPDashboard() {
           store_id: selectedStoreId,
           data_inicio: dataInicio,
           incremental: periodo === 'total',
+          limit: 100, // Limite por página (API Tiny)
+          max_pages: 999, // SEM LIMITE - busca todas as páginas disponíveis
           hard_sync: false,
         }),
       }).catch((fetchError: any) => {
