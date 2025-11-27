@@ -240,15 +240,61 @@ const ERPConfig = () => {
 
     setSyncing(true);
     try {
-      // ✅ TODAS AS SINCRONIZAÇÕES MANUAIS RODAM EM BACKGROUND
-      // Chamar diretamente a Netlify Function (backend) para rodar em background
+      // ✅ HARD SYNC: Usar Edge Function do Supabase (tem timeout maior e melhor infraestrutura)
+      // ✅ SYNC INCREMENTAL: Usar Netlify Function (mais rápido para syncs pequenos)
       if (hardSync) {
-        toast.info("🔥 HARD SYNC ABSOLUTO: Iniciando sincronização em background... Você pode fechar a página! Isso pode levar HORAS.");
-      } else {
-        toast.info("🔄 Sincronização incremental iniciada em background... Você pode fechar a página!");
+        toast.info("🔥 HARD SYNC ABSOLUTO: Iniciando sincronização via Edge Function... Você pode fechar a página! Isso pode levar HORAS.");
+        
+        // ✅ Para hard sync, usar Edge Function do Supabase
+        const supabaseUrl = (await import('@/integrations/supabase/client')).supabase.supabaseUrl;
+        const edgeFunctionUrl = `${supabaseUrl}/functions/v1/sync-tiny-orders`;
+        
+        const response = await fetch(edgeFunctionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`,
+            'apikey': process.env.VITE_SUPABASE_ANON_KEY || '',
+          },
+          body: JSON.stringify({
+            store_id: selectedStoreId,
+            sync_type: 'ORDERS',
+            hard_sync: true,
+            data_inicio: '2010-01-01',
+            max_pages: 99999,
+            limit: 100,
+          }),
+        }).catch((fetchError: any) => {
+          console.error("❌ Erro ao chamar Edge Function:", fetchError);
+          throw new Error(`Erro ao iniciar hard sync: ${fetchError.message}`);
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Erro na sincronização: ${errorText || response.statusText}`);
+        }
+        
+        const responseText = await response.text();
+        let data;
+        try {
+          data = responseText ? JSON.parse(responseText) : { success: true };
+        } catch {
+          data = { success: true };
+        }
+        
+        if (data?.success || response.status === 202) {
+          toast.success(`✅ Hard sync iniciado via Edge Function! Você pode fechar a página. Isso pode levar várias horas.`);
+          await fetchIntegration();
+        } else {
+          throw new Error(data?.error || data?.message || 'Erro ao iniciar hard sync');
+        }
+        
+        return;
       }
       
-      // ✅ Chamar diretamente a Netlify Function (roda em background no servidor)
+      // ✅ SYNC INCREMENTAL: Usar Netlify Function (mais rápido)
+      toast.info("🔄 Sincronização incremental iniciada em background... Você pode fechar a página!");
+      
       const netlifyFunctionUrl = '/.netlify/functions/sync-tiny-orders-background';
       
       const response = await fetch(netlifyFunctionUrl, {
