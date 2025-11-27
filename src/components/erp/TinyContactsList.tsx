@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Search, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShoppingBag, TrendingUp, Gift } from 'lucide-react';
+import { Loader2, Search, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShoppingBag, TrendingUp, Gift, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format } from 'date-fns';
