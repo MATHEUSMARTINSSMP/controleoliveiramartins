@@ -2544,6 +2544,9 @@ async function syncTinyContact(
  * Endpoint: GET /contatos
  * Parâmetros: pagina, limite
  */
+// ✅ Helper para delay
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export async function syncTinyContacts(
   storeId: string,
   options: {
