@@ -291,13 +291,13 @@ exports.handler = async (event, context) => {
         }
 
         // ✅ TAREFA 4: Processar itens completos com extração de dados
-        const itensComCategorias = await Promise.all(
-          itensParaProcessar.map(async (item) => {
-            return await processarItemCompleto(supabase, store_id, item);
+        const itensProcessados = await Promise.all(
+          (pedidoCompleto.itens || []).map(async (item) => {
+            return await processarItemCompleto(store_id, item, pedidoCompleto.id);
           })
         );
 
-        console.log(`[SyncBackground] ✅ Pedido ${pedido.id} processado: ${itensComCategorias.length} itens com categorias`);
+        console.log(`[SyncBackground] ✅ Pedido ${pedido.id} processado: ${itensProcessados.length} itens com categorias`);
 
         // ✅ TAREFA 5: Buscar colaboradora pelo vendedor
         let colaboradoraId = null;
