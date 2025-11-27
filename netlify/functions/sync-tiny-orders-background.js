@@ -309,7 +309,7 @@ exports.handler = async (event, context) => {
         }
 
         // ✅ TAREFA 6: Preparar dados do pedido completo
-        const orderData = prepararDadosPedidoCompleto(store_id, pedido, pedidoCompleto, clienteId, colaboradoraId, itensComCategorias, tinyId);
+        const orderData = prepararDadosPedidoCompleto(store_id, pedido, pedidoCompleto, clienteId, colaboradoraId, itensProcessados, tinyId);
 
         // ✅ TAREFA 7: Verificar se precisa atualizar
         const { data: existingOrder } = await supabase
@@ -1013,7 +1013,7 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     forma_pagamento: pedido.pagamento?.formaPagamento?.nome || null,
     forma_envio: pedido.transportador?.formaEnvio?.nome || null,
     endereco_entrega: pedido.enderecoEntrega || null,
-    itens: itensComCategorias.length > 0 ? itensComCategorias : null,
+    itens: (itensComCategorias && itensComCategorias.length > 0) ? itensComCategorias : null,
     observacoes: pedido.observacoes || null,
     vendedor_nome: pedido.vendedor?.nome || pedido.vendedor_nome || null,
     vendedor_tiny_id: pedido.vendedor?.id?.toString() || null,
