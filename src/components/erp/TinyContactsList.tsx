@@ -207,7 +207,7 @@ export default function TinyContactsList({ storeId, limit = 10000 }: TinyContact
       // Buscar saldo de cashback
       const { data: cashbackData } = await supabase
         .schema('sistemaretiradas')
-        .from('cashback_balances')
+        .from('cashback_balance')
         .select('saldo_disponivel')
         .eq('cliente_id', contactId)
         .single();
