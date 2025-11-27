@@ -159,6 +159,12 @@ serve(async (req) => {
       const storeId = body.store_id;
       const hardSync = body.hard_sync === true;
       
+      // ✅ OBTER URL DO NETLIFY
+      const netlifyUrl = Deno.env.get('NETLIFY_FUNCTION_URL') || 
+                        Deno.env.get('NETLIFY_URL') || 
+                        Deno.env.get('DEPLOY_PRIME_URL') ||
+                        'https://eleveaone.com.br';
+
       // Buscar dados da loja
       const { data: storeData } = await supabase
         .schema('sistemaretiradas')
@@ -183,6 +189,28 @@ serve(async (req) => {
       
       if (!integration) {
         throw new Error(`Integração não encontrada ou não conectada para loja ${storeData.name}`);
+      }
+
+      // ✅ POLLING INTELIGENTE: Verificar mudanças antes de sincronizar (apenas para sync não-hard)
+      if (!hardSync && syncType === 'ORDERS') {
+        const temNovaVenda = await verificarNovaVenda(supabase, storeId, netlifyUrl);
+        
+        if (!temNovaVenda) {
+          console.log(`[SyncTiny] ⏭️ Sem nova venda detectada. Pulando sincronização.`);
+          return new Response(
+            JSON.stringify({
+              success: true,
+              message: 'Sem nova venda detectada. Sincronização não necessária.',
+              skipped: true,
+            }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 200,
+            }
+          );
+        }
+        
+        console.log(`[SyncTiny] ✅ Nova venda detectada! Iniciando sincronização...`);
       }
       
       // ✅ Determinar qual Netlify Function chamar
