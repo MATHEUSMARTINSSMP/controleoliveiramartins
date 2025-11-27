@@ -2093,20 +2093,35 @@ export async function syncTinyOrders(
         for (const [key, info] of telefonesPorCliente.entries()) {
           const isCPF = /^\d{11,14}$/.test(key.replace(/\D/g, ''));
 
+          // ✅ CORREÇÃO: Evitar queries complexas que causam 400 Bad Request
+          // Buscar contatos existentes primeiro, depois atualizar individualmente
           let query = supabase
             .schema('sistemaretiradas')
             .from('tiny_contacts')
-            .update({ telefone: info.telefone, updated_at: new Date().toISOString() })
-            .eq('store_id', storeId)
-            .or(isCPF
-              ? `cpf_cnpj.eq.${key},nome.eq.${key}`
-              : `nome.eq.${key}`
-            )
-            .or('telefone.is.null,telefone.eq.');
+            .select('id, telefone')
+            .eq('store_id', storeId);
 
-          const { count } = await query.select('id', { count: 'exact', head: true });
+          if (isCPF) {
+            query = query.or(`cpf_cnpj.eq.${key},nome.eq.${key}`);
+          } else {
+            query = query.eq('nome', key);
+          }
 
-          if (count) atualizados += count;
+          const { data: contatosExistentes } = await query;
+
+          if (contatosExistentes && contatosExistentes.length > 0) {
+            // Atualizar apenas contatos sem telefone ou com telefone vazio
+            for (const contato of contatosExistentes) {
+              if (!contato.telefone || contato.telefone.trim() === '') {
+                await supabase
+                  .schema('sistemaretiradas')
+                  .from('tiny_contacts')
+                  .update({ telefone: info.telefone, updated_at: new Date().toISOString() })
+                  .eq('id', contato.id);
+                atualizados++;
+              }
+            }
+          }
         }
 
         console.log(`[SyncTiny] ✅ ${atualizados} contatos atualizados com telefones de pedidos`);
@@ -2795,20 +2810,35 @@ export async function syncTinyContacts(
         for (const [key, info] of telefonesPorCliente.entries()) {
           const isCPF = /^\d{11,14}$/.test(key.replace(/\D/g, ''));
 
+          // ✅ CORREÇÃO: Evitar queries complexas que causam 400 Bad Request
+          // Buscar contatos existentes primeiro, depois atualizar individualmente
           let query = supabase
             .schema('sistemaretiradas')
             .from('tiny_contacts')
-            .update({ telefone: info.telefone, updated_at: new Date().toISOString() })
-            .eq('store_id', storeId)
-            .or(isCPF
-              ? `cpf_cnpj.eq.${key},nome.eq.${key}`
-              : `nome.eq.${key}`
-            )
-            .or('telefone.is.null,telefone.eq.');
+            .select('id, telefone')
+            .eq('store_id', storeId);
 
-          const { count } = await query.select('id', { count: 'exact', head: true });
+          if (isCPF) {
+            query = query.or(`cpf_cnpj.eq.${key},nome.eq.${key}`);
+          } else {
+            query = query.eq('nome', key);
+          }
 
-          if (count) atualizados += count;
+          const { data: contatosExistentes } = await query;
+
+          if (contatosExistentes && contatosExistentes.length > 0) {
+            // Atualizar apenas contatos sem telefone ou com telefone vazio
+            for (const contato of contatosExistentes) {
+              if (!contato.telefone || contato.telefone.trim() === '') {
+                await supabase
+                  .schema('sistemaretiradas')
+                  .from('tiny_contacts')
+                  .update({ telefone: info.telefone, updated_at: new Date().toISOString() })
+                  .eq('id', contato.id);
+                atualizados++;
+              }
+            }
+          }
         }
 
         console.log(`[SyncTiny] ✅ ${atualizados} contatos atualizados com telefones de pedidos`);
