@@ -387,13 +387,13 @@ exports.handler = async (event, context) => {
 /**
  * Processa um item completo do pedido, extraindo tamanho, cor, categoria, marca
  */
-async function processarItemCompleto(supabase, storeId, item) {
-  console.log('[SyncBackground] 🚀 v2.1 - Executing processarItemCompleto with ROBUST extraction');
-  const produto = item.produto || {};
-  const quantidade = item.quantidade || 0;
-  const valorUnitario = item.valorUnitario || 0;
-  const infoAdicional = item.infoAdicional || null;
-  const itemData = item.item || item;
+async function processarItemCompleto(storeId, itemData, pedidoId) {
+  console.log(`[SyncBackground] 🚀 v2.2 - VERSÃO COM EXTRAÇÃO ATIVA`);
+  console.log(`[SyncBackground] 📄 Processando item:`, itemData);
+  const produto = itemData.produto || {};
+  const quantidade = itemData.quantidade || 0;
+  const valorUnitario = itemData.valorUnitario || 0;
+  const infoAdicional = itemData.infoAdicional || null;
 
   const codigo = produto.sku || itemData.sku || produto.codigo || itemData.codigo || null;
   const descricao = produto.descricao || itemData.descricao || produto.nome || itemData.nome || null;
@@ -618,8 +618,15 @@ async function processarItemCompleto(supabase, storeId, item) {
 
   // ✅ ESTRATÉGIA FINAL: Extrair tamanho e cor da descrição do produto
   // Exemplo: "VESTIDO TIVOLI OFF-WHITE - 42" -> Tamanho: 42, Cor: OFF-WHITE
+  // ⚠️ FORÇAR EXECUÇÃO SEMPRE para debug
+  if (descricao) {
+    console.log(`[SyncBackground] 🔍 TENTANDO EXTRAÇÃO - Descrição: "${descricao}"`);
+    console.log(`[SyncBackground] 🔍 Estado atual - Tamanho: ${tamanho}, Cor: ${cor}`);
+  }
+
   if ((!tamanho || !cor) && descricao) {
     console.log(`[SyncBackground] 🔍 Tentando extrair variações da descrição: "${descricao}"`);
+    console.log(`[SyncBackground] 🔍 Condição atendida - !tamanho: ${!tamanho}, !cor: ${!cor}, descricao: ${!!descricao}`);
 
     // 1. Tentar extrair TAMANHO no final
     // ✅ CORREÇÃO: Regex mais flexível (aceita espaço opcional antes do hífen, ou "Tam:", ou apenas o número no fim)
