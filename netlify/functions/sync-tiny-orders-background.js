@@ -89,14 +89,14 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ 
-          success: false, 
+        body: JSON.stringify({
+          success: false,
           error: 'Body inválido ou vazio',
-          details: parseError.message 
+          details: parseError.message
         }),
       };
     }
-    
+
     const { store_id, data_inicio, incremental = true, limit = 50, max_pages = 2, hard_sync = false } = body;
 
     if (!store_id) {
@@ -112,7 +112,7 @@ exports.handler = async (event, context) => {
     // Inicializar Supabase
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-    
+
     if (!supabaseUrl || !supabaseKey) {
       return {
         statusCode: 500,
@@ -136,9 +136,9 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           success: false,
-          error: 'Integração não encontrada para esta loja' 
+          error: 'Integração não encontrada para esta loja'
         }),
       };
     }
@@ -147,9 +147,9 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 401,
         headers,
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           success: false,
-          error: 'Token de acesso não encontrado' 
+          error: 'Token de acesso não encontrado'
         }),
       };
     }
@@ -157,7 +157,7 @@ exports.handler = async (event, context) => {
     // ✅ IMPLEMENTAÇÃO: Chamar a API do Tiny ERP para sincronizar pedidos
     // Usar o proxy Netlify Function para evitar CORS
     const proxyUrl = `${process.env.URL || 'https://eleveaone.com.br'}/.netlify/functions/erp-api-proxy`;
-    
+
     // ✅ Calcular data de início se não fornecida
     let dataInicioSync = data_inicio;
     if (!dataInicioSync) {
@@ -206,7 +206,7 @@ exports.handler = async (event, context) => {
         }
 
         const result = await response.json();
-        
+
         // Tiny ERP v3 retorna dados em { itens: [...], paginacao: {...} }
         const pedidos = result.itens || result.pedidos || [];
         allPedidos = allPedidos.concat(pedidos);
@@ -252,10 +252,10 @@ exports.handler = async (event, context) => {
         // ✅ TAREFA 1: Buscar detalhes completos do pedido
         console.log(`[SyncBackground] 🔍 Buscando detalhes completos do pedido ${pedido.id}...`);
         let pedidoCompleto = null;
-        
+
         try {
           pedidoCompleto = await fetchPedidoCompletoFromTiny(store_id, pedido.id);
-          
+
           if (pedidoCompleto) {
             // Mesclar dados do pedido completo com o pedido da listagem
             Object.assign(pedido, pedidoCompleto);
@@ -278,9 +278,9 @@ exports.handler = async (event, context) => {
         let clienteId = null;
         if (pedido.cliente) {
           console.log(`[SyncBackground] 👤 Sincronizando cliente: ${pedido.cliente.nome || 'Sem nome'}`);
-          
+
           clienteId = await syncTinyContact(supabase, store_id, pedido.cliente, tinyId);
-          
+
           if (clienteId) {
             console.log(`[SyncBackground] ✅ Cliente sincronizado com ID: ${clienteId.substring(0, 8)}...`);
           } else {
@@ -368,7 +368,7 @@ exports.handler = async (event, context) => {
 
   } catch (error) {
     console.error('[SyncBackground] ❌ Erro:', error);
-    
+
     return {
       statusCode: 500,
       headers,
@@ -433,13 +433,15 @@ async function processarItemCompleto(supabase, storeId, item) {
 
       if (produtoCompleto) {
         // Extrair categoria e subcategoria
+        // Extrair categoria e subcategoria
         if (!categoria && produtoCompleto.categoria) {
           categoria = produtoCompleto.categoria.nome || produtoCompleto.categoria.descricao || null;
-          
+
           // Separar categoria e subcategoria do caminhoCompleto
           if (produtoCompleto.categoria.caminhoCompleto) {
             const caminhoCompletoStr = String(produtoCompleto.categoria.caminhoCompleto).trim();
-            const caminho = caminhoCompletoStr.split(' > ').map(s => s.trim()).filter(s => s.length > 0);
+            // ✅ CORREÇÃO: Suportar diferentes separadores (> ou >>)
+            const caminho = caminhoCompletoStr.split(/\s*>>?\s*/).map(s => s.trim()).filter(s => s.length > 0);
 
             if (caminho.length > 1) {
               subcategoria = caminho[caminho.length - 1];
@@ -459,7 +461,7 @@ async function processarItemCompleto(supabase, storeId, item) {
         // ✅ EXTRAIR TAMANHO E COR DAS VARIAÇÕES
         // IMPORTANTE: variações podem vir como ARRAY ou como OBJETO JSON
         let variacoesArray = null;
-        
+
         if (produtoCompleto.variacoes) {
           if (Array.isArray(produtoCompleto.variacoes)) {
             // Caso 1: Variações como array
@@ -476,73 +478,34 @@ async function processarItemCompleto(supabase, storeId, item) {
         if (variacoesArray && variacoesArray.length > 0) {
           let variacaoEncontrada = null;
 
-          // Buscar variação específica se tivermos variacaoId
+          // 1. Tentar buscar por ID da variação (se disponível)
           if (variacaoId) {
             variacaoEncontrada = variacoesArray.find(v =>
               v.id === variacaoId || v.idVariacao === variacaoId || String(v.id) === String(variacaoId)
             );
             if (variacaoEncontrada) {
-              console.log(`[SyncBackground] ✅ Variação específica encontrada (ID: ${variacaoId})`);
-            } else {
-              console.log(`[SyncBackground] ⚠️ Variação ID ${variacaoId} não encontrada, tentando todas as variações`);
+              console.log(`[SyncBackground] ✅ Variação encontrada por ID: ${variacaoId}`);
             }
           }
 
-          // Se não encontrou, tentar todas as variações
-          if (!variacaoEncontrada) {
-            for (const variacao of variacoesArray) {
-              if (tamanho && cor) break;
-
-              // Verificar se grade é array ou objeto
-              let gradeArray = null;
-              if (variacao.grade) {
-                if (Array.isArray(variacao.grade)) {
-                  gradeArray = variacao.grade;
-                } else if (typeof variacao.grade === 'object') {
-                  // Grade como objeto JSON - converter para array
-                  gradeArray = Object.values(variacao.grade);
-                  console.log(`[SyncBackground] ⚠️ Grade recebida como OBJETO JSON, convertendo para array...`);
-                }
-              }
-
-              if (gradeArray && gradeArray.length > 0) {
-                for (const atributo of gradeArray) {
-                  const chave = String(atributo.chave || atributo.key || atributo.nome || '').toLowerCase().trim();
-                  const valor = String(atributo.valor || atributo.value || atributo.descricao || '').trim();
-
-                  if (!valor) continue;
-
-                  // Buscar tamanho
-                  if (!tamanho && (chave.includes('tamanho') || chave.includes('size') || chave === 'tam')) {
-                    tamanho = normalizeTamanho(valor);
-                    variacaoEncontrada = variacao;
-                    console.log(`[SyncBackground] ✅ Tamanho extraído da variação: "${tamanho}" (chave: "${chave}")`);
-                  }
-
-                  // Buscar cor
-                  if (!cor && (chave.includes('cor') || chave.includes('color') || chave.includes('colour'))) {
-                    cor = normalizeCor(valor);
-                    if (!variacaoEncontrada) variacaoEncontrada = variacao;
-                    console.log(`[SyncBackground] ✅ Cor extraída da variação: "${cor}" (chave: "${chave}")`);
-                  }
-
-                  // Buscar gênero
-                  if (!genero && (chave.includes('genero') || chave.includes('gender'))) {
-                    genero = valor;
-                  }
-                }
-              }
+          // 2. ✅ CORREÇÃO: Tentar buscar por SKU/Código (se ID falhar ou não existir)
+          if (!variacaoEncontrada && codigo) {
+            variacaoEncontrada = variacoesArray.find(v =>
+              String(v.codigo || v.sku || '').trim() === String(codigo).trim()
+            );
+            if (variacaoEncontrada) {
+              console.log(`[SyncBackground] ✅ Variação encontrada por SKU: ${codigo}`);
             }
-          } else if (variacaoEncontrada) {
-            // Extrair da variação específica encontrada
+          }
+
+          // 3. Se encontrou a variação específica, extrair dados dela
+          if (variacaoEncontrada) {
             let gradeArray = null;
             if (variacaoEncontrada.grade) {
               if (Array.isArray(variacaoEncontrada.grade)) {
                 gradeArray = variacaoEncontrada.grade;
               } else if (typeof variacaoEncontrada.grade === 'object') {
-                // Grade como objeto JSON - converter para array
                 gradeArray = Object.values(variacaoEncontrada.grade);
-                console.log(`[SyncBackground] ⚠️ Grade da variação específica recebida como OBJETO JSON, convertendo...`);
               }
             }
 
@@ -553,11 +516,11 @@ async function processarItemCompleto(supabase, storeId, item) {
 
                 if (!tamanho && (chave.includes('tamanho') || chave.includes('size') || chave === 'tam')) {
                   tamanho = normalizeTamanho(valor);
-                  console.log(`[SyncBackground] ✅ Tamanho extraído da variação específica: "${tamanho}"`);
+                  console.log(`[SyncBackground] ✅ Tamanho extraído da variação (SKU/ID): "${tamanho}"`);
                 }
                 if (!cor && (chave.includes('cor') || chave.includes('color') || chave.includes('colour'))) {
                   cor = normalizeCor(valor);
-                  console.log(`[SyncBackground] ✅ Cor extraída da variação específica: "${cor}"`);
+                  console.log(`[SyncBackground] ✅ Cor extraída da variação (SKU/ID): "${cor}"`);
                 }
                 if (!genero && (chave.includes('genero') || chave.includes('gender'))) {
                   genero = valor;
@@ -565,6 +528,9 @@ async function processarItemCompleto(supabase, storeId, item) {
               }
             }
           }
+
+          // 4. Se ainda não tem tamanho/cor, tentar extrair de QUALQUER variação que tenha o mesmo código base?
+          // Não, isso seria arriscado. Melhor confiar na descrição se o match exato falhar.
         }
       }
     } catch (error) {
@@ -591,28 +557,40 @@ async function processarItemCompleto(supabase, storeId, item) {
   if ((!tamanho || !cor) && descricao) {
     console.log(`[SyncBackground] 🔍 Tentando extrair variações da descrição: "${descricao}"`);
 
-    // 1. Tentar extrair TAMANHO no final (padrão " - 42" ou " - P")
-    // Regex para tamanhos numéricos (34-56) ou letras (PP-XGG)
-    const regexTamanho = /\s-\s([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO)$/i;
-    const matchTamanho = descricao.match(regexTamanho);
+    // 1. Tentar extrair TAMANHO no final
+    // ✅ CORREÇÃO: Regex mais flexível (aceita espaço opcional antes do hífen, ou "Tam:", ou apenas o número no fim)
+    // Padrões suportados: " - 42", " - P", " Tam: 42", " 42" (arriscado, mas comum)
+
+    // Regex 1: Padrão " - X" ou " - XX"
+    let regexTamanho = /[\s-]+\s([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)$/i;
+    let matchTamanho = descricao.match(regexTamanho);
+
+    // Regex 2: Padrão "Tam: X"
+    if (!matchTamanho) {
+      regexTamanho = /Tam:?\s*([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)/i;
+      matchTamanho = descricao.match(regexTamanho);
+    }
 
     if (matchTamanho && matchTamanho[1]) {
       if (!tamanho) {
         tamanho = normalizeTamanho(matchTamanho[1]);
-        console.log(`[SyncBackground] ✅ Tamanho extraído da descrição: "${tamanho}"`);
+        console.log(`[SyncBackground] ✅ Tamanho extraído da descrição (Regex): "${tamanho}"`);
       }
 
       // 2. Tentar extrair COR (o que vem antes do tamanho)
-      // Ex: "VESTIDO TIVOLI OFF-WHITE - 42" -> "VESTIDO TIVOLI OFF-WHITE"
       if (!cor) {
+        // Pegar tudo antes do match do tamanho
         const parteSemTamanho = descricao.substring(0, matchTamanho.index).trim();
-        // Assumir que a cor é a última palavra ou conjunto de palavras após o último hífen (se houver outro hífen)
-        // Ex: "VESTIDO - TIVOLI - OFF-WHITE" -> "OFF-WHITE"
-        const partesPorHifen = parteSemTamanho.split(' - ');
+
+        // Tentar separar por hífen
+        const partesPorHifen = parteSemTamanho.split(/\s-\s/);
         if (partesPorHifen.length > 1) {
+          // A última parte antes do tamanho geralmente é a cor
+          // Ex: "VESTIDO - TIVOLI - OFF-WHITE" -> "OFF-WHITE"
           const possivelCor = partesPorHifen[partesPorHifen.length - 1].trim();
-          // Validar se não é muito longo para ser uma cor (ex: < 20 chars)
-          if (possivelCor.length < 20 && possivelCor.length > 2) {
+
+          // Validar se não é muito longo (ex: < 25 chars) e não é código
+          if (possivelCor.length < 25 && possivelCor.length > 2 && !/\d/.test(possivelCor)) {
             cor = normalizeCor(possivelCor);
             console.log(`[SyncBackground] ✅ Cor extraída da descrição (padrão hífen): "${cor}"`);
           }
