@@ -887,41 +887,49 @@ async function processarItemCompleto(storeId, itemData, pedidoId) {
 
         console.log(`[SyncBackground] 🎨 Partes separadas por hífen: [${partesPorHifen.join(', ')}]`);
 
+        // ✅ ESTRATÉGIA MELHORADA: Buscar cor válida na parte sem tamanho
+        // Tentar de trás para frente (última parte primeiro, depois partes anteriores)
+        let corEncontrada = null;
+        
         if (partesPorHifen.length > 1) {
-          // A última parte antes do tamanho geralmente é a cor
-          const possivelCor = partesPorHifen[partesPorHifen.length - 1].trim();
-
-          // ✅ VALIDAÇÃO: Usar normalizeCor que valida contra o mapa de cores válidas
-          // Isso evita pegar palavras que não são cores (ex: "OFF" isolado, nomes de modelos)
-          if (possivelCor.length < 30 && possivelCor.length > 2 && !/^\d+$/.test(possivelCor)) {
-            const corValidada = normalizeCor(possivelCor);
-            if (corValidada) {
-              cor = corValidada;
-              console.log(`[SyncBackground] ✅ Cor extraída e validada da descrição: "${cor}"`);
-            } else {
-              console.log(`[SyncBackground] ❌ Cor rejeitada (não está no mapa de cores válidas): "${possivelCor}"`);
+          // Tentar as partes de trás para frente até encontrar uma cor válida
+          for (let i = partesPorHifen.length - 1; i >= 0; i--) {
+            const parte = partesPorHifen[i].trim();
+            
+            // Validar tamanho básico
+            if (parte.length < 30 && parte.length > 2 && !/^\d+$/.test(parte)) {
+              // ✅ VALIDAÇÃO: Usar normalizeCor que valida contra o mapa de cores válidas
+              const corValidada = normalizeCor(parte);
+              if (corValidada) {
+                corEncontrada = corValidada;
+                console.log(`[SyncBackground] ✅ Cor extraída e validada (parte ${i + 1}/${partesPorHifen.length}): "${corEncontrada}"`);
+                break; // Encontrou cor válida, parar
+              }
             }
-          } else {
-            console.log(`[SyncBackground] ❌ Cor rejeitada (muito longa ou numérica): "${possivelCor}"`);
           }
-        } else {
-          // ✅ FALLBACK: Usar função extrairCorDaDescricao que usa o mapa de cores válidas
-          console.log(`[SyncBackground] ⚠️ Sem hífen detectável, tentando busca por cores válidas na descrição`);
+        }
+        
+        // ✅ Se não encontrou na separação por hífen, buscar na descrição completa
+        if (!corEncontrada) {
+          console.log(`[SyncBackground] ⚠️ Não encontrou cor válida nas partes separadas, tentando busca na descrição completa`);
           
-          const corExtraida = extrairCorDaDescricao(parteSemTamanho);
-          if (corExtraida) {
-            cor = corExtraida;
-            console.log(`[SyncBackground] ✅ Cor encontrada e validada: "${cor}"`);
-          } else {
-            // Tentar buscar na descrição completa se não encontrou na parte sem tamanho
-            const corExtraidaCompleta = extrairCorDaDescricao(descricao);
-            if (corExtraidaCompleta) {
-              cor = corExtraidaCompleta;
-              console.log(`[SyncBackground] ✅ Cor encontrada na descrição completa: "${cor}"`);
-            } else {
-              console.log(`[SyncBackground] ❌ Nenhuma cor válida encontrada na descrição`);
-            }
+          // Tentar primeiro na parte sem tamanho
+          corEncontrada = extrairCorDaDescricao(parteSemTamanho);
+          
+          // Se não encontrou, tentar na descrição completa
+          if (!corEncontrada) {
+            corEncontrada = extrairCorDaDescricao(descricao);
           }
+          
+          if (corEncontrada) {
+            console.log(`[SyncBackground] ✅ Cor encontrada na descrição: "${corEncontrada}"`);
+          } else {
+            console.log(`[SyncBackground] ❌ Nenhuma cor válida encontrada na descrição`);
+          }
+        }
+        
+        if (corEncontrada) {
+          cor = corEncontrada;
         }
       }
     }

@@ -132,26 +132,43 @@ function normalizeCor(cor) {
   const coresOrdenadas = [...CORES_VALIDAS].sort((a, b) => b.length - a.length);
   
   for (const corValida of coresOrdenadas) {
-    // Verificar se a cor normalizada contém a cor válida OU se a cor válida contém a cor normalizada
-    if (corNormalizada.includes(corValida) || corValida.includes(corNormalizada)) {
-      // ✅ VALIDAÇÃO ADICIONAL: Verificar se não é uma palavra comum que aparece em nomes
-      // Ex: "OFF" sozinho não deve ser considerado cor se não for "OFF WHITE", "OFF DARK", etc.
-      if (corValida.length > 3 || corNormalizada === corValida) {
-        return corValida;
+    // Normalizar espaços e hífens para comparação
+    const corValidaNormalizada = corValida.replace(/[-_]/g, ' ').trim();
+    const corInputNormalizada = corNormalizada.replace(/[-_]/g, ' ').trim();
+    
+    // ✅ Match exato após normalização
+    if (corValidaNormalizada === corInputNormalizada) {
+      return corValida;
+    }
+    
+    // ✅ Match parcial (um contém o outro)
+    if (corValidaNormalizada.includes(corInputNormalizada) || corInputNormalizada.includes(corValidaNormalizada)) {
+      // ✅ VALIDAÇÃO CRÍTICA: "OFF" sozinho não é cor válida, apenas "OFF WHITE", "OFF DARK", "OFF BLUE"
+      if (corInputNormalizada === 'OFF' && !corValidaNormalizada.startsWith('OFF ')) {
+        continue; // Pular "OFF" isolado se não for parte de cor composta
       }
+      
+      // ✅ VALIDAÇÃO: Ignorar cores muito curtas que podem ser falsos positivos
+      // Ex: "OFF" sozinho, palavras comuns de 2-3 letras
+      if (corInputNormalizada.length <= 3 && corValidaNormalizada.length <= 3 && corValidaNormalizada !== corInputNormalizada) {
+        continue;
+      }
+      
+      return corValida;
     }
   }
   
-  // ✅ ESTRATÉGIA 3: Verificar match parcial (para cores compostas como "OFF-WHITE")
-  const corSemHifen = corNormalizada.replace(/[-_]/g, ' ');
-  const matchParcial = coresOrdenadas.find(c => {
-    const cSemEspacos = c.replace(/\s+/g, '');
-    const corSemEspacos = corSemHifen.replace(/\s+/g, '');
-    return corSemEspacos.includes(cSemEspacos) || cSemEspacos.includes(corSemEspacos);
-  });
-  
-  if (matchParcial) {
-    return matchParcial;
+  // ✅ ESTRATÉGIA 3: Verificar match sem espaços (para cores compostas como "OFF-WHITE")
+  const corSemEspacos = corNormalizada.replace(/[-_\s]/g, '');
+  for (const corValida of coresOrdenadas) {
+    const corValidaSemEspacos = corValida.replace(/[-_\s]/g, '');
+    if (corSemEspacos === corValidaSemEspacos || corSemEspacos.includes(corValidaSemEspacos) || corValidaSemEspacos.includes(corSemEspacos)) {
+      // ✅ Mesma validação para OFF isolado
+      if (corSemEspacos === 'OFF' && !corValidaSemEspacos.startsWith('OFF')) {
+        continue;
+      }
+      return corValida;
+    }
   }
   
   // Se não encontrou match válido, retornar null (não é uma cor válida)
