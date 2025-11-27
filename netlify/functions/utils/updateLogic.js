@@ -13,6 +13,8 @@
  * @returns {boolean} - true se precisa atualizar, false caso contrário
  */
 function shouldUpdateOrder(existing, newData) {
+  return true; // ✅ FORÇAR UPDATE para garantir que correções de tamanho/cor sejam aplicadas
+
   if (!existing) return true; // Se não existe, precisa inserir
 
   // Comparar campos relevantes

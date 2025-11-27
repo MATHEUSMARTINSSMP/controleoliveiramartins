@@ -79,9 +79,8 @@ export default function ERPDashboard() {
     }
   }, [selectedStoreId]);
 
-  // ✅ AUTO-REFRESH SILENCIOSO NO BACKGROUND - DESATIVADO PARA EVITAR EXCESSO DE REQUISIÇÕES
-  // O usuário deve sincronizar manualmente quando desejar
-  /*
+  // ✅ AUTO-REFRESH SILENCIOSO NO BACKGROUND (Intervalo Otimizado: 60s)
+  // Mantém os dados atualizados sem sobrecarregar a rede
   useEffect(() => {
     if (!selectedStoreId) return;
 
@@ -89,21 +88,84 @@ export default function ERPDashboard() {
 
     // Verificar se a loja tem integração ERP configurada
     const checkAndSync = async () => {
-      // ... (código removido para otimização)
+      // Se já está sincronizando, pular
+      if (isSyncing) {
+        return; // Silencioso, sem log
+      }
+
+      const { data: integration } = await supabase
+        .schema('sistemaretiradas')
+        .from('erp_integrations')
+        .select('id, sistema_erp, access_token, sync_status')
+        .eq('store_id', selectedStoreId)
+        .maybeSingle();
+
+      if (integration && integration.access_token && integration.sync_status === 'CONNECTED') {
+        isSyncing = true;
+
+        try {
+          // ✅ Buscar contagem atual de pedidos ANTES da sincronização
+          const { count: countAntes } = await supabase
+            .schema('sistemaretiradas')
+            .from('tiny_orders')
+            .select('*', { count: 'exact', head: true })
+            .eq('store_id', selectedStoreId);
+
+          // ✅ Sincronização silenciosa - busca apenas últimas 2 horas (muito leve)
+          const duasHorasAtras = new Date();
+          duasHorasAtras.setHours(duasHorasAtras.getHours() - 2);
+          const dataInicio = duasHorasAtras.toISOString().split('T')[0];
+
+          const result = await syncTinyOrders(selectedStoreId, {
+            dataInicio,
+            incremental: true,
+            limit: 20, // Poucos registros para ser rápido
+            maxPages: 1, // Apenas 1 página
+          });
+
+          if (result.success && result.synced > 0) {
+            // ✅ Verificar se há novos pedidos após sincronização
+            const { count: countDepois } = await supabase
+              .schema('sistemaretiradas')
+              .from('tiny_orders')
+              .select('*', { count: 'exact', head: true })
+              .eq('store_id', selectedStoreId);
+
+            const novosPedidos = (countDepois || 0) - (countAntes || 0);
+
+            if (novosPedidos > 0) {
+              // ✅ NOVA VENDA DETECTADA: Mostrar toast e atualizar lista
+              toast.success(`🛒 ${novosPedidos} nova${novosPedidos > 1 ? 's' : ''} venda${novosPedidos > 1 ? 's' : ''} sincronizada${novosPedidos > 1 ? 's' : ''}!`, {
+                duration: 3000,
+              });
+
+              // Atualizar KPIs silenciosamente
+              await fetchKPIs();
+            }
+
+            // Atualizar última sincronização silenciosamente
+            await fetchLastSync();
+          }
+        } catch (error: any) {
+          // Erros silenciosos no auto-refresh
+          console.warn('[ERPDashboard] ⚠️ Erro no auto-refresh:', error.message || error);
+        } finally {
+          isSyncing = false;
+        }
+      }
     };
 
-    // Primeira sincronização após 3 segundos
-    // const initialTimeout = setTimeout(checkAndSync, 3000);
+    // Primeira sincronização após 5 segundos
+    const initialTimeout = setTimeout(checkAndSync, 5000);
 
-    // Sincronizar a cada 10 segundos silenciosamente
-    // const interval = setInterval(checkAndSync, 10000); // 10 segundos
+    // Sincronizar a cada 60 segundos (1 minuto) - Intervalo seguro
+    const interval = setInterval(checkAndSync, 60000);
 
     return () => {
-      // clearTimeout(initialTimeout);
-      // clearInterval(interval);
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
     };
   }, [selectedStoreId]);
-  */
 
   const fetchStores = async () => {
     try {
