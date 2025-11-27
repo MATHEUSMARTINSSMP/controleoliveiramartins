@@ -680,8 +680,6 @@ async function processarItemCompleto(storeId, itemData, pedidoId) {
 
         if (partesPorHifen.length > 1) {
           // A última parte antes do tamanho geralmente é a cor
-          // Ex: "VESTIDO - TIVOLI - OFF-WHITE" -> "OFF-WHITE"
-          // Ex: "VESTIDO TIVOLI OFF-WHITE" -> "OFF-WHITE"
           const possivelCor = partesPorHifen[partesPorHifen.length - 1].trim();
 
           // Validar se não é muito longo (ex: < 30 chars) e não é código numérico puro
@@ -692,7 +690,30 @@ async function processarItemCompleto(storeId, itemData, pedidoId) {
             console.log(`[SyncBackground] ❌ Cor rejeitada (muito longa ou numérica): "${possivelCor}"`);
           }
         } else {
-          console.log(`[SyncBackground] ⚠️ Não foi possível separar cor (sem hífen detectável)`);
+          // ✅ FALLBACK: Procurar palavras de cor conhecidas na descrição
+          console.log(`[SyncBackground] ⚠️ Sem hífen detectável, tentando busca por palavras-chave de cor`);
+
+          const coresConhecidas = [
+            'PRETO', 'BRANCO', 'VERMELHO', 'AZUL', 'VERDE', 'AMARELO', 'ROSA', 'ROXO', 'LARANJA',
+            'MARROM', 'CINZA', 'BEGE', 'NUDE', 'OFF-WHITE', 'OFF WHITE', 'OFFWHITE',
+            'VINHO', 'MOSTARDA', 'TERRACOTA', 'CARAMELO', 'CORAL', 'TURQUESA',
+            'PINK', 'BLACK', 'WHITE', 'RED', 'BLUE', 'GREEN', 'YELLOW', 'PURPLE', 'ORANGE',
+            'RADIANTE', 'ESCURO', 'CLARO', 'NAVY', 'MARINHO'
+          ];
+
+          const palavras = parteSemTamanho.toUpperCase().split(/\s+/);
+          const corEncontrada = palavras.find(palavra =>
+            coresConhecidas.some(corConhecida =>
+              palavra.includes(corConhecida) || corConhecida.includes(palavra)
+            )
+          );
+
+          if (corEncontrada) {
+            cor = normalizeCor(corEncontrada);
+            console.log(`[SyncBackground] ✅ Cor encontrada por palavra-chave: "${cor}"`);
+          } else {
+            console.log(`[SyncBackground] ❌ Nenhuma cor conhecida encontrada`);
+          }
         }
       }
     }
