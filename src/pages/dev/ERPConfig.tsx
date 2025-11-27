@@ -241,7 +241,7 @@ const ERPConfig = () => {
     setSyncing(true);
     try {
       if (hardSync) {
-        toast.info("🔥 HARD SYNC: Sincronizando TODOS os pedidos dos últimos 365 dias... Isso pode levar vários minutos.");
+        toast.info("🔥 HARD SYNC ABSOLUTO: Sincronizando TODOS os pedidos desde sempre... Isso pode levar MUITO tempo (horas).");
       } else {
         toast.info("Sincronizando pedidos de venda (incremental)...");
       }
@@ -281,7 +281,7 @@ const ERPConfig = () => {
     setSyncing(true);
     try {
       if (hardSync) {
-        toast.info("🔥 HARD SYNC: Sincronizando TODAS as clientes... Isso pode levar vários minutos.");
+        toast.info("🔥 HARD SYNC ABSOLUTO: Sincronizando TODAS as clientes desde sempre... Isso pode levar MUITO tempo (horas).");
       } else {
         toast.info("Sincronizando clientes...");
       }
@@ -665,13 +665,13 @@ const ERPConfig = () => {
                     ) : (
                       <>
                         <RefreshCw className="mr-2 h-4 w-4" />
-                        🔥 HARD SYNC Pedidos (365 dias)
+                        🔥 HARD SYNC ABSOLUTO Pedidos (Todos desde sempre)
                       </>
                     )}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Incremental: apenas novos. Hard Sync: últimos 365 dias (pode levar vários minutos).
+                  Incremental: apenas novos. Hard Sync Absoluto: TODOS os pedidos desde sempre (pode levar HORAS).
                 </p>
               </div>
 
@@ -711,13 +711,13 @@ const ERPConfig = () => {
                     ) : (
                       <>
                         <RefreshCw className="mr-2 h-4 w-4" />
-                        🔥 HARD SYNC Clientes (Todas)
+                        🔥 HARD SYNC ABSOLUTO Clientes (Todas desde sempre)
                       </>
                     )}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Padrão: até 50 páginas. Hard Sync: TODAS as clientes (pode levar vários minutos).
+                  Padrão: até 50 páginas. Hard Sync Absoluto: TODAS as clientes desde sempre (pode levar HORAS).
                 </p>
               </div>
             </CardContent>

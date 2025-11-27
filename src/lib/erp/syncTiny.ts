@@ -544,21 +544,19 @@ export async function syncTinyOrders(
 
   try {
     const { dataInicio, dataFim: dataFimParam, limit = 100, maxPages: maxPagesParam = 5, incremental = true, hardSync = false } = options;
-    // ✅ HARD SYNC: Se hardSync = true, aumentar limite de páginas
-    const maxPages = hardSync ? 999 : maxPagesParam; // Hard sync: até 999 páginas (99.900 pedidos)
+    // ✅ HARD SYNC ABSOLUTO: Se hardSync = true, buscar TODAS as páginas (sem limite prático)
+    const maxPages = hardSync ? 99999 : maxPagesParam; // Hard sync absoluto: até 99.999 páginas (9.999.900 pedidos)
     dataFim = dataFimParam;
 
     // ✅ FASE 1: Sincronização incremental otimizada - buscar última data E último ID
     dataInicioSync = dataInicio;
     let ultimoTinyIdSync: string | null = null;
 
-    // ✅ HARD SYNC: Se hardSync = true, buscar últimos 365 dias
+    // ✅ HARD SYNC ABSOLUTO: Se hardSync = true, buscar TODOS os pedidos desde sempre (sem limite de data)
     if (hardSync && !dataInicio) {
-      const hoje = new Date();
-      const umAnoAtras = new Date(hoje);
-      umAnoAtras.setDate(hoje.getDate() - 365);
-      dataInicioSync = umAnoAtras.toISOString().split('T')[0];
-      console.log(`[SyncTiny] 🔥 HARD SYNC: Buscando pedidos dos últimos 365 dias desde: ${dataInicioSync}`);
+      // Buscar desde 2010-01-01 (data arbitrária muito antiga para pegar tudo)
+      dataInicioSync = '2010-01-01';
+      console.log(`[SyncTiny] 🔥 HARD SYNC ABSOLUTO: Buscando TODOS os pedidos desde ${dataInicioSync} (sem limite de data)`);
     } else if (incremental && !dataInicio) {
       const { data: lastSync } = await supabase
         .schema('sistemaretiradas')
@@ -905,7 +903,7 @@ export async function syncTinyOrders(
             let subcategoria: string | null = subcategoriaDoItem; // Começar com dados do item
             let marca: string | null = marcaDoItem; // Começar com dados do item
             let tamanho: string | null = normalizeTamanho(tamanhoDoItem); // ✅ NORMALIZAR para MAIÚSCULA
-            let cor: string | null = corDoItem; // Começar com dados do item
+            let cor: string | null = corDoItem ? String(corDoItem).trim().toUpperCase() : null; // ✅ Normalizar cor para maiúscula desde o início
             let genero: string | null = null;
             let faixa_etaria: string | null = null;
             let material: string | null = null;
@@ -921,9 +919,9 @@ export async function syncTinyOrders(
               || null;
 
             // ✅ CORREÇÃO CRÍTICA: TAMANHO E COR VÊM DAS VARIAÇÕES, NÃO DA CATEGORIA
-            // Sempre buscar produto completo se não tivermos tamanho/cor
-            // Mesmo que tenhamos categoria/marca, precisamos das variações para tamanho/cor
-            if (produtoId && (!tamanho || !cor)) {
+            // SEMPRE buscar produto completo se tivermos produtoId para garantir variações completas
+            // Mesmo que já tenhamos tamanho/cor do item, precisamos validar/corrigir com as variações do produto
+            if (produtoId) {
               try {
                 console.log(`[SyncTiny] 🔍 Buscando detalhes completos do produto ${produtoId} (categoria: ${categoria || 'não encontrada'}, marca: ${marca || 'não encontrada'}, tamanho: ${tamanho || 'não encontrado'}, cor: ${cor || 'não encontrada'}, variacaoId: ${variacaoId || 'não especificado'})...`);
                 produtoCompleto = await fetchProdutoCompletoFromTiny(storeId, produtoId);
@@ -1070,7 +1068,7 @@ export async function syncTinyOrders(
                               chave === 'color' ||
                               chave.includes('colour')
                             )) {
-                              cor = valor;
+                              cor = String(valor).trim().toUpperCase(); // ✅ Normalizar cor para maiúscula
                               if (!variacaoEncontrada) variacaoEncontrada = variacao; // Marcar variação se ainda não tiver
                               console.log(`[SyncTiny] ✅ Cor extraída da variação ID ${variacao.id}: "${cor}" (chave: "${atributo.chave || atributo.key || 'N/A'}")`);
                             } 
@@ -1145,7 +1143,7 @@ export async function syncTinyOrders(
                             chave === 'color' ||
                             chave.includes('colour')
                           )) {
-                            cor = valor;
+                            cor = String(valor).trim().toUpperCase(); // ✅ Normalizar cor para maiúscula
                             console.log(`[SyncTiny] ✅ Cor extraída: "${cor}"`);
                           } 
                           if (!genero && (
@@ -1275,8 +1273,8 @@ export async function syncTinyOrders(
               categoria,
               subcategoria,
               marca,
-              tamanho,
-              cor,
+              tamanho: tamanho ? normalizeTamanho(tamanho) : null, // ✅ NORMALIZAR para MAIÚSCULA
+              cor: cor ? String(cor).trim().toUpperCase() : null, // ✅ Garantir que cor seja string maiúscula
               genero,
               faixa_etaria,
               material,
@@ -1379,12 +1377,13 @@ export async function syncTinyOrders(
           numero_ecommerce: (pedido.ecommerce?.numeroPedidoEcommerce || pedido.numero_ecommerce)?.toString() || null,
           situacao: pedido.situacao?.toString() || null, // API v3 retorna número (8, 0, 3, 4, 1, 7, 5, 6, 2, 9)
           data_pedido: (() => {
+            // ✅ PRIORIDADE: Buscar dataCriacao primeiro (pode ter hora completa)
             // API v3 oficial usa: data (data de criação), dataFaturamento, dataEntrega
-            const data = pedido.data  // API v3 oficial (camelCase)
+            let data = pedido.dataCriacao  // Priorizar dataCriacao (pode ter hora)
+              || pedido.data_criacao
+              || pedido.data  // API v3 oficial (camelCase)
               || pedido.dataFaturamento  // Data de faturamento
               || pedido.data_pedido  // Fallback para snake_case
-              || pedido.dataCriacao
-              || pedido.data_criacao
               || pedido.dataPedido
               || pedido.data_criacao_pedido
               || null;
@@ -2787,42 +2786,6 @@ export async function syncTinyContacts(
       .insert({
         store_id: storeId,
         sistema_erp: 'TINY',
-        tipo_sync: 'CONTATOS',
-        registros_sincronizados: synced,
-        registros_atualizados: updated,
-        registros_com_erro: errors,
-        status: errors === 0 ? 'SUCCESS' : (synced + updated > 0 ? 'PARTIAL' : 'ERROR'),
-        error_message: errorDetails.length > 0 ? errorDetails.slice(0, 5).join('; ') : null,
-        tempo_execucao_ms: executionTime,
-        total_paginas: totalPages,
-        sync_at: new Date().toISOString(),
-      });
-
-    return {
-      success: errors === 0,
-      message: `Sincronizados ${synced} novos, ${updated} atualizados${errors > 0 ? `, ${errors} erros` : ''} (${totalPages} página(s), ${(executionTime / 1000).toFixed(1)}s)`,
-      synced,
-      updated,
-      errors,
-      totalPages,
-      executionTime,
-    };
-  } catch (error: any) {
-    console.error('Erro na sincronização de contatos:', error);
-    const executionTime = Date.now() - startTime;
-
-    return {
-      success: false,
-      message: error.message || 'Erro ao sincronizar contatos',
-      synced: 0,
-      updated: 0,
-      errors: 0,
-      totalPages: 0,
-      executionTime,
-    };
-  }
-}
-
         tipo_sync: 'CONTATOS',
         registros_sincronizados: synced,
         registros_atualizados: updated,

@@ -404,16 +404,13 @@ export default function ProductSalesIntelligence() {
               }
             }
 
-            // ✅ NORMALIZAR TAMANHO
-            const tamanhoNormalizado = normalizeTamanho(item.tamanho);
-            
             allSales.push({
               id: `${order.id}-${item.codigo || Math.random()}`,
               categoria: item.categoria || 'Sem Categoria',
               subcategoria: item.subcategoria || null,
               marca: item.marca || null,
-              tamanho: tamanhoNormalizado, // ✅ Usar tamanho normalizado
-              cor: item.cor || null,
+              tamanho: item.tamanho ? normalizeTamanho(item.tamanho) : null, // ✅ Usar tamanho normalizado (já vem do banco)
+              cor: item.cor ? String(item.cor).trim().toUpperCase() : null, // ✅ Cor em maiúscula (já vem do banco)
               codigo: item.codigo || null,
               descricao: item.descricao || null,
               quantidade,
