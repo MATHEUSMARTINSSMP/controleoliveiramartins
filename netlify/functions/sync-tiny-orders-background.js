@@ -956,31 +956,100 @@ async function findCollaboratorByVendedor(supabase, storeId, vendedor) {
  * Prepara dados completos do pedido para salvar
  */
 function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId, colaboradoraId, itensComCategorias, tinyId) {
-  // Extrair data com hora completa
+  // ✅ EXTRAÇÃO ROBUSTA DE DATA/HORA: Tentar múltiplas fontes antes de usar fallback
   let dataPedido = null;
+  let temHoraReal = false;
+  let dataBase = null;
+
+  // 1. Priorizar dataCriacao do pedido completo (mais confiável)
   if (pedidoCompleto?.dataCriacao) {
-    dataPedido = pedidoCompleto.dataCriacao;
-    const horaPart = dataPedido.split('T')?.[1]?.split(/[+\-Z]/)?.[0];
-    if (!horaPart || horaPart.startsWith('00:00:00')) {
-      // Tentar buscar hora de dataAtualizacao
-      if (pedidoCompleto.dataAtualizacao && pedidoCompleto.dataAtualizacao.includes('T')) {
-        const horaAtualizacao = pedidoCompleto.dataAtualizacao.split('T')[1]?.split(/[+\-Z]/)?.[0];
-        if (horaAtualizacao && !horaAtualizacao.startsWith('00:00:00')) {
-          dataPedido = `${dataPedido.split('T')[0]}T${horaAtualizacao}-03:00`;
+    dataBase = pedidoCompleto.dataCriacao;
+    const horaPart = dataBase.split('T')?.[1]?.split(/[+\-Z]/)?.[0];
+    temHoraReal = horaPart && !horaPart.startsWith('00:00:00');
+    if (temHoraReal) {
+      dataPedido = dataBase;
+    }
+  }
+
+  // 2. Se não tem hora real, tentar dataAtualizacao do pedido completo
+  if (!temHoraReal && pedidoCompleto?.dataAtualizacao) {
+    const dataAtualizacao = pedidoCompleto.dataAtualizacao;
+    if (dataAtualizacao.includes('T')) {
+      const horaPart = dataAtualizacao.split('T')[1]?.split(/[+\-Z]/)?.[0];
+      if (horaPart && !horaPart.startsWith('00:00:00')) {
+        // Usar data base do pedido mas com hora de atualização
+        const dataPart = (dataBase || dataAtualizacao).split('T')[0];
+        dataPedido = `${dataPart}T${horaPart}-03:00`;
+        temHoraReal = true;
+      }
+    }
+  }
+
+  // 3. Tentar outras datas do pedido completo (data, dataFaturamento)
+  if (!temHoraReal) {
+    const datasAlternativas = [
+      pedidoCompleto?.data,
+      pedidoCompleto?.dataFaturamento,
+      pedidoCompleto?.dataEnvio,
+    ].filter(Boolean);
+
+    for (const dataAlt of datasAlternativas) {
+      if (dataAlt && typeof dataAlt === 'string' && dataAlt.includes('T')) {
+        const horaPart = dataAlt.split('T')[1]?.split(/[+\-Z]/)?.[0];
+        if (horaPart && !horaPart.startsWith('00:00:00')) {
+          const dataPart = (dataBase || dataAlt).split('T')[0];
+          dataPedido = `${dataPart}T${horaPart}-03:00`;
+          temHoraReal = true;
+          break;
         }
       }
     }
-  } else if (pedido.dataCriacao) {
-    dataPedido = pedido.dataCriacao;
-  } else if (pedido.data) {
-    dataPedido = pedido.data;
   }
 
-  // Se não tem hora, adicionar timezone
-  if (dataPedido && dataPedido.includes('T') && !dataPedido.includes('Z') && !dataPedido.includes('+') && !dataPedido.includes('-', 10)) {
-    dataPedido = `${dataPedido}-03:00`;
-  } else if (dataPedido && !dataPedido.includes('T')) {
-    dataPedido = `${dataPedido}T00:00:00-03:00`;
+  // 4. Se ainda não tem, tentar do pedido original
+  if (!dataPedido) {
+    const datasOriginais = [
+      pedido.dataCriacao,
+      pedido.data_criacao,
+      pedido.data,
+      pedido.dataFaturamento,
+      pedido.data_faturamento,
+    ].filter(Boolean);
+
+    for (const dataOrig of datasOriginais) {
+      if (dataOrig && typeof dataOrig === 'string') {
+        if (dataOrig.includes('T')) {
+          const horaPart = dataOrig.split('T')[1]?.split(/[+\-Z]/)?.[0];
+          if (horaPart && !horaPart.startsWith('00:00:00')) {
+            dataPedido = dataOrig;
+            temHoraReal = true;
+            break;
+          } else {
+            // Tem data mas sem hora real, usar como base
+            if (!dataBase) {
+              dataBase = dataOrig;
+            }
+          }
+        } else {
+          // Apenas data, usar como base
+          if (!dataBase) {
+            dataBase = dataOrig;
+          }
+        }
+      }
+    }
+  }
+
+  // 5. Se temos data base mas não tem hora real, adicionar timezone
+  if (dataPedido && dataPedido.includes('T')) {
+    if (!dataPedido.includes('Z') && !dataPedido.includes('+') && !dataPedido.includes('-', 10)) {
+      dataPedido = `${dataPedido}-03:00`;
+    }
+  } else if (dataBase) {
+    // 6. Último recurso: usar data base com meia-noite (mas logar aviso)
+    const dataPart = dataBase.includes('T') ? dataBase.split('T')[0] : dataBase;
+    dataPedido = `${dataPart}T00:00:00-03:00`;
+    console.warn(`[SyncBackground] ⚠️ Pedido ${tinyId}: Data sem hora real disponível, usando 00:00:00 como fallback`);
   }
 
   // Calcular valor total
