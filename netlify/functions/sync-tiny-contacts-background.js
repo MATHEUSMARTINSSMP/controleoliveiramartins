@@ -59,7 +59,27 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const body = JSON.parse(event.body || '{}');
+    let body;
+    try {
+      const bodyText = event.body || '{}';
+      if (!bodyText || bodyText.trim() === '') {
+        body = {};
+      } else {
+        body = JSON.parse(bodyText);
+      }
+    } catch (parseError) {
+      console.error('[SyncContactsBackground] ❌ Erro ao fazer parse do body:', parseError);
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ 
+          success: false, 
+          error: 'Body inválido ou vazio',
+          details: parseError.message 
+        }),
+      };
+    }
+    
     const { store_id, limit = 100, max_pages = 50, hard_sync = false } = body;
 
     if (!store_id) {

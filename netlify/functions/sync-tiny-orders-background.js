@@ -76,7 +76,27 @@ exports.handler = async (event, context) => {
   try {
     // ✅ Para trabalhos muito longos (hard sync), executar de forma assíncrona
     // Retornar imediatamente e continuar processamento em background
-    const body = JSON.parse(event.body || '{}');
+    let body;
+    try {
+      const bodyText = event.body || '{}';
+      if (!bodyText || bodyText.trim() === '') {
+        body = {};
+      } else {
+        body = JSON.parse(bodyText);
+      }
+    } catch (parseError) {
+      console.error('[SyncBackground] ❌ Erro ao fazer parse do body:', parseError);
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ 
+          success: false, 
+          error: 'Body inválido ou vazio',
+          details: parseError.message 
+        }),
+      };
+    }
+    
     const { store_id, data_inicio, incremental = true, limit = 50, max_pages = 2, hard_sync = false } = body;
 
     if (!store_id) {
