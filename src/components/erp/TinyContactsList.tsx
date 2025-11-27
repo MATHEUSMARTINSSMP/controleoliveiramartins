@@ -144,13 +144,13 @@ export default function TinyContactsList({ storeId, limit = 10000 }: TinyContact
     setLoadingStats(prev => new Set(prev).add(contactId));
 
     try {
-      // Buscar vendas do cliente
+      // Buscar vendas do cliente (usando tiny_orders)
       const { data: vendas, error } = await supabase
         .schema('sistemaretiradas')
-        .from('vendas')
+        .from('tiny_orders')
         .select('*')
-        .eq('cliente_tiny_id', tinyId)
-        .order('data_pedido', { ascending: false });
+        .eq('cliente_id', contactId)
+        .order('numero_pedido', { ascending: false });
 
       if (error) throw error;
 
@@ -177,11 +177,16 @@ export default function TinyContactsList({ storeId, limit = 10000 }: TinyContact
         value: vendas.reduce((sum, v) => sum + (v.valor_total || 0), 0),
       };
 
-      // Top produtos (agrupar por descrição)
+      // Top produtos (agrupar por descrição dos itens do pedido)
       const productMap = new Map<string, number>();
       vendas.forEach(venda => {
-        const desc = venda.produto_descricao || 'Produto sem descrição';
-        productMap.set(desc, (productMap.get(desc) || 0) + (venda.quantidade || 1));
+        if (venda.itens && Array.isArray(venda.itens)) {
+          venda.itens.forEach((item: any) => {
+            const desc = item.descricao || item.produto || 'Produto sem descrição';
+            const qtd = parseFloat(item.quantidade || 1);
+            productMap.set(desc, (productMap.get(desc) || 0) + qtd);
+          });
+        }
       });
       const topProducts = Array.from(productMap.entries())
         .map(([descricao, quantidade]) => ({ descricao, quantidade }))
