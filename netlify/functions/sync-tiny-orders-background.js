@@ -388,6 +388,7 @@ exports.handler = async (event, context) => {
  * Processa um item completo do pedido, extraindo tamanho, cor, categoria, marca
  */
 async function processarItemCompleto(supabase, storeId, item) {
+  console.log('[SyncBackground] 🚀 v2.1 - Executing processarItemCompleto with ROBUST extraction');
   const produto = item.produto || {};
   const quantidade = item.quantidade || 0;
   const valorUnitario = item.valorUnitario || 0;
@@ -458,11 +459,64 @@ async function processarItemCompleto(supabase, storeId, item) {
           marca = produtoCompleto.marca.nome || produtoCompleto.marca.descricao || null;
         }
 
+        // ✅ NOVA LÓGICA: Verificar se o produto retornado JÁ É A VARIAÇÃO (Produto Filho)
+        // Isso acontece quando o ID do item do pedido aponta diretamente para a variação
+        // Nesse caso, o objeto produtoCompleto terá 'grade', 'tamanho' ou 'cor' diretamente
+
+        let isVariacaoDireta = false;
+
+        // Verificar se tem grade direta (formato comum de variação)
+        if (produtoCompleto.grade) {
+          let gradeArray = null;
+          if (Array.isArray(produtoCompleto.grade)) {
+            gradeArray = produtoCompleto.grade;
+          } else if (typeof produtoCompleto.grade === 'object') {
+            gradeArray = Object.values(produtoCompleto.grade);
+          }
+
+          if (gradeArray && gradeArray.length > 0) {
+            console.log(`[SyncBackground] 🎯 Produto ${produtoId} é uma VARIAÇÃO DIRETA (tem grade)`);
+            isVariacaoDireta = true;
+
+            for (const atributo of gradeArray) {
+              const chave = String(atributo.chave || atributo.key || atributo.nome || '').toLowerCase().trim();
+              const valor = String(atributo.valor || atributo.value || atributo.descricao || '').trim();
+
+              if (!tamanho && (chave.includes('tamanho') || chave.includes('size') || chave === 'tam')) {
+                tamanho = normalizeTamanho(valor);
+                console.log(`[SyncBackground] ✅ Tamanho extraído da variação direta: "${tamanho}"`);
+              }
+              if (!cor && (chave.includes('cor') || chave.includes('color') || chave.includes('colour'))) {
+                cor = normalizeCor(valor);
+                console.log(`[SyncBackground] ✅ Cor extraída da variação direta: "${cor}"`);
+              }
+              if (!genero && (chave.includes('genero') || chave.includes('gender'))) {
+                genero = valor;
+              }
+            }
+          }
+        }
+
+        // Verificar campos diretos de tamanho/cor (algumas APIs retornam assim)
+        if (!isVariacaoDireta) {
+          if (!tamanho && produtoCompleto.tamanho) {
+            tamanho = normalizeTamanho(produtoCompleto.tamanho);
+            console.log(`[SyncBackground] ✅ Tamanho extraído do campo direto: "${tamanho}"`);
+            isVariacaoDireta = true;
+          }
+          if (!cor && produtoCompleto.cor) {
+            cor = normalizeCor(produtoCompleto.cor);
+            console.log(`[SyncBackground] ✅ Cor extraída do campo direto: "${cor}"`);
+            isVariacaoDireta = true;
+          }
+        }
+
+        // Se NÃO for variação direta, procurar na lista de variações (Produto Pai)
         // ✅ EXTRAIR TAMANHO E COR DAS VARIAÇÕES
         // IMPORTANTE: variações podem vir como ARRAY ou como OBJETO JSON
         let variacoesArray = null;
 
-        if (produtoCompleto.variacoes) {
+        if (!isVariacaoDireta && produtoCompleto.variacoes) {
           if (Array.isArray(produtoCompleto.variacoes)) {
             // Caso 1: Variações como array
             variacoesArray = produtoCompleto.variacoes;
