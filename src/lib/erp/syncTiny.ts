@@ -10,6 +10,42 @@
 import { supabase } from '@/integrations/supabase/client';
 import { callERPAPI } from '@/lib/erpIntegrations';
 
+// ✅ TAMANHOS VÁLIDOS PARA NORMALIZAÇÃO (SEMPRE EM MAIÚSCULA)
+const TAMANHOS_VALIDOS = [
+  'PP', 'P', 'M', 'G', 'GG', 'XGG', 'XXXG', 'XXXXG',
+  '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54',
+  'U', 'UNICO', 'ÚNICO', 'UNIDADE'
+];
+
+// ✅ FUNÇÃO PARA NORMALIZAR TAMANHOS (SEMPRE EM MAIÚSCULA)
+function normalizeTamanho(tamanho: string | null | undefined): string | null {
+  if (!tamanho) return null;
+  
+  // Converter para maiúscula e remover espaços
+  const normalized = String(tamanho)
+    .toUpperCase()
+    .trim()
+    .replace(/[^A-Z0-9]/g, ''); // Remove caracteres especiais, mantém apenas letras maiúsculas e números
+  
+  // Verificar se está na lista de tamanhos válidos (comparação case-insensitive)
+  const match = TAMANHOS_VALIDOS.find(t => 
+    normalized === t || 
+    normalized.includes(t) || 
+    t.includes(normalized) ||
+    normalized.replace(/[^A-Z0-9]/g, '') === t.replace(/[^A-Z0-9]/g, '')
+  );
+  
+  if (match) {
+    // Retornar o tamanho normalizado padrão em MAIÚSCULA
+    if (match === 'UNICO' || match === 'ÚNICO') return 'U';
+    if (match === 'UNIDADE') return 'U';
+    return match.toUpperCase();
+  }
+  
+  // Se não encontrou match exato, retornar o tamanho original em MAIÚSCULA
+  return String(tamanho).trim().toUpperCase();
+}
+
 interface TinyPedido {
   // A API v3 retorna o pedido diretamente, não dentro de um objeto "pedido"
   // Mas para compatibilidade, aceitamos ambos os formatos
@@ -868,7 +904,7 @@ export async function syncTinyOrders(
             let categoria: string | null = categoriaDoItem; // Começar com dados do item
             let subcategoria: string | null = subcategoriaDoItem; // Começar com dados do item
             let marca: string | null = marcaDoItem; // Começar com dados do item
-            let tamanho: string | null = tamanhoDoItem; // Começar com dados do item
+            let tamanho: string | null = normalizeTamanho(tamanhoDoItem); // ✅ NORMALIZAR para MAIÚSCULA
             let cor: string | null = corDoItem; // Começar com dados do item
             let genero: string | null = null;
             let faixa_etaria: string | null = null;
@@ -1022,7 +1058,7 @@ export async function syncTinyOrders(
                               chave.includes('tam') ||
                               chave === 'tam'
                             )) {
-                              tamanho = valor;
+                              tamanho = normalizeTamanho(valor); // ✅ NORMALIZAR para MAIÚSCULA
                               variacaoEncontrada = variacao; // Marcar qual variação tem o tamanho
                               console.log(`[SyncTiny] ✅ Tamanho extraído da variação ID ${variacao.id}: "${tamanho}" (chave: "${atributo.chave || atributo.key || 'N/A'}")`);
                             } 
@@ -1099,7 +1135,7 @@ export async function syncTinyOrders(
                             chave.includes('tam') ||
                             chave === 'tam'
                           )) {
-                            tamanho = valor;
+                            tamanho = normalizeTamanho(valor); // ✅ NORMALIZAR para MAIÚSCULA
                             console.log(`[SyncTiny] ✅ Tamanho extraído: "${tamanho}"`);
                           } 
                           if (!cor && (
@@ -1130,7 +1166,7 @@ export async function syncTinyOrders(
 
                   // ✅ DADOS EXTRAS - Pode conter informações adicionais
                   if (produtoCompleto.dados_extras) {
-                    tamanho = tamanho || produtoCompleto.dados_extras.tamanho || produtoCompleto.dados_extras.size || null;
+                    tamanho = normalizeTamanho(tamanho || produtoCompleto.dados_extras.tamanho || produtoCompleto.dados_extras.size || null); // ✅ NORMALIZAR para MAIÚSCULA
                     cor = cor || produtoCompleto.dados_extras.cor || produtoCompleto.dados_extras.color || null;
                     genero = genero || produtoCompleto.dados_extras.genero || produtoCompleto.dados_extras.gender || null;
                     faixa_etaria = produtoCompleto.dados_extras.faixa_etaria || produtoCompleto.dados_extras.age_range || null;
@@ -2332,84 +2368,26 @@ async function syncTinyContact(
       updated_at: new Date().toISOString(),
     };
 
-    // ✅ FASE 1: Fazer upsert e retornar o ID do cliente
-    // ⚠️ IMPORTANTE: Se telefoneFinal for null, não sobrescrever telefone existente no banco
-    // Verificar se já existe contato com telefone antes de fazer upsert
+    // ✅ CORREÇÃO CRÍTICA: Simplificar busca de telefone para evitar múltiplas requisições
+    // Verificar apenas uma vez se o contato já existe e manter telefone existente
     let contactDataFinal = { ...contactData };
     
-    if (!telefoneFinal) {
-      // ✅ ESTRATÉGIA 1: Verificar se já existe telefone no tiny_contacts
-      const { data: existingContact } = await supabase
-        .schema('sistemaretiradas')
-        .from('tiny_contacts')
-        .select('telefone, celular')
-        .eq('store_id', storeId)
-        .eq('tiny_id', contactData.tiny_id)
-        .maybeSingle();
-      
-      if (existingContact && (existingContact.telefone || existingContact.celular)) {
-        // Manter telefone existente (não sobrescrever com null)
-        contactDataFinal.telefone = existingContact.telefone || existingContact.celular;
-        console.log(`[SyncTiny] ✅ Mantendo telefone existente em tiny_contacts: ${contactDataFinal.telefone?.substring(0, 15)}...`);
-      } else {
-        // ✅ ESTRATÉGIA 2: Buscar telefone em pedidos existentes (tiny_orders.cliente_telefone)
-        // Isso é útil para "consumidor final" que não tem cadastro completo
-        // Buscar por CPF primeiro (mais preciso), depois por nome
-        let pedidoComTelefone = null;
-        
-        if (contactData.cpf_cnpj) {
-          const { data } = await supabase
-            .schema('sistemaretiradas')
-            .from('tiny_orders')
-            .select('cliente_telefone')
-            .eq('store_id', storeId)
-            .eq('cliente_cpf_cnpj', contactData.cpf_cnpj)
-            .not('cliente_telefone', 'is', null)
-            .limit(1)
-            .maybeSingle();
-          pedidoComTelefone = data;
-        }
-        
-        // Se não encontrou por CPF, tentar por nome
-        if (!pedidoComTelefone?.cliente_telefone && contactData.nome) {
-          const { data } = await supabase
-            .schema('sistemaretiradas')
-            .from('tiny_orders')
-            .select('cliente_telefone')
-            .eq('store_id', storeId)
-            .eq('cliente_nome', contactData.nome)
-            .not('cliente_telefone', 'is', null)
-            .limit(1)
-            .maybeSingle();
-          pedidoComTelefone = data;
-        }
-        
-        if (pedidoComTelefone && pedidoComTelefone.cliente_telefone) {
-          contactDataFinal.telefone = pedidoComTelefone.cliente_telefone;
-          console.log(`[SyncTiny] ✅ Telefone encontrado em pedido existente (tiny_orders): ${contactDataFinal.telefone?.substring(0, 15)}...`);
-        } else {
-          // ✅ ESTRATÉGIA 3: Buscar telefone mais recente de qualquer pedido do cliente
-          // Útil para quando o cliente não tem telefone mas já fez pedidos
-          const { data: pedidoMaisRecente } = await supabase
-            .schema('sistemaretiradas')
-            .from('tiny_orders')
-            .select('cliente_telefone')
-            .eq('store_id', storeId)
-            .not('cliente_telefone', 'is', null)
-            .neq('cliente_telefone', '')
-            .or(`cliente_cpf_cnpj.eq.${contactData.cpf_cnpj},cliente_nome.eq.${contactData.nome}`)
-            .order('data_pedido', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          
-          if (pedidoMaisRecente && pedidoMaisRecente.cliente_telefone) {
-            contactDataFinal.telefone = pedidoMaisRecente.cliente_telefone;
-            console.log(`[SyncTiny] ✅ Telefone encontrado no pedido mais recente: ${contactDataFinal.telefone?.substring(0, 15)}...`);
-          }
-        }
-      }
+    // ✅ ESTRATÉGIA SIMPLIFICADA: Verificar uma única vez se já existe contato
+    const { data: existingContact } = await supabase
+      .schema('sistemaretiradas')
+      .from('tiny_contacts')
+      .select('telefone, celular')
+      .eq('store_id', storeId)
+      .eq('tiny_id', contactData.tiny_id)
+      .maybeSingle();
+    
+    // Se não tem telefone nos dados recebidos mas já existe no banco, manter o existente
+    if (!telefoneFinal && existingContact && (existingContact.telefone || existingContact.celular)) {
+      contactDataFinal.telefone = existingContact.telefone || existingContact.celular;
+      console.log(`[SyncTiny] ✅ Mantendo telefone existente: ${contactDataFinal.telefone?.substring(0, 15)}...`);
     }
     
+    // ✅ Fazer upsert diretamente - evitar múltiplas queries
     const { data: contactResult, error: contactError } = await supabase
       .schema('sistemaretiradas')
       .from('tiny_contacts')
@@ -2809,6 +2787,42 @@ export async function syncTinyContacts(
       .insert({
         store_id: storeId,
         sistema_erp: 'TINY',
+        tipo_sync: 'CONTATOS',
+        registros_sincronizados: synced,
+        registros_atualizados: updated,
+        registros_com_erro: errors,
+        status: errors === 0 ? 'SUCCESS' : (synced + updated > 0 ? 'PARTIAL' : 'ERROR'),
+        error_message: errorDetails.length > 0 ? errorDetails.slice(0, 5).join('; ') : null,
+        tempo_execucao_ms: executionTime,
+        total_paginas: totalPages,
+        sync_at: new Date().toISOString(),
+      });
+
+    return {
+      success: errors === 0,
+      message: `Sincronizados ${synced} novos, ${updated} atualizados${errors > 0 ? `, ${errors} erros` : ''} (${totalPages} página(s), ${(executionTime / 1000).toFixed(1)}s)`,
+      synced,
+      updated,
+      errors,
+      totalPages,
+      executionTime,
+    };
+  } catch (error: any) {
+    console.error('Erro na sincronização de contatos:', error);
+    const executionTime = Date.now() - startTime;
+
+    return {
+      success: false,
+      message: error.message || 'Erro ao sincronizar contatos',
+      synced: 0,
+      updated: 0,
+      errors: 0,
+      totalPages: 0,
+      executionTime,
+    };
+  }
+}
+
         tipo_sync: 'CONTATOS',
         registros_sincronizados: synced,
         registros_atualizados: updated,

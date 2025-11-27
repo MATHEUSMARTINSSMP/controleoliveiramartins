@@ -314,11 +314,11 @@ export default function ERPDashboard() {
       let mensagem: string;
       
       if (periodo === 'agora') {
-        // Buscar apenas última venda (últimas 12 horas)
+        // ✅ CORREÇÃO: Buscar APENAS A ÚLTIMA VENDA (últimas 2 horas, limite 1, apenas 1 página)
         const agora = new Date();
-        const dozeHorasAtras = new Date(agora);
-        dozeHorasAtras.setHours(agora.getHours() - 12);
-        dataInicio = dozeHorasAtras.toISOString().split('T')[0];
+        const duasHorasAtras = new Date(agora);
+        duasHorasAtras.setHours(agora.getHours() - 2); // Reduzido de 12 para 2 horas
+        dataInicio = duasHorasAtras.toISOString().split('T')[0];
         mensagem = 'Sincronizando última venda...';
       } else if (periodo === 'semana') {
         // Buscar últimos 7 dias
@@ -342,8 +342,8 @@ export default function ERPDashboard() {
         dataInicio,
         incremental: periodo === 'total', // Total usa incremental para só atualizar mudanças
         hardSync: false,
-        limit: periodo === 'agora' ? 10 : 100, // Agora: menos registros
-        maxPages: periodo === 'agora' ? 1 : (periodo === 'semana' ? 10 : 50), // Agora: 1 página, Semana: 10, Total: 50
+        limit: periodo === 'agora' ? 1 : 100, // ✅ CORREÇÃO: Agora: APENAS 1 pedido (última venda)
+        maxPages: periodo === 'agora' ? 1 : (periodo === 'semana' ? 10 : 50), // Agora: 1 página com 1 pedido
       });
 
       if (result.success) {
