@@ -1260,9 +1260,11 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
   let dataBase = null;
   
   if (existingOrder && existingOrder.data_pedido) {
-    // Pedido já existe - usar data_pedido travada e PULAR toda extração
+    // ✅ CRÍTICO: Pedido já existe - usar data_pedido travada e PULAR toda extração
+    // NUNCA recalcular ou alterar a data_pedido de um pedido existente
     dataPedido = existingOrder.data_pedido;
-    console.log(`[SyncBackground] 🔒 Pedido ${tinyId}: Data_pedido já travada, usando original: ${dataPedido}`);
+    console.log(`[SyncBackground] 🔒 Pedido ${tinyId}: Data_pedido TRAVADA (não será alterada): ${dataPedido}`);
+    // Retornar imediatamente sem fazer mais processamento de data
   } else {
     // ✅ NOVO PEDIDO: Extrair data/hora normalmente
     let temHoraReal = false;

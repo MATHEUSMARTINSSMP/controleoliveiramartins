@@ -123,9 +123,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
         .from('tiny_orders')
         .select('*')
         .eq('store_id', storeId)
-        .order('data_pedido', { ascending: false, nullsFirst: false })
         .order('numero_pedido', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false })
         .limit(Math.min(limit, 100)); // ✅ Máximo 100 registros
 
       if (error) throw error;
@@ -153,17 +151,13 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
               });
             }
 
-            // ✅ Adicionar novos pedidos no topo, mantendo ordem por data_pedido descendente
+            // ✅ Adicionar novos pedidos no topo, ordenando por número do pedido (maior = mais recente)
             const todasAsVendas = [...novosSemDuplicados, ...prevOrders];
             return todasAsVendas.sort((a, b) => {
-              // Ordenar por data_pedido (mais recente primeiro)
-              const dataA = a.data_pedido ? new Date(a.data_pedido).getTime() : 0;
-              const dataB = b.data_pedido ? new Date(b.data_pedido).getTime() : 0;
-              if (dataB !== dataA) return dataB - dataA;
-              // Se mesma data, ordenar por número do pedido (maior primeiro)
-              const numA = parseInt(a.numero_pedido || '0');
-              const numB = parseInt(b.numero_pedido || '0');
-              return numB - numA;
+              // Ordenar apenas por número do pedido (maior número = mais recente = no topo)
+              const numA = parseInt(a.numero_pedido || a.numero_ecommerce || '0');
+              const numB = parseInt(b.numero_pedido || b.numero_ecommerce || '0');
+              return numB - numA; // Descendente: maior número primeiro
             });
           });
         } else {
@@ -188,9 +182,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
         .schema('sistemaretiradas')
         .from('tiny_orders')
         .select('*')
-        .order('data_pedido', { ascending: false, nullsFirst: false })
         .order('numero_pedido', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false })
         .limit(maxLimit);
 
       if (storeId) {
