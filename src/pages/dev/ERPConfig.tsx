@@ -247,6 +247,7 @@ const ERPConfig = () => {
         toast.info("🔄 Sincronização incremental iniciada em background... Você pode fechar a página!");
       }
       
+      // ✅ Chamar Edge Function com tratamento de erro melhorado
       const { data, error } = await supabase.functions.invoke('sync-tiny-orders', {
         body: {
           store_id: selectedStoreId,
@@ -257,10 +258,34 @@ const ERPConfig = () => {
           limit: 100,
           incremental: !hardSync,
         },
+      }).catch((invokeError: any) => {
+        console.error("❌ Erro ao chamar Edge Function:", invokeError);
+        // Se a Edge Function não existir ou houver erro de rede, tentar fallback
+        return { data: null, error: invokeError };
       });
 
       if (error) {
-        throw error;
+        console.error("❌ Erro detalhado da Edge Function:", error);
+        
+        // ✅ FALLBACK: Se Edge Function falhar, usar sincronização direta (frontend)
+        console.log("⚠️ Edge Function falhou, usando sincronização direta como fallback...");
+        toast.warning("Edge Function indisponível, sincronizando diretamente... (não feche a página)");
+        
+        const result = await syncTinyOrders(selectedStoreId, {
+          dataInicio: hardSync ? '2010-01-01' : undefined,
+          incremental: !hardSync,
+          hardSync: hardSync,
+          limit: 100,
+          maxPages: hardSync ? 99999 : 50,
+        });
+        
+        if (result.success) {
+          toast.success(result.message);
+          await fetchIntegration();
+        } else {
+          throw new Error(result.message);
+        }
+        return;
       }
 
       if (data?.success) {
@@ -297,6 +322,7 @@ const ERPConfig = () => {
         toast.info("🔄 Sincronização de clientes iniciada em background... Você pode fechar a página!");
       }
       
+      // ✅ Chamar Edge Function com tratamento de erro melhorado
       const { data, error } = await supabase.functions.invoke('sync-tiny-orders', {
         body: {
           store_id: selectedStoreId,
@@ -305,10 +331,31 @@ const ERPConfig = () => {
           max_pages: hardSync ? 9999 : 50,
           limit: 100,
         },
+      }).catch((invokeError: any) => {
+        console.error("❌ Erro ao chamar Edge Function:", invokeError);
+        return { data: null, error: invokeError };
       });
 
       if (error) {
-        throw error;
+        console.error("❌ Erro detalhado da Edge Function:", error);
+        
+        // ✅ FALLBACK: Se Edge Function falhar, usar sincronização direta (frontend)
+        console.log("⚠️ Edge Function falhou, usando sincronização direta como fallback...");
+        toast.warning("Edge Function indisponível, sincronizando diretamente... (não feche a página)");
+        
+        const result = await syncTinyContacts(selectedStoreId, {
+          limit: 100,
+          maxPages: hardSync ? 9999 : 50,
+          hardSync: hardSync,
+        });
+        
+        if (result.success) {
+          toast.success(result.message);
+          await fetchIntegration();
+        } else {
+          throw new Error(result.message);
+        }
+        return;
       }
 
       if (data?.success) {

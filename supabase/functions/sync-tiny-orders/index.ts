@@ -89,7 +89,12 @@ serve(async (req) => {
         throw new Error(`Integração não encontrada ou não conectada para loja ${storeData.name}`);
       }
       
-      const netlifyUrl = Deno.env.get('NETLIFY_FUNCTION_URL') || 'https://eleveaone.com.br'
+      // ✅ OBTER URL DO NETLIFY (usar variável de ambiente ou URL padrão)
+      // Tentar múltiplas variáveis de ambiente (Netlify pode usar diferentes nomes)
+      const netlifyUrl = Deno.env.get('NETLIFY_FUNCTION_URL') || 
+                        Deno.env.get('NETLIFY_URL') || 
+                        Deno.env.get('DEPLOY_PRIME_URL') ||
+                        'https://eleveaone.com.br';
       
       // ✅ Determinar qual Netlify Function chamar
       const functionName = syncType === 'CONTACTS' ? 'sync-tiny-contacts-background' : 'sync-tiny-orders-background';
@@ -119,17 +124,29 @@ serve(async (req) => {
       }
       
       console.log(`[SyncTiny] 📡 Chamando Netlify Function ${functionName} para sincronizar loja ${storeData.name}...`);
+      console.log(`[SyncTiny] 🔗 URL: ${syncUrl}`);
       console.log(`[SyncTiny] 📋 Parâmetros:`, JSON.stringify(syncBody, null, 2));
       
       // ✅ IMPORTANTE: Chamar assíncrono e retornar imediatamente (fire and forget)
       // Isso permite que a função rode em background sem esperar a resposta
+      // A Edge Function (Deno) pode fazer fetch direto para Netlify Function sem proxy
       fetch(syncUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseServiceKey}`,
         },
         body: JSON.stringify(syncBody),
+      }).then(async (response) => {
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[SyncTiny] ❌ Erro na resposta da Netlify Function:`, {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText,
+          });
+        } else {
+          console.log(`[SyncTiny] ✅ Sincronização iniciada com sucesso em background`);
+        }
       }).catch(err => {
         console.error(`[SyncTiny] ❌ Erro ao iniciar sync em background:`, err);
       });
