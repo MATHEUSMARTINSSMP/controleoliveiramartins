@@ -1341,10 +1341,12 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
       dataPedido = `${dataPedido}-03:00`;
     }
   } else if (dataBase) {
-    // 6. Último recurso: usar data base com meia-noite (mas logar aviso)
+    // 6. Último recurso: usar data base com horário ATUAL (sincronização em tempo real)
     const dataPart = dataBase.includes('T') ? dataBase.split('T')[0] : dataBase;
-    dataPedido = `${dataPart}T00:00:00-03:00`;
-    console.warn(`[SyncBackground] ⚠️ Pedido ${tinyId}: Data sem hora real disponível, usando 00:00:00 como fallback`);
+    const agora = new Date();
+    const horaAtual = agora.toISOString().split('T')[1].split('.')[0]; // HH:mm:ss
+    dataPedido = `${dataPart}T${horaAtual}-03:00`;
+    console.warn(`[SyncBackground] ⏰ Pedido ${tinyId}: Usando horário atual (${horaAtual}) pois API não retornou hora real`);
     console.warn(`[SyncBackground] 📊 Dados disponíveis:`, {
       dataCriacao: pedidoCompleto?.dataCriacao,
       dataAtualizacao: pedidoCompleto?.dataAtualizacao,
