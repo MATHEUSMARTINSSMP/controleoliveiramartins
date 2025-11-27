@@ -601,10 +601,8 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
         }
       }
 
-      // Preparar dados do pedido completo
-      const orderData = prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId, colaboradoraId, itensProcessados, tinyId);
-
-      // Verificar se precisa atualizar
+      // ✅ Verificar se pedido já existe ANTES de preparar dados
+      // Isso permite preservar data_pedido e valor_total originais
       const { data: existingOrder } = await supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
@@ -613,6 +611,9 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
         .eq('tiny_id', tinyId)
         .maybeSingle();
 
+      // Preparar dados do pedido completo
+      const orderData = prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId, colaboradoraId, itensProcessados, tinyId, existingOrder);
+
       const precisaAtualizar = !existingOrder || shouldUpdateOrder(existingOrder, orderData);
 
       if (!precisaAtualizar && existingOrder) {
@@ -620,11 +621,12 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
         continue;
       }
 
-      // Salvar pedido completo
-      // ✅ IMPORTANTE: Preservar data_pedido original se o pedido já existe
+      // ✅ CRÍTICO: Preservar data_pedido e valor_total originais se o pedido já existe
+      // Nunca mudar data_pedido após primeira sincronização
       const finalOrderData = existingOrder ? {
         ...orderData,
-        data_pedido: existingOrder.data_pedido, // Manter data original
+        data_pedido: existingOrder.data_pedido, // SEMPRE manter data original
+        valor_total: existingOrder.valor_total > 0 ? existingOrder.valor_total : orderData.valor_total, // Preservar valor se já existe e não é zero
       } : orderData;
 
       const { error: upsertError } = await supabase
@@ -1235,7 +1237,7 @@ async function findCollaboratorByVendedor(supabase, storeId, vendedor) {
 /**
  * Prepara dados completos do pedido para salvar
  */
-function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId, colaboradoraId, itensComCategorias, tinyId) {
+function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId, colaboradoraId, itensComCategorias, tinyId, existingOrder = null) {
   // ✅ EXTRAÇÃO ROBUSTA DE DATA/HORA: Tentar múltiplas fontes antes de usar fallback
   let dataPedido = null;
   let temHoraReal = false;
@@ -1350,71 +1352,87 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
       dataPedido = `${dataPedido}-03:00`;
     }
   } else if (dataBase) {
-    // 6. Último recurso: usar data base com horário ATUAL no fuso de Macapá (UTC-3)
-    const dataPart = dataBase.includes('T') ? dataBase.split('T')[0] : dataBase;
-
-    // Criar data no fuso de Macapá (UTC-3)
-    const agora = new Date();
-    // Ajustar para UTC-3 (Macapá)
-    const macapaTime = new Date(agora.getTime() - (3 * 60 * 60 * 1000));
-    const horaAtual = macapaTime.toISOString().split('T')[1].split('.')[0]; // HH:mm:ss
-
-    dataPedido = `${dataPart}T${horaAtual}-03:00`;
-    console.warn(`[SyncBackground] ⏰ Pedido ${tinyId}: Usando horário atual de Macapá (${horaAtual}) pois API não retornou hora real`);
-    console.warn(`[SyncBackground] 📊 Dados disponíveis:`, {
-      dataCriacao: pedidoCompleto?.dataCriacao,
-      dataAtualizacao: pedidoCompleto?.dataAtualizacao,
-      data: pedidoCompleto?.data,
-      dataFaturamento: pedidoCompleto?.dataFaturamento,
-      pedido_dataCriacao: pedido.dataCriacao,
-      pedido_data: pedido.data,
-    });
+    // 6. ✅ Último recurso: se já existe pedido no banco, usar data_pedido original
+    // Se não existe, usar data base com horário padrão (não usar horário atual!)
+    if (existingOrder && existingOrder.data_pedido) {
+      // Usar data_pedido original - NUNCA mudar!
+      dataPedido = existingOrder.data_pedido;
+      console.log(`[SyncBackground] 🔒 Pedido ${tinyId}: Mantendo data_pedido original: ${dataPedido}`);
+    } else {
+      // Para novos pedidos, usar data base com horário padrão (meia-noite)
+      const dataPart = dataBase.includes('T') ? dataBase.split('T')[0] : dataBase;
+      dataPedido = `${dataPart}T00:00:00-03:00`;
+      console.warn(`[SyncBackground] ⚠️ Pedido ${tinyId}: Usando horário padrão (00:00:00) pois API não retornou hora real`);
+      console.warn(`[SyncBackground] 📊 Dados disponíveis:`, {
+        dataCriacao: pedidoCompleto?.dataCriacao,
+        dataAtualizacao: pedidoCompleto?.dataAtualizacao,
+        data: pedidoCompleto?.data,
+        dataFaturamento: pedidoCompleto?.dataFaturamento,
+        pedido_dataCriacao: pedido.dataCriacao,
+        pedido_data: pedido.data,
+      });
+    }
   }
 
   // ✅ Calcular valor total - IMPORTANTE: Pedidos aprovados podem ter valor em campos diferentes
+  // Se já existe pedido no banco e tem valor > 0, preservar
   let valorTotal = 0;
   
-  // Prioridade 1: valorTotalPedido do pedido completo
-  if (pedidoCompleto?.valorTotalPedido) {
-    valorTotal = parseFloat(pedidoCompleto.valorTotalPedido);
-    console.log(`[SyncBackground] ✅ Valor total extraído de pedidoCompleto.valorTotalPedido: ${valorTotal}`);
-  } 
-  // Prioridade 2: valor_pedido do pedido completo (fallback para pedidos aprovados)
-  else if (pedidoCompleto?.valor_pedido) {
-    valorTotal = parseFloat(pedidoCompleto.valor_pedido);
-    console.log(`[SyncBackground] ✅ Valor total extraído de pedidoCompleto.valor_pedido (fallback): ${valorTotal}`);
-  }
-  // Prioridade 3: valorTotalPedido do pedido original
-  else if (pedido.valorTotalPedido) {
-    valorTotal = parseFloat(pedido.valorTotalPedido);
-    console.log(`[SyncBackground] ✅ Valor total extraído de pedido.valorTotalPedido: ${valorTotal}`);
-  }
-  // Prioridade 4: valor_pedido do pedido original (fallback para pedidos aprovados)
-  else if (pedido.valor_pedido) {
-    valorTotal = parseFloat(pedido.valor_pedido);
-    console.log(`[SyncBackground] ✅ Valor total extraído de pedido.valor_pedido (fallback): ${valorTotal}`);
-  }
-  // Prioridade 5: total_pedido do pedido original
-  else if (pedido.total_pedido) {
-    valorTotal = parseFloat(pedido.total_pedido);
-    console.log(`[SyncBackground] ✅ Valor total extraído de pedido.total_pedido: ${valorTotal}`);
-  }
-  // Prioridade 6: Calcular a partir dos itens
-  else if (itensComCategorias && itensComCategorias.length > 0) {
-    valorTotal = itensComCategorias.reduce((sum, item) => {
-      return sum + (parseFloat(item.valorUnitario || 0) * parseFloat(item.quantidade || 0));
-    }, 0);
-    console.log(`[SyncBackground] ✅ Valor total calculado a partir dos itens: ${valorTotal}`);
-  }
-  
-  // ✅ Log se valor for zero para debug
-  if (valorTotal === 0) {
-    console.warn(`[SyncBackground] ⚠️ Valor total zerado para pedido ${tinyId}. Campos disponíveis:`, {
-      valorTotalPedido: pedidoCompleto?.valorTotalPedido || pedido.valorTotalPedido,
-      valor_pedido: pedidoCompleto?.valor_pedido || pedido.valor_pedido,
-      total_pedido: pedido.total_pedido,
-      itens_length: itensComCategorias?.length || 0,
-    });
+  if (existingOrder && existingOrder.valor_total > 0) {
+    // Preservar valor original se já existe e não é zero
+    valorTotal = parseFloat(existingOrder.valor_total);
+    console.log(`[SyncBackground] 🔒 Pedido ${tinyId}: Mantendo valor_total original: ${valorTotal}`);
+  } else {
+    // Prioridade 1: valorTotalPedido do pedido completo
+    if (pedidoCompleto?.valorTotalPedido) {
+      valorTotal = parseFloat(pedidoCompleto.valorTotalPedido);
+      console.log(`[SyncBackground] ✅ Valor total extraído de pedidoCompleto.valorTotalPedido: ${valorTotal}`);
+    } 
+    // Prioridade 2: valor_pedido do pedido completo (fallback para pedidos aprovados)
+    else if (pedidoCompleto?.valor_pedido) {
+      valorTotal = parseFloat(pedidoCompleto.valor_pedido);
+      console.log(`[SyncBackground] ✅ Valor total extraído de pedidoCompleto.valor_pedido (fallback): ${valorTotal}`);
+    }
+    // Prioridade 3: Calcular a partir das parcelas (para pedidos aprovados)
+    else if (pedidoCompleto?.parcelas && Array.isArray(pedidoCompleto.parcelas) && pedidoCompleto.parcelas.length > 0) {
+      valorTotal = pedidoCompleto.parcelas.reduce((sum, parcela) => {
+        return sum + (parseFloat(parcela.valor || parcela.valorParcela || 0));
+      }, 0);
+      console.log(`[SyncBackground] ✅ Valor total calculado a partir das parcelas: ${valorTotal}`);
+    }
+    // Prioridade 4: valorTotalPedido do pedido original
+    else if (pedido.valorTotalPedido) {
+      valorTotal = parseFloat(pedido.valorTotalPedido);
+      console.log(`[SyncBackground] ✅ Valor total extraído de pedido.valorTotalPedido: ${valorTotal}`);
+    }
+    // Prioridade 5: valor_pedido do pedido original (fallback para pedidos aprovados)
+    else if (pedido.valor_pedido) {
+      valorTotal = parseFloat(pedido.valor_pedido);
+      console.log(`[SyncBackground] ✅ Valor total extraído de pedido.valor_pedido (fallback): ${valorTotal}`);
+    }
+    // Prioridade 6: total_pedido do pedido original
+    else if (pedido.total_pedido) {
+      valorTotal = parseFloat(pedido.total_pedido);
+      console.log(`[SyncBackground] ✅ Valor total extraído de pedido.total_pedido: ${valorTotal}`);
+    }
+    // Prioridade 7: Calcular a partir dos itens
+    else if (itensComCategorias && itensComCategorias.length > 0) {
+      valorTotal = itensComCategorias.reduce((sum, item) => {
+        return sum + (parseFloat(item.valorUnitario || 0) * parseFloat(item.quantidade || 0));
+      }, 0);
+      console.log(`[SyncBackground] ✅ Valor total calculado a partir dos itens: ${valorTotal}`);
+    }
+    
+    // ✅ Log se valor for zero para debug
+    if (valorTotal === 0) {
+      console.warn(`[SyncBackground] ⚠️ Valor total zerado para pedido ${tinyId}. Campos disponíveis:`, {
+        valorTotalPedido: pedidoCompleto?.valorTotalPedido || pedido.valorTotalPedido,
+        valor_pedido: pedidoCompleto?.valor_pedido || pedido.valor_pedido,
+        total_pedido: pedido.total_pedido,
+        parcelas: pedidoCompleto?.parcelas ? `${pedidoCompleto.parcelas.length} parcelas` : null,
+        itens_length: itensComCategorias?.length || 0,
+      });
+    }
   }
 
   // Preparar objeto do pedido

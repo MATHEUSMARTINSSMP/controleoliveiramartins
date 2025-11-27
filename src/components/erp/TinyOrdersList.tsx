@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2, Search, Calendar, DollarSign, User, Package, ChevronLeft, ChevronRight, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { toast as sonnerToast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -142,17 +143,28 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
             const existingIds = new Set(prevOrders.map((o) => o.id));
             const novosSemDuplicados = novosPedidos.filter((o) => !existingIds.has(o.id));
 
-            // 🔔 Mostrar notificação toast para novas vendas
+            // 🔔 Mostrar notificação sonner para novas vendas (melhor UX)
             if (novosSemDuplicados.length > 0) {
-              const primeiroNovo = novosSemDuplicados[0];
-              toast({
-                title: "🎉 Nova Venda!",
-                description: `Pedido ${primeiroNovo.numero_pedido || primeiroNovo.tiny_id} - ${primeiroNovo.cliente_nome || 'Cliente'} - ${formatCurrency(primeiroNovo.valor_total || 0)}`,
-                duration: 5000,
+              novosSemDuplicados.forEach((novoPedido) => {
+                sonnerToast.success("🎉 Nova Venda!", {
+                  description: `Pedido ${novoPedido.numero_pedido || novoPedido.tiny_id} - ${novoPedido.cliente_nome || 'Cliente'} - ${formatCurrency(novoPedido.valor_total || 0)}`,
+                  duration: 5000,
+                });
               });
             }
 
-            return [...novosSemDuplicados, ...prevOrders];
+            // ✅ Adicionar novos pedidos no topo, mantendo ordem por data_pedido descendente
+            const todasAsVendas = [...novosSemDuplicados, ...prevOrders];
+            return todasAsVendas.sort((a, b) => {
+              // Ordenar por data_pedido (mais recente primeiro)
+              const dataA = a.data_pedido ? new Date(a.data_pedido).getTime() : 0;
+              const dataB = b.data_pedido ? new Date(b.data_pedido).getTime() : 0;
+              if (dataB !== dataA) return dataB - dataA;
+              // Se mesma data, ordenar por número do pedido (maior primeiro)
+              const numA = parseInt(a.numero_pedido || '0');
+              const numB = parseInt(b.numero_pedido || '0');
+              return numB - numA;
+            });
           });
         } else {
           // Sem novos pedidos, apenas atualizar se houver mudanças
