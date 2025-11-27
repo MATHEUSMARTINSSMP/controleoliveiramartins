@@ -183,7 +183,7 @@ exports.handler = async (event, context) => {
       // Processar em background sem bloquear
       (async () => {
         try {
-          await processarSyncCompleta(store_id, dataInicioSync, limit, max_pages, supabase, proxyUrl);
+          await processarSyncCompleta(store_id, dataInicioSync, limit, max_pages, supabase, proxyUrl, true);
         } catch (error) {
           console.error('[SyncBackground] ❌ Erro no processamento em background:', error);
         }
@@ -418,8 +418,8 @@ exports.handler = async (event, context) => {
 /**
  * Função auxiliar para processar sincronização completa (usado em background para hard sync)
  */
-async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, supabase, proxyUrl) {
-  console.log(`[SyncBackground] 🔄 Iniciando processamento completo em background...`);
+async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, supabase, proxyUrl, hardSync = false) {
+  console.log(`[SyncBackground] 🔄 Iniciando processamento completo em background... (hardSync: ${hardSync})`);
   
   // Buscar pedidos do Tiny ERP
   let allPedidos = [];
@@ -464,13 +464,13 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
         }
       };
       
-      const response = await fetchWithRetry();
-
       console.log(`[SyncBackground] 📡 Chamando API Tiny - Página ${currentPage}, Data: ${dataInicioSync}, Limite: ${limit || 50}`);
+      
+      const response = await fetchWithRetry();
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Erro ao buscar pedidos: ${errorText}`);
+        throw new Error(`Erro ao buscar pedidos (status ${response.status}): ${errorText}`);
       }
 
       const result = await response.json();
@@ -487,8 +487,19 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
       console.log(`[SyncBackground] 📄 Página ${currentPage - 1}: ${pedidos.length} pedidos encontrados`);
 
     } catch (error) {
-      console.error(`[SyncBackground] ❌ Erro ao buscar página ${currentPage}:`, error);
-      hasMore = false;
+      console.error(`[SyncBackground] ❌ Erro ao buscar página ${currentPage} após todas as tentativas:`, error);
+      
+      // ✅ Para hard sync, continuar tentando próximas páginas ao invés de parar completamente
+      // Isso permite que mesmo com alguns timeouts, o processo continue sincronizando o que conseguir
+      if (hardSync && currentPage < maxPages) {
+        console.log(`[SyncBackground] ⚠️ Continuando para próxima página mesmo com erro (hard sync)...`);
+        currentPage++;
+        // Aguardar um pouco antes de continuar para não sobrecarregar
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Não definir hasMore = false, continuar loop
+      } else {
+        hasMore = false;
+      }
     }
   }
 
