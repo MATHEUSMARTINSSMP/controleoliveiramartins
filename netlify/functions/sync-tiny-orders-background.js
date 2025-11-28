@@ -181,13 +181,18 @@ exports.handler = async (event, context) => {
     // Então vamos processar diretamente, mas otimizar para não dar timeout
     if (hard_sync) {
       console.log(`[SyncBackground] 🔥 HARD SYNC ABSOLUTO: Processando todos os pedidos... Isso pode levar várias horas.`);
+      
+      // ✅ Para hard sync, sempre usar limite 200 (ignorar o limit do body)
+      const hardSyncLimit = 200;
+      console.log(`[SyncBackground] 🔥 HARD SYNC: Usando limite de ${hardSyncLimit} pedidos por página (ignorando limit=${limit} do body)`);
 
       // Retornar status 202 primeiro para o frontend saber que iniciou
       // Mas processar diretamente depois (isso mantém o contexto vivo)
       // Processar diretamente na função principal garante execução
       try {
         // Processar diretamente (isso vai demorar muito, mas garante que executa)
-        const resultado = await processarSyncCompleta(store_id, dataInicioSync, limit, max_pages, supabase, proxyUrl, true);
+        // Passar hardSyncLimit ao invés de limit para garantir 200 por página
+        const resultado = await processarSyncCompleta(store_id, dataInicioSync, hardSyncLimit, max_pages, supabase, proxyUrl, true);
 
         return {
           statusCode: 200,
@@ -473,7 +478,10 @@ exports.handler = async (event, context) => {
  * Função auxiliar para processar sincronização completa (usado em background para hard sync)
  */
 async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, supabase, proxyUrl, hardSync = false) {
-  console.log(`[SyncBackground] 🔄 Iniciando processamento completo em background... (hardSync: ${hardSync})`);
+  // ✅ Para hard sync, sempre usar 200 por página (ignorar limit passado)
+  const limite = hardSync ? 200 : (limit || 100);
+  
+  console.log(`[SyncBackground] 🔄 Iniciando processamento completo em background... (hardSync: ${hardSync}, limite: ${limite} por página)`);
 
   // Buscar pedidos do Tiny ERP
   let allPedidos = [];
@@ -482,7 +490,6 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
 
   while (hasMore && currentPage <= maxPages) {
     try {
-      const limite = hardSync ? 200 : (limit || 100); // Definir limite aqui para usar no cálculo de páginas
       
       // ✅ Adicionar timeout maior e retry logic para evitar ConnectTimeoutError
       const fetchWithRetry = async (retries = 3, delay = 5000) => {
