@@ -72,14 +72,14 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ 
-          success: false, 
+        body: JSON.stringify({
+          success: false,
           error: 'Body inválido ou vazio',
-          details: parseError.message 
+          details: parseError.message
         }),
       };
     }
-    
+
     const { store_id, limit = 100, max_pages = 50, hard_sync = false } = body;
 
     if (!store_id) {
@@ -95,7 +95,7 @@ exports.handler = async (event, context) => {
     // Inicializar Supabase
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-    
+
     if (!supabaseUrl || !supabaseKey) {
       return {
         statusCode: 500,
@@ -119,9 +119,9 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           success: false,
-          error: 'Integração não encontrada para esta loja' 
+          error: 'Integração não encontrada para esta loja'
         }),
       };
     }
@@ -130,9 +130,9 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 401,
         headers,
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           success: false,
-          error: 'Token de acesso não encontrado' 
+          error: 'Token de acesso não encontrado'
         }),
       };
     }
@@ -142,7 +142,7 @@ exports.handler = async (event, context) => {
 
     // Buscar contatos do Tiny ERP
     const proxyUrl = `${process.env.URL || 'https://eleveaone.com.br'}/.netlify/functions/erp-api-proxy`;
-    
+
     let allContatos = [];
     let currentPage = 1;
     const maxPages = max_pages || (hard_sync ? 9999 : 50);
@@ -158,7 +158,7 @@ exports.handler = async (event, context) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            store_id: store_id,
+            storeId: store_id, // ✅ API proxy espera camelCase
             endpoint: '/contatos',
             method: 'GET',
             params: {
@@ -174,7 +174,7 @@ exports.handler = async (event, context) => {
         }
 
         const result = await response.json();
-        
+
         // Tiny ERP v3 retorna dados em { itens: [...], paginacao: {...} }
         const contatos = result.itens || result.contatos || [];
         allContatos = allContatos.concat(contatos);
@@ -199,7 +199,7 @@ exports.handler = async (event, context) => {
       const contato = contatoData.contato || contatoData;
       const tipos = contato.tipos || [];
       const descricoesTipos = tipos.map(t => (t.descricao || '').toLowerCase());
-      
+
       const isFornecedor = descricoesTipos.some(desc =>
         desc.includes('fornecedor') ||
         desc.includes('supplier') ||
@@ -231,7 +231,7 @@ exports.handler = async (event, context) => {
 
         // ✅ SEMPRE buscar detalhes completos para obter telefone, celular, dataNascimento
         let contatoCompleto = contato;
-        
+
         try {
           const contatoDetalhado = await fetchContatoCompletoFromTiny(store_id, contatoId);
           if (contatoDetalhado) {
