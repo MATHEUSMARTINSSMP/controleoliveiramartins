@@ -186,8 +186,8 @@ exports.handler = async (event, context) => {
     if (hard_sync) {
       console.log(`[SyncBackground] 🔥 HARD SYNC ABSOLUTO: Processando todos os pedidos... Isso pode levar várias horas.`);
 
-      // ✅ Para hard sync, sempre usar limite 500 (máximo permitido pela API Tiny)
-      const hardSyncLimit = 500;
+      // ✅ Para hard sync, sempre usar 100 por página (máximo permitido pela API Tiny v3)
+      const hardSyncLimit = 100;
       console.log(`[SyncBackground] 🔥 HARD SYNC: Usando limite de ${hardSyncLimit} pedidos por página (ignorando limit=${limit} do body)`);
 
       // Retornar status 202 primeiro para o frontend saber que iniciou
@@ -509,8 +509,8 @@ exports.handler = async (event, context) => {
  * Função auxiliar para processar sincronização completa (usado em background para hard sync)
  */
 async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, supabase, proxyUrl, hardSync = false) {
-  // ✅ Para hard sync, sempre usar 500 por página (máximo da API Tiny)
-  const limite = hardSync ? 500 : (limit || 500);
+  // ✅ Para hard sync, sempre usar 100 por página (máximo da API Tiny v3)
+  const limite = hardSync ? 100 : (limit || 100);
 
   console.log(`[SyncBackground] 🔄 Iniciando processamento completo em background... (hardSync: ${hardSync}, limite: ${limite} por página)`);
 
