@@ -98,7 +98,7 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const { store_id, data_inicio, incremental = true, limit = 50, max_pages = 2, hard_sync = false } = body;
+    const { store_id, data_inicio, incremental = true, limit = 500, max_pages = 999999, hard_sync = false } = body;
 
     if (!store_id) {
       return {
@@ -181,9 +181,9 @@ exports.handler = async (event, context) => {
     // Então vamos processar diretamente, mas otimizar para não dar timeout
     if (hard_sync) {
       console.log(`[SyncBackground] 🔥 HARD SYNC ABSOLUTO: Processando todos os pedidos... Isso pode levar várias horas.`);
-      
-      // ✅ Para hard sync, sempre usar limite 200 (ignorar o limit do body)
-      const hardSyncLimit = 200;
+
+      // ✅ Para hard sync, sempre usar limite 500 (máximo permitido pela API Tiny)
+      const hardSyncLimit = 500;
       console.log(`[SyncBackground] 🔥 HARD SYNC: Usando limite de ${hardSyncLimit} pedidos por página (ignorando limit=${limit} do body)`);
 
       // Retornar status 202 primeiro para o frontend saber que iniciou
@@ -223,7 +223,7 @@ exports.handler = async (event, context) => {
     // Buscar pedidos do Tiny ERP
     let allPedidos = [];
     let currentPage = 1;
-    const maxPages = max_pages || (hard_sync ? 99999 : 2); // Hard sync: muito mais páginas
+    const maxPages = max_pages || (hard_sync ? 999999 : 999999); // SEM LIMITE de páginas
     let hasMore = true;
 
     while (hasMore && currentPage <= maxPages) {
@@ -388,7 +388,7 @@ exports.handler = async (event, context) => {
           errors++;
         } else {
           orderSavedId = savedOrder?.id || existingOrder?.id;
-          
+
           if (existingOrder) {
             updated++;
             console.log(`[SyncBackground] ✅ Pedido ${tinyId} atualizado`);
@@ -396,17 +396,17 @@ exports.handler = async (event, context) => {
             synced++;
             console.log(`[SyncBackground] ✅ Pedido ${tinyId} criado`);
           }
-          
+
           // ✅ TAREFA 9: Gerar cashback se o pedido foi criado/atualizado e tem cliente e valor
           if (orderSavedId && clienteId && orderData.valor_total > 0) {
             try {
               // Verificar se o pedido está faturado/aprovado (situacao 3 ou 9)
               const situacao = pedidoCompleto?.situacao || pedido.situacao || pedidoCompleto?.situacaoPedido || 0;
-              
+
               // Gerar cashback apenas para pedidos faturados (situacao 3) ou aprovados (situacao 9)
               if (situacao === 3 || situacao === 9) {
                 console.log(`[SyncBackground] 💰 Gerando cashback para pedido ${tinyId} (cliente: ${clienteId.substring(0, 8)}..., valor: ${orderData.valor_total})`);
-                
+
                 const { data: cashbackResult, error: cashbackError } = await supabase
                   .schema('sistemaretiradas')
                   .rpc('gerar_cashback', {
@@ -415,7 +415,7 @@ exports.handler = async (event, context) => {
                     p_store_id: store_id,
                     p_valor_total: orderData.valor_total
                   });
-                
+
                 if (cashbackError) {
                   console.error(`[SyncBackground] ❌ Erro ao gerar cashback para pedido ${tinyId}:`, cashbackError);
                 } else if (cashbackResult && cashbackResult.success) {
@@ -478,9 +478,9 @@ exports.handler = async (event, context) => {
  * Função auxiliar para processar sincronização completa (usado em background para hard sync)
  */
 async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, supabase, proxyUrl, hardSync = false) {
-  // ✅ Para hard sync, sempre usar 200 por página (ignorar limit passado)
-  const limite = hardSync ? 200 : (limit || 100);
-  
+  // ✅ Para hard sync, sempre usar 500 por página (máximo da API Tiny)
+  const limite = hardSync ? 500 : (limit || 500);
+
   console.log(`[SyncBackground] 🔄 Iniciando processamento completo em background... (hardSync: ${hardSync}, limite: ${limite} por página)`);
 
   // Buscar pedidos do Tiny ERP
@@ -490,7 +490,7 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
 
   while (hasMore && currentPage <= maxPages) {
     try {
-      
+
       // ✅ Adicionar timeout maior e retry logic para evitar ConnectTimeoutError
       const fetchWithRetry = async (retries = 3, delay = 5000) => {
         for (let attempt = 1; attempt <= retries; attempt++) {
@@ -716,27 +716,27 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
       if (existingOrder && existingOrder.data_pedido) {
         // ✅ PEDIDO EXISTE: Fazer UPDATE excluindo data_pedido (NUNCA atualizar)
         const { data_pedido, ...orderDataSemData } = orderData;
-        
+
         // Preservar valor se já existe e não é zero
-        const valorFinal = (existingOrder.valor_total > 0 && orderData.valor_total === 0) 
-          ? existingOrder.valor_total 
+        const valorFinal = (existingOrder.valor_total > 0 && orderData.valor_total === 0)
+          ? existingOrder.valor_total
           : (orderData.valor_total > 0 ? orderData.valor_total : existingOrder.valor_total);
-        
+
         const updateData = {
           ...orderDataSemData,
           valor_total: valorFinal,
           // data_pedido NÃO está incluída - nunca será atualizada!
         };
-        
+
         console.log(`[SyncBackground] 🔒 Pedido ${tinyId} (EXISTENTE): Fazendo UPDATE sem data_pedido (travada: ${existingOrder.data_pedido})`);
-        
+
         const { error: updateError } = await supabase
           .schema('sistemaretiradas')
           .from('tiny_orders')
           .update(updateData)
           .eq('tiny_id', tinyId)
           .eq('store_id', storeId);
-          
+
         if (updateError) {
           console.error(`[SyncBackground] ❌ Erro ao atualizar pedido ${tinyId}:`, updateError);
           errors++;
@@ -747,12 +747,12 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
       } else {
         // ✅ NOVO PEDIDO: Fazer INSERT com data_pedido completa
         console.log(`[SyncBackground] 📝 Pedido ${tinyId} (NOVO): Fazendo INSERT com data_pedido: ${orderData.data_pedido}`);
-        
+
         const { error: insertError } = await supabase
           .schema('sistemaretiradas')
           .from('tiny_orders')
           .insert(orderData);
-          
+
         if (insertError) {
           console.error(`[SyncBackground] ❌ Erro ao inserir pedido ${tinyId}:`, insertError);
           errors++;
@@ -1414,19 +1414,19 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
   // - Se já existe pedido: SEMPRE usar data_pedido que já está gravada (TRAVADA)
   // - Se é novo pedido: Pegar DATA do Tiny + HORÁRIO ATUAL de Macapá = TRAVAR para sempre
   // - NÃO tentar extrair hora do Tiny, evitar conflitos
-  
+
   let dataPedido = null;
-  
+
   if (existingOrder && existingOrder.data_pedido) {
     // ✅ PEDIDO JÁ EXISTE: Usar data_pedido gravada e TRAVADA (nunca alterar)
     dataPedido = existingOrder.data_pedido;
     console.log(`[SyncBackground] 🔒 Pedido ${tinyId}: Data_pedido TRAVADA (não será alterada): ${dataPedido}`);
   } else {
     // ✅ NOVO PEDIDO: Pegar DATA do Tiny + HORÁRIO ATUAL de Macapá
-    
+
     // 1. Extrair apenas a DATA (sem hora) do Tiny - tentar múltiplas fontes
     let dataDoTiny = null;
-    
+
     // Tentar do pedido completo primeiro
     if (pedidoCompleto?.dataCriacao) {
       const dataComHora = pedidoCompleto.dataCriacao;
@@ -1444,23 +1444,23 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     } else if (pedido.data_criacao) {
       dataDoTiny = pedido.data_criacao.split('T')[0] || pedido.data_criacao.split(' ')[0];
     }
-    
+
     // Se não encontrou data do Tiny, usar data atual
     if (!dataDoTiny) {
       const agora = new Date();
       dataDoTiny = agora.toISOString().split('T')[0];
       console.warn(`[SyncBackground] ⚠️ Pedido ${tinyId}: Nenhuma data encontrada no Tiny, usando data atual: ${dataDoTiny}`);
     }
-    
+
     // 2. Pegar HORÁRIO ATUAL de Macapá (UTC-3)
     const agora = new Date();
     // Ajustar para UTC-3 (Macapá)
     const macapaTime = new Date(agora.getTime() - (3 * 60 * 60 * 1000));
     const horaAtual = macapaTime.toISOString().split('T')[1].split('.')[0]; // HH:mm:ss
-    
+
     // 3. Combinar: DATA do Tiny + HORÁRIO ATUAL de Macapá
     dataPedido = `${dataDoTiny}T${horaAtual}-03:00`;
-    
+
     console.log(`[SyncBackground] ⏰ Pedido ${tinyId} (NOVO): Data do Tiny (${dataDoTiny}) + Hora atual Macapá (${horaAtual}) = ${dataPedido}`);
     console.log(`[SyncBackground] 🔒 Esta data_pedido será TRAVADA para sempre após primeira sincronização`);
   }
@@ -1468,7 +1468,7 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
   // ✅ Calcular valor total - Priorizar campos principais e simplificar
   // Se já existe pedido no banco e tem valor > 0, preservar
   let valorTotal = 0;
-  
+
   if (existingOrder && existingOrder.valor_total > 0) {
     // Preservar valor original se já existe e não é zero
     valorTotal = parseFloat(existingOrder.valor_total);
@@ -1478,7 +1478,7 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     if (pedidoCompleto?.valorTotalPedido) {
       valorTotal = parseFloat(pedidoCompleto.valorTotalPedido);
       console.log(`[SyncBackground] ✅ Valor total extraído de pedidoCompleto.valorTotalPedido: ${valorTotal}`);
-    } 
+    }
     // Prioridade 2: valorTotalPedido do pedido original
     else if (pedido.valorTotalPedido) {
       valorTotal = parseFloat(pedido.valorTotalPedido);
@@ -1518,7 +1518,7 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
       }, 0);
       console.log(`[SyncBackground] ✅ Valor total calculado a partir das parcelas: ${valorTotal}`);
     }
-    
+
     // ✅ Log se valor for zero para debug
     if (valorTotal === 0) {
       console.warn(`[SyncBackground] ⚠️ Valor total zerado para pedido ${tinyId}. Campos disponíveis:`, {
@@ -1537,7 +1537,7 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
         itens_length: itensComCategorias?.length || 0,
         itens_valor_calculado: itensComCategorias ? itensComCategorias.reduce((sum, item) => sum + (parseFloat(item.valorUnitario || 0) * parseFloat(item.quantidade || 0)), 0) : null,
       });
-      
+
       // Tentar encontrar qualquer campo que contenha valor
       const todosCampos = {
         ...pedidoCompleto,
@@ -1556,10 +1556,10 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
 
   // Preparar objeto do pedido
   // ✅ CRÍTICO: Se já existe pedido, usar SEMPRE a data_pedido original (NUNCA recalcular)
-  const finalDataPedido = (existingOrder && existingOrder.data_pedido) 
-    ? existingOrder.data_pedido 
+  const finalDataPedido = (existingOrder && existingOrder.data_pedido)
+    ? existingOrder.data_pedido
     : dataPedido;
-    
+
   const orderData = {
     store_id: storeId,
     tiny_id: tinyId,
