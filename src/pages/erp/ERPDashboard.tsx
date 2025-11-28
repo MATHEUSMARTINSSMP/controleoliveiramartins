@@ -148,29 +148,43 @@ export default function ERPDashboard() {
     if (!selectedStoreId) return;
 
     try {
-      // Total de pedidos
-      const { count: pedidosCount } = await supabase
+      // ✅ Total de pedidos - usar count exato mas forçar refresh
+      const { count: pedidosCount, error: pedidosError } = await supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
         .select('*', { count: 'exact', head: true })
         .eq('store_id', selectedStoreId);
 
-      // Total de clientes
-      const { count: clientesCount } = await supabase
+      if (pedidosError) {
+        console.error('Erro ao contar pedidos:', pedidosError);
+      }
+
+      // ✅ Total de clientes
+      const { count: clientesCount, error: clientesError } = await supabase
         .schema('sistemaretiradas')
         .from('tiny_contacts')
         .select('*', { count: 'exact', head: true })
         .eq('store_id', selectedStoreId);
 
-      // Total de vendas e ticket médio
-      const { data: orders } = await supabase
+      if (clientesError) {
+        console.error('Erro ao contar clientes:', clientesError);
+      }
+
+      // ✅ Total de vendas e ticket médio - buscar todos os pedidos para calcular corretamente
+      const { data: orders, error: ordersError } = await supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
         .select('valor_total')
         .eq('store_id', selectedStoreId);
 
+      if (ordersError) {
+        console.error('Erro ao buscar pedidos para cálculo:', ordersError);
+      }
+
       const totalVendas = orders?.reduce((sum, o) => sum + (Number(o.valor_total) || 0), 0) || 0;
       const ticketMedio = orders && orders.length > 0 ? totalVendas / orders.length : 0;
+
+      console.log(`[ERPDashboard] 📊 KPIs atualizados: ${pedidosCount || 0} pedidos, ${clientesCount || 0} clientes, R$ ${totalVendas.toFixed(2)} vendas`);
 
       setKpis({
         totalPedidos: pedidosCount || 0,
@@ -290,7 +304,33 @@ export default function ERPDashboard() {
       // ✅ CORREÇÃO: Netlify Background Functions retornam 202 Accepted imediatamente
       // Isso significa que o processo iniciou com sucesso em background
       if (response.status === 202) {
-        toast.success(`✅ Sincronização iniciada em background! Você pode fechar a página.`);
+        toast.success(`✅ Sincronização iniciada em background! Aguardando conclusão...`);
+        
+        // ✅ Aguardar alguns segundos e então atualizar KPIs periodicamente
+        // A sincronização pode levar vários minutos, então vamos atualizar a cada 10 segundos
+        let attempts = 0;
+        const maxAttempts = 60; // 60 tentativas = 10 minutos máximo
+        
+        const refreshInterval = setInterval(async () => {
+          attempts++;
+          console.log(`[ERPDashboard] 🔄 Tentativa ${attempts}/${maxAttempts} de atualizar KPIs após sincronização...`);
+          
+          await fetchKPIs();
+          await fetchLastSync();
+          
+          // Se já tentou muitas vezes ou se a última sincronização foi há mais de 2 minutos, parar
+          if (attempts >= maxAttempts) {
+            clearInterval(refreshInterval);
+            console.log(`[ERPDashboard] ⏹️ Parando atualização automática após ${attempts} tentativas`);
+          }
+        }, 10000); // A cada 10 segundos
+        
+        // Parar após 10 minutos mesmo se não tiver atingido maxAttempts
+        setTimeout(() => {
+          clearInterval(refreshInterval);
+          console.log(`[ERPDashboard] ⏹️ Parando atualização automática após 10 minutos`);
+        }, 600000); // 10 minutos
+        
         setSyncing(false);
         return;
       }
