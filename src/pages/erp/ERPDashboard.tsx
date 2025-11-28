@@ -148,15 +148,26 @@ export default function ERPDashboard() {
     if (!selectedStoreId) return;
 
     try {
-      // ✅ CORREÇÃO: Total de pedidos = COUNT de TODOS os registros na tabela
-      // Não importa se são novos ou atualizados, o KPI deve mostrar o total de pedidos sincronizados
-      const { count: pedidosCount } = await supabase
-        .schema('sistemaretiradas')
-        .from('tiny_orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('store_id', selectedStoreId);
+      // ✅ CORREÇÃO: Usar RPC para contar total de registros (bypass RLS/constraints)
+      const { data: countData, error: countError } = await supabase
+        .rpc('count_total_orders', { p_store_id: selectedStoreId });
 
-      console.log('[ERPDashboard] 📊 KPI - Total de Pedidos:', pedidosCount);
+      let pedidosCount = 0;
+
+      if (countError) {
+        console.error('[ERPDashboard] ❌ Erro ao contar pedidos via RPC:', countError);
+        // Fallback para count normal
+        const { count } = await supabase
+          .schema('sistemaretiradas')
+          .from('tiny_orders')
+          .select('*', { count: 'exact', head: true })
+          .eq('store_id', selectedStoreId);
+        pedidosCount = count || 0;
+        console.log('[ERPDashboard] 📊 KPI - Total de Pedidos (fallback):', pedidosCount);
+      } else {
+        pedidosCount = (countData as unknown as number) || 0;
+        console.log('[ERPDashboard] 📊 KPI - Total de Pedidos (RPC):', pedidosCount);
+      }
 
       // Total de clientes
       const { count: clientesCount } = await supabase
@@ -181,7 +192,7 @@ export default function ERPDashboard() {
       console.log('[ERPDashboard] 📊 KPI - Ticket Médio:', ticketMedio);
 
       setKpis({
-        totalPedidos: pedidosCount || 0,
+        totalPedidos: pedidosCount,
         totalClientes: clientesCount || 0,
         totalVendas,
         ticketMedio,
