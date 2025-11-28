@@ -259,7 +259,7 @@ exports.handler = async (event, context) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            storeId: store_id, // ✅ CORREÇÃO: proxy espera storeId (camelCase)
+            storeId: finalStoreId, // ✅ CORREÇÃO: Usar finalStoreId que trata store_id/storeId
             endpoint: '/pedidos',
             method: 'GET',
             params: {
