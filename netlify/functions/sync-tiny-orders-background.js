@@ -372,9 +372,6 @@ exports.handler = async (event, context) => {
           }
         }
 
-        // ✅ TAREFA 6: Preparar dados do pedido completo
-        const orderData = prepararDadosPedidoCompleto(store_id, pedido, pedidoCompleto, clienteId, colaboradoraId, itensProcessados, tinyId);
-
         // ✅ TAREFA 7: Verificar se precisa atualizar
         const { data: existingOrder } = await supabase
           .schema('sistemaretiradas')
@@ -383,6 +380,9 @@ exports.handler = async (event, context) => {
           .eq('store_id', store_id)
           .eq('tiny_id', tinyId)
           .maybeSingle();
+
+        // ✅ TAREFA 6 (MOVIDA): Preparar dados do pedido completo (agora com existingOrder)
+        const orderData = prepararDadosPedidoCompleto(store_id, pedido, pedidoCompleto, clienteId, colaboradoraId, itensProcessados, tinyId, existingOrder);
 
         const precisaAtualizar = !existingOrder || shouldUpdateOrder(existingOrder, orderData);
 
@@ -578,6 +578,14 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
       }
 
       console.log(`[SyncBackground] 📄 Página ${currentPage}: ${pedidos.length} pedidos encontrados`);
+
+      // ✅ DEBUG: Logar IDs do primeiro e último pedido para verificar se páginas são iguais
+      if (pedidos.length > 0) {
+        const primeiroId = pedidos[0].id || pedidos[0].numeroPedido;
+        const ultimoId = pedidos[pedidos.length - 1].id || pedidos[pedidos.length - 1].numeroPedido;
+        console.log(`[SyncBackground] 🔍 IDs da Página ${currentPage}: Primeiro=${primeiroId}, Último=${ultimoId}`);
+      }
+
       console.log(`[SyncBackground] 📊 Paginação: página atual=${paginaAtual}, total páginas=${totalPaginas}, total registros=${totalRegistros}, já processados=${allPedidos.length}`);
 
       // ✅ Para hard sync: continuar enquanto houver pedidos OU enquanto houver páginas
