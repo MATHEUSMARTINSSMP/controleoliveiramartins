@@ -543,9 +543,9 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
                 endpoint: '/pedidos',
                 method: 'GET',
                 params: {
-                  dataInicial: dataInicioSync, // ✅ CORREÇÃO: Nome correto do parâmetro é dataInicial
-                  pagina: currentPage,
-                  limite: limite, // Usar a variável limite definida acima
+                  dataInicial: dataInicioSync,
+                  limit: limite, // ✅ CORREÇÃO: Nome correto é 'limit'
+                  offset: (currentPage - 1) * limite, // ✅ CORREÇÃO: API v3 usa 'offset', não 'pagina'
                 },
               }),
               signal: controller.signal,
@@ -562,7 +562,7 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
         }
       };
 
-      console.log(`[SyncBackground] 📡 Chamando API Tiny - Página ${currentPage}, Data: ${dataInicioSync}, Limite: ${limite}`);
+      console.log(`[SyncBackground] 📡 Chamando API Tiny - Página ${currentPage} (Offset ${(currentPage - 1) * limite}), Data: ${dataInicioSync}, Limite: ${limite}`);
 
       const response = await fetchWithRetry();
 
@@ -577,20 +577,23 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
       const pedidos = result.itens || result.pedidos || [];
       allPedidos = allPedidos.concat(pedidos);
 
-      // ✅ Verificar se há mais páginas - lógica mais robusta
+      // ✅ Verificar se há mais páginas - lógica ajustada para v3 (limit/offset/total)
       const paginacao = result.paginacao || {};
-      const paginaAtual = paginacao.paginaAtual || paginacao.pagina || currentPage;
-      let totalPaginas = paginacao.totalPaginas || paginacao.total_paginas || paginacao.pages || 0;
-      const totalRegistros = paginacao.totalRegistros || paginacao.total_registros || paginacao.total || 0;
+      const totalRegistros = paginacao.total || paginacao.totalRegistros || paginacao.total_registros || 0;
 
-      // ✅ CORREÇÃO CRÍTICA: SEMPRE recalcular totalPaginas usando pedidos.length REAL
-      // Não confiar no totalPaginas da API se ela estiver errada
+      // Calcular total de páginas baseado no total de registros
+      let totalPaginas = 0;
+      if (totalRegistros > 0) {
+        totalPaginas = Math.ceil(totalRegistros / limite);
+      } else {
+        // Fallback: se não tem total, tentar estimar ou usar o que temos
+        totalPaginas = paginacao.totalPaginas || paginacao.pages || 0;
+      }
+
+      // ✅ CORREÇÃO CRÍTICA: SEMPRE recalcular totalPaginas usando pedidos.length REAL se necessário
       if (totalRegistros > 0 && pedidos.length > 0) {
-        const totalPaginasCalculado = Math.ceil(totalRegistros / pedidos.length);
-        if (totalPaginas === 0 || totalPaginasCalculado > totalPaginas) {
-          totalPaginas = totalPaginasCalculado;
-          console.log(`[SyncBackground] 🔢 Recalculando total de páginas: ${totalRegistros} registros ÷ ${pedidos.length} pedidos/página (REAL) = ${totalPaginas} páginas`);
-        }
+        // Se a API retornou menos itens que o limite e diz que tem mais, algo está estranho, mas vamos confiar no total
+        // O cálculo acima (total / limite) é o mais correto para offset-based pagination
       }
 
       console.log(`[SyncBackground] 📄 Página ${currentPage}: ${pedidos.length} pedidos encontrados`);
