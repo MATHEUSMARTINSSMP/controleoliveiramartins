@@ -551,7 +551,7 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
       // ✅ Se totalPaginas = 0 mas temos totalRegistros, calcular o número de páginas
       if (totalPaginas === 0 && totalRegistros > 0 && limite > 0) {
         totalPaginas = Math.ceil(totalRegistros / limite);
-        console.log(`[SyncBackground] 🔢 Calculando total de páginas: ${totalRegistros} registros ÷ ${limite} por página = ${totalPaginas} páginas`);
+        console.log(`[SyncBackground] 🔢 Calculando total de páginas: ${totalRegistros} registros ÷ ${limite} por página = ${totalPaginas} páginas (hardSync: ${hardSync}, limite usado: ${limite})`);
       }
 
       console.log(`[SyncBackground] 📄 Página ${currentPage}: ${pedidos.length} pedidos encontrados`);
