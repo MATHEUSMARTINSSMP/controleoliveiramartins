@@ -103,9 +103,12 @@ export default function CashbackManagement() {
   // Estados para histórico geral
   const [historicoGeral, setHistoricoGeral] = useState<CashbackTransaction[]>([]);
   const [filterType, setFilterType] = useState<'all' | 'EARNED' | 'REDEEMED' | 'EXPIRED'>('all');
+  const [filterDateStart, setFilterDateStart] = useState('');
+  const [filterDateEnd, setFilterDateEnd] = useState('');
+  const [filterClientSearch, setFilterClientSearch] = useState('');
 
-  // Estados para expiração
-  const [expiringCashback, setExpiringCashback] = useState(false);
+  // Estados para cancelamento
+  const [canceling, setCanceling] = useState<string | null>(null);
 
   // KPIs
   const [kpis, setKpis] = useState({
@@ -275,27 +278,28 @@ export default function CashbackManagement() {
     }
   };
 
-  const handleExpireCashback = async () => {
-    setExpiringCashback(true);
+  const handleCancelar = async (transactionId: string) => {
+    if (!confirm('Tem certeza que deseja cancelar esta transação?')) return;
+
+    setCanceling(transactionId);
     try {
-      const response = await fetch('/.netlify/functions/cashback-expire-manual', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const { data, error } = await supabase.rpc('cancelar_transacao_cashback', {
+        p_transaction_id: transactionId,
       });
 
-      const result = await response.json();
+      if (error) throw error;
 
-      if (result.success) {
-        toast.success(`✅ ${result.expiredCount} transações expiradas`);
+      if (data.success) {
+        toast.success('✅ Transação cancelada com sucesso');
         await fetchData();
       } else {
-        toast.error(`❌ Erro: ${result.error}`);
+        toast.error(`❌ ${data.error}`);
       }
-    } catch (error) {
-      console.error('Erro ao expirar cashback:', error);
-      toast.error('❌ Erro ao expirar cashback');
+    } catch (error: any) {
+      console.error('Erro ao cancelar transação:', error);
+      toast.error('Erro ao cancelar transação');
     } finally {
-      setExpiringCashback(false);
+      setCanceling(null);
     }
   };
 
@@ -357,9 +361,37 @@ export default function CashbackManagement() {
   }, [clientesComSaldo, searchTerm]);
 
   const filteredHistorico = useMemo(() => {
-    if (filterType === 'all') return historicoGeral;
-    return historicoGeral.filter(t => t.transaction_type === filterType);
-  }, [historicoGeral, filterType]);
+    let filtered = historicoGeral;
+
+    // Filtro por tipo
+    if (filterType !== 'all') {
+      filtered = filtered.filter(t => t.transaction_type === filterType);
+    }
+
+    // Filtro por data
+    if (filterDateStart) {
+      filtered = filtered.filter(t => new Date(t.created_at) >= new Date(filterDateStart));
+    }
+    if (filterDateEnd) {
+      const endDate = new Date(filterDateEnd);
+      endDate.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(t => new Date(t.created_at) <= endDate);
+    }
+
+    // Filtro por cliente (nome ou CPF)
+    if (filterClientSearch) {
+      const searchLower = filterClientSearch.toLowerCase();
+      filtered = filtered.filter(t => {
+        const cliente = clientes.find(c => c.id === t.cliente_id);
+        return (
+          cliente?.nome.toLowerCase().includes(searchLower) ||
+          cliente?.cpf_cnpj?.toLowerCase().includes(searchLower)
+        );
+      });
+    }
+
+    return filtered;
+  }, [historicoGeral, filterType, filterDateStart, filterDateEnd, filterClientSearch, clientes]);
 
   const cashbackPreview = useMemo(() => {
     if (!valorLancar) return 0;
@@ -396,17 +428,7 @@ export default function CashbackManagement() {
             <p className="text-muted-foreground">Gerencie o programa de cashback dos seus clientes</p>
           </div>
         </div>
-        <Button
-          variant="outline"
-          onClick={handleExpireCashback}
-          disabled={expiringCashback}
-        >
-          {expiringCashback ? (
-            <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Expirando...</>
-          ) : (
-            <><Clock className="h-4 w-4 mr-2" />Expirar Cashback</>
-          )}
-        </Button>
+
       </div>
 
       {/* KPIs */}
@@ -775,18 +797,48 @@ export default function CashbackManagement() {
             <CardContent>
               <div className="space-y-4">
                 {/* Filtros */}
-                <div className="flex gap-4">
-                  <Select value={filterType} onValueChange={(v: any) => setFilterType(v)}>
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os Tipos</SelectItem>
-                      <SelectItem value="EARNED">Ganhou</SelectItem>
-                      <SelectItem value="REDEEMED">Resgatou</SelectItem>
-                      <SelectItem value="EXPIRED">Expirou</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label>Tipo</Label>
+                    <Select value={filterType} onValueChange={(v: any) => setFilterType(v)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os Tipos</SelectItem>
+                        <SelectItem value="EARNED">Ganhou</SelectItem>
+                        <SelectItem value="REDEEMED">Resgatou</SelectItem>
+                        <SelectItem value="EXPIRED">Expirou</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Data Início</Label>
+                    <Input
+                      type="date"
+                      value={filterDateStart}
+                      onChange={(e) => setFilterDateStart(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Data Fim</Label>
+                    <Input
+                      type="date"
+                      value={filterDateEnd}
+                      onChange={(e) => setFilterDateEnd(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Buscar Cliente</Label>
+                    <Input
+                      placeholder="Nome ou CPF..."
+                      value={filterClientSearch}
+                      onChange={(e) => setFilterClientSearch(e.target.value)}
+                    />
+                  </div>
                 </div>
 
                 {/* Tabela */}
@@ -798,6 +850,7 @@ export default function CashbackManagement() {
                       <TableHead>Tipo</TableHead>
                       <TableHead>Cashback</TableHead>
                       <TableHead>Pedido</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -844,6 +897,23 @@ export default function CashbackManagement() {
                             </TableCell>
                             <TableCell className="text-sm text-muted-foreground">
                               {t.tiny_order?.numero_pedido ? `#${t.tiny_order.numero_pedido}` : '-'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {t.transaction_type !== 'ADJUSTMENT' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleCancelar(t.id)}
+                                  disabled={canceling === t.id}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  {canceling === t.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    'Cancelar'
+                                  )}
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         );
