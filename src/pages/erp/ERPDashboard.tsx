@@ -700,6 +700,23 @@ export default function ERPDashboard() {
         </CardContent>
       </Card>
 
+      {/* Botão de Refresh Manual */}
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={async () => {
+            await fetchKPIs();
+            await fetchLastSync();
+            toast.success('KPIs atualizados!');
+          }}
+          className="gap-2"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Atualizar KPIs
+        </Button>
+      </div>
+
       {/* Lista de Pedidos */}
       {selectedStoreId && (
         <TinyOrdersList storeId={selectedStoreId} limit={20} />
