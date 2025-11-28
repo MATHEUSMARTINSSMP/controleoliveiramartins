@@ -567,13 +567,14 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
       let totalPaginas = paginacao.totalPaginas || paginacao.total_paginas || paginacao.pages || 0;
       const totalRegistros = paginacao.totalRegistros || paginacao.total_registros || paginacao.total || 0;
 
-      // ✅ CORREÇÃO CRÍTICA: Se totalPaginas = 0 mas temos totalRegistros, 
-      // calcular usando o número REAL de pedidos retornados (não o limite solicitado)
-      // porque a API pode retornar menos que o limite solicitado
-      if (totalPaginas === 0 && totalRegistros > 0 && pedidos.length > 0) {
-        totalPaginas = Math.ceil(totalRegistros / pedidos.length);
-        console.log(`[SyncBackground] 🔢 Calculando total de páginas: ${totalRegistros} registros ÷ ${pedidos.length} pedidos/página (REAL) = ${totalPaginas} páginas`);
-        console.log(`[SyncBackground] ⚠️ API retornou ${pedidos.length} pedidos mas solicitamos ${limite}. Usando valor REAL para cálculo.`);
+      // ✅ CORREÇÃO CRÍTICA: SEMPRE recalcular totalPaginas usando pedidos.length REAL
+      // Não confiar no totalPaginas da API se ela estiver errada
+      if (totalRegistros > 0 && pedidos.length > 0) {
+        const totalPaginasCalculado = Math.ceil(totalRegistros / pedidos.length);
+        if (totalPaginas === 0 || totalPaginasCalculado > totalPaginas) {
+          totalPaginas = totalPaginasCalculado;
+          console.log(`[SyncBackground] 🔢 Recalculando total de páginas: ${totalRegistros} registros ÷ ${pedidos.length} pedidos/página (REAL) = ${totalPaginas} páginas`);
+        }
       }
 
       console.log(`[SyncBackground] 📄 Página ${currentPage}: ${pedidos.length} pedidos encontrados`);
