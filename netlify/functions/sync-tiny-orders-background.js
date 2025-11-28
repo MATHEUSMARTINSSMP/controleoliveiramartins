@@ -98,10 +98,11 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const { store_id, storeId, data_inicio, incremental = true, limit = 500, max_pages = 999999, hard_sync = false, mode } = body;
+    const { store_id, storeId: inputStoreId, data_inicio, incremental = true, limit = 500, max_pages = 999999, hard_sync = false, mode } = body;
 
-    // ✅ CORREÇÃO: Aceitar tanto store_id quanto storeId (cron envia storeId)
-    const finalStoreId = store_id || storeId;
+    // ✅ CORREÇÃO: Unificar store_id e storeId numa única variável válida
+    const storeId = store_id || inputStoreId;
+    const finalStoreId = storeId; // Manter alias se necessário
 
     console.log('[SyncBackground] 📋 Parâmetros recebidos:', {
       store_id,
@@ -1333,13 +1334,13 @@ async function syncTinyContact(supabase, storeId, cliente, pedidoId) {
       // Se não existe, tentar INSERT
       // Primeiro verificar se já existe por tiny_id ou cpf_cnpj
       let existingByTiny = null;
-      if (tinyId) {
+      if (clienteId) {
         const { data } = await supabase
           .schema('sistemaretiradas')
           .from('tiny_contacts')
           .select('id')
           .eq('store_id', storeId)
-          .eq('tiny_id', tinyId)
+          .eq('tiny_id', clienteId.toString())
           .maybeSingle();
         existingByTiny = data;
       }
