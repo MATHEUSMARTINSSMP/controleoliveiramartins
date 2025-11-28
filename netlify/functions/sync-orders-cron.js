@@ -72,7 +72,25 @@ exports.handler = async (event, context) => {
                         }),
                     });
 
-                    const syncResult = await syncResponse.json();
+                    let syncResult;
+                    try {
+                        // Tentar fazer parse do JSON
+                        const responseText = await syncResponse.text();
+                        console.log(`[sync-orders-cron] 📄 Resposta raw (${responseText.length} chars):`, responseText.substring(0, 200));
+
+                        if (!responseText || responseText.trim() === '') {
+                            throw new Error('Resposta vazia da função de sincronização');
+                        }
+
+                        syncResult = JSON.parse(responseText);
+                    } catch (parseError) {
+                        console.error(`[sync-orders-cron] ❌ Erro ao fazer parse do JSON:`, parseError);
+                        syncResult = {
+                            success: false,
+                            error: `Erro ao fazer parse da resposta: ${parseError.message}`,
+                            statusCode: syncResponse.status,
+                        };
+                    }
 
                     results.push({
                         store: store.name,
