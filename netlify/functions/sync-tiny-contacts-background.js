@@ -234,133 +234,95 @@ exports.handler = async (event, context) => {
 
     console.log(`[SyncContactsBackground] 📊 Total de ${allContatos.length} contatos encontrados`);
 
-    // Filtrar apenas clientes (excluir fornecedores)
+    // Função auxiliar para normalizar telefone
+    const normalizePhone = (phone) => {
+      if (!phone) return null;
+      const digits = phone.replace(/\D/g, '');
+      if (digits.length === 11) {
+        return `(${digits.substring(0, 2)}) ${digits.substring(2, 7)}-${digits.substring(7)}`;
+      } else if (digits.length === 10) {
+        return `(${digits.substring(0, 2)}) ${digits.substring(2, 6)}-${digits.substring(6)}`;
+      }
+      return phone; // Retorna original se não conseguir formatar
+    };
+
+    // Filtrar e processar contatos
     const clientes = allContatos.filter((contatoData, index) => {
       const contato = contatoData.contato || contatoData;
+      const nome = (contato.nome || '').toUpperCase();
+      const cpfCnpj = (contato.cpfCnpj || contato.cpf_cnpj || '').replace(/\D/g, '');
+
+      // 🚨 REGRA 1: Ignorar SEM CPF/CNPJ
+      if (!cpfCnpj) {
+        if (index < 10) console.log(`[SyncContactsBackground] 🚫 Ignorado (Sem CPF): ${contato.nome}`);
+        return false;
+      }
+
+      // 🚨 REGRA 2: Ignorar Fornecedores (Lógica Aprimorada)
       const tipos = contato.tipos || [];
       const descricoesTipos = tipos.map(t => (t.descricao || t.tipo || '').toLowerCase());
-
-      // ✅ Log de debug para os primeiros 3 contatos
-      if (index < 3) {
-        console.log(`[SyncContactsBackground] 🔍 Debug contato ${index + 1}:`, {
-          nome: contato.nome,
-          tipos: tipos,
-          descricoesTipos: descricoesTipos,
-          tipo: contato.tipo,
-          cpfCnpj: contato.cpfCnpj || contato.cpf_cnpj
-        });
-      }
-
-      // Verificar se é fornecedor por tipo
-      const isFornecedorPorTipo = descricoesTipos.some(desc =>
-        desc.includes('fornecedor') ||
-        desc.includes('supplier') ||
-        desc === 'fornecedor' ||
-        desc === 'supplier'
-      );
-
-      // Verificar se é fornecedor por campo direto
       const tipoContato = (contato.tipo || '').toLowerCase();
-      const isFornecedorPorCampo = tipoContato.includes('fornecedor') || tipoContato.includes('supplier');
 
-      // Verificar se é fornecedor por nome (empresas com LTDA, S/A, etc geralmente são fornecedores)
-      const nome = (contato.nome || '').toUpperCase();
-      const cpfCnpj = contato.cpfCnpj || contato.cpf_cnpj || '';
-      const isCNPJ = cpfCnpj.replace(/\D/g, '').length === 14;
-
-      // Se tem CNPJ e nome de empresa (LTDA, S/A, etc), provavelmente é fornecedor
-      const isPossibleFornecedor = isCNPJ && (
-        nome.includes('LTDA') ||
-        nome.includes('S/A') ||
-        nome.includes('S.A.') ||
-        nome.includes('EIRELI') ||
-        nome.includes('ME') ||
-        nome.includes('EPP') ||
+      const isFornecedor =
+        descricoesTipos.some(d => d.includes('fornecedor') || d.includes('supplier')) ||
+        tipoContato.includes('fornecedor') ||
+        tipoContato.includes('supplier') ||
         nome.includes('INDUSTRIA') ||
-        nome.includes('COMERCIO')
-      );
+        nome.includes('COMERCIO') ||
+        nome.includes('LTDA') ||
+        nome.includes('S.A') ||
+        nome.includes('S/A') ||
+        nome.includes('EIRELI');
 
-      const isFornecedor = isFornecedorPorTipo || isFornecedorPorCampo || isPossibleFornecedor;
-
-      // Log de fornecedores detectados
       if (isFornecedor) {
-        console.log(`[SyncContactsBackground] 🏭 Fornecedor detectado: ${contato.nome} (${isFornecedorPorTipo ? 'tipo' : isFornecedorPorCampo ? 'campo' : 'nome/CNPJ'})`);
+        if (index < 10) console.log(`[SyncContactsBackground] 🏭 Ignorado (Fornecedor): ${contato.nome}`);
+        return false;
       }
 
-      return !isFornecedor && contato.nome;
+      return true;
+    }).map(contatoData => {
+      const contato = contatoData.contato || contatoData;
+      // Normalizar dados antes de salvar
+      return {
+        ...contato,
+        telefone: normalizePhone(contato.telefone || contato.celular || contato.fone),
+        cpf_cnpj: (contato.cpfCnpj || contato.cpf_cnpj || '').replace(/\D/g, '')
+      };
     });
 
-    console.log(`[SyncContactsBackground] ✅ ${clientes.length} clientes para processar (${allContatos.length - clientes.length} fornecedores descartados)`);
+    console.log(`[SyncContactsBackground] ✅ ${clientes.length} clientes válidos para processar (de ${allContatos.length} originais)`);
 
     // Processar e salvar contatos
     let synced = 0;
     let updated = 0;
     let errors = 0;
 
-    for (const contatoData of clientes) {
+    for (const contato of clientes) {
       try {
-        const contato = contatoData.contato || contatoData;
         const contatoId = contato.id;
+        const nome = contato.nome;
+        const cpfCnpj = contato.cpf_cnpj; // Já normalizado
+        const telefone = contato.telefone; // Já normalizado
+        const email = contato.email;
 
-        if (!contatoId || !contato.nome) {
-          console.warn(`[SyncContactsBackground] ⚠️ Contato sem ID ou nome, ignorando`);
-          continue;
+        // Log de progresso a cada 20 contatos
+        if (synced % 20 === 0) {
+          console.log(`[SyncContactsBackground] ⏳ Processando contato ${synced + 1}/${clientes.length}: ${nome}`);
         }
 
-        console.log(`[SyncContactsBackground] 👤 Processando contato: ${contato.nome} (ID: ${contatoId})`);
-
-        // ✅ SEMPRE buscar detalhes completos para obter telefone, celular, dataNascimento
-        let contatoCompleto = contato;
-
-        try {
-          const contatoDetalhado = await fetchContatoCompletoFromTiny(store_id, contatoId);
-          if (contatoDetalhado) {
-            contatoCompleto = {
-              ...contato,
-              ...contatoDetalhado,
-              id: contato.id,
-              nome: contatoDetalhado.nome || contato.nome,
-            };
-            console.log(`[SyncContactsBackground] ✅ Detalhes completos recebidos para ${contato.nome}`);
-          }
-        } catch (error) {
-          console.error(`[SyncContactsBackground] ❌ Erro ao buscar detalhes do contato ${contatoId}:`, error);
-        }
-
-        // Normalizar dados
-        const dataNascimento = contatoCompleto.dataNascimento || contatoCompleto.data_nascimento || null;
-        const cpfCnpj = normalizeCPFCNPJ(contatoCompleto.cpfCnpj || contatoCompleto.cpf_cnpj || contatoCompleto.cpf || contatoCompleto.cnpj || null);
-        const telefone = normalizeTelefone(contatoCompleto.telefone || null);
-        const celular = normalizeTelefone(contatoCompleto.celular || null);
-        const email = contatoCompleto.email || null;
-        const nome = normalizeNome(contatoCompleto.nome);
-
-        // Normalizar data de nascimento
-        let dataNascimentoNormalizada = null;
-        if (dataNascimento) {
-          try {
-            const date = new Date(dataNascimento);
-            if (!isNaN(date.getTime())) {
-              dataNascimentoNormalizada = date.toISOString().split('T')[0];
-            }
-          } catch (error) {
-            console.warn(`[SyncContactsBackground] ⚠️ Erro ao parsear data de nascimento:`, error);
-          }
-        }
-
-        // Preparar dados do contato
+        // Preparar dados do contato (usando dados já normalizados)
         const contactData = {
           store_id: store_id,
           tiny_id: contatoId.toString(),
           nome,
           cpf_cnpj: cpfCnpj,
-          telefone: telefone || celular || null, // Priorizar telefone, usar celular como fallback
+          telefone: telefone,
           email,
-          data_nascimento: dataNascimentoNormalizada,
+          // data_nascimento: null, // Removido por enquanto para evitar complexidade desnecessária e erros de parse
           updated_at: new Date().toISOString(),
         };
 
-        // Verificar se já existe
+        // Verificar se já existe (prioridade CPF, depois Tiny ID)
         let existingContact = null;
         if (cpfCnpj) {
           const { data } = await supabase
@@ -384,22 +346,23 @@ exports.handler = async (event, context) => {
           existingContact = data;
         }
 
-        // Verificar se precisa atualizar
-        const precisaAtualizar = !existingContact || shouldUpdateContact(existingContact, contactData);
+        // Verificar se precisa atualizar (simples verificação de mudança)
+        // Para garantir dados limpos, vamos forçar atualização se os dados normalizados forem diferentes
+        let precisaAtualizar = !existingContact;
+        if (existingContact) {
+          if (existingContact.nome !== nome ||
+            existingContact.telefone !== telefone ||
+            existingContact.email !== email) {
+            precisaAtualizar = true;
+          }
+        }
 
         if (!precisaAtualizar && existingContact) {
-          console.log(`[SyncContactsBackground] ℹ️ Contato ${contatoId} não precisa ser atualizado`);
+          // console.log(`[SyncContactsBackground] ℹ️ Contato ${contatoId} atualizado recentemente, pulando`);
           continue;
         }
 
-        // Mesclar dados preservando existentes
-        if (existingContact) {
-          contactData.id = existingContact.id;
-          const merged = mergeDataPreservingExisting(existingContact, contactData);
-          Object.assign(contactData, merged);
-        }
-
-        // ✅ Salvar contato: UPDATE se existe, INSERT se não existe
+        // Salvar contato: UPDATE se existe, INSERT se não existe
         let upsertError = null;
 
         if (existingContact && existingContact.id) {
@@ -411,7 +374,7 @@ exports.handler = async (event, context) => {
             .eq('id', existingContact.id);
           upsertError = error;
         } else {
-          // Inserir novo registro (sem onConflict para evitar erro 42P10)
+          // Inserir novo registro
           const { error } = await supabase
             .schema('sistemaretiradas')
             .from('tiny_contacts')
@@ -425,7 +388,7 @@ exports.handler = async (event, context) => {
         } else {
           if (existingContact) {
             updated++;
-            console.log(`[SyncContactsBackground] ✅ Contato ${contatoId} atualizado`);
+            // console.log(`[SyncContactsBackground] ✅ Contato ${contatoId} atualizado`);
           } else {
             synced++;
             console.log(`[SyncContactsBackground] ✅ Contato ${contatoId} criado`);

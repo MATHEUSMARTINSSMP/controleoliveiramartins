@@ -279,7 +279,15 @@ function normalizeCPFCNPJ(cpfCnpj) {
  */
 function normalizeTelefone(telefone) {
   if (!telefone) return null;
-  return String(telefone).replace(/\D/g, '');
+  const digits = String(telefone).replace(/\D/g, '');
+
+  if (digits.length === 11) {
+    return `(${digits.substring(0, 2)}) ${digits.substring(2, 7)}-${digits.substring(7)}`;
+  } else if (digits.length === 10) {
+    return `(${digits.substring(0, 2)}) ${digits.substring(2, 6)}-${digits.substring(6)}`;
+  }
+
+  return digits; // Retorna apenas números se não tiver tamanho padrão
 }
 
 /**

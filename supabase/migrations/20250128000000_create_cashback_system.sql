@@ -522,6 +522,7 @@ ALTER TABLE sistemaretiradas.cashback_balance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sistemaretiradas.cashback_transactions ENABLE ROW LEVEL SECURITY;
 
 -- Policies para cashback_settings (apenas ADMIN e LOJA podem ver)
+DROP POLICY IF EXISTS "Admin e Loja podem ver configurações de cashback" ON sistemaretiradas.cashback_settings;
 CREATE POLICY "Admin e Loja podem ver configurações de cashback"
     ON sistemaretiradas.cashback_settings
     FOR SELECT
@@ -533,6 +534,7 @@ CREATE POLICY "Admin e Loja podem ver configurações de cashback"
         )
     );
 
+DROP POLICY IF EXISTS "Apenas ADMIN pode criar/editar configurações de cashback" ON sistemaretiradas.cashback_settings;
 CREATE POLICY "Apenas ADMIN pode criar/editar configurações de cashback"
     ON sistemaretiradas.cashback_settings
     FOR ALL
@@ -545,6 +547,7 @@ CREATE POLICY "Apenas ADMIN pode criar/editar configurações de cashback"
     );
 
 -- Policies para cashback_balance (ADMIN, LOJA e o próprio cliente via contato)
+DROP POLICY IF EXISTS "Admin e Loja podem ver todos os saldos" ON sistemaretiradas.cashback_balance;
 CREATE POLICY "Admin e Loja podem ver todos os saldos"
     ON sistemaretiradas.cashback_balance
     FOR SELECT
@@ -557,6 +560,7 @@ CREATE POLICY "Admin e Loja podem ver todos os saldos"
     );
 
 -- Policies para cashback_transactions (ADMIN, LOJA podem ver todas)
+DROP POLICY IF EXISTS "Admin e Loja podem ver todas as transações" ON sistemaretiradas.cashback_transactions;
 CREATE POLICY "Admin e Loja podem ver todas as transações"
     ON sistemaretiradas.cashback_transactions
     FOR SELECT
@@ -590,4 +594,38 @@ INSERT INTO sistemaretiradas.cashback_settings (
     3,
     'Configuração padrão do sistema de cashback'
 ) ON CONFLICT (store_id) DO NOTHING;
+
+
+-- ============================================================================
+-- 11. TRIGGER: Gerar cashback automaticamente para novos pedidos
+-- ============================================================================
+CREATE OR REPLACE FUNCTION sistemaretiradas.trigger_gerar_cashback_pedido()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    -- Apenas se tiver cliente e valor > 0 e não for cancelado
+    IF NEW.cliente_id IS NOT NULL AND NEW.valor_total > 0 AND (NEW.situacao IS NULL OR NEW.situacao NOT IN ('cancelado', 'Cancelado')) THEN
+        -- Tentar gerar cashback (ignorar erros para não travar o insert do pedido)
+        BEGIN
+            PERFORM sistemaretiradas.gerar_cashback(
+                NEW.id,
+                NEW.cliente_id,
+                NEW.store_id,
+                NEW.valor_total
+            );
+        EXCEPTION WHEN OTHERS THEN
+            -- Logar erro mas não falhar a transação do pedido
+            RAISE WARNING 'Erro ao gerar cashback para pedido %: %', NEW.id, SQLERRM;
+        END;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_gerar_cashback_new_order ON sistemaretiradas.tiny_orders;
+CREATE TRIGGER trg_gerar_cashback_new_order
+    AFTER INSERT OR UPDATE ON sistemaretiradas.tiny_orders
+    FOR EACH ROW
+    EXECUTE FUNCTION sistemaretiradas.trigger_gerar_cashback_pedido();
 
