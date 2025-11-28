@@ -922,6 +922,7 @@ export default function CashbackManagement() {
                     )}
                   </TableBody>
                 </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
