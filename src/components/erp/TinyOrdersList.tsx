@@ -58,6 +58,9 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
   const [currentPage, setCurrentPage] = useState<number>(1);
   const { toast } = useToast();
 
+  // ✅ Flag para evitar notificações de pedidos antigos na primeira carga
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
+
   useEffect(() => {
     fetchOrders();
   }, [storeId]);
@@ -129,25 +132,12 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
       if (error) throw error;
 
       if (data) {
-        // ✅ Obter timestamp da última sincronização
-        const lastSyncKey = `lastOrderSync_${storeId}`;
-        const lastSyncTime = localStorage.getItem(lastSyncKey);
-        const now = new Date().toISOString();
-
         // ✅ Detectar novos pedidos e adicionar no topo
-        const novosPedidos = data.filter((newOrder) => {
-          const isNew = !orders.some((existingOrder) => existingOrder.id === newOrder.id);
+        const novosPedidos = data.filter(
+          (newOrder) => !orders.some((existingOrder) => existingOrder.id === newOrder.id)
+        );
 
-          // ✅ CORREÇÃO CRÍTICA: Se é primeira carga, NÃO notificar pedidos antigos
-          if (!lastSyncTime) {
-            return isNew; // Adiciona à lista mas NÃO notifica
-          }
-
-          // ✅ Notificar apenas se foi sincronizado APÓS última verificação
-          const isRecent = newOrder.sync_at && new Date(newOrder.sync_at) > new Date(lastSyncTime);
-
-          return isNew && isRecent;
-        });
+        console.log(`[AUTO-REFRESH] 📊 ${novosPedidos.length} novos pedidos detectados (isFirstLoad: ${isFirstLoad})`);
 
         if (novosPedidos.length > 0) {
           // ✅ Adicionar novos pedidos no TOPO da lista
@@ -156,17 +146,17 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
             const existingIds = new Set(prevOrders.map((o) => o.id));
             const novosSemDuplicados = novosPedidos.filter((o) => !existingIds.has(o.id));
 
-            // 🔔 Mostrar notificação sonner APENAS para pedidos realmente novos
-            if (novosSemDuplicados.length > 0 && lastSyncTime) {
+            // 🔔 Mostrar notificação sonner APENAS se NÃO for primeira carga
+            if (novosSemDuplicados.length > 0 && !isFirstLoad) {
+              console.log(`[AUTO-REFRESH] 🔔 Mostrando ${novosSemDuplicados.length} notificações`);
               novosSemDuplicados.forEach((novoPedido) => {
-                // ✅ Verificar se é realmente novo (sincronizado após última verificação)
-                if (novoPedido.sync_at && new Date(novoPedido.sync_at) > new Date(lastSyncTime)) {
-                  sonnerToast.success("🎉 Nova Venda!", {
-                    description: `Pedido ${novoPedido.numero_pedido || novoPedido.tiny_id} - ${novoPedido.cliente_nome || 'Cliente'} - ${formatCurrency(novoPedido.valor_total || 0)}`,
-                    duration: 5000,
-                  });
-                }
+                sonnerToast.success("🎉 Nova Venda!", {
+                  description: `Pedido ${novoPedido.numero_pedido || novoPedido.tiny_id} - ${novoPedido.cliente_nome || 'Cliente'} - ${formatCurrency(novoPedido.valor_total || 0)}`,
+                  duration: 5000,
+                });
               });
+            } else if (isFirstLoad) {
+              console.log('[AUTO-REFRESH] ⏭️ Primeira carga - notificações suprimidas');
             }
 
             // ✅ Adicionar novos pedidos no topo, ordenando por número do pedido (maior = mais recente)
@@ -183,11 +173,14 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
           setOrders(data);
         }
 
-        // ✅ Atualizar timestamp da última sincronização
-        localStorage.setItem(lastSyncKey, now);
+        // Marcar que primeira carga já passou
+        if (isFirstLoad) {
+          setIsFirstLoad(false);
+          console.log('[AUTO-REFRESH] ✅ Primeira carga concluída');
+        }
       }
     } catch (error: any) {
-      console.error('Erro ao buscar pedidos (silencioso):', error);
+      console.error('[AUTO-REFRESH] ❌ Erro ao buscar pedidos:', error);
       // Não mostrar erro para não poluir a interface
     }
   };
