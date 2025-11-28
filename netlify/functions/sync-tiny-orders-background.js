@@ -163,14 +163,18 @@ exports.handler = async (event, context) => {
     let dataInicioSync = data_inicio;
     if (!dataInicioSync) {
       if (hard_sync) {
-        // Hard sync: desde 2010-01-01
-        dataInicioSync = '2010-01-01';
+        // Hard sync: desde 01/01/2000 (formato dd/mm/yyyy para Tiny API)
+        dataInicioSync = '01/01/2000';
         console.log(`[SyncBackground] 🔥 HARD SYNC: Buscando desde ${dataInicioSync}`);
       } else {
         // Sincronização normal: últimas 12 horas
         const dozeHorasAtras = new Date();
         dozeHorasAtras.setHours(dozeHorasAtras.getHours() - 12);
-        dataInicioSync = dozeHorasAtras.toISOString().split('T')[0];
+        // Formatar para dd/mm/yyyy
+        const dia = String(dozeHorasAtras.getDate()).padStart(2, '0');
+        const mes = String(dozeHorasAtras.getMonth() + 1).padStart(2, '0');
+        const ano = dozeHorasAtras.getFullYear();
+        dataInicioSync = `${dia}/${mes}/${ano}`;
       }
     }
 
