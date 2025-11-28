@@ -72,34 +72,32 @@ exports.handler = async (event, context) => {
                         }),
                     });
 
-                    let syncResult;
-                    try {
-                        // Tentar fazer parse do JSON
-                        const responseText = await syncResponse.text();
-                        console.log(`[sync-orders-cron] 📄 Resposta raw (${responseText.length} chars):`, responseText.substring(0, 200));
-
-                        if (!responseText || responseText.trim() === '') {
-                            throw new Error('Resposta vazia da função de sincronização');
+                    // Background functions return 202 Accepted immediately
+                    if (syncResponse.status === 202) {
+                        console.log(`[sync-orders-cron] ✅ Loja ${store.name}: Sincronização iniciada em background (202 Accepted)`);
+                        results.push({
+                            store: store.name,
+                            success: true,
+                            result: { message: 'Sincronização iniciada em background' }
+                        });
+                    } else {
+                        // Se não for 202, tentar ler o erro (embora background functions geralmente retornem 202 ou erro de conexão)
+                        let errorDetail = `Status: ${syncResponse.status}`;
+                        try {
+                            const text = await syncResponse.text();
+                            errorDetail += ` - Body: ${text.substring(0, 200)}`;
+                        } catch (e) {
+                            // Ignore text read error
                         }
 
-                        syncResult = JSON.parse(responseText);
-                    } catch (parseError) {
-                        console.error(`[sync-orders-cron] ❌ Erro ao fazer parse do JSON:`, parseError);
-                        syncResult = {
+                        console.warn(`[sync-orders-cron] ⚠️ Resposta inesperada da loja ${store.name}: ${errorDetail}`);
+
+                        results.push({
+                            store: store.name,
                             success: false,
-                            error: `Erro ao fazer parse da resposta: ${parseError.message}`,
-                            statusCode: syncResponse.status,
-                        };
+                            result: { message: 'Erro ao iniciar sincronização', detail: errorDetail }
+                        });
                     }
-
-                    results.push({
-                        store: store.name,
-                        success: syncResponse.ok,
-                        result: syncResult,
-                    });
-
-                    console.log(`[sync-orders-cron] ✅ Loja ${store.name}: ${syncResult.message || 'OK'}`);
-                    console.log(`[sync-orders-cron] 📊 Detalhes:`, JSON.stringify(syncResult, null, 2));
                 } catch (storeError) {
                     console.error(`[sync-orders-cron] ❌ Erro na loja ${store.name}:`, storeError);
                     results.push({
