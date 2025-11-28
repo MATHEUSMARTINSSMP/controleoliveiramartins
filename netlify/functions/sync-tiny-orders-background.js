@@ -515,6 +515,10 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
   let currentPage = 1;
   let hasMore = true;
 
+  // Variáveis para detecção de loop infinito (páginas duplicadas)
+  let lastPageFirstId = null;
+  let lastPageLastId = null;
+
   while (hasMore && currentPage <= maxPages) {
     try {
 
