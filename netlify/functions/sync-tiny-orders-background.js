@@ -98,17 +98,36 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const { store_id, data_inicio, incremental = true, limit = 500, max_pages = 999999, hard_sync = false } = body;
+    const { store_id, storeId, data_inicio, incremental = true, limit = 500, max_pages = 999999, hard_sync = false, mode } = body;
 
-    if (!store_id) {
+    // ✅ CORREÇÃO: Aceitar tanto store_id quanto storeId (cron envia storeId)
+    const finalStoreId = store_id || storeId;
+
+    console.log('[SyncBackground] 📋 Parâmetros recebidos:', {
+      store_id,
+      storeId,
+      finalStoreId,
+      mode,
+      incremental,
+      limit,
+      max_pages,
+      hard_sync
+    });
+
+    if (!finalStoreId) {
+      console.error('[SyncBackground] ❌ store_id/storeId não fornecido!');
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'store_id é obrigatório' }),
+        body: JSON.stringify({
+          success: false,
+          error: 'store_id ou storeId é obrigatório',
+          received: { store_id, storeId, body: Object.keys(body) }
+        }),
       };
     }
 
-    console.log(`[SyncBackground] 🔄 Sincronizando loja ${store_id}...`);
+    console.log(`[SyncBackground] 🔄 Sincronizando loja ${finalStoreId}...`);
 
     // Inicializar Supabase
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
@@ -129,17 +148,19 @@ exports.handler = async (event, context) => {
       .schema('sistemaretiradas')
       .from('erp_integrations')
       .select('*')
-      .eq('store_id', store_id)
+      .eq('store_id', finalStoreId)
       .eq('sistema_erp', 'TINY')
       .single();
 
     if (integrationError || !integration) {
+      console.error('[SyncBackground] ❌ Integração não encontrada:', integrationError);
       return {
         statusCode: 404,
         headers,
         body: JSON.stringify({
           success: false,
-          error: 'Integração não encontrada para esta loja'
+          error: 'Integração não encontrada para esta loja',
+          store_id: finalStoreId
         }),
       };
     }
