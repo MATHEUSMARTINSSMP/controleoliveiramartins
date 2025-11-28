@@ -177,6 +177,14 @@ exports.handler = async (event, context) => {
 
         // Tiny ERP v3 retorna dados em { itens: [...], paginacao: {...} }
         const contatos = result.itens || result.contatos || [];
+
+        // ✅ Log de IDs para debug
+        if (contatos.length > 0) {
+          const firstId = contatos[0]?.contato?.id || contatos[0]?.id || 'N/A';
+          const lastId = contatos[contatos.length - 1]?.contato?.id || contatos[contatos.length - 1]?.id || 'N/A';
+          console.log(`[SyncContactsBackground] 🔍 IDs da Página ${currentPage}: Primeiro=${firstId}, Último=${lastId}`);
+        }
+
         allContatos = allContatos.concat(contatos);
 
         // Verificar se há mais páginas - API v3 retorna { itens: [...], paginacao: { limit, offset, total } }
@@ -189,21 +197,31 @@ exports.handler = async (event, context) => {
           totalPaginas = Math.ceil(totalRegistros / (limit || 100));
         }
 
+        // ✅ Log detalhado de paginação
+        console.log(`[SyncContactsBackground] 📊 Paginação: página atual=${currentPage}, total páginas=${totalPaginas}, total registros=${totalRegistros}, já processados=${allContatos.length}`);
+
         // Verificar se devemos continuar
         if (contatos.length < (limit || 100)) {
           // Se retornou menos que o limite, acabou
+          console.log(`[SyncContactsBackground] 🏁 Fim da paginação: retornou ${contatos.length} itens (menor que limite ${limit || 100})`);
           hasMore = false;
         } else if (totalPaginas > 0) {
           // Se temos total de páginas, verificar se chegamos ao fim
           hasMore = currentPage < totalPaginas && currentPage < maxPages;
+          console.log(`[SyncContactsBackground] 📊 Usando paginação: ${currentPage}/${totalPaginas}, hasMore=${hasMore}`);
         } else {
           // Fallback: continua enquanto vierem itens cheios
           hasMore = contatos.length >= (limit || 100) && currentPage < maxPages;
         }
 
+        console.log(`[SyncContactsBackground] 📄 Página ${currentPage}: ${contatos.length} contatos encontrados`);
+
         currentPage++;
 
-        console.log(`[SyncContactsBackground] 📄 Página ${currentPage - 1}: ${contatos.length} contatos encontrados`);
+        // ✅ Rate Limiting: Aguardar 1 segundo entre páginas para evitar 429 Too Many Requests
+        if (hasMore) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
 
       } catch (error) {
         console.error(`[SyncContactsBackground] ❌ Erro ao buscar página ${currentPage}:`, error);
