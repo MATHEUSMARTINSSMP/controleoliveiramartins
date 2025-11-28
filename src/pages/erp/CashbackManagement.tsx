@@ -1,7 +1,8 @@
 /**
- * Página de Gestão de Cashback
+ * Página de Gestão de Cashback - REDESIGN COMPLETO
  * 
- * Gestão completa do programa de cashback com todas as funcionalidades
+ * Inspirado no sistema Kikadi
+ * 3 Tabs: Lançar, Clientes, Histórico Geral
  */
 
 import { useEffect, useState, useMemo } from 'react';
@@ -11,48 +12,52 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger
 } from '@/components/ui/collapsible';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Loader2,
   ArrowLeft,
   DollarSign,
-  Clock,
+  Users,
+  TrendingUp,
   AlertTriangle,
-  CheckCircle2,
-  RefreshCw,
-  Search,
+  Clock,
   ChevronDown,
   ChevronRight,
-  MessageSquare,
-  Gift
+  Search,
+  Gift,
+  RefreshCw,
 } from 'lucide-react';
-import { format, addDays, isAfter, isBefore, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
-import CashbackSettings from '@/components/erp/CashbackSettings';
+
+interface Cliente {
+  id: string;
+  nome: string;
+  cpf_cnpj: string | null;
+  telefone: string | null;
+  email: string | null;
+}
 
 interface CashbackTransaction {
   id: string;
-  cliente_id: string | null;
+  cliente_id: string;
   tiny_order_id: string | null;
   transaction_type: 'EARNED' | 'REDEEMED' | 'EXPIRED' | 'ADJUSTMENT';
   amount: number;
@@ -61,75 +66,215 @@ interface CashbackTransaction {
   data_expiracao: string | null;
   renovado: boolean;
   created_at: string;
-  cliente?: { id: string; nome: string; cpf_cnpj: string | null; };
-  tiny_order?: { id: string; numero_pedido: string | null; valor_total: number; };
+  tiny_order?: { numero_pedido: string | null };
 }
 
-interface CashbackBalance {
-  id: string;
-  cliente_id: string | null;
-  balance: number;
-  balance_disponivel: number;
-  balance_pendente: number;
+interface ClienteComSaldo {
+  cliente: Cliente;
+  saldo_disponivel: number;
+  saldo_pendente: number;
   total_earned: number;
-  cliente?: { id: string; nome: string; cpf_cnpj: string | null; };
-}
-
-interface CashbackKPIs {
-  total_cashback: number;
-  disponivel: number;
-  pendente: number;
-  expirando: number;
-  expirado: number;
-  total_clientes: number;
+  transactions: CashbackTransaction[];
 }
 
 export default function CashbackManagement() {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
-  const [kpis, setKpis] = useState<CashbackKPIs>({
-    total_cashback: 0, disponivel: 0, pendente: 0, expirando: 0, expirado: 0, total_clientes: 0,
-  });
-  const [transactions, setTransactions] = useState<CashbackTransaction[]>([]);
-  const [balances, setBalances] = useState<CashbackBalance[]>([]);
+  const [activeTab, setActiveTab] = useState('lancar');
+
+  // Estados para lançamento/resgate
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [selectedClienteLancar, setSelectedClienteLancar] = useState('');
+  const [valorLancar, setValorLancar] = useState('');
+  const [descricaoLancar, setDescricaoLancar] = useState('');
+  const [lancando, setLancando] = useState(false);
+
+  const [selectedClienteResgatar, setSelectedClienteResgatar] = useState('');
+  const [valorResgatar, setValorResgatar] = useState('');
+  const [descricaoResgatar, setDescricaoResgatar] = useState('');
+  const [resgatando, setResgatando] = useState(false);
+
+  // Estados para lista de clientes
+  const [clientesComSaldo, setClientesComSaldo] = useState<ClienteComSaldo[]>([]);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
-  const [selectedStore, setSelectedStore] = useState<string>('all');
-  const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // Estados para histórico geral
+  const [historicoGeral, setHistoricoGeral] = useState<CashbackTransaction[]>([]);
+  const [filterType, setFilterType] = useState<'all' | 'EARNED' | 'REDEEMED' | 'EXPIRED'>('all');
+
+  // Estados para expiração
   const [expiringCashback, setExpiringCashback] = useState(false);
-  const [generatingRetroactive, setGeneratingRetroactive] = useState(false);
-  const [renovationDialog, setRenovationDialog] = useState<{ open: boolean; transaction: CashbackTransaction | null }>({ open: false, transaction: null });
-  const [renovating, setRenovating] = useState(false);
+
+  // KPIs
+  const [kpis, setKpis] = useState({
+    total_gerado: 0,
+    total_clientes: 0,
+    total_resgatado: 0,
+    a_vencer_7d: 0,
+  });
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!profile || (profile.role !== 'ADMIN' && profile.role !== 'LOJA')) {
-      navigate('/erp/login');
-      return;
+    if (!authLoading && profile) {
+      fetchData();
     }
-    fetchStores();
-  }, [profile, authLoading, navigate]);
+  }, [authLoading, profile]);
 
-  useEffect(() => {
-    if (selectedStore) fetchData();
-  }, [selectedStore, activeTab]);
-
-  const fetchStores = async () => {
+  const fetchData = async () => {
     try {
-      const { data, error } = await supabase.schema('sistemaretiradas').from('stores').select('id, name').eq('active', true).order('name');
-      if (error) throw error;
-      setStores(data || []);
-      if (data && data.length > 0) setSelectedStore(data[0].id);
-    } catch (error: any) {
-      console.error('Erro ao buscar lojas:', error);
-      toast.error('Erro ao carregar lojas');
+      setLoading(true);
+
+      // Buscar TODAS as clientes (com e sem saldo)
+      const { data: allClientes, error: clientesError } = await supabase
+        .schema('sistemaretiradas')
+        .from('tiny_contacts')
+        .select('id, nome, cpf_cnpj, telefone, email')
+        .not('cpf_cnpj', 'is', null)
+        .neq('cpf_cnpj', '')
+        .order('nome');
+
+      if (clientesError) throw clientesError;
+      setClientes(allClientes || []);
+
+      // Buscar saldos
+      const { data: balances, error: balancesError } = await supabase
+        .schema('sistemaretiradas')
+        .from('cashback_balance')
+        .select('*');
+
+      if (balancesError) throw balancesError;
+
+      // Buscar todas as transações
+      const { data: transactions, error: transactionsError } = await supabase
+        .schema('sistemaretiradas')
+        .from('cashback_transactions')
+        .select(`
+          *,
+          tiny_order:tiny_order_id (numero_pedido)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (transactionsError) throw transactionsError;
+
+      // Combinar clientes com saldos e transações
+      const clientesComSaldoData: ClienteComSaldo[] = (allClientes || []).map(cliente => {
+        const balance = (balances || []).find(b => b.cliente_id === cliente.id);
+        const clienteTransactions = (transactions || []).filter(t => t.cliente_id === cliente.id);
+
+        return {
+          cliente,
+          saldo_disponivel: balance?.balance_disponivel || 0,
+          saldo_pendente: balance?.balance_pendente || 0,
+          total_earned: balance?.total_earned || 0,
+          transactions: clienteTransactions,
+        };
+      });
+
+      setClientesComSaldo(clientesComSaldoData);
+      setHistoricoGeral(transactions || []);
+
+      // Calcular KPIs
+      const totalGerado = (transactions || [])
+        .filter(t => t.transaction_type === 'EARNED')
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+
+      const totalResgatado = (transactions || [])
+        .filter(t => t.transaction_type === 'REDEEMED')
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+
+      const aVencer7d = (transactions || [])
+        .filter(t => {
+          if (t.transaction_type !== 'EARNED' || !t.data_expiracao) return false;
+          const expDate = new Date(t.data_expiracao);
+          const now = new Date();
+          const diff = expDate.getTime() - now.getTime();
+          const days = diff / (1000 * 60 * 60 * 24);
+          return days > 0 && days <= 7;
+        })
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+
+      setKpis({
+        total_gerado: totalGerado,
+        total_clientes: clientesComSaldoData.length,
+        total_resgatado: totalResgatado,
+        a_vencer_7d: aVencer7d,
+      });
+
+    } catch (error) {
+      console.error('Erro ao buscar dados:', error);
+      toast.error('Erro ao carregar dados de cashback');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Função para expirar cashback manualmente
+  const handleLancar = async () => {
+    if (!selectedClienteLancar || !valorLancar) {
+      toast.error('Preencha cliente e valor');
+      return;
+    }
+
+    setLancando(true);
+    try {
+      const { data, error } = await supabase.rpc('lancar_cashback_manual', {
+        p_cliente_id: selectedClienteLancar,
+        p_valor: parseFloat(valorLancar),
+        p_descricao: descricaoLancar || null,
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success(`✅ Cashback lançado: ${formatCurrency(data.amount)}`);
+        setSelectedClienteLancar('');
+        setValorLancar('');
+        setDescricaoLancar('');
+        await fetchData();
+      } else {
+        toast.error(`❌ ${data.error}`);
+      }
+    } catch (error: any) {
+      console.error('Erro ao lançar cashback:', error);
+      toast.error('Erro ao lançar cashback');
+    } finally {
+      setLancando(false);
+    }
+  };
+
+  const handleResgatar = async () => {
+    if (!selectedClienteResgatar || !valorResgatar) {
+      toast.error('Preencha cliente e valor');
+      return;
+    }
+
+    setResgatando(true);
+    try {
+      const { data, error } = await supabase.rpc('resgatar_cashback_manual', {
+        p_cliente_id: selectedClienteResgatar,
+        p_valor: parseFloat(valorResgatar),
+        p_descricao: descricaoResgatar || null,
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success(`✅ Cashback resgatado: ${formatCurrency(data.valor_resgatado)}`);
+        setSelectedClienteResgatar('');
+        setValorResgatar('');
+        setDescricaoResgatar('');
+        await fetchData();
+      } else {
+        toast.error(`❌ ${data.error}`);
+      }
+    } catch (error: any) {
+      console.error('Erro ao resgatar cashback:', error);
+      toast.error('Erro ao resgatar cashback');
+    } finally {
+      setResgatando(false);
+    }
+  };
+
   const handleExpireCashback = async () => {
     setExpiringCashback(true);
     try {
@@ -141,8 +286,8 @@ export default function CashbackManagement() {
       const result = await response.json();
 
       if (result.success) {
-        toast.success(`✅ ${result.expiredCount} transações de cashback expiradas`);
-        await fetchData(); // Recarregar dados
+        toast.success(`✅ ${result.expiredCount} transações expiradas`);
+        await fetchData();
       } else {
         toast.error(`❌ Erro: ${result.error}`);
       }
@@ -154,249 +299,562 @@ export default function CashbackManagement() {
     }
   };
 
-  // Função para gerar cashback retroativo
-  const handleGenerateRetroactive = async () => {
-    setGeneratingRetroactive(true);
+  const handleRenovar = async (clienteId: string) => {
+    // Buscar transação expirada mais recente do cliente
+    const cliente = clientesComSaldo.find(c => c.cliente.id === clienteId);
+    if (!cliente) return;
+
+    const expiredTransaction = cliente.transactions.find(t =>
+      t.transaction_type === 'EARNED' &&
+      t.data_expiracao &&
+      new Date(t.data_expiracao) < new Date()
+    );
+
+    if (!expiredTransaction) {
+      toast.error('Nenhum cashback expirado encontrado');
+      return;
+    }
+
     try {
-      const response = await fetch('/.netlify/functions/cashback-generate-retroactive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dias: 7 }),
+      const { data, error } = await supabase.rpc('renovar_cashback', {
+        p_transaction_id: expiredTransaction.id,
+        p_cliente_id: clienteId,
       });
 
-      const result = await response.json();
+      if (error) throw error;
 
-      if (result.success) {
-        toast.success(`✅ ${result.gerados} cashbacks gerados, ${result.ignorados} ignorados`);
-        await fetchData(); // Recarregar dados
+      if (data.success) {
+        toast.success('✅ Cashback renovado com sucesso');
+        await fetchData();
       } else {
-        toast.error(`❌ Erro: ${result.error}`);
+        toast.error(`❌ ${data.error}`);
       }
-    } catch (error) {
-      console.error('Erro ao gerar cashback retroativo:', error);
-      toast.error('❌ Erro ao gerar cashback retroativo');
-    } finally {
-      setGeneratingRetroactive(false);
-    }
-  };
-
-  const fetchData = async () {
-    try {
-      setLoading(true);
-      let clienteIds: string[] | null = null;
-
-      // ✅ Filtrar clientes por loja e IGNORAR SEM CPF/CNPJ
-      let queryClientes = supabase
-        .schema('sistemaretiradas')
-        .from('tiny_contacts')
-        .select('id')
-        .not('cpf_cnpj', 'is', null) // Ignorar sem CPF
-        .neq('cpf_cnpj', ''); // Ignorar CPF vazio
-
-      if (selectedStore !== 'all') {
-        queryClientes = queryClientes.eq('store_id', selectedStore);
-      }
-
-      const { data: clientes, error: clientesError } = await queryClientes;
-
-      if (clientesError) throw clientesError;
-
-      clienteIds = clientes?.map(c => c.id) || [];
-
-      if (clienteIds.length === 0) {
-        setBalances([]);
-        setTransactions([]);
-        calculateKPIs([], []);
-        setLoading(false);
-        return;
-      }
-
-      // Buscar saldos
-      let balanceQuery = supabase
-        .schema('sistemaretiradas')
-        .from('cashback_balance')
-        .select('*, cliente:cliente_id (id, nome, cpf_cnpj)')
-        .in('cliente_id', clienteIds);
-
-      const { data: balancesData, error: balancesError } = await balanceQuery;
-      if (balancesError) throw balancesError;
-      setBalances(balancesData || []);
-
-      // Buscar transações
-      let transactionQuery = supabase
-        .schema('sistemaretiradas')
-        .from('cashback_transactions')
-        .select('*, cliente:cliente_id (id, nome, cpf_cnpj), tiny_order:tiny_order_id (id, numero_pedido, valor_total)')
-        .in('cliente_id', clienteIds)
-        .order('created_at', { ascending: false })
-        .limit(2000); // Aumentei limite para pegar mais histórico
-
-      const { data: transactionsData, error: transactionsError } = await transactionQuery;
-      if (transactionsError) throw transactionsError;
-
-      setTransactions(transactionsData || []);
-      calculateKPIs(balancesData || [], transactionsData || []);
-
     } catch (error: any) {
-      console.error('Erro ao buscar dados:', error);
-      toast.error('Erro ao carregar dados de cashback');
-    } finally {
-      setLoading(false);
+      console.error('Erro ao renovar cashback:', error);
+      toast.error('Erro ao renovar cashback');
     }
   };
 
-  const calculateKPIs = (balances: CashbackBalance[], transactions: CashbackTransaction[]) => {
-    const now = new Date();
-    const sevenDaysFromNow = addDays(now, 7);
-
-    // 1. Cashback Gerado (Total Histórico)
-    const totalGerado = transactions
-      .filter(t => t.transaction_type === 'EARNED')
-      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
-    // 2. Clientes (Total com saldo ou histórico)
-    const totalClientes = balances.length;
-
-    // 3. Cashback Resgatado (Total Histórico)
-    const totalResgatado = transactions
-      .filter(t => t.transaction_type === 'REDEEMED')
-      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
-    // 4. Cashback a Vencer (Próximos 7 dias)
-    // Considera apenas o que ainda não expirou e vence em até 7 dias
-    const aVencer = transactions
-      .filter(t => {
-        if (t.transaction_type !== 'EARNED' || !t.data_expiracao) return false;
-        const expDate = new Date(t.data_expiracao);
-        return isAfter(expDate, now) && isBefore(expDate, sevenDaysFromNow);
-      })
-      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
-    setKpis({
-      total_cashback: totalGerado, // Reutilizando campo para "Gerado Total"
-      disponivel: totalResgatado, // Reutilizando campo para "Resgatado"
-      pendente: 0, // Não usado nos cards principais
-      expirando: aVencer, // "A Vencer"
-      expirado: 0, // Não usado
-      total_clientes: totalClientes
-    });
+  const toggleClientExpanded = (clienteId: string) => {
+    const newExpanded = new Set(expandedClients);
+    if (newExpanded.has(clienteId)) {
+      newExpanded.delete(clienteId);
+    } else {
+      newExpanded.add(clienteId);
+    }
+    setExpandedClients(newExpanded);
   };
 
-  // ... (rest of the code)
+  const filteredClientes = useMemo(() => {
+    return clientesComSaldo.filter(c => {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        c.cliente.nome.toLowerCase().includes(searchLower) ||
+        c.cliente.cpf_cnpj?.toLowerCase().includes(searchLower) ||
+        c.cliente.telefone?.toLowerCase().includes(searchLower)
+      );
+    });
+  }, [clientesComSaldo, searchTerm]);
+
+  const filteredHistorico = useMemo(() => {
+    if (filterType === 'all') return historicoGeral;
+    return historicoGeral.filter(t => t.transaction_type === filterType);
+  }, [historicoGeral, filterType]);
+
+  const cashbackPreview = useMemo(() => {
+    if (!valorLancar) return 0;
+    return parseFloat(valorLancar) * 0.15; // 15%
+  }, [valorLancar]);
+
+  const saldoClienteResgatar = useMemo(() => {
+    if (!selectedClienteResgatar) return 0;
+    const cliente = clientesComSaldo.find(c => c.cliente.id === selectedClienteResgatar);
+    return cliente?.saldo_disponivel || 0;
+  }, [selectedClienteResgatar, clientesComSaldo]);
+
+  if (authLoading || loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
-      {/* ... (header and filters remain same) ... */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/erp/dashboard')}><ArrowLeft className="h-4 w-4" /></Button>
-          <div><h1 className="text-3xl font-bold flex items-center gap-2"><Gift className="h-8 w-8 text-primary" />Gestão de Cashback</h1><p className="text-muted-foreground">Gerencie o programa de cashback dos seus clientes</p></div>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={handleExpireCashback}
-            disabled={expiringCashback}
-          >
-            {expiringCashback ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Expirando...</> : <><Clock className="h-4 w-4 mr-2" />Expirar Cashback</>}
+          <Button variant="ghost" size="icon" onClick={() => navigate('/erp/dashboard')}>
+            <ArrowLeft className="h-4 w-4" />
           </Button>
-          <Button
-            onClick={handleGenerateRetroactive}
-            disabled={generatingRetroactive}
-          >
-            {generatingRetroactive ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Gerando...</> : <><RefreshCw className="h-4 w-4 mr-2" />Gerar Retroativo (7 dias)</>}
-          </Button>
-        </div>
-      </div>
-      <Card><CardContent className="pt-6"><div className="flex flex-wrap gap-4">
-        <div className="flex-1 min-w-[200px]"><label className="text-sm font-medium mb-2 block">Loja</label><Select value={selectedStore} onValueChange={setSelectedStore}><SelectTrigger><SelectValue placeholder="Todas as lojas" /></SelectTrigger><SelectContent><SelectItem value="all">Todas as lojas</SelectItem>{stores.map(store => <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>)}</SelectContent></Select></div>
-        <div className="flex-1 min-w-[200px]"><label className="text-sm font-medium mb-2 block">Buscar</label><div className="relative"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Cliente, CPF, pedido..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" /></div></div>
-        <div className="flex-1 min-w-[200px]"><label className="text-sm font-medium mb-2 block">Status</label><Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="disponivel">Disponível</SelectItem><SelectItem value="pendente">Pendente</SelectItem><SelectItem value="expirando">Expirando</SelectItem><SelectItem value="expirado">Expirado</SelectItem></SelectContent></Select></div>
-      </div></CardContent></Card>
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5"><TabsTrigger value="overview">Visão Geral</TabsTrigger><TabsTrigger value="history">Histórico</TabsTrigger><TabsTrigger value="expiring">Expirando</TabsTrigger><TabsTrigger value="expired">Expirado</TabsTrigger><TabsTrigger value="settings">Configurações</TabsTrigger></TabsList>
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-
-            {/* CARD 1: Cashback Gerado (Total) */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Cashback Gerado</CardTitle>
-                <DollarSign className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(kpis.total_cashback)}</div>
-                <p className="text-xs text-muted-foreground">Total histórico gerado</p>
-              </CardContent>
-            </Card>
-
-            {/* CARD 2: Clientes */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Clientes</CardTitle>
-                <CheckCircle2 className="h-4 w-4 text-blue-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-600">{kpis.total_clientes}</div>
-                <p className="text-xs text-muted-foreground">Clientes com cashback</p>
-              </CardContent>
-            </Card>
-
-            {/* CARD 3: Cashback Resgatado */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Cashback Resgatado</CardTitle>
-                <RefreshCw className="h-4 w-4 text-green-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">{formatCurrency(kpis.disponivel)}</div>
-                <p className="text-xs text-muted-foreground">Total histórico utilizado</p>
-              </CardContent>
-            </Card>
-
-            {/* CARD 4: Cashback a Vencer */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">A Vencer (7 dias)</CardTitle>
-                <AlertTriangle className="h-4 w-4 text-orange-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-orange-600">{formatCurrency(kpis.expirando)}</div>
-                <p className="text-xs text-muted-foreground">Expira na próxima semana</p>
-              </CardContent>
-            </Card>
-
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <Gift className="h-8 w-8 text-primary" />
+              Gestão de Cashback
+            </h1>
+            <p className="text-muted-foreground">Gerencie o programa de cashback dos seus clientes</p>
           </div>
-          <Card><CardHeader><CardTitle>Clientes com Cashback</CardTitle><CardDescription>Clique para expandir e ver o histórico completo</CardDescription></CardHeader><CardContent>
-            {groupedByClient.length === 0 ? <div className="text-center py-8 text-muted-foreground">Nenhum cliente encontrado</div> : <div className="space-y-2">
-              {groupedByClient.map(({ clienteId, cliente, transactions, total }) => (
-                <Collapsible key={clienteId} open={expandedClients.has(clienteId)} onOpenChange={() => toggleClientExpanded(clienteId)}>
-                  <CollapsibleTrigger asChild><div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer">
-                    <div className="flex items-center gap-3">{expandedClients.has(clienteId) ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}<div><div className="font-medium">{cliente?.nome || 'Cliente Desconhecido'}</div><div className="text-sm text-muted-foreground">{cliente?.cpf_cnpj || 'Sem CPF/CNPJ'} • {transactions.length} transações</div></div></div>
-                    <div className="text-right"><div className="font-bold">{formatCurrency(total)}</div><div className="text-xs text-muted-foreground">Total acumulado</div></div>
-                  </div></CollapsibleTrigger>
-                  <CollapsibleContent><div className="mt-2 border-t pt-4"><Table><TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Tipo</TableHead><TableHead>Valor</TableHead><TableHead>Pedido</TableHead><TableHead>Status</TableHead><TableHead>Expira em</TableHead><TableHead>Ações</TableHead></TableRow></TableHeader><TableBody>
-                    {transactions.map((t) => (<TableRow key={t.id}><TableCell className="text-xs">{format(new Date(t.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell><TableCell><Badge variant="outline">{t.transaction_type}</Badge></TableCell><TableCell className="font-medium">{formatCurrency(Number(t.amount || 0))}</TableCell><TableCell className="text-xs">{t.tiny_order?.numero_pedido || '-'}</TableCell><TableCell>{getStatusBadge(t)}</TableCell><TableCell className="text-xs">{t.data_expiracao ? format(new Date(t.data_expiracao), 'dd/MM/yyyy', { locale: ptBR }) : '-'}</TableCell><TableCell>{t.transaction_type === 'EARNED' && t.data_expiracao && (isBefore(new Date(t.data_expiracao), addDays(new Date(), 7)) || isBefore(new Date(t.data_expiracao), new Date())) && <Button variant="outline" size="sm" onClick={() => setRenovationDialog({ open: true, transaction: t })}><RefreshCw className="h-3 w-3 mr-1" />Renovar</Button>}</TableCell></TableRow>))}
-                  </TableBody></Table></div></CollapsibleContent>
-                </Collapsible>
-              ))}
-            </div>}
-          </CardContent></Card>
+        </div>
+        <Button
+          variant="outline"
+          onClick={handleExpireCashback}
+          disabled={expiringCashback}
+        >
+          {expiringCashback ? (
+            <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Expirando...</>
+          ) : (
+            <><Clock className="h-4 w-4 mr-2" />Expirar Cashback</>
+          )}
+        </Button>
+      </div>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Cashback Gerado</CardTitle>
+            <DollarSign className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(kpis.total_gerado)}</div>
+            <p className="text-xs text-muted-foreground">Total histórico</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Clientes</CardTitle>
+            <Users className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{kpis.total_clientes}</div>
+            <p className="text-xs text-muted-foreground">Total cadastradas</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Resgatado</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{formatCurrency(kpis.total_resgatado)}</div>
+            <p className="text-xs text-muted-foreground">Total utilizado</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">A Vencer (7 dias)</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">{formatCurrency(kpis.a_vencer_7d)}</div>
+            <p className="text-xs text-muted-foreground">Expira na próxima semana</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="lancar">Lançar</TabsTrigger>
+          <TabsTrigger value="clientes">Clientes</TabsTrigger>
+          <TabsTrigger value="historico">Histórico Geral</TabsTrigger>
+        </TabsList>
+
+        {/* TAB 1: LANÇAR */}
+        <TabsContent value="lancar" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Card Pontuar */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-green-600" />
+                  Pontuar
+                </CardTitle>
+                <CardDescription>Lançar cashback manualmente para uma cliente</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="cliente-lancar">Cliente *</Label>
+                  <Select value={selectedClienteLancar} onValueChange={setSelectedClienteLancar}>
+                    <SelectTrigger id="cliente-lancar">
+                      <SelectValue placeholder="Buscar por nome ou CPF..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clientes.map(c => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.nome} - {c.cpf_cnpj}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="valor-lancar">Valor da Compra *</Label>
+                  <Input
+                    id="valor-lancar"
+                    type="number"
+                    step="0.01"
+                    placeholder="0,00"
+                    value={valorLancar}
+                    onChange={(e) => setValorLancar(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="descricao-lancar">Descrição (opcional)</Label>
+                  <Input
+                    id="descricao-lancar"
+                    placeholder="Ex: Compra em loja física"
+                    value={descricaoLancar}
+                    onChange={(e) => setDescricaoLancar(e.target.value)}
+                  />
+                </div>
+
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <p className="text-sm text-green-800">
+                    Cashback a gerar: <strong>{formatCurrency(cashbackPreview)}</strong>
+                  </p>
+                </div>
+
+                <Button
+                  className="w-full"
+                  onClick={handleLancar}
+                  disabled={lancando || !selectedClienteLancar || !valorLancar}
+                >
+                  {lancando ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Lançando...</>
+                  ) : (
+                    'LANÇAR'
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Card Resgatar */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Gift className="h-5 w-5 text-orange-600" />
+                  Resgatar
+                </CardTitle>
+                <CardDescription>Resgatar cashback manualmente de uma cliente</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="cliente-resgatar">Cliente *</Label>
+                  <Select value={selectedClienteResgatar} onValueChange={setSelectedClienteResgatar}>
+                    <SelectTrigger id="cliente-resgatar">
+                      <SelectValue placeholder="Buscar por nome ou CPF..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clientes.map(c => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.nome} - {c.cpf_cnpj}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="valor-resgatar">Valor a Resgatar *</Label>
+                  <Input
+                    id="valor-resgatar"
+                    type="number"
+                    step="0.01"
+                    placeholder="0,00"
+                    value={valorResgatar}
+                    onChange={(e) => setValorResgatar(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="descricao-resgatar">Descrição (opcional)</Label>
+                  <Input
+                    id="descricao-resgatar"
+                    placeholder="Ex: Desconto aplicado em compra"
+                    value={descricaoResgatar}
+                    onChange={(e) => setDescricaoResgatar(e.target.value)}
+                  />
+                </div>
+
+                <div className="p-3 bg-orange-50 rounded-lg">
+                  <p className="text-sm text-orange-800">
+                    Saldo disponível: <strong>{formatCurrency(saldoClienteResgatar)}</strong>
+                  </p>
+                </div>
+
+                <Button
+                  className="w-full"
+                  variant="secondary"
+                  onClick={handleResgatar}
+                  disabled={resgatando || !selectedClienteResgatar || !valorResgatar}
+                >
+                  {resgatando ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Resgatando...</>
+                  ) : (
+                    'RESGATAR'
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
-        <TabsContent value="history"><Card><CardHeader><CardTitle>Histórico Completo</CardTitle><CardDescription>Todas as transações de cashback</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Cliente</TableHead><TableHead>Tipo</TableHead><TableHead>Valor</TableHead><TableHead>Pedido</TableHead><TableHead>Status</TableHead><TableHead>Descrição</TableHead></TableRow></TableHeader><TableBody>
-          {filteredTransactions.map((t) => (<TableRow key={t.id}><TableCell className="text-xs">{format(new Date(t.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell><TableCell><div><div className="font-medium">{t.cliente?.nome || '-'}</div><div className="text-xs text-muted-foreground">{t.cliente?.cpf_cnpj || ''}</div></div></TableCell><TableCell><Badge variant="outline">{t.transaction_type}</Badge></TableCell><TableCell className="font-medium">{formatCurrency(Number(t.amount || 0))}</TableCell><TableCell className="text-xs">{t.tiny_order?.numero_pedido || '-'}</TableCell><TableCell>{getStatusBadge(t)}</TableCell><TableCell className="text-xs max-w-[200px] truncate">{t.description || '-'}</TableCell></TableRow>))}
-        </TableBody></Table></CardContent></Card></TabsContent>
-        <TabsContent value="expiring"><Card><CardHeader><CardTitle>Cashback Expirando</CardTitle><CardDescription>Cashback que expira nos próximos 7 dias</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Cliente</TableHead><TableHead>Valor</TableHead><TableHead>Expira em</TableHead><TableHead>Pedido</TableHead><TableHead>Ações</TableHead></TableRow></TableHeader><TableBody>
-          {filteredTransactions.filter(t => { if (t.transaction_type !== 'EARNED' || !t.data_expiracao) return false; const expDate = new Date(t.data_expiracao); const now = new Date(); const sevenDaysFromNow = addDays(now, 7); return isBefore(expDate, sevenDaysFromNow) && isAfter(expDate, now); }).map((t) => { const daysUntilExpiry = differenceInDays(new Date(t.data_expiracao!), new Date()); return (<TableRow key={t.id}><TableCell><div><div className="font-medium">{t.cliente?.nome || '-'}</div><div className="text-xs text-muted-foreground">{t.cliente?.cpf_cnpj || ''}</div></div></TableCell><TableCell className="font-medium">{formatCurrency(Number(t.amount || 0))}</TableCell><TableCell><Badge variant="outline" className="border-orange-500 text-orange-700">{daysUntilExpiry} {daysUntilExpiry === 1 ? 'dia' : 'dias'}</Badge></TableCell><TableCell className="text-xs">{t.tiny_order?.numero_pedido || '-'}</TableCell><TableCell><Button variant="outline" size="sm" onClick={() => setRenovationDialog({ open: true, transaction: t })}><RefreshCw className="h-3 w-3 mr-1" />Renovar</Button><Button variant="ghost" size="sm" disabled className="ml-2" title="Em breve: Enviar mensagem ao cliente"><MessageSquare className="h-3 w-3" /></Button></TableCell></TableRow>); })}
-        </TableBody></Table></CardContent></Card></TabsContent>
-        <TabsContent value="expired"><Card><CardHeader><CardTitle>Cashback Expirado</CardTitle><CardDescription>Cashback que já expirou (pode ser renovado)</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Cliente</TableHead><TableHead>Valor</TableHead><TableHead>Expirou em</TableHead><TableHead>Pedido</TableHead><TableHead>Ações</TableHead></TableRow></TableHeader><TableBody>
-          {filteredTransactions.filter(t => { if (t.transaction_type !== 'EARNED' || !t.data_expiracao) return false; return isBefore(new Date(t.data_expiracao), new Date()); }).map((t) => (<TableRow key={t.id}><TableCell><div><div className="font-medium">{t.cliente?.nome || '-'}</div><div className="text-xs text-muted-foreground">{t.cliente?.cpf_cnpj || ''}</div></div></TableCell><TableCell className="font-medium">{formatCurrency(Number(t.amount || 0))}</TableCell><TableCell><Badge variant="destructive">{format(new Date(t.data_expiracao!), 'dd/MM/yyyy', { locale: ptBR })}</Badge></TableCell><TableCell className="text-xs">{t.tiny_order?.numero_pedido || '-'}</TableCell><TableCell><Button variant="outline" size="sm" onClick={() => setRenovationDialog({ open: true, transaction: t })}><RefreshCw className="h-3 w-3 mr-1" />Renovar</Button></TableCell></TableRow>))}
-        </TableBody></Table></CardContent></Card></TabsContent>
-        <TabsContent value="settings"><CashbackSettings storeId={selectedStore !== 'all' ? selectedStore : undefined} /></TabsContent>
+
+        {/* TAB 2: CLIENTES */}
+        <TabsContent value="clientes" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Todas as Clientes</CardTitle>
+              <CardDescription>Lista completa de clientes (com e sem saldo)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Busca */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar cliente (nome, CPF, telefone)..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                {/* Lista de Clientes */}
+                <div className="space-y-2">
+                  {filteredClientes.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      Nenhuma cliente encontrada
+                    </div>
+                  ) : (
+                    filteredClientes.map(({ cliente, saldo_disponivel, saldo_pendente, transactions }) => {
+                      const aVencer = transactions.filter(t => {
+                        if (t.transaction_type !== 'EARNED' || !t.data_expiracao) return false;
+                        const expDate = new Date(t.data_expiracao);
+                        const now = new Date();
+                        const diff = expDate.getTime() - now.getTime();
+                        const days = diff / (1000 * 60 * 60 * 24);
+                        return days > 0 && days <= 7;
+                      }).reduce((sum, t) => sum + Number(t.amount), 0);
+
+                      const temExpirado = transactions.some(t =>
+                        t.transaction_type === 'EARNED' &&
+                        t.data_expiracao &&
+                        new Date(t.data_expiracao) < new Date()
+                      );
+
+                      return (
+                        <Collapsible
+                          key={cliente.id}
+                          open={expandedClients.has(cliente.id)}
+                          onOpenChange={() => toggleClientExpanded(cliente.id)}
+                        >
+                          <CollapsibleTrigger asChild>
+                            <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer">
+                              <div className="flex items-center gap-3">
+                                {expandedClients.has(cliente.id) ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                                <div>
+                                  <div className="font-medium">{cliente.nome}</div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {cliente.cpf_cnpj} • {transactions.length} transações
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-bold text-green-600">
+                                  💰 {formatCurrency(saldo_disponivel)}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {saldo_pendente > 0 && `⏳ Pendente: ${formatCurrency(saldo_pendente)}`}
+                                  {aVencer > 0 && ` • ⚠️ A vencer: ${formatCurrency(aVencer)}`}
+                                </div>
+                              </div>
+                            </div>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="mt-2 border-t pt-4 px-4">
+                              {transactions.length === 0 ? (
+                                <p className="text-sm text-muted-foreground text-center py-4">
+                                  Nenhuma transação ainda
+                                </p>
+                              ) : (
+                                <>
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead>Data</TableHead>
+                                        <TableHead>Evento</TableHead>
+                                        <TableHead>Valor</TableHead>
+                                        <TableHead>Expira</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {transactions.map(t => (
+                                        <TableRow key={t.id}>
+                                          <TableCell className="text-sm">
+                                            {format(new Date(t.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="flex items-center gap-2">
+                                              {t.transaction_type === 'EARNED' && (
+                                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                                  Ganhou
+                                                </Badge>
+                                              )}
+                                              {t.transaction_type === 'REDEEMED' && (
+                                                <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                                                  Resgatou
+                                                </Badge>
+                                              )}
+                                              {t.transaction_type === 'EXPIRED' && (
+                                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                                                  Expirou
+                                                </Badge>
+                                              )}
+                                              {t.tiny_order?.numero_pedido && (
+                                                <span className="text-xs text-muted-foreground">
+                                                  (Pedido #{t.tiny_order.numero_pedido})
+                                                </span>
+                                              )}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell className={t.transaction_type === 'REDEEMED' || t.transaction_type === 'EXPIRED' ? 'text-red-600' : 'text-green-600'}>
+                                            {t.transaction_type === 'REDEEMED' || t.transaction_type === 'EXPIRED' ? '-' : '+'}
+                                            {formatCurrency(Math.abs(Number(t.amount)))}
+                                          </TableCell>
+                                          <TableCell className="text-sm text-muted-foreground">
+                                            {t.data_expiracao ? format(new Date(t.data_expiracao), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                  {temExpirado && (
+                                    <div className="mt-4">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleRenovar(cliente.id)}
+                                        className="w-full"
+                                      >
+                                        <RefreshCw className="h-4 w-4 mr-2" />
+                                        Renovar Cashback Expirado
+                                      </Button>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      );
+                    })
+                  )}
+                </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 3: HISTÓRICO GERAL */}
+        <TabsContent value="historico" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Histórico Cronológico da Loja</CardTitle>
+              <CardDescription>Todas as movimentações de cashback</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Filtros */}
+                <div className="flex gap-4">
+                  <Select value={filterType} onValueChange={(v: any) => setFilterType(v)}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os Tipos</SelectItem>
+                      <SelectItem value="EARNED">Ganhou</SelectItem>
+                      <SelectItem value="REDEEMED">Resgatou</SelectItem>
+                      <SelectItem value="EXPIRED">Expirou</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Tabela */}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data/Hora</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Cashback</TableHead>
+                      <TableHead>Pedido</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredHistorico.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                          Nenhuma transação encontrada
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredHistorico.slice(0, 50).map(t => {
+                        const cliente = clientes.find(c => c.id === t.cliente_id);
+                        return (
+                          <TableRow key={t.id}>
+                            <TableCell className="text-sm">
+                              {format(new Date(t.created_at), 'dd/MM HH:mm', { locale: ptBR })}
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{cliente?.nome || 'Desconhecido'}</div>
+                                <div className="text-xs text-muted-foreground">{cliente?.cpf_cnpj}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {t.transaction_type === 'EARNED' && (
+                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                  Ganhou
+                                </Badge>
+                              )}
+                              {t.transaction_type === 'REDEEMED' && (
+                                <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                                  Resgatou
+                                </Badge>
+                              )}
+                              {t.transaction_type === 'EXPIRED' && (
+                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                                  Expirou
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className={t.transaction_type === 'REDEEMED' || t.transaction_type === 'EXPIRED' ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
+                              {t.transaction_type === 'REDEEMED' || t.transaction_type === 'EXPIRED' ? '-' : '+'}
+                              {formatCurrency(Math.abs(Number(t.amount)))}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {t.tiny_order?.numero_pedido ? `#${t.tiny_order.numero_pedido}` : '-'}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
-      <AlertDialog open={renovationDialog.open} onOpenChange={(open) => setRenovationDialog({ open, transaction: null })}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Renovar Cashback</AlertDialogTitle><AlertDialogDescription>Deseja renovar o cashback de <strong>{renovationDialog.transaction?.cliente?.nome}</strong> no valor de <strong>{formatCurrency(Number(renovationDialog.transaction?.amount || 0))}</strong>?<br /><br />O prazo de expiração será estendido conforme as configurações do sistema.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleRenovar} disabled={renovating}>{renovating ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Renovando...</> : 'Renovar'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
