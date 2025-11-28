@@ -232,17 +232,57 @@ exports.handler = async (event, context) => {
     console.log(`[SyncContactsBackground] 📊 Total de ${allContatos.length} contatos encontrados`);
 
     // Filtrar apenas clientes (excluir fornecedores)
-    const clientes = allContatos.filter(contatoData => {
+    const clientes = allContatos.filter((contatoData, index) => {
       const contato = contatoData.contato || contatoData;
       const tipos = contato.tipos || [];
-      const descricoesTipos = tipos.map(t => (t.descricao || '').toLowerCase());
+      const descricoesTipos = tipos.map(t => (t.descricao || t.tipo || '').toLowerCase());
 
-      const isFornecedor = descricoesTipos.some(desc =>
+      // ✅ Log de debug para os primeiros 3 contatos
+      if (index < 3) {
+        console.log(`[SyncContactsBackground] 🔍 Debug contato ${index + 1}:`, {
+          nome: contato.nome,
+          tipos: tipos,
+          descricoesTipos: descricoesTipos,
+          tipo: contato.tipo,
+          cpfCnpj: contato.cpfCnpj || contato.cpf_cnpj
+        });
+      }
+
+      // Verificar se é fornecedor por tipo
+      const isFornecedorPorTipo = descricoesTipos.some(desc =>
         desc.includes('fornecedor') ||
         desc.includes('supplier') ||
         desc === 'fornecedor' ||
         desc === 'supplier'
       );
+
+      // Verificar se é fornecedor por campo direto
+      const tipoContato = (contato.tipo || '').toLowerCase();
+      const isFornecedorPorCampo = tipoContato.includes('fornecedor') || tipoContato.includes('supplier');
+
+      // Verificar se é fornecedor por nome (empresas com LTDA, S/A, etc geralmente são fornecedores)
+      const nome = (contato.nome || '').toUpperCase();
+      const cpfCnpj = contato.cpfCnpj || contato.cpf_cnpj || '';
+      const isCNPJ = cpfCnpj.replace(/\D/g, '').length === 14;
+
+      // Se tem CNPJ e nome de empresa (LTDA, S/A, etc), provavelmente é fornecedor
+      const isPossibleFornecedor = isCNPJ && (
+        nome.includes('LTDA') ||
+        nome.includes('S/A') ||
+        nome.includes('S.A.') ||
+        nome.includes('EIRELI') ||
+        nome.includes('ME') ||
+        nome.includes('EPP') ||
+        nome.includes('INDUSTRIA') ||
+        nome.includes('COMERCIO')
+      );
+
+      const isFornecedor = isFornecedorPorTipo || isFornecedorPorCampo || isPossibleFornecedor;
+
+      // Log de fornecedores detectados
+      if (isFornecedor) {
+        console.log(`[SyncContactsBackground] 🏭 Fornecedor detectado: ${contato.nome} (${isFornecedorPorTipo ? 'tipo' : isFornecedorPorCampo ? 'campo' : 'nome/CNPJ'})`);
+      }
 
       return !isFornecedor && contato.nome;
     });
