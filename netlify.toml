@@ -21,9 +21,8 @@
 # ============================================================================
 # Roda diariamente às 00:00 (horário UTC)
 # Chama a função cashback-expire-cron que expira cashback vencido
-[[functions]]
-  path = "/.netlify/functions/cashback-expire-cron"
-  schedule = "0 0 * * *"  # Diariamente às 00:00 UTC (21:00 Brasília)
+[functions."cashback-expire-cron"]
+  schedule = "@daily"
 
 # ============================================================================
 # CRON JOB: Sincronização Automática de Pedidos
@@ -31,7 +30,5 @@
 # Roda a cada 1 minuto (intervalo mínimo do Netlify)
 # Busca novos pedidos do Tiny ERP e sincroniza com Supabase
 # Gera cashback automaticamente via trigger
-[[functions]]
-  path = "/.netlify/functions/sync-orders-cron"
-  schedule = "*/1 * * * *"  # A cada 1 minuto
-
+[functions."sync-orders-cron"]
+  schedule = "@hourly"
