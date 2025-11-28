@@ -346,7 +346,7 @@ exports.handler = async (event, context) => {
         let pedidoCompleto = null;
 
         try {
-          pedidoCompleto = await fetchPedidoCompletoFromTiny(store_id, pedido.id);
+          pedidoCompleto = await fetchPedidoCompletoFromTiny(storeId, pedido.id);
 
           if (pedidoCompleto) {
             // Mesclar dados do pedido completo com o pedido da listagem
@@ -371,7 +371,7 @@ exports.handler = async (event, context) => {
         if (pedido.cliente) {
           console.log(`[SyncBackground] 👤 Sincronizando cliente: ${pedido.cliente.nome || 'Sem nome'}`);
 
-          clienteId = await syncTinyContact(supabase, store_id, pedido.cliente, tinyId);
+          clienteId = await syncTinyContact(supabase, storeId, pedido.cliente, tinyId);
 
           if (clienteId) {
             console.log(`[SyncBackground] ✅ Cliente sincronizado com ID: ${clienteId.substring(0, 8)}...`);
@@ -383,7 +383,7 @@ exports.handler = async (event, context) => {
         // ✅ TAREFA 4: Processar itens completos com extração de dados
         const itensProcessados = await Promise.all(
           (itensParaProcessar || []).map(async (item) => {
-            return await processarItemCompleto(store_id, item, pedidoCompleto?.id || pedido.id);
+            return await processarItemCompleto(storeId, item, pedidoCompleto?.id || pedido.id);
           })
         );
 
@@ -392,7 +392,7 @@ exports.handler = async (event, context) => {
         // ✅ TAREFA 5: Buscar colaboradora pelo vendedor
         let colaboradoraId = null;
         if (pedido.vendedor && pedido.vendedor.id) {
-          colaboradoraId = await findCollaboratorByVendedor(supabase, store_id, pedido.vendedor);
+          colaboradoraId = await findCollaboratorByVendedor(supabase, storeId, pedido.vendedor);
           if (colaboradoraId) {
             console.log(`[SyncBackground] ✅ Colaboradora encontrada: ${colaboradoraId.substring(0, 8)}...`);
           }
@@ -403,12 +403,12 @@ exports.handler = async (event, context) => {
           .schema('sistemaretiradas')
           .from('tiny_orders')
           .select('id, tiny_id, numero_pedido') // Selecionar campos para debug
-          .eq('store_id', store_id)
+          .eq('store_id', storeId)
           .eq('tiny_id', tinyId)
           .maybeSingle();
 
         // ✅ TAREFA 6 (MOVIDA): Preparar dados do pedido completo (agora com existingOrder)
-        const orderData = prepararDadosPedidoCompleto(store_id, pedido, pedidoCompleto, clienteId, colaboradoraId, itensProcessados, tinyId, existingOrder);
+        const orderData = prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId, colaboradoraId, itensProcessados, tinyId, existingOrder);
 
         const precisaAtualizar = !existingOrder || shouldUpdateOrder(existingOrder, orderData);
 
@@ -465,7 +465,7 @@ exports.handler = async (event, context) => {
                   .rpc('gerar_cashback', {
                     p_tiny_order_id: orderSavedId,
                     p_cliente_id: clienteId,
-                    p_store_id: store_id,
+                    p_store_id: storeId,
                     p_valor_total: orderData.valor_total
                   });
 
