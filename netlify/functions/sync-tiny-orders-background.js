@@ -650,8 +650,6 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
         console.log(`[SyncBackground] 🛑 Atingiu limite máximo de páginas (${maxPages})`);
       }
 
-      currentPage++;
-
       // ✅ Rate Limiting: Aguardar 1 segundo entre páginas para evitar 429 Too Many Requests
       if (hasMore) {
         await new Promise(resolve => setTimeout(resolve, 1000));
