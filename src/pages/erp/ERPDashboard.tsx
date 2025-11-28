@@ -148,48 +148,37 @@ export default function ERPDashboard() {
     if (!selectedStoreId) return;
 
     try {
-      // ✅ Total de pedidos - usar count exato mas forçar refresh
-      const { count: pedidosCount, error: pedidosError } = await supabase
+      // ✅ CORREÇÃO: Total de pedidos = COUNT de TODOS os registros na tabela
+      // Não importa se são novos ou atualizados, o KPI deve mostrar o total de pedidos sincronizados
+      const { count: pedidosCount } = await supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
         .select('*', { count: 'exact', head: true })
         .eq('store_id', selectedStoreId);
 
-      if (pedidosError) {
-        console.error('Erro ao contar pedidos:', pedidosError);
-      }
+      console.log('[ERPDashboard] 📊 KPI - Total de Pedidos:', pedidosCount);
 
-      // ✅ Total de clientes
-      const { count: clientesCount, error: clientesError } = await supabase
+      // Total de clientes
+      const { count: clientesCount } = await supabase
         .schema('sistemaretiradas')
         .from('tiny_contacts')
         .select('*', { count: 'exact', head: true })
         .eq('store_id', selectedStoreId);
 
-      if (clientesError) {
-        console.error('Erro ao contar clientes:', clientesError);
-      }
+      console.log('[ERPDashboard] 📊 KPI - Total de Clientes:', clientesCount);
 
-      // ✅ Total de vendas e ticket médio - buscar todos os pedidos para calcular corretamente
-      const { data: orders, error: ordersError } = await supabase
+      // Total de vendas e ticket médio
+      const { data: orders } = await supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
         .select('valor_total')
         .eq('store_id', selectedStoreId);
 
-      if (ordersError) {
-        console.error('Erro ao buscar pedidos para cálculo:', ordersError);
-      }
-
       const totalVendas = orders?.reduce((sum, o) => sum + (Number(o.valor_total) || 0), 0) || 0;
       const ticketMedio = orders && orders.length > 0 ? totalVendas / orders.length : 0;
 
-      console.log(`[ERPDashboard] 📊 KPIs atualizados:`);
-      console.log(`[ERPDashboard]   - Total de pedidos únicos: ${pedidosCount || 0}`);
-      console.log(`[ERPDashboard]   - Total de clientes: ${clientesCount || 0}`);
-      console.log(`[ERPDashboard]   - Total de vendas: R$ ${totalVendas.toFixed(2)}`);
-      console.log(`[ERPDashboard]   - Ticket médio: R$ ${ticketMedio.toFixed(2)}`);
-      console.log(`[ERPDashboard]   - Pedidos retornados na query: ${orders?.length || 0}`);
+      console.log('[ERPDashboard] 📊 KPI - Total de Vendas:', totalVendas);
+      console.log('[ERPDashboard] 📊 KPI - Ticket Médio:', ticketMedio);
 
       setKpis({
         totalPedidos: pedidosCount || 0,
@@ -310,32 +299,32 @@ export default function ERPDashboard() {
       // Isso significa que o processo iniciou com sucesso em background
       if (response.status === 202) {
         toast.success(`✅ Sincronização iniciada em background! Aguardando conclusão...`);
-        
+
         // ✅ Aguardar alguns segundos e então atualizar KPIs periodicamente
         // A sincronização pode levar vários minutos, então vamos atualizar a cada 10 segundos
         let attempts = 0;
         const maxAttempts = 60; // 60 tentativas = 10 minutos máximo
-        
+
         const refreshInterval = setInterval(async () => {
           attempts++;
           console.log(`[ERPDashboard] 🔄 Tentativa ${attempts}/${maxAttempts} de atualizar KPIs após sincronização...`);
-          
+
           await fetchKPIs();
           await fetchLastSync();
-          
+
           // Se já tentou muitas vezes ou se a última sincronização foi há mais de 2 minutos, parar
           if (attempts >= maxAttempts) {
             clearInterval(refreshInterval);
             console.log(`[ERPDashboard] ⏹️ Parando atualização automática após ${attempts} tentativas`);
           }
         }, 10000); // A cada 10 segundos
-        
+
         // Parar após 10 minutos mesmo se não tiver atingido maxAttempts
         setTimeout(() => {
           clearInterval(refreshInterval);
           console.log(`[ERPDashboard] ⏹️ Parando atualização automática após 10 minutos`);
         }, 600000); // 10 minutos
-        
+
         setSyncing(false);
         return;
       }
