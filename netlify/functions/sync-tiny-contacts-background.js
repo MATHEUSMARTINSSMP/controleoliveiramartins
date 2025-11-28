@@ -162,8 +162,8 @@ exports.handler = async (event, context) => {
             endpoint: '/contatos',
             method: 'GET',
             params: {
-              pagina: currentPage,
-              limite: limit || 100,
+              limit: limit || 100, // ✅ API v3 usa 'limit'
+              offset: (currentPage - 1) * (limit || 100), // ✅ API v3 usa 'offset'
             },
           }),
         });
@@ -179,9 +179,28 @@ exports.handler = async (event, context) => {
         const contatos = result.itens || result.contatos || [];
         allContatos = allContatos.concat(contatos);
 
-        // Verificar se há mais páginas
+        // Verificar se há mais páginas - API v3 retorna { itens: [...], paginacao: { limit, offset, total } }
         const paginacao = result.paginacao || {};
-        hasMore = paginacao.paginaAtual < paginacao.totalPaginas && currentPage < maxPages;
+        const totalRegistros = paginacao.total || paginacao.totalRegistros || paginacao.total_registros || 0;
+
+        // Calcular total de páginas baseado no total de registros
+        let totalPaginas = 0;
+        if (totalRegistros > 0) {
+          totalPaginas = Math.ceil(totalRegistros / (limit || 100));
+        }
+
+        // Verificar se devemos continuar
+        if (contatos.length < (limit || 100)) {
+          // Se retornou menos que o limite, acabou
+          hasMore = false;
+        } else if (totalPaginas > 0) {
+          // Se temos total de páginas, verificar se chegamos ao fim
+          hasMore = currentPage < totalPaginas && currentPage < maxPages;
+        } else {
+          // Fallback: continua enquanto vierem itens cheios
+          hasMore = contatos.length >= (limit || 100) && currentPage < maxPages;
+        }
+
         currentPage++;
 
         console.log(`[SyncContactsBackground] 📄 Página ${currentPage - 1}: ${contatos.length} contatos encontrados`);
