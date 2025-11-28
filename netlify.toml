@@ -16,3 +16,11 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+# ============================================================================
+# CRON JOB: Expiração Automática de Cashback
+# ============================================================================
+# Roda diariamente às 00:00 (horário UTC)
+# Chama a função cashback-expire-cron que expira cashback vencido
+[[functions]]
+  path = "/.netlify/functions/cashback-expire-cron"
+  schedule = "0 0 * * *"  # Diariamente às 00:00 UTC (21:00 Brasília)

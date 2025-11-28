@@ -99,6 +99,8 @@ export default function CashbackManagement() {
   const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [expiringCashback, setExpiringCashback] = useState(false);
+  const [generatingRetroactive, setGeneratingRetroactive] = useState(false);
   const [renovationDialog, setRenovationDialog] = useState<{ open: boolean; transaction: CashbackTransaction | null }>({ open: false, transaction: null });
   const [renovating, setRenovating] = useState(false);
 
@@ -127,7 +129,58 @@ export default function CashbackManagement() {
     }
   };
 
-  const fetchData = async () => {
+  // Função para expirar cashback manualmente
+  const handleExpireCashback = async () => {
+    setExpiringCashback(true);
+    try {
+      const response = await fetch('/.netlify/functions/cashback-expire-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(`✅ ${result.expiredCount} transações de cashback expiradas`);
+        await fetchData(); // Recarregar dados
+      } else {
+        toast.error(`❌ Erro: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Erro ao expirar cashback:', error);
+      toast.error('❌ Erro ao expirar cashback');
+    } finally {
+      setExpiringCashback(false);
+    }
+  };
+
+  // Função para gerar cashback retroativo
+  const handleGenerateRetroactive = async () => {
+    setGeneratingRetroactive(true);
+    try {
+      const response = await fetch('/.netlify/functions/cashback-generate-retroactive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dias: 7 }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(`✅ ${result.gerados} cashbacks gerados, ${result.ignorados} ignorados`);
+        await fetchData(); // Recarregar dados
+      } else {
+        toast.error(`❌ Erro: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Erro ao gerar cashback retroativo:', error);
+      toast.error('❌ Erro ao gerar cashback retroativo');
+    } finally {
+      setGeneratingRetroactive(false);
+    }
+  };
+
+  const fetchData = async () {
     try {
       setLoading(true);
       let clienteIds: string[] | null = null;
@@ -238,6 +291,21 @@ export default function CashbackManagement() {
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/erp/dashboard')}><ArrowLeft className="h-4 w-4" /></Button>
           <div><h1 className="text-3xl font-bold flex items-center gap-2"><Gift className="h-8 w-8 text-primary" />Gestão de Cashback</h1><p className="text-muted-foreground">Gerencie o programa de cashback dos seus clientes</p></div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleExpireCashback}
+            disabled={expiringCashback}
+          >
+            {expiringCashback ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Expirando...</> : <><Clock className="h-4 w-4 mr-2" />Expirar Cashback</>}
+          </Button>
+          <Button
+            onClick={handleGenerateRetroactive}
+            disabled={generatingRetroactive}
+          >
+            {generatingRetroactive ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Gerando...</> : <><RefreshCw className="h-4 w-4 mr-2" />Gerar Retroativo (7 dias)</>}
+          </Button>
         </div>
       </div>
       <Card><CardContent className="pt-6"><div className="flex flex-wrap gap-4">

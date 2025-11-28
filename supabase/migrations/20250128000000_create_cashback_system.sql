@@ -604,10 +604,31 @@ CREATE OR REPLACE FUNCTION sistemaretiradas.trigger_gerar_cashback_pedido()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
+DECLARE
+    v_cliente_cpf TEXT;
 BEGIN
-    -- Apenas se tiver cliente e valor > 0 e não for cancelado
+    -- 🔴 REGRA CRÍTICA: Apenas se tiver cliente, valor > 0 e não for cancelado
     IF NEW.cliente_id IS NOT NULL AND NEW.valor_total > 0 AND (NEW.situacao IS NULL OR NEW.situacao NOT IN ('cancelado', 'Cancelado')) THEN
-        -- Tentar gerar cashback (ignorar erros para não travar o insert do pedido)
+        
+        -- 🔴 VALIDAÇÃO OBRIGATÓRIA: Cliente DEVE ter CPF/CNPJ
+        -- SEM CPF = SEM CASHBACK (SEM EXCEÇÕES)
+        SELECT cpf_cnpj INTO v_cliente_cpf
+        FROM sistemaretiradas.tiny_contacts
+        WHERE id = NEW.cliente_id;
+        
+        -- Validar se CPF existe e não está vazio
+        IF v_cliente_cpf IS NULL OR TRIM(v_cliente_cpf) = '' THEN
+            RAISE NOTICE '🚫 Cashback NÃO gerado para pedido % - Cliente sem CPF/CNPJ (OBRIGATÓRIO)', NEW.id;
+            RETURN NEW; -- Retorna sem gerar cashback
+        END IF;
+        
+        -- Validar tamanho mínimo do CPF (11 dígitos) ou CNPJ (14 dígitos)
+        IF LENGTH(REGEXP_REPLACE(v_cliente_cpf, '\D', '', 'g')) < 11 THEN
+            RAISE NOTICE '🚫 Cashback NÃO gerado para pedido % - CPF/CNPJ inválido (muito curto)', NEW.id;
+            RETURN NEW; -- Retorna sem gerar cashback
+        END IF;
+        
+        -- ✅ CPF VALIDADO: Tentar gerar cashback
         BEGIN
             PERFORM sistemaretiradas.gerar_cashback(
                 NEW.id,
@@ -615,9 +636,10 @@ BEGIN
                 NEW.store_id,
                 NEW.valor_total
             );
+            RAISE NOTICE '✅ Cashback gerado para pedido % - Cliente com CPF: %', NEW.id, v_cliente_cpf;
         EXCEPTION WHEN OTHERS THEN
             -- Logar erro mas não falhar a transação do pedido
-            RAISE WARNING 'Erro ao gerar cashback para pedido %: %', NEW.id, SQLERRM;
+            RAISE WARNING '❌ Erro ao gerar cashback para pedido %: %', NEW.id, SQLERRM;
         END;
     END IF;
     RETURN NEW;
