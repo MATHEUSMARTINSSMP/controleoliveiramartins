@@ -783,6 +783,7 @@ export default function CashbackManagement() {
                     })
                   )}
                 </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
