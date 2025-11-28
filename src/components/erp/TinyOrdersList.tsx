@@ -123,7 +123,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
         .from('tiny_orders')
         .select('*')
         .eq('store_id', storeId)
-        .order('numero_pedido', { ascending: false, nullsFirst: false })
+        .order('data_pedido', { ascending: false, nullsFirst: false }) // ✅ Ordenar por data (mais recente primeiro)
         .limit(Math.min(limit, 100)); // ✅ Máximo 100 registros
 
       if (error) throw error;
@@ -182,7 +182,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
         .schema('sistemaretiradas')
         .from('tiny_orders')
         .select('*')
-        .order('numero_pedido', { ascending: false, nullsFirst: false })
+        .order('data_pedido', { ascending: false, nullsFirst: false }) // ✅ Ordenar por data (mais recente primeiro)
         .limit(maxLimit);
 
       if (storeId) {
@@ -225,7 +225,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
           }
         });
 
-        // Adicionar dados de cashback aos pedidos
+        // Adicionar dados de cashback aos pedidos e ordenar numericamente
         const ordersWithCashback = data.map((order: any) => {
           const cashback = cashbackMap.get(order.id);
           return {
@@ -233,6 +233,13 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
             cashback_gerado: cashback?.amount || null,
             cashback_validade: cashback?.expiracao || null,
           };
+        });
+
+        // ✅ Ordenar numericamente por numero_pedido (maior primeiro)
+        ordersWithCashback.sort((a, b) => {
+          const numA = parseInt(a.numero_pedido || a.numero_ecommerce || '0');
+          const numB = parseInt(b.numero_pedido || b.numero_ecommerce || '0');
+          return numB - numA; // Descendente: 1000, 999, 998...
         });
 
         setOrders(ordersWithCashback);
