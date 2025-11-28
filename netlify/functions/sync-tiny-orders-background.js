@@ -535,7 +535,7 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
                 endpoint: '/pedidos',
                 method: 'GET',
                 params: {
-                  dataInicio: dataInicioSync,
+                  dataInicial: dataInicioSync, // ✅ CORREÇÃO: Nome correto do parâmetro é dataInicial
                   pagina: currentPage,
                   limite: limite, // Usar a variável limite definida acima
                 },
@@ -588,10 +588,30 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
       console.log(`[SyncBackground] 📄 Página ${currentPage}: ${pedidos.length} pedidos encontrados`);
 
       // ✅ DEBUG: Logar IDs do primeiro e último pedido para verificar se páginas são iguais
+      let primeiroId = null;
+      let ultimoId = null;
+
       if (pedidos.length > 0) {
-        const primeiroId = pedidos[0].id || pedidos[0].numeroPedido;
-        const ultimoId = pedidos[pedidos.length - 1].id || pedidos[pedidos.length - 1].numeroPedido;
+        primeiroId = pedidos[0].id || pedidos[0].numeroPedido;
+        ultimoId = pedidos[pedidos.length - 1].id || pedidos[pedidos.length - 1].numeroPedido;
         console.log(`[SyncBackground] 🔍 IDs da Página ${currentPage}: Primeiro=${primeiroId}, Último=${ultimoId}`);
+
+        // ✅ DETECÇÃO DE PÁGINA DUPLICADA
+        // Se a página atual tem os mesmos IDs da página anterior, a API está ignorando a paginação
+        if (lastPageFirstId && lastPageLastId &&
+          String(primeiroId) === String(lastPageFirstId) &&
+          String(ultimoId) === String(lastPageLastId)) {
+
+          console.error(`[SyncBackground] 🚨 ERRO CRÍTICO: PÁGINA DUPLICADA DETECTADA!`);
+          console.error(`[SyncBackground] 🚨 A API retornou exatamente os mesmos dados da página anterior.`);
+          console.error(`[SyncBackground] 🚨 Abortando para evitar loop infinito de updates.`);
+          hasMore = false;
+          break;
+        }
+
+        // Atualizar IDs da última página para próxima verificação
+        lastPageFirstId = primeiroId;
+        lastPageLastId = ultimoId;
       }
 
       console.log(`[SyncBackground] 📊 Paginação: página atual=${paginaAtual}, total páginas=${totalPaginas}, total registros=${totalRegistros}, já processados=${allPedidos.length}`);
