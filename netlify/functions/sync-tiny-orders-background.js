@@ -1643,8 +1643,9 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     vendedor_tiny_id: pedido.vendedor?.id?.toString() || null,
     colaboradora_id: colaboradoraId,
     dados_extras: pedido.dados_extras || null,
-    sync_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    // ✅ CRÍTICO: Preservar timestamps originais quando pedido já existe
+    sync_at: (existingOrder && existingOrder.sync_at) ? existingOrder.sync_at : new Date().toISOString(),
+    updated_at: new Date().toISOString(), // Sempre atualizar updated_at para rastrear última modificação
   };
 
   return orderData;
