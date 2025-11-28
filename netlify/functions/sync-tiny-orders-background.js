@@ -376,7 +376,7 @@ exports.handler = async (event, context) => {
         const { data: existingOrder } = await supabase
           .schema('sistemaretiradas')
           .from('tiny_orders')
-          .select('*')
+          .select('id, tiny_id, numero_pedido') // Selecionar campos para debug
           .eq('store_id', store_id)
           .eq('tiny_id', tinyId)
           .maybeSingle();
@@ -389,6 +389,14 @@ exports.handler = async (event, context) => {
         if (!precisaAtualizar && existingOrder) {
           console.log(`[SyncBackground] ℹ️ Pedido ${tinyId} não precisa ser atualizado`);
           continue;
+        }
+
+        // ✅ DEBUG RADICAL: Verificar colisão
+        if (existingOrder) {
+          console.log(`[SyncBackground] 🔍 Pedido ${tinyId} encontrou existente com ID interno: ${existingOrder.id} (TinyID no banco: ${existingOrder.tiny_id})`);
+          if (existingOrder.tiny_id !== tinyId) {
+            console.error(`[SyncBackground] 🚨 COLISÃO DETECTADA! Busquei ${tinyId} mas retornou ${existingOrder.tiny_id}`);
+          }
         }
 
         // ✅ TAREFA 8: Salvar pedido completo
