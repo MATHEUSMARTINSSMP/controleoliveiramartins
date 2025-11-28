@@ -1581,7 +1581,7 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
 
     // ✅ Log se valor for zero para debug
     if (valorTotal === 0) {
-      console.warn(`[SyncBackground] ⚠️ Valor total zerado para pedido ${tinyId}. Campos disponíveis:`, {
+      console.warn(`[SyncBackground] ⚠️ Valor total zerado para pedido ${pedidoId}. Campos disponíveis:`, {
         pedidoCompleto_valorTotalPedido: pedidoCompleto?.valorTotalPedido,
         pedido_valorTotalPedido: pedido.valorTotalPedido,
         pedidoCompleto_valor: pedidoCompleto?.valor,
@@ -1609,7 +1609,7 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
         return false;
       }).slice(0, 10); // Limitar a 10 campos para não poluir o log
       if (camposComValor.length > 0) {
-        console.warn(`[SyncBackground] 📋 Campos numéricos encontrados no pedido ${tinyId}:`, camposComValor);
+        console.warn(`[SyncBackground] 📋 Campos numéricos encontrados no pedido ${pedidoId}:`, camposComValor);
       }
     }
   }
