@@ -27,19 +27,29 @@ function normalizeTamanho(tamanho) {
     .trim()
     .replace(/[^A-Z0-9]/g, ''); // Remove caracteres especiais, mantém apenas letras maiúsculas e números
 
-  // Verificar se está na lista de tamanhos válidos
-  const match = TAMANHOS_VALIDOS.find(t =>
-    normalized === t ||
-    normalized.includes(t) ||
-    t.includes(normalized) ||
-    normalized.replace(/[^A-Z0-9]/g, '') === t.replace(/[^A-Z0-9]/g, '')
-  );
+  // ✅ ESTRATÉGIA 1: Match Exato (Prioridade Máxima)
+  const matchExato = TAMANHOS_VALIDOS.find(t => t === normalized);
+  if (matchExato) {
+    if (matchExato === 'UNICO' || matchExato === 'ÚNICO' || matchExato === 'UNIDADE') return 'U';
+    return matchExato;
+  }
+
+  // ✅ ESTRATÉGIA 2: Match Parcial (Cuidado com P dentro de XP)
+  // Só aceitamos match parcial se o tamanho for maior que 1 caractere ou se não for um dos tamanhos curtos problemáticos
+  const match = TAMANHOS_VALIDOS.find(t => {
+    // Evitar que "P" dê match em "XP" ou "PP"
+    if (normalized === 'P' && t !== 'P') return false;
+    if (normalized === 'M' && t !== 'M') return false;
+    if (normalized === 'G' && t !== 'G') return false;
+
+    return normalized === t ||
+      (normalized.length > 1 && normalized.includes(t)) || // Input "XGG" contém "GG" -> OK se quisermos mapear assim, mas perigoso
+      (t.length > normalized.length && t.includes(normalized) && normalized.length > 1); // "XGG" contém "GG" -> OK
+  });
 
   if (match) {
-    // Retornar o tamanho normalizado padrão em MAIÚSCULA
-    if (match === 'UNICO' || match === 'ÚNICO') return 'U';
-    if (match === 'UNIDADE') return 'U';
-    return match.toUpperCase();
+    if (match === 'UNICO' || match === 'ÚNICO' || match === 'UNIDADE') return 'U';
+    return match;
   }
 
   // Se não encontrou match exato, retornar o tamanho original em MAIÚSCULA
