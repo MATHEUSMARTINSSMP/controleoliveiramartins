@@ -454,7 +454,8 @@ exports.handler = async (event, context) => {
           if (orderSavedId && clienteId && orderData.valor_total > 0) {
             try {
               // Verificar se o pedido está faturado/aprovado (situacao 3 ou 9)
-              const situacao = pedidoCompleto?.situacao || pedido.situacao || pedidoCompleto?.situacaoPedido || 0;
+              const situacaoRaw = pedidoCompleto?.situacao || pedido.situacao || pedidoCompleto?.situacaoPedido || 0;
+              const situacao = Number(situacaoRaw);
 
               // Gerar cashback apenas para pedidos faturados (situacao 3) ou aprovados (situacao 9) ou aprovados (situacao 1)
               if (situacao === 1 || situacao === 3 || situacao === 9) {
