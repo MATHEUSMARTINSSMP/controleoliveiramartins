@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS sistemaretiradas.cashback_settings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Uma configuração global (store_id = NULL) ou por loja
-    CONSTRAINT cashback_settings_unique_store UNIQUE(store_id)
+    -- NULLS NOT DISTINCT garante que apenas UM registro com store_id NULL pode existir
+    CONSTRAINT cashback_settings_unique_store UNIQUE NULLS NOT DISTINCT (store_id)
 );
 
 -- Índices
