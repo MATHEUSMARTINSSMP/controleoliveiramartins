@@ -456,8 +456,8 @@ exports.handler = async (event, context) => {
               // Verificar se o pedido está faturado/aprovado (situacao 3 ou 9)
               const situacao = pedidoCompleto?.situacao || pedido.situacao || pedidoCompleto?.situacaoPedido || 0;
 
-              // Gerar cashback apenas para pedidos faturados (situacao 3) ou aprovados (situacao 9)
-              if (situacao === 3 || situacao === 9) {
+              // Gerar cashback apenas para pedidos faturados (situacao 3) ou aprovados (situacao 9) ou aprovados (situacao 1)
+              if (situacao === 1 || situacao === 3 || situacao === 9) {
                 console.log(`[SyncBackground] 💰 Gerando cashback para pedido ${tinyId} (cliente: ${clienteId.substring(0, 8)}..., valor: ${orderData.valor_total})`);
 
                 const { data: cashbackResult, error: cashbackError } = await supabase
