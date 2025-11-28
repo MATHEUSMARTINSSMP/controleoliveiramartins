@@ -30,5 +30,6 @@
 # Roda a cada 1 minuto (intervalo mínimo do Netlify)
 # Busca novos pedidos do Tiny ERP e sincroniza com Supabase
 # Gera cashback automaticamente via trigger
+# NOTIFICAÇÃO QUASE PUSH - INEGOCIÁVEL
 [functions."sync-orders-cron"]
-  schedule = "@hourly"
+  schedule = "* * * * *"
