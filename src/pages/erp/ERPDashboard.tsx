@@ -184,7 +184,12 @@ export default function ERPDashboard() {
       const totalVendas = orders?.reduce((sum, o) => sum + (Number(o.valor_total) || 0), 0) || 0;
       const ticketMedio = orders && orders.length > 0 ? totalVendas / orders.length : 0;
 
-      console.log(`[ERPDashboard] 📊 KPIs atualizados: ${pedidosCount || 0} pedidos, ${clientesCount || 0} clientes, R$ ${totalVendas.toFixed(2)} vendas`);
+      console.log(`[ERPDashboard] 📊 KPIs atualizados:`);
+      console.log(`[ERPDashboard]   - Total de pedidos únicos: ${pedidosCount || 0}`);
+      console.log(`[ERPDashboard]   - Total de clientes: ${clientesCount || 0}`);
+      console.log(`[ERPDashboard]   - Total de vendas: R$ ${totalVendas.toFixed(2)}`);
+      console.log(`[ERPDashboard]   - Ticket médio: R$ ${ticketMedio.toFixed(2)}`);
+      console.log(`[ERPDashboard]   - Pedidos retornados na query: ${orders?.length || 0}`);
 
       setKpis({
         totalPedidos: pedidosCount || 0,
