@@ -164,6 +164,9 @@ exports.handler = async (event, context) => {
             params: {
               limit: limit || 100, // ✅ API v3 usa 'limit'
               offset: (currentPage - 1) * (limit || 100), // ✅ API v3 usa 'offset'
+              // ✅ Filtrar apenas clientes (perfilContato: 0 = cliente, 1 = fornecedor, 2 = transportadora)
+              // Comentado para testar primeiro sem filtro e ver o que vem
+              // perfilContato: 0,
             },
           }),
         });
