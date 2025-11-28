@@ -338,13 +338,25 @@ exports.handler = async (event, context) => {
           Object.assign(contactData, merged);
         }
 
-        // Upsert
-        const { error: upsertError } = await supabase
-          .schema('sistemaretiradas')
-          .from('tiny_contacts')
-          .upsert(contactData, {
-            onConflict: existingContact && existingContact.id ? 'id' : (cpfCnpj ? 'store_id,cpf_cnpj' : 'store_id,tiny_id'),
-          });
+        // ✅ Salvar contato: UPDATE se existe, INSERT se não existe
+        let upsertError = null;
+
+        if (existingContact && existingContact.id) {
+          // Atualizar registro existente por ID
+          const { error } = await supabase
+            .schema('sistemaretiradas')
+            .from('tiny_contacts')
+            .update(contactData)
+            .eq('id', existingContact.id);
+          upsertError = error;
+        } else {
+          // Inserir novo registro (sem onConflict para evitar erro 42P10)
+          const { error } = await supabase
+            .schema('sistemaretiradas')
+            .from('tiny_contacts')
+            .insert(contactData);
+          upsertError = error;
+        }
 
         if (upsertError) {
           console.error(`[SyncContactsBackground] ❌ Erro ao salvar contato ${contatoId}:`, upsertError);
