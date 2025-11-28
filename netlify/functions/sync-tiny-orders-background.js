@@ -625,228 +625,208 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
         lastPageLastId = ultimoId;
       }
 
-      console.log(`[SyncBackground] 📊 Paginação: página atual=${paginaAtual}, total páginas=${totalPaginas}, total registros=${totalRegistros}, já processados=${allPedidos.length}`);
-
-      // ✅ Para hard sync: continuar enquanto houver pedidos OU enquanto houver páginas
-      if (hardSync) {
-        // Hard sync: continuar até não ter mais dados
-        if (pedidos.length === 0) {
-          // Se a página não trouxe nenhum pedido, não há mais dados
-          hasMore = false;
-          console.log(`[SyncBackground] ✅ Fim dos dados: página ${currentPage} retornou 0 pedidos`);
-        } else if (totalPaginas > 0) {
-          // Se temos informação de paginação (calculada ou da API), usar ela
-          hasMore = paginaAtual < totalPaginas;
-          console.log(`[SyncBackground] 📊 Usando paginação: ${paginaAtual}/${totalPaginas}, hasMore=${hasMore}`);
-        } else if (totalRegistros > 0) {
-          // Se temos totalRegistros mas não conseguimos calcular páginas, verificar se já processamos todos
-          hasMore = allPedidos.length < totalRegistros;
-          console.log(`[SyncBackground] 📊 Verificando por total de registros: já processados=${allPedidos.length}, total=${totalRegistros}, hasMore=${hasMore}`);
-        } else {
-          // Se não temos nenhuma informação de paginação, parar se não trouxe pedidos
-          hasMore = pedidos.length > 0;
-          console.log(`[SyncBackground] ⚠️ Sem informação de paginação, continuando apenas se trouxe pedidos: pedidos=${pedidos.length}, hasMore=${hasMore}`);
-        }
+      console.log(`[SyncBackground] ⚠️ Sem informação de paginação, continuando apenas se trouxe pedidos: pedidos=${pedidos.length}, hasMore=${hasMore}`);
+    }
       } else {
-        // Sync incremental: usar paginação normal
-        if (totalPaginas > 0) {
-          hasMore = paginaAtual < totalPaginas && currentPage < maxPages;
-        } else if (totalRegistros > 0) {
-          hasMore = allPedidos.length < totalRegistros && currentPage < maxPages;
-        } else {
-          hasMore = pedidos.length > 0 && currentPage < maxPages;
-        }
-      }
-
-      currentPage++;
-
-      // ✅ Rate Limiting: Aguardar 1 segundo entre páginas para evitar 429 Too Many Requests
-      if (hasMore) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-
-    } catch (error) {
-      console.error(`[SyncBackground] ❌ Erro ao buscar página ${currentPage} após todas as tentativas:`, error);
-
-      // ✅ Para hard sync, continuar tentando próximas páginas ao invés de parar completamente
-      // Isso permite que mesmo com alguns timeouts, o processo continue sincronizando o que conseguir
-      if (hardSync && currentPage < maxPages) {
-        console.log(`[SyncBackground] ⚠️ Continuando para próxima página mesmo com erro (hard sync)...`);
-        currentPage++;
-        // Aguardar um pouco antes de continuar para não sobrecarregar
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        // Não definir hasMore = false, continuar loop
-      } else {
-        hasMore = false;
-      }
+    // Sync incremental: usar paginação normal
+    if (totalPaginas > 0) {
+      hasMore = paginaAtual < totalPaginas && currentPage < maxPages;
+    } else if (totalRegistros > 0) {
+      hasMore = allPedidos.length < totalRegistros && currentPage < maxPages;
+    } else {
+      hasMore = pedidos.length > 0 && currentPage < maxPages;
     }
   }
 
-  console.log(`[SyncBackground] 📊 Total de ${allPedidos.length} pedidos encontrados`);
+  currentPage++;
 
-  // Filtrar pedidos aprovados E faturados (situacao = 1 ou 3)
-  const pedidosFaturados = allPedidos.filter(p => {
-    const situacao = p.situacao || p.pedido?.situacao;
-    // 1 = Aprovado, 3 = Faturado
-    return situacao === 1 || situacao === 3 ||
-      situacao === 'aprovado' || situacao === 'Aprovado' ||
-      situacao === 'faturado' || situacao === 'Faturado';
-  });
+  // ✅ Rate Limiting: Aguardar 1 segundo entre páginas para evitar 429 Too Many Requests
+  if (hasMore) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
 
-  console.log(`[SyncBackground] ✅ ${pedidosFaturados.length} pedidos faturados para processar`);
+} catch (error) {
+  console.error(`[SyncBackground] ❌ Erro ao buscar página ${currentPage} após todas as tentativas:`, error);
 
-  // Limpar cache no início da sincronização
-  clearCache();
+  // ✅ Para hard sync, continuar tentando próximas páginas ao invés de parar completamente
+  // Isso permite que mesmo com alguns timeouts, o processo continue sincronizando o que conseguir
+  if (hardSync && currentPage < maxPages) {
+    console.log(`[SyncBackground] ⚠️ Continuando para próxima página mesmo com erro (hard sync)...`);
+    currentPage++;
+    // Aguardar um pouco antes de continuar para não sobrecarregar
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Não definir hasMore = false, continuar loop
+  } else {
+    hasMore = false;
+  }
+}
+  }
 
-  // Processar e salvar pedidos
-  let synced = 0;
-  let updated = 0;
-  let errors = 0;
+console.log(`[SyncBackground] 📊 Total de ${allPedidos.length} pedidos encontrados`);
 
-  for (const pedidoData of pedidosFaturados) {
+// Filtrar pedidos aprovados E faturados (situacao = 1 ou 3)
+const pedidosFaturados = allPedidos.filter(p => {
+  const situacao = p.situacao || p.pedido?.situacao;
+  // 1 = Aprovado, 3 = Faturado
+  return situacao === 1 || situacao === 3 ||
+    situacao === 'aprovado' || situacao === 'Aprovado' ||
+    situacao === 'faturado' || situacao === 'Faturado';
+});
+
+console.log(`[SyncBackground] ✅ ${pedidosFaturados.length} pedidos faturados para processar`);
+
+// Limpar cache no início da sincronização
+clearCache();
+
+// Processar e salvar pedidos
+let synced = 0;
+let updated = 0;
+let errors = 0;
+
+for (const pedidoData of pedidosFaturados) {
+  try {
+    const pedido = pedidoData.pedido || pedidoData;
+    const tinyId = String(pedido.id || pedido.numeroPedido || `temp_${Date.now()}`);
+
+    console.log(`[SyncBackground] 📦 Processando pedido ${tinyId}...`);
+
+    // Buscar detalhes completos do pedido
+    let pedidoCompleto = null;
     try {
-      const pedido = pedidoData.pedido || pedidoData;
-      const tinyId = String(pedido.id || pedido.numeroPedido || `temp_${Date.now()}`);
-
-      console.log(`[SyncBackground] 📦 Processando pedido ${tinyId}...`);
-
-      // Buscar detalhes completos do pedido
-      let pedidoCompleto = null;
-      try {
-        pedidoCompleto = await fetchPedidoCompletoFromTiny(storeId, pedido.id);
-        if (pedidoCompleto) {
-          Object.assign(pedido, pedidoCompleto);
-          console.log(`[SyncBackground] ✅ Detalhes completos recebidos, dados mesclados`);
-        }
-      } catch (error) {
-        console.error(`[SyncBackground] ❌ Erro ao buscar detalhes do pedido ${pedido.id}:`, error);
+      pedidoCompleto = await fetchPedidoCompletoFromTiny(storeId, pedido.id);
+      if (pedidoCompleto) {
+        Object.assign(pedido, pedidoCompleto);
+        console.log(`[SyncBackground] ✅ Detalhes completos recebidos, dados mesclados`);
       }
+    } catch (error) {
+      console.error(`[SyncBackground] ❌ Erro ao buscar detalhes do pedido ${pedido.id}:`, error);
+    }
 
-      // Buscar itens do pedido completo
-      let itensParaProcessar = [];
-      if (pedidoCompleto && pedidoCompleto.itens && Array.isArray(pedidoCompleto.itens) && pedidoCompleto.itens.length > 0) {
-        itensParaProcessar = pedidoCompleto.itens;
-        console.log(`[SyncBackground] ✅ Encontrados ${itensParaProcessar.length} itens nos detalhes completos`);
+    // Buscar itens do pedido completo
+    let itensParaProcessar = [];
+    if (pedidoCompleto && pedidoCompleto.itens && Array.isArray(pedidoCompleto.itens) && pedidoCompleto.itens.length > 0) {
+      itensParaProcessar = pedidoCompleto.itens;
+      console.log(`[SyncBackground] ✅ Encontrados ${itensParaProcessar.length} itens nos detalhes completos`);
+    } else {
+      console.warn(`[SyncBackground] ⚠️ Pedido ${pedido.id} não tem itens nos detalhes completos`);
+    }
+
+    // Sincronizar cliente ANTES de salvar pedido
+    let clienteId = null;
+    if (pedido.cliente) {
+      console.log(`[SyncBackground] 👤 Sincronizando cliente: ${pedido.cliente.nome || 'Sem nome'}`);
+      clienteId = await syncTinyContact(supabase, storeId, pedido.cliente, tinyId);
+      if (clienteId) {
+        console.log(`[SyncBackground] ✅ Cliente sincronizado com ID: ${clienteId.substring(0, 8)}...`);
       } else {
-        console.warn(`[SyncBackground] ⚠️ Pedido ${pedido.id} não tem itens nos detalhes completos`);
+        console.warn(`[SyncBackground] ⚠️ Cliente não foi sincronizado`);
       }
+    }
 
-      // Sincronizar cliente ANTES de salvar pedido
-      let clienteId = null;
-      if (pedido.cliente) {
-        console.log(`[SyncBackground] 👤 Sincronizando cliente: ${pedido.cliente.nome || 'Sem nome'}`);
-        clienteId = await syncTinyContact(supabase, storeId, pedido.cliente, tinyId);
-        if (clienteId) {
-          console.log(`[SyncBackground] ✅ Cliente sincronizado com ID: ${clienteId.substring(0, 8)}...`);
-        } else {
-          console.warn(`[SyncBackground] ⚠️ Cliente não foi sincronizado`);
-        }
+    // Processar itens completos com extração de dados
+    const itensProcessados = await Promise.all(
+      (itensParaProcessar || []).map(async (item) => {
+        return await processarItemCompleto(storeId, item, pedidoCompleto?.id || pedido.id);
+      })
+    );
+
+    console.log(`[SyncBackground] ✅ Pedido ${pedido.id} processado: ${itensProcessados.length} itens com categorias`);
+
+    // Buscar colaboradora pelo vendedor
+    let colaboradoraId = null;
+    if (pedido.vendedor && pedido.vendedor.id) {
+      colaboradoraId = await findCollaboratorByVendedor(supabase, storeId, pedido.vendedor);
+      if (colaboradoraId) {
+        console.log(`[SyncBackground] ✅ Colaboradora encontrada: ${colaboradoraId.substring(0, 8)}...`);
       }
+    }
 
-      // Processar itens completos com extração de dados
-      const itensProcessados = await Promise.all(
-        (itensParaProcessar || []).map(async (item) => {
-          return await processarItemCompleto(storeId, item, pedidoCompleto?.id || pedido.id);
-        })
-      );
+    // ✅ Verificar se pedido já existe ANTES de preparar dados
+    // Isso permite preservar data_pedido e valor_total originais
+    const { data: existingOrder } = await supabase
+      .schema('sistemaretiradas')
+      .from('tiny_orders')
+      .select('*')
+      .eq('store_id', storeId)
+      .eq('tiny_id', tinyId)
+      .maybeSingle();
 
-      console.log(`[SyncBackground] ✅ Pedido ${pedido.id} processado: ${itensProcessados.length} itens com categorias`);
+    // Preparar dados do pedido completo
+    const orderData = prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId, colaboradoraId, itensProcessados, tinyId, existingOrder);
 
-      // Buscar colaboradora pelo vendedor
-      let colaboradoraId = null;
-      if (pedido.vendedor && pedido.vendedor.id) {
-        colaboradoraId = await findCollaboratorByVendedor(supabase, storeId, pedido.vendedor);
-        if (colaboradoraId) {
-          console.log(`[SyncBackground] ✅ Colaboradora encontrada: ${colaboradoraId.substring(0, 8)}...`);
-        }
-      }
+    const precisaAtualizar = !existingOrder || shouldUpdateOrder(existingOrder, orderData);
 
-      // ✅ Verificar se pedido já existe ANTES de preparar dados
-      // Isso permite preservar data_pedido e valor_total originais
-      const { data: existingOrder } = await supabase
+    if (!precisaAtualizar && existingOrder) {
+      console.log(`[SyncBackground] ℹ️ Pedido ${tinyId} não precisa ser atualizado`);
+      continue;
+    }
+
+    // ✅ CRÍTICO: Se pedido já existe, fazer UPDATE sem data_pedido (nunca atualizar)
+    // Se é novo pedido, fazer INSERT com data_pedido completa
+    if (existingOrder && existingOrder.data_pedido) {
+      // ✅ PEDIDO EXISTE: Fazer UPDATE excluindo data_pedido (NUNCA atualizar)
+      const { data_pedido, ...orderDataSemData } = orderData;
+
+      // Preservar valor se já existe e não é zero
+      const valorFinal = (existingOrder.valor_total > 0 && orderData.valor_total === 0)
+        ? existingOrder.valor_total
+        : (orderData.valor_total > 0 ? orderData.valor_total : existingOrder.valor_total);
+
+      const updateData = {
+        ...orderDataSemData,
+        valor_total: valorFinal,
+        // data_pedido NÃO está incluída - nunca será atualizada!
+      };
+
+      console.log(`[SyncBackground] 🔒 Pedido ${tinyId} (EXISTENTE): Fazendo UPDATE sem data_pedido (travada: ${existingOrder.data_pedido})`);
+
+      const { error: updateError } = await supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
-        .select('*')
-        .eq('store_id', storeId)
+        .update(updateData)
         .eq('tiny_id', tinyId)
-        .maybeSingle();
+        .eq('store_id', storeId);
 
-      // Preparar dados do pedido completo
-      const orderData = prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId, colaboradoraId, itensProcessados, tinyId, existingOrder);
-
-      const precisaAtualizar = !existingOrder || shouldUpdateOrder(existingOrder, orderData);
-
-      if (!precisaAtualizar && existingOrder) {
-        console.log(`[SyncBackground] ℹ️ Pedido ${tinyId} não precisa ser atualizado`);
-        continue;
-      }
-
-      // ✅ CRÍTICO: Se pedido já existe, fazer UPDATE sem data_pedido (nunca atualizar)
-      // Se é novo pedido, fazer INSERT com data_pedido completa
-      if (existingOrder && existingOrder.data_pedido) {
-        // ✅ PEDIDO EXISTE: Fazer UPDATE excluindo data_pedido (NUNCA atualizar)
-        const { data_pedido, ...orderDataSemData } = orderData;
-
-        // Preservar valor se já existe e não é zero
-        const valorFinal = (existingOrder.valor_total > 0 && orderData.valor_total === 0)
-          ? existingOrder.valor_total
-          : (orderData.valor_total > 0 ? orderData.valor_total : existingOrder.valor_total);
-
-        const updateData = {
-          ...orderDataSemData,
-          valor_total: valorFinal,
-          // data_pedido NÃO está incluída - nunca será atualizada!
-        };
-
-        console.log(`[SyncBackground] 🔒 Pedido ${tinyId} (EXISTENTE): Fazendo UPDATE sem data_pedido (travada: ${existingOrder.data_pedido})`);
-
-        const { error: updateError } = await supabase
-          .schema('sistemaretiradas')
-          .from('tiny_orders')
-          .update(updateData)
-          .eq('tiny_id', tinyId)
-          .eq('store_id', storeId);
-
-        if (updateError) {
-          console.error(`[SyncBackground] ❌ Erro ao atualizar pedido ${tinyId}:`, updateError);
-          errors++;
-        } else {
-          updated++;
-          console.log(`[SyncBackground] ✅ Pedido ${tinyId} atualizado (data_pedido preservada: ${existingOrder.data_pedido})`);
-        }
+      if (updateError) {
+        console.error(`[SyncBackground] ❌ Erro ao atualizar pedido ${tinyId}:`, updateError);
+        errors++;
       } else {
-        // ✅ NOVO PEDIDO: Fazer INSERT com data_pedido completa
-        console.log(`[SyncBackground] 📝 Pedido ${tinyId} (NOVO): Fazendo INSERT com data_pedido: ${orderData.data_pedido}`);
-
-        const { error: insertError } = await supabase
-          .schema('sistemaretiradas')
-          .from('tiny_orders')
-          .insert(orderData);
-
-        if (insertError) {
-          console.error(`[SyncBackground] ❌ Erro ao inserir pedido ${tinyId}:`, insertError);
-          errors++;
-        } else {
-          synced++;
-          console.log(`[SyncBackground] ✅ Pedido ${tinyId} inserido com data_pedido: ${orderData.data_pedido}`);
-        }
+        updated++;
+        console.log(`[SyncBackground] ✅ Pedido ${tinyId} atualizado (data_pedido preservada: ${existingOrder.data_pedido})`);
       }
+    } else {
+      // ✅ NOVO PEDIDO: Fazer INSERT com data_pedido completa
+      console.log(`[SyncBackground] 📝 Pedido ${tinyId} (NOVO): Fazendo INSERT com data_pedido: ${orderData.data_pedido}`);
 
-      // ✅ Contadores já são atualizados acima no if/else separado
+      const { error: insertError } = await supabase
+        .schema('sistemaretiradas')
+        .from('tiny_orders')
+        .insert(orderData);
 
-    } catch (error) {
-      console.error(`[SyncBackground] ❌ Erro ao processar pedido:`, error);
-      errors++;
+      if (insertError) {
+        console.error(`[SyncBackground] ❌ Erro ao inserir pedido ${tinyId}:`, insertError);
+        errors++;
+      } else {
+        synced++;
+        console.log(`[SyncBackground] ✅ Pedido ${tinyId} inserido com data_pedido: ${orderData.data_pedido}`);
+      }
     }
+
+    // ✅ Contadores já são atualizados acima no if/else separado
+
+  } catch (error) {
+    console.error(`[SyncBackground] ❌ Erro ao processar pedido:`, error);
+    errors++;
   }
+}
 
-  console.log(`[SyncBackground] ✅ Sincronização concluída: ${synced} novos, ${updated} atualizados, ${errors} erros`);
+console.log(`[SyncBackground] ✅ Sincronização concluída: ${synced} novos, ${updated} atualizados, ${errors} erros`);
 
-  return {
-    synced,
-    updated,
-    errors,
-  };
+return {
+  synced,
+  updated,
+  errors,
+};
 }
 
 async function processarItemCompleto(storeId, itemData, pedidoId) {
