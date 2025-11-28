@@ -240,12 +240,12 @@ exports.handler = async (event, context) => {
             params: {
               dataInicio: dataInicioSync,
               pagina: currentPage,
-              limite: limit || 50,
+              limite: limit || 500,
             },
           }),
         });
 
-        console.log(`[SyncBackground] 📡 Chamando API Tiny - Página ${currentPage}, Data: ${dataInicioSync}, Limite: ${limit || 50}`);
+        console.log(`[SyncBackground] 📡 Chamando API Tiny - Página ${currentPage}, Data: ${dataInicioSync}, Limite: ${limit || 500}`);
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -256,14 +256,33 @@ exports.handler = async (event, context) => {
 
         // Tiny ERP v3 retorna dados em { itens: [...], paginacao: {...} }
         const pedidos = result.itens || result.pedidos || [];
+
+        // ✅ PARAR se página retornou 0 pedidos
+        if (pedidos.length === 0) {
+          console.log(`[SyncBackground] ✅ Fim dos dados: página ${currentPage} retornou 0 pedidos`);
+          hasMore = false;
+          break;
+        }
+
         allPedidos = allPedidos.concat(pedidos);
 
         // Verificar se há mais páginas
         const paginacao = result.paginacao || {};
-        hasMore = paginacao.paginaAtual < paginacao.totalPaginas && currentPage < maxPages;
+        const totalPaginas = paginacao.totalPaginas || paginacao.total_paginas || 0;
+        const paginaAtual = paginacao.paginaAtual || paginacao.pagina || currentPage;
+
+        // ✅ Usar totalPaginas da API se disponível
+        if (totalPaginas > 0) {
+          hasMore = paginaAtual < totalPaginas && currentPage < maxPages;
+          console.log(`[SyncBackground] 📊 Paginação API: ${paginaAtual}/${totalPaginas}, continuar=${hasMore}`);
+        } else {
+          // Se API não retornar totalPaginas, continuar até página vazia
+          hasMore = currentPage < maxPages;
+        }
+
         currentPage++;
 
-        console.log(`[SyncBackground] 📄 Página ${currentPage - 1}: ${pedidos.length} pedidos encontrados`);
+        console.log(`[SyncBackground] 📄 Página ${currentPage - 1}: ${pedidos.length} pedidos encontrados, total acumulado: ${allPedidos.length}`);
 
       } catch (error) {
         console.error(`[SyncBackground] ❌ Erro ao buscar página ${currentPage}:`, error);
