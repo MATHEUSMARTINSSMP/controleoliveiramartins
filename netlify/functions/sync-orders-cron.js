@@ -1,7 +1,7 @@
 /**
  * NETLIFY SCHEDULED FUNCTION: Sincronização Automática de Pedidos
  * 
- * Roda automaticamente a cada 30 segundos
+ * Roda automaticamente a cada 1 minuto
  * Busca novos pedidos do Tiny ERP e sincroniza com Supabase
  * Gera cashback automaticamente via trigger
  */
@@ -18,7 +18,8 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 exports.handler = async (event, context) => {
-    console.log('[sync-orders-cron] 🔄 Iniciando sincronização automática de pedidos...');
+    const startTime = new Date();
+    console.log(`[sync-orders-cron] 🔄 Iniciando sincronização automática de pedidos... [${startTime.toISOString()}]`);
 
     try {
         // Buscar todas as lojas ativas
@@ -68,6 +69,7 @@ exports.handler = async (event, context) => {
                 });
 
                 console.log(`[sync-orders-cron] ✅ Loja ${store.name}: ${syncResult.message || 'OK'}`);
+                console.log(`[sync-orders-cron] 📊 Detalhes:`, JSON.stringify(syncResult, null, 2));
             } catch (storeError) {
                 console.error(`[sync-orders-cron] ❌ Erro na loja ${store.name}:`, storeError);
                 results.push({
@@ -79,7 +81,12 @@ exports.handler = async (event, context) => {
         }
 
         const successCount = results.filter(r => r.success).length;
+        const endTime = new Date();
+        const duration = endTime - startTime;
+
         console.log(`[sync-orders-cron] 🎉 Sincronização concluída: ${successCount}/${stores.length} lojas OK`);
+        console.log(`[sync-orders-cron] ⏱️ Duração: ${duration}ms`);
+        console.log(`[sync-orders-cron] 📅 Fim: ${endTime.toISOString()}`);
 
         return {
             statusCode: 200,
@@ -87,6 +94,8 @@ exports.handler = async (event, context) => {
                 message: `Sincronização automática concluída`,
                 stores: stores.length,
                 success: successCount,
+                duration: `${duration}ms`,
+                timestamp: endTime.toISOString(),
                 results: results,
             }),
         };
@@ -96,6 +105,7 @@ exports.handler = async (event, context) => {
             statusCode: 500,
             body: JSON.stringify({
                 error: error.message,
+                timestamp: new Date().toISOString(),
             }),
         };
     }

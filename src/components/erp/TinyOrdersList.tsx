@@ -129,10 +129,25 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
       if (error) throw error;
 
       if (data) {
+        // ✅ Obter timestamp da última sincronização
+        const lastSyncKey = `lastOrderSync_${storeId}`;
+        const lastSyncTime = localStorage.getItem(lastSyncKey);
+        const now = new Date().toISOString();
+
         // ✅ Detectar novos pedidos e adicionar no topo
-        const novosPedidos = data.filter(
-          (newOrder) => !orders.some((existingOrder) => existingOrder.id === newOrder.id)
-        );
+        const novosPedidos = data.filter((newOrder) => {
+          const isNew = !orders.some((existingOrder) => existingOrder.id === newOrder.id);
+
+          // ✅ CORREÇÃO CRÍTICA: Se é primeira carga, NÃO notificar pedidos antigos
+          if (!lastSyncTime) {
+            return isNew; // Adiciona à lista mas NÃO notifica
+          }
+
+          // ✅ Notificar apenas se foi sincronizado APÓS última verificação
+          const isRecent = newOrder.sync_at && new Date(newOrder.sync_at) > new Date(lastSyncTime);
+
+          return isNew && isRecent;
+        });
 
         if (novosPedidos.length > 0) {
           // ✅ Adicionar novos pedidos no TOPO da lista
@@ -141,13 +156,16 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
             const existingIds = new Set(prevOrders.map((o) => o.id));
             const novosSemDuplicados = novosPedidos.filter((o) => !existingIds.has(o.id));
 
-            // 🔔 Mostrar notificação sonner para novas vendas (melhor UX)
-            if (novosSemDuplicados.length > 0) {
+            // 🔔 Mostrar notificação sonner APENAS para pedidos realmente novos
+            if (novosSemDuplicados.length > 0 && lastSyncTime) {
               novosSemDuplicados.forEach((novoPedido) => {
-                sonnerToast.success("🎉 Nova Venda!", {
-                  description: `Pedido ${novoPedido.numero_pedido || novoPedido.tiny_id} - ${novoPedido.cliente_nome || 'Cliente'} - ${formatCurrency(novoPedido.valor_total || 0)}`,
-                  duration: 5000,
-                });
+                // ✅ Verificar se é realmente novo (sincronizado após última verificação)
+                if (novoPedido.sync_at && new Date(novoPedido.sync_at) > new Date(lastSyncTime)) {
+                  sonnerToast.success("🎉 Nova Venda!", {
+                    description: `Pedido ${novoPedido.numero_pedido || novoPedido.tiny_id} - ${novoPedido.cliente_nome || 'Cliente'} - ${formatCurrency(novoPedido.valor_total || 0)}`,
+                    duration: 5000,
+                  });
+                }
               });
             }
 
@@ -164,6 +182,9 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
           // Sem novos pedidos, apenas atualizar se houver mudanças
           setOrders(data);
         }
+
+        // ✅ Atualizar timestamp da última sincronização
+        localStorage.setItem(lastSyncKey, now);
       }
     } catch (error: any) {
       console.error('Erro ao buscar pedidos (silencioso):', error);
