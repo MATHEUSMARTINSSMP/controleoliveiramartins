@@ -57,6 +57,7 @@ BEGIN
     v_total_earned := GREATEST(v_total_earned, 0);
     
     -- Atualizar ou criar saldo (SECURITY DEFINER permite criar mesmo com RLS)
+    -- Usar nome da constraint explicitamente para evitar erro 42P10
     INSERT INTO sistemaretiradas.cashback_balance (
         cliente_id,
         balance,
@@ -70,7 +71,7 @@ BEGIN
         v_balance_pendente,
         v_total_earned
     )
-    ON CONFLICT (cliente_id) DO UPDATE
+    ON CONFLICT ON CONSTRAINT cashback_balance_unique_cliente DO UPDATE
     SET
         balance = EXCLUDED.balance,
         balance_disponivel = EXCLUDED.balance_disponivel,
