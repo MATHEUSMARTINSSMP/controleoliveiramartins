@@ -359,19 +359,20 @@ exports.handler = async (event, context) => {
               endpoint: '/pedidos',
               method: 'GET',
               params: {
-                // ✅ FILTRO DE DATA RIGOROSO: Apenas hoje (Inicio E Fim)
-                // CORREÇÃO: API Tiny usa dataInicial e dataFinal, não dataInicio/dataFim
-                dataInicial: dataHoje,
-                dataFinal: dataHoje, // ✅ Garante que não busca nada além de hoje
-                // ✅ ORDEM DECRESCENTE: Mais recentes primeiro. Assim que achar um velho, para.
+                // ✅ ESTRATÉGIA SEGURA: Remover filtro de data para evitar erro 400 da API
+                // Confiamos na ordenação DESC + Limite 20 para pegar apenas os pedidos recentes (de hoje)
+                // dataInicial: dataHoje, // REMOVIDO para evitar erro de validação
+                // dataFinal: dataHoje,   // REMOVIDO para evitar erro de validação
+
+                // ✅ ORDEM DECRESCENTE: Mais recentes primeiro.
                 ordenar: 'numeroPedido|DESC',
                 pagina: currentPage,
-                limite: 20, // ✅ Limite fixo de 20 pedidos totais (já que é 1 página)
+                limite: 20, // ✅ Limite fixo de 20 pedidos totais
               },
             }),
           });
 
-          console.log(`[SyncBackground] 📡 [OTIMIZADO] Chamando API Tiny - Página ${currentPage}, Ordem: DESC, Limite: 20, Data: ${dataHoje}`);
+          console.log(`[SyncBackground] 📡 [OTIMIZADO] Chamando API Tiny - Página ${currentPage}, Ordem: DESC, Limite: 20 (Sem filtro de data para evitar erro 400)`);
 
           if (!response.ok) {
             const errorText = await response.text();
