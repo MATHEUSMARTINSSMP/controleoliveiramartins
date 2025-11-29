@@ -177,6 +177,12 @@ exports.handler = async (event, context) => {
 
         const result = await response.json();
 
+        // ✅ LOG ULTRA DETALHADO para debug
+        console.log(`[SyncContactsBackground] 🔍 RESPOSTA COMPLETA DA API:`, JSON.stringify(result).substring(0, 1000));
+        console.log(`[SyncContactsBackground] 🔍 Chaves da resposta:`, Object.keys(result));
+        console.log(`[SyncContactsBackground] 🔍 Tipo de result.itens:`, Array.isArray(result.itens) ? 'Array' : typeof result.itens);
+        console.log(`[SyncContactsBackground] 🔍 Tipo de result.contatos:`, Array.isArray(result.contatos) ? 'Array' : typeof result.contatos);
+
         // Tiny ERP v3 retorna dados em { itens: [...], paginacao: {...} }
         const contatos = result.itens || result.contatos || [];
 
