@@ -60,6 +60,7 @@ async function verificarNovaVenda(
     });
 
     // 2. Buscar último pedido na API (requisição leve, apenas listagem)
+    // ✅ SEM parâmetro situacao - buscar todos e filtrar depois (API Tiny não aceita string)
     const checkUrl = `${netlifyUrl}/.netlify/functions/erp-api-proxy`;
     
     const checkResponse = await fetch(checkUrl, {
@@ -71,8 +72,8 @@ async function verificarNovaVenda(
         store_id: storeId,
         endpoint: '/pedidos',
         params: {
-          situacao: '1,3', // Aprovado (1) e Faturado (3)
-          limit: 1,
+          // ✅ SEM situacao - buscar todos e filtrar depois
+          limit: 10, // Buscar 10 para garantir que encontramos um válido
           ordenar: 'numeroPedido|DESC', // Último pedido primeiro
         },
         method: 'GET',
@@ -87,7 +88,15 @@ async function verificarNovaVenda(
 
     const checkData = await checkResponse.json();
     const pedidos = checkData?.itens || checkData?.pedidos || checkData?.response?.pedidos || [];
-    const ultimoPedidoAPI = pedidos[0];
+    
+    // ✅ FILTRAR: Apenas pedidos Aprovado (1) ou Faturado (3)
+    const pedidosValidos = pedidos.filter((p: any) => {
+      const pedido = p.pedido || p;
+      const situacao = Number(pedido.situacao || p.situacao || 0);
+      return situacao === 1 || situacao === 3;
+    });
+    
+    const ultimoPedidoAPI = pedidosValidos[0];
 
     console.log(`[SyncTiny] 📊 Último pedido na API:`, {
       numero: ultimoPedidoAPI?.numeroPedido || ultimoPedidoAPI?.numero_pedido,
