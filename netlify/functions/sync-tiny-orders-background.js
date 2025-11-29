@@ -329,12 +329,10 @@ exports.handler = async (event, context) => {
 
       // ✅ DATA DE HOJE (DD/MM/YYYY) - Restrição rigorosa solicitada pelo usuário
       const hoje = new Date();
-      // Ajustar para fuso horário do Brasil (UTC-3) se necessário, mas Date local do servidor deve servir
-      // Melhor garantir formato DD/MM/YYYY
       const dia = String(hoje.getDate()).padStart(2, '0');
       const mes = String(hoje.getMonth() + 1).padStart(2, '0');
       const ano = hoje.getFullYear();
-      const dataHoje = `${dia}/${mes}/${ano}`;
+      const dataHoje = `${dia}/${mes}/${ano}`; // Formato DD/MM/YYYY exigido pela API Tiny
 
       console.log(`[SyncBackground] 🎯 MODO INCREMENTAL OTIMIZADO: Buscando pedidos de HOJE (${dataHoje}) em ordem DECRESCENTE`);
       console.log(`[SyncBackground] 🛡️ FREIO DE SEGURANÇA ATIVO: Limite máximo de ${LIMIT_PAGINAS_INCREMENTAL} página(s) e 20 pedidos totais.`);
