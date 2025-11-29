@@ -106,8 +106,9 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
         },
         (payload) => {
           console.log('[TinyOrdersList] 🔔 Mudança detectada em tempo real:', payload.eventType);
-          // Recarregar lista quando houver mudanças
-          fetchOrders();
+          // ✅ CORREÇÃO: Usar fetchOrdersSilently para detectar novos pedidos e mostrar notificações
+          // fetchOrders() não mostra notificações, apenas recarrega a lista
+          fetchOrdersSilently();
         }
       )
       .subscribe();
@@ -138,11 +139,25 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
           ...order,
           valor_total: Number(order.valor_total) || 0,
         }));
-        
-        // ✅ Detectar novos pedidos e adicionar no topo
-        const novosPedidos = normalizedData.filter(
-          (newOrder) => !orders.some((existingOrder) => existingOrder.id === newOrder.id)
-        );
+
+
+        // ✅ Detectar novos pedidos usando TIMESTAMP de sincronização
+        // Considerar "novo" qualquer pedido sincronizado nos últimos 2 minutos
+        const doisMinutosAtras = new Date(Date.now() - 2 * 60 * 1000);
+
+        const novosPedidos = normalizedData.filter((order) => {
+          // Se não tem sync_at, não é novo
+          if (!order.sync_at) return false;
+
+          const syncDate = new Date(order.sync_at);
+          const isRecent = syncDate > doisMinutosAtras;
+
+          // Verificar se já estava na lista anterior
+          const jaExistia = orders.some((existingOrder) => existingOrder.id === order.id);
+
+          // É novo se foi sincronizado recentemente E não estava na lista anterior
+          return isRecent && !jaExistia;
+        });
 
         console.log(`[AUTO-REFRESH] 📊 ${novosPedidos.length} novos pedidos detectados (isFirstLoad: ${isFirstLoad})`);
 
