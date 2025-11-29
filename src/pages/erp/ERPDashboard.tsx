@@ -250,12 +250,9 @@ export default function ERPDashboard() {
       let mensagem: string;
 
       if (periodo === 'agora') {
-        // ✅ Sincronizar Agora: Buscar apenas a última venda (últimas 2 horas, limit: 1)
-        const agora = new Date();
-        const duasHorasAtras = new Date(agora);
-        duasHorasAtras.setHours(agora.getHours() - 2);
-        dataInicio = duasHorasAtras.toISOString().split('T')[0];
-        mensagem = 'Sincronizando última venda (últimas 2 horas)...';
+        // ✅ Sincronizar Agora: Buscar TODAS as vendas novas desde o último conhecido
+        // Usar modo incremental otimizado para buscar apenas pedidos novos
+        mensagem = 'Sincronizando vendas novas desde última sincronização...';
       } else if (periodo === 'semana') {
         // ✅ Sincronizar Semana: Buscar os últimos 7 dias (APENAS ATUALIZAÇÕES)
         const hoje = new Date();
@@ -276,16 +273,42 @@ export default function ERPDashboard() {
       // Chamar diretamente a Netlify Function (backend) para rodar em background
       toast.info(`${mensagem} (em background - você pode fechar a página)`);
 
+      // ✅ Para "Sincronizar Agora": Buscar último pedido conhecido e usar modo incremental otimizado
+      let ultimoNumeroConhecido: number | null = null;
+      if (periodo === 'agora') {
+        try {
+          const { data: ultimoPedido } = await supabase
+            .schema('sistemaretiradas')
+            .from('tiny_orders')
+            .select('numero_pedido')
+            .eq('store_id', selectedStoreId)
+            .not('numero_pedido', 'is', null)
+            .order('numero_pedido', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (ultimoPedido?.numero_pedido) {
+            ultimoNumeroConhecido = parseInt(String(ultimoPedido.numero_pedido));
+            console.log(`[ERPDashboard] 📊 Último pedido conhecido: ${ultimoNumeroConhecido}`);
+          }
+        } catch (error) {
+          console.error('[ERPDashboard] ⚠️ Erro ao buscar último pedido:', error);
+        }
+      }
+
       const netlifyFunctionUrl = '/.netlify/functions/sync-tiny-orders-background';
 
       console.log(`[ERPDashboard] 🚀 Chamando Netlify Function: ${netlifyFunctionUrl}`);
       console.log(`[ERPDashboard] 📦 Payload:`, {
         store_id: selectedStoreId,
-        data_inicio: dataInicio,
+        data_inicio: periodo === 'agora' ? undefined : dataInicio,
         incremental: periodo === 'total',
-        limit: 100, // Limite por página (API Tiny)
-        max_pages: 999, // SEM LIMITE - busca todas as páginas disponíveis
+        limit: 100,
+        max_pages: periodo === 'agora' ? 10 : 999, // ✅ "Sincronizar Agora": até 10 páginas (para pegar todos os novos)
         hard_sync: false,
+        modo_incremental_otimizado: periodo === 'agora', // ✅ Usar modo otimizado para "Sincronizar Agora"
+        ultimo_numero_conhecido: periodo === 'agora' ? ultimoNumeroConhecido : undefined,
+        apenas_novas_vendas: periodo === 'agora', // ✅ Apenas vendas novas para "Sincronizar Agora"
       });
 
       const response = await fetch(netlifyFunctionUrl, {
@@ -295,12 +318,15 @@ export default function ERPDashboard() {
         },
         body: JSON.stringify({
           store_id: selectedStoreId,
-          data_inicio: dataInicio,
+          data_inicio: periodo === 'agora' ? undefined : dataInicio,
           incremental: periodo === 'total',
-          limit: periodo === 'agora' ? 1 : 100, // ✅ "Sincronizar Agora": apenas 1 pedido
-          max_pages: periodo === 'agora' ? 1 : 999, // ✅ "Sincronizar Agora": apenas 1 página
+          limit: 100,
+          max_pages: periodo === 'agora' ? 10 : 999, // ✅ "Sincronizar Agora": até 10 páginas
           hard_sync: false,
-          apenas_atualizacoes: periodo !== 'agora', // ✅ Apenas atualizações para semana e total
+          modo_incremental_otimizado: periodo === 'agora', // ✅ Usar modo otimizado
+          ultimo_numero_conhecido: periodo === 'agora' ? ultimoNumeroConhecido : undefined,
+          apenas_novas_vendas: periodo === 'agora', // ✅ Apenas vendas novas
+          apenas_atualizacoes: periodo !== 'agora' && periodo !== 'total', // ✅ Apenas atualizações para semana
         }),
       }).catch((fetchError: any) => {
         console.error("❌ Erro ao chamar Netlify Function:", fetchError);
