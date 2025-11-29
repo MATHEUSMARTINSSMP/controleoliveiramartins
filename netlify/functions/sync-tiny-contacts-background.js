@@ -162,10 +162,9 @@ exports.handler = async (event, context) => {
             endpoint: '/contatos',
             method: 'GET',
             params: {
-              limit: limit || 100, // ✅ API v3 usa 'limit' (inglês)
-              offset: (currentPage - 1) * (limit || 100), // ✅ API v3 usa 'offset' (inglês)
-              situacao: 'B', // ✅ B = Ativo, A = Ativo Com Acesso, I = Inativo, E = Excluído
-              // ⚠️ perfilContato NÃO existe neste endpoint (só em /contatos/{id}/pessoas)
+              limit: limit || 100,
+              offset: (currentPage - 1) * (limit || 100),
+              // ✅ DEBUG: SEM filtros para ver se retorna algo
             },
           }),
         });
