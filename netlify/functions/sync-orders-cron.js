@@ -68,6 +68,7 @@ exports.handler = async (event, context) => {
                         body: JSON.stringify({
                             storeId: store.id,
                             mode: 'incremental', // Apenas novos pedidos
+                            modo_incremental_otimizado: true, // ✅ Usar filtro por número de pedido
                             limit: 20, // Últimos 20 pedidos
                         }),
                     });
