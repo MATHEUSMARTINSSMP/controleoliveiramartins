@@ -9,7 +9,7 @@ import { createClient } from '@supabase/supabase-js';
 // ✅ Usar variáveis de ambiente (não expor chaves no código)
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://kktsbnrnlnzyofupegjc.supabase.co';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const SUPABASE_ANON_KEY = 'sb_publishable_E9kuT5BNQhQzLgHDEwSX-w_9EVMPPYp';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_E9kuT5BNQhQzLgHDEwSX-w_9EVMPPYp';
 
 async function verificarSupabase() {
   console.log('🔍 Iniciando verificação do Supabase...\n');
