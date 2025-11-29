@@ -164,7 +164,8 @@ exports.handler = async (event, context) => {
             params: {
               limit: limit || 100, // ✅ API v3 usa 'limit' (inglês)
               offset: (currentPage - 1) * (limit || 100), // ✅ API v3 usa 'offset' (inglês)
-              perfilContato: 0, // ✅ 0 = cliente, 1 = fornecedor, 2 = transportadora
+              situacao: 'B', // ✅ B = Ativo, A = Ativo Com Acesso, I = Inativo, E = Excluído
+              // ⚠️ perfilContato NÃO existe neste endpoint (só em /contatos/{id}/pessoas)
             },
           }),
         });
