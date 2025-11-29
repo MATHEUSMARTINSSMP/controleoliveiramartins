@@ -263,11 +263,15 @@ export default function CashbackManagement() {
         return;
       }
 
-      // ✅ 4. Calcular datas
+      // ✅ 4. Calcular datas no fuso horário de Macapá (UTC-3)
       const agora = new Date();
-      const dataLiberacao = new Date(agora);
+      // Ajustar para UTC-3 (Macapá)
+      const macapaOffset = -3 * 60; // -3 horas em minutos
+      const macapaTime = new Date(agora.getTime() + (macapaOffset - agora.getTimezoneOffset()) * 60000);
+
+      const dataLiberacao = new Date(macapaTime);
       dataLiberacao.setDate(dataLiberacao.getDate() + settings.prazo_liberacao_dias);
-      
+
       const dataExpiracao = new Date(dataLiberacao);
       dataExpiracao.setDate(dataExpiracao.getDate() + settings.prazo_expiracao_dias);
 
@@ -344,6 +348,11 @@ export default function CashbackManagement() {
       }
 
       // ✅ 2. Inserir diretamente na tabela cashback_transactions
+      // Usar horário de Macapá (UTC-3)
+      const agora = new Date();
+      const macapaOffset = -3 * 60; // -3 horas em minutos
+      const macapaTime = new Date(agora.getTime() + (macapaOffset - agora.getTimezoneOffset()) * 60000);
+
       const { error: insertError } = await supabase
         .schema('sistemaretiradas')
         .from('cashback_transactions')
@@ -353,7 +362,7 @@ export default function CashbackManagement() {
           transaction_type: 'REDEEMED',
           amount: valorResgate,
           description: descricaoResgatar || 'Resgate manual de cashback',
-          data_liberacao: new Date().toISOString(), // Resgate é imediato
+          data_liberacao: macapaTime.toISOString(), // Resgate é imediato
           data_expiracao: null, // Resgate não expira
         });
 
