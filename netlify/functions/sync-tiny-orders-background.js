@@ -324,7 +324,8 @@ exports.handler = async (event, context) => {
 
     if (usarBuscaIncrementalOtimizada) {
       // 🛑 FREIO DE EMERGÊNCIA: No modo incremental (1 min), nunca deve precisar de muitas páginas
-      const LIMIT_PAGINAS_INCREMENTAL = 2; // Reduzido para 2 conforme solicitado (apenas últimas 10-20 vendas)
+      // Usuário solicitou MAX 20 pedidos NO TOTAL. Então 1 página de 20 é suficiente.
+      const LIMIT_PAGINAS_INCREMENTAL = 1;
 
       // ✅ DATA DE HOJE (DD/MM/YYYY) - Restrição rigorosa solicitada pelo usuário
       const hoje = new Date();
@@ -336,10 +337,10 @@ exports.handler = async (event, context) => {
       const dataHoje = `${dia}/${mes}/${ano}`;
 
       console.log(`[SyncBackground] 🎯 MODO INCREMENTAL OTIMIZADO: Buscando pedidos de HOJE (${dataHoje}) em ordem DECRESCENTE`);
-      console.log(`[SyncBackground] 🛡️ FREIO DE SEGURANÇA ATIVO: Limite máximo de ${LIMIT_PAGINAS_INCREMENTAL} páginas.`);
+      console.log(`[SyncBackground] 🛡️ FREIO DE SEGURANÇA ATIVO: Limite máximo de ${LIMIT_PAGINAS_INCREMENTAL} página(s) e 20 pedidos totais.`);
 
       // ✅ MODO INCREMENTAL OTIMIZADO: 
-      // 1. Apenas data de HOJE (dataInicio = dataHoje)
+      // 1. Apenas data de HOJE (dataInicio = dataHoje AND dataFim = dataHoje)
       // 2. Ordem DECRESCENTE (DESC) para pegar os mais recentes primeiro
       // 3. Para assim que encontrar um pedido <= ultimoNumeroConhecido
       while (hasMore && currentPage <= maxPages && !encontrouUltimoConhecido) {
@@ -360,17 +361,18 @@ exports.handler = async (event, context) => {
               endpoint: '/pedidos',
               method: 'GET',
               params: {
-                // ✅ FILTRO DE DATA RIGOROSO: Apenas hoje
+                // ✅ FILTRO DE DATA RIGOROSO: Apenas hoje (Inicio E Fim)
                 dataInicio: dataHoje,
+                dataFim: dataHoje, // ✅ Garante que não busca nada além de hoje
                 // ✅ ORDEM DECRESCENTE: Mais recentes primeiro. Assim que achar um velho, para.
                 ordenar: 'numeroPedido|DESC',
                 pagina: currentPage,
-                limite: limit || 10, // ✅ Reduzido para 10 conforme solicitado
+                limite: 20, // ✅ Limite fixo de 20 pedidos totais (já que é 1 página)
               },
             }),
           });
 
-          console.log(`[SyncBackground] 📡 [OTIMIZADO] Chamando API Tiny - Página ${currentPage}, Ordem: DESC, Limite: ${limit || 10}`);
+          console.log(`[SyncBackground] 📡 [OTIMIZADO] Chamando API Tiny - Página ${currentPage}, Ordem: DESC, Limite: 20, Data: ${dataHoje}`);
 
           if (!response.ok) {
             const errorText = await response.text();
