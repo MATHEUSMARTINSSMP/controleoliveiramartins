@@ -341,6 +341,36 @@ exports.handler = async (event, context) => {
 
         console.log(`[SyncBackground] 📦 Processando pedido ${tinyId}...`);
 
+        // ✅ OTIMIZAÇÃO CRÍTICA: Verificar se pedido já existe e não mudou antes de buscar detalhes caros
+        // Isso economiza ~4 chamadas de API por pedido (Detalhes + Contato + Produtos)
+        try {
+          const { data: existingOrderCheck } = await supabase
+            .schema('sistemaretiradas')
+            .from('orders')
+            .select('id, situacao, valor_total, updated_at')
+            .eq('store_id', storeId)
+            .eq('tiny_id', tinyId)
+            .maybeSingle();
+
+          if (existingOrderCheck) {
+            const situacaoNova = pedido.situacao?.toString();
+            const situacaoAntiga = existingOrderCheck.situacao;
+
+            // Se situação é igual, assumir que não precisa atualizar (para economizar API)
+            // A maioria das mudanças relevantes altera a situação (Aberto -> Aprovado -> Faturado -> Enviado)
+            if (situacaoNova && situacaoAntiga && situacaoNova === situacaoAntiga) {
+              console.log(`[SyncBackground] ⏩ Pedido ${tinyId} sem mudanças de situação (${situacaoNova}). Pulando processamento pesado...`);
+
+              // Atualizar apenas updated_at para saber que foi verificado? Não, economizar DB também.
+              continue;
+            }
+
+            console.log(`[SyncBackground] 🔄 Pedido ${tinyId} mudou situação: ${situacaoAntiga} -> ${situacaoNova}. Atualizando...`);
+          }
+        } catch (checkError) {
+          console.warn(`[SyncBackground] ⚠️ Erro ao verificar existência do pedido ${tinyId}:`, checkError);
+        }
+
         // ✅ TAREFA 1: Buscar detalhes completos do pedido
         console.log(`[SyncBackground] 🔍 Buscando detalhes completos do pedido ${pedido.id}...`);
         let pedidoCompleto = null;
