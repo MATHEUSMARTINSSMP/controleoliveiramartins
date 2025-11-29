@@ -160,6 +160,16 @@ exports.handler = async (event, context) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // ✅ Validação de segurança
+    if (!finalStoreId) {
+      console.error('[SyncBackground] ❌ Store ID não fornecido');
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Store ID é obrigatório' }),
+      };
+    }
+
     // Buscar integração da loja
     const { data: integration, error: integrationError } = await supabase
       .schema('sistemaretiradas')
@@ -167,10 +177,11 @@ exports.handler = async (event, context) => {
       .select('*')
       .eq('store_id', finalStoreId)
       .eq('sistema_erp', 'TINY')
-      .single();
+      .maybeSingle(); // ✅ Usar maybeSingle para evitar erro PGRST116 quando não encontrar
 
     if (integrationError || !integration) {
-      console.error('[SyncBackground] ❌ Integração não encontrada:', integrationError);
+      console.warn(`[SyncBackground] ⚠️ Integração não encontrada para store_id: ${finalStoreId}`);
+      if (integrationError) console.error('[SyncBackground] Detalhes do erro:', integrationError);
       return {
         statusCode: 404,
         headers,
