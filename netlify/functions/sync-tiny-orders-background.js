@@ -320,12 +320,27 @@ exports.handler = async (event, context) => {
 
     // Filtrar apenas pedidos faturados (situacao = 1 ou 3)
     // ✅ REQUISITO: Apenas Aprovado (1) e Faturado (3). Sem exceção.
-    const pedidosFaturados = allPedidos.filter(p => {
+    // ✅ REQUISITO: Apenas Aprovado (1) e Faturado (3). Sem exceção.
+    const pedidosFaturados = [];
+    const pedidosIgnorados = [];
+
+    allPedidos.forEach(p => {
       const situacao = Number(p.situacao || p.pedido?.situacao);
-      return situacao === 1 || situacao === 3;
+      const id = p.id || p.pedido?.id;
+
+      if (situacao === 1 || situacao === 3) {
+        pedidosFaturados.push(p);
+      } else {
+        pedidosIgnorados.push({ id, situacao });
+      }
     });
 
     console.log(`[SyncBackground] ✅ ${pedidosFaturados.length} pedidos válidos (Aprovado/Faturado) para processar`);
+    if (pedidosIgnorados.length > 0) {
+      console.log(`[SyncBackground] ℹ️ ${pedidosIgnorados.length} pedidos ignorados (Status incorreto):`,
+        pedidosIgnorados.slice(0, 5).map(p => `${p.id} (Status: ${p.situacao})`)
+      );
+    }
 
     // Limpar cache no início da sincronização
     clearCache();
