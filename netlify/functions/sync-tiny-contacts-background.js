@@ -164,9 +164,8 @@ exports.handler = async (event, context) => {
             params: {
               limit: limit || 100, // ✅ API v3 usa 'limit'
               offset: (currentPage - 1) * (limit || 100), // ✅ API v3 usa 'offset'
-              // ✅ Filtrar apenas clientes (perfilContato: 0 = cliente, 1 = fornecedor, 2 = transportadora)
-              // Comentado para testar primeiro sem filtro e ver o que vem
-              // perfilContato: 0,
+              // ✅ Filtrar apenas clientes (tipo: 'cliente' na API v3)
+              tipo: 'cliente', // Tiny API v3: 'cliente', 'fornecedor', 'transportadora'
             },
           }),
         });
@@ -258,35 +257,40 @@ exports.handler = async (event, context) => {
         return false;
       }
 
-      // 🚨 REGRA 2: Ignorar Fornecedores (Lógica Aprimorada)
-      const tipos = contato.tipos || [];
-      const descricoesTipos = tipos.map(t => (t.descricao || t.tipo || '').toLowerCase());
+      // 🚨 REGRA 2: Ignorar Fornecedores (Lógica Robusta)
+      // Verificar tipo do contato (API v3 retorna 'tipo')
       const tipoContato = (contato.tipo || '').toLowerCase();
 
-      const isFornecedor =
-        descricoesTipos.some(d => d.includes('fornecedor') || d.includes('supplier')) ||
-        tipoContato.includes('fornecedor') ||
-        tipoContato.includes('supplier') ||
-        nome.includes('INDUSTRIA') ||
-        nome.includes('COMERCIO') ||
-        nome.includes('LTDA') ||
-        nome.includes('S.A') ||
-        nome.includes('S/A') ||
-        nome.includes('EIRELI');
-
-      if (isFornecedor) {
-        if (index < 10) console.log(`[SyncContactsBackground] 🏭 Ignorado (Fornecedor): ${contato.nome}`);
+      // Se o tipo for explicitamente 'fornecedor', ignorar
+      if (tipoContato === 'fornecedor' || tipoContato === 'supplier') {
+        if (index < 10) console.log(`[SyncContactsBackground] 🏭 Ignorado (Tipo Fornecedor): ${contato.nome}`);
         return false;
+      }
+
+      // Verificar se o nome parece ser de empresa (CNPJ tem 14 dígitos)
+      const isCNPJ = cpfCnpj.length === 14;
+      if (isCNPJ) {
+        // Se é CNPJ e tem palavras-chave de empresa, provavelmente é fornecedor
+        const palavrasChaveEmpresa = ['INDUSTRIA', 'COMERCIO', 'LTDA', 'S.A', 'S/A', 'EIRELI', 'ME', 'EPP'];
+        const temPalavraChave = palavrasChaveEmpresa.some(palavra => nome.includes(palavra));
+
+        if (temPalavraChave) {
+          if (index < 10) console.log(`[SyncContactsBackground] 🏭 Ignorado (CNPJ Empresa): ${contato.nome}`);
+          return false;
+        }
       }
 
       return true;
     }).map(contatoData => {
       const contato = contatoData.contato || contatoData;
-      // Normalizar dados antes de salvar
+      // ✅ Usar função de normalização importada (mais robusta)
+      const telefoneRaw = contato.telefone || contato.celular || contato.fone;
+      const cpfCnpjRaw = contato.cpfCnpj || contato.cpf_cnpj;
+
       return {
         ...contato,
-        telefone: normalizePhone(contato.telefone || contato.celular || contato.fone),
-        cpf_cnpj: (contato.cpfCnpj || contato.cpf_cnpj || '').replace(/\D/g, '')
+        telefone: normalizeTelefone(telefoneRaw), // ✅ Usa função importada
+        cpf_cnpj: normalizeCPFCNPJ(cpfCnpjRaw) // ✅ Usa função importada
       };
     });
 
