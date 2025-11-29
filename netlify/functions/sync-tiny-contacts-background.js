@@ -143,13 +143,18 @@ exports.handler = async (event, context) => {
     // Buscar contatos do Tiny ERP
     const proxyUrl = `${process.env.URL || 'https://eleveaone.com.br'}/.netlify/functions/erp-api-proxy`;
 
-    let allContatos = [];
+    // ✅ NOVA ESTRATÉGIA: Buscar em 2 etapas
+    // Etapa 1: Buscar lista de IDs (sem paginação, apenas primeira página)
+    // Etapa 2: Para cada ID, buscar detalhes completos
+
+    console.log(`[SyncContactsBackground] 📋 ETAPA 1: Buscando lista de IDs...`);
+
+    let allContatoIds = [];
     let currentPage = 1;
-    const maxPages = max_pages || (hard_sync ? 9999 : 50);
+    const maxPages = hard_sync ? 10 : 1; // Hard sync: tentar até 10 páginas, normal: apenas 1
     let hasMore = true;
 
-    console.log(`[SyncContactsBackground] 📅 Buscando contatos (hard_sync: ${hard_sync}, max_pages: ${max_pages})`);
-
+    // Etapa 1: Buscar IDs
     while (hasMore && currentPage <= maxPages) {
       try {
         const requestBody = {
@@ -157,90 +162,103 @@ exports.handler = async (event, context) => {
           endpoint: '/contatos',
           method: 'GET',
           params: {
-            limit: limit || 100,
-            offset: (currentPage - 1) * (limit || 100),
-            // ✅ DEBUG: SEM filtros para ver se retorna algo
+            limit: 100,
+            offset: (currentPage - 1) * 100,
           },
         };
 
-        console.log(`[SyncContactsBackground] 🔍 Chamando proxy com:`, JSON.stringify(requestBody));
+        console.log(`[SyncContactsBackground] 📄 Buscando página ${currentPage} de IDs...`);
 
         const response = await fetch(proxyUrl, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Erro ao buscar contatos: ${errorText}`);
+          console.error(`[SyncContactsBackground] ❌ Erro HTTP ${response.status}`);
+          break;
         }
 
         const result = await response.json();
+        const contatos = result.itens || [];
 
-        // ✅ LOG ULTRA DETALHADO para debug
-        console.log(`[SyncContactsBackground] 🔍 RESPOSTA COMPLETA DA API:`, JSON.stringify(result).substring(0, 1000));
-        console.log(`[SyncContactsBackground] 🔍 Chaves da resposta:`, Object.keys(result));
-        console.log(`[SyncContactsBackground] 🔍 Tipo de result.itens:`, Array.isArray(result.itens) ? 'Array' : typeof result.itens);
-        console.log(`[SyncContactsBackground] 🔍 Tipo de result.contatos:`, Array.isArray(result.contatos) ? 'Array' : typeof result.contatos);
-
-        // Tiny ERP v3 retorna dados em { itens: [...], paginacao: {...} }
-        const contatos = result.itens || result.contatos || [];
-
-        // ✅ Log de IDs para debug
-        if (contatos.length > 0) {
-          const firstId = contatos[0]?.contato?.id || contatos[0]?.id || 'N/A';
-          const lastId = contatos[contatos.length - 1]?.contato?.id || contatos[contatos.length - 1]?.id || 'N/A';
-          console.log(`[SyncContactsBackground] 🔍 IDs da Página ${currentPage}: Primeiro=${firstId}, Último=${lastId}`);
+        if (contatos.length === 0) {
+          console.log(`[SyncContactsBackground] 🏁 Página ${currentPage} vazia, parando`);
+          break;
         }
 
-        allContatos = allContatos.concat(contatos);
+        // Extrair apenas IDs
+        const ids = contatos.map(c => c.id).filter(id => id);
+        allContatoIds = allContatoIds.concat(ids);
 
-        // Verificar se há mais páginas - API v3 retorna { itens: [...], paginacao: { limit, offset, total } }
-        const paginacao = result.paginacao || {};
-        const totalRegistros = paginacao.total || paginacao.totalRegistros || paginacao.total_registros || 0;
+        console.log(`[SyncContactsBackground] ✅ Página ${currentPage}: ${ids.length} IDs coletados (total: ${allContatoIds.length})`);
 
-        // Calcular total de páginas baseado no total de registros
-        let totalPaginas = 0;
-        if (totalRegistros > 0) {
-          totalPaginas = Math.ceil(totalRegistros / (limit || 100));
-        }
-
-        // ✅ Log detalhado de paginação
-        console.log(`[SyncContactsBackground] 📊 Paginação: página atual=${currentPage}, total páginas=${totalPaginas}, total registros=${totalRegistros}, já processados=${allContatos.length}`);
-
-        // Verificar se devemos continuar
-        if (contatos.length < (limit || 100)) {
-          // Se retornou menos que o limite, acabou
-          console.log(`[SyncContactsBackground] 🏁 Fim da paginação: retornou ${contatos.length} itens (menor que limite ${limit || 100})`);
+        // Se retornou menos que 100, acabou
+        if (contatos.length < 100) {
           hasMore = false;
-        } else if (totalPaginas > 0) {
-          // Se temos total de páginas, verificar se chegamos ao fim
-          hasMore = currentPage < totalPaginas && currentPage < maxPages;
-          console.log(`[SyncContactsBackground] 📊 Usando paginação: ${currentPage}/${totalPaginas}, hasMore=${hasMore}`);
-        } else {
-          // Fallback: continua enquanto vierem itens cheios
-          hasMore = contatos.length >= (limit || 100) && currentPage < maxPages;
         }
-
-        console.log(`[SyncContactsBackground] 📄 Página ${currentPage}: ${contatos.length} contatos encontrados`);
 
         currentPage++;
 
-        // ✅ Rate Limiting: Aguardar 1 segundo entre páginas para evitar 429 Too Many Requests
+        // Rate limiting
         if (hasMore) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
 
       } catch (error) {
-        console.error(`[SyncContactsBackground] ❌ Erro ao buscar página ${currentPage}:`, error);
-        hasMore = false;
+        console.error(`[SyncContactsBackground] ❌ Erro na página ${currentPage}:`, error);
+        break;
       }
     }
 
-    console.log(`[SyncContactsBackground] 📊 Total de ${allContatos.length} contatos encontrados`);
+    console.log(`[SyncContactsBackground] 📊 ETAPA 1 CONCLUÍDA: ${allContatoIds.length} IDs coletados`);
+
+    // Etapa 2: Buscar detalhes completos de cada contato
+    console.log(`[SyncContactsBackground] 📋 ETAPA 2: Buscando detalhes completos...`);
+
+    let allContatos = [];
+    for (let i = 0; i < allContatoIds.length; i++) {
+      const contatoId = allContatoIds[i];
+
+      try {
+        // Log a cada 20 contatos
+        if (i % 20 === 0) {
+          console.log(`[SyncContactsBackground] ⏳ Buscando detalhes ${i + 1}/${allContatoIds.length}...`);
+        }
+
+        const response = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            storeId: store_id,
+            endpoint: `/contatos/${contatoId}`,
+            method: 'GET',
+            params: {},
+          }),
+        });
+
+        if (!response.ok) {
+          console.error(`[SyncContactsBackground] ❌ Erro ao buscar contato ${contatoId}: HTTP ${response.status}`);
+          continue;
+        }
+
+        const contatoCompleto = await response.json();
+
+        // A API retorna o contato diretamente (não em wrapper)
+        if (contatoCompleto && contatoCompleto.id) {
+          allContatos.push(contatoCompleto);
+        }
+
+        // Rate limiting: 100ms entre requisições
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+      } catch (error) {
+        console.error(`[SyncContactsBackground] ❌ Erro ao buscar contato ${contatoId}:`, error);
+      }
+    }
+
+    console.log(`[SyncContactsBackground] 📊 ETAPA 2 CONCLUÍDA: ${allContatos.length} contatos completos obtidos`);
 
     // Função auxiliar para normalizar telefone
     const normalizePhone = (phone) => {
