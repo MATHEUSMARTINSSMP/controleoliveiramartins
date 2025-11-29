@@ -182,9 +182,25 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
             if (novosSemDuplicados.length > 0 && !isFirstLoad) {
               console.log(`[AUTO-REFRESH] 🔔 Mostrando ${novosSemDuplicados.length} notificações`);
               novosSemDuplicados.forEach((novoPedido) => {
+                // ✅ Notificação Sonner (Minimalista)
                 sonnerToast.success("🎉 Nova Venda!", {
                   description: `Pedido ${novoPedido.numero_pedido || novoPedido.tiny_id} - ${novoPedido.cliente_nome || 'Cliente'} - ${formatCurrency(novoPedido.valor_total || 0)}`,
                   duration: 5000,
+                });
+
+                // ✅ Notificação Toast (Balãozinho - Shadcn UI)
+                // O usuário prefere este estilo visual
+                toast({
+                  title: "🎉 Nova Venda Detectada!",
+                  description: (
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium">{novoPedido.cliente_nome || 'Cliente'}</span>
+                      <span>Pedido #{novoPedido.numero_pedido || novoPedido.tiny_id}</span>
+                      <span className="font-bold text-green-600">{formatCurrency(novoPedido.valor_total || 0)}</span>
+                    </div>
+                  ),
+                  duration: 5000,
+                  className: "bg-white border-green-500 border-l-4 shadow-lg",
                 });
               });
             } else if (isFirstLoad) {
