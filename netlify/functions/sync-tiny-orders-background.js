@@ -327,10 +327,13 @@ exports.handler = async (event, context) => {
             break;
           }
 
-          // ✅ FILTRAR: Pegar apenas pedidos com número MAIOR que o último conhecido
+          // ✅ FILTRAR: Pegar apenas pedidos com número MAIOR que o último conhecido E situação correta
           const pedidosNovos = pedidos.filter(p => {
-            const numeroPedido = parseInt(String(p.numeroPedido || p.numero_pedido || p.pedido?.numeroPedido || 0));
-            return numeroPedido > ultimo_numero_conhecido;
+            const pedido = p.pedido || p;
+            const numeroPedido = parseInt(String(pedido.numeroPedido || pedido.numero_pedido || pedido.numero || 0));
+            const situacao = Number(pedido.situacao || p.situacao || 0);
+            // ✅ Apenas pedidos novos (número > último conhecido) E situação Aprovado (1) ou Faturado (3)
+            return numeroPedido > ultimo_numero_conhecido && (situacao === 1 || situacao === 3);
           });
 
           console.log(`[SyncBackground] 📊 Página ${currentPage}: ${pedidos.length} pedidos retornados, ${pedidosNovos.length} são novos (número > ${ultimo_numero_conhecido})`);
@@ -338,7 +341,8 @@ exports.handler = async (event, context) => {
           // ✅ PARAR IMEDIATAMENTE se encontrou um pedido com número <= último conhecido
           // Isso significa que já passamos de todos os pedidos novos
           const temPedidoAntigo = pedidos.some(p => {
-            const numeroPedido = parseInt(String(p.numeroPedido || p.numero_pedido || p.pedido?.numeroPedido || 0));
+            const pedido = p.pedido || p;
+            const numeroPedido = parseInt(String(pedido.numeroPedido || pedido.numero_pedido || pedido.numero || 0));
             return numeroPedido <= ultimo_numero_conhecido;
           });
 
