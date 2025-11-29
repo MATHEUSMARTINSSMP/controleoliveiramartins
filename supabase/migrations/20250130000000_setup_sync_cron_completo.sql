@@ -16,11 +16,31 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  supabase_url TEXT := 'https://kktsbnrnlnzyofupegjc.supabase.co';
-  service_role_key TEXT := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrdHNibnJubG56eW9mdXBlZ2pjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDc5NTAyNiwiZXhwIjoyMDc2MzcxMDI2fQ.C4bs65teQiC4cQNgRfFjDmmT27dCkEoS_H3eQFmdl3s';
+  supabase_url TEXT;
+  service_role_key TEXT;
   request_id BIGINT;
   body_json JSONB;
 BEGIN
+  -- ✅ Buscar configurações da tabela app_config (sem expor chaves no código)
+  SELECT value INTO supabase_url
+  FROM sistemaretiradas.app_config
+  WHERE key = 'supabase_url'
+  LIMIT 1;
+  
+  SELECT value INTO service_role_key
+  FROM sistemaretiradas.app_config
+  WHERE key = 'supabase_service_role_key'
+  LIMIT 1;
+  
+  -- ✅ Fallback: usar valores padrão se não estiverem configurados
+  IF supabase_url IS NULL OR supabase_url = '' THEN
+    supabase_url := 'https://kktsbnrnlnzyofupegjc.supabase.co';
+  END IF;
+  
+  IF service_role_key IS NULL OR service_role_key = '' THEN
+    RAISE EXCEPTION 'Service Role Key não configurada. Execute: INSERT INTO sistemaretiradas.app_config (key, value) VALUES (''supabase_service_role_key'', ''SEU_KEY_AQUI'');';
+  END IF;
+  
   -- Construir body com tipo de sincronização
   body_json := jsonb_build_object('tipo_sync', p_tipo_sync);
   
