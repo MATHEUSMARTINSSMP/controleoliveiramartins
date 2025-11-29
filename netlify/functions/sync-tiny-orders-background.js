@@ -189,13 +189,16 @@ exports.handler = async (event, context) => {
         dataInicioSync = '01/01/2000';
         console.log(`[SyncBackground] 🔥 HARD SYNC: Buscando desde ${dataInicioSync}`);
       } else {
-        // Sincronização normal: últimas 12 horas
-        const dozeHorasAtras = new Date();
-        dozeHorasAtras.setHours(dozeHorasAtras.getHours() - 12);
+        // Sincronização normal: últimos 5 dias
+        // Motivo: Pedidos podem ser criados num dia e aprovados dias depois.
+        // Como temos a verificação "Skip Existing", podemos buscar um período maior sem custo.
+        const cincoDiasAtras = new Date();
+        cincoDiasAtras.setDate(cincoDiasAtras.getDate() - 5);
+
         // Formatar para dd/mm/yyyy
-        const dia = String(dozeHorasAtras.getDate()).padStart(2, '0');
-        const mes = String(dozeHorasAtras.getMonth() + 1).padStart(2, '0');
-        const ano = dozeHorasAtras.getFullYear();
+        const dia = String(cincoDiasAtras.getDate()).padStart(2, '0');
+        const mes = String(cincoDiasAtras.getMonth() + 1).padStart(2, '0');
+        const ano = cincoDiasAtras.getFullYear();
         dataInicioSync = `${dia}/${mes}/${ano}`;
       }
     }
