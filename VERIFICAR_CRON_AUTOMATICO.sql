@@ -45,23 +45,31 @@ FROM pg_proc
 WHERE proname = 'chamar_sync_tiny_orders'
   AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'sistemaretiradas');
 
--- 4. Verificar logs de sincronização (últimas 10)
+-- 4. Verificar estrutura da tabela erp_sync_logs
+SELECT 
+  '=== ESTRUTURA DA TABELA erp_sync_logs ===' as info;
+
+SELECT 
+  column_name,
+  data_type,
+  is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'sistemaretiradas'
+  AND table_name = 'erp_sync_logs'
+ORDER BY ordinal_position;
+
+-- 5. Verificar logs de sincronização (últimas 10)
 SELECT 
   '=== LOGS DE SINCRONIZAÇÃO (últimas 10) ===' as info;
 
 SELECT 
-  tipo_sync,
-  status,
-  registros_sincronizados,
-  registros_atualizados,
-  created_at,
-  error_message
+  *
 FROM sistemaretiradas.erp_sync_logs
 WHERE tipo_sync = 'incremental_1min'
 ORDER BY created_at DESC
 LIMIT 10;
 
--- 5. Verificar último pedido no banco vs API
+-- 6. Verificar último pedido no banco vs API
 SELECT 
   '=== ÚLTIMO PEDIDO NO BANCO ===' as info;
 
