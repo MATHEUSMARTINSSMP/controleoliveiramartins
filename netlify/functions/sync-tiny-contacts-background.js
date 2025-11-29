@@ -181,6 +181,11 @@ exports.handler = async (event, context) => {
         }
 
         const result = await response.json();
+
+        // ✅ DEBUG: Ver o que está sendo retornado
+        console.log(`[SyncContactsBackground] 🔍 Resposta da API:`, JSON.stringify(result).substring(0, 500));
+        console.log(`[SyncContactsBackground] 🔍 result.itens:`, result.itens ? `Array com ${result.itens.length} itens` : typeof result.itens);
+
         const contatos = result.itens || [];
 
         if (contatos.length === 0) {
