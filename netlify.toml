@@ -27,9 +27,10 @@
 # ============================================================================
 # CRON JOB: Sincronização Automática de Pedidos
 # ============================================================================
-# Roda a cada 1 minuto (intervalo mínimo do Netlify)
-# Busca novos pedidos do Tiny ERP e sincroniza com Supabase
-# Gera cashback automaticamente via trigger
-# NOTIFICAÇÃO QUASE PUSH - INEGOCIÁVEL
-[functions."sync-orders-cron"]
-  schedule = "* * * * *"
+# ❌ REMOVIDO: Todos os crons foram movidos para pg_cron no Supabase
+# A sincronização automática agora é gerenciada via pg_cron no Supabase
+# para melhor controle e flexibilidade
+# 
+# Sincronizações manuais continuam disponíveis no dashboard ERP
+# [functions."sync-orders-cron"]
+#   schedule = "* * * * *"

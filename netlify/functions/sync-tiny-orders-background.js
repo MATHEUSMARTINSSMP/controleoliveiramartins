@@ -98,7 +98,21 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const { store_id, storeId: inputStoreId, data_inicio, incremental = true, limit = 500, max_pages = 999999, hard_sync = false, mode } = body;
+    const { 
+      store_id, 
+      storeId: inputStoreId, 
+      data_inicio, 
+      incremental = true, 
+      limit = 500, 
+      max_pages = 999999, 
+      hard_sync = false, 
+      mode,
+      ultimo_numero_conhecido, // ✅ NOVO: Último número de pedido conhecido no banco
+      modo_incremental_otimizado = false, // ✅ NOVO: Flag para modo otimizado
+      tipo_sync, // ✅ NOVO: Tipo de sincronização (incremental_1min, ultima_hora, etc.)
+      apenas_novas_vendas = false, // ✅ NOVO: Apenas vendas novas (não atualizar existentes)
+      apenas_atualizacoes = false, // ✅ NOVO: Apenas atualizações (não criar novos)
+    } = body;
 
     // ✅ CORREÇÃO: Unificar store_id e storeId numa única variável válida
     const storeId = store_id || inputStoreId;
@@ -112,7 +126,9 @@ exports.handler = async (event, context) => {
       incremental,
       limit,
       max_pages,
-      hard_sync
+      hard_sync,
+      ultimo_numero_conhecido,
+      modo_incremental_otimizado
     });
 
     if (!finalStoreId) {
@@ -181,29 +197,37 @@ exports.handler = async (event, context) => {
     // Usar o proxy Netlify Function para evitar CORS
     const proxyUrl = `${process.env.URL || 'https://eleveaone.com.br'}/.netlify/functions/erp-api-proxy`;
 
-    // ✅ Calcular data de início se não fornecida
+    // ✅ NOVA LÓGICA: Modo incremental otimizado busca apenas pedidos novos
     let dataInicioSync = data_inicio;
-    if (!dataInicioSync) {
+    let usarBuscaIncrementalOtimizada = modo_incremental_otimizado && ultimo_numero_conhecido !== null && ultimo_numero_conhecido !== undefined;
+    
+    if (usarBuscaIncrementalOtimizada) {
+      console.log(`[SyncBackground] 🎯 MODO INCREMENTAL OTIMIZADO: Buscando apenas pedidos com número > ${ultimo_numero_conhecido}`);
+      // Não usar data_inicio no modo otimizado, vamos buscar por número de pedido
+      dataInicioSync = null; // Será ignorado, vamos usar filtro por número
+    } else if (!dataInicioSync) {
       if (hard_sync) {
         // Hard sync: desde 01/01/2000 (formato dd/mm/yyyy para Tiny API)
         dataInicioSync = '01/01/2000';
         console.log(`[SyncBackground] 🔥 HARD SYNC: Buscando desde ${dataInicioSync}`);
       } else {
-        // Sincronização normal: últimos 5 dias
+        // ✅ SINCRONIZAÇÃO MANUAL: Se não especificou data e não é hard sync, usar últimos 7 dias
+        // Isso é para sincronizações manuais do frontend, não para automáticas
+        // Sincronizações automáticas usam modo_incremental_otimizado (sem filtro de data)
         // Motivo: Pedidos podem ser criados num dia e aprovados dias depois.
-        // Como temos a verificação "Skip Existing", podemos buscar um período maior sem custo.
-        const cincoDiasAtras = new Date();
-        cincoDiasAtras.setDate(cincoDiasAtras.getDate() - 5);
+        const seteDiasAtras = new Date();
+        seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
 
         // Formatar para dd/mm/yyyy
-        const dia = String(cincoDiasAtras.getDate()).padStart(2, '0');
-        const mes = String(cincoDiasAtras.getMonth() + 1).padStart(2, '0');
-        const ano = cincoDiasAtras.getFullYear();
+        const dia = String(seteDiasAtras.getDate()).padStart(2, '0');
+        const mes = String(seteDiasAtras.getMonth() + 1).padStart(2, '0');
+        const ano = seteDiasAtras.getFullYear();
         dataInicioSync = `${dia}/${mes}/${ano}`;
+        console.log(`[SyncBackground] 📅 SINCRONIZAÇÃO MANUAL: Buscando últimos 7 dias (desde ${dataInicioSync})`);
       }
     }
 
-    console.log(`[SyncBackground] 📅 Buscando pedidos desde: ${dataInicioSync} (hard_sync: ${hard_sync}, max_pages: ${max_pages})`);
+    console.log(`[SyncBackground] 📅 Buscando pedidos desde: ${dataInicioSync || 'modo incremental otimizado'} (hard_sync: ${hard_sync}, max_pages: ${max_pages}, ultimo_conhecido: ${ultimo_numero_conhecido || 'N/A'})`);
 
     // ✅ HARD SYNC: Processar diretamente chamando a função normalmente
     // O problema do background assíncrono é que Netlify pode encerrar o contexto
@@ -249,73 +273,183 @@ exports.handler = async (event, context) => {
       }
     }
 
-    // Buscar pedidos do Tiny ERP
+    // ✅ BUSCA INCREMENTAL OTIMIZADA: Buscar apenas pedidos novos desde último conhecido
     let allPedidos = [];
     let currentPage = 1;
-    const maxPages = max_pages || (hard_sync ? 999999 : 999999); // SEM LIMITE de páginas
+    const maxPages = max_pages || (hard_sync ? 999999 : 999999);
     let hasMore = true;
+    let encontrouUltimoConhecido = false;
 
-    while (hasMore && currentPage <= maxPages) {
-      try {
-        const response = await fetch(proxyUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            storeId: finalStoreId, // ✅ CORREÇÃO: Usar finalStoreId que trata store_id/storeId
-            endpoint: '/pedidos',
-            method: 'GET',
-            params: {
-              dataInicio: dataInicioSync,
-              pagina: currentPage,
-              limite: limit || 500,
+    if (usarBuscaIncrementalOtimizada) {
+      console.log(`[SyncBackground] 🎯 MODO INCREMENTAL OTIMIZADO: Buscando pedidos em ordem crescente desde número ${ultimo_numero_conhecido}`);
+      console.log(`[SyncBackground] ⚠️ IMPORTANTE: Modo incremental NÃO usa filtro de data. Busca apenas por número de pedido.`);
+      console.log(`[SyncBackground] ⚠️ Para buscar últimos 7 dias, use sincronização MANUAL (não automática).`);
+      
+      // ✅ MODO INCREMENTAL OTIMIZADO: Buscar apenas por número de pedido, SEM filtro de data
+      // Isso garante que encontramos TODOS os pedidos novos, mesmo que tenham sido criados há mais tempo
+      // A parada acontece quando encontra pedido com número <= último conhecido
+      // Buscar pedidos em ordem crescente (ASC) para encontrar apenas os novos
+      while (hasMore && currentPage <= maxPages && !encontrouUltimoConhecido) {
+        try {
+          const response = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
             },
-          }),
-        });
+            body: JSON.stringify({
+              storeId: finalStoreId,
+              endpoint: '/pedidos',
+              method: 'GET',
+              params: {
+                situacao: '1,3', // Apenas Aprovado (1) e Faturado (3)
+                // ✅ SEM filtro de data - busca incremental por número de pedido apenas
+                ordenar: 'numeroPedido|ASC', // ✅ ORDEM CRESCENTE para buscar desde o último conhecido
+                pagina: currentPage,
+                limite: limit || 100,
+              },
+            }),
+          });
 
-        console.log(`[SyncBackground] 📡 Chamando API Tiny - Página ${currentPage}, Data: ${dataInicioSync}, Limite: ${limit || 500}`);
+          console.log(`[SyncBackground] 📡 [OTIMIZADO] Chamando API Tiny - Página ${currentPage}, Ordem: ASC, Limite: ${limit || 100}`);
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Erro ao buscar pedidos: ${errorText}`);
-        }
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Erro ao buscar pedidos: ${errorText}`);
+          }
 
-        const result = await response.json();
+          const result = await response.json();
+          const pedidos = result.itens || result.pedidos || [];
 
-        // Tiny ERP v3 retorna dados em { itens: [...], paginacao: {...} }
-        const pedidos = result.itens || result.pedidos || [];
+          if (pedidos.length === 0) {
+            console.log(`[SyncBackground] ✅ Fim dos dados: página ${currentPage} retornou 0 pedidos`);
+            hasMore = false;
+            break;
+          }
 
-        // ✅ PARAR se página retornou 0 pedidos
-        if (pedidos.length === 0) {
-          console.log(`[SyncBackground] ✅ Fim dos dados: página ${currentPage} retornou 0 pedidos`);
+          // ✅ FILTRAR: Pegar apenas pedidos com número MAIOR que o último conhecido
+          const pedidosNovos = pedidos.filter(p => {
+            const numeroPedido = parseInt(String(p.numeroPedido || p.numero_pedido || p.pedido?.numeroPedido || 0));
+            return numeroPedido > ultimo_numero_conhecido;
+          });
+
+          console.log(`[SyncBackground] 📊 Página ${currentPage}: ${pedidos.length} pedidos retornados, ${pedidosNovos.length} são novos (número > ${ultimo_numero_conhecido})`);
+
+          // ✅ PARAR IMEDIATAMENTE se encontrou um pedido com número <= último conhecido
+          // Isso significa que já passamos de todos os pedidos novos
+          const temPedidoAntigo = pedidos.some(p => {
+            const numeroPedido = parseInt(String(p.numeroPedido || p.numero_pedido || p.pedido?.numeroPedido || 0));
+            return numeroPedido <= ultimo_numero_conhecido;
+          });
+
+          if (temPedidoAntigo) {
+            console.log(`[SyncBackground] ✅ Encontrou pedido antigo (número <= ${ultimo_numero_conhecido}). Todos os novos já foram coletados. PARANDO BUSCA.`);
+            encontrouUltimoConhecido = true;
+            hasMore = false;
+            // ✅ Adicionar apenas os novos antes de parar
+            if (pedidosNovos.length > 0) {
+              allPedidos = allPedidos.concat(pedidosNovos);
+            }
+            break;
+          }
+
+          // Se encontrou pedidos novos, adicionar à lista
+          if (pedidosNovos.length > 0) {
+            allPedidos = allPedidos.concat(pedidosNovos);
+          }
+          
+          // ✅ OTIMIZAÇÃO: Se não encontrou nenhum pedido novo nesta página, pode parar
+          // (significa que todos os pedidos nesta página são antigos ou já processados)
+          if (pedidosNovos.length === 0 && pedidos.length > 0) {
+            console.log(`[SyncBackground] ⚠️ Página ${currentPage} não tem pedidos novos. Todos os pedidos são antigos (número <= ${ultimo_numero_conhecido}). PARANDO BUSCA.`);
+            encontrouUltimoConhecido = true;
+            hasMore = false;
+            break;
+          }
+
+          // Se retornou menos que o limite, acabou
+          if (pedidos.length < (limit || 100)) {
+            hasMore = false;
+            break;
+          }
+
+          currentPage++;
+
+          // Rate limiting
+          if (hasMore) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+
+        } catch (error) {
+          console.error(`[SyncBackground] ❌ Erro ao buscar página ${currentPage}:`, error);
           hasMore = false;
-          break;
         }
+      }
 
-        allPedidos = allPedidos.concat(pedidos);
+      console.log(`[SyncBackground] ✅ Busca incremental otimizada concluída: ${allPedidos.length} pedidos novos encontrados`);
+    } else {
+      // ✅ MODO NORMAL: Buscar por data (comportamento original)
+      while (hasMore && currentPage <= maxPages) {
+        try {
+          const response = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              storeId: finalStoreId,
+              endpoint: '/pedidos',
+              method: 'GET',
+              params: {
+                dataInicio: dataInicioSync,
+                pagina: currentPage,
+                limite: limit || 500,
+              },
+            }),
+          });
 
-        // Verificar se há mais páginas
-        const paginacao = result.paginacao || {};
-        const totalPaginas = paginacao.totalPaginas || paginacao.total_paginas || 0;
-        const paginaAtual = paginacao.paginaAtual || paginacao.pagina || currentPage;
+          console.log(`[SyncBackground] 📡 Chamando API Tiny - Página ${currentPage}, Data: ${dataInicioSync}, Limite: ${limit || 500}`);
 
-        // ✅ Usar totalPaginas da API se disponível
-        if (totalPaginas > 0) {
-          hasMore = paginaAtual < totalPaginas && currentPage < maxPages;
-          console.log(`[SyncBackground] 📊 Paginação API: ${paginaAtual}/${totalPaginas}, continuar=${hasMore}`);
-        } else {
-          // Se API não retornar totalPaginas, continuar até página vazia
-          hasMore = currentPage < maxPages;
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Erro ao buscar pedidos: ${errorText}`);
+          }
+
+          const result = await response.json();
+
+          // Tiny ERP v3 retorna dados em { itens: [...], paginacao: {...} }
+          const pedidos = result.itens || result.pedidos || [];
+
+          // ✅ PARAR se página retornou 0 pedidos
+          if (pedidos.length === 0) {
+            console.log(`[SyncBackground] ✅ Fim dos dados: página ${currentPage} retornou 0 pedidos`);
+            hasMore = false;
+            break;
+          }
+
+          allPedidos = allPedidos.concat(pedidos);
+
+          // Verificar se há mais páginas
+          const paginacao = result.paginacao || {};
+          const totalPaginas = paginacao.totalPaginas || paginacao.total_paginas || 0;
+          const paginaAtual = paginacao.paginaAtual || paginacao.pagina || currentPage;
+
+          // ✅ Usar totalPaginas da API se disponível
+          if (totalPaginas > 0) {
+            hasMore = paginaAtual < totalPaginas && currentPage < maxPages;
+            console.log(`[SyncBackground] 📊 Paginação API: ${paginaAtual}/${totalPaginas}, continuar=${hasMore}`);
+          } else {
+            // Se API não retornar totalPaginas, continuar até página vazia
+            hasMore = currentPage < maxPages;
+          }
+
+          currentPage++;
+
+          console.log(`[SyncBackground] 📄 Página ${currentPage - 1}: ${pedidos.length} pedidos encontrados, total acumulado: ${allPedidos.length}`);
+
+        } catch (error) {
+          console.error(`[SyncBackground] ❌ Erro ao buscar página ${currentPage}:`, error);
+          hasMore = false;
         }
-
-        currentPage++;
-
-        console.log(`[SyncBackground] 📄 Página ${currentPage - 1}: ${pedidos.length} pedidos encontrados, total acumulado: ${allPedidos.length}`);
-
-      } catch (error) {
-        console.error(`[SyncBackground] ❌ Erro ao buscar página ${currentPage}:`, error);
-        hasMore = false;
       }
     }
 
@@ -356,28 +490,77 @@ exports.handler = async (event, context) => {
     for (const pedidoData of pedidosFaturados) {
       try {
         const pedido = pedidoData.pedido || pedidoData;
-        const tinyId = String(pedido.id || pedido.numeroPedido || `temp_${Date.now()}`);
+        
+        // ✅ CORREÇÃO CRÍTICA: Usar numeroPedido como identificador principal (mais estável)
+        // O numeroPedido é o que o usuário vê e é mais confiável que o ID interno do Tiny
+        const numeroPedido = pedido.numeroPedido || pedido.numero_pedido || pedido.numero;
+        const tinyIdInterno = String(pedido.id || numeroPedido || `temp_${Date.now()}`);
+        
+        // ✅ Usar numeroPedido como tiny_id principal (compatibilidade com dados antigos)
+        const tinyId = numeroPedido ? String(numeroPedido) : tinyIdInterno;
 
-        console.log(`[SyncBackground] 📦 Processando pedido ${tinyId}...`);
+        console.log(`[SyncBackground] 📦 Processando pedido - ID Tiny: ${pedido.id}, Número: ${numeroPedido}, tiny_id: ${tinyId}...`);
 
-        // ✅ OTIMIZAÇÃO CRÍTICA: Verificar se pedido já existe
+        // ✅ OTIMIZAÇÃO CRÍTICA: Verificar se pedido já existe por numero_pedido (PRIMEIRO) ou tiny_id (FALLBACK)
         // REQUISITO DO USUÁRIO: "só quero que traga as vendas novas nessa background"
         // Se já existe, PULAR IMEDIATAMENTE. Não atualizar, não buscar detalhes.
         try {
-          const { data: existingOrderCheck } = await supabase
-            .schema('sistemaretiradas')
-            .from('orders')
-            .select('id') // Apenas ID basta para saber se existe
-            .eq('store_id', storeId)
-            .eq('tiny_id', tinyId)
-            .maybeSingle();
+          // ✅ PRIMEIRO: Verificar por numero_pedido (mais confiável)
+          let existingOrderCheck = null;
+          
+          if (numeroPedido) {
+            const { data: checkByNumero } = await supabase
+              .schema('sistemaretiradas')
+              .from('tiny_orders')
+              .select('id, tiny_id, numero_pedido')
+              .eq('store_id', storeId)
+              .eq('numero_pedido', String(numeroPedido))
+              .maybeSingle();
+            
+            if (checkByNumero) {
+              existingOrderCheck = checkByNumero;
+              console.log(`[SyncBackground] 🔍 Pedido encontrado por numero_pedido: ${numeroPedido} (tiny_id no banco: ${checkByNumero.tiny_id})`);
+            }
+          }
+          
+          // ✅ FALLBACK: Se não encontrou por numero_pedido, verificar por tiny_id (compatibilidade)
+          if (!existingOrderCheck) {
+            const { data: checkByTinyId } = await supabase
+              .schema('sistemaretiradas')
+              .from('tiny_orders')
+              .select('id, tiny_id, numero_pedido')
+              .eq('store_id', storeId)
+              .eq('tiny_id', tinyId)
+              .maybeSingle();
+            
+            if (checkByTinyId) {
+              existingOrderCheck = checkByTinyId;
+              console.log(`[SyncBackground] 🔍 Pedido encontrado por tiny_id: ${tinyId} (numero_pedido no banco: ${checkByTinyId.numero_pedido})`);
+            }
+          }
+          
+          // ✅ FALLBACK FINAL: Verificar por ID interno do Tiny (para dados muito antigos)
+          if (!existingOrderCheck && pedido.id) {
+            const { data: checkByTinyIdInterno } = await supabase
+              .schema('sistemaretiradas')
+              .from('tiny_orders')
+              .select('id, tiny_id, numero_pedido')
+              .eq('store_id', storeId)
+              .eq('tiny_id', String(pedido.id))
+              .maybeSingle();
+            
+            if (checkByTinyIdInterno) {
+              existingOrderCheck = checkByTinyIdInterno;
+              console.log(`[SyncBackground] 🔍 Pedido encontrado por ID interno Tiny: ${pedido.id} (numero_pedido no banco: ${checkByTinyIdInterno.numero_pedido})`);
+            }
+          }
 
           if (existingOrderCheck) {
-            console.log(`[SyncBackground] ⏩ Pedido ${tinyId} já existe. Pulando (foco em novas vendas)...`);
+            console.log(`[SyncBackground] ⏩ Pedido já existe (ID: ${existingOrderCheck.id}, tiny_id: ${existingOrderCheck.tiny_id}, numero_pedido: ${existingOrderCheck.numero_pedido}). Pulando (foco em novas vendas)...`);
             continue;
           }
         } catch (checkError) {
-          console.warn(`[SyncBackground] ⚠️ Erro ao verificar existência do pedido ${tinyId}:`, checkError);
+          console.warn(`[SyncBackground] ⚠️ Erro ao verificar existência do pedido:`, checkError);
         }
 
         // ✅ TAREFA 1: Buscar detalhes completos do pedido
@@ -437,14 +620,53 @@ exports.handler = async (event, context) => {
           }
         }
 
-        // ✅ TAREFA 7: Verificar se precisa atualizar
-        const { data: existingOrder } = await supabase
-          .schema('sistemaretiradas')
-          .from('tiny_orders')
-          .select('id, tiny_id, numero_pedido') // Selecionar campos para debug
-          .eq('store_id', storeId)
-          .eq('tiny_id', tinyId)
-          .maybeSingle();
+        // ✅ TAREFA 7: Verificar se precisa atualizar (usar mesma lógica de verificação)
+        let existingOrder = null;
+        
+        // Verificar por numero_pedido primeiro
+        if (numeroPedido) {
+          const { data: checkByNumero } = await supabase
+            .schema('sistemaretiradas')
+            .from('tiny_orders')
+            .select('id, tiny_id, numero_pedido, data_pedido, valor_total')
+            .eq('store_id', storeId)
+            .eq('numero_pedido', String(numeroPedido))
+            .maybeSingle();
+          
+          if (checkByNumero) {
+            existingOrder = checkByNumero;
+          }
+        }
+        
+        // Fallback: verificar por tiny_id
+        if (!existingOrder) {
+          const { data: checkByTinyId } = await supabase
+            .schema('sistemaretiradas')
+            .from('tiny_orders')
+            .select('id, tiny_id, numero_pedido, data_pedido, valor_total')
+            .eq('store_id', storeId)
+            .eq('tiny_id', tinyId)
+            .maybeSingle();
+          
+          if (checkByTinyId) {
+            existingOrder = checkByTinyId;
+          }
+        }
+        
+        // Fallback final: verificar por ID interno
+        if (!existingOrder && pedido.id) {
+          const { data: checkByTinyIdInterno } = await supabase
+            .schema('sistemaretiradas')
+            .from('tiny_orders')
+            .select('id, tiny_id, numero_pedido, data_pedido, valor_total')
+            .eq('store_id', storeId)
+            .eq('tiny_id', String(pedido.id))
+            .maybeSingle();
+          
+          if (checkByTinyIdInterno) {
+            existingOrder = checkByTinyIdInterno;
+          }
+        }
 
         // ✅ TAREFA 6 (MOVIDA): Preparar dados do pedido completo (agora com existingOrder)
         const orderData = prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId, colaboradoraId, itensProcessados, tinyId, existingOrder);
@@ -466,11 +688,19 @@ exports.handler = async (event, context) => {
 
         // ✅ TAREFA 8: Salvar pedido completo
         let orderSavedId = null;
+        
+        // ✅ Garantir que numero_pedido não seja NULL para upsert funcionar
+        if (!orderData.numero_pedido) {
+          console.warn(`[SyncBackground] ⚠️ Pedido ${pedido.id} não tem numero_pedido. Usando ID interno como fallback.`);
+          orderData.numero_pedido = String(pedido.id);
+          orderData.tiny_id = String(pedido.id);
+        }
+        
         const { error: upsertError, data: savedOrder } = await supabase
           .schema('sistemaretiradas')
           .from('tiny_orders')
           .upsert(orderData, {
-            onConflict: 'tiny_id,store_id',
+            onConflict: 'numero_pedido,store_id', // ✅ Usar numero_pedido como chave de conflito (mais confiável)
           })
           .select('id')
           .single();
@@ -1693,10 +1923,16 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     ? existingOrder.data_pedido
     : dataPedido;
 
+  // ✅ GARANTIR que numero_pedido sempre tenha valor (necessário para upsert)
+  const numeroPedidoFinal = (pedido.numeroPedido || pedido.numero)?.toString() || 
+                            (pedidoCompleto?.numeroPedido || pedidoCompleto?.numero)?.toString() || 
+                            String(pedido.id) || // Fallback: usar ID interno se não tiver numeroPedido
+                            null;
+  
   const orderData = {
     store_id: storeId,
-    tiny_id: tinyId,
-    numero_pedido: (pedido.numeroPedido || pedido.numero)?.toString() || null,
+    tiny_id: numeroPedidoFinal || tinyId, // ✅ Usar numeroPedido como tiny_id principal
+    numero_pedido: numeroPedidoFinal, // ✅ Garantir que sempre tenha valor
     numero_ecommerce: (pedido.ecommerce?.numeroPedidoEcommerce || pedido.numero_ecommerce)?.toString() || null,
     situacao: pedido.situacao?.toString() || null,
     data_pedido: finalDataPedido,

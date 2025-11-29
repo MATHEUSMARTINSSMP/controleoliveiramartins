@@ -28,14 +28,14 @@ interface SyncResult {
 
 /**
  * Verifica se há nova venda comparando último pedido no banco vs API
- * Retorna true se há nova venda, false caso contrário
+ * Retorna objeto com: { temNovaVenda: boolean, ultimoNumeroConhecido: number | null }
  * Esta função implementa POLLING INTELIGENTE para evitar requisições desnecessárias
  */
 async function verificarNovaVenda(
   supabase: any,
   storeId: string,
   netlifyUrl: string
-): Promise<boolean> {
+): Promise<{ temNovaVenda: boolean; ultimoNumeroConhecido: number | null }> {
   try {
     console.log(`[SyncTiny] 🔍 Verificando se há nova venda para loja ${storeId}...`);
 
@@ -50,8 +50,12 @@ async function verificarNovaVenda(
       .limit(1)
       .single();
 
+    const ultimoNumeroConhecido = ultimoPedidoBanco?.numero_pedido 
+      ? parseInt(String(ultimoPedidoBanco.numero_pedido)) 
+      : null;
+
     console.log(`[SyncTiny] 📊 Último pedido no banco:`, {
-      numero: ultimoPedidoBanco?.numero_pedido,
+      numero: ultimoNumeroConhecido,
       data: ultimoPedidoBanco?.data_pedido,
     });
 
@@ -67,7 +71,7 @@ async function verificarNovaVenda(
         store_id: storeId,
         endpoint: '/pedidos',
         params: {
-          situacao: '9,8', // Aprovado e Faturado
+          situacao: '1,3', // Aprovado (1) e Faturado (3)
           limit: 1,
           ordenar: 'numeroPedido|DESC', // Último pedido primeiro
         },
@@ -78,47 +82,47 @@ async function verificarNovaVenda(
     if (!checkResponse.ok) {
       console.warn(`[SyncTiny] ⚠️ Erro ao verificar última venda na API:`, checkResponse.status);
       // Em caso de erro, assumir que há nova venda (sincronizar por segurança)
-      return true;
+      return { temNovaVenda: true, ultimoNumeroConhecido };
     }
 
     const checkData = await checkResponse.json();
-    const pedidos = checkData?.pedidos || checkData?.response?.pedidos || [];
+    const pedidos = checkData?.itens || checkData?.pedidos || checkData?.response?.pedidos || [];
     const ultimoPedidoAPI = pedidos[0];
 
     console.log(`[SyncTiny] 📊 Último pedido na API:`, {
-      numero: ultimoPedidoAPI?.numeroPedido,
-      data: ultimoPedidoAPI?.data,
+      numero: ultimoPedidoAPI?.numeroPedido || ultimoPedidoAPI?.numero_pedido,
+      data: ultimoPedidoAPI?.data || ultimoPedidoAPI?.dataCriacao,
     });
 
     // 3. Comparar
-    if (!ultimoPedidoBanco) {
+    if (!ultimoNumeroConhecido) {
       // Se não há pedidos no banco, há nova venda (primeira sincronização)
       console.log(`[SyncTiny] ✅ Primeira sincronização para loja ${storeId}`);
-      return true;
+      return { temNovaVenda: true, ultimoNumeroConhecido: null };
     }
 
-    if (!ultimoPedidoAPI || !ultimoPedidoAPI.numeroPedido) {
+    if (!ultimoPedidoAPI) {
       // Se não há pedidos na API, não há nova venda
       console.log(`[SyncTiny] ℹ️ Nenhum pedido encontrado na API`);
-      return false;
+      return { temNovaVenda: false, ultimoNumeroConhecido };
     }
 
     // Comparar números de pedido
-    const numeroBanco = ultimoPedidoBanco.numero_pedido;
-    const numeroAPI = ultimoPedidoAPI.numeroPedido;
+    const numeroAPI = parseInt(String(ultimoPedidoAPI.numeroPedido || ultimoPedidoAPI.numero_pedido || 0));
 
-    if (numeroAPI > numeroBanco) {
-      console.log(`[SyncTiny] ✅ NOVA VENDA DETECTADA! API: ${numeroAPI} > Banco: ${numeroBanco}`);
-      return true;
+    if (numeroAPI > ultimoNumeroConhecido) {
+      console.log(`[SyncTiny] ✅ NOVA VENDA DETECTADA! API: ${numeroAPI} > Banco: ${ultimoNumeroConhecido}`);
+      return { temNovaVenda: true, ultimoNumeroConhecido };
     }
 
-    console.log(`[SyncTiny] ℹ️ Sem mudanças. Último pedido: ${numeroBanco}`);
-    return false;
+    console.log(`[SyncTiny] ℹ️ Sem mudanças. Último pedido: ${ultimoNumeroConhecido}`);
+    return { temNovaVenda: false, ultimoNumeroConhecido };
 
   } catch (error) {
     console.error(`[SyncTiny] ❌ Erro ao verificar nova venda:`, error);
     // Em caso de erro, assumir que há nova venda (sincronizar por segurança)
-    return true;
+    const ultimoNumeroConhecido = null;
+    return { temNovaVenda: true, ultimoNumeroConhecido };
   }
 }
 
@@ -140,10 +144,13 @@ serve(async (req) => {
       }
     })
 
-    // ✅ DETECTAR SE É CHAMADA MANUAL (HARD SYNC) OU AUTOMÁTICA (CRON)
+    // ✅ DETECTAR SE É CHAMADA MANUAL OU AUTOMÁTICA (CRON)
     let body: any = {};
     try {
       body = await req.json();
+      
+      // ✅ NOVO: Detectar tipo de sincronização do body
+      const tipoSync = body.tipo_sync || 'incremental_1min'; // Default: incremental 1min
     } catch {
       // Se não tiver body, é chamada automática (cron)
       body = {};
@@ -193,7 +200,7 @@ serve(async (req) => {
 
       // ✅ POLLING INTELIGENTE: Verificar mudanças antes de sincronizar (apenas para sync não-hard)
       if (!hardSync && syncType === 'ORDERS') {
-        const temNovaVenda = await verificarNovaVenda(supabase, storeId, netlifyUrl);
+        const { temNovaVenda, ultimoNumeroConhecido } = await verificarNovaVenda(supabase, storeId, netlifyUrl);
         
         if (!temNovaVenda) {
           console.log(`[SyncTiny] ⏭️ Sem nova venda detectada. Pulando sincronização.`);
@@ -210,7 +217,10 @@ serve(async (req) => {
           );
         }
         
-        console.log(`[SyncTiny] ✅ Nova venda detectada! Iniciando sincronização...`);
+        console.log(`[SyncTiny] ✅ Nova venda detectada! Último conhecido: ${ultimoNumeroConhecido || 'nenhum'}. Iniciando sincronização incremental...`);
+        
+        // ✅ Passar último número conhecido para buscar apenas pedidos novos
+        body.ultimo_numero_conhecido = ultimoNumeroConhecido;
       }
       
       // ✅ Determinar qual Netlify Function chamar
@@ -284,7 +294,8 @@ serve(async (req) => {
     }
 
     // ✅ SINCRONIZAÇÃO AUTOMÁTICA (via cron)
-    console.log('[SyncTinyOrders] 🚀 Iniciando sincronização automática...')
+    const tipoSync = body.tipo_sync || 'incremental_1min';
+    console.log(`[SyncTinyOrders] 🚀 Iniciando sincronização automática: ${tipoSync}`)
 
     // Obter URL do Netlify
     const netlifyUrl = Deno.env.get('NETLIFY_FUNCTION_URL') || 
@@ -333,42 +344,135 @@ serve(async (req) => {
 
     console.log(`[SyncTinyOrders] 📊 Encontradas ${integrations.length} integrações ativas`)
 
-    // 2. Para cada integração, sincronizar pedidos
+    // 2. Determinar parâmetros de sincronização baseado no tipo
+    let syncParams: any = {};
+    
+    switch (tipoSync) {
+      case 'incremental_1min':
+        // A cada 1 minuto: Apenas vendas NOVAS (incremental otimizado)
+        syncParams = {
+          modo_incremental_otimizado: true,
+          apenas_novas_vendas: true,
+          limit: 100,
+          max_pages: 10,
+        };
+        break;
+        
+      case 'ultima_hora':
+        // A cada 1 hora: Últimas vendas da última hora (apenas atualizações)
+        const umaHoraAtras = new Date();
+        umaHoraAtras.setHours(umaHoraAtras.getHours() - 1);
+        syncParams = {
+          data_inicio: umaHoraAtras.toISOString().split('T')[0],
+          apenas_atualizacoes: true,
+          limit: 100,
+          max_pages: 5,
+        };
+        break;
+        
+      case 'ultimo_dia':
+        // A cada 1 dia: Vendas das últimas 24h
+        const umDiaAtras = new Date();
+        umDiaAtras.setDate(umDiaAtras.getDate() - 1);
+        syncParams = {
+          data_inicio: umDiaAtras.toISOString().split('T')[0],
+          apenas_atualizacoes: true,
+          limit: 100,
+          max_pages: 20,
+        };
+        break;
+        
+      case 'ultimos_30_dias':
+        // A cada 29 dias: Últimos 30 dias
+        const trintaDiasAtras = new Date();
+        trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
+        syncParams = {
+          data_inicio: trintaDiasAtras.toISOString().split('T')[0],
+          apenas_atualizacoes: true,
+          limit: 100,
+          max_pages: 100,
+        };
+        break;
+        
+      case 'ultimos_7_dias':
+        // A cada 6 dias: Últimos 7 dias
+        const seteDiasAtras = new Date();
+        seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
+        syncParams = {
+          data_inicio: seteDiasAtras.toISOString().split('T')[0],
+          apenas_atualizacoes: true,
+          limit: 100,
+          max_pages: 50,
+        };
+        break;
+        
+      case 'hard_sync':
+        // A cada 60 dias: Hard sync (desde sempre, sem filtro de data)
+        syncParams = {
+          hard_sync: true,
+          data_inicio: '2010-01-01',
+          limit: 200,
+          max_pages: 99999,
+        };
+        break;
+        
+      case 'resumo_3h':
+        // Sempre às 3h da manhã: Resumo diário (últimas 24h)
+        const umDiaAtrasResumo = new Date();
+        umDiaAtrasResumo.setDate(umDiaAtrasResumo.getDate() - 1);
+        syncParams = {
+          data_inicio: umDiaAtrasResumo.toISOString().split('T')[0],
+          apenas_atualizacoes: true,
+          limit: 100,
+          max_pages: 20,
+        };
+        break;
+        
+      default:
+        console.warn(`[SyncTinyOrders] ⚠️ Tipo de sincronização desconhecido: ${tipoSync}. Usando incremental_1min.`);
+        syncParams = {
+          modo_incremental_otimizado: true,
+          apenas_novas_vendas: true,
+          limit: 100,
+          max_pages: 10,
+        };
+    }
+
+    // 3. Para cada integração, sincronizar pedidos
     const results: SyncResult[] = []
     
     for (const integration of integrations) {
       const storeId = integration.store_id
       const storeName = (integration.stores as any)?.name || 'Loja Desconhecida'
       
-      console.log(`[SyncTinyOrders] 🔄 Processando loja: ${storeName} (${storeId})`)
+      console.log(`[SyncTinyOrders] 🔄 Processando loja: ${storeName} (${storeId}) - Tipo: ${tipoSync}`)
 
       try {
-        // ✅ POLLING INTELIGENTE: Verificar se há nova venda antes de sincronizar
-        // Isso reduz drasticamente o custo de requisições desnecessárias
-        const temNovaVenda = await verificarNovaVenda(supabase, storeId, netlifyUrl);
+        // ✅ Para incremental_1min: Verificar se há nova venda antes de sincronizar
+        if (tipoSync === 'incremental_1min') {
+          const { temNovaVenda, ultimoNumeroConhecido } = await verificarNovaVenda(supabase, storeId, netlifyUrl);
 
-        if (!temNovaVenda) {
-          console.log(`[SyncTinyOrders] ⏭️ Sem nova venda detectada para loja ${storeName}. Pulando sincronização.`);
-          results.push({
-            store_id: storeId,
-            store_name: storeName,
-            success: true,
-            synced: 0,
-            updated: 0,
-            errors: 0,
-            message: 'Sem nova venda detectada. Sincronização não necessária.',
-          });
-          continue; // Pular para próxima loja
+          if (!temNovaVenda) {
+            console.log(`[SyncTinyOrders] ⏭️ Sem nova venda detectada para loja ${storeName}. Pulando sincronização.`);
+            results.push({
+              store_id: storeId,
+              store_name: storeName,
+              success: true,
+              synced: 0,
+              updated: 0,
+              errors: 0,
+              message: 'Sem nova venda detectada. Sincronização não necessária.',
+            });
+            continue; // Pular para próxima loja
+          }
+
+          console.log(`[SyncTinyOrders] ✅ Nova venda detectada para loja ${storeName}! Último conhecido: ${ultimoNumeroConhecido || 'nenhum'}.`);
+          syncParams.ultimo_numero_conhecido = ultimoNumeroConhecido;
         }
 
-        console.log(`[SyncTinyOrders] ✅ Nova venda detectada para loja ${storeName}! Iniciando sincronização...`);
+        // ✅ Para outros tipos: Verificar se há mudanças (opcional, pode ser implementado depois)
+        // Por enquanto, sempre sincroniza para tipos que não são incremental_1min
 
-        // Sincronização automática: últimas 12 horas
-        const dozeHorasAtras = new Date()
-        dozeHorasAtras.setHours(dozeHorasAtras.getHours() - 12)
-        const dataInicio = dozeHorasAtras.toISOString().split('T')[0]
-
-        // ✅ ESTRATÉGIA: Chamar Netlify Function que tem a lógica completa de sincronização
         const syncUrl = `${netlifyUrl}/.netlify/functions/sync-tiny-orders-background`
         
         console.log(`[SyncTinyOrders] 📡 Chamando Netlify Function para sincronizar loja ${storeId}...`)
@@ -381,10 +485,8 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             store_id: storeId,
-            data_inicio: dataInicio,
-            incremental: true,
-            limit: 50,
-            max_pages: 2,
+            tipo_sync: tipoSync,
+            ...syncParams,
           }),
         })
 
@@ -448,7 +550,7 @@ serve(async (req) => {
         .insert({
           store_id: result.store_id,
           sistema_erp: 'TINY',
-          tipo_sync: 'PEDIDOS_AUTO',
+          tipo_sync: tipoSync || 'PEDIDOS_AUTO', // ✅ Usar tipo de sincronização correto
           status: result.success ? 'SUCCESS' : 'ERROR',
           registros_sincronizados: result.synced,
           registros_atualizados: result.updated,

@@ -250,26 +250,26 @@ export default function ERPDashboard() {
       let mensagem: string;
 
       if (periodo === 'agora') {
-        // ✅ CORREÇÃO: Buscar APENAS A ÚLTIMA VENDA (últimas 2 horas, limite 1, apenas 1 página)
+        // ✅ Sincronizar Agora: Buscar apenas a última venda (últimas 12 horas)
         const agora = new Date();
-        const duasHorasAtras = new Date(agora);
-        duasHorasAtras.setHours(agora.getHours() - 2); // Reduzido de 12 para 2 horas
-        dataInicio = duasHorasAtras.toISOString().split('T')[0];
-        mensagem = 'Sincronizando última venda...';
+        const dozeHorasAtras = new Date(agora);
+        dozeHorasAtras.setHours(agora.getHours() - 12);
+        dataInicio = dozeHorasAtras.toISOString().split('T')[0];
+        mensagem = 'Sincronizando última venda (últimas 12 horas)...';
       } else if (periodo === 'semana') {
-        // Buscar últimos 7 dias
+        // ✅ Sincronizar Semana: Buscar os últimos 7 dias (APENAS ATUALIZAÇÕES)
         const hoje = new Date();
         const seteDiasAtras = new Date(hoje);
         seteDiasAtras.setDate(hoje.getDate() - 7);
         dataInicio = seteDiasAtras.toISOString().split('T')[0];
-        mensagem = 'Sincronizando últimos 7 dias...';
+        mensagem = 'Sincronizando últimos 7 dias (apenas atualizações)...';
       } else {
-        // Sincronização total: últimos 90 dias, mas apenas se houver mudanças
+        // ✅ Sincronização Total: Atualiza últimos 90 dias (apenas se houver mudanças)
         const hoje = new Date();
         const noventaDiasAtras = new Date(hoje);
         noventaDiasAtras.setDate(hoje.getDate() - 90);
         dataInicio = noventaDiasAtras.toISOString().split('T')[0];
-        mensagem = 'Sincronização total (últimos 90 dias)...';
+        mensagem = 'Sincronização total (últimos 90 dias, apenas atualizações)...';
       }
 
       // ✅ TODAS AS SINCRONIZAÇÕES MANUAIS RODAM EM BACKGROUND
@@ -300,6 +300,7 @@ export default function ERPDashboard() {
           limit: 100, // Limite por página (API Tiny)
           max_pages: 999, // SEM LIMITE - busca todas as páginas disponíveis
           hard_sync: false,
+          apenas_atualizacoes: periodo !== 'agora', // ✅ Apenas atualizações para semana e total
         }),
       }).catch((fetchError: any) => {
         console.error("❌ Erro ao chamar Netlify Function:", fetchError);
@@ -699,7 +700,7 @@ export default function ERPDashboard() {
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t">
               <span className="text-lg">💡</span>
-              <span>Sincronização automática ocorre silenciosamente em background a cada 10 segundos</span>
+              <span>Sincronização automática ocorre a cada 5 minutos via pg_cron. Notificações aparecem instantaneamente via Realtime.</span>
             </div>
           </div>
         </CardContent>

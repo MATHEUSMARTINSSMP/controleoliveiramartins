@@ -81,10 +81,11 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
   useEffect(() => {
     if (!storeId) return;
 
-    // Atualizar a cada 8 segundos silenciosamente
+    // ✅ OTIMIZADO: Atualizar a cada 30 segundos (reduzido de 8s para melhor performance)
+    // O Realtime já detecta mudanças instantaneamente, então o auto-refresh é apenas backup
     const interval = setInterval(() => {
       fetchOrdersSilently();
-    }, 8000); // 8 segundos
+    }, 30000); // 30 segundos (otimizado)
 
     return () => clearInterval(interval);
   }, [storeId]);
@@ -132,8 +133,14 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
       if (error) throw error;
 
       if (data) {
+        // ✅ NORMALIZAR DADOS: Garantir conversão de tipos (valor_total pode vir como string)
+        const normalizedData = data.map((order: any) => ({
+          ...order,
+          valor_total: Number(order.valor_total) || 0,
+        }));
+        
         // ✅ Detectar novos pedidos e adicionar no topo
-        const novosPedidos = data.filter(
+        const novosPedidos = normalizedData.filter(
           (newOrder) => !orders.some((existingOrder) => existingOrder.id === newOrder.id)
         );
 
@@ -170,7 +177,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
           });
         } else {
           // Sem novos pedidos, apenas atualizar se houver mudanças
-          setOrders(data);
+          setOrders(normalizedData);
         }
 
         // Marcar que primeira carga já passou
@@ -239,11 +246,14 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
           }
         });
 
+        // ✅ NORMALIZAR DADOS: Garantir que tipos estejam corretos
         // Adicionar dados de cashback aos pedidos e ordenar numericamente
         const ordersWithCashback = data.map((order: any) => {
           const cashback = cashbackMap.get(order.id);
           return {
             ...order,
+            // ✅ GARANTIR CONVERSÃO DE TIPOS: valor_total pode vir como string do Supabase
+            valor_total: Number(order.valor_total) || 0,
             cashback_gerado: cashback?.amount || null,
             cashback_validade: cashback?.expiracao || null,
           };
