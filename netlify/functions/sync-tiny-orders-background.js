@@ -319,12 +319,13 @@ exports.handler = async (event, context) => {
     console.log(`[SyncBackground] 📊 Total de ${allPedidos.length} pedidos encontrados`);
 
     // Filtrar apenas pedidos faturados (situacao = 1 ou 3)
+    // ✅ REQUISITO: Apenas Aprovado (1) e Faturado (3). Sem exceção.
     const pedidosFaturados = allPedidos.filter(p => {
-      const situacao = p.situacao || p.pedido?.situacao;
-      return situacao === 1 || situacao === 3 || situacao === 'faturado' || situacao === 'Faturado';
+      const situacao = Number(p.situacao || p.pedido?.situacao);
+      return situacao === 1 || situacao === 3;
     });
 
-    console.log(`[SyncBackground] ✅ ${pedidosFaturados.length} pedidos faturados para processar`);
+    console.log(`[SyncBackground] ✅ ${pedidosFaturados.length} pedidos válidos (Aprovado/Faturado) para processar`);
 
     // Limpar cache no início da sincronização
     clearCache();
@@ -341,31 +342,21 @@ exports.handler = async (event, context) => {
 
         console.log(`[SyncBackground] 📦 Processando pedido ${tinyId}...`);
 
-        // ✅ OTIMIZAÇÃO CRÍTICA: Verificar se pedido já existe e não mudou antes de buscar detalhes caros
-        // Isso economiza ~4 chamadas de API por pedido (Detalhes + Contato + Produtos)
+        // ✅ OTIMIZAÇÃO CRÍTICA: Verificar se pedido já existe
+        // REQUISITO DO USUÁRIO: "só quero que traga as vendas novas nessa background"
+        // Se já existe, PULAR IMEDIATAMENTE. Não atualizar, não buscar detalhes.
         try {
           const { data: existingOrderCheck } = await supabase
             .schema('sistemaretiradas')
             .from('orders')
-            .select('id, situacao, valor_total, updated_at')
+            .select('id') // Apenas ID basta para saber se existe
             .eq('store_id', storeId)
             .eq('tiny_id', tinyId)
             .maybeSingle();
 
           if (existingOrderCheck) {
-            const situacaoNova = pedido.situacao?.toString();
-            const situacaoAntiga = existingOrderCheck.situacao;
-
-            // Se situação é igual, assumir que não precisa atualizar (para economizar API)
-            // A maioria das mudanças relevantes altera a situação (Aberto -> Aprovado -> Faturado -> Enviado)
-            if (situacaoNova && situacaoAntiga && situacaoNova === situacaoAntiga) {
-              console.log(`[SyncBackground] ⏩ Pedido ${tinyId} sem mudanças de situação (${situacaoNova}). Pulando processamento pesado...`);
-
-              // Atualizar apenas updated_at para saber que foi verificado? Não, economizar DB também.
-              continue;
-            }
-
-            console.log(`[SyncBackground] 🔄 Pedido ${tinyId} mudou situação: ${situacaoAntiga} -> ${situacaoNova}. Atualizando...`);
+            console.log(`[SyncBackground] ⏩ Pedido ${tinyId} já existe. Pulando (foco em novas vendas)...`);
+            continue;
           }
         } catch (checkError) {
           console.warn(`[SyncBackground] ⚠️ Erro ao verificar existência do pedido ${tinyId}:`, checkError);
