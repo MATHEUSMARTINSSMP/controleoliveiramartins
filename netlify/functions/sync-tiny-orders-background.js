@@ -301,7 +301,8 @@ exports.handler = async (event, context) => {
               endpoint: '/pedidos',
               method: 'GET',
               params: {
-                situacao: '1,3', // Apenas Aprovado (1) e Faturado (3)
+                // ✅ SEM situacao no modo incremental otimizado - buscar todos e filtrar depois
+                // A API Tiny não aceita situacao como array ou string múltipla
                 // ✅ SEM filtro de data - busca incremental por número de pedido apenas
                 ordenar: 'numeroPedido|ASC', // ✅ ORDEM CRESCENTE para buscar desde o último conhecido
                 pagina: currentPage,
