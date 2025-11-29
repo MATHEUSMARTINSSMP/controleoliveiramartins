@@ -94,6 +94,8 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
   useEffect(() => {
     if (!storeId) return;
 
+    console.log('[TinyOrdersList] 🔌 Configurando Realtime para store:', storeId);
+
     const channel = supabase
       .channel(`tiny_orders_${storeId}`)
       .on(
@@ -105,15 +107,23 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
           filter: `store_id=eq.${storeId}`,
         },
         (payload) => {
-          console.log('[TinyOrdersList] 🔔 Mudança detectada em tempo real:', payload.eventType);
+          console.log('[TinyOrdersList] 🔔 Mudança detectada em tempo real:', payload.eventType, payload);
           // ✅ CORREÇÃO: Usar fetchOrdersSilently para detectar novos pedidos e mostrar notificações
           // fetchOrders() não mostra notificações, apenas recarrega a lista
           fetchOrdersSilently();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[TinyOrdersList] 📡 Status da subscrição Realtime:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('[TinyOrdersList] ✅ Realtime conectado com sucesso!');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[TinyOrdersList] ❌ Erro ao conectar Realtime');
+        }
+      });
 
     return () => {
+      console.log('[TinyOrdersList] 🔌 Desconectando Realtime');
       supabase.removeChannel(channel);
     };
   }, [storeId]);
