@@ -250,12 +250,12 @@ export default function ERPDashboard() {
       let mensagem: string;
 
       if (periodo === 'agora') {
-        // ✅ Sincronizar Agora: Buscar apenas a última venda (últimas 12 horas)
+        // ✅ Sincronizar Agora: Buscar apenas a última venda (últimas 2 horas, limit: 1)
         const agora = new Date();
-        const dozeHorasAtras = new Date(agora);
-        dozeHorasAtras.setHours(agora.getHours() - 12);
-        dataInicio = dozeHorasAtras.toISOString().split('T')[0];
-        mensagem = 'Sincronizando última venda (últimas 12 horas)...';
+        const duasHorasAtras = new Date(agora);
+        duasHorasAtras.setHours(agora.getHours() - 2);
+        dataInicio = duasHorasAtras.toISOString().split('T')[0];
+        mensagem = 'Sincronizando última venda (últimas 2 horas)...';
       } else if (periodo === 'semana') {
         // ✅ Sincronizar Semana: Buscar os últimos 7 dias (APENAS ATUALIZAÇÕES)
         const hoje = new Date();
@@ -297,8 +297,8 @@ export default function ERPDashboard() {
           store_id: selectedStoreId,
           data_inicio: dataInicio,
           incremental: periodo === 'total',
-          limit: 100, // Limite por página (API Tiny)
-          max_pages: 999, // SEM LIMITE - busca todas as páginas disponíveis
+          limit: periodo === 'agora' ? 1 : 100, // ✅ "Sincronizar Agora": apenas 1 pedido
+          max_pages: periodo === 'agora' ? 1 : 999, // ✅ "Sincronizar Agora": apenas 1 página
           hard_sync: false,
           apenas_atualizacoes: periodo !== 'agora', // ✅ Apenas atualizações para semana e total
         }),

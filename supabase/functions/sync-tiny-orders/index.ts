@@ -350,6 +350,8 @@ serve(async (req) => {
     switch (tipoSync) {
       case 'incremental_1min':
         // A cada 1 minuto: Apenas vendas NOVAS (incremental otimizado)
+        // ✅ IMPORTANTE: Para cada loja, buscar último número conhecido ANTES de definir syncParams
+        // Isso será feito no loop abaixo para cada loja individualmente
         syncParams = {
           modo_incremental_otimizado: true,
           apenas_novas_vendas: true,
