@@ -172,7 +172,7 @@ exports.handler = async (event, context) => {
 
         // Retry loop
         let retryCount = 0;
-        const maxRetries = 3;
+        const maxRetries = 10; // ✅ Aumentado para 10 tentativas
         let response;
 
         while (retryCount < maxRetries) {
@@ -187,7 +187,7 @@ exports.handler = async (event, context) => {
           // Se erro HTTP no proxy (ex: 500, 504), tentar novamente
           console.warn(`[SyncContactsBackground] ⚠️ Erro HTTP ${response.status} no proxy. Tentativa ${retryCount + 1}/${maxRetries}`);
           retryCount++;
-          await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+          await new Promise(resolve => setTimeout(resolve, 5000 * retryCount)); // ✅ Aumentado delay progressivo
         }
 
         if (!response || !response.ok) {
@@ -203,8 +203,8 @@ exports.handler = async (event, context) => {
 
           // Se for 429 (Too Many Requests), esperar e tentar novamente
           if (result.httpStatus === 429) {
-            console.warn(`[SyncContactsBackground] ⏳ Rate limit atingido (429). Esperando 5s...`);
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            console.warn(`[SyncContactsBackground] ⏳ Rate limit atingido (429). Esperando 10s...`);
+            await new Promise(resolve => setTimeout(resolve, 10000)); // ✅ Aumentado para 10s
             continue; // Tentar mesma página novamente
           }
 
@@ -265,7 +265,7 @@ exports.handler = async (event, context) => {
 
         // Retry loop para detalhes
         let retryCount = 0;
-        const maxRetries = 3;
+        const maxRetries = 10; // ✅ Aumentado para 10 tentativas
         let response;
         let contatoCompleto;
 
@@ -285,8 +285,8 @@ exports.handler = async (event, context) => {
             const result = await response.json();
             // Verificar se é erro 429 encapsulado
             if (result.error === 'Resposta vazia do servidor' && result.httpStatus === 429) {
-              console.warn(`[SyncContactsBackground] ⏳ Rate limit (429) no contato ${contatoId}. Esperando 5s...`);
-              await new Promise(resolve => setTimeout(resolve, 5000));
+              console.warn(`[SyncContactsBackground] ⏳ Rate limit (429) no contato ${contatoId}. Esperando 10s...`);
+              await new Promise(resolve => setTimeout(resolve, 10000)); // ✅ Aumentado para 10s
               retryCount++;
               continue;
             }
@@ -296,7 +296,7 @@ exports.handler = async (event, context) => {
 
           console.warn(`[SyncContactsBackground] ⚠️ Erro HTTP ${response.status} ao buscar contato ${contatoId}. Tentativa ${retryCount + 1}`);
           retryCount++;
-          await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+          await new Promise(resolve => setTimeout(resolve, 5000 * retryCount)); // ✅ Aumentado delay progressivo
         }
 
         if (!contatoCompleto || (contatoCompleto.error && !contatoCompleto.id)) {
