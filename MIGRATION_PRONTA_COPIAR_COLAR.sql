@@ -2,10 +2,70 @@
 -- ✅ MIGRATION PRONTA - COPIAR E COLAR NO SUPABASE SQL EDITOR
 -- ============================================================================
 -- Configura pg_cron para sincronização automática de pedidos a cada 5 minutos
--- Valores já configurados com suas credenciais do Supabase
+-- IMPORTANTE: Configure app_config ANTES de executar esta migration!
 -- ============================================================================
 
--- 1. Habilitar extensão pg_cron
+-- 1. Criar tabela app_config se não existir (para armazenar chaves sensíveis)
+CREATE TABLE IF NOT EXISTS sistemaretiradas.app_config (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  key TEXT NOT NULL UNIQUE,
+  value TEXT NOT NULL,
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Criar índice para busca rápida
+CREATE INDEX IF NOT EXISTS idx_app_config_key ON sistemaretiradas.app_config(key);
+
+-- RLS: Apenas ADMIN pode ver/editar configurações
+ALTER TABLE sistemaretiradas.app_config ENABLE ROW LEVEL SECURITY;
+
+-- Política: Apenas ADMIN pode ver configurações
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'sistemaretiradas' 
+    AND tablename = 'app_config' 
+    AND policyname = 'app_config_select_admin'
+  ) THEN
+    CREATE POLICY "app_config_select_admin"
+      ON sistemaretiradas.app_config
+      FOR SELECT
+      USING (
+        EXISTS (
+          SELECT 1 FROM sistemaretiradas.profiles
+          WHERE id = auth.uid()
+          AND role = 'ADMIN'
+        )
+      );
+  END IF;
+END $$;
+
+-- Política: Apenas ADMIN pode inserir/atualizar configurações
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'sistemaretiradas' 
+    AND tablename = 'app_config' 
+    AND policyname = 'app_config_modify_admin'
+  ) THEN
+    CREATE POLICY "app_config_modify_admin"
+      ON sistemaretiradas.app_config
+      FOR ALL
+      USING (
+        EXISTS (
+          SELECT 1 FROM sistemaretiradas.profiles
+          WHERE id = auth.uid()
+          AND role = 'ADMIN'
+        )
+      );
+  END IF;
+END $$;
+
+-- 2. Habilitar extensão pg_cron
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 
 -- 2. Criar função que chama Edge Function sync-tiny-orders
@@ -106,6 +166,27 @@ SELECT cron.schedule(
 COMMENT ON FUNCTION sistemaretiradas.chamar_sync_tiny_orders() IS 
 'Chama Edge Function sync-tiny-orders para sincronização automática. Executada via pg_cron a cada 5 minutos.';
 
+-- ============================================================================
+-- ⚠️ IMPORTANTE: CONFIGURAR APP_CONFIG ANTES DE USAR!
+-- ============================================================================
+-- Execute estas queries para configurar as chaves:
+--
+-- INSERT INTO sistemaretiradas.app_config (key, value, description)
+-- VALUES (
+--   'supabase_url',
+--   'https://kktsbnrnlnzyofupegjc.supabase.co',
+--   'URL do projeto Supabase'
+-- )
+-- ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+--
+-- INSERT INTO sistemaretiradas.app_config (key, value, description)
+-- VALUES (
+--   'supabase_service_role_key',
+--   'SUA_SERVICE_ROLE_KEY_AQUI',  -- ⚠️ SUBSTITUA PELA CHAVE REAL
+--   'Service Role Key do Supabase para chamar Edge Functions via pg_cron'
+-- )
+-- ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+--
 -- ============================================================================
 -- ✅ PRONTO! AGORA VERIFIQUE SE ESTÁ FUNCIONANDO:
 -- ============================================================================
