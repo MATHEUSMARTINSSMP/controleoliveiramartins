@@ -161,13 +161,10 @@ exports.handler = async (event, context) => {
           storeId: store_id,
           endpoint: '/contatos',
           method: 'GET',
-          params: {
-            limit: 100,
-            offset: (currentPage - 1) * 100,
-          },
+          params: {}, // ✅ SEM PARÂMETROS para testar
         };
 
-        console.log(`[SyncContactsBackground] 📄 Buscando página ${currentPage} de IDs...`);
+        console.log(`[SyncContactsBackground] 📄 Buscando página ${currentPage} de IDs (SEM PARÂMETROS)...`);
 
         const response = await fetch(proxyUrl, {
           method: 'POST',
