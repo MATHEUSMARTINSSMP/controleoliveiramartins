@@ -161,23 +161,57 @@ exports.handler = async (event, context) => {
           storeId: store_id,
           endpoint: '/contatos',
           method: 'GET',
-          params: {}, // ✅ SEM PARÂMETROS para testar
+          params: {
+            limit: 100,
+            offset: (currentPage - 1) * 100,
+            situacao: 'B', // ✅ Restaurado: Apenas ativos
+          },
         };
 
-        console.log(`[SyncContactsBackground] 📄 Buscando página ${currentPage} de IDs (SEM PARÂMETROS)...`);
+        console.log(`[SyncContactsBackground] 📄 Buscando página ${currentPage} de IDs...`);
 
-        const response = await fetch(proxyUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-        });
+        // Retry loop
+        let retryCount = 0;
+        const maxRetries = 3;
+        let response;
 
-        if (!response.ok) {
-          console.error(`[SyncContactsBackground] ❌ Erro HTTP ${response.status}`);
+        while (retryCount < maxRetries) {
+          response = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+          });
+
+          if (response.ok) break;
+
+          // Se erro HTTP no proxy (ex: 500, 504), tentar novamente
+          console.warn(`[SyncContactsBackground] ⚠️ Erro HTTP ${response.status} no proxy. Tentativa ${retryCount + 1}/${maxRetries}`);
+          retryCount++;
+          await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+        }
+
+        if (!response || !response.ok) {
+          console.error(`[SyncContactsBackground] ❌ Falha após ${maxRetries} tentativas. Status: ${response ? response.status : 'N/A'}`);
           break;
         }
 
         const result = await response.json();
+
+        // ✅ Verificar erro de resposta vazia do proxy
+        if (result.error === 'Resposta vazia do servidor') {
+          console.warn(`[SyncContactsBackground] ⚠️ Resposta vazia do Tiny. Status HTTP original: ${result.httpStatus}`);
+
+          // Se for 429 (Too Many Requests), esperar e tentar novamente
+          if (result.httpStatus === 429) {
+            console.warn(`[SyncContactsBackground] ⏳ Rate limit atingido (429). Esperando 5s...`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            continue; // Tentar mesma página novamente
+          }
+
+          // Se for erro desconhecido, parar
+          console.error(`[SyncContactsBackground] ❌ Erro irrecuperável na página ${currentPage}: ${result.error}`);
+          break;
+        }
 
         // ✅ DEBUG: Ver o que está sendo retornado
         console.log(`[SyncContactsBackground] 🔍 Resposta da API:`, JSON.stringify(result).substring(0, 500));
