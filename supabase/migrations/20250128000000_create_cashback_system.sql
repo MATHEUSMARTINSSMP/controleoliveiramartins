@@ -334,6 +334,9 @@ COMMENT ON FUNCTION sistemaretiradas.atualizar_saldos_cashback IS 'Atualiza sald
 -- ============================================================================
 -- 7. FUNÇÃO: Renovar cashback expirado
 -- ============================================================================
+-- ✅ Dropar função se existir para evitar erro de parâmetros
+DROP FUNCTION IF EXISTS sistemaretiradas.renovar_cashback(UUID, UUID);
+
 CREATE OR REPLACE FUNCTION sistemaretiradas.renovar_cashback(
     p_transaction_id UUID,
     p_cliente_id UUID

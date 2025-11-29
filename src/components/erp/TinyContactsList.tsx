@@ -208,14 +208,14 @@ export default function TinyContactsList({ storeId, limit = 10000 }: TinyContact
       const { data: cashbackData } = await supabase
         .schema('sistemaretiradas')
         .from('cashback_balance')
-        .select('saldo_disponivel')
+        .select('balance_disponivel')
         .eq('cliente_id', contactId)
         .single();
 
       setCustomerStats(prev => new Map(prev).set(contactId, {
         lastPurchase,
         totalPurchases,
-        cashbackBalance: cashbackData?.saldo_disponivel || 0,
+        cashbackBalance: cashbackData?.balance_disponivel || 0,
         topProducts,
         purchaseFrequency,
       }));

@@ -450,16 +450,29 @@ exports.handler = async (event, context) => {
             console.log(`[SyncBackground] ✅ Pedido ${tinyId} criado`);
           }
 
-          // ✅ TAREFA 9: Gerar cashback se o pedido foi criado/atualizado e tem cliente e valor
+          // ✅ TAREFA 9: Gerar cashback com FALLBACK manual (trigger + manual)
+          // O trigger do banco gera automaticamente, mas fazemos uma tentativa manual como fallback
+          // para garantir que funcione mesmo se o trigger falhar
           if (orderSavedId && clienteId && orderData.valor_total > 0) {
             try {
-              // Verificar se o pedido está faturado/aprovado (situacao 3 ou 9)
-              const situacaoRaw = pedidoCompleto?.situacao || pedido.situacao || pedidoCompleto?.situacaoPedido || 0;
-              const situacao = Number(situacaoRaw);
+              // Aguardar um pouco para o trigger executar primeiro
+              await new Promise(resolve => setTimeout(resolve, 500));
 
-              // Gerar cashback apenas para pedidos faturados (situacao 3) ou aprovados (situacao 9) ou aprovados (situacao 1)
-              if (situacao === 1 || situacao === 3 || situacao === 9) {
-                console.log(`[SyncBackground] 💰 Gerando cashback para pedido ${tinyId} (cliente: ${clienteId.substring(0, 8)}..., valor: ${orderData.valor_total})`);
+              // Verificar se o cashback já foi gerado pelo trigger
+              const { data: existingCashback } = await supabase
+                .schema('sistemaretiradas')
+                .from('cashback_transactions')
+                .select('id')
+                .eq('tiny_order_id', orderSavedId)
+                .eq('transaction_type', 'EARNED')
+                .maybeSingle();
+
+              if (existingCashback) {
+                console.log(`[SyncBackground] ✅ Cashback já gerado automaticamente pelo trigger para pedido ${tinyId}`);
+              } else {
+                // ✅ FALLBACK: Tentar gerar manualmente se o trigger não gerou
+                // O trigger já valida cancelados, então aqui tentamos gerar para qualquer situação
+                console.log(`[SyncBackground] ⚠️ Cashback não foi gerado pelo trigger, tentando FALLBACK manual para pedido ${tinyId}`);
 
                 const { data: cashbackResult, error: cashbackError } = await supabase
                   .schema('sistemaretiradas')
@@ -471,17 +484,15 @@ exports.handler = async (event, context) => {
                   });
 
                 if (cashbackError) {
-                  console.error(`[SyncBackground] ❌ Erro ao gerar cashback para pedido ${tinyId}:`, cashbackError);
+                  console.error(`[SyncBackground] ❌ Erro no FALLBACK manual para pedido ${tinyId}:`, cashbackError);
                 } else if (cashbackResult && cashbackResult.success) {
-                  console.log(`[SyncBackground] ✅ Cashback gerado: R$ ${cashbackResult.amount} (libera em ${cashbackResult.data_liberacao})`);
+                  console.log(`[SyncBackground] ✅ Cashback gerado via FALLBACK manual: R$ ${cashbackResult.amount}`);
                 } else {
-                  console.log(`[SyncBackground] ℹ️ Cashback não gerado: ${cashbackResult?.message || 'Motivo desconhecido'}`);
+                  console.log(`[SyncBackground] ℹ️ FALLBACK não gerou cashback: ${cashbackResult?.message || 'Motivo desconhecido'}`);
                 }
-              } else {
-                console.log(`[SyncBackground] ℹ️ Cashback não gerado: pedido ${tinyId} não está faturado/aprovado (situação: ${situacao})`);
               }
             } catch (cashbackException) {
-              console.error(`[SyncBackground] ❌ Exceção ao gerar cashback para pedido ${tinyId}:`, cashbackException);
+              console.error(`[SyncBackground] ❌ Exceção no FALLBACK de cashback para pedido ${tinyId}:`, cashbackException);
               // Não falhar a sincronização do pedido por causa do cashback
             }
           }
