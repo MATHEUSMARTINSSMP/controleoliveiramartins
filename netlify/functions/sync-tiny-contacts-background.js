@@ -162,10 +162,10 @@ exports.handler = async (event, context) => {
             endpoint: '/contatos',
             method: 'GET',
             params: {
-              limit: limit || 100, // ✅ API v3 usa 'limit'
-              offset: (currentPage - 1) * (limit || 100), // ✅ API v3 usa 'offset'
-              // ✅ Filtrar apenas clientes (tipo: 'cliente' na API v3)
-              tipo: 'cliente', // Tiny API v3: 'cliente', 'fornecedor', 'transportadora'
+              limite: limit || 100, // ✅ Tiny API v3 pode usar 'limite' ao invés de 'limit'
+              pagina: currentPage, // ✅ Tiny API v3 pode usar 'pagina' ao invés de 'offset'
+              // ✅ DEBUG: Remover filtro temporariamente para ver o que retorna
+              // tipo: 'cliente',
             },
           }),
         });
