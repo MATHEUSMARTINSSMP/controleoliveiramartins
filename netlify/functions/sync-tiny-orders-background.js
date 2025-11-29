@@ -312,15 +312,32 @@ exports.handler = async (event, context) => {
     let encontrouUltimoConhecido = false;
 
     if (usarBuscaIncrementalOtimizada) {
-      console.log(`[SyncBackground] 🎯 MODO INCREMENTAL OTIMIZADO: Buscando pedidos em ordem crescente desde número ${ultimoNumeroConhecido}`);
-      console.log(`[SyncBackground] ⚠️ IMPORTANTE: Modo incremental NÃO usa filtro de data. Busca apenas por número de pedido.`);
-      console.log(`[SyncBackground] ⚠️ Para buscar últimos 7 dias, use sincronização MANUAL (não automática).`);
+      // 🛑 FREIO DE EMERGÊNCIA: No modo incremental (1 min), nunca deve precisar de muitas páginas
+      const LIMIT_PAGINAS_INCREMENTAL = 3;
 
-      // ✅ MODO INCREMENTAL OTIMIZADO: Buscar apenas por número de pedido, SEM filtro de data
-      // Isso garante que encontramos TODOS os pedidos novos, mesmo que tenham sido criados há mais tempo
-      // A parada acontece quando encontra pedido com número <= último conhecido
-      // Buscar pedidos em ordem crescente (ASC) para encontrar apenas os novos
+      // ✅ DATA DE HOJE (DD/MM/YYYY) - Restrição rigorosa solicitada pelo usuário
+      const hoje = new Date();
+      // Ajustar para fuso horário do Brasil (UTC-3) se necessário, mas Date local do servidor deve servir
+      // Melhor garantir formato DD/MM/YYYY
+      const dia = String(hoje.getDate()).padStart(2, '0');
+      const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+      const ano = hoje.getFullYear();
+      const dataHoje = `${dia}/${mes}/${ano}`;
+
+      console.log(`[SyncBackground] 🎯 MODO INCREMENTAL OTIMIZADO: Buscando pedidos de HOJE (${dataHoje}) em ordem DECRESCENTE`);
+      console.log(`[SyncBackground] 🛡️ FREIO DE SEGURANÇA ATIVO: Limite máximo de ${LIMIT_PAGINAS_INCREMENTAL} páginas.`);
+
+      // ✅ MODO INCREMENTAL OTIMIZADO: 
+      // 1. Apenas data de HOJE (dataInicio = dataHoje)
+      // 2. Ordem DECRESCENTE (DESC) para pegar os mais recentes primeiro
+      // 3. Para assim que encontrar um pedido <= ultimoNumeroConhecido
       while (hasMore && currentPage <= maxPages && !encontrouUltimoConhecido) {
+        // 🛑 Verificação extra de segurança
+        if (currentPage > LIMIT_PAGINAS_INCREMENTAL) {
+          console.warn(`[SyncBackground] 🛑 ALERTA: Atingiu limite de segurança (${LIMIT_PAGINAS_INCREMENTAL} páginas). Parando.`);
+          break;
+        }
+
         try {
           const response = await fetch(proxyUrl, {
             method: 'POST',
@@ -332,10 +349,10 @@ exports.handler = async (event, context) => {
               endpoint: '/pedidos',
               method: 'GET',
               params: {
-                // ✅ SEM situacao no modo incremental otimizado - buscar todos e filtrar depois
-                // A API Tiny não aceita situacao como array ou string múltipla
-                // ✅ SEM filtro de data - busca incremental por número de pedido apenas
-                ordenar: 'numeroPedido|ASC', // ✅ ORDEM CRESCENTE para buscar desde o último conhecido
+                // ✅ FILTRO DE DATA RIGOROSO: Apenas hoje
+                dataInicio: dataHoje,
+                // ✅ ORDEM DECRESCENTE: Mais recentes primeiro. Assim que achar um velho, para.
+                ordenar: 'numeroPedido|DESC',
                 pagina: currentPage,
                 limite: limit || 100,
               },
