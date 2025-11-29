@@ -152,21 +152,25 @@ exports.handler = async (event, context) => {
 
     while (hasMore && currentPage <= maxPages) {
       try {
+        const requestBody = {
+          storeId: store_id,
+          endpoint: '/contatos',
+          method: 'GET',
+          params: {
+            limit: limit || 100,
+            offset: (currentPage - 1) * (limit || 100),
+            // ✅ DEBUG: SEM filtros para ver se retorna algo
+          },
+        };
+
+        console.log(`[SyncContactsBackground] 🔍 Chamando proxy com:`, JSON.stringify(requestBody));
+
         const response = await fetch(proxyUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            storeId: store_id, // ✅ API proxy espera camelCase
-            endpoint: '/contatos',
-            method: 'GET',
-            params: {
-              limit: limit || 100,
-              offset: (currentPage - 1) * (limit || 100),
-              // ✅ DEBUG: SEM filtros para ver se retorna algo
-            },
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {
