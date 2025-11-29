@@ -164,7 +164,7 @@ exports.handler = async (event, context) => {
           params: {
             limit: 100,
             offset: (currentPage - 1) * 100,
-            situacao: 'B', // ✅ Restaurado: Apenas ativos
+            // situacao: 'B', // ❌ Removido: A maioria dos contatos está como 'A'
           },
         };
 
@@ -263,31 +263,54 @@ exports.handler = async (event, context) => {
           console.log(`[SyncContactsBackground] ⏳ Buscando detalhes ${i + 1}/${allContatoIds.length}...`);
         }
 
-        const response = await fetch(proxyUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            storeId: store_id,
-            endpoint: `/contatos/${contatoId}`,
-            method: 'GET',
-            params: {},
-          }),
-        });
+        // Retry loop para detalhes
+        let retryCount = 0;
+        const maxRetries = 3;
+        let response;
+        let contatoCompleto;
 
-        if (!response.ok) {
-          console.error(`[SyncContactsBackground] ❌ Erro ao buscar contato ${contatoId}: HTTP ${response.status}`);
-          continue;
+        while (retryCount < maxRetries) {
+          response = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              storeId: store_id,
+              endpoint: `/contatos/${contatoId}`,
+              method: 'GET',
+              params: {},
+            }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            // Verificar se é erro 429 encapsulado
+            if (result.error === 'Resposta vazia do servidor' && result.httpStatus === 429) {
+              console.warn(`[SyncContactsBackground] ⏳ Rate limit (429) no contato ${contatoId}. Esperando 5s...`);
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              retryCount++;
+              continue;
+            }
+            contatoCompleto = result;
+            break;
+          }
+
+          console.warn(`[SyncContactsBackground] ⚠️ Erro HTTP ${response.status} ao buscar contato ${contatoId}. Tentativa ${retryCount + 1}`);
+          retryCount++;
+          await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
         }
 
-        const contatoCompleto = await response.json();
+        if (!contatoCompleto || (contatoCompleto.error && !contatoCompleto.id)) {
+          console.error(`[SyncContactsBackground] ❌ Falha ao buscar contato ${contatoId} após tentativas`);
+          continue;
+        }
 
         // A API retorna o contato diretamente (não em wrapper)
         if (contatoCompleto && contatoCompleto.id) {
           allContatos.push(contatoCompleto);
         }
 
-        // Rate limiting: 100ms entre requisições
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Rate limiting: Aumentado para 300ms para evitar 429 frequente
+        await new Promise(resolve => setTimeout(resolve, 300));
 
       } catch (error) {
         console.error(`[SyncContactsBackground] ❌ Erro ao buscar contato ${contatoId}:`, error);
