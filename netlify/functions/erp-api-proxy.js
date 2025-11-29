@@ -49,7 +49,7 @@ async function refreshTokenIfNeeded(supabaseAdmin, integration) {
 
   if (shouldRefresh && integration.refresh_token) {
     console.log('[ERP-API-Proxy] 🔄 Token expirando/expirado, renovando automaticamente...');
-    
+
     const config = ERP_CONFIGS[integration.sistema_erp || 'TINY'];
     if (!config) {
       throw new Error(`Sistema ERP ${integration.sistema_erp} não suportado`);
@@ -68,7 +68,7 @@ async function refreshTokenIfNeeded(supabaseAdmin, integration) {
     tokenBody.append('refresh_token', integration.refresh_token);
     tokenBody.append('client_id', integration.client_id);
     tokenBody.append('client_secret', integration.client_secret);
-    
+
     // Tiny ERP requer redirect_uri no refresh token
     if (integration.sistema_erp === 'TINY') {
       tokenBody.append('redirect_uri', redirectUri);
@@ -97,7 +97,7 @@ async function refreshTokenIfNeeded(supabaseAdmin, integration) {
         statusText: tokenResponse.statusText,
         error: errorText,
       });
-      
+
       // Atualizar status no banco
       await supabaseAdmin
         .schema('sistemaretiradas')
@@ -108,7 +108,7 @@ async function refreshTokenIfNeeded(supabaseAdmin, integration) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', integration.id);
-      
+
       throw new Error(`Erro ao renovar token: ${tokenResponse.status} ${errorText.substring(0, 100)}`);
     }
 
@@ -121,7 +121,7 @@ async function refreshTokenIfNeeded(supabaseAdmin, integration) {
     }
 
     console.log('[ERP-API-Proxy] ✅ Token renovado com sucesso');
-    
+
     // Calcular data de expiração
     const expiresIn = tokenData.expires_in || 3600; // Padrão 1 hora
     const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
@@ -252,7 +252,7 @@ exports.handler = async (event, context) => {
     // Obter configuração do sistema ERP
     const sistemaERP = integration.sistema_erp || 'TINY';
     const config = ERP_CONFIGS[sistemaERP];
-    
+
     if (!config) {
       return {
         statusCode: 400,
@@ -316,21 +316,22 @@ exports.handler = async (event, context) => {
     // Ler resposta
     const responseText = await apiResponse.text();
     let responseData;
-    
+
     // Verificar se a resposta está vazia
     if (!responseText || responseText.trim() === '') {
       console.warn('[ERP-API-Proxy] ⚠️ Resposta vazia do Tiny ERP API');
       return {
         statusCode: 200,
         headers: corsHeaders,
-        body: JSON.stringify({ 
-          success: false, 
+        body: JSON.stringify({
+          success: false,
           error: 'Resposta vazia do servidor',
-          endpoint 
+          httpStatus: apiResponse.status, // ✅ Adicionado para debug
+          endpoint
         }),
       };
     }
-    
+
     try {
       responseData = JSON.parse(responseText);
     } catch (e) {
@@ -343,7 +344,7 @@ exports.handler = async (event, context) => {
     if (endpoint && endpoint.includes('/pedidos')) {
       const isListagem = !endpoint.match(/\/pedidos\/\d+$/);
       const isDetalhes = endpoint.match(/\/pedidos\/\d+$/);
-      
+
       console.log(`[ERP-API-Proxy] 📦 Resposta detalhada para ${endpoint}:`, {
         status: apiResponse.status,
         tipo: isListagem ? 'LISTAGEM (deve ter itens e paginacao)' : 'DETALHES (pedido direto)',
@@ -355,7 +356,7 @@ exports.handler = async (event, context) => {
         chaves_principais: Object.keys(responseData).slice(0, 20),
         estrutura_completa: JSON.stringify(responseData).substring(0, 2000),
       });
-      
+
       // Se for listagem, verificar se os pedidos têm itens
       if (isListagem && responseData.itens && Array.isArray(responseData.itens)) {
         const primeiroPedido = responseData.itens[0];
@@ -370,7 +371,7 @@ exports.handler = async (event, context) => {
           });
         }
       }
-      
+
       // Se for detalhes completos, verificar itens
       if (isDetalhes) {
         const pedido = responseData;
@@ -389,13 +390,13 @@ exports.handler = async (event, context) => {
         });
       }
     }
-    
+
     // ✅ LOG DETALHADO: Verificar estrutura da resposta para endpoints de contatos
     if (endpoint && endpoint.includes('/contatos')) {
       // ✅ CORREÇÃO: Verificar se é listagem ou detalhes
       const isListagem = !endpoint.match(/\/contatos\/\d+$/);
       const isDetalhes = endpoint.match(/\/contatos\/\d+$/);
-      
+
       console.log(`[ERP-API-Proxy] 📋 Resposta detalhada para ${endpoint}:`, {
         status: apiResponse.status,
         tipo: isListagem ? 'LISTAGEM (deve ter itens e paginacao)' : 'DETALHES (contato direto)',
@@ -406,7 +407,7 @@ exports.handler = async (event, context) => {
         chaves_principais: Object.keys(responseData).slice(0, 15),
         estrutura_completa: JSON.stringify(responseData).substring(0, 1000),
       });
-      
+
       // Se for GET /contatos/{id} (detalhes completos), logar campos importantes
       // ✅ CORREÇÃO: A documentação oficial mostra que GET /contatos/{id} retorna o contato DIRETAMENTE
       // Não há wrapper "contato", a resposta é o objeto contato em si
@@ -422,9 +423,9 @@ exports.handler = async (event, context) => {
           valor_dataNascimento: contato.dataNascimento,
           tem_data_nascimento: !!contato.data_nascimento,
           valor_data_nascimento: contato.data_nascimento,
-          todas_chaves: Object.keys(contato).filter(k => 
-            k.toLowerCase().includes('tel') || 
-            k.toLowerCase().includes('cel') || 
+          todas_chaves: Object.keys(contato).filter(k =>
+            k.toLowerCase().includes('tel') ||
+            k.toLowerCase().includes('cel') ||
             k.toLowerCase().includes('mobile') ||
             k.toLowerCase().includes('nasc')
           ),
@@ -451,8 +452,8 @@ exports.handler = async (event, context) => {
     // Retornar resposta
     return {
       statusCode: apiResponse.status,
-      headers: { 
-        ...corsHeaders, 
+      headers: {
+        ...corsHeaders,
         'Content-Type': apiResponse.headers.get('content-type') || 'application/json',
       },
       body: JSON.stringify(responseData),
