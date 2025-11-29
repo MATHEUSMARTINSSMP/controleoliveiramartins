@@ -98,14 +98,14 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const { 
-      store_id, 
-      storeId: inputStoreId, 
-      data_inicio, 
-      incremental = true, 
-      limit = 500, 
-      max_pages = 999999, 
-      hard_sync = false, 
+    const {
+      store_id,
+      storeId: inputStoreId,
+      data_inicio,
+      incremental = true,
+      limit = 500,
+      max_pages = 999999,
+      hard_sync = false,
       mode,
       ultimo_numero_conhecido, // ✅ NOVO: Último número de pedido conhecido no banco
       modo_incremental_otimizado = false, // ✅ NOVO: Flag para modo otimizado
@@ -199,10 +199,41 @@ exports.handler = async (event, context) => {
 
     // ✅ NOVA LÓGICA: Modo incremental otimizado busca apenas pedidos novos
     let dataInicioSync = data_inicio;
-    let usarBuscaIncrementalOtimizada = modo_incremental_otimizado && ultimo_numero_conhecido !== null && ultimo_numero_conhecido !== undefined;
-    
+
+    // ✅ CORREÇÃO CRÍTICA: Se modo_incremental_otimizado está ativo mas ultimo_numero_conhecido não foi passado,
+    // buscar automaticamente do banco de dados
+    let ultimoNumeroConhecido = ultimo_numero_conhecido;
+
+    if (modo_incremental_otimizado && (ultimoNumeroConhecido === null || ultimoNumeroConhecido === undefined)) {
+      console.log(`[SyncBackground] 🔍 Modo incremental otimizado ativo, mas ultimo_numero_conhecido não foi passado. Buscando do banco...`);
+
+      try {
+        const { data: ultimoPedido } = await supabase
+          .schema('sistemaretiradas')
+          .from('tiny_orders')
+          .select('numero_pedido, numero_ecommerce')
+          .eq('store_id', finalStoreId)
+          .order('numero_pedido', { ascending: false, nullsFirst: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (ultimoPedido) {
+          ultimoNumeroConhecido = parseInt(ultimoPedido.numero_pedido || ultimoPedido.numero_ecommerce || '0');
+          console.log(`[SyncBackground] ✅ Último número encontrado no banco: ${ultimoNumeroConhecido}`);
+        } else {
+          console.log(`[SyncBackground] ⚠️ Nenhum pedido encontrado no banco. Iniciando do zero.`);
+          ultimoNumeroConhecido = 0;
+        }
+      } catch (error) {
+        console.error(`[SyncBackground] ❌ Erro ao buscar último número do banco:`, error);
+        ultimoNumeroConhecido = 0;
+      }
+    }
+
+    let usarBuscaIncrementalOtimizada = modo_incremental_otimizado && ultimoNumeroConhecido !== null && ultimoNumeroConhecido !== undefined;
+
     if (usarBuscaIncrementalOtimizada) {
-      console.log(`[SyncBackground] 🎯 MODO INCREMENTAL OTIMIZADO: Buscando apenas pedidos com número > ${ultimo_numero_conhecido}`);
+      console.log(`[SyncBackground] 🎯 MODO INCREMENTAL OTIMIZADO: Buscando apenas pedidos com número > ${ultimoNumeroConhecido}`);
       // Não usar data_inicio no modo otimizado, vamos buscar por número de pedido
       dataInicioSync = null; // Será ignorado, vamos usar filtro por número
     } else if (!dataInicioSync) {
@@ -227,7 +258,7 @@ exports.handler = async (event, context) => {
       }
     }
 
-    console.log(`[SyncBackground] 📅 Buscando pedidos desde: ${dataInicioSync || 'modo incremental otimizado'} (hard_sync: ${hard_sync}, max_pages: ${max_pages}, ultimo_conhecido: ${ultimo_numero_conhecido || 'N/A'})`);
+    console.log(`[SyncBackground] 📅 Buscando pedidos desde: ${dataInicioSync || 'modo incremental otimizado'} (hard_sync: ${hard_sync}, max_pages: ${max_pages}, ultimo_conhecido: ${ultimoNumeroConhecido || 'N/A'})`);
 
     // ✅ HARD SYNC: Processar diretamente chamando a função normalmente
     // O problema do background assíncrono é que Netlify pode encerrar o contexto
@@ -281,10 +312,10 @@ exports.handler = async (event, context) => {
     let encontrouUltimoConhecido = false;
 
     if (usarBuscaIncrementalOtimizada) {
-      console.log(`[SyncBackground] 🎯 MODO INCREMENTAL OTIMIZADO: Buscando pedidos em ordem crescente desde número ${ultimo_numero_conhecido}`);
+      console.log(`[SyncBackground] 🎯 MODO INCREMENTAL OTIMIZADO: Buscando pedidos em ordem crescente desde número ${ultimoNumeroConhecido}`);
       console.log(`[SyncBackground] ⚠️ IMPORTANTE: Modo incremental NÃO usa filtro de data. Busca apenas por número de pedido.`);
       console.log(`[SyncBackground] ⚠️ Para buscar últimos 7 dias, use sincronização MANUAL (não automática).`);
-      
+
       // ✅ MODO INCREMENTAL OTIMIZADO: Buscar apenas por número de pedido, SEM filtro de data
       // Isso garante que encontramos TODOS os pedidos novos, mesmo que tenham sido criados há mais tempo
       // A parada acontece quando encontra pedido com número <= último conhecido
@@ -333,21 +364,21 @@ exports.handler = async (event, context) => {
             const numeroPedido = parseInt(String(pedido.numeroPedido || pedido.numero_pedido || pedido.numero || 0));
             const situacao = Number(pedido.situacao || p.situacao || 0);
             // ✅ Apenas pedidos novos (número > último conhecido) E situação Aprovado (1) ou Faturado (3)
-            return numeroPedido > ultimo_numero_conhecido && (situacao === 1 || situacao === 3);
+            return numeroPedido > ultimoNumeroConhecido && (situacao === 1 || situacao === 3);
           });
 
-          console.log(`[SyncBackground] 📊 Página ${currentPage}: ${pedidos.length} pedidos retornados, ${pedidosNovos.length} são novos (número > ${ultimo_numero_conhecido})`);
+          console.log(`[SyncBackground] 📊 Página ${currentPage}: ${pedidos.length} pedidos retornados, ${pedidosNovos.length} são novos (número > ${ultimoNumeroConhecido})`);
 
           // ✅ PARAR IMEDIATAMENTE se encontrou um pedido com número <= último conhecido
           // Isso significa que já passamos de todos os pedidos novos
           const temPedidoAntigo = pedidos.some(p => {
             const pedido = p.pedido || p;
             const numeroPedido = parseInt(String(pedido.numeroPedido || pedido.numero_pedido || pedido.numero || 0));
-            return numeroPedido <= ultimo_numero_conhecido;
+            return numeroPedido <= ultimoNumeroConhecido;
           });
 
           if (temPedidoAntigo) {
-            console.log(`[SyncBackground] ✅ Encontrou pedido antigo (número <= ${ultimo_numero_conhecido}). Todos os novos já foram coletados. PARANDO BUSCA.`);
+            console.log(`[SyncBackground] ✅ Encontrou pedido antigo (número <= ${ultimoNumeroConhecido}). Todos os novos já foram coletados. PARANDO BUSCA.`);
             encontrouUltimoConhecido = true;
             hasMore = false;
             // ✅ Adicionar apenas os novos antes de parar
@@ -361,11 +392,11 @@ exports.handler = async (event, context) => {
           if (pedidosNovos.length > 0) {
             allPedidos = allPedidos.concat(pedidosNovos);
           }
-          
+
           // ✅ OTIMIZAÇÃO: Se não encontrou nenhum pedido novo nesta página, pode parar
           // (significa que todos os pedidos nesta página são antigos ou já processados)
           if (pedidosNovos.length === 0 && pedidos.length > 0) {
-            console.log(`[SyncBackground] ⚠️ Página ${currentPage} não tem pedidos novos. Todos os pedidos são antigos (número <= ${ultimo_numero_conhecido}). PARANDO BUSCA.`);
+            console.log(`[SyncBackground] ⚠️ Página ${currentPage} não tem pedidos novos. Todos os pedidos são antigos (número <= ${ultimoNumeroConhecido}). PARANDO BUSCA.`);
             encontrouUltimoConhecido = true;
             hasMore = false;
             break;
@@ -495,12 +526,12 @@ exports.handler = async (event, context) => {
     for (const pedidoData of pedidosFaturados) {
       try {
         const pedido = pedidoData.pedido || pedidoData;
-        
+
         // ✅ CORREÇÃO CRÍTICA: Usar numeroPedido como identificador principal (mais estável)
         // O numeroPedido é o que o usuário vê e é mais confiável que o ID interno do Tiny
         const numeroPedido = pedido.numeroPedido || pedido.numero_pedido || pedido.numero;
         const tinyIdInterno = String(pedido.id || numeroPedido || `temp_${Date.now()}`);
-        
+
         // ✅ Usar numeroPedido como tiny_id principal (compatibilidade com dados antigos)
         const tinyId = numeroPedido ? String(numeroPedido) : tinyIdInterno;
 
@@ -512,7 +543,7 @@ exports.handler = async (event, context) => {
         try {
           // ✅ PRIMEIRO: Verificar por numero_pedido (mais confiável)
           let existingOrderCheck = null;
-          
+
           if (numeroPedido) {
             const { data: checkByNumero } = await supabase
               .schema('sistemaretiradas')
@@ -521,13 +552,13 @@ exports.handler = async (event, context) => {
               .eq('store_id', storeId)
               .eq('numero_pedido', String(numeroPedido))
               .maybeSingle();
-            
+
             if (checkByNumero) {
               existingOrderCheck = checkByNumero;
               console.log(`[SyncBackground] 🔍 Pedido encontrado por numero_pedido: ${numeroPedido} (tiny_id no banco: ${checkByNumero.tiny_id})`);
             }
           }
-          
+
           // ✅ FALLBACK: Se não encontrou por numero_pedido, verificar por tiny_id (compatibilidade)
           if (!existingOrderCheck) {
             const { data: checkByTinyId } = await supabase
@@ -537,13 +568,13 @@ exports.handler = async (event, context) => {
               .eq('store_id', storeId)
               .eq('tiny_id', tinyId)
               .maybeSingle();
-            
+
             if (checkByTinyId) {
               existingOrderCheck = checkByTinyId;
               console.log(`[SyncBackground] 🔍 Pedido encontrado por tiny_id: ${tinyId} (numero_pedido no banco: ${checkByTinyId.numero_pedido})`);
             }
           }
-          
+
           // ✅ FALLBACK FINAL: Verificar por ID interno do Tiny (para dados muito antigos)
           if (!existingOrderCheck && pedido.id) {
             const { data: checkByTinyIdInterno } = await supabase
@@ -553,7 +584,7 @@ exports.handler = async (event, context) => {
               .eq('store_id', storeId)
               .eq('tiny_id', String(pedido.id))
               .maybeSingle();
-            
+
             if (checkByTinyIdInterno) {
               existingOrderCheck = checkByTinyIdInterno;
               console.log(`[SyncBackground] 🔍 Pedido encontrado por ID interno Tiny: ${pedido.id} (numero_pedido no banco: ${checkByTinyIdInterno.numero_pedido})`);
@@ -627,7 +658,7 @@ exports.handler = async (event, context) => {
 
         // ✅ TAREFA 7: Verificar se precisa atualizar (usar mesma lógica de verificação)
         let existingOrder = null;
-        
+
         // Verificar por numero_pedido primeiro
         if (numeroPedido) {
           const { data: checkByNumero } = await supabase
@@ -637,12 +668,12 @@ exports.handler = async (event, context) => {
             .eq('store_id', storeId)
             .eq('numero_pedido', String(numeroPedido))
             .maybeSingle();
-          
+
           if (checkByNumero) {
             existingOrder = checkByNumero;
           }
         }
-        
+
         // Fallback: verificar por tiny_id
         if (!existingOrder) {
           const { data: checkByTinyId } = await supabase
@@ -652,12 +683,12 @@ exports.handler = async (event, context) => {
             .eq('store_id', storeId)
             .eq('tiny_id', tinyId)
             .maybeSingle();
-          
+
           if (checkByTinyId) {
             existingOrder = checkByTinyId;
           }
         }
-        
+
         // Fallback final: verificar por ID interno
         if (!existingOrder && pedido.id) {
           const { data: checkByTinyIdInterno } = await supabase
@@ -667,7 +698,7 @@ exports.handler = async (event, context) => {
             .eq('store_id', storeId)
             .eq('tiny_id', String(pedido.id))
             .maybeSingle();
-          
+
           if (checkByTinyIdInterno) {
             existingOrder = checkByTinyIdInterno;
           }
@@ -693,14 +724,14 @@ exports.handler = async (event, context) => {
 
         // ✅ TAREFA 8: Salvar pedido completo
         let orderSavedId = null;
-        
+
         // ✅ Garantir que numero_pedido não seja NULL para upsert funcionar
         if (!orderData.numero_pedido) {
           console.warn(`[SyncBackground] ⚠️ Pedido ${pedido.id} não tem numero_pedido. Usando ID interno como fallback.`);
           orderData.numero_pedido = String(pedido.id);
           orderData.tiny_id = String(pedido.id);
         }
-        
+
         const { error: upsertError, data: savedOrder } = await supabase
           .schema('sistemaretiradas')
           .from('tiny_orders')
@@ -1929,11 +1960,11 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     : dataPedido;
 
   // ✅ GARANTIR que numero_pedido sempre tenha valor (necessário para upsert)
-  const numeroPedidoFinal = (pedido.numeroPedido || pedido.numero)?.toString() || 
-                            (pedidoCompleto?.numeroPedido || pedidoCompleto?.numero)?.toString() || 
-                            String(pedido.id) || // Fallback: usar ID interno se não tiver numeroPedido
-                            null;
-  
+  const numeroPedidoFinal = (pedido.numeroPedido || pedido.numero)?.toString() ||
+    (pedidoCompleto?.numeroPedido || pedidoCompleto?.numero)?.toString() ||
+    String(pedido.id) || // Fallback: usar ID interno se não tiver numeroPedido
+    null;
+
   const orderData = {
     store_id: storeId,
     tiny_id: numeroPedidoFinal || tinyId, // ✅ Usar numeroPedido como tiny_id principal
