@@ -4,9 +4,14 @@
 -- Este script garante que o índice único existe para permitir upsert correto
 -- ============================================================================
 
--- 1. Remover índices antigos se existirem
-DROP INDEX IF EXISTS sistemaretiradas.idx_tiny_orders_numero_store;
-DROP INDEX IF EXISTS sistemaretiradas.idx_tiny_orders_tiny_id_store;
+-- 1. Remover índices antigos se existirem (usar IF EXISTS para evitar erros)
+DO $$
+BEGIN
+  DROP INDEX IF EXISTS sistemaretiradas.idx_tiny_orders_numero_store;
+  DROP INDEX IF EXISTS sistemaretiradas.idx_tiny_orders_tiny_id_store;
+EXCEPTION WHEN OTHERS THEN
+  NULL; -- Ignorar erros se não existir
+END $$;
 
 -- 2. Garantir que numero_pedido não seja NULL (atualizar registros antigos se necessário)
 UPDATE sistemaretiradas.tiny_orders
@@ -22,16 +27,30 @@ ALTER TABLE sistemaretiradas.tiny_orders
 DO $$
 BEGIN
   -- Remover constraint antigo se existir
-  ALTER TABLE sistemaretiradas.tiny_orders 
-    DROP CONSTRAINT IF EXISTS tiny_orders_numero_pedido_store_id_key;
+  IF EXISTS (
+    SELECT 1 
+    FROM pg_constraint 
+    WHERE conname = 'tiny_orders_numero_pedido_store_id_key'
+      AND conrelid = 'sistemaretiradas.tiny_orders'::regclass
+  ) THEN
+    ALTER TABLE sistemaretiradas.tiny_orders 
+      DROP CONSTRAINT tiny_orders_numero_pedido_store_id_key;
+  END IF;
+  
+  -- Criar constraint UNIQUE se não existir
+  IF NOT EXISTS (
+    SELECT 1 
+    FROM pg_constraint 
+    WHERE conname = 'tiny_orders_numero_pedido_store_id_key'
+      AND conrelid = 'sistemaretiradas.tiny_orders'::regclass
+  ) THEN
+    ALTER TABLE sistemaretiradas.tiny_orders 
+      ADD CONSTRAINT tiny_orders_numero_pedido_store_id_key 
+      UNIQUE (numero_pedido, store_id);
+  END IF;
 EXCEPTION WHEN OTHERS THEN
-  NULL;
+  RAISE NOTICE 'Erro ao criar constraint: %', SQLERRM;
 END $$;
-
--- Criar constraint UNIQUE
-ALTER TABLE sistemaretiradas.tiny_orders 
-  ADD CONSTRAINT tiny_orders_numero_pedido_store_id_key 
-  UNIQUE (numero_pedido, store_id);
 
 -- 5. Criar índice único em tiny_id + store_id para compatibilidade
 CREATE UNIQUE INDEX IF NOT EXISTS idx_tiny_orders_tiny_id_store 
@@ -48,12 +67,31 @@ WHERE schemaname = 'sistemaretiradas'
   AND indexname LIKE 'idx_tiny_orders%'
 ORDER BY indexname;
 
--- Comentários
-COMMENT ON INDEX sistemaretiradas.idx_tiny_orders_numero_store IS 
-'Índice único para upsert por numero_pedido + store_id. CRÍTICO para funcionamento do upsert.';
+-- 6. Verificar se o constraint foi criado
+SELECT 
+  '=== CONSTRAINT UNIQUE ===' as info;
 
-COMMENT ON INDEX sistemaretiradas.idx_tiny_orders_tiny_id_store IS 
-'Índice único para compatibilidade com dados antigos (tiny_id + store_id).';
+SELECT 
+  conname as constraint_name,
+  contype as constraint_type,
+  pg_get_constraintdef(oid) as definicao
+FROM pg_constraint
+WHERE conrelid = 'sistemaretiradas.tiny_orders'::regclass
+  AND conname = 'tiny_orders_numero_pedido_store_id_key';
+
+-- Comentários (apenas se o índice existir)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_indexes 
+    WHERE schemaname = 'sistemaretiradas' 
+      AND tablename = 'tiny_orders' 
+      AND indexname = 'idx_tiny_orders_tiny_id_store'
+  ) THEN
+    COMMENT ON INDEX sistemaretiradas.idx_tiny_orders_tiny_id_store IS 
+    'Índice único para compatibilidade com dados antigos (tiny_id + store_id).';
+  END IF;
+END $$;
 
 -- ============================================================================
 -- ✅ PRONTO! Agora o upsert deve funcionar corretamente
