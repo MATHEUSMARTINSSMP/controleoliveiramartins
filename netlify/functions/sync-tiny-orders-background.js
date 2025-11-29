@@ -313,7 +313,7 @@ exports.handler = async (event, context) => {
 
     if (usarBuscaIncrementalOtimizada) {
       // 🛑 FREIO DE EMERGÊNCIA: No modo incremental (1 min), nunca deve precisar de muitas páginas
-      const LIMIT_PAGINAS_INCREMENTAL = 3;
+      const LIMIT_PAGINAS_INCREMENTAL = 2; // Reduzido para 2 conforme solicitado (apenas últimas 10-20 vendas)
 
       // ✅ DATA DE HOJE (DD/MM/YYYY) - Restrição rigorosa solicitada pelo usuário
       const hoje = new Date();
@@ -354,12 +354,12 @@ exports.handler = async (event, context) => {
                 // ✅ ORDEM DECRESCENTE: Mais recentes primeiro. Assim que achar um velho, para.
                 ordenar: 'numeroPedido|DESC',
                 pagina: currentPage,
-                limite: limit || 100,
+                limite: limit || 10, // ✅ Reduzido para 10 conforme solicitado
               },
             }),
           });
 
-          console.log(`[SyncBackground] 📡 [OTIMIZADO] Chamando API Tiny - Página ${currentPage}, Ordem: ASC, Limite: ${limit || 100}`);
+          console.log(`[SyncBackground] 📡 [OTIMIZADO] Chamando API Tiny - Página ${currentPage}, Ordem: DESC, Limite: ${limit || 10}`);
 
           if (!response.ok) {
             const errorText = await response.text();
