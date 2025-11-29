@@ -362,8 +362,9 @@ exports.handler = async (event, context) => {
               method: 'GET',
               params: {
                 // ✅ FILTRO DE DATA RIGOROSO: Apenas hoje (Inicio E Fim)
-                dataInicio: dataHoje,
-                dataFim: dataHoje, // ✅ Garante que não busca nada além de hoje
+                // CORREÇÃO: API Tiny usa dataInicial e dataFinal, não dataInicio/dataFim
+                dataInicial: dataHoje,
+                dataFinal: dataHoje, // ✅ Garante que não busca nada além de hoje
                 // ✅ ORDEM DECRESCENTE: Mais recentes primeiro. Assim que achar um velho, para.
                 ordenar: 'numeroPedido|DESC',
                 pagina: currentPage,
@@ -376,11 +377,18 @@ exports.handler = async (event, context) => {
 
           if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Erro ao buscar pedidos: ${errorText}`);
+            console.error(`[SyncBackground] ❌ Erro na API Tiny: ${response.status} - ${errorText}`);
+            throw new Error(`Erro na API Tiny: ${response.status}`);
           }
 
           const result = await response.json();
-          const pedidos = result.itens || result.pedidos || [];
+          let pedidos = result.itens || result.pedidos || [];
+
+          // 🛑 FREIO MANUAL: Se a API ignorar o limite e retornar 100, cortamos aqui para 20
+          if (pedidos.length > 20) {
+            console.warn(`[SyncBackground] ⚠️ API retornou ${pedidos.length} pedidos (ignorou limite). Cortando para 20.`);
+            pedidos = pedidos.slice(0, 20);
+          }
 
           if (pedidos.length === 0) {
             console.log(`[SyncBackground] ✅ Fim dos dados: página ${currentPage} retornou 0 pedidos`);
