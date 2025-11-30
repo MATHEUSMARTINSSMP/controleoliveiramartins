@@ -41,7 +41,19 @@ import {
   Search,
   Gift,
   RefreshCw,
+  Tag,
+  Plus,
+  X,
+  Edit2,
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -368,13 +380,13 @@ export default function CashbackManagement() {
         }
       });
 
-      // Função para obter categoria do cliente
+      // Função para obter categoria do cliente (do maior para o menor)
       const obterCategoriaCliente = (clienteId: string): string | null => {
         const totalCompras = totalComprasPorCliente.get(clienteId) || 0;
-        if (totalCompras > 10000) return 'VIP (>R$ 10K)';
-        if (totalCompras >= 5000) return 'Premium (R$ 5K-10K)';
-        if (totalCompras >= 1000) return 'Regular (R$ 1K-5K)';
-        if (totalCompras > 0) return 'Iniciante (<R$ 1K)';
+        if (totalCompras > 10000) return 'BLACK';
+        if (totalCompras >= 5000) return 'PLATINUM';
+        if (totalCompras >= 1000) return 'VIP';
+        if (totalCompras > 0) return 'REGULAR';
         return null;
       };
 
@@ -1064,8 +1076,32 @@ export default function CashbackManagement() {
               break;
             }
             case 'categoria': {
+              // Buscar categoria do cliente baseada no faturamento
+              const { data: ordersData } = await supabase
+                .schema('sistemaretiradas')
+                .from('tiny_orders')
+                .select('cliente_id, valor_total');
+
+              const totalComprasPorCliente = new Map<string, number>();
+              ordersData?.forEach((order: any) => {
+                if (order.cliente_id) {
+                  const atual = totalComprasPorCliente.get(order.cliente_id) || 0;
+                  totalComprasPorCliente.set(order.cliente_id, atual + parseFloat(order.valor_total || 0));
+                }
+              });
+
+              const obterCategoriaCliente = (clienteId: string): string | null => {
+                const totalCompras = totalComprasPorCliente.get(clienteId) || 0;
+                if (totalCompras > 10000) return 'BLACK';
+                if (totalCompras >= 5000) return 'PLATINUM';
+                if (totalCompras >= 1000) return 'VIP';
+                if (totalCompras > 0) return 'REGULAR';
+                return null;
+              };
+
               clienteMap.forEach((data, id) => {
-                if (data.categorias.has(filtro.categoria || '')) {
+                const categoriaCliente = obterCategoriaCliente(id);
+                if (categoriaCliente === filtro.categoria) {
                   clientesFiltro.add(id);
                 }
               });
@@ -1401,8 +1437,32 @@ export default function CashbackManagement() {
               break;
             }
             case 'categoria': {
+              // Buscar categoria do cliente baseada no faturamento
+              const { data: ordersData } = await supabase
+                .schema('sistemaretiradas')
+                .from('tiny_orders')
+                .select('cliente_id, valor_total');
+
+              const totalComprasPorCliente = new Map<string, number>();
+              ordersData?.forEach((order: any) => {
+                if (order.cliente_id) {
+                  const atual = totalComprasPorCliente.get(order.cliente_id) || 0;
+                  totalComprasPorCliente.set(order.cliente_id, atual + parseFloat(order.valor_total || 0));
+                }
+              });
+
+              const obterCategoriaCliente = (clienteId: string): string | null => {
+                const totalCompras = totalComprasPorCliente.get(clienteId) || 0;
+                if (totalCompras > 10000) return 'BLACK';
+                if (totalCompras >= 5000) return 'PLATINUM';
+                if (totalCompras >= 1000) return 'VIP';
+                if (totalCompras > 0) return 'REGULAR';
+                return null;
+              };
+
               clienteMap.forEach((data, id) => {
-                if (data.categorias.has(filtro.categoria || '')) {
+                const categoriaCliente = obterCategoriaCliente(id);
+                if (categoriaCliente === filtro.categoria) {
                   clientesFiltro.add(id);
                 }
               });
@@ -1525,8 +1585,32 @@ export default function CashbackManagement() {
               break;
             }
             case 'categoria': {
+              // Buscar categoria do cliente baseada no faturamento
+              const { data: ordersData } = await supabase
+                .schema('sistemaretiradas')
+                .from('tiny_orders')
+                .select('cliente_id, valor_total');
+
+              const totalComprasPorCliente = new Map<string, number>();
+              ordersData?.forEach((order: any) => {
+                if (order.cliente_id) {
+                  const atual = totalComprasPorCliente.get(order.cliente_id) || 0;
+                  totalComprasPorCliente.set(order.cliente_id, atual + parseFloat(order.valor_total || 0));
+                }
+              });
+
+              const obterCategoriaCliente = (clienteId: string): string | null => {
+                const totalCompras = totalComprasPorCliente.get(clienteId) || 0;
+                if (totalCompras > 10000) return 'BLACK';
+                if (totalCompras >= 5000) return 'PLATINUM';
+                if (totalCompras >= 1000) return 'VIP';
+                if (totalCompras > 0) return 'REGULAR';
+                return null;
+              };
+
               clienteMap.forEach((data, id) => {
-                if (data.categorias.has(filtro.categoria || '')) {
+                const categoriaCliente = obterCategoriaCliente(id);
+                if (categoriaCliente === filtro.categoria) {
                   clientesFiltro.add(id);
                 }
               });
@@ -2215,11 +2299,20 @@ export default function CashbackManagement() {
                                 {filtro.tipo === 'categoria' && (
                                   <div>
                                     <Label>Categoria</Label>
-                                    <Input
-                                      placeholder="Digite o nome da categoria"
+                                    <Select
                                       value={filtro.categoria || ''}
-                                      onChange={(e) => atualizarFiltroCliente(index, { categoria: e.target.value })}
-                                    />
+                                      onValueChange={(v) => atualizarFiltroCliente(index, { categoria: v })}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Selecione a categoria" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="BLACK">BLACK</SelectItem>
+                                        <SelectItem value="PLATINUM">PLATINUM</SelectItem>
+                                        <SelectItem value="VIP">VIP</SelectItem>
+                                        <SelectItem value="REGULAR">REGULAR</SelectItem>
+                                      </SelectContent>
+                                    </Select>
                                   </div>
                                 )}
 
@@ -2364,267 +2457,260 @@ export default function CashbackManagement() {
                             </div>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
-                            <div className="mt-2 border-t pt-4 px-4">
-                              {transactions.length === 0 ? (
-                                <p className="text-sm text-muted-foreground text-center py-4">
-                                  Nenhuma transação ainda
-                                </p>
-                              ) : (
-                                <>
-                                  <Table>
-                                    <TableHeader>
-                                      <TableRow>
-                                        <TableHead>Data</TableHead>
-                                        <TableHead>Evento</TableHead>
-                                        <TableHead>Valor</TableHead>
-                                        <TableHead>Expira</TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {transactions.map(t => (
-                                        <TableRow key={t.id}>
-                                          <TableCell className="text-sm">
-                                            {format(new Date(t.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
-                                          </TableCell>
-                                          <TableCell>
-                                            <div className="flex items-center gap-2">
-                                              {t.transaction_type === 'EARNED' && (
-                                                <>
-                                                  {t.description?.startsWith('BONIFICAÇÃO:') ? (
-                                                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                                                      Bonificação
-                                                    </Badge>
-                                                  ) : (
-                                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                                      Ganhou
-                                                    </Badge>
-                                                  )}
-                                                </>
-                                              )}
-                                              {t.transaction_type === 'REDEEMED' && (
-                                                <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
-                                                  Resgatou
+                            <div className="mt-2 border-t pt-4 px-4 space-y-4">
+                              {/* Histórico - Foco Principal */}
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <h4 className="text-sm font-semibold">Histórico de Transações</h4>
+                                  <div className="flex items-center gap-2">
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="h-7 text-xs"
+                                        >
+                                          <Tag className="h-3 w-3 mr-1" />
+                                          Tags
+                                        </Button>
+                                      </DialogTrigger>
+                                      <DialogContent onClick={(e) => e.stopPropagation()}>
+                                        <DialogHeader>
+                                          <DialogTitle>Gerenciar Tags</DialogTitle>
+                                          <DialogDescription>
+                                            Adicione ou remova tags para {cliente.nome}
+                                          </DialogDescription>
+                                        </DialogHeader>
+                                        <div className="space-y-4 py-4">
+                                          {cliente.tags && cliente.tags.length > 0 && (
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                              {cliente.tags.map((tag, idx) => (
+                                                <Badge key={idx} variant="secondary" className="text-xs flex items-center gap-1">
+                                                  {tag}
+                                                  <button
+                                                    onClick={() => handleRemoverTag(cliente.id, tag, cliente.tags || [])}
+                                                    className="hover:text-red-600 ml-1"
+                                                    disabled={salvandoTags}
+                                                  >
+                                                    <X className="h-3 w-3" />
+                                                  </button>
                                                 </Badge>
-                                              )}
-                                              {t.transaction_type === 'EXPIRED' && (
-                                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                                                  Expirou
-                                                </Badge>
-                                              )}
-                                              {t.tiny_order?.numero_pedido && (
-                                                <span className="text-xs text-muted-foreground">
-                                                  (Pedido #{t.tiny_order.numero_pedido})
-                                                </span>
-                                              )}
+                                              ))}
                                             </div>
-                                          </TableCell>
-                                          <TableCell className={t.transaction_type === 'REDEEMED' || t.transaction_type === 'EXPIRED' ? 'text-red-600' : 'text-green-600'}>
-                                            {t.transaction_type === 'REDEEMED' || t.transaction_type === 'EXPIRED' ? '-' : '+'}
-                                            {formatCurrency(Math.abs(Number(t.amount)))}
-                                          </TableCell>
-                                          <TableCell className="text-sm text-muted-foreground">
-                                            {t.data_expiracao ? format(new Date(t.data_expiracao), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
-                                          </TableCell>
-                                        </TableRow>
-                                      ))}
-                                    </TableBody>
-                                  </Table>
-                                  {temExpirado && (
-                                    <div className="mt-4">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handleRenovar(cliente.id)}
-                                        className="w-full"
-                                      >
-                                        <RefreshCw className="h-4 w-4 mr-2" />
-                                        Renovar Cashback Expirado
-                                      </Button>
-                                    </div>
-                                  )}
-                                </>
-                              )}
-
-                              <Separator className="my-4" />
-
-                              {/* Gerenciar Tags */}
-                              <div className="space-y-3">
-                                <Label className="text-sm font-semibold flex items-center gap-2">
-                                  <Tag className="h-4 w-4" />
-                                  Tags do Cliente
-                                </Label>
-                                <div className="space-y-2">
-                                  {cliente.tags && cliente.tags.length > 0 ? (
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      {cliente.tags.map((tag, idx) => (
-                                        <Badge key={idx} variant="secondary" className="text-xs flex items-center gap-1">
-                                          {tag}
-                                          {editandoTags === cliente.id && (
-                                            <button
-                                              onClick={() => handleRemoverTag(cliente.id, tag, cliente.tags || [])}
-                                              className="hover:text-red-600 ml-1"
-                                              disabled={salvandoTags}
-                                            >
-                                              <X className="h-3 w-3" />
-                                            </button>
                                           )}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <p className="text-xs text-muted-foreground">Nenhuma tag adicionada</p>
-                                  )}
-                                  
-                                  {editandoTags === cliente.id ? (
-                                    <div className="flex items-center gap-2">
-                                      <Input
-                                        placeholder="Digite a nova tag"
-                                        value={novaTag}
-                                        onChange={(e) => setNovaTag(e.target.value)}
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter') {
-                                            handleAdicionarTag(cliente.id, cliente.tags || []);
-                                          }
-                                        }}
-                                        className="h-8 text-sm"
-                                      />
-                                      <Button
-                                        size="sm"
-                                        onClick={() => handleAdicionarTag(cliente.id, cliente.tags || [])}
-                                        disabled={salvandoTags || !novaTag.trim()}
-                                      >
-                                        <Plus className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => {
-                                          setEditandoTags(null);
-                                          setNovaTag('');
-                                        }}
-                                      >
-                                        <X className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => {
-                                        setEditandoTags(cliente.id);
-                                        setNovaTag('');
-                                      }}
-                                    >
-                                      <Edit2 className="h-4 w-4 mr-2" />
-                                      {cliente.tags && cliente.tags.length > 0 ? 'Editar Tags' : 'Adicionar Tags'}
-                                    </Button>
-                                  )}
+                                          <div className="flex items-center gap-2">
+                                            <Input
+                                              placeholder="Digite a nova tag"
+                                              value={novaTag}
+                                              onChange={(e) => setNovaTag(e.target.value)}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                  handleAdicionarTag(cliente.id, cliente.tags || []);
+                                                }
+                                              }}
+                                            />
+                                            <Button
+                                              onClick={() => handleAdicionarTag(cliente.id, cliente.tags || [])}
+                                              disabled={salvandoTags || !novaTag.trim()}
+                                            >
+                                              <Plus className="h-4 w-4" />
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      </DialogContent>
+                                    </Dialog>
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="h-7 text-xs"
+                                        >
+                                          <Gift className="h-3 w-3 mr-1" />
+                                          Bonificar
+                                        </Button>
+                                      </DialogTrigger>
+                                      <DialogContent onClick={(e) => e.stopPropagation()} className="max-w-md">
+                                        <DialogHeader>
+                                          <DialogTitle>Bonificar Cliente</DialogTitle>
+                                          <DialogDescription>
+                                            Adicione uma bonificação para {cliente.nome}
+                                          </DialogDescription>
+                                        </DialogHeader>
+                                        <div className="space-y-4 py-4">
+                                          <div className="space-y-2">
+                                            <Label>Valor da Bonificação *</Label>
+                                            <Input
+                                              type="number"
+                                              step="0.01"
+                                              min="0"
+                                              placeholder="0,00"
+                                              value={valorBonificacaoIndividual}
+                                              onChange={(e) => setValorBonificacaoIndividual(e.target.value)}
+                                            />
+                                          </div>
+                                          <div className="space-y-2">
+                                            <Label>Descrição (opcional)</Label>
+                                            <Input
+                                              placeholder="Ex: Bonificação especial"
+                                              value={descricaoBonificacaoIndividual}
+                                              onChange={(e) => setDescricaoBonificacaoIndividual(e.target.value)}
+                                            />
+                                          </div>
+                                          <div className="space-y-2">
+                                            <Label>Prazo de Validade</Label>
+                                            <div className="flex items-center gap-4">
+                                              <div className="flex items-center gap-2">
+                                                <input
+                                                  type="radio"
+                                                  id={`validade-dias-${cliente.id}`}
+                                                  name={`tipo-validade-${cliente.id}`}
+                                                  checked={tipoValidadeBonificacaoIndividual === 'dias'}
+                                                  onChange={() => setTipoValidadeBonificacaoIndividual('dias')}
+                                                  className="w-4 h-4"
+                                                />
+                                                <Label htmlFor={`validade-dias-${cliente.id}`} className="font-normal cursor-pointer text-sm">
+                                                  Válido por X dias
+                                                </Label>
+                                              </div>
+                                              <div className="flex items-center gap-2">
+                                                <input
+                                                  type="radio"
+                                                  id={`validade-data-${cliente.id}`}
+                                                  name={`tipo-validade-${cliente.id}`}
+                                                  checked={tipoValidadeBonificacaoIndividual === 'data'}
+                                                  onChange={() => setTipoValidadeBonificacaoIndividual('data')}
+                                                  className="w-4 h-4"
+                                                />
+                                                <Label htmlFor={`validade-data-${cliente.id}`} className="font-normal cursor-pointer text-sm">
+                                                  Válido até data específica
+                                                </Label>
+                                              </div>
+                                            </div>
+                                            {tipoValidadeBonificacaoIndividual === 'dias' ? (
+                                              <Input
+                                                type="number"
+                                                min="1"
+                                                placeholder="30"
+                                                value={diasValidadeBonificacaoIndividual}
+                                                onChange={(e) => setDiasValidadeBonificacaoIndividual(e.target.value)}
+                                              />
+                                            ) : (
+                                              <Input
+                                                type="date"
+                                                value={dataExpiracaoBonificacaoIndividual}
+                                                onChange={(e) => setDataExpiracaoBonificacaoIndividual(e.target.value)}
+                                              />
+                                            )}
+                                          </div>
+                                          <Button
+                                            onClick={() => {
+                                              handleBonificarIndividual(cliente.id);
+                                              setValorBonificacaoIndividual('');
+                                              setDescricaoBonificacaoIndividual('');
+                                              setTipoValidadeBonificacaoIndividual('dias');
+                                              setDataExpiracaoBonificacaoIndividual('');
+                                              setDiasValidadeBonificacaoIndividual('30');
+                                            }}
+                                            disabled={bonificandoIndividual === cliente.id || !valorBonificacaoIndividual}
+                                            className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800"
+                                          >
+                                            {bonificandoIndividual === cliente.id ? (
+                                              <>
+                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                Bonificando...
+                                              </>
+                                            ) : (
+                                              <>
+                                                <Gift className="h-4 w-4 mr-2" />
+                                                Bonificar Cliente
+                                              </>
+                                            )}
+                                          </Button>
+                                        </div>
+                                      </DialogContent>
+                                    </Dialog>
+                                  </div>
                                 </div>
-                              </div>
-
-                              <Separator className="my-4" />
-
-                              {/* Bonificar Cliente Individual */}
-                              <div className="space-y-3">
-                                <Label className="text-sm font-semibold flex items-center gap-2">
-                                  <Gift className="h-4 w-4" />
-                                  Bonificar Cliente
-                                </Label>
-                                <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div className="space-y-2">
-                                      <Label className="text-xs">Valor da Bonificação *</Label>
-                                      <Input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        placeholder="0,00"
-                                        value={valorBonificacaoIndividual}
-                                        onChange={(e) => setValorBonificacaoIndividual(e.target.value)}
-                                        className="h-8 text-sm"
-                                      />
-                                    </div>
-                                    <div className="space-y-2">
-                                      <Label className="text-xs">Descrição (opcional)</Label>
-                                      <Input
-                                        placeholder="Ex: Bonificação especial"
-                                        value={descricaoBonificacaoIndividual}
-                                        onChange={(e) => setDescricaoBonificacaoIndividual(e.target.value)}
-                                        className="h-8 text-sm"
-                                      />
-                                    </div>
+                                {transactions.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground text-center py-8">
+                                    Nenhuma transação ainda
+                                  </p>
+                                ) : (
+                                  <div className="border rounded-lg max-h-[500px] overflow-y-auto">
+                                    <Table>
+                                      <TableHeader className="sticky top-0 bg-background z-10">
+                                        <TableRow>
+                                          <TableHead>Data</TableHead>
+                                          <TableHead>Evento</TableHead>
+                                          <TableHead>Valor</TableHead>
+                                          <TableHead>Expira</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {transactions.map(t => (
+                                          <TableRow key={t.id}>
+                                            <TableCell className="text-sm">
+                                              {format(new Date(t.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                                            </TableCell>
+                                            <TableCell>
+                                              <div className="flex items-center gap-2">
+                                                {t.transaction_type === 'EARNED' && (
+                                                  <>
+                                                    {t.description?.startsWith('BONIFICAÇÃO:') ? (
+                                                      <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                                                        Bonificação
+                                                      </Badge>
+                                                    ) : (
+                                                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                                        Ganhou
+                                                      </Badge>
+                                                    )}
+                                                  </>
+                                                )}
+                                                {t.transaction_type === 'REDEEMED' && (
+                                                  <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                                                    Resgatou
+                                                  </Badge>
+                                                )}
+                                                {t.transaction_type === 'EXPIRED' && (
+                                                  <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                                                    Expirou
+                                                  </Badge>
+                                                )}
+                                                {t.tiny_order?.numero_pedido && (
+                                                  <span className="text-xs text-muted-foreground">
+                                                    (Pedido #{t.tiny_order.numero_pedido})
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </TableCell>
+                                            <TableCell className={t.transaction_type === 'REDEEMED' || t.transaction_type === 'EXPIRED' ? 'text-red-600' : 'text-green-600'}>
+                                              {t.transaction_type === 'REDEEMED' || t.transaction_type === 'EXPIRED' ? '-' : '+'}
+                                              {formatCurrency(Math.abs(Number(t.amount)))}
+                                            </TableCell>
+                                            <TableCell className="text-sm text-muted-foreground">
+                                              {t.data_expiracao ? format(new Date(t.data_expiracao), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
                                   </div>
-
-                                  {/* Prazo de Validade */}
-                                  <div className="space-y-2">
-                                    <Label className="text-xs">Prazo de Validade</Label>
-                                    <div className="flex items-center gap-4">
-                                      <div className="flex items-center gap-2">
-                                        <input
-                                          type="radio"
-                                          id={`validade-dias-${cliente.id}`}
-                                          name={`tipo-validade-${cliente.id}`}
-                                          checked={tipoValidadeBonificacaoIndividual === 'dias'}
-                                          onChange={() => setTipoValidadeBonificacaoIndividual('dias')}
-                                          className="w-4 h-4"
-                                        />
-                                        <Label htmlFor={`validade-dias-${cliente.id}`} className="font-normal cursor-pointer text-xs">
-                                          Válido por X dias
-                                        </Label>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <input
-                                          type="radio"
-                                          id={`validade-data-${cliente.id}`}
-                                          name={`tipo-validade-${cliente.id}`}
-                                          checked={tipoValidadeBonificacaoIndividual === 'data'}
-                                          onChange={() => setTipoValidadeBonificacaoIndividual('data')}
-                                          className="w-4 h-4"
-                                        />
-                                        <Label htmlFor={`validade-data-${cliente.id}`} className="font-normal cursor-pointer text-xs">
-                                          Válido até data específica
-                                        </Label>
-                                      </div>
-                                    </div>
-
-                                    {tipoValidadeBonificacaoIndividual === 'dias' ? (
-                                      <Input
-                                        type="number"
-                                        min="1"
-                                        placeholder="30"
-                                        value={diasValidadeBonificacaoIndividual}
-                                        onChange={(e) => setDiasValidadeBonificacaoIndividual(e.target.value)}
-                                        className="h-8 text-sm"
-                                      />
-                                    ) : (
-                                      <Input
-                                        type="date"
-                                        value={dataExpiracaoBonificacaoIndividual}
-                                        onChange={(e) => setDataExpiracaoBonificacaoIndividual(e.target.value)}
-                                        className="h-8 text-sm"
-                                      />
-                                    )}
-                                  </div>
-
+                                )}
+                                {temExpirado && (
                                   <Button
-                                    onClick={() => handleBonificarIndividual(cliente.id)}
-                                    disabled={bonificandoIndividual === cliente.id || !valorBonificacaoIndividual}
-                                    className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800"
+                                    variant="outline"
                                     size="sm"
+                                    onClick={() => handleRenovar(cliente.id)}
+                                    className="w-full"
                                   >
-                                    {bonificandoIndividual === cliente.id ? (
-                                      <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        Bonificando...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Gift className="h-4 w-4 mr-2" />
-                                        Bonificar Cliente
-                                      </>
-                                    )}
+                                    <RefreshCw className="h-4 w-4 mr-2" />
+                                    Renovar Cashback Expirado
                                   </Button>
-                                </div>
+                                )}
                               </div>
                             </div>
                           </CollapsibleContent>
@@ -2988,11 +3074,20 @@ export default function CashbackManagement() {
                               {filtro.tipo === 'categoria' && (
                                 <div>
                                   <Label>Categoria</Label>
-                                  <Input
-                                    placeholder="Digite o nome da categoria"
+                                  <Select
                                     value={filtro.categoria || ''}
-                                    onChange={(e) => atualizarFiltro(index, { categoria: e.target.value })}
-                                  />
+                                    onValueChange={(v) => atualizarFiltro(index, { categoria: v })}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Selecione a categoria" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="BLACK">BLACK</SelectItem>
+                                      <SelectItem value="PLATINUM">PLATINUM</SelectItem>
+                                      <SelectItem value="VIP">VIP</SelectItem>
+                                      <SelectItem value="REGULAR">REGULAR</SelectItem>
+                                    </SelectContent>
+                                  </Select>
                                 </div>
                               )}
 

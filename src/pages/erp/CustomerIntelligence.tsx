@@ -241,28 +241,28 @@ export default function CustomerIntelligence() {
                 .slice(0, topLimit);
             setTopGrowth(topGrowthSorted as CustomerRanking[]);
 
-            // Segmentação de clientes
+            // Segmentação de clientes (do maior para o menor)
             const segmentos: CustomerSegment[] = [
                 {
-                    segmento: 'VIP (>R$ 10.000)',
+                    segmento: 'BLACK (>R$ 10.000)',
                     quantidade: clientesProcessados.filter(c => c.total_compras > 10000).length,
                     valor_total: clientesProcessados.filter(c => c.total_compras > 10000).reduce((sum, c) => sum + c.total_compras, 0),
                     ticket_medio: 0,
                 },
                 {
-                    segmento: 'Premium (R$ 5.000 - R$ 10.000)',
+                    segmento: 'PLATINUM (R$ 5.000 - R$ 10.000)',
                     quantidade: clientesProcessados.filter(c => c.total_compras >= 5000 && c.total_compras <= 10000).length,
                     valor_total: clientesProcessados.filter(c => c.total_compras >= 5000 && c.total_compras <= 10000).reduce((sum, c) => sum + c.total_compras, 0),
                     ticket_medio: 0,
                 },
                 {
-                    segmento: 'Regular (R$ 1.000 - R$ 5.000)',
+                    segmento: 'VIP (R$ 1.000 - R$ 5.000)',
                     quantidade: clientesProcessados.filter(c => c.total_compras >= 1000 && c.total_compras < 5000).length,
                     valor_total: clientesProcessados.filter(c => c.total_compras >= 1000 && c.total_compras < 5000).reduce((sum, c) => sum + c.total_compras, 0),
                     ticket_medio: 0,
                 },
                 {
-                    segmento: 'Iniciante (<R$ 1.000)',
+                    segmento: 'REGULAR (<R$ 1.000)',
                     quantidade: clientesProcessados.filter(c => c.total_compras < 1000).length,
                     valor_total: clientesProcessados.filter(c => c.total_compras < 1000).reduce((sum, c) => sum + c.total_compras, 0),
                     ticket_medio: 0,
