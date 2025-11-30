@@ -13,6 +13,12 @@ interface BonusData {
     tipo: string;
     valor_bonus: number;
     valor_bonus_texto: string | null;
+    valor_bonus_1?: number | null;
+    valor_bonus_2?: number | null;
+    valor_bonus_3?: number | null;
+    valor_bonus_texto_1?: string | null;
+    valor_bonus_texto_2?: string | null;
+    valor_bonus_texto_3?: string | null;
     tipo_condicao: string | null;
     meta_minima_percentual: number | null;
     ativo: boolean;
@@ -352,9 +358,12 @@ export function BonusTracker() {
                         <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
                                 <h4 className="font-semibold text-sm break-words">{bonus.nome}</h4>
-                                <p className="text-xs text-muted-foreground">
-                                    {bonus.valor_bonus_texto || `R$ ${bonus.valor_bonus.toFixed(2)}`}
-                                </p>
+                                {/* Mostrar prêmio geral apenas se houver um valor definido (não zero) */}
+                                {((bonus.valor_bonus_texto && bonus.valor_bonus_texto.trim()) || (bonus.valor_bonus && bonus.valor_bonus > 0)) && (
+                                    <p className="text-xs text-muted-foreground">
+                                        {bonus.valor_bonus_texto || `R$ ${bonus.valor_bonus.toFixed(2)}`}
+                                    </p>
+                                )}
                             </div>
                             <Badge variant={bonus.collaborators.some((c) => c.achieved) ? "default" : "outline"} className="text-xs">
                                 {bonus.tipo_condicao === "PERCENTUAL_META" && bonus.meta_minima_percentual
@@ -451,6 +460,41 @@ export function BonusTracker() {
                                                 }
                                             };
 
+                                            // Obter prêmio baseado na posição
+                                            const getPremio = () => {
+                                                const bonusData = bonus as any;
+                                                
+                                                // Priorizar prêmio por posição (valor_bonus_1, valor_bonus_2, valor_bonus_3)
+                                                if (position === 1) {
+                                                    if (bonusData.valor_bonus_texto_1) {
+                                                        return bonusData.valor_bonus_texto_1;
+                                                    } else if (bonusData.valor_bonus_1) {
+                                                        return `R$ ${bonusData.valor_bonus_1.toFixed(2)}`;
+                                                    }
+                                                } else if (position === 2) {
+                                                    if (bonusData.valor_bonus_texto_2) {
+                                                        return bonusData.valor_bonus_texto_2;
+                                                    } else if (bonusData.valor_bonus_2) {
+                                                        return `R$ ${bonusData.valor_bonus_2.toFixed(2)}`;
+                                                    }
+                                                } else if (position === 3) {
+                                                    if (bonusData.valor_bonus_texto_3) {
+                                                        return bonusData.valor_bonus_texto_3;
+                                                    } else if (bonusData.valor_bonus_3) {
+                                                        return `R$ ${bonusData.valor_bonus_3.toFixed(2)}`;
+                                                    }
+                                                }
+                                                
+                                                // Fallback: usar prêmio geral se não houver prêmio específico por posição
+                                                if (bonus.valor_bonus_texto) {
+                                                    return bonus.valor_bonus_texto;
+                                                } else if (bonus.valor_bonus && bonus.valor_bonus > 0) {
+                                                    return `R$ ${bonus.valor_bonus.toFixed(2)}`;
+                                                }
+                                                
+                                                return null;
+                                            };
+
                                             return (
                                                 <div key={colab.id} className={`p-3 rounded-lg border border-border/50 ${
                                                     isIndicador 
@@ -465,15 +509,23 @@ export function BonusTracker() {
                                                         {/* Nome */}
                                                         <span className="break-words flex-1 min-w-0 text-sm font-medium">{colab.name}</span>
                                                         {/* Valor do indicador ou progresso */}
-                                                        <span className={`font-bold text-base ${
-                                                            colab.achieved ? "text-green-600" : 
-                                                            position === 1 ? "text-yellow-600" : 
-                                                            position === 2 ? "text-gray-600" :
-                                                            position === 3 ? "text-amber-600" :
-                                                            ""
-                                                        }`}>
-                                                            {getFormattedValue()}
-                                                        </span>
+                                                        <div className="flex flex-col items-end gap-1">
+                                                            <span className={`font-bold text-base ${
+                                                                colab.achieved ? "text-green-600" : 
+                                                                position === 1 ? "text-yellow-600" : 
+                                                                position === 2 ? "text-gray-600" :
+                                                                position === 3 ? "text-amber-600" :
+                                                                ""
+                                                            }`}>
+                                                                {getFormattedValue()}
+                                                            </span>
+                                                            {/* Prêmio */}
+                                                            {getPremio() && (
+                                                                <span className="text-xs font-semibold text-primary">
+                                                                    🎁 {getPremio()}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     
                                                     {/* Barra de progresso APENAS para faturamento/meta (não para indicadores) */}
