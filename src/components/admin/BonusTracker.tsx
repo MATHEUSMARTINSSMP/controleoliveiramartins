@@ -113,6 +113,11 @@ export function BonusTracker() {
                             const ticketMedio = qtdVendas > 0 ? totalVendido / qtdVendas : 0;
                             const pa = qtdVendas > 0 ? qtdPecas / qtdVendas : 0;
                             
+                            // Debug: log dos cálculos
+                            if (bonus.tipo_condicao && (bonus.tipo_condicao.toUpperCase().includes("TICKET") || bonus.tipo_condicao.toUpperCase().includes("PA") || bonus.tipo_condicao.toUpperCase().includes("PECAS"))) {
+                                console.log(`[BonusTracker] 📊 Cálculo para ${colabName}: totalVendido=${totalVendido}, qtdVendas=${qtdVendas}, ticketMedio=${ticketMedio}, pa=${pa}, qtdPecas=${qtdPecas}`);
+                            }
+                            
                             const metaValor = metaData?.meta_valor || 0;
                             const progress = metaValor > 0 ? (totalVendido / metaValor) * 100 : 0;
 
@@ -291,6 +296,9 @@ export function BonusTracker() {
                                                           tipoCondicao === "NUMERO_PECAS" || 
                                                           tipoCondicao === "NUMERO DE PEÇAS";
                                         
+                                        // Debug: verificar tipo_condicao do bônus
+                                        console.log(`[BonusTracker] 🔍 Bonus: "${bonus.nome}", tipo_condicao original: "${bonus.tipo_condicao}", normalizado: "${tipoCondicao}", isIndicador: ${isIndicador}`);
+                                        
                                         return sorted.map((colab, index) => {
                                             const position = index + 1;
                                             const rankingValue = (colab as any).rankingValue !== undefined ? (colab as any).rankingValue : colab.progress;
@@ -309,18 +317,24 @@ export function BonusTracker() {
 
                                             // Valor formatado baseado no tipo_condicao
                                             const getFormattedValue = () => {
-                                                // Para indicadores, usar rankingValue diretamente
+                                                // IMPORTANTE: Para indicadores, usar os valores DIRETOS do objeto colabData
+                                                // NÃO usar rankingValue porque ele pode estar incorreto se tipo_condicao não foi reconhecido
                                                 if (tipoCondicao === "TICKET_MEDIO" || tipoCondicao === "TICKET MÉDIO") {
-                                                    const ticketMedio = rankingValue > 0 ? rankingValue : (colabData.ticketMedio || 0);
+                                                    // Usar ticketMedio diretamente do objeto colabData
+                                                    const ticketMedio = colabData.ticketMedio || 0;
+                                                    console.log(`[BonusTracker] 🎯 TICKET_MEDIO - Colab: ${colab.name}, ticketMedio: ${ticketMedio}, rankingValue: ${rankingValue}`);
                                                     return `R$ ${ticketMedio.toFixed(2)}`;
                                                 } else if (tipoCondicao === "PA") {
-                                                    const pa = rankingValue > 0 ? rankingValue : (colabData.pa || 0);
+                                                    // Usar pa diretamente do objeto colabData
+                                                    const pa = colabData.pa || 0;
                                                     return `${pa.toFixed(1)} peças/venda`;
                                                 } else if (tipoCondicao === "NUMERO_PECAS" || tipoCondicao === "NUMERO DE PEÇAS") {
-                                                    const qtdPecas = rankingValue > 0 ? rankingValue : (colabData.qtdPecas || 0);
+                                                    // Usar qtdPecas diretamente do objeto colabData
+                                                    const qtdPecas = colabData.qtdPecas || 0;
                                                     return `${Math.round(qtdPecas)} peças`;
                                                 } else {
                                                     // Para faturamento/meta, mostrar porcentagem
+                                                    console.log(`[BonusTracker] ⚠️ Tipo não é indicador (${tipoCondicao}), usando progress: ${colab.progress.toFixed(0)}%`);
                                                     return `${colab.progress.toFixed(0)}%`;
                                                 }
                                             };
