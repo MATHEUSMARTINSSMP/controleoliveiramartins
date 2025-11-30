@@ -790,6 +790,16 @@ exports.handler = async (event, context) => {
           } else {
             synced++;
             console.log(`[SyncBackground] ✅ Pedido ${tinyId} criado`);
+            
+            // ✅ NOVA FUNCIONALIDADE: Enviar WhatsApp quando detectar nova venda do ERP
+            // Executar em background (não bloquear sincronização)
+            (async () => {
+              try {
+                await enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensProcessados, pedidoCompleto);
+              } catch (error) {
+                console.error(`[SyncBackground] ❌ Erro ao enviar WhatsApp (não bloqueia sincronização):`, error);
+              }
+            })();
           }
 
           // ✅ TAREFA 9: Gerar cashback com FALLBACK manual (trigger + manual)
@@ -1195,6 +1205,16 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
         } else {
           synced++;
           console.log(`[SyncBackground] ✅ Pedido ${tinyId} inserido com data_pedido: ${orderData.data_pedido}`);
+          
+          // ✅ NOVA FUNCIONALIDADE: Enviar WhatsApp quando detectar nova venda do ERP
+          // Executar em background (não bloquear sincronização)
+          (async () => {
+            try {
+              await enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensProcessados, pedidoCompleto);
+            } catch (error) {
+              console.error(`[SyncBackground] ❌ Erro ao enviar WhatsApp (não bloqueia sincronização):`, error);
+            }
+          })();
         }
       }
 
@@ -2031,4 +2051,228 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
   };
 
   return orderData;
+}
+
+/**
+ * Formata produtos dos itens para colocar nas observações do WhatsApp
+ */
+function formatarProdutosParaObservacoes(itens) {
+  if (!itens || !Array.isArray(itens) || itens.length === 0) {
+    return null;
+  }
+
+  const produtosFormatados = itens.map((item, index) => {
+    const nome = item.nome || item.descricao || item.produto?.nome || 'Produto sem nome';
+    const quantidade = item.quantidade || 1;
+    const tamanho = item.tamanho || '';
+    const cor = item.cor || '';
+    
+    let produtoTexto = `${quantidade}x ${nome}`;
+    if (tamanho) produtoTexto += ` - Tam: ${tamanho}`;
+    if (cor) produtoTexto += ` - Cor: ${cor}`;
+    
+    return produtoTexto;
+  });
+
+  return produtosFormatados.join(', ');
+}
+
+/**
+ * Envia WhatsApp quando uma nova venda do Tiny chega
+ * Usa a mesma estrutura de mensagem do LojaDashboard
+ */
+async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensComCategorias, pedidoCompleto = null) {
+  try {
+    console.log(`[SyncBackground] 📱 Iniciando envio de WhatsApp para nova venda ${orderData.numero_pedido}`);
+
+    // 1. Buscar dados da loja e admin
+    const { data: storeData, error: storeError } = await supabase
+      .schema('sistemaretiradas')
+      .from('stores')
+      .select('admin_id, name')
+      .eq('id', storeId)
+      .single();
+
+    if (storeError || !storeData?.admin_id) {
+      console.warn(`[SyncBackground] ⚠️ Loja não encontrada ou sem admin. WhatsApp não será enviado.`);
+      return;
+    }
+
+    // 2. Buscar nome da colaboradora (se houver)
+    let colaboradoraName = 'Sistema ERP';
+    if (orderData.colaboradora_id) {
+      const { data: colaboradoraData } = await supabase
+        .schema('sistemaretiradas')
+        .from('profiles')
+        .select('name')
+        .eq('id', orderData.colaboradora_id)
+        .single();
+
+      if (colaboradoraData?.name) {
+        colaboradoraName = colaboradoraData.name;
+      }
+    }
+
+    // 3. Buscar destinatários WhatsApp do admin (tipo VENDA)
+    const { data: recipientsAllStores } = await supabase
+      .schema('sistemaretiradas')
+      .from('whatsapp_notification_config')
+      .select('phone')
+      .eq('admin_id', storeData.admin_id)
+      .eq('notification_type', 'VENDA')
+      .eq('active', true)
+      .is('store_id', null);
+
+    const { data: recipientsThisStore } = await supabase
+      .schema('sistemaretiradas')
+      .from('whatsapp_notification_config')
+      .select('phone')
+      .eq('admin_id', storeData.admin_id)
+      .eq('notification_type', 'VENDA')
+      .eq('active', true)
+      .eq('store_id', storeId);
+
+    const adminPhones = [
+      ...(recipientsAllStores || []),
+      ...(recipientsThisStore || [])
+    ].map(r => r.phone).filter(Boolean);
+
+    if (adminPhones.length === 0) {
+      console.warn(`[SyncBackground] ⚠️ Nenhum destinatário WhatsApp encontrado para admin ${storeData.admin_id}`);
+      return;
+    }
+
+    // 4. Calcular totais (dia e mês)
+    const hojeStr = new Date().toISOString().split('T')[0];
+    const { data: vendasHoje } = await supabase
+      .schema('sistemaretiradas')
+      .from('tiny_orders')
+      .select('valor_total')
+      .eq('store_id', storeId)
+      .gte('data_pedido', `${hojeStr}T00:00:00`)
+      .lte('data_pedido', `${hojeStr}T23:59:59`);
+
+    const totalDia = vendasHoje?.reduce((sum, v) => sum + (parseFloat(v.valor_total) || 0), 0) || 0;
+
+    const mesAtual = new Date().toISOString().slice(0, 7).replace('-', '');
+    const { data: vendasMes } = await supabase
+      .schema('sistemaretiradas')
+      .from('tiny_orders')
+      .select('valor_total')
+      .eq('store_id', storeId)
+      .gte('data_pedido', `${mesAtual}-01T00:00:00`)
+      .lte('data_pedido', `${mesAtual}-31T23:59:59`);
+
+    const totalMes = vendasMes?.reduce((sum, v) => sum + (parseFloat(v.valor_total) || 0), 0) || 0;
+
+    // 5. Formatar produtos para observações
+    const produtosTexto = formatarProdutosParaObservacoes(itensComCategorias);
+    const observacoes = produtosTexto || orderData.observacoes || null;
+
+    // 6. Calcular quantidade de peças (soma das quantidades dos itens)
+    const qtdPecas = itensComCategorias?.reduce((sum, item) => sum + (parseInt(item.quantidade) || 0), 0) || 0;
+
+    // 7. Formatar mensagem (usando mesma estrutura do LojaDashboard)
+    const dataFormatada = orderData.data_pedido
+      ? new Date(orderData.data_pedido).toLocaleDateString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : 'hoje';
+
+    const valorFormatado = new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(orderData.valor_total || 0);
+
+    let message = `🛒 *Nova Venda Lançada*\n\n`;
+    message += `*Colaboradora:* ${colaboradoraName}\n`;
+    message += `*Loja:* ${storeData.name}\n`;
+    message += `*Valor:* ${valorFormatado}\n`;
+    message += `*Quantidade de Peças:* ${qtdPecas}\n`;
+    
+    // ✅ Formatar formas de pagamento (igual ao LojaDashboard)
+    if (orderData.forma_pagamento) {
+      let formasPagamentoTexto = orderData.forma_pagamento;
+      
+      // Se houver parcelas no pedido completo, adicionar informação de parcelas
+      if (pedidoCompleto?.parcelas && Array.isArray(pedidoCompleto.parcelas) && pedidoCompleto.parcelas.length > 0) {
+        const numParcelas = pedidoCompleto.parcelas.length;
+        // Verificar se é crédito (geralmente tem parcelas)
+        if (orderData.forma_pagamento.toLowerCase().includes('crédito') || 
+            orderData.forma_pagamento.toLowerCase().includes('credito') ||
+            orderData.forma_pagamento.toLowerCase().includes('cartão') ||
+            orderData.forma_pagamento.toLowerCase().includes('cartao')) {
+          formasPagamentoTexto = `${orderData.forma_pagamento} (${numParcelas}x)`;
+        } else {
+          formasPagamentoTexto = `${orderData.forma_pagamento} - ${numParcelas} parcela(s)`;
+        }
+      }
+      
+      message += `*Formas de Pagamento:* ${formasPagamentoTexto}\n`;
+    }
+    
+    message += `*Data:* ${dataFormatada}\n`;
+    
+    if (totalDia > 0) {
+      const totalDiaFormatado = new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+      }).format(totalDia);
+      message += `*Total Vendido (Hoje):* ${totalDiaFormatado}\n`;
+    }
+    
+    if (totalMes > 0) {
+      const totalMesFormatado = new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+      }).format(totalMes);
+      message += `*Total Mês:* ${totalMesFormatado}\n`;
+    }
+    
+    if (observacoes && observacoes.trim()) {
+      message += `\n*Observações:*\n${observacoes.trim()}\n`;
+    }
+    
+    message += `\nSistema EleveaOne 📊`;
+
+    // 8. Enviar WhatsApp para todos os destinatários
+    const baseUrl = process.env.URL || 'https://eleveaone.com.br';
+    const whatsappFunctionUrl = `${baseUrl}/.netlify/functions/send-whatsapp-message`;
+
+    console.log(`[SyncBackground] 📱 Enviando WhatsApp para ${adminPhones.length} destinatário(s)...`);
+
+    await Promise.all(
+      adminPhones.map(async (phone) => {
+        try {
+          const response = await fetch(whatsappFunctionUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              phone,
+              message,
+            }),
+          });
+
+          if (response.ok) {
+            console.log(`[SyncBackground] ✅ WhatsApp enviado com sucesso para ${phone}`);
+          } else {
+            console.warn(`[SyncBackground] ⚠️ Falha ao enviar WhatsApp para ${phone}`);
+          }
+        } catch (err) {
+          console.error(`[SyncBackground] ❌ Erro ao enviar WhatsApp para ${phone}:`, err);
+        }
+      })
+    );
+
+    console.log(`[SyncBackground] 📱 Processo de envio de WhatsApp concluído`);
+  } catch (error) {
+    console.error(`[SyncBackground] ❌ Erro ao enviar WhatsApp para nova venda:`, error);
+    // Não bloquear o processo de sincronização se o WhatsApp falhar
+  }
 }
