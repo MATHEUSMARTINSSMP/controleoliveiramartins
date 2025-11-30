@@ -2367,23 +2367,11 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
       console.log(`[SyncBackground]   [WHATSAPP] dataPedido (Date object UTC): ${dataPedido.toISOString()}`);
       console.log(`[SyncBackground]   [WHATSAPP] dataPedido (Date object local): ${dataPedido.toString()}`);
       
-      // ✅ CORREÇÃO ROBUSTA: Converter para UTC-3 (Macapá)
-      // Macapá está em UTC-3, então precisamos subtrair 3 horas do UTC
-      // Se a data vem em UTC, precisamos ajustar para UTC-3
-      // Se a data vem em horário local do servidor, precisamos converter para UTC primeiro
-      
-      // Estratégia: Assumir que a data vem em UTC e converter para UTC-3
-      // UTC-3 = UTC - 3 horas
-      const macapaOffset = -3 * 60; // -3 horas em minutos
-      const utcTime = dataPedido.getTime() + (dataPedido.getTimezoneOffset() * 60000); // Converter para UTC
-      const macapaTime = new Date(utcTime + (macapaOffset * 60000)); // Aplicar offset de Macapá
-      
-      console.log(`[SyncBackground]   [WHATSAPP] macapaTime (calculado): ${macapaTime.toISOString()}`);
-      
-      // Formatar usando timezone específico
+      // ✅ CORREÇÃO: Macapá usa UTC-3 (America/Manaus timezone)
+      // NÃO fazer cálculo manual, apenas usar o timezone diretamente
+      // O toLocaleString já faz a conversão correta automaticamente
       try {
-        // Tentar usar timezone do sistema se suportar
-        dataFormatada = macapaTime.toLocaleString('pt-BR', {
+        dataFormatada = dataPedido.toLocaleString('pt-BR', {
           day: '2-digit',
           month: '2-digit',
           year: 'numeric',
@@ -2393,15 +2381,16 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
         });
         console.log(`[SyncBackground]   [WHATSAPP] dataFormatada (Macapá via timezone): ${dataFormatada}`);
       } catch (error) {
-        console.warn(`[SyncBackground] ⚠️ [WHATSAPP] Erro ao formatar com timezone, usando cálculo manual:`, error);
-        // Fallback: formatar manualmente
-        const dia = String(macapaTime.getUTCDate()).padStart(2, '0');
-        const mes = String(macapaTime.getUTCMonth() + 1).padStart(2, '0');
-        const ano = macapaTime.getUTCFullYear();
-        const hora = String(macapaTime.getUTCHours()).padStart(2, '0');
-        const minuto = String(macapaTime.getUTCMinutes()).padStart(2, '0');
-        dataFormatada = `${dia}/${mes}/${ano} ${hora}:${minuto}`;
-        console.log(`[SyncBackground]   [WHATSAPP] dataFormatada (Macapá manual): ${dataFormatada}`);
+        console.warn(`[SyncBackground] ⚠️ [WHATSAPP] Erro ao formatar com timezone, usando fallback:`, error);
+        // Fallback: usar formato local
+        dataFormatada = dataPedido.toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        console.log(`[SyncBackground]   [WHATSAPP] dataFormatada (fallback local): ${dataFormatada}`);
       }
     }
 
@@ -2413,6 +2402,12 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     let message = `🛒 *Nova Venda Lançada*\n\n`;
     message += `*Colaboradora:* ${colaboradoraName}\n`;
     message += `*Loja:* ${storeData.name}\n`;
+    
+    // ✅ Adicionar nome do cliente
+    if (orderData.cliente_nome) {
+      message += `*Cliente:* ${orderData.cliente_nome}\n`;
+    }
+    
     message += `*Valor:* ${valorFormatado}\n`;
     message += `*Quantidade de Peças:* ${qtdPecas}\n`;
     
@@ -2456,7 +2451,7 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     }
     
     if (observacoes && observacoes.trim()) {
-      message += `\n*Observações:*\n${observacoes.trim()}\n`;
+      message += `\n*Peças Vendidas:*\n${observacoes.trim()}\n`;
     }
     
     message += `\nSistema EleveaOne 📊`;
