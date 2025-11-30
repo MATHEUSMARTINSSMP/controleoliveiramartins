@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Gift, TrendingUp, Users, AlertCircle, Medal, Trophy } from "lucide-react";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, getWeek, getYear, addWeeks } from "date-fns";
 import { validateBonusPreRequisitos } from "@/lib/bonusValidation";
 
 interface BonusData {
@@ -84,27 +84,82 @@ export function BonusTracker() {
                     }
 
                     // ✅ Determinar período do bônus (data de lançamento até data de encerramento)
+                    // PRIORIDADE: periodo_data_inicio/periodo_data_fim > periodo_mes > periodo_semana > created_at > mês atual
                     let dataInicio: string;
                     let dataFim: string;
                     
                     if (bonus.periodo_data_inicio) {
-                        // Usar data de início do bônus
+                        // ✅ PRIORIDADE 1: Usar data de início exata do bônus
                         dataInicio = bonus.periodo_data_inicio;
+                    } else if ((bonus as any).periodo_mes) {
+                        // ✅ PRIORIDADE 2: Converter periodo_mes (YYYYMM) para início do mês
+                        const periodoMes = (bonus as any).periodo_mes;
+                        const ano = periodoMes.slice(0, 4);
+                        const mes = periodoMes.slice(4, 6);
+                        const primeiroDiaMes = new Date(parseInt(ano), parseInt(mes) - 1, 1);
+                        dataInicio = format(startOfMonth(primeiroDiaMes), "yyyy-MM-dd");
+                    } else if ((bonus as any).periodo_semana) {
+                        // ✅ PRIORIDADE 3: Converter periodo_semana (WWYYYY) para início da semana
+                        const periodoSemana = (bonus as any).periodo_semana;
+                        try {
+                            // Formato: WWYYYY
+                            const semana = parseInt(periodoSemana.slice(0, 2));
+                            const ano = parseInt(periodoSemana.slice(2, 6));
+                            const jan1 = new Date(ano, 0, 1);
+                            const firstMonday = startOfWeek(jan1, { weekStartsOn: 1 });
+                            const weekStart = addWeeks(firstMonday, semana - 1);
+                            dataInicio = format(weekStart, "yyyy-MM-dd");
+                        } catch (error) {
+                            console.error(`[BonusTracker] Erro ao converter periodo_semana: ${periodoSemana}`, error);
+                            // Fallback
+                            if (bonus.created_at) {
+                                const createdDate = new Date(bonus.created_at);
+                                dataInicio = format(createdDate, "yyyy-MM-dd");
+                            } else {
+                                const mesAtual = format(new Date(), "yyyyMM");
+                                dataInicio = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
+                            }
+                        }
                     } else if (bonus.created_at) {
-                        // Fallback: usar created_at como data de início
+                        // ✅ PRIORIDADE 4: Fallback: usar created_at como data de início
                         const createdDate = new Date(bonus.created_at);
                         dataInicio = format(createdDate, "yyyy-MM-dd");
                     } else {
-                        // Fallback: início do mês atual
+                        // ✅ PRIORIDADE 5: Fallback: início do mês atual
                         const mesAtual = format(new Date(), "yyyyMM");
                         dataInicio = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
                     }
                     
                     if (bonus.periodo_data_fim) {
-                        // Usar data de fim do bônus
+                        // ✅ PRIORIDADE 1: Usar data de fim exata do bônus
                         dataFim = bonus.periodo_data_fim;
+                    } else if ((bonus as any).periodo_mes) {
+                        // ✅ PRIORIDADE 2: Converter periodo_mes (YYYYMM) para fim do mês
+                        const periodoMes = (bonus as any).periodo_mes;
+                        const ano = parseInt(periodoMes.slice(0, 4));
+                        const mes = parseInt(periodoMes.slice(4, 6));
+                        const primeiroDiaMes = new Date(ano, mes - 1, 1);
+                        const ultimoDiaMes = endOfMonth(primeiroDiaMes);
+                        dataFim = format(ultimoDiaMes, "yyyy-MM-dd");
+                    } else if ((bonus as any).periodo_semana) {
+                        // ✅ PRIORIDADE 3: Converter periodo_semana (WWYYYY) para fim da semana
+                        const periodoSemana = (bonus as any).periodo_semana;
+                        try {
+                            // Formato: WWYYYY
+                            const semana = parseInt(periodoSemana.slice(0, 2));
+                            const ano = parseInt(periodoSemana.slice(2, 6));
+                            const jan1 = new Date(ano, 0, 1);
+                            const firstMonday = startOfWeek(jan1, { weekStartsOn: 1 });
+                            const weekStart = addWeeks(firstMonday, semana - 1);
+                            const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+                            dataFim = format(weekEnd, "yyyy-MM-dd");
+                        } catch (error) {
+                            console.error(`[BonusTracker] Erro ao converter periodo_semana: ${periodoSemana}`, error);
+                            // Fallback: data atual
+                            dataFim = format(new Date(), "yyyy-MM-dd");
+                        }
                     } else {
-                        // Se não tiver data de fim, usar data atual (bônus ainda ativo)
+                        // ✅ PRIORIDADE 4: Se não tiver data de fim, usar data atual (bônus ainda ativo)
                         dataFim = format(new Date(), "yyyy-MM-dd");
                     }
                     
@@ -113,6 +168,8 @@ export function BonusTracker() {
                     const dataInicioCompleta = `${dataInicio}T00:00:00`;
                     
                     console.log(`[BonusTracker] 📅 Período do bônus "${bonus.nome}": ${dataInicio} até ${dataFim}`);
+                    console.log(`[BonusTracker] 📅 periodo_data_inicio: ${bonus.periodo_data_inicio}, periodo_data_fim: ${bonus.periodo_data_fim}`);
+                    console.log(`[BonusTracker] 📅 periodo_mes: ${(bonus as any).periodo_mes}, periodo_semana: ${(bonus as any).periodo_semana}`);
 
                     const collaboratorsWithProgress = await Promise.all(
                         colabData.map(async (colab: any) => {
