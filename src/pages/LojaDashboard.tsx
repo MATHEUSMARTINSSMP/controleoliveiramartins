@@ -24,6 +24,7 @@ import { StoreLogo } from "@/lib/storeLogo";
 import { sendWhatsAppMessage, formatVendaMessage } from "@/lib/whatsapp";
 import { checkAndCreateMonthlyTrophies, checkAndCreateWeeklyTrophies } from "@/lib/trophies";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import CashbackLojaView from "@/components/loja/CashbackLojaView";
 
 interface Sale {
     id: string;
@@ -2275,7 +2276,15 @@ export default function LojaDashboard() {
                             </TabsList>
                         </Tabs>
                     )}
-                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                </div>
+            </div>
+
+            {/* Conteúdo Principal com Abas */}
+            {cashbackAtivo ? (
+                <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback')} className="space-y-4">
+                    <TabsContent value="metas" className="space-y-4 sm:space-y-6">
+                        {/* Todo o conteúdo atual do dashboard de metas */}
+                        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                     <DialogTrigger asChild>
                         <Button onClick={resetForm} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
                             <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
@@ -3253,6 +3262,18 @@ export default function LojaDashboard() {
                         )}
                 </CardContent>
             </Card>
+            )}
+                    </TabsContent>
+
+                    <TabsContent value="cashback" className="space-y-4 sm:space-y-6">
+                        <CashbackLojaView storeId={storeId} />
+                    </TabsContent>
+                </Tabs>
+            ) : (
+                // Se cashback não estiver ativo, mostrar apenas o conteúdo de metas (sem abas)
+                <div className="space-y-4 sm:space-y-6">
+                    {/* Todo o conteúdo de metas está aqui - será movido para dentro do TabsContent acima quando cashback estiver ativo */}
+                </div>
             )}
         </div>
     );
