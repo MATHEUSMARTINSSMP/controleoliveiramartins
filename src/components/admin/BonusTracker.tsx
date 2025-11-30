@@ -365,14 +365,8 @@ export function BonusTracker() {
                                                     </div>
                                                     
                                                     {/* Barra de progresso APENAS para faturamento/meta (não para indicadores) */}
-                                                    {!isIndicador && (
-                                                        <div className="mt-2">
-                                                            <Progress 
-                                                                value={colab.progress} 
-                                                                className={`h-2 ${getProgressColor(colab.progress)}`} 
-                                                            />
-                                                        </div>
-                                                    )}
+                                                    {/* REMOVIDO: Barra de progresso não faz sentido para indicadores como ticket médio, PA, etc. */}
+                                                    {/* Apenas medalhas e valores são suficientes para rankings de indicadores */}
                                                     
                                                     {colab.progress >= (bonus.meta_minima_percentual || 0) && !colab.achieved && colab.preRequisitosReason && (
                                                         <div className="flex items-center gap-1 text-[10px] text-orange-600 mt-2">
