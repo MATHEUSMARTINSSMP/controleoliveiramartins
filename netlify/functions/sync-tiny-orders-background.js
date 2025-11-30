@@ -2240,11 +2240,15 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     message += `\nSistema EleveaOne 📊`;
 
     // 8. Enviar WhatsApp para todos os destinatários
+    // ✅ USAR EXATAMENTE O MESMO MECANISMO DO ENVIO MANUAL
+    // Mesma URL, mesmo formato de payload, mesmo tratamento de resposta
     const baseUrl = process.env.URL || 'https://eleveaone.com.br';
     const whatsappFunctionUrl = `${baseUrl}/.netlify/functions/send-whatsapp-message`;
 
     console.log(`[SyncBackground] 📱 Enviando WhatsApp para ${adminPhones.length} destinatário(s)...`);
+    console.log(`[SyncBackground] 📱 URL da função: ${whatsappFunctionUrl}`);
 
+    // ✅ MESMO FORMATO DO ENVIO MANUAL: Promise.all com tratamento de sucesso/erro
     await Promise.all(
       adminPhones.map(async (phone) => {
         try {
@@ -2259,13 +2263,17 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
             }),
           });
 
-          if (response.ok) {
+          // ✅ MESMO TRATAMENTO DE RESPOSTA DO ENVIO MANUAL
+          const data = await response.json();
+          
+          if (response.ok && data.success) {
             console.log(`[SyncBackground] ✅ WhatsApp enviado com sucesso para ${phone}`);
           } else {
-            console.warn(`[SyncBackground] ⚠️ Falha ao enviar WhatsApp para ${phone}`);
+            console.warn(`[SyncBackground] ⚠️ Falha ao enviar WhatsApp para ${phone}:`, data.error || 'Erro desconhecido');
           }
         } catch (err) {
           console.error(`[SyncBackground] ❌ Erro ao enviar WhatsApp para ${phone}:`, err);
+          // Não bloquear processo se um telefone falhar
         }
       })
     );
