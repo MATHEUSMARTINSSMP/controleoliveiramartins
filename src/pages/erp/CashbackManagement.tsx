@@ -47,6 +47,9 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
 import CashbackSettings from '@/components/erp/CashbackSettings';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
+import { Plus, X, Filter, Users, Calendar, Gift, Tag, Package, ShoppingBag } from 'lucide-react';
 
 interface Cliente {
   id: string;
@@ -112,6 +115,28 @@ export default function CashbackManagement() {
 
   // Estados para cancelamento
   const [canceling, setCanceling] = useState<string | null>(null);
+
+  // Estados para Bonificar
+  interface FiltroBonificacao {
+    tipo: 'melhores_clientes' | 'compra_periodo' | 'nao_visita' | 'aniversario' | 'tag' | 'todos' | 'categoria' | 'produto';
+    incluir: boolean; // true = incluir, false = excluir
+    parametro?: 'ticket_medio' | 'pa' | 'faturamento'; // Para melhores clientes
+    quantidade?: number; // Para melhores clientes
+    dataInicio?: string; // Para compra_periodo e nao_visita
+    dataFim?: string; // Para compra_periodo
+    mesAniversario?: number; // Para aniversario (1-12)
+    tag?: string; // Para tag
+    categoria?: string; // Para categoria
+    produto?: string; // Para produto
+  }
+  const [filtrosBonificacao, setFiltrosBonificacao] = useState<FiltroBonificacao[]>([]);
+  const [filtrosCumulativos, setFiltrosCumulativos] = useState(true); // true = AND, false = OR
+  const [clientesFiltrados, setClientesFiltrados] = useState<Cliente[]>([]);
+  const [loadingFiltros, setLoadingFiltros] = useState(false);
+  const [valorBonificacao, setValorBonificacao] = useState('');
+  const [descricaoBonificacao, setDescricaoBonificacao] = useState('');
+  const [bonificando, setBonificando] = useState(false);
+  const [selectedClientesBonificar, setSelectedClientesBonificar] = useState<Set<string>>(new Set());
 
   // KPIs
   const [kpis, setKpis] = useState({
@@ -539,6 +564,437 @@ export default function CashbackManagement() {
       .slice(0, 10); // Limitar a 10 resultados
   }, [clientes, searchClienteResgatar]);
 
+  // Função para aplicar filtros de bonificação
+  const aplicarFiltrosBonificacao = async () => {
+    if (filtrosBonificacao.length === 0) {
+      toast.error('Adicione pelo menos um filtro');
+      return;
+    }
+
+    setLoadingFiltros(true);
+    try {
+      // Buscar todos os pedidos para análise
+      const { data: orders, error: ordersError } = await supabase
+        .schema('sistemaretiradas')
+        .from('tiny_orders')
+        .select('cliente_id, cliente_nome, cliente_cpf_cnpj, data_pedido, valor_total, itens');
+
+      if (ordersError) throw ordersError;
+
+      // Agrupar pedidos por cliente
+      const clienteMap = new Map<string, {
+        cliente: Cliente;
+        pedidos: any[];
+        totalFaturamento: number;
+        ticketMedio: number;
+        pa: number; // Peças por Atendimento
+        ultimaCompra: string | null;
+        categorias: Set<string>;
+        produtos: Set<string>;
+      }>();
+
+      // Processar pedidos
+      orders?.forEach((order: any) => {
+        if (!order.cliente_id) return;
+
+        const clienteId = order.cliente_id;
+        if (!clienteMap.has(clienteId)) {
+          const cliente = clientes.find(c => c.id === clienteId);
+          if (!cliente) return;
+          clienteMap.set(clienteId, {
+            cliente,
+            pedidos: [],
+            totalFaturamento: 0,
+            ticketMedio: 0,
+            pa: 0,
+            ultimaCompra: null,
+            categorias: new Set(),
+            produtos: new Set(),
+          });
+        }
+
+        const clienteData = clienteMap.get(clienteId)!;
+        clienteData.pedidos.push(order);
+        clienteData.totalFaturamento += parseFloat(order.valor_total || 0);
+
+        // Processar itens
+        if (order.itens && Array.isArray(order.itens)) {
+          order.itens.forEach((item: any) => {
+            if (item.categoria || item.categoria_produto) {
+              clienteData.categorias.add(item.categoria || item.categoria_produto);
+            }
+            if (item.produto_id || item.produto_nome) {
+              clienteData.produtos.add(item.produto_id || item.produto_nome);
+            }
+          });
+        }
+
+        if (!clienteData.ultimaCompra || order.data_pedido > clienteData.ultimaCompra) {
+          clienteData.ultimaCompra = order.data_pedido;
+        }
+      });
+
+      // Calcular métricas
+      clienteMap.forEach((data) => {
+        const qtdPedidos = data.pedidos.length;
+        data.ticketMedio = qtdPedidos > 0 ? data.totalFaturamento / qtdPedidos : 0;
+        
+        // Calcular PA (peças por atendimento)
+        const totalPecas = data.pedidos.reduce((sum, p) => {
+          if (p.itens && Array.isArray(p.itens)) {
+            return sum + p.itens.reduce((s: number, i: any) => s + (parseFloat(i.quantidade || 0)), 0);
+          }
+          return sum;
+        }, 0);
+        data.pa = qtdPedidos > 0 ? totalPecas / qtdPedidos : 0;
+      });
+
+      // Aplicar filtros
+      let clientesFiltradosSet = new Set<string>();
+
+      if (filtrosCumulativos) {
+        // AND: Todos os filtros devem ser satisfeitos
+        const todosClientes = Array.from(clienteMap.keys());
+        clientesFiltradosSet = new Set(todosClientes);
+
+        filtrosBonificacao.forEach((filtro) => {
+          const clientesFiltro = new Set<string>();
+
+          switch (filtro.tipo) {
+            case 'melhores_clientes': {
+              const clientesArray = Array.from(clienteMap.entries())
+                .map(([id, data]) => ({
+                  id,
+                  ...data,
+                }));
+
+              let sorted = [];
+              if (filtro.parametro === 'ticket_medio') {
+                sorted = clientesArray.sort((a, b) => b.ticketMedio - a.ticketMedio);
+              } else if (filtro.parametro === 'pa') {
+                sorted = clientesArray.sort((a, b) => b.pa - a.pa);
+              } else if (filtro.parametro === 'faturamento') {
+                sorted = clientesArray.sort((a, b) => b.totalFaturamento - a.totalFaturamento);
+              }
+
+              const topClientes = sorted.slice(0, filtro.quantidade || 10);
+              topClientes.forEach(c => clientesFiltro.add(c.id));
+              break;
+            }
+            case 'compra_periodo': {
+              if (filtro.dataInicio && filtro.dataFim) {
+                clienteMap.forEach((data, id) => {
+                  const temCompraNoPeriodo = data.pedidos.some((p: any) => {
+                    const dataPedido = p.data_pedido;
+                    return dataPedido >= filtro.dataInicio! && dataPedido <= filtro.dataFim!;
+                  });
+                  if (temCompraNoPeriodo) clientesFiltro.add(id);
+                });
+              }
+              break;
+            }
+            case 'nao_visita': {
+              if (filtro.dataInicio) {
+                clienteMap.forEach((data, id) => {
+                  if (!data.ultimaCompra || data.ultimaCompra < filtro.dataInicio!) {
+                    clientesFiltro.add(id);
+                  }
+                });
+              }
+              break;
+            }
+            case 'aniversario': {
+              // Buscar clientes com data de nascimento
+              const { data: clientesComNascimento } = await supabase
+                .schema('sistemaretiradas')
+                .from('clientes')
+                .select('id, data_nascimento')
+                .not('data_nascimento', 'is', null);
+
+              if (clientesComNascimento && filtro.mesAniversario) {
+                clientesComNascimento.forEach((c: any) => {
+                  if (c.data_nascimento) {
+                    const nascimento = new Date(c.data_nascimento);
+                    if (nascimento.getMonth() + 1 === filtro.mesAniversario) {
+                      clientesFiltro.add(c.id);
+                    }
+                  }
+                });
+              }
+              break;
+            }
+            case 'tag': {
+              // Buscar clientes com tag específica
+              const { data: clientesComTag } = await supabase
+                .schema('sistemaretiradas')
+                .from('clientes')
+                .select('id, tags')
+                .contains('tags', [filtro.tag || '']);
+
+              if (clientesComTag) {
+                clientesComTag.forEach((c: any) => {
+                  clientesFiltro.add(c.id);
+                });
+              }
+              break;
+            }
+            case 'todos': {
+              clienteMap.forEach((_, id) => clientesFiltro.add(id));
+              break;
+            }
+            case 'categoria': {
+              clienteMap.forEach((data, id) => {
+                if (data.categorias.has(filtro.categoria || '')) {
+                  clientesFiltro.add(id);
+                }
+              });
+              break;
+            }
+            case 'produto': {
+              clienteMap.forEach((data, id) => {
+                if (data.produtos.has(filtro.produto || '')) {
+                  clientesFiltro.add(id);
+                }
+              });
+              break;
+            }
+          }
+
+          // Aplicar filtro (incluir ou excluir)
+          if (filtro.incluir) {
+            // Intersecção (AND)
+            clientesFiltradosSet = new Set(
+              Array.from(clientesFiltradosSet).filter(id => clientesFiltro.has(id))
+            );
+          } else {
+            // Excluir
+            clientesFiltro.forEach(id => clientesFiltradosSet.delete(id));
+          }
+        });
+      } else {
+        // OR: Pelo menos um filtro deve ser satisfeito
+        const clientesPorFiltro: Set<string>[] = [];
+
+        for (const filtro of filtrosBonificacao) {
+          const clientesFiltro = new Set<string>();
+
+          // Aplicar a mesma lógica de filtros
+          switch (filtro.tipo) {
+            case 'melhores_clientes': {
+              const clientesArray = Array.from(clienteMap.entries())
+                .map(([id, data]) => ({ id, ...data }));
+
+              let sorted = [];
+              if (filtro.parametro === 'ticket_medio') {
+                sorted = clientesArray.sort((a, b) => b.ticketMedio - a.ticketMedio);
+              } else if (filtro.parametro === 'pa') {
+                sorted = clientesArray.sort((a, b) => b.pa - a.pa);
+              } else if (filtro.parametro === 'faturamento') {
+                sorted = clientesArray.sort((a, b) => b.totalFaturamento - a.totalFaturamento);
+              }
+
+              const topClientes = sorted.slice(0, filtro.quantidade || 10);
+              topClientes.forEach(c => clientesFiltro.add(c.id));
+              break;
+            }
+            case 'compra_periodo': {
+              if (filtro.dataInicio && filtro.dataFim) {
+                clienteMap.forEach((data, id) => {
+                  const temCompraNoPeriodo = data.pedidos.some((p: any) => {
+                    const dataPedido = p.data_pedido;
+                    return dataPedido >= filtro.dataInicio! && dataPedido <= filtro.dataFim!;
+                  });
+                  if (temCompraNoPeriodo) clientesFiltro.add(id);
+                });
+              }
+              break;
+            }
+            case 'nao_visita': {
+              if (filtro.dataInicio) {
+                clienteMap.forEach((data, id) => {
+                  if (!data.ultimaCompra || data.ultimaCompra < filtro.dataInicio!) {
+                    clientesFiltro.add(id);
+                  }
+                });
+              }
+              break;
+            }
+            case 'aniversario': {
+              const { data: clientesComNascimento } = await supabase
+                .schema('sistemaretiradas')
+                .from('clientes')
+                .select('id, data_nascimento')
+                .not('data_nascimento', 'is', null);
+
+              if (clientesComNascimento && filtro.mesAniversario) {
+                clientesComNascimento.forEach((c: any) => {
+                  if (c.data_nascimento) {
+                    const nascimento = new Date(c.data_nascimento);
+                    if (nascimento.getMonth() + 1 === filtro.mesAniversario) {
+                      clientesFiltro.add(c.id);
+                    }
+                  }
+                });
+              }
+              break;
+            }
+            case 'tag': {
+              const { data: clientesComTag } = await supabase
+                .schema('sistemaretiradas')
+                .from('clientes')
+                .select('id, tags')
+                .contains('tags', [filtro.tag || '']);
+
+              if (clientesComTag) {
+                clientesComTag.forEach((c: any) => {
+                  clientesFiltro.add(c.id);
+                });
+              }
+              break;
+            }
+            case 'todos': {
+              clienteMap.forEach((_, id) => clientesFiltro.add(id));
+              break;
+            }
+            case 'categoria': {
+              clienteMap.forEach((data, id) => {
+                if (data.categorias.has(filtro.categoria || '')) {
+                  clientesFiltro.add(id);
+                }
+              });
+              break;
+            }
+            case 'produto': {
+              clienteMap.forEach((data, id) => {
+                if (data.produtos.has(filtro.produto || '')) {
+                  clientesFiltro.add(id);
+                }
+              });
+              break;
+            }
+          }
+
+          if (filtro.incluir) {
+            clientesPorFiltro.push(clientesFiltro);
+          } else {
+            // Para exclusão em OR, remover dos resultados finais
+            clientesFiltro.forEach(id => clientesFiltradosSet.delete(id));
+          }
+        }
+
+        // União de todos os filtros de inclusão (OR)
+        if (clientesPorFiltro.length > 0) {
+          clientesPorFiltro.forEach(filtroSet => {
+            filtroSet.forEach(id => clientesFiltradosSet.add(id));
+          });
+        }
+      }
+
+      // Converter para array de clientes
+      const clientesFiltradosArray = Array.from(clientesFiltradosSet)
+        .map(id => clienteMap.get(id)?.cliente)
+        .filter((c): c is Cliente => c !== undefined);
+
+      setClientesFiltrados(clientesFiltradosArray);
+      toast.success(`${clientesFiltradosArray.length} cliente(s) encontrado(s)`);
+    } catch (error: any) {
+      console.error('Erro ao aplicar filtros:', error);
+      toast.error('Erro ao aplicar filtros: ' + (error.message || 'Erro desconhecido'));
+    } finally {
+      setLoadingFiltros(false);
+    }
+  };
+
+  // Adicionar novo filtro
+  const adicionarFiltro = () => {
+    setFiltrosBonificacao([...filtrosBonificacao, {
+      tipo: 'todos',
+      incluir: true,
+    }]);
+  };
+
+  // Remover filtro
+  const removerFiltro = (index: number) => {
+    setFiltrosBonificacao(filtrosBonificacao.filter((_, i) => i !== index));
+  };
+
+  // Atualizar filtro
+  const atualizarFiltro = (index: number, updates: Partial<FiltroBonificacao>) => {
+    const novosFiltros = [...filtrosBonificacao];
+    novosFiltros[index] = { ...novosFiltros[index], ...updates };
+    setFiltrosBonificacao(novosFiltros);
+  };
+
+  // Bonificar clientes selecionados
+  const handleBonificar = async () => {
+    if (selectedClientesBonificar.size === 0) {
+      toast.error('Selecione pelo menos um cliente');
+      return;
+    }
+
+    if (!valorBonificacao || parseFloat(valorBonificacao) <= 0) {
+      toast.error('Informe um valor válido');
+      return;
+    }
+
+    setBonificando(true);
+    try {
+      // Buscar configurações de cashback
+      const { data: settingsData } = await supabase
+        .schema('sistemaretiradas')
+        .from('cashback_settings')
+        .select('*')
+        .is('store_id', null)
+        .single();
+
+      const settings = settingsData || {
+        percentual_cashback: 15.00,
+        prazo_liberacao_dias: 2,
+        prazo_expiracao_dias: 30,
+      };
+
+      const valorBonificacaoNum = parseFloat(valorBonificacao);
+      const agora = new Date();
+      const macapaOffset = -3 * 60;
+      const macapaTime = new Date(agora.getTime() + (macapaOffset - agora.getTimezoneOffset()) * 60000);
+
+      const dataLiberacao = new Date(macapaTime);
+      dataLiberacao.setDate(dataLiberacao.getDate() + settings.prazo_liberacao_dias);
+
+      const dataExpiracao = new Date(dataLiberacao);
+      dataExpiracao.setDate(dataExpiracao.getDate() + settings.prazo_expiracao_dias);
+
+      // Inserir transações para todos os clientes selecionados
+      const transacoes = Array.from(selectedClientesBonificar).map(clienteId => ({
+        cliente_id: clienteId,
+        tiny_order_id: null,
+        transaction_type: 'EARNED' as const,
+        amount: valorBonificacaoNum,
+        description: descricaoBonificacao || 'Bonificação em massa',
+        data_liberacao: dataLiberacao.toISOString(),
+        data_expiracao: dataExpiracao.toISOString(),
+      }));
+
+      const { error } = await supabase
+        .schema('sistemaretiradas')
+        .from('cashback_transactions')
+        .insert(transacoes);
+
+      if (error) throw error;
+
+      toast.success(`✅ ${transacoes.length} cliente(s) bonificado(s) com ${formatCurrency(valorBonificacaoNum)} cada`);
+      setSelectedClientesBonificar(new Set());
+      setValorBonificacao('');
+      setDescricaoBonificacao('');
+      await fetchData();
+    } catch (error: any) {
+      console.error('Erro ao bonificar:', error);
+      toast.error('Erro ao bonificar: ' + (error.message || 'Erro desconhecido'));
+    } finally {
+      setBonificando(false);
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -615,10 +1071,11 @@ export default function CashbackManagement() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="lancar">Lançar</TabsTrigger>
           <TabsTrigger value="clientes">Clientes</TabsTrigger>
           <TabsTrigger value="historico">Histórico Geral</TabsTrigger>
+          <TabsTrigger value="bonificar">Bonificar</TabsTrigger>
           <TabsTrigger value="configuracoes">Configurações</TabsTrigger>
         </TabsList>
 
@@ -1151,7 +1608,390 @@ export default function CashbackManagement() {
           </Card>
         </TabsContent>
 
-        {/* TAB 4: CONFIGURAÇÕES */}
+        {/* TAB 4: BONIFICAR */}
+        <TabsContent value="bonificar" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Gift className="h-5 w-5 text-purple-600" />
+                Bonificação em Massa
+              </CardTitle>
+              <CardDescription>
+                Selecione clientes usando filtros avançados e bonifique todos de uma vez
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Configuração de Filtros */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-semibold">Filtros de Seleção</Label>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm">Modo:</Label>
+                      <Select
+                        value={filtrosCumulativos ? 'and' : 'or'}
+                        onValueChange={(v) => setFiltrosCumulativos(v === 'and')}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="and">E (AND)</SelectItem>
+                          <SelectItem value="or">OU (OR)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button onClick={adicionarFiltro} size="sm" variant="outline">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adicionar Filtro
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Lista de Filtros */}
+                {filtrosBonificacao.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground border rounded-lg">
+                    <Filter className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>Nenhum filtro adicionado. Clique em "Adicionar Filtro" para começar.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filtrosBonificacao.map((filtro, index) => (
+                      <Card key={index} className="border-2">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 space-y-4">
+                              {/* Tipo de Filtro */}
+                              <div className="flex items-center gap-4">
+                                <div className="flex-1">
+                                  <Label>Tipo de Filtro</Label>
+                                  <Select
+                                    value={filtro.tipo}
+                                    onValueChange={(v: any) => atualizarFiltro(index, { tipo: v })}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="melhores_clientes">Melhores Clientes</SelectItem>
+                                      <SelectItem value="compra_periodo">Compra entre Datas</SelectItem>
+                                      <SelectItem value="nao_visita">Não Visita Desde</SelectItem>
+                                      <SelectItem value="aniversario">Aniversário no Mês</SelectItem>
+                                      <SelectItem value="tag">Cliente com Tag</SelectItem>
+                                      <SelectItem value="todos">Todos os Clientes</SelectItem>
+                                      <SelectItem value="categoria">Comprou Categoria</SelectItem>
+                                      <SelectItem value="produto">Comprou Produto</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <Label>Ação</Label>
+                                  <Select
+                                    value={filtro.incluir ? 'incluir' : 'excluir'}
+                                    onValueChange={(v) => atualizarFiltro(index, { incluir: v === 'incluir' })}
+                                  >
+                                    <SelectTrigger className="w-32">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="incluir">Incluir</SelectItem>
+                                      <SelectItem value="excluir">Excluir</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removerFiltro(index)}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+
+                              {/* Parâmetros específicos por tipo */}
+                              {filtro.tipo === 'melhores_clientes' && (
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <Label>Parâmetro</Label>
+                                    <Select
+                                      value={filtro.parametro || 'faturamento'}
+                                      onValueChange={(v: any) => atualizarFiltro(index, { parametro: v })}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="ticket_medio">Ticket Médio</SelectItem>
+                                        <SelectItem value="pa">PA (Peças/Atendimento)</SelectItem>
+                                        <SelectItem value="faturamento">Faturamento</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div>
+                                    <Label>Quantidade</Label>
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      value={filtro.quantidade || 10}
+                                      onChange={(e) => atualizarFiltro(index, { quantidade: parseInt(e.target.value) || 10 })}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              {filtro.tipo === 'compra_periodo' && (
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <Label>Data Início</Label>
+                                    <Input
+                                      type="date"
+                                      value={filtro.dataInicio || ''}
+                                      onChange={(e) => atualizarFiltro(index, { dataInicio: e.target.value })}
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label>Data Fim</Label>
+                                    <Input
+                                      type="date"
+                                      value={filtro.dataFim || ''}
+                                      onChange={(e) => atualizarFiltro(index, { dataFim: e.target.value })}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              {filtro.tipo === 'nao_visita' && (
+                                <div>
+                                  <Label>Não Visita Desde</Label>
+                                  <Input
+                                    type="date"
+                                    value={filtro.dataInicio || ''}
+                                    onChange={(e) => atualizarFiltro(index, { dataInicio: e.target.value })}
+                                  />
+                                </div>
+                              )}
+
+                              {filtro.tipo === 'aniversario' && (
+                                <div>
+                                  <Label>Mês do Aniversário</Label>
+                                  <Select
+                                    value={filtro.mesAniversario?.toString() || ''}
+                                    onValueChange={(v) => atualizarFiltro(index, { mesAniversario: parseInt(v) })}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Selecione o mês" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(mes => (
+                                        <SelectItem key={mes} value={mes.toString()}>
+                                          {format(new Date(2024, mes - 1, 1), 'MMMM', { locale: ptBR })}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
+
+                              {filtro.tipo === 'tag' && (
+                                <div>
+                                  <Label>Tag</Label>
+                                  <Input
+                                    placeholder="Digite a tag"
+                                    value={filtro.tag || ''}
+                                    onChange={(e) => atualizarFiltro(index, { tag: e.target.value })}
+                                  />
+                                </div>
+                              )}
+
+                              {filtro.tipo === 'categoria' && (
+                                <div>
+                                  <Label>Categoria</Label>
+                                  <Input
+                                    placeholder="Digite o nome da categoria"
+                                    value={filtro.categoria || ''}
+                                    onChange={(e) => atualizarFiltro(index, { categoria: e.target.value })}
+                                  />
+                                </div>
+                              )}
+
+                              {filtro.tipo === 'produto' && (
+                                <div>
+                                  <Label>Produto</Label>
+                                  <Input
+                                    placeholder="Digite o nome ou ID do produto"
+                                    value={filtro.produto || ''}
+                                    onChange={(e) => atualizarFiltro(index, { produto: e.target.value })}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                <Button
+                  onClick={aplicarFiltrosBonificacao}
+                  disabled={loadingFiltros || filtrosBonificacao.length === 0}
+                  className="w-full"
+                >
+                  {loadingFiltros ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Aplicando Filtros...
+                    </>
+                  ) : (
+                    <>
+                      <Filter className="h-4 w-4 mr-2" />
+                      Aplicar Filtros
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <Separator />
+
+              {/* Lista de Clientes Filtrados */}
+              {clientesFiltrados.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-base font-semibold">
+                        Clientes Encontrados: {clientesFiltrados.length}
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedClientesBonificar.size > 0 && `${selectedClientesBonificar.size} selecionado(s)`}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (selectedClientesBonificar.size === clientesFiltrados.length) {
+                            setSelectedClientesBonificar(new Set());
+                          } else {
+                            setSelectedClientesBonificar(new Set(clientesFiltrados.map(c => c.id)));
+                          }
+                        }}
+                      >
+                        {selectedClientesBonificar.size === clientesFiltrados.length ? 'Desselecionar Todos' : 'Selecionar Todos'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="border rounded-lg max-h-96 overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-12">
+                            <Checkbox
+                              checked={selectedClientesBonificar.size === clientesFiltrados.length && clientesFiltrados.length > 0}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedClientesBonificar(new Set(clientesFiltrados.map(c => c.id)));
+                                } else {
+                                  setSelectedClientesBonificar(new Set());
+                                }
+                              }}
+                            />
+                          </TableHead>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead>CPF/CNPJ</TableHead>
+                          <TableHead>Telefone</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {clientesFiltrados.map((cliente) => (
+                          <TableRow key={cliente.id}>
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedClientesBonificar.has(cliente.id)}
+                                onCheckedChange={(checked) => {
+                                  const novoSet = new Set(selectedClientesBonificar);
+                                  if (checked) {
+                                    novoSet.add(cliente.id);
+                                  } else {
+                                    novoSet.delete(cliente.id);
+                                  }
+                                  setSelectedClientesBonificar(novoSet);
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell className="font-medium">{cliente.nome}</TableCell>
+                            <TableCell>{cliente.cpf_cnpj || '-'}</TableCell>
+                            <TableCell>{cliente.telefone || '-'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  <Separator />
+
+                  {/* Formulário de Bonificação */}
+                  <div className="space-y-4">
+                    <Label className="text-base font-semibold">Valor da Bonificação</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Valor por Cliente *</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0,00"
+                          value={valorBonificacao}
+                          onChange={(e) => setValorBonificacao(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Descrição (opcional)</Label>
+                        <Input
+                          placeholder="Ex: Bonificação especial"
+                          value={descricaoBonificacao}
+                          onChange={(e) => setDescricaoBonificacao(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    {selectedClientesBonificar.size > 0 && valorBonificacao && (
+                      <div className="bg-muted p-4 rounded-lg">
+                        <p className="text-sm text-muted-foreground">
+                          Total a bonificar: <span className="font-bold text-primary">
+                            {formatCurrency(parseFloat(valorBonificacao || '0') * selectedClientesBonificar.size)}
+                          </span>
+                          {' '}({selectedClientesBonificar.size} cliente(s) × {formatCurrency(parseFloat(valorBonificacao || '0'))})
+                        </p>
+                      </div>
+                    )}
+                    <Button
+                      onClick={handleBonificar}
+                      disabled={bonificando || selectedClientesBonificar.size === 0 || !valorBonificacao}
+                      className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800"
+                      size="lg"
+                    >
+                      {bonificando ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Bonificando...
+                        </>
+                      ) : (
+                        <>
+                          <Gift className="h-4 w-4 mr-2" />
+                          Bonificar {selectedClientesBonificar.size} Cliente(s)
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 5: CONFIGURAÇÕES */}
         <TabsContent value="configuracoes" className="space-y-4">
           <CashbackSettings />
         </TabsContent>
