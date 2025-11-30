@@ -26,7 +26,6 @@ import { sendWhatsAppMessage, formatVendaMessage } from "@/lib/whatsapp";
 import { checkAndCreateMonthlyTrophies, checkAndCreateWeeklyTrophies } from "@/lib/trophies";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CashbackLojaView from "@/components/loja/CashbackLojaView";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface Sale {
     id: string;
@@ -3124,24 +3123,23 @@ export default function LojaDashboard() {
                                         const isErpSale = !!sale.tiny_order_id;
                                         
                                         return (
-                                            <Collapsible
-                                                key={sale.id}
-                                                open={isExpanded}
-                                                onOpenChange={() => toggleSaleExpansion(sale.id, sale.tiny_order_id)}
-                                            >
-                                                <TableRow>
+                                            <>
+                                                <TableRow key={sale.id}>
                                                     <TableCell className="text-xs sm:text-sm">
                                                         <div className="flex items-center gap-1">
                                                             {isErpSale && (
-                                                                <CollapsibleTrigger asChild>
-                                                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 -ml-1">
-                                                                        {isExpanded ? (
-                                                                            <ChevronDown className="h-3 w-3" />
-                                                                        ) : (
-                                                                            <ChevronRight className="h-3 w-3" />
-                                                                        )}
-                                                                    </Button>
-                                                                </CollapsibleTrigger>
+                                                                <Button 
+                                                                    variant="ghost" 
+                                                                    size="sm" 
+                                                                    className="h-6 w-6 p-0 -ml-1"
+                                                                    onClick={() => toggleSaleExpansion(sale.id, sale.tiny_order_id)}
+                                                                >
+                                                                    {isExpanded ? (
+                                                                        <ChevronDown className="h-3 w-3" />
+                                                                    ) : (
+                                                                        <ChevronRight className="h-3 w-3" />
+                                                                    )}
+                                                                </Button>
                                                             )}
                                                             <span>
                                                                 {salesDateFilter === format(new Date(), 'yyyy-MM-dd')
@@ -3176,45 +3174,43 @@ export default function LojaDashboard() {
                                                         </div>
                                                     </TableCell>
                                                 </TableRow>
-                                                {isErpSale && (
-                                                    <CollapsibleContent asChild>
-                                                        <TableRow>
-                                                            <TableCell colSpan={6} className="bg-muted/50">
-                                                                <div className="space-y-2 py-2">
-                                                                    {details ? (
-                                                                        <>
-                                                                            {details.cliente_nome && (
-                                                                                <div className="text-xs">
-                                                                                    <span className="font-medium">Cliente:</span> {details.cliente_nome}
-                                                                                </div>
-                                                                            )}
-                                                                            {details.forma_pagamento && (
-                                                                                <div className="text-xs">
-                                                                                    <span className="font-medium">Forma de Pagamento:</span> {details.forma_pagamento}
-                                                                                </div>
-                                                                            )}
-                                                                            {details.itens && Array.isArray(details.itens) && details.itens.length > 0 && (
-                                                                                <div className="text-xs">
-                                                                                    <span className="font-medium">Peças:</span>
-                                                                                    <ul className="list-disc list-inside mt-1 space-y-1">
-                                                                                        {details.itens.map((item: any, idx: number) => (
-                                                                                            <li key={idx}>
-                                                                                                {item.quantidade || 1}x {item.descricao || item.nome || item.produto?.descricao || 'Produto sem descrição'}
-                                                                                            </li>
-                                                                                        ))}
-                                                                                    </ul>
-                                                                                </div>
-                                                                            )}
-                                                                        </>
-                                                                    ) : (
-                                                                        <div className="text-xs text-muted-foreground">Carregando detalhes...</div>
-                                                                    )}
-                                                                </div>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    </CollapsibleContent>
+                                                {isErpSale && isExpanded && (
+                                                    <TableRow key={`${sale.id}-details`}>
+                                                        <TableCell colSpan={6} className="bg-muted/50">
+                                                            <div className="space-y-2 py-2">
+                                                                {details ? (
+                                                                    <>
+                                                                        {details.cliente_nome && (
+                                                                            <div className="text-xs">
+                                                                                <span className="font-medium">Cliente:</span> {details.cliente_nome}
+                                                                            </div>
+                                                                        )}
+                                                                        {details.forma_pagamento && (
+                                                                            <div className="text-xs">
+                                                                                <span className="font-medium">Forma de Pagamento:</span> {details.forma_pagamento}
+                                                                            </div>
+                                                                        )}
+                                                                        {details.itens && Array.isArray(details.itens) && details.itens.length > 0 && (
+                                                                            <div className="text-xs">
+                                                                                <span className="font-medium">Peças:</span>
+                                                                                <ul className="list-disc list-inside mt-1 space-y-1">
+                                                                                    {details.itens.map((item: any, idx: number) => (
+                                                                                        <li key={idx}>
+                                                                                            {item.quantidade || 1}x {item.descricao || item.nome || item.produto?.descricao || 'Produto sem descrição'}
+                                                                                        </li>
+                                                                                    ))}
+                                                                                </ul>
+                                                                            </div>
+                                                                        )}
+                                                                    </>
+                                                                ) : (
+                                                                    <div className="text-xs text-muted-foreground">Carregando detalhes...</div>
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
                                                 )}
-                                            </Collapsible>
+                                            </>
                                         );
                                     })
                                 )}
@@ -4164,7 +4160,7 @@ export default function LojaDashboard() {
                                 <TableBody>
                                     {sales.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="text-center text-muted-foreground text-xs sm:text-sm py-6">
+                                            <TableCell colSpan={6} className="text-center text-muted-foreground text-xs sm:text-sm py-6">
                                                 {salesDateFilter === format(new Date(), 'yyyy-MM-dd') 
                                                     ? 'Nenhuma venda lançada hoje'
                                                     : `Nenhuma venda encontrada para ${format(new Date(salesDateFilter), 'dd/MM/yyyy')}`
@@ -4178,24 +4174,23 @@ export default function LojaDashboard() {
                                             const isErpSale = !!sale.tiny_order_id;
                                             
                                             return (
-                                                <Collapsible
-                                                    key={sale.id}
-                                                    open={isExpanded}
-                                                    onOpenChange={() => toggleSaleExpansion(sale.id, sale.tiny_order_id)}
-                                                >
-                                                    <TableRow>
+                                                <>
+                                                    <TableRow key={sale.id}>
                                                         <TableCell className="text-xs sm:text-sm">
                                                             <div className="flex items-center gap-1">
                                                                 {isErpSale && (
-                                                                    <CollapsibleTrigger asChild>
-                                                                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 -ml-1">
-                                                                            {isExpanded ? (
-                                                                                <ChevronDown className="h-3 w-3" />
-                                                                            ) : (
-                                                                                <ChevronRight className="h-3 w-3" />
-                                                                            )}
-                                                                        </Button>
-                                                                    </CollapsibleTrigger>
+                                                                    <Button 
+                                                                        variant="ghost" 
+                                                                        size="sm" 
+                                                                        className="h-6 w-6 p-0 -ml-1"
+                                                                        onClick={() => toggleSaleExpansion(sale.id, sale.tiny_order_id)}
+                                                                    >
+                                                                        {isExpanded ? (
+                                                                            <ChevronDown className="h-3 w-3" />
+                                                                        ) : (
+                                                                            <ChevronRight className="h-3 w-3" />
+                                                                        )}
+                                                                    </Button>
                                                                 )}
                                                                 <span>
                                                                     {salesDateFilter === format(new Date(), 'yyyy-MM-dd')
@@ -4230,45 +4225,43 @@ export default function LojaDashboard() {
                                                             </div>
                                                         </TableCell>
                                                     </TableRow>
-                                                    {isErpSale && (
-                                                        <CollapsibleContent asChild>
-                                                            <TableRow>
-                                                                <TableCell colSpan={6} className="bg-muted/50">
-                                                                    <div className="space-y-2 py-2">
-                                                                        {details ? (
-                                                                            <>
-                                                                                {details.cliente_nome && (
-                                                                                    <div className="text-xs">
-                                                                                        <span className="font-medium">Cliente:</span> {details.cliente_nome}
-                                                                                    </div>
-                                                                                )}
-                                                                                {details.forma_pagamento && (
-                                                                                    <div className="text-xs">
-                                                                                        <span className="font-medium">Forma de Pagamento:</span> {details.forma_pagamento}
-                                                                                    </div>
-                                                                                )}
-                                                                                {details.itens && Array.isArray(details.itens) && details.itens.length > 0 && (
-                                                                                    <div className="text-xs">
-                                                                                        <span className="font-medium">Peças:</span>
-                                                                                        <ul className="list-disc list-inside mt-1 space-y-1">
-                                                                                            {details.itens.map((item: any, idx: number) => (
-                                                                                                <li key={idx}>
-                                                                                                    {item.quantidade || 1}x {item.descricao || item.nome || item.produto?.descricao || 'Produto sem descrição'}
-                                                                                                </li>
-                                                                                            ))}
-                                                                                        </ul>
-                                                                                    </div>
-                                                                                )}
-                                                                            </>
-                                                                        ) : (
-                                                                            <div className="text-xs text-muted-foreground">Carregando detalhes...</div>
-                                                                        )}
-                                                                    </div>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        </CollapsibleContent>
+                                                    {isErpSale && isExpanded && (
+                                                        <TableRow key={`${sale.id}-details`}>
+                                                            <TableCell colSpan={6} className="bg-muted/50">
+                                                                <div className="space-y-2 py-2">
+                                                                    {details ? (
+                                                                        <>
+                                                                            {details.cliente_nome && (
+                                                                                <div className="text-xs">
+                                                                                    <span className="font-medium">Cliente:</span> {details.cliente_nome}
+                                                                                </div>
+                                                                            )}
+                                                                            {details.forma_pagamento && (
+                                                                                <div className="text-xs">
+                                                                                    <span className="font-medium">Forma de Pagamento:</span> {details.forma_pagamento}
+                                                                                </div>
+                                                                            )}
+                                                                            {details.itens && Array.isArray(details.itens) && details.itens.length > 0 && (
+                                                                                <div className="text-xs">
+                                                                                    <span className="font-medium">Peças:</span>
+                                                                                    <ul className="list-disc list-inside mt-1 space-y-1">
+                                                                                        {details.itens.map((item: any, idx: number) => (
+                                                                                            <li key={idx}>
+                                                                                                {item.quantidade || 1}x {item.descricao || item.nome || item.produto?.descricao || 'Produto sem descrição'}
+                                                                                            </li>
+                                                                                        ))}
+                                                                                    </ul>
+                                                                                </div>
+                                                                            )}
+                                                                        </>
+                                                                    ) : (
+                                                                        <div className="text-xs text-muted-foreground">Carregando detalhes...</div>
+                                                                    )}
+                                                                </div>
+                                                            </TableCell>
+                                                        </TableRow>
                                                     )}
-                                                </Collapsible>
+                                                </>
                                             );
                                         })
                                     )}
