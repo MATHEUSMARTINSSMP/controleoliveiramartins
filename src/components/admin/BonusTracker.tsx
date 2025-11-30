@@ -149,12 +149,15 @@ export function BonusTracker() {
                             // Caso contrário, ordena por progresso de faturamento (padrão)
                             let rankingValue = progress; // Padrão: progresso de faturamento (% da meta)
                             
+                            // Normalizar tipo_condicao para comparação (case-insensitive)
+                            const tipoCondicao = (bonus.tipo_condicao || "").toUpperCase().trim();
+                            
                             // Ordenar por indicador específico quando o tipo_condicao corresponder
-                            if (bonus.tipo_condicao === "TICKET_MEDIO") {
+                            if (tipoCondicao === "TICKET_MEDIO" || tipoCondicao === "TICKET MÉDIO") {
                                 rankingValue = ticketMedio; // Ordenar por ticket médio (R$)
-                            } else if (bonus.tipo_condicao === "PA") {
+                            } else if (tipoCondicao === "PA") {
                                 rankingValue = pa; // Ordenar por PA (Peças por Atendimento)
-                            } else if (bonus.tipo_condicao === "NUMERO_PECAS") {
+                            } else if (tipoCondicao === "NUMERO_PECAS" || tipoCondicao === "NUMERO DE PEÇAS") {
                                 rankingValue = qtdPecas; // Ordenar por número total de peças vendidas
                             }
                             // Para outros tipos (PERCENTUAL_META, RANKING, etc.), usa progress (faturamento) como padrão
