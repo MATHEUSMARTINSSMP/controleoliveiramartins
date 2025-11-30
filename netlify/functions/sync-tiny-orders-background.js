@@ -839,6 +839,24 @@ exports.handler = async (event, context) => {
                   console.error(`[SyncBackground] ❌ Erro no FALLBACK manual para pedido ${tinyId}:`, cashbackError);
                 } else if (cashbackResult && cashbackResult.success) {
                   console.log(`[SyncBackground] ✅ Cashback gerado via FALLBACK manual: R$ ${cashbackResult.amount}`);
+                  
+                  // ✅ NOVO: Processar fila de WhatsApp após gerar cashback
+                  if (cashbackResult.whatsapp_queue_id) {
+                    console.log(`[SyncBackground] 📱 Processando fila de WhatsApp para cashback gerado (Queue ID: ${cashbackResult.whatsapp_queue_id})`);
+                    // Processar fila em background (não bloqueia sincronização)
+                    (async () => {
+                      try {
+                        const queueUrl = `${process.env.URL || 'https://eleveaone.com.br'}/.netlify/functions/process-cashback-whatsapp-queue`;
+                        await fetch(queueUrl, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                        });
+                        console.log(`[SyncBackground] ✅ Fila de WhatsApp processada para pedido ${tinyId}`);
+                      } catch (queueError) {
+                        console.warn(`[SyncBackground] ⚠️ Erro ao processar fila de WhatsApp (não bloqueia):`, queueError.message);
+                      }
+                    })();
+                  }
                 } else {
                   console.log(`[SyncBackground] ℹ️ FALLBACK não gerou cashback: ${cashbackResult?.message || 'Motivo desconhecido'}`);
                 }
