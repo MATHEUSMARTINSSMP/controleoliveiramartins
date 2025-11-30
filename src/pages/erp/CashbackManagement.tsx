@@ -538,8 +538,9 @@ export default function CashbackManagement() {
         prazo_expiracao_dias: 30,
       };
 
-      // ✅ 3. Calcular valor do cashback
-      const cashbackAmount = Math.round((valorCompra * parseFloat(settings.percentual_cashback.toString())) / 100 * 100) / 100;
+      // ✅ 3. Calcular valor do cashback e arredondar para cima (sem centavos)
+      // Exemplo: 152.15 -> 153 | 77.07 -> 78
+      const cashbackAmount = Math.ceil((valorCompra * parseFloat(settings.percentual_cashback.toString())) / 100);
 
       if (cashbackAmount <= 0) {
         toast.error('Valor de cashback zero ou negativo');

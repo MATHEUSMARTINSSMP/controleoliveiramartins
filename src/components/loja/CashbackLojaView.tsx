@@ -290,7 +290,8 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
       };
 
       const valorCompra = parseFloat(valorLancar);
-      const cashbackAmount = (valorCompra * Number(settings.percentual_cashback)) / 100;
+      // Arredondar para cima (sem centavos) - Exemplo: 152.15 -> 153 | 77.07 -> 78
+      const cashbackAmount = Math.ceil((valorCompra * Number(settings.percentual_cashback)) / 100);
 
       const agora = new Date();
       const macapaOffset = -3 * 60;

@@ -147,8 +147,9 @@ BEGIN
     -- Obter configurações
     v_settings := sistemaretiradas.get_cashback_settings(p_store_id);
     
-    -- Calcular valor do cashback
-    v_cashback_amount := ROUND((p_valor_total * v_settings.percentual_cashback) / 100, 2);
+    -- ✅ Calcular valor do cashback e arredondar PARA CIMA (sem centavos)
+    -- Exemplo: 152.15 -> 153 | 77.07 -> 78
+    v_cashback_amount := CEIL((p_valor_total * v_settings.percentual_cashback) / 100);
     
     -- Se não há cashback para gerar, retornar
     IF v_cashback_amount <= 0 THEN
