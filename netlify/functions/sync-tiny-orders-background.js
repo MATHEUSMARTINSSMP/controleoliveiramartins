@@ -2367,7 +2367,7 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
       console.log(`[SyncBackground]   [WHATSAPP] dataPedido (Date object UTC): ${dataPedido.toISOString()}`);
       console.log(`[SyncBackground]   [WHATSAPP] dataPedido (Date object local): ${dataPedido.toString()}`);
       
-      // ✅ CORREÇÃO: Macapá usa UTC-3 (America/Manaus timezone)
+      // ✅ CORREÇÃO: Macapá usa fuso de Brasília (America/Sao_Paulo - UTC-3)
       // NÃO fazer cálculo manual, apenas usar o timezone diretamente
       // O toLocaleString já faz a conversão correta automaticamente
       try {
@@ -2377,9 +2377,9 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
           year: 'numeric',
           hour: '2-digit',
           minute: '2-digit',
-          timeZone: 'America/Manaus', // Macapá-AP usa o mesmo fuso de Manaus (UTC-3)
+          timeZone: 'America/Sao_Paulo', // Macapá-AP usa fuso de Brasília (UTC-3)
         });
-        console.log(`[SyncBackground]   [WHATSAPP] dataFormatada (Macapá via timezone): ${dataFormatada}`);
+        console.log(`[SyncBackground]   [WHATSAPP] dataFormatada (Macapá via timezone Brasília): ${dataFormatada}`);
       } catch (error) {
         console.warn(`[SyncBackground] ⚠️ [WHATSAPP] Erro ao formatar com timezone, usando fallback:`, error);
         // Fallback: usar formato local
