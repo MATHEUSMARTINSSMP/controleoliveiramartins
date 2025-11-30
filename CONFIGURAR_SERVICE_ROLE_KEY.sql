@@ -23,10 +23,14 @@ WHERE key = 'service_role_key';
 
 -- ✅ CHAVE JÁ CONFIGURADA - Execute esta query para configurar
 
+-- ⚠️ IMPORTANTE: Substitua 'SUA_SERVICE_ROLE_KEY_AQUI' pela chave real
+-- A chave deve ser configurada via variável de ambiente no Supabase/Netlify
+-- NÃO commitar chaves reais no código!
+
 INSERT INTO sistemaretiradas.app_config (key, value, description)
 VALUES (
     'service_role_key',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrdHNibnJubG56eW9mdXBlZ2pjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDc5NTAyNiwiZXhwIjoyMDc2MzcxMDI2fQ.C4bs65teQiC4cQNgRfFjDmmT27dCkEoS_H3eQFmdl3s',
+    'SUA_SERVICE_ROLE_KEY_AQUI', -- ⚠️ Substitua pela chave real antes de executar
     'Chave de serviço do Supabase para chamadas administrativas (Edge Functions, etc)'
 )
 ON CONFLICT (key) DO UPDATE 

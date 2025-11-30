@@ -1,0 +1,22 @@
+# Ignorar arquivos SQL de configuração (podem conter placeholders de chaves)
+*.sql
+
+# Ignorar scripts de teste/debug
+*.md
+*PROCESSAR*.js
+*TESTAR*.sql
+*CONFIGURAR*.sql
+*EXECUTAR*.sql
+*DIAGNOSTICAR*.sql
+*VERIFICAR*.sql
+*CORRIGIR*.sql
+*CRIAR*.sql
+
+# Ignorar documentação
+README.md
+*.md
+
+# Ignorar arquivos de configuração local
+.env*
+*.local
+

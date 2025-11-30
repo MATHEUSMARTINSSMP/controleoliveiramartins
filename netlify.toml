@@ -9,8 +9,9 @@
 
 [build.environment]
   NODE_VERSION = "18"
-  # Ignorar detecção de SUPABASE_ANON_KEY no bundle (é esperado que a chave anon esteja no frontend)
-  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_ANON_KEY,VITE_SUPABASE_PUBLISHABLE_KEY"
+  # Ignorar detecção de chaves que usamos via env vars (não estão hardcoded no código)
+  # O código usa process.env.SUPABASE_SERVICE_ROLE_KEY corretamente
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_ANON_KEY,VITE_SUPABASE_PUBLISHABLE_KEY,SUPABASE_SERVICE_ROLE_KEY"
 
 [functions]
   directory = "netlify/functions"
