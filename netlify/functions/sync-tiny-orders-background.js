@@ -2207,14 +2207,19 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
       
       // Adicionar "Vale Troca" como informação (se houver)
       if (valorValeTroca > 0) {
-        const valorFormatado = valorValeTroca.toFixed(2).replace('.', ',');
+        console.log(`[SyncBackground] 💳 Valor do Vale Troca antes de formatar: ${valorValeTroca}`);
+        // Formatar valor em reais (R$ X.XXX,XX)
+        const valorFormatado = new Intl.NumberFormat('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }).format(valorValeTroca);
         formasPagamento.push(`Vale Troca (R$ ${valorFormatado})`);
         console.log(`[SyncBackground] 💳 Forma de pagamento com Vale Troca: ${formasPagamento.join(' + ')}`);
       }
       
       const formaPagamentoFinal = formasPagamento.length > 0 ? formasPagamento.join(' + ') : null;
       if (formaPagamentoFinal) {
-        console.log(`[SyncBackground] 💳 Forma de pagamento final: ${formaPagamentoFinal}`);
+        console.log(`[SyncBackground] 💳 Forma de pagamento final salva: ${formaPagamentoFinal}`);
       }
       return formaPagamentoFinal;
     })(),
