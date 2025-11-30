@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Gift, TrendingUp, Users, AlertCircle } from "lucide-react";
+import { Gift, TrendingUp, Users, AlertCircle, Medal, Trophy } from "lucide-react";
 import { format } from "date-fns";
 import { validateBonusPreRequisitos } from "@/lib/bonusValidation";
 
@@ -266,40 +266,82 @@ export function BonusTracker() {
                                     <Users className="h-3 w-3" />
                                     <span>{bonus.collaborators.length} colaboradoras</span>
                                 </div>
-                                <div className="space-y-1.5">
-                                    {bonus.collaborators
-                                        .sort((a, b) => {
-                                            // ✅ Ordenar por rankingValue (calculado baseado no tipo_condicao)
-                                            // O rankingValue já foi calculado corretamente acima baseado no tipo_condicao do bônus
-                                            // Isso garante que TODOS os rankings futuros ordenem pelo indicador correto
+                                <div className="space-y-2">
+                                    {(() => {
+                                        // Ordenar colaboradoras por rankingValue
+                                        const sorted = [...bonus.collaborators].sort((a, b) => {
                                             const aValue = (a as any).rankingValue !== undefined ? (a as any).rankingValue : a.progress;
                                             const bValue = (b as any).rankingValue !== undefined ? (b as any).rankingValue : b.progress;
                                             return bValue - aValue; // Ordem decrescente (maior valor primeiro)
-                                        })
-                                        .map((colab) => (
-                                            <div key={colab.id} className="space-y-1">
-                                                <div className="flex items-center justify-between text-xs">
-                                                    <span className="break-words flex-1 min-w-0">{colab.name}</span>
-                                                    <span className={`font-semibold ${colab.achieved ? "text-green-600" : ""}`}>
-                                                        {bonus.tipo_condicao === "TICKET_MEDIO" 
-                                                            ? `R$ ${((colab as any).ticketMedio || 0).toFixed(2)}`
-                                                            : bonus.tipo_condicao === "PA"
-                                                            ? `${((colab as any).pa || 0).toFixed(1)}`
-                                                            : bonus.tipo_condicao === "NUMERO_PECAS"
-                                                            ? `${((colab as any).qtdPecas || 0)} peças`
-                                                            : `${colab.progress.toFixed(0)}%`
-                                                        }
-                                                    </span>
-                                                </div>
-                                                <Progress value={colab.progress} className={`h-1.5 ${getProgressColor(colab.progress)}`} />
-                                                {colab.progress >= (bonus.meta_minima_percentual || 0) && !colab.achieved && colab.preRequisitosReason && (
-                                                    <div className="flex items-center gap-1 text-[10px] text-orange-600 mt-1">
-                                                        <AlertCircle className="h-3 w-3" />
-                                                        <span className="break-words">{colab.preRequisitosReason}</span>
+                                        });
+
+                                        // Pegar o maior valor para calcular progresso relativo
+                                        const maxValue = sorted.length > 0 
+                                            ? ((sorted[0] as any).rankingValue !== undefined ? (sorted[0] as any).rankingValue : sorted[0].progress)
+                                            : 100;
+
+                                        return sorted.map((colab, index) => {
+                                            const position = index + 1;
+                                            const rankingValue = (colab as any).rankingValue !== undefined ? (colab as any).rankingValue : colab.progress;
+                                            
+                                            // Calcular progresso relativo ao primeiro colocado (para a barra)
+                                            const relativeProgress = maxValue > 0 ? (rankingValue / maxValue) * 100 : 0;
+
+                                            // Ícone de medalha baseado na posição
+                                            const getMedalIcon = () => {
+                                                if (position === 1) return <Trophy className="h-4 w-4 text-yellow-500" />;
+                                                if (position === 2) return <Medal className="h-4 w-4 text-gray-400" />;
+                                                if (position === 3) return <Medal className="h-4 w-4 text-amber-600" />;
+                                                return <span className="text-xs font-bold text-muted-foreground w-4 text-center">{position}º</span>;
+                                            };
+
+                                            // Valor formatado baseado no tipo_condicao
+                                            const getFormattedValue = () => {
+                                                if (bonus.tipo_condicao === "TICKET_MEDIO") {
+                                                    return `R$ ${((colab as any).ticketMedio || 0).toFixed(2)}`;
+                                                } else if (bonus.tipo_condicao === "PA") {
+                                                    return `${((colab as any).pa || 0).toFixed(1)} peças/venda`;
+                                                } else if (bonus.tipo_condicao === "NUMERO_PECAS") {
+                                                    return `${((colab as any).qtdPecas || 0)} peças`;
+                                                } else {
+                                                    return `${colab.progress.toFixed(0)}%`;
+                                                }
+                                            };
+
+                                            return (
+                                                <div key={colab.id} className="space-y-1.5 p-2 rounded-lg bg-muted/30 border border-border/50">
+                                                    <div className="flex items-center gap-2">
+                                                        {/* Medalha/Posição */}
+                                                        <div className="flex-shrink-0">
+                                                            {getMedalIcon()}
+                                                        </div>
+                                                        {/* Nome */}
+                                                        <span className="break-words flex-1 min-w-0 text-xs font-medium">{colab.name}</span>
+                                                        {/* Valor do indicador */}
+                                                        <span className={`font-bold text-sm ${colab.achieved ? "text-green-600" : position === 1 ? "text-yellow-600" : ""}`}>
+                                                            {getFormattedValue()}
+                                                        </span>
                                                     </div>
-                                                )}
-                                            </div>
-                                        ))}
+                                                    {/* Barra de progresso relativa ao primeiro colocado */}
+                                                    <Progress 
+                                                        value={relativeProgress} 
+                                                        className={`h-2 ${
+                                                            position === 1 ? "[&>div]:bg-yellow-500" :
+                                                            position === 2 ? "[&>div]:bg-gray-400" :
+                                                            position === 3 ? "[&>div]:bg-amber-600" :
+                                                            "[&>div]:bg-blue-500"
+                                                        }`} 
+                                                    />
+                                                    {colab.progress >= (bonus.meta_minima_percentual || 0) && !colab.achieved && colab.preRequisitosReason && (
+                                                        <div className="flex items-center gap-1 text-[10px] text-orange-600 mt-1">
+                                                            <AlertCircle className="h-3 w-3" />
+                                                            <span className="break-words">{colab.preRequisitosReason}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        });
+                                    })()}
                                 </div>
                             </div>
                         ) : (
