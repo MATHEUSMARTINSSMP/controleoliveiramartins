@@ -45,18 +45,19 @@ async function processarFila() {
 
   console.log(`📋 ${pendentes.length} mensagem(ns) pendente(s) encontrada(s)\n`);
 
-  // Chamar Netlify Function
-  const netlifyUrl = process.env.NETLIFY_URL || 'https://eleveaone.com.br';
-  const functionUrl = `${netlifyUrl}/.netlify/functions/process-cashback-whatsapp-queue`;
+  // Chamar Edge Function do Supabase (usa a mesma lógica de envio existente)
+  const edgeFunctionUrl = `${supabaseUrl}/functions/v1/process-cashback-queue`;
 
-  console.log(`📡 Chamando: ${functionUrl}\n`);
+  console.log(`📡 Chamando Edge Function: ${edgeFunctionUrl}\n`);
 
   try {
-    const response = await fetch(functionUrl, {
+    const response = await fetch(edgeFunctionUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseKey}`,
       },
+      body: JSON.stringify({}),
     });
 
     const result = await response.json();
@@ -90,11 +91,15 @@ async function processarFila() {
       console.error('❌ Erro ao processar fila:', result.error || result.message);
     }
   } catch (error) {
-    console.error('❌ Erro ao chamar Netlify Function:', error.message);
+    console.error('❌ Erro ao chamar Edge Function:', error.message);
     console.error('\nVerifique:');
-    console.error('  1. A URL do Netlify está correta?');
-    console.error('  2. A função está deployada?');
+    console.error('  1. A SUPABASE_SERVICE_ROLE_KEY está correta?');
+    console.error('  2. A Edge Function está deployada no Supabase?');
     console.error('  3. Você tem acesso à internet?');
+    console.error('\nPara verificar a Edge Function:');
+    console.error('  - Vá em Supabase Dashboard > Edge Functions');
+    console.error('  - Procure por "process-cashback-queue"');
+    console.error('  - Verifique se está deployada');
   }
 }
 
