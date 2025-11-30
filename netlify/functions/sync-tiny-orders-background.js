@@ -2411,25 +2411,67 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     message += `*Valor:* ${valorFormatado}\n`;
     message += `*Quantidade de Peças:* ${qtdPecas}\n`;
     
-    // ✅ Formatar formas de pagamento (igual ao LojaDashboard)
-    if (orderData.forma_pagamento) {
-      let formasPagamentoTexto = orderData.forma_pagamento;
+    // ✅ Formatar formas de pagamento (listar todas com valores)
+    if (pedidoCompleto?.parcelas && Array.isArray(pedidoCompleto.parcelas) && pedidoCompleto.parcelas.length > 0) {
+      console.log(`[SyncBackground] 📝 [WHATSAPP] Processando ${pedidoCompleto.parcelas.length} parcelas para formatar formas de pagamento`);
       
-      // Se houver parcelas no pedido completo, adicionar informação de parcelas
-      if (pedidoCompleto?.parcelas && Array.isArray(pedidoCompleto.parcelas) && pedidoCompleto.parcelas.length > 0) {
-        const numParcelas = pedidoCompleto.parcelas.length;
-        // Verificar se é crédito (geralmente tem parcelas)
-        if (orderData.forma_pagamento.toLowerCase().includes('crédito') || 
-            orderData.forma_pagamento.toLowerCase().includes('credito') ||
-            orderData.forma_pagamento.toLowerCase().includes('cartão') ||
-            orderData.forma_pagamento.toLowerCase().includes('cartao')) {
-          formasPagamentoTexto = `${orderData.forma_pagamento} (${numParcelas}x)`;
+      // ✅ Agrupar parcelas por forma de pagamento
+      const formasPagamentoMap = new Map();
+      
+      pedidoCompleto.parcelas.forEach((parcela, index) => {
+        // Tentar pegar forma de pagamento da parcela (pode estar em diferentes campos)
+        const formaPagamento = parcela.formaPagamento?.nome || 
+                               parcela.formaPagamento ||
+                               parcela.meioPagamento?.nome ||
+                               parcela.meioPagamento ||
+                               orderData.forma_pagamento || 
+                               'Não informado';
+        const valorParcela = parseFloat(parcela.valor || parcela.valorParcela || 0);
+        
+        console.log(`[SyncBackground] 📝 [WHATSAPP] Parcela ${index + 1}: ${formaPagamento} - R$ ${valorParcela.toFixed(2)}`);
+        
+        if (!formasPagamentoMap.has(formaPagamento)) {
+          formasPagamentoMap.set(formaPagamento, {
+            nome: formaPagamento,
+            valorTotal: 0,
+            numParcelas: 0
+          });
+        }
+        
+        const forma = formasPagamentoMap.get(formaPagamento);
+        forma.valorTotal += valorParcela;
+        forma.numParcelas += 1;
+      });
+      
+      // ✅ Formatar todas as formas de pagamento
+      const formasFormatadas = Array.from(formasPagamentoMap.values()).map((forma) => {
+        const valorFormatado = new Intl.NumberFormat('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+        }).format(forma.valorTotal);
+        
+        // Se tiver mais de uma parcela, mostrar quantidade
+        if (forma.numParcelas > 1) {
+          return `${forma.nome}: ${valorFormatado} (${forma.numParcelas}x)`;
         } else {
-          formasPagamentoTexto = `${orderData.forma_pagamento} - ${numParcelas} parcela(s)`;
+          return `${forma.nome}: ${valorFormatado}`;
+        }
+      });
+      
+      console.log(`[SyncBackground] 📝 [WHATSAPP] Formas de pagamento formatadas: ${formasFormatadas.length} forma(s)`);
+      
+      if (formasFormatadas.length > 0) {
+        // Se tiver apenas uma forma, mostrar em linha única
+        if (formasFormatadas.length === 1) {
+          message += `*Formas de Pagamento:* ${formasFormatadas[0]}\n`;
+        } else {
+          // Se tiver múltiplas formas, mostrar uma por linha
+          message += `*Formas de Pagamento:*\n${formasFormatadas.map(f => `  • ${f}`).join('\n')}\n`;
         }
       }
-      
-      message += `*Formas de Pagamento:* ${formasPagamentoTexto}\n`;
+    } else if (orderData.forma_pagamento) {
+      // Fallback: se não tiver parcelas, usar forma_pagamento simples
+      message += `*Formas de Pagamento:* ${orderData.forma_pagamento}\n`;
     }
     
     message += `*Data:* ${dataFormatada}\n`;
