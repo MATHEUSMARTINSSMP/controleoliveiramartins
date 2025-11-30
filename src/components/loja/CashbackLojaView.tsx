@@ -145,7 +145,7 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
         .from('cashback_transactions')
         .select(`
           *,
-          tiny_order:tiny_orders(numero_pedido)
+          tiny_order:tiny_order_id (numero_pedido)
         `)
         .order('created_at', { ascending: false });
 
@@ -163,16 +163,11 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
         return 0;
       };
 
-      let ordersQuery = supabase
+      // Buscar pedidos para calcular categoria
+      const { data: ordersData, error: ordersError } = await supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
         .select('cliente_id, valor_total');
-
-      if (storeId) {
-        ordersQuery = ordersQuery.eq('store_id', storeId);
-      }
-
-      const { data: ordersData, error: ordersError } = await ordersQuery;
 
       if (ordersError) console.error('Erro ao buscar pedidos:', ordersError);
 
@@ -813,9 +808,24 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
                                         {format(new Date(t.created_at), 'dd/MM/yyyy', { locale: ptBR })}
                                       </TableCell>
                                       <TableCell>
-                                        <Badge variant={t.transaction_type === 'EARNED' ? 'default' : 'secondary'}>
-                                          {t.transaction_type === 'EARNED' ? 'Ganhou' : 'Resgatou'}
-                                        </Badge>
+                                        {t.transaction_type === 'EARNED' && (
+                                          <>
+                                            {t.description?.startsWith('BONIFICAÇÃO:') ? (
+                                              <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                                                Bonificação
+                                              </Badge>
+                                            ) : (
+                                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                                Ganhou
+                                              </Badge>
+                                            )}
+                                          </>
+                                        )}
+                                        {t.transaction_type === 'REDEEMED' && (
+                                          <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                                            Resgatou
+                                          </Badge>
+                                        )}
                                       </TableCell>
                                       <TableCell className={t.transaction_type === 'EARNED' ? 'text-green-600' : 'text-orange-600'}>
                                         {t.transaction_type === 'EARNED' ? '+' : '-'}{formatCurrency(t.amount)}
@@ -897,9 +907,24 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
                             <div className="text-sm text-muted-foreground">{cliente?.cpf_cnpj}</div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant={t.transaction_type === 'EARNED' ? 'default' : 'secondary'}>
-                              {t.transaction_type === 'EARNED' ? 'Bonificação' : 'Resgate'}
-                            </Badge>
+                            {t.transaction_type === 'EARNED' && (
+                              <>
+                                {t.description?.startsWith('BONIFICAÇÃO:') ? (
+                                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                                    Bonificação
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                    Ganhou
+                                  </Badge>
+                                )}
+                              </>
+                            )}
+                            {t.transaction_type === 'REDEEMED' && (
+                              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                                Resgatou
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell className={t.transaction_type === 'EARNED' ? 'text-green-600 font-medium' : 'text-orange-600 font-medium'}>
                             {t.transaction_type === 'EARNED' ? '+' : '-'}{formatCurrency(t.amount)}
