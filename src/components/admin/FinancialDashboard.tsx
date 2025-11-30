@@ -47,12 +47,23 @@ export const FinancialDashboard = () => {
 
     const fetchKPIs = async () => {
         try {
-            const { data: parcelas, error } = await supabase
+            const { data: parcelas, error: parcelasError } = await supabase
                 .schema("sistemaretiradas")
                 .from("parcelas")
                 .select("valor_parcela, status_parcela, competencia");
 
-            if (error) throw error;
+            if (parcelasError) throw parcelasError;
+
+            // Buscar adiantamentos aprovados (incluindo meses futuros)
+            const { data: adiantamentos, error: adiantamentosError } = await supabase
+                .schema("sistemaretiradas")
+                .from("adiantamentos")
+                .select("valor, status, mes_competencia")
+                .eq("status", "APROVADO");
+
+            if (adiantamentosError) {
+                console.error("Error fetching adiantamentos:", adiantamentosError);
+            }
 
             const mesAtual = format(new Date(), "yyyyMM");
 
@@ -60,9 +71,17 @@ export const FinancialDashboard = () => {
             const descontado = parcelas
                 ?.filter(p => p.status_parcela === "DESCONTADO")
                 .reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
-            const pendente = parcelas
+            
+            // Calcular pendente: parcelas pendentes/agendadas + adiantamentos aprovados
+            const pendenteParcelas = parcelas
                 ?.filter(p => p.status_parcela === "PENDENTE" || p.status_parcela === "AGENDADO")
                 .reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
+            
+            const pendenteAdiantamentos = adiantamentos
+                ?.reduce((sum, a) => sum + Number(a.valor || 0), 0) || 0;
+            
+            const pendente = pendenteParcelas + pendenteAdiantamentos;
+            
             const mesAtualTotal = parcelas
                 ?.filter(p => p.competencia === mesAtual && (p.status_parcela === "PENDENTE" || p.status_parcela === "AGENDADO"))
                 .reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
