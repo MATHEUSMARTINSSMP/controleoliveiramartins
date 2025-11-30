@@ -7,17 +7,28 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Search, Calendar, DollarSign, User, Package, ChevronLeft, ChevronRight, Gift } from 'lucide-react';
+import { Loader2, Search, Calendar, DollarSign, User, Package, ChevronLeft, ChevronRight, Gift, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { toast as sonnerToast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface TinyOrder {
   id: string;
@@ -48,6 +59,7 @@ interface TinyOrdersListProps {
 }
 
 export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListProps) {
+  const { profile } = useAuth();
   const [orders, setOrders] = useState<TinyOrder[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<TinyOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,7 +68,12 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [itemsPerPage, setItemsPerPage] = useState<number>(20);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<TinyOrder | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const { toast } = useToast();
+  
+  const isAdmin = profile?.role === 'ADMIN';
 
   // ✅ Flag para evitar notificações de pedidos antigos na primeira carga
   const [isFirstLoad, setIsFirstLoad] = useState(true);
@@ -94,6 +111,59 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
       style: 'currency',
       currency: 'BRL',
     }).format(value);
+  };
+
+  const handleDeleteOrder = async () => {
+    if (!orderToDelete) return;
+
+    try {
+      setDeleting(true);
+
+      // Verificar se há cashback relacionado
+      const { data: cashbackData } = await supabase
+        .schema('sistemaretiradas')
+        .from('cashback_transactions')
+        .select('id')
+        .eq('tiny_order_id', orderToDelete.id)
+        .limit(1);
+
+      const hasCashback = cashbackData && cashbackData.length > 0;
+
+      // Deletar pedido
+      const { error: deleteError } = await supabase
+        .schema('sistemaretiradas')
+        .from('tiny_orders')
+        .delete()
+        .eq('id', orderToDelete.id);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      // Remover da lista local
+      setOrders(prevOrders => prevOrders.filter(order => order.id !== orderToDelete.id));
+      setFilteredOrders(prevFiltered => prevFiltered.filter(order => order.id !== orderToDelete.id));
+
+      toast({
+        title: 'Pedido excluído',
+        description: `Pedido #${orderToDelete.numero_pedido || orderToDelete.tiny_id} foi excluído com sucesso.${hasCashback ? ' Nota: O cashback relacionado foi mantido no sistema.' : ''}`,
+      });
+
+      sonnerToast.success(`Pedido #${orderToDelete.numero_pedido || orderToDelete.tiny_id} excluído com sucesso!`);
+
+      setDeleteDialogOpen(false);
+      setOrderToDelete(null);
+    } catch (error: any) {
+      console.error('Erro ao deletar pedido:', error);
+      toast({
+        title: 'Erro ao excluir pedido',
+        description: error.message || 'Não foi possível excluir o pedido',
+        variant: 'destructive',
+      });
+      sonnerToast.error('Erro ao excluir pedido: ' + (error.message || 'Erro desconhecido'));
+    } finally {
+      setDeleting(false);
+    }
   };
 
   // ✅ AUTO-REFRESH SILENCIOSO - Atualizar lista quando houver novas vendas
@@ -629,6 +699,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
                     <TableHead>Valor</TableHead>
                     <TableHead>Cashback Gerado</TableHead>
                     <TableHead>Validade</TableHead>
+                    {isAdmin && <TableHead>Ações</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -696,6 +767,21 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
+                      {isAdmin && (
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setOrderToDelete(order);
+                              setDeleteDialogOpen(true);
+                            }}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -735,6 +821,51 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
           </>
         )}
       </CardContent>
+
+      {/* Dialog de Confirmação de Exclusão */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o pedido <strong>#{orderToDelete?.numero_pedido || orderToDelete?.tiny_id}</strong>?
+              <br />
+              <br />
+              Esta ação não pode ser desfeita. O pedido será permanentemente removido do sistema.
+              {orderToDelete?.cashback_gerado && orderToDelete.cashback_gerado > 0 && (
+                <>
+                  <br />
+                  <br />
+                  <span className="text-warning font-medium">
+                    ⚠️ Este pedido possui cashback gerado (R$ {formatCurrency(orderToDelete.cashback_gerado)}). 
+                    O cashback relacionado será mantido no sistema.
+                  </span>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteOrder}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Excluir Pedido
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
