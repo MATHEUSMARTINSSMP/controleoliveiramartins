@@ -1324,6 +1324,19 @@ export default function CashbackManagement() {
         produtos: Set<string>;
       }>();
 
+      // Função auxiliar para converter valores monetários
+      const parseMoney = (val: any): number => {
+        if (typeof val === 'number') return val;
+        if (!val) return 0;
+        if (typeof val === 'string') {
+          // Remover R$, espaços e substituir vírgula por ponto
+          const clean = val.replace('R$', '').trim().replace(/\./g, '').replace(',', '.');
+          const num = parseFloat(clean);
+          return isNaN(num) ? 0 : num;
+        }
+        return 0;
+      };
+
       // Processar pedidos
       orders?.forEach((order: any) => {
         if (!order.cliente_id) return;
@@ -1346,25 +1359,54 @@ export default function CashbackManagement() {
 
         const clienteData = clienteMap.get(clienteId)!;
         clienteData.pedidos.push(order);
-        const valorPedido = parseFloat(order.valor_total || 0);
-        if (!isNaN(valorPedido) && isFinite(valorPedido)) {
+
+        // ✅ CORREÇÃO: Usar parseMoney para garantir valor correto
+        const valorPedido = parseMoney(order.valor_total);
+        if (valorPedido > 0) {
           clienteData.totalFaturamento += valorPedido;
         }
 
-        // Processar itens
-        if (order.itens && Array.isArray(order.itens)) {
-          order.itens.forEach((item: any) => {
-            if (item.categoria || item.categoria_produto) {
-              clienteData.categorias.add(item.categoria || item.categoria_produto);
+        // ✅ CORREÇÃO: Processar itens com parse JSON robusto
+        let itens: any[] = [];
+        try {
+          itens = typeof order.itens === 'string' ? JSON.parse(order.itens) : order.itens || [];
+        } catch (e) {
+          console.warn('Erro ao fazer parse dos itens:', e);
+          itens = [];
+        }
+
+        if (Array.isArray(itens)) {
+          itens.forEach((item: any) => {
+            if (item.categoria && typeof item.categoria === 'string') {
+              clienteData.categorias.add(item.categoria.trim());
             }
-            if (item.produto_id || item.produto_nome) {
-              clienteData.produtos.add(item.produto_id || item.produto_nome);
+            // Tentar pegar nome do produto de várias formas
+            const nomeProduto = item.descricao || item.produto_nome || item.nome;
+            if (nomeProduto && typeof nomeProduto === 'string') {
+              clienteData.produtos.add(nomeProduto.trim());
+            }
+            // Tentar pegar ID do produto
+            const idProduto = item.id || item.produto_id || item.codigo;
+            if (idProduto) {
+              clienteData.produtos.add(String(idProduto));
             }
           });
         }
 
-        if (!clienteData.ultimaCompra || order.data_pedido > clienteData.ultimaCompra) {
-          clienteData.ultimaCompra = order.data_pedido;
+        // ✅ CORREÇÃO: Extrair data do pedido corretamente
+        let dataPedido = order.data_pedido;
+        if (dataPedido) {
+          // Se for string ISO, pegar apenas a parte da data YYYY-MM-DD
+          if (typeof dataPedido === 'string' && dataPedido.includes('T')) {
+            dataPedido = dataPedido.split('T')[0];
+          }
+
+          if (!clienteData.ultimaCompra || dataPedido > clienteData.ultimaCompra) {
+            clienteData.ultimaCompra = dataPedido;
+          }
+
+          // Normalizar data no objeto do pedido para facilitar filtros
+          order.data_pedido_normalizada = dataPedido;
         }
       });
 
@@ -1375,8 +1417,13 @@ export default function CashbackManagement() {
 
         // Calcular PA (peças por atendimento)
         const totalPecas = data.pedidos.reduce((sum, p) => {
-          if (p.itens && Array.isArray(p.itens)) {
-            return sum + p.itens.reduce((s: number, i: any) => s + (parseFloat(i.quantidade || 0)), 0);
+          let itens: any[] = [];
+          try {
+            itens = typeof p.itens === 'string' ? JSON.parse(p.itens) : p.itens || [];
+          } catch (e) { itens = []; }
+
+          if (Array.isArray(itens)) {
+            return sum + itens.reduce((s: number, i: any) => s + (parseFloat(i.quantidade || 0)), 0);
           }
           return sum;
         }, 0);

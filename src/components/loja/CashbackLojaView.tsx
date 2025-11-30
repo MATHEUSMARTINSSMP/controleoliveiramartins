@@ -1,7 +1,7 @@
 /**
  * Componente de Cashback para Visão Loja
- * Versão simplificada do CashbackManagement
- * Layout Lado a Lado: Pontuar (Venda) e Resgatar
+ * Layout IDÊNTICO ao ERP, mas sem Bonificar e Configurações
+ * 3 Tabs: Lançar, Clientes, Histórico Geral
  */
 
 import { useEffect, useState, useMemo } from 'react';
@@ -29,9 +29,6 @@ import {
   ChevronRight,
   Search,
   Gift,
-  ArrowRightLeft,
-  Wallet,
-  ShoppingBag
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -78,15 +75,15 @@ interface CashbackLojaViewProps {
 export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('operacoes');
+  const [activeTab, setActiveTab] = useState('lancar');
 
-  // Estados para Pontuar (Lançar)
+  // Estados para Lançar
   const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [selectedClientePontuar, setSelectedClientePontuar] = useState('');
-  const [valorVenda, setValorVenda] = useState('');
-  const [pontuando, setPontuando] = useState(false);
-  const [searchClientePontuar, setSearchClientePontuar] = useState('');
-  const [percentualCashback, setPercentualCashback] = useState(15); // Padrão 15%
+  const [selectedClienteLancar, setSelectedClienteLancar] = useState('');
+  const [valorLancar, setValorLancar] = useState('');
+  const [descricaoLancar, setDescricaoLancar] = useState('');
+  const [lancando, setLancando] = useState(false);
+  const [searchClienteLancar, setSearchClienteLancar] = useState('');
 
   // Estados para Resgatar
   const [selectedClienteResgatar, setSelectedClienteResgatar] = useState('');
@@ -115,35 +112,8 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
   useEffect(() => {
     if (profile && storeId) {
       fetchData();
-      fetchSettings();
     }
   }, [profile, storeId]);
-
-  const fetchSettings = async () => {
-    try {
-      // Tenta buscar configuração da loja, senão global
-      let query = supabase
-        .schema('sistemaretiradas')
-        .from('cashback_settings')
-        .select('percentual_cashback');
-
-      if (storeId) {
-        // Tentar buscar específico da loja primeiro (se existisse tabela por loja, mas aqui é global ou null)
-        // Como a tabela atual é global (store_id null), buscamos a global mesmo
-        query = query.is('store_id', null);
-      } else {
-        query = query.is('store_id', null);
-      }
-
-      const { data, error } = await query.maybeSingle();
-
-      if (data) {
-        setPercentualCashback(Number(data.percentual_cashback));
-      }
-    } catch (error) {
-      console.error('Erro ao buscar configurações:', error);
-    }
-  };
 
   const fetchData = async () => {
     try {
@@ -182,6 +152,17 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
       if (transactionsError) throw transactionsError;
 
       // Buscar pedidos desta loja para calcular categoria
+      const parseMoney = (val: any): number => {
+        if (typeof val === 'number') return val;
+        if (!val) return 0;
+        if (typeof val === 'string') {
+          const clean = val.replace('R$', '').trim().replace(/\./g, '').replace(',', '.');
+          const num = parseFloat(clean);
+          return isNaN(num) ? 0 : num;
+        }
+        return 0;
+      };
+
       let ordersQuery = supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
@@ -199,8 +180,8 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
       const totalComprasPorCliente = new Map<string, number>();
       ordersData?.forEach((order: any) => {
         if (order.cliente_id && order.valor_total) {
-          const valor = parseFloat(order.valor_total || 0);
-          if (!isNaN(valor) && isFinite(valor)) {
+          const valor = parseMoney(order.valor_total);
+          if (valor > 0) {
             const atual = totalComprasPorCliente.get(order.cliente_id) || 0;
             totalComprasPorCliente.set(order.cliente_id, atual + valor);
           }
@@ -255,9 +236,9 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
         .reduce((sum, t) => sum + Number(t.amount), 0);
 
       setKpis({
-        total_gerado,
+        total_gerado: totalGerado,
         total_clientes: allClientes?.length || 0,
-        total_resgatado,
+        total_resgatado: totalResgatado,
         a_vencer_7d: aVencer,
       });
 
@@ -269,14 +250,14 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
     }
   };
 
-  // Lógica de Pontuar (Baseado em Venda)
-  const handlePontuar = async () => {
-    if (!selectedClientePontuar || !valorVenda || parseFloat(valorVenda) <= 0) {
-      toast.error('Preencha cliente e valor da venda');
+  // Lógica de Lançar
+  const handleLancar = async () => {
+    if (!selectedClienteLancar || !valorLancar || parseFloat(valorLancar) <= 0) {
+      toast.error('Preencha cliente e valor da compra');
       return;
     }
 
-    setPontuando(true);
+    setLancando(true);
     try {
       const { data: settingsData } = await supabase
         .schema('sistemaretiradas')
@@ -291,8 +272,8 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
         prazo_expiracao_dias: 30,
       };
 
-      const valorVendaNum = parseFloat(valorVenda);
-      const cashbackAmount = (valorVendaNum * Number(settings.percentual_cashback)) / 100;
+      const valorCompra = parseFloat(valorLancar);
+      const cashbackAmount = (valorCompra * Number(settings.percentual_cashback)) / 100;
 
       const agora = new Date();
       const macapaOffset = -3 * 60;
@@ -308,47 +289,48 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
         .schema('sistemaretiradas')
         .from('cashback_transactions')
         .insert({
-          cliente_id: selectedClientePontuar,
-          tiny_order_id: null, // Lançamento manual via loja
+          cliente_id: selectedClienteLancar,
+          tiny_order_id: null,
           transaction_type: 'EARNED',
           amount: cashbackAmount,
-          description: `Pontos sobre venda de ${formatCurrency(valorVendaNum)}`,
+          description: descricaoLancar || 'Lançamento manual',
           data_liberacao: dataLiberacao.toISOString(),
           data_expiracao: dataExpiracao.toISOString(),
         });
 
       if (error) throw error;
 
-      toast.success(`✅ Cashback de ${formatCurrency(cashbackAmount)} gerado com sucesso!`);
-      setSelectedClientePontuar('');
-      setValorVenda('');
-      setSearchClientePontuar('');
+      toast.success(`✅ Cashback de ${formatCurrency(cashbackAmount)} lançado com sucesso!`);
+      setSelectedClienteLancar('');
+      setValorLancar('');
+      setDescricaoLancar('');
       await fetchData();
     } catch (error: any) {
-      console.error('Erro ao pontuar:', error);
-      toast.error('Erro ao gerar pontos: ' + error.message);
+      console.error('Erro ao lançar:', error);
+      toast.error('Erro ao lançar cashback: ' + (error.message || 'Erro desconhecido'));
     } finally {
-      setPontuando(false);
+      setLancando(false);
     }
   };
 
   // Lógica de Resgatar
   const handleResgatar = async () => {
     if (!selectedClienteResgatar || !valorResgatar || parseFloat(valorResgatar) <= 0) {
-      toast.error('Preencha cliente e valor do resgate');
+      toast.error('Preencha cliente e valor a resgatar');
+      return;
+    }
+
+    const clienteSaldo = clientesComSaldo.find(c => c.cliente.id === selectedClienteResgatar);
+    const saldoDisponivel = clienteSaldo?.saldo_disponivel || 0;
+    const valorResgate = parseFloat(valorResgatar);
+
+    if (valorResgate > saldoDisponivel) {
+      toast.error(`Saldo insuficiente. Disponível: ${formatCurrency(saldoDisponivel)}`);
       return;
     }
 
     setResgatando(true);
     try {
-      const valorNum = parseFloat(valorResgatar);
-      const cliente = clientesComSaldo.find(c => c.cliente.id === selectedClienteResgatar);
-
-      if (!cliente || cliente.saldo_disponivel < valorNum) {
-        toast.error(`Saldo insuficiente. Disponível: ${formatCurrency(cliente?.saldo_disponivel || 0)}`);
-        return;
-      }
-
       const { error } = await supabase
         .schema('sistemaretiradas')
         .from('cashback_transactions')
@@ -356,27 +338,79 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
           cliente_id: selectedClienteResgatar,
           tiny_order_id: null,
           transaction_type: 'REDEEMED',
-          amount: valorNum,
-          description: descricaoResgatar || 'Resgate em loja',
+          amount: valorResgate,
+          description: descricaoResgatar || 'Resgate manual',
+          data_liberacao: null,
+          data_expiracao: null,
         });
 
       if (error) throw error;
 
-      toast.success(`✅ Resgate de ${formatCurrency(valorNum)} realizado!`);
+      toast.success(`✅ ${formatCurrency(valorResgate)} resgatado com sucesso!`);
       setSelectedClienteResgatar('');
       setValorResgatar('');
       setDescricaoResgatar('');
-      setSearchClienteResgatar('');
       await fetchData();
     } catch (error: any) {
       console.error('Erro ao resgatar:', error);
-      toast.error('Erro ao resgatar: ' + error.message);
+      toast.error('Erro ao resgatar: ' + (error.message || 'Erro desconhecido'));
     } finally {
       setResgatando(false);
     }
   };
 
-  const toggleClientExpanded = (clienteId: string) => {
+  // Filtros
+  const filteredClientesLancar = useMemo(() => {
+    if (!searchClienteLancar) return [];
+    const term = searchClienteLancar.toLowerCase();
+    return clientes.filter(c =>
+      c.nome.toLowerCase().includes(term) ||
+      c.cpf_cnpj?.toLowerCase().includes(term) ||
+      c.telefone?.toLowerCase().includes(term)
+    ).slice(0, 10);
+  }, [searchClienteLancar, clientes]);
+
+  const filteredClientesResgatar = useMemo(() => {
+    if (!searchClienteResgatar) return [];
+    const term = searchClienteResgatar.toLowerCase();
+    return clientes
+      .filter(c =>
+        c.nome.toLowerCase().includes(term) ||
+        c.cpf_cnpj?.toLowerCase().includes(term) ||
+        c.telefone?.toLowerCase().includes(term)
+      )
+      .slice(0, 10);
+  }, [searchClienteResgatar, clientes]);
+
+  const clientesFiltrados = useMemo(() => {
+    if (!searchTerm) return clientesComSaldo;
+    const term = searchTerm.toLowerCase();
+    return clientesComSaldo.filter(cs =>
+      cs.cliente.nome.toLowerCase().includes(term) ||
+      cs.cliente.cpf_cnpj?.toLowerCase().includes(term) ||
+      cs.cliente.telefone?.toLowerCase().includes(term)
+    );
+  }, [searchTerm, clientesComSaldo]);
+
+  const historicoFiltrado = useMemo(() => {
+    if (filtroHistorico === 'todos') return historicoGeral;
+    if (filtroHistorico === 'ganhou') return historicoGeral.filter(t => t.transaction_type === 'EARNED');
+    if (filtroHistorico === 'resgatou') return historicoGeral.filter(t => t.transaction_type === 'REDEEMED');
+    return historicoGeral;
+  }, [filtroHistorico, historicoGeral]);
+
+  const cashbackPreview = useMemo(() => {
+    if (!valorLancar || parseFloat(valorLancar) <= 0) return 0;
+    return (parseFloat(valorLancar) * 15) / 100; // Padrão 15%
+  }, [valorLancar]);
+
+  const saldoClienteResgatar = useMemo(() => {
+    if (!selectedClienteResgatar) return 0;
+    const cliente = clientesComSaldo.find(c => c.cliente.id === selectedClienteResgatar);
+    return cliente?.saldo_disponivel || 0;
+  }, [selectedClienteResgatar, clientesComSaldo]);
+
+  const toggleClientExpansion = (clienteId: string) => {
     const newExpanded = new Set(expandedClients);
     if (newExpanded.has(clienteId)) {
       newExpanded.delete(clienteId);
@@ -386,295 +420,313 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
     setExpandedClients(newExpanded);
   };
 
-  // Filtros
-  const clientesFiltradosPontuar = useMemo(() => {
-    if (!searchClientePontuar) return [];
-    const term = searchClientePontuar.toLowerCase();
-    return clientes.filter(c =>
-      c.nome.toLowerCase().includes(term) ||
-      c.cpf_cnpj?.toLowerCase().includes(term)
-    ).slice(0, 10);
-  }, [clientes, searchClientePontuar]);
-
-  const clientesFiltradosResgatar = useMemo(() => {
-    if (!searchClienteResgatar) return [];
-    const term = searchClienteResgatar.toLowerCase();
-    return clientesComSaldo
-      .filter(c => c.saldo_disponivel > 0)
-      .filter(({ cliente }) =>
-        cliente.nome.toLowerCase().includes(term) ||
-        cliente.cpf_cnpj?.toLowerCase().includes(term)
-      ).slice(0, 10);
-  }, [clientesComSaldo, searchClienteResgatar]);
-
-  const clientesLista = useMemo(() => {
-    if (!searchTerm) return clientesComSaldo;
-    const term = searchTerm.toLowerCase();
-    return clientesComSaldo.filter(({ cliente }) =>
-      cliente.nome.toLowerCase().includes(term) ||
-      cliente.cpf_cnpj?.toLowerCase().includes(term)
-    );
-  }, [clientesComSaldo, searchTerm]);
-
-  const historicoFiltrado = useMemo(() => {
-    if (filtroHistorico === 'todos') return historicoGeral;
-    if (filtroHistorico === 'ganhou') return historicoGeral.filter(t => t.transaction_type === 'EARNED');
-    if (filtroHistorico === 'resgatou') return historicoGeral.filter(t => t.transaction_type === 'REDEEMED');
-    return historicoGeral;
-  }, [historicoGeral, filtroHistorico]);
-
-  const cashbackPrevisto = useMemo(() => {
-    if (!valorVenda) return 0;
-    return (parseFloat(valorVenda) * percentualCashback) / 100;
-  }, [valorVenda, percentualCashback]);
+  const getCategoriaColor = (categoria: string | null | undefined) => {
+    switch (categoria) {
+      case 'BLACK': return 'bg-black text-white';
+      case 'PLATINUM': return 'bg-gray-400 text-white';
+      case 'VIP': return 'bg-yellow-500 text-white';
+      case 'REGULAR': return 'bg-blue-500 text-white';
+      default: return 'bg-gray-200 text-gray-700';
+    }
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <Gift className="h-8 w-8 text-primary" />
+          Gestão de Cashback
+        </h1>
+        <p className="text-muted-foreground">Gerencie o programa de cashback dos seus clientes</p>
+      </div>
+
       {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              Cashback Gerado
-            </CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Cashback Gerado</CardTitle>
+            <DollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(kpis.total_gerado)}</div>
+            <p className="text-xs text-muted-foreground">Total histórico</p>
           </CardContent>
         </Card>
+
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Clientes
-            </CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Clientes</CardTitle>
+            <Users className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{kpis.total_clientes}</div>
+            <div className="text-2xl font-bold text-blue-600">{kpis.total_clientes}</div>
+            <p className="text-xs text-muted-foreground">Total cadastradas</p>
           </CardContent>
         </Card>
+
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Resgatado
-            </CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Resgatado</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{formatCurrency(kpis.total_resgatado)}</div>
+            <p className="text-xs text-muted-foreground">Total utilizado</p>
           </CardContent>
         </Card>
+
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" />
-              A Vencer (7d)
-            </CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">A Vencer (7 dias)</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">{formatCurrency(kpis.a_vencer_7d)}</div>
+            <p className="text-xs text-muted-foreground">Expira na próxima semana</p>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="operacoes">Operações (Pontuar/Resgatar)</TabsTrigger>
+          <TabsTrigger value="lancar">Lançar</TabsTrigger>
           <TabsTrigger value="clientes">Clientes</TabsTrigger>
-          <TabsTrigger value="historico">Histórico</TabsTrigger>
+          <TabsTrigger value="historico">Histórico Geral</TabsTrigger>
         </TabsList>
 
-        {/* TAB 1: OPERAÇÕES (LADO A LADO) */}
-        <TabsContent value="operacoes" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-            {/* COLUNA ESQUERDA: PONTUAR (LANÇAR) */}
-            <Card className="border-l-4 border-l-blue-500">
+        {/* TAB 1: LANÇAR */}
+        <TabsContent value="lancar" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Card Pontuar */}
+            <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-blue-700">
-                  <ShoppingBag className="h-5 w-5" />
-                  Pontuar Cliente (Venda)
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-green-600" />
+                  Pontuar
                 </CardTitle>
-                <CardDescription>Lance o valor da venda para gerar cashback</CardDescription>
+                <CardDescription>Lançar cashback manualmente para uma cliente</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Buscar Cliente</Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Nome ou CPF..."
-                      value={searchClientePontuar}
-                      onChange={(e) => {
-                        setSearchClientePontuar(e.target.value);
-                        if (!e.target.value) setSelectedClientePontuar('');
-                      }}
-                      className="pl-10"
-                    />
-                  </div>
-                  {searchClientePontuar && clientesFiltradosPontuar.length > 0 && !selectedClientePontuar && (
-                    <div className="border rounded-lg max-h-48 overflow-y-auto bg-white absolute z-10 w-full shadow-lg">
-                      {clientesFiltradosPontuar.map(c => (
-                        <div
-                          key={c.id}
-                          onClick={() => {
-                            setSelectedClientePontuar(c.id);
-                            setSearchClientePontuar(c.nome);
-                          }}
-                          className="p-3 cursor-pointer hover:bg-muted border-b last:border-0"
-                        >
-                          <div className="font-medium">{c.nome}</div>
-                          <div className="text-xs text-muted-foreground">{c.cpf_cnpj}</div>
+                  <Label htmlFor="cliente-lancar">Cliente *</Label>
+                  {!selectedClienteLancar ? (
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="cliente-lancar"
+                          placeholder="Digite nome, CPF ou telefone..."
+                          value={searchClienteLancar}
+                          onChange={(e) => setSearchClienteLancar(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                      {searchClienteLancar && filteredClientesLancar.length > 0 && (
+                        <div className="border rounded-lg max-h-60 overflow-y-auto">
+                          {filteredClientesLancar.map(c => (
+                            <div
+                              key={c.id}
+                              onClick={() => {
+                                setSelectedClienteLancar(c.id);
+                                setSearchClienteLancar('');
+                              }}
+                              className="p-3 hover:bg-muted cursor-pointer border-b last:border-b-0"
+                            >
+                              <div className="font-medium">{c.nome}</div>
+                              <div className="text-sm text-muted-foreground">{c.cpf_cnpj}</div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
+                      {searchClienteLancar && filteredClientesLancar.length === 0 && (
+                        <div className="text-sm text-muted-foreground p-2">Nenhum cliente encontrado</div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
+                      <div>
+                        <div className="font-medium">{clientes.find(c => c.id === selectedClienteLancar)?.nome}</div>
+                        <div className="text-sm text-muted-foreground">{clientes.find(c => c.id === selectedClienteLancar)?.cpf_cnpj}</div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedClienteLancar('')}
+                      >
+                        Alterar
+                      </Button>
                     </div>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Valor da Venda (R$)</Label>
+                  <Label htmlFor="valor-lancar">Valor da Compra *</Label>
                   <Input
+                    id="valor-lancar"
                     type="number"
                     step="0.01"
                     placeholder="0,00"
-                    value={valorVenda}
-                    onChange={(e) => setValorVenda(e.target.value)}
-                    className="text-lg font-semibold"
+                    value={valorLancar}
+                    onChange={(e) => setValorLancar(e.target.value)}
                   />
                 </div>
 
-                {valorVenda && (
-                  <div className="bg-blue-50 p-3 rounded-md border border-blue-100">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-blue-700">Cashback a gerar ({percentualCashback}%):</span>
-                      <span className="font-bold text-lg text-blue-700">{formatCurrency(cashbackPrevisto)}</span>
-                    </div>
-                  </div>
-                )}
+                <div className="space-y-2">
+                  <Label htmlFor="descricao-lancar">Descrição (opcional)</Label>
+                  <Input
+                    id="descricao-lancar"
+                    placeholder="Ex: Compra em loja física"
+                    value={descricaoLancar}
+                    onChange={(e) => setDescricaoLancar(e.target.value)}
+                  />
+                </div>
+
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <p className="text-sm text-green-800">
+                    Cashback a gerar: <strong>{formatCurrency(cashbackPreview)}</strong>
+                  </p>
+                </div>
 
                 <Button
-                  onClick={handlePontuar}
-                  disabled={pontuando || !selectedClientePontuar || !valorVenda}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  className="w-full"
+                  onClick={handleLancar}
+                  disabled={lancando || !selectedClienteLancar || !valorLancar}
                 >
-                  {pontuando ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Processando...
-                    </>
+                  {lancando ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Lançando...</>
                   ) : (
-                    <>
-                      <Gift className="h-4 w-4 mr-2" />
-                      Confirmar Pontuação
-                    </>
+                    'LANÇAR'
                   )}
                 </Button>
               </CardContent>
             </Card>
 
-            {/* COLUNA DIREITA: RESGATAR */}
-            <Card className="border-l-4 border-l-green-500">
+            {/* Card Resgatar */}
+            <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-green-700">
-                  <Wallet className="h-5 w-5" />
-                  Resgatar Cashback
+                <CardTitle className="flex items-center gap-2">
+                  <Gift className="h-5 w-5 text-orange-600" />
+                  Resgatar
                 </CardTitle>
-                <CardDescription>Utilize o saldo do cliente como desconto</CardDescription>
+                <CardDescription>Resgatar cashback manualmente de uma cliente</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Buscar Cliente (com saldo)</Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Nome ou CPF..."
-                      value={searchClienteResgatar}
-                      onChange={(e) => {
-                        setSearchClienteResgatar(e.target.value);
-                        if (!e.target.value) setSelectedClienteResgatar('');
-                      }}
-                      className="pl-10"
-                    />
-                  </div>
-                  {searchClienteResgatar && clientesFiltradosResgatar.length > 0 && !selectedClienteResgatar && (
-                    <div className="border rounded-lg max-h-48 overflow-y-auto bg-white absolute z-10 w-full shadow-lg">
-                      {clientesFiltradosResgatar.map(({ cliente, saldo_disponivel }) => (
-                        <div
-                          key={cliente.id}
-                          onClick={() => {
-                            setSelectedClienteResgatar(cliente.id);
-                            setSearchClienteResgatar(cliente.nome);
-                          }}
-                          className="p-3 cursor-pointer hover:bg-muted border-b last:border-0"
-                        >
-                          <div className="font-medium">{cliente.nome}</div>
-                          <div className="flex justify-between items-center mt-1">
-                            <span className="text-xs text-muted-foreground">{cliente.cpf_cnpj}</span>
-                            <span className="text-sm font-bold text-green-600">{formatCurrency(saldo_disponivel)}</span>
-                          </div>
+                  <Label htmlFor="cliente-resgatar">Cliente *</Label>
+                  {!selectedClienteResgatar ? (
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="cliente-resgatar"
+                          placeholder="Digite nome, CPF ou telefone..."
+                          value={searchClienteResgatar}
+                          onChange={(e) => setSearchClienteResgatar(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                      {searchClienteResgatar && filteredClientesResgatar.length > 0 && (
+                        <div className="border rounded-lg max-h-60 overflow-y-auto">
+                          {filteredClientesResgatar.map(c => (
+                            <div
+                              key={c.id}
+                              onClick={() => {
+                                setSelectedClienteResgatar(c.id);
+                                setSearchClienteResgatar('');
+                              }}
+                              className="p-3 hover:bg-muted cursor-pointer border-b last:border-b-0"
+                            >
+                              <div className="font-medium">{c.nome}</div>
+                              <div className="text-sm text-muted-foreground">{c.cpf_cnpj}</div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
+                      {searchClienteResgatar && filteredClientesResgatar.length === 0 && (
+                        <div className="text-sm text-muted-foreground p-2">Nenhum cliente encontrado</div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
+                      <div>
+                        <div className="font-medium">{clientes.find(c => c.id === selectedClienteResgatar)?.nome}</div>
+                        <div className="text-sm text-muted-foreground">{clientes.find(c => c.id === selectedClienteResgatar)?.cpf_cnpj}</div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedClienteResgatar('')}
+                      >
+                        Alterar
+                      </Button>
                     </div>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Valor do Resgate (R$)</Label>
+                  <Label htmlFor="valor-resgatar">Valor a Resgatar *</Label>
                   <Input
+                    id="valor-resgatar"
                     type="number"
                     step="0.01"
                     placeholder="0,00"
                     value={valorResgatar}
                     onChange={(e) => setValorResgatar(e.target.value)}
-                    className="text-lg font-semibold"
                   />
-                  {selectedClienteResgatar && (
-                    <p className="text-xs text-right text-muted-foreground">
-                      Disponível: <span className="font-bold text-green-600">
-                        {formatCurrency(clientesComSaldo.find(c => c.cliente.id === selectedClienteResgatar)?.saldo_disponivel || 0)}
-                      </span>
-                    </p>
-                  )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Descrição (Opcional)</Label>
+                  <Label htmlFor="descricao-resgatar">Descrição (opcional)</Label>
                   <Input
-                    placeholder="Ex: Desconto na compra"
+                    id="descricao-resgatar"
+                    placeholder="Ex: Desconto aplicado em compra"
                     value={descricaoResgatar}
                     onChange={(e) => setDescricaoResgatar(e.target.value)}
                   />
                 </div>
 
+                <div className="p-3 bg-orange-50 rounded-lg space-y-1">
+                  <p className="text-sm text-orange-800">
+                    Saldo disponível: <strong>{formatCurrency(saldoClienteResgatar)}</strong>
+                  </p>
+                  {selectedClienteResgatar && (() => {
+                    const cliente = clientesComSaldo.find(c => c.cliente.id === selectedClienteResgatar);
+                    const saldoPendente = cliente?.saldo_pendente || 0;
+                    if (saldoPendente > 0) {
+                      return (
+                        <p className="text-xs text-orange-700">
+                          ⏳ Pendente: {formatCurrency(saldoPendente)} (será liberado em até 2 dias)
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+
                 <Button
+                  className="w-full"
+                  variant="secondary"
                   onClick={handleResgatar}
                   disabled={resgatando || !selectedClienteResgatar || !valorResgatar}
-                  className="w-full bg-green-600 hover:bg-green-700"
                 >
                   {resgatando ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Processando...
-                    </>
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Resgatando...</>
                   ) : (
-                    <>
-                      <ArrowRightLeft className="h-4 w-4 mr-2" />
-                      Confirmar Resgate
-                    </>
+                    'RESGATAR'
                   )}
                 </Button>
               </CardContent>
             </Card>
-
           </div>
         </TabsContent>
 
@@ -682,148 +734,185 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
         <TabsContent value="clientes" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Lista de Clientes</CardTitle>
-              <div className="relative max-w-sm">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Filtrar clientes..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+              <CardTitle>Todas as Clientes</CardTitle>
+              <CardDescription>Lista completa de clientes (com e sem saldo)</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {clientesLista.length === 0 ? (
-                  <p className="text-center py-8 text-muted-foreground">Nenhum cliente encontrado</p>
-                ) : (
-                  clientesLista.slice(0, 50).map(({ cliente, saldo_disponivel, saldo_pendente, transactions }) => (
-                    <Collapsible
-                      key={cliente.id}
-                      open={expandedClients.has(cliente.id)}
-                      onOpenChange={() => toggleClientExpanded(cliente.id)}
-                    >
-                      <CollapsibleTrigger asChild>
-                        <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer">
-                          <div className="flex items-center gap-3">
-                            {expandedClients.has(cliente.id) ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
-                            <div>
-                              <div className="font-medium">{cliente.nome}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {cliente.cpf_cnpj} • {transactions.length} transações
+              <div className="space-y-4">
+                {/* Busca */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar cliente..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                {/* Lista de Clientes */}
+                <div className="space-y-2">
+                  {clientesFiltrados.map(cs => (
+                    <Collapsible key={cs.cliente.id}>
+                      <div className="border rounded-lg p-4">
+                        <CollapsibleTrigger
+                          onClick={() => toggleClientExpansion(cs.cliente.id)}
+                          className="w-full"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              {expandedClients.has(cs.cliente.id) ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                              <div className="text-left">
+                                <div className="font-medium">{cs.cliente.nome}</div>
+                                <div className="text-sm text-muted-foreground">{cs.cliente.cpf_cnpj}</div>
                               </div>
-                              {cliente.categoria && (
-                                <Badge variant="outline" className="mt-1 text-xs bg-blue-50 text-blue-700 border-blue-200">
-                                  {cliente.categoria}
+                            </div>
+                            <div className="flex items-center gap-4">
+                              {cs.cliente.categoria && (
+                                <Badge className={getCategoriaColor(cs.cliente.categoria)}>
+                                  {cs.cliente.categoria}
                                 </Badge>
                               )}
+                              <div className="text-right">
+                                <div className="text-sm font-medium text-green-600">
+                                  {formatCurrency(cs.saldo_disponivel)}
+                                </div>
+                                {cs.saldo_pendente > 0 && (
+                                  <div className="text-xs text-orange-600">
+                                    +{formatCurrency(cs.saldo_pendente)} pendente
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className="font-bold text-green-600">
-                              💰 {formatCurrency(saldo_disponivel)}
-                            </div>
-                            {saldo_pendente > 0 && (
-                              <div className="text-xs text-muted-foreground">
-                                Pendente: {formatCurrency(saldo_pendente)}
-                              </div>
+                        </CollapsibleTrigger>
+
+                        <CollapsibleContent>
+                          <div className="mt-4 pt-4 border-t">
+                            <h4 className="font-semibold mb-2">Histórico de Transações</h4>
+                            {cs.transactions.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">Nenhuma transação</p>
+                            ) : (
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Data</TableHead>
+                                    <TableHead>Tipo</TableHead>
+                                    <TableHead>Valor</TableHead>
+                                    <TableHead>Descrição</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {cs.transactions.slice(0, 5).map(t => (
+                                    <TableRow key={t.id}>
+                                      <TableCell className="text-sm">
+                                        {format(new Date(t.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Badge variant={t.transaction_type === 'EARNED' ? 'default' : 'secondary'}>
+                                          {t.transaction_type === 'EARNED' ? 'Ganhou' : 'Resgatou'}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell className={t.transaction_type === 'EARNED' ? 'text-green-600' : 'text-orange-600'}>
+                                        {t.transaction_type === 'EARNED' ? '+' : '-'}{formatCurrency(t.amount)}
+                                      </TableCell>
+                                      <TableCell className="text-sm text-muted-foreground">
+                                        {t.description || '-'}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
                             )}
                           </div>
-                        </div>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <div className="mt-2 border-t pt-4 px-4">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Data</TableHead>
-                                <TableHead>Tipo</TableHead>
-                                <TableHead>Valor</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {transactions.slice(0, 5).map(t => (
-                                <TableRow key={t.id}>
-                                  <TableCell className="text-xs">
-                                    {format(new Date(t.created_at), 'dd/MM/yy HH:mm', { locale: ptBR })}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge variant="outline" className={
-                                      t.transaction_type === 'EARNED' ? 'bg-green-50 text-green-700' :
-                                        t.transaction_type === 'REDEEMED' ? 'bg-orange-50 text-orange-700' :
-                                          'bg-red-50 text-red-700'
-                                    }>
-                                      {t.transaction_type === 'EARNED' ? 'Ganhou' :
-                                        t.transaction_type === 'REDEEMED' ? 'Resgatou' : 'Expirou'}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="font-medium">
-                                    {formatCurrency(t.amount)}
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </CollapsibleContent>
+                        </CollapsibleContent>
+                      </div>
                     </Collapsible>
-                  ))
-                )}
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* TAB 3: HISTÓRICO */}
+        {/* TAB 3: HISTÓRICO GERAL */}
         <TabsContent value="historico" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Histórico de Transações</CardTitle>
+              <CardTitle>Histórico Cronológico da Loja</CardTitle>
+              <CardDescription>Todas as movimentações de cashback</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Valor</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {historicoFiltrado.slice(0, 50).map(t => {
-                    const cliente = clientes.find(c => c.id === t.cliente_id);
-                    return (
-                      <TableRow key={t.id}>
-                        <TableCell className="text-sm">
-                          {format(new Date(t.created_at), 'dd/MM HH:mm', { locale: ptBR })}
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium">{cliente?.nome || 'Desconhecido'}</div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={
-                            t.transaction_type === 'EARNED' ? 'bg-green-50 text-green-700' :
-                              t.transaction_type === 'REDEEMED' ? 'bg-orange-50 text-orange-700' :
-                                'bg-red-50 text-red-700'
-                          }>
-                            {t.transaction_type === 'EARNED' ? 'Ganhou' :
-                              t.transaction_type === 'REDEEMED' ? 'Resgatou' : 'Expirou'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {formatCurrency(t.amount)}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <div className="space-y-4">
+                {/* Filtros */}
+                <div className="flex gap-2">
+                  <Button
+                    variant={filtroHistorico === 'todos' ? 'default' : 'outline'}
+                    onClick={() => setFiltroHistorico('todos')}
+                    size="sm"
+                  >
+                    Todos
+                  </Button>
+                  <Button
+                    variant={filtroHistorico === 'ganhou' ? 'default' : 'outline'}
+                    onClick={() => setFiltroHistorico('ganhou')}
+                    size="sm"
+                  >
+                    Ganhou
+                  </Button>
+                  <Button
+                    variant={filtroHistorico === 'resgatou' ? 'default' : 'outline'}
+                    onClick={() => setFiltroHistorico('resgatou')}
+                    size="sm"
+                  >
+                    Resgatou
+                  </Button>
+                </div>
+
+                {/* Tabela */}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data/Hora</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Cashback</TableHead>
+                      <TableHead>Validade</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {historicoFiltrado.slice(0, 50).map(t => {
+                      const cliente = clientes.find(c => c.id === t.cliente_id);
+                      return (
+                        <TableRow key={t.id}>
+                          <TableCell className="text-sm">
+                            {format(new Date(t.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium">{cliente?.nome || 'Cliente não encontrado'}</div>
+                            <div className="text-sm text-muted-foreground">{cliente?.cpf_cnpj}</div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={t.transaction_type === 'EARNED' ? 'default' : 'secondary'}>
+                              {t.transaction_type === 'EARNED' ? 'Bonificação' : 'Resgate'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className={t.transaction_type === 'EARNED' ? 'text-green-600 font-medium' : 'text-orange-600 font-medium'}>
+                            {t.transaction_type === 'EARNED' ? '+' : '-'}{formatCurrency(t.amount)}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {t.data_expiracao ? format(new Date(t.data_expiracao), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
