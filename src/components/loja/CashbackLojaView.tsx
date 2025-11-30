@@ -162,7 +162,7 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
         .from('cashback_transactions')
         .select(`
           *,
-          tiny_order:tiny_order_id(numero_pedido)
+          tiny_order:tiny_orders(numero_pedido)
         `)
         .order('created_at', { ascending: false });
 

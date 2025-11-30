@@ -2576,8 +2576,6 @@ export default function LojaDashboard() {
                         <LogOut className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                         Sair
                     </Button>
-                </div>
-            </div>
 
             {/* KPI Cards - Metas e Métricas */}
             {/* Primeiros 3 Cards Centralizados */}
@@ -3562,9 +3560,8 @@ export default function LojaDashboard() {
                         <LogOut className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                         Sair
                     </Button>
-                </div>
-                
-                {/* KPI Cards - Metas e Métricas */}
+
+                    {/* KPI Cards - Metas e Métricas */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto mb-6 sm:mb-8">
                     {/* Meta Mensal */}
                     <Card className="flex flex-col h-full">
@@ -4264,6 +4261,7 @@ export default function LojaDashboard() {
                         </CardContent>
                     </Card>
                 )}
+                </div>
             )}
         </div>
     );
