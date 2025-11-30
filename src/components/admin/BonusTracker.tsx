@@ -324,10 +324,14 @@ export function BonusTracker() {
                                                 const tipoUpper = tipoCondicao.replace(/[_\s-]/g, ""); // Remove underscores, espaços e hífens
                                                 const isTicketMedio = tipoUpper.includes("TICKET") && (tipoUpper.includes("MEDIO") || tipoUpper.includes("MÉDIO"));
                                                 
-                                                if (isTicketMedio || tipoCondicao === "TICKET_MEDIO" || tipoCondicao === "TICKET MÉDIO" || tipoCondicao.includes("TICKET")) {
+                                                // FALLBACK: Verificar pelo nome do bônus também (caso tipo_condicao esteja incorreto no banco)
+                                                const nomeBonusUpper = (bonus.nome || "").toUpperCase();
+                                                const nomeContemTicketMedio = nomeBonusUpper.includes("TICKET") && (nomeBonusUpper.includes("MÉDIO") || nomeBonusUpper.includes("MEDIO"));
+                                                
+                                                if (isTicketMedio || tipoCondicao === "TICKET_MEDIO" || tipoCondicao === "TICKET MÉDIO" || tipoCondicao.includes("TICKET") || nomeContemTicketMedio) {
                                                     // Usar ticketMedio diretamente do objeto colabData
                                                     const ticketMedio = colabData.ticketMedio || 0;
-                                                    console.log(`[BonusTracker] 🎯 TICKET_MEDIO DETECTADO - Colab: ${colab.name}, ticketMedio: ${ticketMedio}, tipoCondicao: "${tipoCondicao}", tipoUpper: "${tipoUpper}"`);
+                                                    console.log(`[BonusTracker] 🎯 TICKET_MEDIO DETECTADO - Bonus: "${bonus.nome}", Colab: ${colab.name}, ticketMedio: ${ticketMedio}, tipoCondicao: "${tipoCondicao}"`);
                                                     return `R$ ${ticketMedio.toFixed(2)}`;
                                                 } else if (tipoCondicao === "PA" || tipoUpper.includes("PA")) {
                                                     // Usar pa diretamente do objeto colabData
@@ -339,7 +343,7 @@ export function BonusTracker() {
                                                     return `${Math.round(qtdPecas)} peças`;
                                                 } else {
                                                     // Para faturamento/meta, mostrar porcentagem
-                                                    console.log(`[BonusTracker] ⚠️ Tipo não é indicador - tipoCondicao: "${tipoCondicao}", tipoUpper: "${tipoUpper}", usando progress: ${colab.progress.toFixed(0)}%`);
+                                                    console.log(`[BonusTracker] ⚠️ Tipo não é indicador - Bonus: "${bonus.nome}", tipoCondicao: "${tipoCondicao}", usando progress: ${colab.progress.toFixed(0)}%`);
                                                     console.log(`[BonusTracker] ⚠️ ColabData disponível: ticketMedio=${colabData.ticketMedio}, pa=${colabData.pa}, qtdPecas=${colabData.qtdPecas}`);
                                                     return `${colab.progress.toFixed(0)}%`;
                                                 }
