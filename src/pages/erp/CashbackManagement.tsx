@@ -62,6 +62,7 @@ interface Cliente {
   email: string | null;
   tags?: string[] | null;
   data_nascimento?: string | null;
+  categoria?: string | null;
 }
 
 interface ClienteComMetricas extends Cliente {
@@ -139,6 +140,12 @@ export default function CashbackManagement() {
   const [editandoTags, setEditandoTags] = useState<string | null>(null);
   const [novaTag, setNovaTag] = useState('');
   const [salvandoTags, setSalvandoTags] = useState(false);
+  const [bonificandoIndividual, setBonificandoIndividual] = useState<string | null>(null);
+  const [valorBonificacaoIndividual, setValorBonificacaoIndividual] = useState('');
+  const [descricaoBonificacaoIndividual, setDescricaoBonificacaoIndividual] = useState('');
+  const [tipoValidadeBonificacaoIndividual, setTipoValidadeBonificacaoIndividual] = useState<'data' | 'dias'>('dias');
+  const [dataExpiracaoBonificacaoIndividual, setDataExpiracaoBonificacaoIndividual] = useState('');
+  const [diasValidadeBonificacaoIndividual, setDiasValidadeBonificacaoIndividual] = useState('30');
 
   // Estados para histórico geral
   const [historicoGeral, setHistoricoGeral] = useState<CashbackTransaction[]>([]);
@@ -346,13 +353,39 @@ export default function CashbackManagement() {
 
       if (transactionsError) throw transactionsError;
 
+      // Buscar pedidos para calcular categoria
+      const { data: ordersData } = await supabase
+        .schema('sistemaretiradas')
+        .from('tiny_orders')
+        .select('cliente_id, valor_total');
+
+      // Calcular total de compras por cliente
+      const totalComprasPorCliente = new Map<string, number>();
+      ordersData?.forEach((order: any) => {
+        if (order.cliente_id) {
+          const atual = totalComprasPorCliente.get(order.cliente_id) || 0;
+          totalComprasPorCliente.set(order.cliente_id, atual + parseFloat(order.valor_total || 0));
+        }
+      });
+
+      // Função para obter categoria do cliente
+      const obterCategoriaCliente = (clienteId: string): string | null => {
+        const totalCompras = totalComprasPorCliente.get(clienteId) || 0;
+        if (totalCompras > 10000) return 'VIP (>R$ 10K)';
+        if (totalCompras >= 5000) return 'Premium (R$ 5K-10K)';
+        if (totalCompras >= 1000) return 'Regular (R$ 1K-5K)';
+        if (totalCompras > 0) return 'Iniciante (<R$ 1K)';
+        return null;
+      };
+
       // Combinar clientes com saldos e transações
       const clientesComSaldoData: ClienteComSaldo[] = (allClientes || []).map(cliente => {
         const balance = (balances || []).find(b => b.cliente_id === cliente.id);
         const clienteTransactions = (transactions || []).filter(t => t.cliente_id === cliente.id);
+        const categoria = obterCategoriaCliente(cliente.id);
 
         return {
-          cliente,
+          cliente: { ...cliente, categoria },
           saldo_disponivel: balance?.balance_disponivel || 0,
           saldo_pendente: balance?.balance_pendente || 0,
           total_earned: balance?.total_earned || 0,
@@ -766,6 +799,83 @@ export default function CashbackManagement() {
   // Função para remover tag
   const handleRemoverTag = (clienteId: string, tagRemover: string, tagsAtuais: string[] = []) => {
     handleSalvarTags(clienteId, tagsAtuais.filter(t => t !== tagRemover));
+  };
+
+  // Função para bonificar cliente individual
+  const handleBonificarIndividual = async (clienteId: string) => {
+    if (!valorBonificacaoIndividual || parseFloat(valorBonificacaoIndividual) <= 0) {
+      toast.error('Informe um valor válido');
+      return;
+    }
+
+    if (tipoValidadeBonificacaoIndividual === 'data' && !dataExpiracaoBonificacaoIndividual) {
+      toast.error('Informe a data de expiração');
+      return;
+    }
+
+    if (tipoValidadeBonificacaoIndividual === 'dias' && (!diasValidadeBonificacaoIndividual || parseInt(diasValidadeBonificacaoIndividual) <= 0)) {
+      toast.error('Informe o número de dias de validade');
+      return;
+    }
+
+    setBonificandoIndividual(clienteId);
+    try {
+      const { data: settingsData } = await supabase
+        .schema('sistemaretiradas')
+        .from('cashback_settings')
+        .select('*')
+        .is('store_id', null)
+        .single();
+
+      const settings = settingsData || {
+        prazo_liberacao_dias: 2,
+      };
+
+      const valorBonificacaoNum = parseFloat(valorBonificacaoIndividual);
+      const agora = new Date();
+      const macapaOffset = -3 * 60;
+      const macapaTime = new Date(agora.getTime() + (macapaOffset - agora.getTimezoneOffset()) * 60000);
+
+      const dataLiberacao = new Date(macapaTime);
+      dataLiberacao.setDate(dataLiberacao.getDate() + settings.prazo_liberacao_dias);
+
+      let dataExpiracao: Date;
+      if (tipoValidadeBonificacaoIndividual === 'data') {
+        dataExpiracao = new Date(dataExpiracaoBonificacaoIndividual + 'T23:59:59');
+      } else {
+        dataExpiracao = new Date(dataLiberacao);
+        dataExpiracao.setDate(dataExpiracao.getDate() + parseInt(diasValidadeBonificacaoIndividual));
+      }
+
+      const { error } = await supabase
+        .schema('sistemaretiradas')
+        .from('cashback_transactions')
+        .insert({
+          cliente_id: clienteId,
+          tiny_order_id: null,
+          transaction_type: 'EARNED' as const,
+          amount: valorBonificacaoNum,
+          description: `BONIFICAÇÃO: ${descricaoBonificacaoIndividual || 'Bonificação individual'}`,
+          data_liberacao: dataLiberacao.toISOString(),
+          data_expiracao: dataExpiracao.toISOString(),
+        });
+
+      if (error) throw error;
+
+      toast.success(`✅ Cliente bonificado com ${formatCurrency(valorBonificacaoNum)}`);
+      setValorBonificacaoIndividual('');
+      setDescricaoBonificacaoIndividual('');
+      setTipoValidadeBonificacaoIndividual('dias');
+      setDataExpiracaoBonificacaoIndividual('');
+      setDiasValidadeBonificacaoIndividual('30');
+      setBonificandoIndividual(null);
+      await fetchData();
+    } catch (error: any) {
+      console.error('Erro ao bonificar:', error);
+      toast.error('Erro ao bonificar: ' + (error.message || 'Erro desconhecido'));
+    } finally {
+      setBonificandoIndividual(null);
+    }
   };
 
   // Função para aplicar filtros na aba Clientes (reutiliza lógica da bonificação)
@@ -2223,88 +2333,23 @@ export default function CashbackManagement() {
                                   <div className="text-sm text-muted-foreground">
                                     {cliente.cpf_cnpj} • {transactions.length} transações
                                   </div>
-                                  {/* Tags */}
-                                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                    {cliente.tags && cliente.tags.length > 0 ? (
-                                      cliente.tags.map((tag, idx) => (
-                                        <Badge key={idx} variant="secondary" className="text-xs">
-                                          {tag}
+                                  {/* Tags e Categoria */}
+                                  {(cliente.tags && cliente.tags.length > 0) || cliente.categoria ? (
+                                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                      {cliente.tags && cliente.tags.length > 0 && (
+                                        cliente.tags.map((tag, idx) => (
+                                          <Badge key={idx} variant="secondary" className="text-xs">
+                                            {tag}
+                                          </Badge>
+                                        ))
+                                      )}
+                                      {cliente.categoria && (
+                                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                          {cliente.categoria}
                                         </Badge>
-                                      ))
-                                    ) : (
-                                      <span className="text-xs text-muted-foreground">Sem tags</span>
-                                    )}
-                                    {editandoTags === cliente.id ? (
-                                      <div className="flex items-center gap-2 mt-1">
-                                        <Input
-                                          placeholder="Nova tag"
-                                          value={novaTag}
-                                          onChange={(e) => setNovaTag(e.target.value)}
-                                          onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                              handleAdicionarTag(cliente.id, cliente.tags || []);
-                                            }
-                                          }}
-                                          className="h-7 text-xs w-32"
-                                          size={1}
-                                        />
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          onClick={() => handleAdicionarTag(cliente.id, cliente.tags || [])}
-                                          disabled={salvandoTags}
-                                          className="h-7 px-2"
-                                        >
-                                          <Plus className="h-3 w-3" />
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          onClick={() => {
-                                            setEditandoTags(null);
-                                            setNovaTag('');
-                                          }}
-                                          className="h-7 px-2"
-                                        >
-                                          <X className="h-3 w-3" />
-                                        </Button>
-                                      </div>
-                                    ) : (
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setEditandoTags(cliente.id);
-                                          setNovaTag('');
-                                        }}
-                                        className="h-6 px-2 text-xs mt-1"
-                                      >
-                                        <Edit2 className="h-3 w-3 mr-1" />
-                                        {cliente.tags && cliente.tags.length > 0 ? 'Editar' : 'Adicionar'} Tags
-                                      </Button>
-                                    )}
-                                  </div>
-                                  {/* Remover tags */}
-                                  {editandoTags === cliente.id && cliente.tags && cliente.tags.length > 0 && (
-                                    <div className="flex items-center gap-1 mt-1 flex-wrap">
-                                      {cliente.tags.map((tag, idx) => (
-                                        <Badge key={idx} variant="secondary" className="text-xs flex items-center gap-1">
-                                          {tag}
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleRemoverTag(cliente.id, tag, cliente.tags || []);
-                                            }}
-                                            className="hover:text-red-600"
-                                            disabled={salvandoTags}
-                                          >
-                                            <X className="h-3 w-3" />
-                                          </button>
-                                        </Badge>
-                                      ))}
+                                      )}
                                     </div>
-                                  )}
+                                  ) : null}
                                 </div>
                               </div>
                               <div className="text-right">
@@ -2399,6 +2444,188 @@ export default function CashbackManagement() {
                                   )}
                                 </>
                               )}
+
+                              <Separator className="my-4" />
+
+                              {/* Gerenciar Tags */}
+                              <div className="space-y-3">
+                                <Label className="text-sm font-semibold flex items-center gap-2">
+                                  <Tag className="h-4 w-4" />
+                                  Tags do Cliente
+                                </Label>
+                                <div className="space-y-2">
+                                  {cliente.tags && cliente.tags.length > 0 ? (
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      {cliente.tags.map((tag, idx) => (
+                                        <Badge key={idx} variant="secondary" className="text-xs flex items-center gap-1">
+                                          {tag}
+                                          {editandoTags === cliente.id && (
+                                            <button
+                                              onClick={() => handleRemoverTag(cliente.id, tag, cliente.tags || [])}
+                                              className="hover:text-red-600 ml-1"
+                                              disabled={salvandoTags}
+                                            >
+                                              <X className="h-3 w-3" />
+                                            </button>
+                                          )}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-muted-foreground">Nenhuma tag adicionada</p>
+                                  )}
+                                  
+                                  {editandoTags === cliente.id ? (
+                                    <div className="flex items-center gap-2">
+                                      <Input
+                                        placeholder="Digite a nova tag"
+                                        value={novaTag}
+                                        onChange={(e) => setNovaTag(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            handleAdicionarTag(cliente.id, cliente.tags || []);
+                                          }
+                                        }}
+                                        className="h-8 text-sm"
+                                      />
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleAdicionarTag(cliente.id, cliente.tags || [])}
+                                        disabled={salvandoTags || !novaTag.trim()}
+                                      >
+                                        <Plus className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setEditandoTags(null);
+                                          setNovaTag('');
+                                        }}
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setEditandoTags(cliente.id);
+                                        setNovaTag('');
+                                      }}
+                                    >
+                                      <Edit2 className="h-4 w-4 mr-2" />
+                                      {cliente.tags && cliente.tags.length > 0 ? 'Editar Tags' : 'Adicionar Tags'}
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+
+                              <Separator className="my-4" />
+
+                              {/* Bonificar Cliente Individual */}
+                              <div className="space-y-3">
+                                <Label className="text-sm font-semibold flex items-center gap-2">
+                                  <Gift className="h-4 w-4" />
+                                  Bonificar Cliente
+                                </Label>
+                                <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="space-y-2">
+                                      <Label className="text-xs">Valor da Bonificação *</Label>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        placeholder="0,00"
+                                        value={valorBonificacaoIndividual}
+                                        onChange={(e) => setValorBonificacaoIndividual(e.target.value)}
+                                        className="h-8 text-sm"
+                                      />
+                                    </div>
+                                    <div className="space-y-2">
+                                      <Label className="text-xs">Descrição (opcional)</Label>
+                                      <Input
+                                        placeholder="Ex: Bonificação especial"
+                                        value={descricaoBonificacaoIndividual}
+                                        onChange={(e) => setDescricaoBonificacaoIndividual(e.target.value)}
+                                        className="h-8 text-sm"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* Prazo de Validade */}
+                                  <div className="space-y-2">
+                                    <Label className="text-xs">Prazo de Validade</Label>
+                                    <div className="flex items-center gap-4">
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="radio"
+                                          id={`validade-dias-${cliente.id}`}
+                                          name={`tipo-validade-${cliente.id}`}
+                                          checked={tipoValidadeBonificacaoIndividual === 'dias'}
+                                          onChange={() => setTipoValidadeBonificacaoIndividual('dias')}
+                                          className="w-4 h-4"
+                                        />
+                                        <Label htmlFor={`validade-dias-${cliente.id}`} className="font-normal cursor-pointer text-xs">
+                                          Válido por X dias
+                                        </Label>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="radio"
+                                          id={`validade-data-${cliente.id}`}
+                                          name={`tipo-validade-${cliente.id}`}
+                                          checked={tipoValidadeBonificacaoIndividual === 'data'}
+                                          onChange={() => setTipoValidadeBonificacaoIndividual('data')}
+                                          className="w-4 h-4"
+                                        />
+                                        <Label htmlFor={`validade-data-${cliente.id}`} className="font-normal cursor-pointer text-xs">
+                                          Válido até data específica
+                                        </Label>
+                                      </div>
+                                    </div>
+
+                                    {tipoValidadeBonificacaoIndividual === 'dias' ? (
+                                      <Input
+                                        type="number"
+                                        min="1"
+                                        placeholder="30"
+                                        value={diasValidadeBonificacaoIndividual}
+                                        onChange={(e) => setDiasValidadeBonificacaoIndividual(e.target.value)}
+                                        className="h-8 text-sm"
+                                      />
+                                    ) : (
+                                      <Input
+                                        type="date"
+                                        value={dataExpiracaoBonificacaoIndividual}
+                                        onChange={(e) => setDataExpiracaoBonificacaoIndividual(e.target.value)}
+                                        className="h-8 text-sm"
+                                      />
+                                    )}
+                                  </div>
+
+                                  <Button
+                                    onClick={() => handleBonificarIndividual(cliente.id)}
+                                    disabled={bonificandoIndividual === cliente.id || !valorBonificacaoIndividual}
+                                    className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800"
+                                    size="sm"
+                                  >
+                                    {bonificandoIndividual === cliente.id ? (
+                                      <>
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        Bonificando...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Gift className="h-4 w-4 mr-2" />
+                                        Bonificar Cliente
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
                             </div>
                           </CollapsibleContent>
                         </Collapsible>
