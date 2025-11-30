@@ -2057,24 +2057,78 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
  * Formata produtos dos itens para colocar nas observações do WhatsApp
  */
 function formatarProdutosParaObservacoes(itens) {
+  console.log(`[SyncBackground] 📝 [FORMATAR] ========== FORMATANDO PRODUTOS ==========`);
+  console.log(`[SyncBackground] 📝 [FORMATAR] Total de itens: ${itens?.length || 0}`);
+  
   if (!itens || !Array.isArray(itens) || itens.length === 0) {
+    console.log(`[SyncBackground] 📝 [FORMATAR] ⚠️ Nenhum item para formatar`);
     return null;
   }
 
+  // ✅ FORMATAR PRODUTOS: Um item por linha (igual mensagem manual)
+  // ✅ CRÍTICO: Usar APENAS a descrição base do produto, SEM variações (tamanho, cor, etc)
+  // Usar \n para quebra de linha (será escapado corretamente pela Netlify Function)
   const produtosFormatados = itens.map((item, index) => {
-    const nome = item.nome || item.descricao || item.produto?.nome || 'Produto sem nome';
+    console.log(`[SyncBackground] 📝 [FORMATAR] Item ${index + 1}:`, {
+      produto: item.produto,
+      infoAdicional: item.infoAdicional,
+      descricao: item.descricao,
+      nome: item.nome,
+      quantidade: item.quantidade
+    });
+    // ✅ PRIORIDADE 1: Descrição do produto base (sem variações)
+    // Se o item vem do pedido completo original, usar produto.descricao diretamente
+    let descricaoBase = null;
+    
+    // ✅ ESTRATÉGIA: Pegar descrição do produto base, não do item processado
+    if (item.produto) {
+      // Item original do Tiny tem produto.descricao (descrição base sem variações)
+      descricaoBase = item.produto.descricao || item.produto.nome || null;
+    }
+    
+    // ✅ PRIORIDADE 2: Se não tem produto.descricao, usar infoAdicional (descrição original)
+    if (!descricaoBase && item.infoAdicional) {
+      descricaoBase = item.infoAdicional;
+      // Remover variações conhecidas do final
+      descricaoBase = descricaoBase.replace(/\s*-\s*([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)\s*$/i, '').trim();
+      descricaoBase = descricaoBase.replace(/\s*-\s*([A-Z\s]+)\s*-\s*([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)\s*$/i, '').trim();
+    }
+    
+    // ✅ PRIORIDADE 3: Se ainda não tem, usar descricao do item (mas limpar variações)
+    if (!descricaoBase && item.descricao) {
+      descricaoBase = item.descricao;
+      // Remover tamanho e cor se estiverem no final da descrição
+      descricaoBase = descricaoBase.replace(/\s*-\s*([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)\s*$/i, '').trim();
+      descricaoBase = descricaoBase.replace(/\s*-\s*([A-Z\s]+)\s*-\s*([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)\s*$/i, '').trim();
+    }
+    
+    // ✅ PRIORIDADE 4: Fallback para nome
+    if (!descricaoBase && item.nome) {
+      descricaoBase = item.nome;
+      // Remover variações
+      descricaoBase = descricaoBase.replace(/\s*-\s*([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)\s*$/i, '').trim();
+      descricaoBase = descricaoBase.replace(/\s*-\s*([A-Z\s]+)\s*-\s*([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)\s*$/i, '').trim();
+    }
+    
+    // Fallback final
+    if (!descricaoBase) {
+      descricaoBase = 'Produto sem nome';
+    }
+    
     const quantidade = item.quantidade || 1;
-    const tamanho = item.tamanho || '';
-    const cor = item.cor || '';
     
-    let produtoTexto = `${quantidade}x ${nome}`;
-    if (tamanho) produtoTexto += ` - Tam: ${tamanho}`;
-    if (cor) produtoTexto += ` - Cor: ${cor}`;
+    const resultado = `${quantidade}x ${descricaoBase.trim()}`;
+    console.log(`[SyncBackground] 📝 [FORMATAR] Item ${index + 1} formatado: "${resultado}"`);
     
-    return produtoTexto;
+    // ✅ SOMENTE descrição base e quantidade, SEM tamanho, cor ou outras variações
+    // ✅ Cada item em uma linha separada
+    return resultado;
   });
 
-  return produtosFormatados.join(', ');
+  // ✅ JUNTAR COM QUEBRA DE LINHA (\n) - igual mensagem manual
+  const resultadoFinal = produtosFormatados.join('\n');
+  console.log(`[SyncBackground] 📝 [FORMATAR] Resultado final (primeiros 300 chars): ${resultadoFinal.substring(0, 300)}`);
+  return resultadoFinal;
 }
 
 /**
@@ -2083,7 +2137,17 @@ function formatarProdutosParaObservacoes(itens) {
  */
 async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensComCategorias, pedidoCompleto = null) {
   try {
-    console.log(`[SyncBackground] 📱 Iniciando envio de WhatsApp para nova venda ${orderData.numero_pedido}`);
+    console.log(`[SyncBackground] 📱 ========== INICIANDO ENVIO WHATSAPP ==========`);
+    console.log(`[SyncBackground] 📱 Pedido: ${orderData.numero_pedido}`);
+    console.log(`[SyncBackground] 📱 storeId: ${storeId}`);
+    console.log(`[SyncBackground] 📱 itensComCategorias: ${itensComCategorias?.length || 0} itens`);
+    console.log(`[SyncBackground] 📱 pedidoCompleto: ${pedidoCompleto ? 'SIM' : 'NÃO'}`);
+    if (pedidoCompleto) {
+      console.log(`[SyncBackground] 📱 pedidoCompleto.itens: ${pedidoCompleto.itens?.length || 0} itens`);
+    }
+    console.log(`[SyncBackground] 📱 orderData.colaboradora_id: ${orderData.colaboradora_id}`);
+    console.log(`[SyncBackground] 📱 orderData.vendedor_nome: ${orderData.vendedor_nome}`);
+    console.log(`[SyncBackground] 📱 orderData.data_pedido: ${orderData.data_pedido}`);
 
     // 1. Buscar dados da loja e admin
     const { data: storeData, error: storeError } = await supabase
@@ -2099,19 +2163,118 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     }
 
     // 2. Buscar nome da colaboradora (se houver)
-    let colaboradoraName = 'Sistema ERP';
+    // ✅ BUSCA ROBUSTA: Verificar no banco se colaboradora_id foi salvo corretamente
+    let colaboradoraName = null;
+    
+    console.log(`[SyncBackground] 🔍 [WHATSAPP] Buscando colaboradora para pedido ${orderData.numero_pedido}`);
+    console.log(`[SyncBackground]   [WHATSAPP] colaboradora_id do orderData: ${orderData.colaboradora_id}`);
+    console.log(`[SyncBackground]   [WHATSAPP] vendedor_nome: ${orderData.vendedor_nome}`);
+    console.log(`[SyncBackground]   [WHATSAPP] vendedor_tiny_id: ${orderData.vendedor_tiny_id}`);
+    
+    // ✅ PRIORIDADE 1: Buscar pelo colaboradora_id (se foi vinculado corretamente)
     if (orderData.colaboradora_id) {
-      const { data: colaboradoraData } = await supabase
+      const { data: colaboradoraData, error: colaboradoraError } = await supabase
         .schema('sistemaretiradas')
         .from('profiles')
-        .select('name')
+        .select('id, name, email, cpf')
         .eq('id', orderData.colaboradora_id)
         .single();
 
-      if (colaboradoraData?.name) {
+      if (colaboradoraError) {
+        console.warn(`[SyncBackground] ⚠️ [WHATSAPP] Erro ao buscar colaboradora por ID ${orderData.colaboradora_id}:`, colaboradoraError);
+      } else if (colaboradoraData?.name) {
         colaboradoraName = colaboradoraData.name;
+        console.log(`[SyncBackground] ✅ [WHATSAPP] Colaboradora encontrada por ID: ${colaboradoraName} (ID: ${colaboradoraData.id})`);
       }
     }
+    
+    // ✅ PRIORIDADE 2: Se não encontrou por ID, buscar diretamente no banco pelo pedido
+    if (!colaboradoraName) {
+      console.log(`[SyncBackground] 🔍 [WHATSAPP] Colaboradora não encontrada por ID, buscando no banco pelo pedido...`);
+      
+      const { data: pedidoNoBanco } = await supabase
+        .schema('sistemaretiradas')
+        .from('tiny_orders')
+        .select('colaboradora_id, vendedor_nome, vendedor_tiny_id')
+        .eq('store_id', storeId)
+        .eq('numero_pedido', orderData.numero_pedido)
+        .maybeSingle();
+      
+      if (pedidoNoBanco?.colaboradora_id) {
+        console.log(`[SyncBackground] 🔍 [WHATSAPP] Pedido encontrado no banco com colaboradora_id: ${pedidoNoBanco.colaboradora_id}`);
+        
+        const { data: colaboradoraDoBanco } = await supabase
+          .schema('sistemaretiradas')
+          .from('profiles')
+          .select('id, name')
+          .eq('id', pedidoNoBanco.colaboradora_id)
+          .single();
+        
+        if (colaboradoraDoBanco?.name) {
+          colaboradoraName = colaboradoraDoBanco.name;
+          console.log(`[SyncBackground] ✅ [WHATSAPP] Colaboradora encontrada no banco: ${colaboradoraName}`);
+        }
+      }
+    }
+    
+    // ✅ PRIORIDADE 3: Buscar pelo vendedor_nome (busca flexível)
+    if (!colaboradoraName && orderData.vendedor_nome) {
+      console.log(`[SyncBackground] 🔍 [WHATSAPP] Tentando buscar colaboradora pelo vendedor_nome: "${orderData.vendedor_nome}"`);
+      
+      const normalizeName = (name) => {
+        return name
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[|,]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      };
+      
+      const { data: todasColaboradoras } = await supabase
+        .schema('sistemaretiradas')
+        .from('profiles')
+        .select('id, name, email, cpf')
+        .eq('role', 'COLABORADORA')
+        .eq('active', true)
+        .eq('store_id', storeId);
+      
+      if (todasColaboradoras && todasColaboradoras.length > 0) {
+        const vendedorNomeNormalizado = normalizeName(orderData.vendedor_nome);
+        
+        // Tentar match exato primeiro
+        let match = todasColaboradoras.find(c => 
+          normalizeName(c.name) === vendedorNomeNormalizado
+        );
+        
+        // Se não encontrou, tentar match parcial
+        if (!match) {
+          match = todasColaboradoras.find(c => 
+            normalizeName(c.name).includes(vendedorNomeNormalizado) ||
+            vendedorNomeNormalizado.includes(normalizeName(c.name))
+          );
+        }
+        
+        if (match) {
+          colaboradoraName = match.name;
+          console.log(`[SyncBackground] ✅ [WHATSAPP] Colaboradora encontrada por nome: ${colaboradoraName}`);
+        }
+      }
+    }
+    
+    // ✅ PRIORIDADE 4: Se não encontrou, usar vendedor_nome do pedido
+    if (!colaboradoraName && orderData.vendedor_nome) {
+      colaboradoraName = orderData.vendedor_nome;
+      console.log(`[SyncBackground] ⚠️ [WHATSAPP] Usando vendedor_nome do pedido (não encontrado no sistema): ${colaboradoraName}`);
+    }
+    
+    // ✅ PRIORIDADE 5: Se ainda não tem, usar fallback
+    if (!colaboradoraName) {
+      colaboradoraName = 'Sistema ERP';
+      console.warn(`[SyncBackground] ⚠️ [WHATSAPP] Nenhuma colaboradora encontrada, usando fallback: ${colaboradoraName}`);
+    }
+    
+    console.log(`[SyncBackground] 📝 [WHATSAPP] Colaboradora final para WhatsApp: ${colaboradoraName}`);
 
     // 3. Buscar destinatários WhatsApp do admin (tipo VENDA)
     const { data: recipientsAllStores } = await supabase
@@ -2166,22 +2329,81 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     const totalMes = vendasMes?.reduce((sum, v) => sum + (parseFloat(v.valor_total) || 0), 0) || 0;
 
     // 5. Formatar produtos para observações
-    const produtosTexto = formatarProdutosParaObservacoes(itensComCategorias);
+    // ✅ CRÍTICO: Usar itens ORIGINAIS do pedido completo (não processados) para pegar descrição limpa
+    console.log(`[SyncBackground] 📝 [WHATSAPP] ========== FORMATANDO PRODUTOS ==========`);
+    console.log(`[SyncBackground] 📝 [WHATSAPP] itensComCategorias: ${JSON.stringify(itensComCategorias?.slice(0, 2), null, 2)}`);
+    console.log(`[SyncBackground] 📝 [WHATSAPP] pedidoCompleto?.itens: ${JSON.stringify(pedidoCompleto?.itens?.slice(0, 2), null, 2)}`);
+    
+    let itensParaFormatar = itensComCategorias;
+    if (pedidoCompleto && pedidoCompleto.itens && Array.isArray(pedidoCompleto.itens) && pedidoCompleto.itens.length > 0) {
+      // Usar itens originais do Tiny (antes do processamento)
+      itensParaFormatar = pedidoCompleto.itens;
+      console.log(`[SyncBackground] 📝 [WHATSAPP] ✅ Usando ${itensParaFormatar.length} itens ORIGINAIS do pedido completo`);
+    } else {
+      console.log(`[SyncBackground] 📝 [WHATSAPP] ⚠️ Usando ${itensComCategorias?.length || 0} itens processados (pedido completo não disponível ou sem itens)`);
+    }
+    
+    console.log(`[SyncBackground] 📝 [WHATSAPP] Itens que serão formatados: ${itensParaFormatar?.length || 0}`);
+    const produtosTexto = formatarProdutosParaObservacoes(itensParaFormatar);
+    console.log(`[SyncBackground] 📝 [WHATSAPP] Produtos formatados: ${produtosTexto?.substring(0, 200)}...`);
     const observacoes = produtosTexto || orderData.observacoes || null;
 
     // 6. Calcular quantidade de peças (soma das quantidades dos itens)
     const qtdPecas = itensComCategorias?.reduce((sum, item) => sum + (parseInt(item.quantidade) || 0), 0) || 0;
 
     // 7. Formatar mensagem (usando mesma estrutura do LojaDashboard)
-    const dataFormatada = orderData.data_pedido
-      ? new Date(orderData.data_pedido).toLocaleDateString('pt-BR', {
+    // ✅ FUSO HORÁRIO: Macapá-AP (UTC-3) - CORREÇÃO ROBUSTA
+    let dataFormatada = 'hoje';
+    if (orderData.data_pedido) {
+      // ✅ INVESTIGAÇÃO PROFUNDA DO FUSO HORÁRIO
+      // A data vem do Tiny ERP em formato ISO (provavelmente UTC ou horário local do servidor)
+      // Macapá-AP usa UTC-3 (mesmo fuso de Manaus)
+      // Precisamos converter corretamente para UTC-3
+      
+      const dataPedido = new Date(orderData.data_pedido);
+      
+      console.log(`[SyncBackground] 🕐 [WHATSAPP] Formatação de data:`);
+      console.log(`[SyncBackground]   [WHATSAPP] data_pedido original: ${orderData.data_pedido}`);
+      console.log(`[SyncBackground]   [WHATSAPP] dataPedido (Date object UTC): ${dataPedido.toISOString()}`);
+      console.log(`[SyncBackground]   [WHATSAPP] dataPedido (Date object local): ${dataPedido.toString()}`);
+      
+      // ✅ CORREÇÃO ROBUSTA: Converter para UTC-3 (Macapá)
+      // Macapá está em UTC-3, então precisamos subtrair 3 horas do UTC
+      // Se a data vem em UTC, precisamos ajustar para UTC-3
+      // Se a data vem em horário local do servidor, precisamos converter para UTC primeiro
+      
+      // Estratégia: Assumir que a data vem em UTC e converter para UTC-3
+      // UTC-3 = UTC - 3 horas
+      const macapaOffset = -3 * 60; // -3 horas em minutos
+      const utcTime = dataPedido.getTime() + (dataPedido.getTimezoneOffset() * 60000); // Converter para UTC
+      const macapaTime = new Date(utcTime + (macapaOffset * 60000)); // Aplicar offset de Macapá
+      
+      console.log(`[SyncBackground]   [WHATSAPP] macapaTime (calculado): ${macapaTime.toISOString()}`);
+      
+      // Formatar usando timezone específico
+      try {
+        // Tentar usar timezone do sistema se suportar
+        dataFormatada = macapaTime.toLocaleString('pt-BR', {
           day: '2-digit',
           month: '2-digit',
           year: 'numeric',
           hour: '2-digit',
           minute: '2-digit',
-        })
-      : 'hoje';
+          timeZone: 'America/Manaus', // Macapá-AP usa o mesmo fuso de Manaus (UTC-3)
+        });
+        console.log(`[SyncBackground]   [WHATSAPP] dataFormatada (Macapá via timezone): ${dataFormatada}`);
+      } catch (error) {
+        console.warn(`[SyncBackground] ⚠️ [WHATSAPP] Erro ao formatar com timezone, usando cálculo manual:`, error);
+        // Fallback: formatar manualmente
+        const dia = String(macapaTime.getUTCDate()).padStart(2, '0');
+        const mes = String(macapaTime.getUTCMonth() + 1).padStart(2, '0');
+        const ano = macapaTime.getUTCFullYear();
+        const hora = String(macapaTime.getUTCHours()).padStart(2, '0');
+        const minuto = String(macapaTime.getUTCMinutes()).padStart(2, '0');
+        dataFormatada = `${dia}/${mes}/${ano} ${hora}:${minuto}`;
+        console.log(`[SyncBackground]   [WHATSAPP] dataFormatada (Macapá manual): ${dataFormatada}`);
+      }
+    }
 
     const valorFormatado = new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -2238,6 +2460,17 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     }
     
     message += `\nSistema EleveaOne 📊`;
+
+    // ✅ LOG FINAL DA MENSAGEM COMPLETA
+    console.log(`[SyncBackground] 📱 [WHATSAPP] ========== MENSAGEM FINAL ==========`);
+    console.log(`[SyncBackground] 📱 [WHATSAPP] Mensagem completa (primeiros 500 chars):`);
+    console.log(message.substring(0, 500));
+    console.log(`[SyncBackground] 📱 [WHATSAPP] Mensagem completa (últimos 200 chars):`);
+    console.log(message.substring(Math.max(0, message.length - 200)));
+    console.log(`[SyncBackground] 📱 [WHATSAPP] Total de caracteres: ${message.length}`);
+    console.log(`[SyncBackground] 📱 [WHATSAPP] Colaboradora na mensagem: ${colaboradoraName}`);
+    console.log(`[SyncBackground] 📱 [WHATSAPP] Data formatada: ${dataFormatada}`);
+    console.log(`[SyncBackground] 📱 [WHATSAPP] Observações (primeiros 200 chars): ${observacoes?.substring(0, 200) || 'NENHUMA'}`);
 
     // 8. Enviar WhatsApp para todos os destinatários
     // ✅ USAR EXATAMENTE O MESMO MECANISMO DO ENVIO MANUAL
