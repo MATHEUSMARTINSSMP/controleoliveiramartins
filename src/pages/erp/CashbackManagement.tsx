@@ -49,7 +49,10 @@ import { formatCurrency } from '@/lib/utils';
 import CashbackSettings from '@/components/erp/CashbackSettings';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { Plus, X, Filter, Users, Calendar, Gift, Tag, Package, ShoppingBag } from 'lucide-react';
+import { Plus, X, Filter, Users, Calendar, Gift, Tag, Package, ShoppingBag, Download, FileSpreadsheet, FileText } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 interface Cliente {
   id: string;
@@ -57,6 +60,14 @@ interface Cliente {
   cpf_cnpj: string | null;
   telefone: string | null;
   email: string | null;
+}
+
+interface ClienteComMetricas extends Cliente {
+  totalFaturamento?: number;
+  ticketMedio?: number;
+  pa?: number;
+  parametroFiltro?: 'ticket_medio' | 'pa' | 'faturamento';
+  amount?: number; // Valor bonificado
 }
 
 interface CashbackTransaction {
@@ -131,8 +142,129 @@ export default function CashbackManagement() {
   }
   const [filtrosBonificacao, setFiltrosBonificacao] = useState<FiltroBonificacao[]>([]);
   const [filtrosCumulativos, setFiltrosCumulativos] = useState(true); // true = AND, false = OR
-  const [clientesFiltrados, setClientesFiltrados] = useState<Cliente[]>([]);
+  const [clientesFiltrados, setClientesFiltrados] = useState<ClienteComMetricas[]>([]);
   const [loadingFiltros, setLoadingFiltros] = useState(false);
+  const [searchClientesFiltrados, setSearchClientesFiltrados] = useState('');
+  const [ultimaBonificacao, setUltimaBonificacao] = useState<(ClienteComMetricas & { amount: number })[]>([]);
+
+  // Função para normalizar telefone
+  const normalizarTelefone = (telefone: string | null): string => {
+    if (!telefone) return '';
+    // Remover tudo que não é número
+    const apenasNumeros = telefone.replace(/\D/g, '');
+    return apenasNumeros;
+  };
+
+  // Função para formatar telefone para WhatsApp (55 + DDD + número)
+  const formatarTelefoneWhatsApp = (telefone: string | null): string => {
+    const numeros = normalizarTelefone(telefone);
+    if (numeros.length === 0) return '';
+    
+    // Se já começa com 55, retornar como está
+    if (numeros.startsWith('55')) {
+      return numeros;
+    }
+    
+    // Se tem 11 dígitos (DDD + 9 dígitos), adicionar 55
+    if (numeros.length === 11) {
+      return `55${numeros}`;
+    }
+    
+    // Se tem 10 dígitos (DDD + 8 dígitos), adicionar 55
+    if (numeros.length === 10) {
+      return `55${numeros}`;
+    }
+    
+    // Caso contrário, retornar como está
+    return numeros;
+  };
+
+  // Função para separar primeiro nome e sobrenome
+  const separarNome = (nomeCompleto: string): { primeiroNome: string; sobrenome: string } => {
+    const partes = nomeCompleto.trim().split(/\s+/);
+    if (partes.length === 0) return { primeiroNome: '', sobrenome: '' };
+    if (partes.length === 1) return { primeiroNome: partes[0], sobrenome: '' };
+    
+    const primeiroNome = partes[0];
+    const sobrenome = partes.slice(1).join(' ');
+    return { primeiroNome, sobrenome };
+  };
+
+  // Exportar Formato 1 - Normal (XLSX ou PDF)
+  const exportarFormatoNormal = async (formato: 'xlsx' | 'pdf') => {
+    if (ultimaBonificacao.length === 0) {
+      toast.error('Nenhuma bonificação para exportar');
+      return;
+    }
+
+    if (formato === 'xlsx') {
+      const dados = ultimaBonificacao.map(c => ({
+        'Nome Completo': c.nome,
+        'Telefone': c.telefone || '',
+        'Valor do Bônus': formatCurrency(c.amount || 0, { showSymbol: false }),
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(dados);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Bonificação');
+      
+      const nomeArquivo = `bonificacao_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.xlsx`;
+      XLSX.writeFile(wb, nomeArquivo);
+      toast.success('Arquivo XLSX exportado com sucesso!');
+    } else {
+      // PDF
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.text('Relatório de Bonificação', 14, 20);
+      doc.setFontSize(10);
+      doc.text(`Data: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`, 14, 30);
+
+      const dados = ultimaBonificacao.map(c => [
+        c.nome,
+        c.telefone || '-',
+        formatCurrency(c.amount || 0, { showSymbol: false }),
+      ]);
+
+      (doc as any).autoTable({
+        head: [['Nome Completo', 'Telefone', 'Valor do Bônus']],
+        body: dados,
+        startY: 35,
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [66, 139, 202] },
+      });
+
+      const nomeArquivo = `bonificacao_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.pdf`;
+      doc.save(nomeArquivo);
+      toast.success('Arquivo PDF exportado com sucesso!');
+    }
+  };
+
+  // Exportar Formato 2 - WhatsApp (somente XLSX)
+  const exportarFormatoWhatsApp = () => {
+    if (ultimaBonificacao.length === 0) {
+      toast.error('Nenhuma bonificação para exportar');
+      return;
+    }
+
+    const dados = ultimaBonificacao.map(c => {
+      const { primeiroNome, sobrenome } = separarNome(c.nome);
+      const telefoneWhatsApp = formatarTelefoneWhatsApp(c.telefone);
+      
+      return {
+        'Primeiro Nome': primeiroNome,
+        'Sobrenome': sobrenome,
+        'Telefone': telefoneWhatsApp,
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(dados);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Bonificação WhatsApp');
+    
+    const nomeArquivo = `bonificacao_whatsapp_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.xlsx`;
+    XLSX.writeFile(wb, nomeArquivo);
+    toast.success('Arquivo XLSX (WhatsApp) exportado com sucesso!');
+  };
   const [valorBonificacao, setValorBonificacao] = useState('');
   const [descricaoBonificacao, setDescricaoBonificacao] = useState('');
   const [bonificando, setBonificando] = useState(false);
@@ -894,10 +1026,32 @@ export default function CashbackManagement() {
         }
       }
 
-      // Converter para array de clientes
-      const clientesFiltradosArray = Array.from(clientesFiltradosSet)
-        .map(id => clienteMap.get(id)?.cliente)
-        .filter((c): c is Cliente => c !== undefined);
+      // Converter para array de clientes com métricas
+      const clientesFiltradosArray: ClienteComMetricas[] = Array.from(clientesFiltradosSet)
+        .map(id => {
+          const data = clienteMap.get(id);
+          if (!data) return null;
+          return {
+            ...data.cliente,
+            totalFaturamento: data.totalFaturamento,
+            ticketMedio: data.ticketMedio,
+            pa: data.pa,
+            parametroFiltro: filtrosBonificacao.find(f => f.tipo === 'melhores_clientes')?.parametro,
+          };
+        })
+        .filter((c): c is ClienteComMetricas => c !== null);
+
+      // Ordenar do maior para o menor baseado no parâmetro do filtro
+      if (filtrosBonificacao.some(f => f.tipo === 'melhores_clientes')) {
+        const filtroMelhores = filtrosBonificacao.find(f => f.tipo === 'melhores_clientes');
+        if (filtroMelhores?.parametro === 'ticket_medio') {
+          clientesFiltradosArray.sort((a, b) => (b.ticketMedio || 0) - (a.ticketMedio || 0));
+        } else if (filtroMelhores?.parametro === 'pa') {
+          clientesFiltradosArray.sort((a, b) => (b.pa || 0) - (a.pa || 0));
+        } else if (filtroMelhores?.parametro === 'faturamento') {
+          clientesFiltradosArray.sort((a, b) => (b.totalFaturamento || 0) - (a.totalFaturamento || 0));
+        }
+      }
 
       setClientesFiltrados(clientesFiltradosArray);
       toast.success(`${clientesFiltradosArray.length} cliente(s) encontrado(s)`);
@@ -1004,6 +1158,10 @@ export default function CashbackManagement() {
         .insert(transacoes);
 
       if (error) throw error;
+
+      // Salvar lista de clientes bonificados para exportação
+      const clientesBonificados = clientesFiltrados.filter(c => selectedClientesBonificar.has(c.id));
+      setUltimaBonificacao(clientesBonificados.map(c => ({ ...c, amount: valorBonificacaoNum })));
 
       toast.success(`✅ ${transacoes.length} cliente(s) bonificado(s) com ${formatCurrency(valorBonificacaoNum)} cada`);
       setSelectedClientesBonificar(new Set());
@@ -1925,6 +2083,39 @@ export default function CashbackManagement() {
                     </div>
                   </div>
 
+                  {/* Busca por Nome ou CPF */}
+                  <div className="space-y-2">
+                    <Label>Buscar Cliente (Nome ou CPF)</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Digite o nome ou CPF..."
+                        value={searchClientesFiltrados}
+                        onChange={(e) => setSearchClientesFiltrados(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Filtrar clientes pela busca */}
+                  {(() => {
+                    const clientesFiltradosBusca = clientesFiltrados.filter(c => {
+                      if (!searchClientesFiltrados) return true;
+                      const busca = searchClientesFiltrados.toLowerCase();
+                      return (
+                        c.nome.toLowerCase().includes(busca) ||
+                        (c.cpf_cnpj && c.cpf_cnpj.toLowerCase().includes(busca))
+                      );
+                    });
+
+                    return (
+                      <>
+                        {searchClientesFiltrados && (
+                          <p className="text-sm text-muted-foreground">
+                            {clientesFiltradosBusca.length} cliente(s) encontrado(s) na busca
+                          </p>
+                        )}
+
                   <div className="border rounded-lg max-h-96 overflow-y-auto">
                     <Table>
                       <TableHeader>
@@ -1944,10 +2135,17 @@ export default function CashbackManagement() {
                           <TableHead>Cliente</TableHead>
                           <TableHead>CPF/CNPJ</TableHead>
                           <TableHead>Telefone</TableHead>
+                          {clientesFiltrados[0]?.parametroFiltro && (
+                            <TableHead className="text-right">
+                              {clientesFiltrados[0].parametroFiltro === 'ticket_medio' && 'Ticket Médio'}
+                              {clientesFiltrados[0].parametroFiltro === 'pa' && 'PA'}
+                              {clientesFiltrados[0].parametroFiltro === 'faturamento' && 'Faturamento'}
+                            </TableHead>
+                          )}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {clientesFiltrados.map((cliente) => (
+                        {clientesFiltradosBusca.map((cliente) => (
                           <TableRow key={cliente.id}>
                             <TableCell>
                               <Checkbox
@@ -1965,12 +2163,22 @@ export default function CashbackManagement() {
                             </TableCell>
                             <TableCell className="font-medium">{cliente.nome}</TableCell>
                             <TableCell>{cliente.cpf_cnpj || '-'}</TableCell>
-                            <TableCell>{cliente.telefone || '-'}</TableCell>
+                            <TableCell>{cliente.telefone ? normalizarTelefone(cliente.telefone) : '-'}</TableCell>
+                            {cliente.parametroFiltro && (
+                              <TableCell className="text-right font-medium">
+                                {cliente.parametroFiltro === 'ticket_medio' && formatCurrency(cliente.ticketMedio || 0)}
+                                {cliente.parametroFiltro === 'pa' && (cliente.pa?.toFixed(2) || '0.00')}
+                                {cliente.parametroFiltro === 'faturamento' && formatCurrency(cliente.totalFaturamento || 0)}
+                              </TableCell>
+                            )}
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   </div>
+                  </>
+                  );
+                })()}
 
                   <Separator />
 
@@ -2091,6 +2299,53 @@ export default function CashbackManagement() {
                     </Button>
                   </div>
                 </div>
+              )}
+
+              {/* Exportação após Bonificação */}
+              {ultimaBonificacao.length > 0 && (
+                <Card className="border-purple-200 bg-purple-50/50">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Download className="h-5 w-5 text-purple-600" />
+                      Exportar Lista de Bonificação
+                    </CardTitle>
+                    <CardDescription>
+                      {ultimaBonificacao.length} cliente(s) bonificado(s) - Exporte em diferentes formatos
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <Button
+                        variant="outline"
+                        onClick={() => exportarFormatoNormal('xlsx')}
+                        className="flex items-center gap-2"
+                      >
+                        <FileSpreadsheet className="h-4 w-4" />
+                        Exportar XLSX (Normal)
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => exportarFormatoNormal('pdf')}
+                        className="flex items-center gap-2"
+                      >
+                        <FileText className="h-4 w-4" />
+                        Exportar PDF (Normal)
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={exportarFormatoWhatsApp}
+                        className="flex items-center gap-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+                      >
+                        <FileSpreadsheet className="h-4 w-4" />
+                        Exportar XLSX (WhatsApp)
+                      </Button>
+                    </div>
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <p><strong>Formato Normal:</strong> Nome Completo, Telefone, Valor do Bônus</p>
+                      <p><strong>Formato WhatsApp:</strong> Primeiro Nome, Sobrenome, Telefone (55 + DDD + número, sem formatação)</p>
+                    </div>
+                  </CardContent>
+                </Card>
               )}
             </CardContent>
           </Card>
