@@ -34,3 +34,13 @@
 # NOTIFICAÇÃO QUASE PUSH - INEGOCIÁVEL
 [functions."sync-orders-cron"]
   schedule = "* * * * *"
+
+# ============================================================================
+# CRON JOB: Processar Fila de WhatsApp de Cashback
+# ============================================================================
+# Roda a cada 1 minuto (intervalo mínimo do Netlify)
+# Processa automaticamente a fila de WhatsApp de cashback
+# Chama a Edge Function do Supabase que usa a mesma lógica de envio existente
+# TOTALMENTE AUTOMÁTICO - SEM INTERVENÇÃO MANUAL
+[functions."process-cashback-queue-cron"]
+  schedule = "* * * * *"
