@@ -24,26 +24,26 @@ ORDER BY s.name, p.name;
 -- ============================================================================
 
 SELECT 
-    to.id as pedido_id,
-    to.numero_pedido,
-    to.data_pedido,
-    to.vendedor_nome as vendedor_tiny,
-    to.vendedor_tiny_id,
-    to.colaboradora_id,
+    ped.id as pedido_id,
+    ped.numero_pedido,
+    ped.data_pedido,
+    ped.vendedor_nome as vendedor_tiny,
+    ped.vendedor_tiny_id,
+    ped.colaboradora_id,
     p.name as colaboradora_match,
     p.cpf as colaboradora_cpf,
     p.email as colaboradora_email,
     s.name as loja,
     CASE 
-        WHEN to.colaboradora_id IS NOT NULL THEN '✅ MATCH'
-        WHEN to.vendedor_nome IS NOT NULL THEN '❌ SEM MATCH'
+        WHEN ped.colaboradora_id IS NOT NULL THEN '✅ MATCH'
+        WHEN ped.vendedor_nome IS NOT NULL THEN '❌ SEM MATCH'
         ELSE '⚪ SEM VENDEDOR'
     END as status_match
-FROM sistemaretiradas.tiny_orders to
-LEFT JOIN sistemaretiradas.profiles p ON to.colaboradora_id = p.id
-LEFT JOIN sistemaretiradas.stores s ON to.store_id = s.id
-WHERE to.vendedor_nome IS NOT NULL
-ORDER BY to.created_at DESC
+FROM sistemaretiradas.tiny_orders ped
+LEFT JOIN sistemaretiradas.profiles p ON ped.colaboradora_id = p.id
+LEFT JOIN sistemaretiradas.stores s ON ped.store_id = s.id
+WHERE ped.vendedor_nome IS NOT NULL
+ORDER BY ped.created_at DESC
 LIMIT 100;
 
 -- ============================================================================
@@ -81,18 +81,18 @@ WHERE colaboradora_id IS NOT NULL;
 -- ============================================================================
 
 SELECT 
-    to.numero_pedido,
-    to.vendedor_nome as vendedor_tiny,
-    to.vendedor_tiny_id,
-    to.data_pedido,
+    ped.numero_pedido,
+    ped.vendedor_nome as vendedor_tiny,
+    ped.vendedor_tiny_id,
+    ped.data_pedido,
     s.name as loja,
     COUNT(*) as total_pedidos
-FROM sistemaretiradas.tiny_orders to
-LEFT JOIN sistemaretiradas.stores s ON to.store_id = s.id
-WHERE to.colaboradora_id IS NULL
-  AND to.vendedor_nome IS NOT NULL
-GROUP BY to.numero_pedido, to.vendedor_nome, to.vendedor_tiny_id, to.data_pedido, s.name
-ORDER BY total_pedidos DESC, to.data_pedido DESC
+FROM sistemaretiradas.tiny_orders ped
+LEFT JOIN sistemaretiradas.stores s ON ped.store_id = s.id
+WHERE ped.colaboradora_id IS NULL
+  AND ped.vendedor_nome IS NOT NULL
+GROUP BY ped.numero_pedido, ped.vendedor_nome, ped.vendedor_tiny_id, ped.data_pedido, s.name
+ORDER BY total_pedidos DESC, ped.data_pedido DESC
 LIMIT 50;
 
 -- ============================================================================
@@ -115,21 +115,21 @@ SELECT
     s.name as loja,
     CASE 
         WHEN EXISTS (
-            SELECT 1 FROM sistemaretiradas.tiny_orders to2
-            WHERE to2.vendedor_nome = vt.vendedor_nome
-              AND to2.store_id = vt.store_id
-              AND to2.colaboradora_id IS NOT NULL
+            SELECT 1 FROM sistemaretiradas.tiny_orders ped2
+            WHERE ped2.vendedor_nome = vt.vendedor_nome
+              AND ped2.store_id = vt.store_id
+              AND ped2.colaboradora_id IS NOT NULL
             LIMIT 1
         ) THEN '✅ TEM MATCH'
         ELSE '❌ SEM MATCH'
     END as tem_match,
     (
         SELECT p.name 
-        FROM sistemaretiradas.tiny_orders to2
-        JOIN sistemaretiradas.profiles p ON to2.colaboradora_id = p.id
-        WHERE to2.vendedor_nome = vt.vendedor_nome
-          AND to2.store_id = vt.store_id
-          AND to2.colaboradora_id IS NOT NULL
+        FROM sistemaretiradas.tiny_orders ped2
+        JOIN sistemaretiradas.profiles p ON ped2.colaboradora_id = p.id
+        WHERE ped2.vendedor_nome = vt.vendedor_nome
+          AND ped2.store_id = vt.store_id
+          AND ped2.colaboradora_id IS NOT NULL
         LIMIT 1
     ) as colaboradora_match
 FROM vendedores_tiny vt
@@ -146,21 +146,21 @@ SELECT
     p.cpf,
     p.email,
     s.name as loja,
-    COUNT(DISTINCT to.id) as pedidos_sem_match
+    COUNT(DISTINCT ped.id) as pedidos_sem_match
 FROM sistemaretiradas.profiles p
 JOIN sistemaretiradas.stores s ON p.store_id = s.id
-LEFT JOIN sistemaretiradas.tiny_orders to ON (
-    to.store_id = p.store_id
-    AND to.vendedor_nome IS NOT NULL
-    AND to.colaboradora_id IS NULL
+LEFT JOIN sistemaretiradas.tiny_orders ped ON (
+    ped.store_id = p.store_id
+    AND ped.vendedor_nome IS NOT NULL
+    AND ped.colaboradora_id IS NULL
     -- Tentar encontrar por nome similar
-    AND LOWER(REGEXP_REPLACE(to.vendedor_nome, '[^a-z ]', '', 'g')) = 
+    AND LOWER(REGEXP_REPLACE(ped.vendedor_nome, '[^a-z ]', '', 'g')) = 
         LOWER(REGEXP_REPLACE(p.name, '[^a-z ]', '', 'g'))
 )
 WHERE p.role = 'COLABORADORA'
   AND p.active = true
 GROUP BY p.id, p.name, p.cpf, p.email, s.name
-HAVING COUNT(DISTINCT to.id) > 0
+HAVING COUNT(DISTINCT ped.id) > 0
 ORDER BY pedidos_sem_match DESC;
 
 -- ============================================================================
@@ -177,23 +177,23 @@ ORDER BY pedidos_sem_match DESC;
 -- Esta query mostra vendedores do Tiny que PODERIAM ser matchados
 -- se tivessem CPF cadastrado e igual ao da colaboradora
 SELECT 
-    to.vendedor_nome,
-    to.vendedor_tiny_id,
+    ped.vendedor_nome,
+    ped.vendedor_tiny_id,
     s.name as loja,
     'Pendente verificação de CPF no Tiny' as observacao
-FROM sistemaretiradas.tiny_orders to
-JOIN sistemaretiradas.stores s ON to.store_id = s.id
-WHERE to.colaboradora_id IS NULL
-  AND to.vendedor_nome IS NOT NULL
+FROM sistemaretiradas.tiny_orders ped
+JOIN sistemaretiradas.stores s ON ped.store_id = s.id
+WHERE ped.colaboradora_id IS NULL
+  AND ped.vendedor_nome IS NOT NULL
   AND NOT EXISTS (
       -- Verificar se há colaboradora com nome similar
       SELECT 1 FROM sistemaretiradas.profiles p
-      WHERE p.store_id = to.store_id
+      WHERE p.store_id = ped.store_id
         AND p.role = 'COLABORADORA'
         AND p.active = true
         AND LOWER(REGEXP_REPLACE(p.name, '[^a-z ]', '', 'g')) = 
-            LOWER(REGEXP_REPLACE(to.vendedor_nome, '[^a-z ]', '', 'g'))
+            LOWER(REGEXP_REPLACE(ped.vendedor_nome, '[^a-z ]', '', 'g'))
   )
-GROUP BY to.vendedor_nome, to.vendedor_tiny_id, s.name
-ORDER BY loja, to.vendedor_nome;
+GROUP BY ped.vendedor_nome, ped.vendedor_tiny_id, s.name
+ORDER BY loja, ped.vendedor_nome;
 

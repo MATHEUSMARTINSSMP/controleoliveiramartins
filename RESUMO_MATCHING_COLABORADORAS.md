@@ -100,18 +100,18 @@ WHERE p.role = 'COLABORADORA'
 
 ```sql
 SELECT 
-    to.numero_pedido,
-    to.vendedor_nome as vendedor_tiny,
-    to.colaboradora_id,
+    ped.numero_pedido,
+    ped.vendedor_nome as vendedor_tiny,
+    ped.colaboradora_id,
     p.name as colaboradora_match,
     CASE 
-        WHEN to.colaboradora_id IS NOT NULL THEN '✅ MATCH'
+        WHEN ped.colaboradora_id IS NOT NULL THEN '✅ MATCH'
         ELSE '❌ SEM MATCH'
     END as status
-FROM sistemaretiradas.tiny_orders to
-LEFT JOIN sistemaretiradas.profiles p ON to.colaboradora_id = p.id
-WHERE to.vendedor_nome IS NOT NULL
-ORDER BY to.created_at DESC
+FROM sistemaretiradas.tiny_orders ped
+LEFT JOIN sistemaretiradas.profiles p ON ped.colaboradora_id = p.id
+WHERE ped.vendedor_nome IS NOT NULL
+ORDER BY ped.created_at DESC
 LIMIT 50;
 ```
 
@@ -119,12 +119,12 @@ LIMIT 50;
 
 ```sql
 SELECT 
-    to.vendedor_nome,
+    ped.vendedor_nome,
     COUNT(*) as total_pedidos
-FROM sistemaretiradas.tiny_orders to
-WHERE to.colaboradora_id IS NULL
-  AND to.vendedor_nome IS NOT NULL
-GROUP BY to.vendedor_nome
+FROM sistemaretiradas.tiny_orders ped
+WHERE ped.colaboradora_id IS NULL
+  AND ped.vendedor_nome IS NOT NULL
+GROUP BY ped.vendedor_nome
 ORDER BY total_pedidos DESC;
 ```
 
