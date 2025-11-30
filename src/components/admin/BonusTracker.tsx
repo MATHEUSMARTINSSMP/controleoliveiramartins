@@ -319,22 +319,28 @@ export function BonusTracker() {
                                             const getFormattedValue = () => {
                                                 // IMPORTANTE: Para indicadores, usar os valores DIRETOS do objeto colabData
                                                 // NÃO usar rankingValue porque ele pode estar incorreto se tipo_condicao não foi reconhecido
-                                                if (tipoCondicao === "TICKET_MEDIO" || tipoCondicao === "TICKET MÉDIO") {
+                                                
+                                                // Verificar se contém "TICKET" (mais flexível)
+                                                const tipoUpper = tipoCondicao.replace(/[_\s-]/g, ""); // Remove underscores, espaços e hífens
+                                                const isTicketMedio = tipoUpper.includes("TICKET") && (tipoUpper.includes("MEDIO") || tipoUpper.includes("MÉDIO"));
+                                                
+                                                if (isTicketMedio || tipoCondicao === "TICKET_MEDIO" || tipoCondicao === "TICKET MÉDIO" || tipoCondicao.includes("TICKET")) {
                                                     // Usar ticketMedio diretamente do objeto colabData
                                                     const ticketMedio = colabData.ticketMedio || 0;
-                                                    console.log(`[BonusTracker] 🎯 TICKET_MEDIO - Colab: ${colab.name}, ticketMedio: ${ticketMedio}, rankingValue: ${rankingValue}`);
+                                                    console.log(`[BonusTracker] 🎯 TICKET_MEDIO DETECTADO - Colab: ${colab.name}, ticketMedio: ${ticketMedio}, tipoCondicao: "${tipoCondicao}", tipoUpper: "${tipoUpper}"`);
                                                     return `R$ ${ticketMedio.toFixed(2)}`;
-                                                } else if (tipoCondicao === "PA") {
+                                                } else if (tipoCondicao === "PA" || tipoUpper.includes("PA")) {
                                                     // Usar pa diretamente do objeto colabData
                                                     const pa = colabData.pa || 0;
                                                     return `${pa.toFixed(1)} peças/venda`;
-                                                } else if (tipoCondicao === "NUMERO_PECAS" || tipoCondicao === "NUMERO DE PEÇAS") {
+                                                } else if (tipoCondicao === "NUMERO_PECAS" || tipoCondicao === "NUMERO DE PEÇAS" || tipoUpper.includes("NUMEROPECAS")) {
                                                     // Usar qtdPecas diretamente do objeto colabData
                                                     const qtdPecas = colabData.qtdPecas || 0;
                                                     return `${Math.round(qtdPecas)} peças`;
                                                 } else {
                                                     // Para faturamento/meta, mostrar porcentagem
-                                                    console.log(`[BonusTracker] ⚠️ Tipo não é indicador (${tipoCondicao}), usando progress: ${colab.progress.toFixed(0)}%`);
+                                                    console.log(`[BonusTracker] ⚠️ Tipo não é indicador - tipoCondicao: "${tipoCondicao}", tipoUpper: "${tipoUpper}", usando progress: ${colab.progress.toFixed(0)}%`);
+                                                    console.log(`[BonusTracker] ⚠️ ColabData disponível: ticketMedio=${colabData.ticketMedio}, pa=${colabData.pa}, qtdPecas=${colabData.qtdPecas}`);
                                                     return `${colab.progress.toFixed(0)}%`;
                                                 }
                                             };
@@ -365,8 +371,14 @@ export function BonusTracker() {
                                                     </div>
                                                     
                                                     {/* Barra de progresso APENAS para faturamento/meta (não para indicadores) */}
-                                                    {/* REMOVIDO: Barra de progresso não faz sentido para indicadores como ticket médio, PA, etc. */}
-                                                    {/* Apenas medalhas e valores são suficientes para rankings de indicadores */}
+                                                    {!isIndicador && (
+                                                        <div className="mt-2">
+                                                            <Progress 
+                                                                value={colab.progress} 
+                                                                className={`h-2 ${getProgressColor(colab.progress)}`} 
+                                                            />
+                                                        </div>
+                                                    )}
                                                     
                                                     {colab.progress >= (bonus.meta_minima_percentual || 0) && !colab.achieved && colab.preRequisitosReason && (
                                                         <div className="flex items-center gap-1 text-[10px] text-orange-600 mt-2">
