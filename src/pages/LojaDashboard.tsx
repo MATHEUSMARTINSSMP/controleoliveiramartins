@@ -1709,7 +1709,11 @@ export default function LojaDashboard() {
                         if (adminPhones.length > 0) {
                             console.log('📱 [4/4] Buscando totais da loja...');
                             
-                            // Buscar total do dia (todas as vendas do dia da loja)
+                            // ✅ CORREÇÃO: Aguardar um pequeno delay para garantir que a venda foi salva no banco
+                            // e então recalcular o total incluindo a venda recém-criada
+                            await new Promise(resolve => setTimeout(resolve, 500)); // 500ms de delay
+                            
+                            // Buscar total do dia (todas as vendas do dia da loja) - AGORA incluindo a venda recém-salva
                             const hoje = new Date();
                             const hojeStr = format(hoje, 'yyyy-MM-dd');
                             
@@ -1724,11 +1728,33 @@ export default function LojaDashboard() {
                             let totalDia = 0;
                             if (!vendasHojeError && vendasHoje) {
                                 totalDia = vendasHoje.reduce((sum: number, v: any) => sum + parseFloat(v.valor || 0), 0);
+                            } else {
+                                // Fallback: se houver erro, adicionar manualmente o valor da venda atual
+                                console.warn('📱 [4/4] Erro ao buscar vendas do dia, usando fallback');
+                                totalDia = parseFloat(vendaData.valor) || 0;
                             }
                             
-                            // Usar monthlyRealizado do estado (já calculado anteriormente)
-                            console.log('📱 [4/4] Total do dia:', totalDia);
-                            console.log('📱 [4/4] Total do mês:', monthlyRealizado);
+                            // ✅ CORREÇÃO: Recalcular total do mês também, incluindo a venda recém-salva
+                            const mesAtual = new Date().toISOString().slice(0, 7).replace('-', '');
+                            const { data: vendasMes, error: vendasMesError } = await supabase
+                                .schema('sistemaretiradas')
+                                .from('sales')
+                                .select('valor')
+                                .eq('store_id', storeId)
+                                .gte('data_venda', `${mesAtual}-01T00:00:00`)
+                                .lte('data_venda', `${mesAtual}-31T23:59:59`);
+                            
+                            let totalMesAtualizado = monthlyRealizado;
+                            if (!vendasMesError && vendasMes) {
+                                totalMesAtualizado = vendasMes.reduce((sum: number, v: any) => sum + parseFloat(v.valor || 0), 0);
+                            } else {
+                                // Fallback: se houver erro, adicionar manualmente o valor da venda atual ao total do mês
+                                console.warn('📱 [4/4] Erro ao buscar vendas do mês, usando fallback');
+                                totalMesAtualizado = (monthlyRealizado || 0) + (parseFloat(vendaData.valor) || 0);
+                            }
+                            
+                            console.log('📱 [4/4] Total do dia (atualizado):', totalDia);
+                            console.log('📱 [4/4] Total do mês (atualizado):', totalMesAtualizado);
                             
                             console.log('📱 [4/4] Formatando mensagem...');
                             const message = formatVendaMessage({
@@ -1739,7 +1765,7 @@ export default function LojaDashboard() {
                                 dataVenda: vendaData.data_venda,
                                 observacoes: vendaData.observacoes || null,
                                 totalDia: totalDia,
-                                totalMes: monthlyRealizado || undefined,
+                                totalMes: totalMesAtualizado || undefined, // ✅ Usar total atualizado
                                 formasPagamento: formasPagamentoData,
                             });
 

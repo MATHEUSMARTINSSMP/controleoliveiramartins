@@ -89,11 +89,13 @@ export default function CashbackManagement() {
   const [valorLancar, setValorLancar] = useState('');
   const [descricaoLancar, setDescricaoLancar] = useState('');
   const [lancando, setLancando] = useState(false);
+  const [searchClienteLancar, setSearchClienteLancar] = useState('');
 
   const [selectedClienteResgatar, setSelectedClienteResgatar] = useState('');
   const [valorResgatar, setValorResgatar] = useState('');
   const [descricaoResgatar, setDescricaoResgatar] = useState('');
   const [resgatando, setResgatando] = useState(false);
+  const [searchClienteResgatar, setSearchClienteResgatar] = useState('');
 
   // Estados para lista de clientes
   const [clientesComSaldo, setClientesComSaldo] = useState<ClienteComSaldo[]>([]);
@@ -297,6 +299,7 @@ export default function CashbackManagement() {
       setSelectedClienteLancar('');
       setValorLancar('');
       setDescricaoLancar('');
+      setSearchClienteLancar('');
       await fetchData();
     } catch (error: any) {
       console.error('Erro ao lançar cashback:', error);
@@ -374,6 +377,7 @@ export default function CashbackManagement() {
       setSelectedClienteResgatar('');
       setValorResgatar('');
       setDescricaoResgatar('');
+      setSearchClienteResgatar('');
       await fetchData();
     } catch (error: any) {
       console.error('Erro ao resgatar cashback:', error);
@@ -509,6 +513,31 @@ export default function CashbackManagement() {
     return cliente?.saldo_disponivel || 0;
   }, [selectedClienteResgatar, clientesComSaldo]);
 
+  // Filtrar clientes para busca progressiva
+  const filteredClientesLancar = useMemo(() => {
+    if (!searchClienteLancar) return [];
+    const searchLower = searchClienteLancar.toLowerCase();
+    return clientes
+      .filter(c => 
+        c.nome.toLowerCase().includes(searchLower) ||
+        c.cpf_cnpj?.toLowerCase().includes(searchLower) ||
+        c.telefone?.toLowerCase().includes(searchLower)
+      )
+      .slice(0, 10); // Limitar a 10 resultados
+  }, [clientes, searchClienteLancar]);
+
+  const filteredClientesResgatar = useMemo(() => {
+    if (!searchClienteResgatar) return [];
+    const searchLower = searchClienteResgatar.toLowerCase();
+    return clientes
+      .filter(c => 
+        c.nome.toLowerCase().includes(searchLower) ||
+        c.cpf_cnpj?.toLowerCase().includes(searchLower) ||
+        c.telefone?.toLowerCase().includes(searchLower)
+      )
+      .slice(0, 10); // Limitar a 10 resultados
+  }, [clientes, searchClienteResgatar]);
+
   if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -606,18 +635,54 @@ export default function CashbackManagement() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="cliente-lancar">Cliente *</Label>
-                  <Select value={selectedClienteLancar} onValueChange={setSelectedClienteLancar}>
-                    <SelectTrigger id="cliente-lancar">
-                      <SelectValue placeholder="Buscar por nome ou CPF..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clientes.map(c => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.nome} - {c.cpf_cnpj}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {!selectedClienteLancar ? (
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="cliente-lancar"
+                          placeholder="Digite nome, CPF ou telefone..."
+                          value={searchClienteLancar}
+                          onChange={(e) => setSearchClienteLancar(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                      {searchClienteLancar && filteredClientesLancar.length > 0 && (
+                        <div className="border rounded-lg max-h-60 overflow-y-auto">
+                          {filteredClientesLancar.map(c => (
+                            <div
+                              key={c.id}
+                              onClick={() => {
+                                setSelectedClienteLancar(c.id);
+                                setSearchClienteLancar('');
+                              }}
+                              className="p-3 hover:bg-muted cursor-pointer border-b last:border-b-0"
+                            >
+                              <div className="font-medium">{c.nome}</div>
+                              <div className="text-sm text-muted-foreground">{c.cpf_cnpj}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {searchClienteLancar && filteredClientesLancar.length === 0 && (
+                        <div className="text-sm text-muted-foreground p-2">Nenhum cliente encontrado</div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
+                      <div>
+                        <div className="font-medium">{clientes.find(c => c.id === selectedClienteLancar)?.nome}</div>
+                        <div className="text-sm text-muted-foreground">{clientes.find(c => c.id === selectedClienteLancar)?.cpf_cnpj}</div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedClienteLancar('')}
+                      >
+                        Alterar
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -674,18 +739,54 @@ export default function CashbackManagement() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="cliente-resgatar">Cliente *</Label>
-                  <Select value={selectedClienteResgatar} onValueChange={setSelectedClienteResgatar}>
-                    <SelectTrigger id="cliente-resgatar">
-                      <SelectValue placeholder="Buscar por nome ou CPF..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clientes.map(c => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.nome} - {c.cpf_cnpj}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {!selectedClienteResgatar ? (
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="cliente-resgatar"
+                          placeholder="Digite nome, CPF ou telefone..."
+                          value={searchClienteResgatar}
+                          onChange={(e) => setSearchClienteResgatar(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                      {searchClienteResgatar && filteredClientesResgatar.length > 0 && (
+                        <div className="border rounded-lg max-h-60 overflow-y-auto">
+                          {filteredClientesResgatar.map(c => (
+                            <div
+                              key={c.id}
+                              onClick={() => {
+                                setSelectedClienteResgatar(c.id);
+                                setSearchClienteResgatar('');
+                              }}
+                              className="p-3 hover:bg-muted cursor-pointer border-b last:border-b-0"
+                            >
+                              <div className="font-medium">{c.nome}</div>
+                              <div className="text-sm text-muted-foreground">{c.cpf_cnpj}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {searchClienteResgatar && filteredClientesResgatar.length === 0 && (
+                        <div className="text-sm text-muted-foreground p-2">Nenhum cliente encontrado</div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
+                      <div>
+                        <div className="font-medium">{clientes.find(c => c.id === selectedClienteResgatar)?.nome}</div>
+                        <div className="text-sm text-muted-foreground">{clientes.find(c => c.id === selectedClienteResgatar)?.cpf_cnpj}</div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedClienteResgatar('')}
+                      >
+                        Alterar
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -710,10 +811,22 @@ export default function CashbackManagement() {
                   />
                 </div>
 
-                <div className="p-3 bg-orange-50 rounded-lg">
+                <div className="p-3 bg-orange-50 rounded-lg space-y-1">
                   <p className="text-sm text-orange-800">
                     Saldo disponível: <strong>{formatCurrency(saldoClienteResgatar)}</strong>
                   </p>
+                  {selectedClienteResgatar && (() => {
+                    const cliente = clientesComSaldo.find(c => c.cliente.id === selectedClienteResgatar);
+                    const saldoPendente = cliente?.saldo_pendente || 0;
+                    if (saldoPendente > 0) {
+                      return (
+                        <p className="text-xs text-orange-700">
+                          ⏳ Pendente: {formatCurrency(saldoPendente)} (será liberado em até 2 dias)
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 <Button
@@ -956,13 +1069,14 @@ export default function CashbackManagement() {
                       <TableHead>Tipo</TableHead>
                       <TableHead>Cashback</TableHead>
                       <TableHead>Pedido</TableHead>
+                      <TableHead>Validade</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredHistorico.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center text-muted-foreground">
                           Nenhuma transação encontrada
                         </TableCell>
                       </TableRow>
@@ -1003,6 +1117,9 @@ export default function CashbackManagement() {
                             </TableCell>
                             <TableCell className="text-sm text-muted-foreground">
                               {t.tiny_order?.numero_pedido ? `#${t.tiny_order.numero_pedido}` : '-'}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {t.data_expiracao ? format(new Date(t.data_expiracao), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
                             </TableCell>
                             <TableCell className="text-right">
                               {t.transaction_type !== 'ADJUSTMENT' && (

@@ -152,21 +152,31 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
 
 
         // ✅ Detectar novos pedidos usando TIMESTAMP de sincronização
-        // Considerar "novo" qualquer pedido sincronizado nos últimos 2 minutos
-        const doisMinutosAtras = new Date(Date.now() - 2 * 60 * 1000);
+        // Considerar "novo" qualquer pedido sincronizado nos últimos 5 minutos (aumentado para garantir detecção)
+        const cincoMinutosAtras = new Date(Date.now() - 5 * 60 * 1000);
 
         const novosPedidos = normalizedData.filter((order) => {
-          // Se não tem sync_at, não é novo
-          if (!order.sync_at) return false;
-
-          const syncDate = new Date(order.sync_at);
-          const isRecent = syncDate > doisMinutosAtras;
-
-          // Verificar se já estava na lista anterior
+          // Verificar se já estava na lista anterior (comparar por ID)
           const jaExistia = orders.some((existingOrder) => existingOrder.id === order.id);
 
+          // Se já existia, não é novo
+          if (jaExistia) return false;
+
+          // Se não tem sync_at, verificar se é realmente novo comparando com data_pedido
+          if (!order.sync_at) {
+            // Se não tem sync_at mas tem data_pedido recente, considerar novo
+            if (order.data_pedido) {
+              const dataPedido = new Date(order.data_pedido);
+              return dataPedido > cincoMinutosAtras;
+            }
+            return false;
+          }
+
+          const syncDate = new Date(order.sync_at);
+          const isRecent = syncDate > cincoMinutosAtras;
+
           // É novo se foi sincronizado recentemente E não estava na lista anterior
-          return isRecent && !jaExistia;
+          return isRecent;
         });
 
         console.log(`[AUTO-REFRESH] 📊 ${novosPedidos.length} novos pedidos detectados (isFirstLoad: ${isFirstLoad})`);
@@ -182,13 +192,13 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
             if (novosSemDuplicados.length > 0 && !isFirstLoad) {
               console.log(`[AUTO-REFRESH] 🔔 Mostrando ${novosSemDuplicados.length} notificações`);
               novosSemDuplicados.forEach((novoPedido) => {
-                // ✅ Notificação Sonner (Minimalista)
+                // ✅ Notificação Sonner (Minimalista) - SEMPRE mostrar
                 sonnerToast.success("🎉 Nova Venda!", {
                   description: `Pedido ${novoPedido.numero_pedido || novoPedido.tiny_id} - ${novoPedido.cliente_nome || 'Cliente'} - ${formatCurrency(novoPedido.valor_total || 0)}`,
                   duration: 5000,
                 });
 
-                // ✅ Notificação Toast (Balãozinho - Shadcn UI)
+                // ✅ Notificação Toast (Balãozinho - Shadcn UI) - SEMPRE mostrar
                 // O usuário prefere este estilo visual
                 toast({
                   title: "🎉 Nova Venda Detectada!",
