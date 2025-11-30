@@ -23,6 +23,7 @@ import { TrophiesGallery } from "@/components/loja/TrophiesGallery";
 import { StoreLogo } from "@/lib/storeLogo";
 import { sendWhatsAppMessage, formatVendaMessage } from "@/lib/whatsapp";
 import { checkAndCreateMonthlyTrophies, checkAndCreateWeeklyTrophies } from "@/lib/trophies";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Sale {
     id: string;
@@ -53,6 +54,8 @@ export default function LojaDashboard() {
     const [storeId, setStoreId] = useState<string | null>(null);
     const [storeName, setStoreName] = useState<string | null>(null);
     const [salesDateFilter, setSalesDateFilter] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+    const [cashbackAtivo, setCashbackAtivo] = useState<boolean>(false);
+    const [activeView, setActiveView] = useState<'metas' | 'cashback'>('metas');
 
     interface FormaPagamento {
         tipo: 'CREDITO' | 'DEBITO' | 'DINHEIRO' | 'PIX' | 'BOLETO';
@@ -2259,6 +2262,19 @@ export default function LojaDashboard() {
                 </div>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
+                    {/* Abas de Navegação - Metas e Cashback */}
+                    {cashbackAtivo && (
+                        <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback')} className="w-full sm:w-auto">
+                            <TabsList className="grid w-full sm:w-auto grid-cols-2 bg-muted/50">
+                                <TabsTrigger value="metas" className="rounded-lg text-xs sm:text-sm">
+                                    Metas
+                                </TabsTrigger>
+                                <TabsTrigger value="cashback" className="rounded-lg text-xs sm:text-sm">
+                                    Cashback
+                                </TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                    )}
                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                     <DialogTrigger asChild>
                         <Button onClick={resetForm} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
