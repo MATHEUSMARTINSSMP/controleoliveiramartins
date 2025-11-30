@@ -334,6 +334,29 @@ export default function CashbackManagement() {
     a_vencer_7d: 0,
   });
 
+  const fetchCategoriasProdutos = async () => {
+    try {
+      setLoadingCategorias(true);
+      const { data, error } = await supabase
+        .schema('sistemaretiradas')
+        .from('tiny_orders')
+        .select('categoria')
+        .not('categoria', 'is', null)
+        .neq('categoria', '');
+
+      if (error) throw error;
+
+      // Extrair categorias únicas
+      const categoriasUnicas = Array.from(new Set(data.map((item: any) => item.categoria))).sort();
+      setCategoriasProdutos(categoriasUnicas as string[]);
+    } catch (error) {
+      console.error('Erro ao buscar categorias:', error);
+      toast.error('Erro ao carregar categorias de produtos');
+    } finally {
+      setLoadingCategorias(false);
+    }
+  };
+
   useEffect(() => {
     if (!authLoading && profile) {
       fetchData();
