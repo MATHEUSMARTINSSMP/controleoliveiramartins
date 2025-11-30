@@ -143,15 +143,21 @@ export function BonusTracker() {
                                 }
                             }
 
-                            // Calcular valor de ranking baseado no tipo_condicao
-                            let rankingValue = progress; // Padrão: progresso de faturamento
+                            // ✅ Calcular valor de ranking baseado no tipo_condicao
+                            // IMPORTANTE: Esta lógica garante que TODOS os rankings futuros ordenem pelo indicador correto
+                            // Se o bônus for baseado em um indicador específico, ordena por esse indicador
+                            // Caso contrário, ordena por progresso de faturamento (padrão)
+                            let rankingValue = progress; // Padrão: progresso de faturamento (% da meta)
+                            
+                            // Ordenar por indicador específico quando o tipo_condicao corresponder
                             if (bonus.tipo_condicao === "TICKET_MEDIO") {
-                                rankingValue = ticketMedio; // Ordenar por ticket médio
+                                rankingValue = ticketMedio; // Ordenar por ticket médio (R$)
                             } else if (bonus.tipo_condicao === "PA") {
                                 rankingValue = pa; // Ordenar por PA (Peças por Atendimento)
                             } else if (bonus.tipo_condicao === "NUMERO_PECAS") {
-                                rankingValue = qtdPecas; // Ordenar por número de peças vendidas
+                                rankingValue = qtdPecas; // Ordenar por número total de peças vendidas
                             }
+                            // Para outros tipos (PERCENTUAL_META, RANKING, etc.), usa progress (faturamento) como padrão
 
                             return {
                                 id: colabId,
@@ -263,10 +269,12 @@ export function BonusTracker() {
                                 <div className="space-y-1.5">
                                     {bonus.collaborators
                                         .sort((a, b) => {
-                                            // Ordenar por rankingValue (decrescente) se disponível, senão por progress
+                                            // ✅ Ordenar por rankingValue (calculado baseado no tipo_condicao)
+                                            // O rankingValue já foi calculado corretamente acima baseado no tipo_condicao do bônus
+                                            // Isso garante que TODOS os rankings futuros ordenem pelo indicador correto
                                             const aValue = (a as any).rankingValue !== undefined ? (a as any).rankingValue : a.progress;
                                             const bValue = (b as any).rankingValue !== undefined ? (b as any).rankingValue : b.progress;
-                                            return bValue - aValue;
+                                            return bValue - aValue; // Ordem decrescente (maior valor primeiro)
                                         })
                                         .map((colab) => (
                                             <div key={colab.id} className="space-y-1">
