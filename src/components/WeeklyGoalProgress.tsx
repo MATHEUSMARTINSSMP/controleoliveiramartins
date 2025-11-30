@@ -112,22 +112,63 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
         // Obter todos os dias da semana (segunda a domingo)
         const weekDays = eachDayOfInterval({ start: weekRange.start, end: weekRange.end });
         
-        let totalWeeklyGoal = 0;
-        
-        weekDays.forEach(day => {
-            const dayKey = format(day, 'yyyy-MM-dd');
-            const dayWeight = dailyWeights[dayKey] || 0;
-            
-            // Calcular meta do dia: (meta_mensal * peso_do_dia) / 100
-            const dayGoal = (monthlyGoal * dayWeight) / 100;
-            totalWeeklyGoal += dayGoal;
-        });
-        
         // Se não houver daily_weights, dividir igualmente pelos dias do mês
         if (Object.keys(dailyWeights).length === 0) {
             const daysInMonth = new Date(weekRange.start.getFullYear(), weekRange.start.getMonth() + 1, 0).getDate();
             const dailyGoal = monthlyGoal / daysInMonth;
-            totalWeeklyGoal = dailyGoal * 7; // 7 dias da semana
+            return dailyGoal * 7; // 7 dias da semana
+        }
+        
+        // IMPORTANTE: Os daily_weights somam 100% do mês inteiro
+        // Precisamos calcular a soma dos pesos dos dias da semana
+        let somaPesosSemana = 0;
+        const pesosEncontrados: string[] = [];
+        const pesosNaoEncontrados: string[] = [];
+        
+        weekDays.forEach(day => {
+            const dayKey = format(day, 'yyyy-MM-dd');
+            const dayWeight = dailyWeights[dayKey] || 0;
+            somaPesosSemana += dayWeight;
+            if (dayWeight > 0) {
+                pesosEncontrados.push(`${dayKey}: ${dayWeight}%`);
+            } else {
+                pesosNaoEncontrados.push(dayKey);
+            }
+        });
+        
+        // VALIDAÇÃO: A soma dos pesos da semana não deve ultrapassar ~35% do mês (considerando 4 semanas)
+        // Se ultrapassar, pode indicar que os pesos estão errados ou que a semana está em outro mês
+        const proporcaoMaximaEsperada = 0.35; // 35% do mês para uma semana (máximo razoável)
+        const proporcaoCalculada = somaPesosSemana / 100;
+        
+        if (proporcaoCalculada > proporcaoMaximaEsperada) {
+            console.warn(`[calculateWeeklyGoalFromMonthly] ⚠️ ATENÇÃO: Soma dos pesos da semana (${somaPesosSemana.toFixed(2)}%) ultrapassa o máximo esperado (${(proporcaoMaximaEsperada * 100).toFixed(0)}%)`);
+            console.warn(`  - Isso pode indicar que os daily_weights estão incorretos ou a semana está em outro mês`);
+            console.warn(`  - Pesos encontrados: ${pesosEncontrados.join(', ')}`);
+            console.warn(`  - Pesos não encontrados: ${pesosNaoEncontrados.join(', ')}`);
+        }
+        
+        // Calcular meta semanal: (meta_mensal * soma_pesos_semana) / 100
+        // Como os pesos já somam 100% do mês, a soma dos pesos da semana é a porcentagem do mês que essa semana representa
+        let totalWeeklyGoal = (monthlyGoal * somaPesosSemana) / 100;
+        
+        // LIMITAÇÃO DE SEGURANÇA: Se a proporção calculada for muito alta, limitar a meta semanal
+        if (proporcaoCalculada > proporcaoMaximaEsperada) {
+            console.warn(`[calculateWeeklyGoalFromMonthly] ⚠️ Limitando meta semanal para ${(proporcaoMaximaEsperada * 100).toFixed(0)}% da meta mensal`);
+            const metaSemanalLimitada = monthlyGoal * proporcaoMaximaEsperada;
+            console.warn(`  - Meta semanal original: R$ ${totalWeeklyGoal.toFixed(2)}`);
+            console.warn(`  - Meta semanal limitada: R$ ${metaSemanalLimitada.toFixed(2)}`);
+            totalWeeklyGoal = metaSemanalLimitada;
+        }
+        
+        // Log para debug
+        console.log(`[calculateWeeklyGoalFromMonthly] 📊 Cálculo detalhado:`);
+        console.log(`  - Meta Mensal: R$ ${monthlyGoal.toFixed(2)}`);
+        console.log(`  - Soma dos pesos da semana: ${somaPesosSemana.toFixed(2)}%`);
+        console.log(`  - Meta Semanal calculada: R$ ${totalWeeklyGoal.toFixed(2)}`);
+        console.log(`  - Proporção da meta semanal em relação à mensal: ${((totalWeeklyGoal / monthlyGoal) * 100).toFixed(1)}%`);
+        if (pesosNaoEncontrados.length > 0) {
+            console.warn(`  - ⚠️ Alguns dias da semana não têm peso configurado: ${pesosNaoEncontrados.join(', ')}`);
         }
         
         return totalWeeklyGoal;
