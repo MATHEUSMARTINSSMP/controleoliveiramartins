@@ -17,6 +17,9 @@ interface BonusData {
     meta_minima_percentual: number | null;
     ativo: boolean;
     store_id: string | null;
+    periodo_data_inicio?: string | null;
+    periodo_data_fim?: string | null;
+    created_at?: string;
     collaborators: {
         id: string;
         name: string;
@@ -80,16 +83,44 @@ export function BonusTracker() {
                         };
                     }
 
-                    // Calcular progresso de cada colaboradora
-                    const mesAtual = format(new Date(), "yyyyMM");
-                    const hoje = format(new Date(), "yyyy-MM-dd");
+                    // ✅ Determinar período do bônus (data de lançamento até data de encerramento)
+                    let dataInicio: string;
+                    let dataFim: string;
+                    
+                    if (bonus.periodo_data_inicio) {
+                        // Usar data de início do bônus
+                        dataInicio = bonus.periodo_data_inicio;
+                    } else if (bonus.created_at) {
+                        // Fallback: usar created_at como data de início
+                        const createdDate = new Date(bonus.created_at);
+                        dataInicio = format(createdDate, "yyyy-MM-dd");
+                    } else {
+                        // Fallback: início do mês atual
+                        const mesAtual = format(new Date(), "yyyyMM");
+                        dataInicio = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
+                    }
+                    
+                    if (bonus.periodo_data_fim) {
+                        // Usar data de fim do bônus
+                        dataFim = bonus.periodo_data_fim;
+                    } else {
+                        // Se não tiver data de fim, usar data atual (bônus ainda ativo)
+                        dataFim = format(new Date(), "yyyy-MM-dd");
+                    }
+                    
+                    // Garantir que dataFim seja até o final do dia
+                    const dataFimCompleta = `${dataFim}T23:59:59`;
+                    const dataInicioCompleta = `${dataInicio}T00:00:00`;
+                    
+                    console.log(`[BonusTracker] 📅 Período do bônus "${bonus.nome}": ${dataInicio} até ${dataFim}`);
 
                     const collaboratorsWithProgress = await Promise.all(
                         colabData.map(async (colab: any) => {
                             const colabId = colab.colaboradora_id;
                             const colabName = colab.profiles.name;
 
-                            // Buscar meta individual
+                            // Buscar meta individual (para cálculo de progresso de faturamento)
+                            const mesAtual = format(new Date(), "yyyyMM");
                             const { data: metaData } = await supabase
                                 .schema("sistemaretiradas")
                                 .from("goals")
@@ -99,13 +130,15 @@ export function BonusTracker() {
                                 .eq("tipo", "INDIVIDUAL")
                                 .maybeSingle();
 
-                            // Buscar vendas do mês (com quantidade de peças para calcular ticket médio, PA, etc)
+                            // ✅ Buscar vendas do PERÍODO DO BÔNUS (não do mês inteiro)
+                            // Isso garante que o cálculo seja baseado apenas nas vendas durante o período do bônus
                             const { data: salesData } = await supabase
                                 .schema("sistemaretiradas")
                                 .from("sales")
-                                .select("valor, qtd_pecas")
+                                .select("valor, qtd_pecas, data_venda")
                                 .eq("colaboradora_id", colabId)
-                                .gte("data_venda", `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01T00:00:00`);
+                                .gte("data_venda", dataInicioCompleta)
+                                .lte("data_venda", dataFimCompleta);
 
                             const totalVendido = salesData?.reduce((sum, sale) => sum + Number(sale.valor || 0), 0) || 0;
                             const qtdVendas = salesData?.length || 0;
@@ -113,9 +146,14 @@ export function BonusTracker() {
                             const ticketMedio = qtdVendas > 0 ? totalVendido / qtdVendas : 0;
                             const pa = qtdVendas > 0 ? qtdPecas / qtdVendas : 0;
                             
-                            // Debug: log dos cálculos
+                            // Debug: log dos cálculos com período
                             if (bonus.tipo_condicao && (bonus.tipo_condicao.toUpperCase().includes("TICKET") || bonus.tipo_condicao.toUpperCase().includes("PA") || bonus.tipo_condicao.toUpperCase().includes("PECAS"))) {
-                                console.log(`[BonusTracker] 📊 Cálculo para ${colabName}: totalVendido=${totalVendido}, qtdVendas=${qtdVendas}, ticketMedio=${ticketMedio}, pa=${pa}, qtdPecas=${qtdPecas}`);
+                                console.log(`[BonusTracker] 📊 Cálculo para ${colabName} (período: ${dataInicio} até ${dataFim}):`);
+                                console.log(`[BonusTracker]   - Vendas encontradas: ${qtdVendas}`);
+                                console.log(`[BonusTracker]   - Total vendido: R$ ${totalVendido.toFixed(2)}`);
+                                console.log(`[BonusTracker]   - Ticket médio: R$ ${ticketMedio.toFixed(2)}`);
+                                console.log(`[BonusTracker]   - PA: ${pa.toFixed(2)} peças/venda`);
+                                console.log(`[BonusTracker]   - Total peças: ${qtdPecas}`);
                             }
                             
                             const metaValor = metaData?.meta_valor || 0;
