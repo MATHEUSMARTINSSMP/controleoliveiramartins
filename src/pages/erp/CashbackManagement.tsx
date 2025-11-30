@@ -750,7 +750,10 @@ export default function CashbackManagement() {
 
         const clienteData = clienteMap.get(clienteId)!;
         clienteData.pedidos.push(order);
-        clienteData.totalFaturamento += parseFloat(order.valor_total || 0);
+        const valorPedido = parseFloat(order.valor_total || 0);
+        if (!isNaN(valorPedido) && isFinite(valorPedido)) {
+          clienteData.totalFaturamento += valorPedido;
+        }
 
         // Processar itens
         if (order.itens && Array.isArray(order.itens)) {
@@ -801,16 +804,23 @@ export default function CashbackManagement() {
               const clientesArray = Array.from(clienteMap.entries())
                 .map(([id, data]) => ({
                   id,
-                  ...data,
+                  cliente: data.cliente,
+                  pedidos: data.pedidos,
+                  totalFaturamento: data.totalFaturamento || 0,
+                  ticketMedio: data.ticketMedio || 0,
+                  pa: data.pa || 0,
+                  ultimaCompra: data.ultimaCompra,
+                  categorias: data.categorias,
+                  produtos: data.produtos,
                 }));
 
               let sorted = [];
               if (filtro.parametro === 'ticket_medio') {
-                sorted = clientesArray.sort((a, b) => b.ticketMedio - a.ticketMedio);
+                sorted = clientesArray.sort((a, b) => (b.ticketMedio || 0) - (a.ticketMedio || 0));
               } else if (filtro.parametro === 'pa') {
-                sorted = clientesArray.sort((a, b) => b.pa - a.pa);
+                sorted = clientesArray.sort((a, b) => (b.pa || 0) - (a.pa || 0));
               } else if (filtro.parametro === 'faturamento') {
-                sorted = clientesArray.sort((a, b) => b.totalFaturamento - a.totalFaturamento);
+                sorted = clientesArray.sort((a, b) => (b.totalFaturamento || 0) - (a.totalFaturamento || 0));
               }
 
               const topClientes = sorted.slice(0, filtro.quantidade || 10);
@@ -918,15 +928,25 @@ export default function CashbackManagement() {
           switch (filtro.tipo) {
             case 'melhores_clientes': {
               const clientesArray = Array.from(clienteMap.entries())
-                .map(([id, data]) => ({ id, ...data }));
+                .map(([id, data]) => ({
+                  id,
+                  cliente: data.cliente,
+                  pedidos: data.pedidos,
+                  totalFaturamento: data.totalFaturamento || 0,
+                  ticketMedio: data.ticketMedio || 0,
+                  pa: data.pa || 0,
+                  ultimaCompra: data.ultimaCompra,
+                  categorias: data.categorias,
+                  produtos: data.produtos,
+                }));
 
               let sorted = [];
               if (filtro.parametro === 'ticket_medio') {
-                sorted = clientesArray.sort((a, b) => b.ticketMedio - a.ticketMedio);
+                sorted = clientesArray.sort((a, b) => (b.ticketMedio || 0) - (a.ticketMedio || 0));
               } else if (filtro.parametro === 'pa') {
-                sorted = clientesArray.sort((a, b) => b.pa - a.pa);
+                sorted = clientesArray.sort((a, b) => (b.pa || 0) - (a.pa || 0));
               } else if (filtro.parametro === 'faturamento') {
-                sorted = clientesArray.sort((a, b) => b.totalFaturamento - a.totalFaturamento);
+                sorted = clientesArray.sort((a, b) => (b.totalFaturamento || 0) - (a.totalFaturamento || 0));
               }
 
               const topClientes = sorted.slice(0, filtro.quantidade || 10);
