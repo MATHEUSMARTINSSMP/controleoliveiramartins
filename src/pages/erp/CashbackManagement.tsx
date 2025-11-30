@@ -919,7 +919,7 @@ export default function CashbackManagement() {
             case 'aniversario': {
               const { data: clientesComNascimento } = await supabase
                 .schema('sistemaretiradas')
-                .from('clientes')
+                .from('tiny_contacts')
                 .select('id, data_nascimento')
                 .not('data_nascimento', 'is', null);
 
@@ -938,7 +938,7 @@ export default function CashbackManagement() {
             case 'tag': {
               const { data: clientesComTag } = await supabase
                 .schema('sistemaretiradas')
-                .from('clientes')
+                .from('tiny_contacts')
                 .select('id, tags')
                 .contains('tags', [filtro.tag || '']);
 
@@ -1018,7 +1018,7 @@ export default function CashbackManagement() {
             case 'tag': {
               const { data: clientesComTag } = await supabase
                 .schema('sistemaretiradas')
-                .from('clientes')
+                .from('tiny_contacts')
                 .select('id, tags')
                 .contains('tags', [filtro.tag || '']);
 
@@ -1380,7 +1380,7 @@ export default function CashbackManagement() {
             case 'aniversario': {
               const { data: clientesComNascimento } = await supabase
                 .schema('sistemaretiradas')
-                .from('clientes')
+                .from('tiny_contacts')
                 .select('id, data_nascimento')
                 .not('data_nascimento', 'is', null);
 
@@ -1399,7 +1399,7 @@ export default function CashbackManagement() {
             case 'tag': {
               const { data: clientesComTag } = await supabase
                 .schema('sistemaretiradas')
-                .from('clientes')
+                .from('tiny_contacts')
                 .select('id, tags')
                 .contains('tags', [filtro.tag || '']);
 
