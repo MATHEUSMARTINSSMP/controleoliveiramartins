@@ -29,7 +29,18 @@ import {
   ChevronRight,
   Search,
   Gift,
+  Filter,
+  Calendar,
+  X,
+  Plus,
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -100,6 +111,17 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
   // Estados para histórico geral
   const [historicoGeral, setHistoricoGeral] = useState<CashbackTransaction[]>([]);
   const [filtroHistorico, setFiltroHistorico] = useState<'todos' | 'ganhou' | 'resgatou'>('todos');
+  const [filterClientSearch, setFilterClientSearch] = useState('');
+  const [filterDateStart, setFilterDateStart] = useState('');
+  const [filterDateEnd, setFilterDateEnd] = useState('');
+
+  // Estados para filtros avançados de clientes
+  interface FiltroCliente {
+    tipo: 'categoria' | 'com_saldo' | 'sem_saldo';
+    categoria?: string;
+  }
+  const [filtrosClientes, setFiltrosClientes] = useState<FiltroCliente[]>([]);
+  const [modoFiltro, setModoFiltro] = useState<'AND' | 'OR'>('AND');
 
   // KPIs
   const [kpis, setKpis] = useState({
@@ -378,21 +400,103 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
   }, [searchClienteResgatar, clientes]);
 
   const clientesFiltrados = useMemo(() => {
-    if (!searchTerm) return clientesComSaldo;
-    const term = searchTerm.toLowerCase();
-    return clientesComSaldo.filter(cs =>
-      cs.cliente.nome.toLowerCase().includes(term) ||
-      cs.cliente.cpf_cnpj?.toLowerCase().includes(term) ||
-      cs.cliente.telefone?.toLowerCase().includes(term)
-    );
-  }, [searchTerm, clientesComSaldo]);
+    let filtered = clientesComSaldo;
+
+    // Filtro por busca de texto
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(cs =>
+        cs.cliente.nome.toLowerCase().includes(term) ||
+        cs.cliente.cpf_cnpj?.toLowerCase().includes(term) ||
+        cs.cliente.telefone?.toLowerCase().includes(term)
+      );
+    }
+
+    // Aplicar filtros avançados
+    if (filtrosClientes.length > 0) {
+      if (modoFiltro === 'AND') {
+        // Todos os filtros devem ser satisfeitos
+        filtrosClientes.forEach(filtro => {
+          switch (filtro.tipo) {
+            case 'categoria':
+              if (filtro.categoria) {
+                filtered = filtered.filter(cs => cs.cliente.categoria === filtro.categoria);
+              }
+              break;
+            case 'com_saldo':
+              filtered = filtered.filter(cs => cs.saldo_disponivel > 0);
+              break;
+            case 'sem_saldo':
+              filtered = filtered.filter(cs => cs.saldo_disponivel === 0);
+              break;
+          }
+        });
+      } else {
+        // Pelo menos um filtro deve ser satisfeito (OR)
+        const resultSets: ClienteComSaldo[][] = [];
+        filtrosClientes.forEach(filtro => {
+          let tempFiltered = clientesComSaldo;
+          switch (filtro.tipo) {
+            case 'categoria':
+              if (filtro.categoria) {
+                tempFiltered = tempFiltered.filter(cs => cs.cliente.categoria === filtro.categoria);
+              }
+              break;
+            case 'com_saldo':
+              tempFiltered = tempFiltered.filter(cs => cs.saldo_disponivel > 0);
+              break;
+            case 'sem_saldo':
+              tempFiltered = tempFiltered.filter(cs => cs.saldo_disponivel === 0);
+              break;
+          }
+          resultSets.push(tempFiltered);
+        });
+        // União de todos os resultados
+        const uniqueIds = new Set<string>();
+        resultSets.forEach(set => {
+          set.forEach(cs => uniqueIds.add(cs.cliente.id));
+        });
+        filtered = clientesComSaldo.filter(cs => uniqueIds.has(cs.cliente.id));
+      }
+    }
+
+    return filtered;
+  }, [searchTerm, clientesComSaldo, filtrosClientes, modoFiltro]);
 
   const historicoFiltrado = useMemo(() => {
-    if (filtroHistorico === 'todos') return historicoGeral;
-    if (filtroHistorico === 'ganhou') return historicoGeral.filter(t => t.transaction_type === 'EARNED');
-    if (filtroHistorico === 'resgatou') return historicoGeral.filter(t => t.transaction_type === 'REDEEMED');
-    return historicoGeral;
-  }, [filtroHistorico, historicoGeral]);
+    let filtered = historicoGeral;
+
+    // Filtro por tipo
+    if (filtroHistorico === 'ganhou') {
+      filtered = filtered.filter(t => t.transaction_type === 'EARNED');
+    } else if (filtroHistorico === 'resgatou') {
+      filtered = filtered.filter(t => t.transaction_type === 'REDEEMED');
+    }
+
+    // Filtro por cliente (nome ou CPF)
+    if (filterClientSearch) {
+      const searchLower = filterClientSearch.toLowerCase();
+      filtered = filtered.filter(t => {
+        const cliente = clientes.find(c => c.id === t.cliente_id);
+        return (
+          cliente?.nome.toLowerCase().includes(searchLower) ||
+          cliente?.cpf_cnpj?.toLowerCase().includes(searchLower)
+        );
+      });
+    }
+
+    // Filtro por data
+    if (filterDateStart) {
+      filtered = filtered.filter(t => new Date(t.created_at) >= new Date(filterDateStart));
+    }
+    if (filterDateEnd) {
+      const endDate = new Date(filterDateEnd);
+      endDate.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(t => new Date(t.created_at) <= endDate);
+    }
+
+    return filtered;
+  }, [filtroHistorico, historicoGeral, filterClientSearch, filterDateStart, filterDateEnd, clientes]);
 
   const cashbackPreview = useMemo(() => {
     if (!valorLancar || parseFloat(valorLancar) <= 0) return 0;
@@ -413,6 +517,28 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
       newExpanded.add(clienteId);
     }
     setExpandedClients(newExpanded);
+  };
+
+  // Funções para gerenciar filtros de clientes
+  const adicionarFiltro = () => {
+    setFiltrosClientes([...filtrosClientes, { tipo: 'com_saldo' }]);
+  };
+
+  const removerFiltro = (index: number) => {
+    setFiltrosClientes(filtrosClientes.filter((_, i) => i !== index));
+  };
+
+  const atualizarFiltro = (index: number, updates: Partial<FiltroCliente>) => {
+    const novosFiltros = [...filtrosClientes];
+    novosFiltros[index] = { ...novosFiltros[index], ...updates };
+    setFiltrosClientes(novosFiltros);
+  };
+
+  const limparFiltros = () => {
+    setFiltrosClientes([]);
+    setFilterClientSearch('');
+    setFilterDateStart('');
+    setFilterDateEnd('');
   };
 
   const getCategoriaColor = (categoria: string | null | undefined) => {
@@ -745,6 +871,88 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
                   />
                 </div>
 
+                {/* Filtros Avançados */}
+                <div className="border rounded-lg p-4 space-y-4 bg-muted/20">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base font-semibold flex items-center gap-2">
+                      <Filter className="h-5 w-5" />
+                      Filtros Avançados
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm">Modo:</Label>
+                      <Select
+                        value={modoFiltro}
+                        onValueChange={(v: 'AND' | 'OR') => setModoFiltro(v)}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="AND">E (AND)</SelectItem>
+                          <SelectItem value="OR">OU (OR)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button onClick={adicionarFiltro} size="sm" variant="outline">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Adicionar
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Lista de Filtros */}
+                  {filtrosClientes.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground text-sm">
+                      Nenhum filtro adicionado. Clique em "Adicionar" para começar.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {filtrosClientes.map((filtro, index) => (
+                        <div key={index} className="flex items-center gap-2 p-3 border rounded-lg bg-background">
+                          <Select
+                            value={filtro.tipo}
+                            onValueChange={(v: any) => atualizarFiltro(index, { tipo: v })}
+                          >
+                            <SelectTrigger className="w-48">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="categoria">Categoria</SelectItem>
+                              <SelectItem value="com_saldo">Com Saldo</SelectItem>
+                              <SelectItem value="sem_saldo">Sem Saldo</SelectItem>
+                            </SelectContent>
+                          </Select>
+
+                          {filtro.tipo === 'categoria' && (
+                            <Select
+                              value={filtro.categoria || ''}
+                              onValueChange={(v) => atualizarFiltro(index, { categoria: v })}
+                            >
+                              <SelectTrigger className="flex-1">
+                                <SelectValue placeholder="Selecione..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="BLACK">BLACK</SelectItem>
+                                <SelectItem value="PLATINUM">PLATINUM</SelectItem>
+                                <SelectItem value="VIP">VIP</SelectItem>
+                                <SelectItem value="REGULAR">REGULAR</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removerFiltro(index)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {/* Lista de Clientes */}
                 <div className="space-y-2">
                   {clientesFiltrados.map(cs => (
@@ -858,29 +1066,109 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {/* Filtros */}
-                <div className="flex gap-2">
-                  <Button
-                    variant={filtroHistorico === 'todos' ? 'default' : 'outline'}
-                    onClick={() => setFiltroHistorico('todos')}
-                    size="sm"
-                  >
-                    Todos
-                  </Button>
-                  <Button
-                    variant={filtroHistorico === 'ganhou' ? 'default' : 'outline'}
-                    onClick={() => setFiltroHistorico('ganhou')}
-                    size="sm"
-                  >
-                    Ganhou
-                  </Button>
-                  <Button
-                    variant={filtroHistorico === 'resgatou' ? 'default' : 'outline'}
-                    onClick={() => setFiltroHistorico('resgatou')}
-                    size="sm"
-                  >
-                    Resgatou
-                  </Button>
+                {/* Filtros Avançados */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg border">
+                  {/* Filtros de Tipo */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Filter className="h-4 w-4" />
+                      Tipo
+                    </Label>
+                    <div className="flex gap-2">
+                      <Button
+                        variant={filtroHistorico === 'todos' ? 'default' : 'outline'}
+                        onClick={() => setFiltroHistorico('todos')}
+                        size="sm"
+                        className="flex-1"
+                      >
+                        Todos
+                      </Button>
+                      <Button
+                        variant={filtroHistorico === 'ganhou' ? 'default' : 'outline'}
+                        onClick={() => setFiltroHistorico('ganhou')}
+                        size="sm"
+                        className="flex-1"
+                      >
+                        Ganhou
+                      </Button>
+                      <Button
+                        variant={filtroHistorico === 'resgatou' ? 'default' : 'outline'}
+                        onClick={() => setFiltroHistorico('resgatou')}
+                        size="sm"
+                        className="flex-1"
+                      >
+                        Resgatou
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Busca por Cliente */}
+                  <div className="space-y-2">
+                    <Label htmlFor="filter-client" className="text-sm font-medium flex items-center gap-2">
+                      <Search className="h-4 w-4" />
+                      Cliente
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="filter-client"
+                        placeholder="Nome ou CPF..."
+                        value={filterClientSearch}
+                        onChange={(e) => setFilterClientSearch(e.target.value)}
+                        className="pr-8"
+                      />
+                      {filterClientSearch && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-2"
+                          onClick={() => setFilterClientSearch('')}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Data Início */}
+                  <div className="space-y-2">
+                    <Label htmlFor="filter-date-start" className="text-sm font-medium flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Data Início
+                    </Label>
+                    <Input
+                      id="filter-date-start"
+                      type="date"
+                      value={filterDateStart}
+                      onChange={(e) => setFilterDateStart(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Data Fim */}
+                  <div className="space-y-2">
+                    <Label htmlFor="filter-date-end" className="text-sm font-medium flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Data Fim
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="filter-date-end"
+                        type="date"
+                        value={filterDateEnd}
+                        onChange={(e) => setFilterDateEnd(e.target.value)}
+                        className="flex-1"
+                      />
+                      {(filterClientSearch || filterDateStart || filterDateEnd) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={limparFiltros}
+                          className="px-3"
+                        >
+                          Limpar
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Tabela */}
