@@ -23,31 +23,31 @@ SELECT
     s.data_venda,
     s.colaboradora_id,
     s.created_at,
-    to.numero_pedido,
-    to.valor_total as tiny_order_valor,
-    to.data_pedido as tiny_order_data
+    t_order.numero_pedido,
+    t_order.valor_total as tiny_order_valor,
+    t_order.data_pedido as tiny_order_data
 FROM sistemaretiradas.sales s
-LEFT JOIN sistemaretiradas.tiny_orders to ON s.tiny_order_id = to.id
+LEFT JOIN sistemaretiradas.tiny_orders t_order ON s.tiny_order_id = t_order.id
 WHERE s.tiny_order_id IS NOT NULL
 ORDER BY s.created_at DESC
 LIMIT 50;
 
 -- Verificar se há tiny_orders sem venda correspondente
 SELECT 
-    to.id as tiny_order_id,
-    to.numero_pedido,
-    to.valor_total,
-    to.data_pedido,
-    to.colaboradora_id,
+    t_order.id as tiny_order_id,
+    t_order.numero_pedido,
+    t_order.valor_total,
+    t_order.data_pedido,
+    t_order.colaboradora_id,
     CASE 
         WHEN s.id IS NULL THEN 'SEM VENDA'
         ELSE 'TEM VENDA'
     END as status
-FROM sistemaretiradas.tiny_orders to
-LEFT JOIN sistemaretiradas.sales s ON s.tiny_order_id = to.id
-WHERE to.colaboradora_id IS NOT NULL
-  AND to.valor_total > 0
-ORDER BY to.data_pedido DESC
+FROM sistemaretiradas.tiny_orders t_order
+LEFT JOIN sistemaretiradas.sales s ON s.tiny_order_id = t_order.id
+WHERE t_order.colaboradora_id IS NOT NULL
+  AND t_order.valor_total > 0
+ORDER BY t_order.data_pedido DESC
 LIMIT 50;
 
 -- Verificar constraint UNIQUE em tiny_order_id
