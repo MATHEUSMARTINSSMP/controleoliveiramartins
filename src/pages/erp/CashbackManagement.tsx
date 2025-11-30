@@ -370,20 +370,35 @@ export default function CashbackManagement() {
 
       if (transactionsError) throw transactionsError;
 
-      // Buscar pedidos para calcular categoria
-      const { data: ordersData } = await supabase
+      // Buscar TODOS os pedidos para calcular categoria (sem filtro de situação ou loja)
+      // Isso garante que todos os pedidos sejam considerados para o cálculo da categoria
+      const { data: ordersData, error: ordersError } = await supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
-        .select('cliente_id, valor_total');
+        .select('cliente_id, valor_total, situacao');
 
-      // Calcular total de compras por cliente
+      if (ordersError) {
+        console.error('Erro ao buscar pedidos para categoria:', ordersError);
+      }
+
+      // Calcular total de compras por cliente (soma TODOS os pedidos, independente de situação)
       const totalComprasPorCliente = new Map<string, number>();
       ordersData?.forEach((order: any) => {
-        if (order.cliente_id) {
-          const atual = totalComprasPorCliente.get(order.cliente_id) || 0;
-          totalComprasPorCliente.set(order.cliente_id, atual + parseFloat(order.valor_total || 0));
+        if (order.cliente_id && order.valor_total) {
+          const valor = parseFloat(order.valor_total || 0);
+          if (!isNaN(valor) && isFinite(valor)) {
+            const atual = totalComprasPorCliente.get(order.cliente_id) || 0;
+            totalComprasPorCliente.set(order.cliente_id, atual + valor);
+          }
         }
       });
+
+      // Debug: contar quantos clientes BLACK existem
+      const clientesBLACK = Array.from(totalComprasPorCliente.entries())
+        .filter(([_, total]) => total > 10000)
+        .map(([id, total]) => ({ id, total }));
+      console.log(`[CashbackManagement] 📊 Total de pedidos encontrados: ${ordersData?.length || 0}`);
+      console.log(`[CashbackManagement] 📊 Clientes BLACK (>R$ 10K): ${clientesBLACK.length}`, clientesBLACK);
 
       // Função para obter categoria do cliente (do maior para o menor)
       const obterCategoriaCliente = (clienteId: string): string | null => {
@@ -2963,7 +2978,8 @@ export default function CashbackManagement() {
                                       <SelectItem value="aniversario">Aniversário no Mês</SelectItem>
                                       <SelectItem value="tag">Cliente com Tag</SelectItem>
                                       <SelectItem value="todos">Todos os Clientes</SelectItem>
-                                      <SelectItem value="categoria">Comprou Categoria</SelectItem>
+                                      <SelectItem value="categoria">Comprou Categoria de Produto</SelectItem>
+                                      <SelectItem value="categoria_cliente">Categoria de Cliente</SelectItem>
                                       <SelectItem value="produto">Comprou Produto</SelectItem>
                                     </SelectContent>
                                   </Select>
