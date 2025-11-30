@@ -358,12 +358,36 @@ export function BonusTracker() {
                         <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
                                 <h4 className="font-semibold text-sm break-words">{bonus.nome}</h4>
-                                {/* Mostrar prêmio geral apenas se houver um valor definido (não zero) */}
-                                {((bonus.valor_bonus_texto && bonus.valor_bonus_texto.trim()) || (bonus.valor_bonus && bonus.valor_bonus > 0)) && (
-                                    <p className="text-xs text-muted-foreground">
-                                        {bonus.valor_bonus_texto || `R$ ${bonus.valor_bonus.toFixed(2)}`}
-                                    </p>
-                                )}
+                                {/* Verificar se há prêmios por posição */}
+                                {(() => {
+                                    const bonusData = bonus as any;
+                                    const temPremioPorPosicao = 
+                                        (bonusData.valor_bonus_1 && bonusData.valor_bonus_1 > 0) ||
+                                        (bonusData.valor_bonus_2 && bonusData.valor_bonus_2 > 0) ||
+                                        (bonusData.valor_bonus_3 && bonusData.valor_bonus_3 > 0) ||
+                                        (bonusData.valor_bonus_texto_1 && bonusData.valor_bonus_texto_1.trim() !== '') ||
+                                        (bonusData.valor_bonus_texto_2 && bonusData.valor_bonus_texto_2.trim() !== '') ||
+                                        (bonusData.valor_bonus_texto_3 && bonusData.valor_bonus_texto_3.trim() !== '');
+                                    
+                                    // Se tem prêmio por posição mas não tem prêmio geral, não mostrar nada
+                                    if (temPremioPorPosicao && (!bonus.valor_bonus || bonus.valor_bonus === 0) && (!bonus.valor_bonus_texto || bonus.valor_bonus_texto.trim() === '')) {
+                                        return null;
+                                    }
+                                    
+                                    // Mostrar prêmio geral apenas se houver um valor definido (não zero, não null, não undefined)
+                                    if ((bonus.valor_bonus_texto && typeof bonus.valor_bonus_texto === 'string' && bonus.valor_bonus_texto.trim() !== '') || 
+                                        (bonus.valor_bonus && typeof bonus.valor_bonus === 'number' && !isNaN(bonus.valor_bonus) && bonus.valor_bonus > 0)) {
+                                        return (
+                                            <p className="text-xs text-muted-foreground">
+                                                {bonus.valor_bonus_texto && bonus.valor_bonus_texto.trim() !== '' 
+                                                    ? bonus.valor_bonus_texto 
+                                                    : (bonus.valor_bonus && bonus.valor_bonus > 0 ? `R$ ${bonus.valor_bonus.toFixed(2)}` : '')}
+                                            </p>
+                                        );
+                                    }
+                                    
+                                    return null;
+                                })()}
                             </div>
                             <Badge variant={bonus.collaborators.some((c) => c.achieved) ? "default" : "outline"} className="text-xs">
                                 {bonus.tipo_condicao === "PERCENTUAL_META" && bonus.meta_minima_percentual

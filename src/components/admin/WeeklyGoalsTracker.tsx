@@ -111,10 +111,10 @@ export function WeeklyGoalsTracker() {
                 })
             );
 
-            // Filtrar apenas quem tem meta semanal definida e ordenar por progresso
+            // Filtrar apenas quem tem meta semanal definida e ordenar por valor vendido (maior primeiro)
             const withGoals = collaboratorsWithProgress
                 .filter(c => c.metaSemanal > 0)
-                .sort((a, b) => b.progress - a.progress);
+                .sort((a, b) => b.vendidoSemana - a.vendidoSemana);
 
             setCollaborators(withGoals);
         } catch (error) {

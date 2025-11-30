@@ -956,19 +956,136 @@ export default function BonusManagement() {
     };
 
     const handleToggleActive = async (id: string, currentStatus: boolean) => {
-        const { error } = await supabase
-            .schema("sistemaretiradas")
-            .from("bonuses")
-            .update({ ativo: !currentStatus })
-            .eq("id", id);
+        // Se está desativando o bônus (fechando), validar pré-requisitos de todas as colaboradoras
+        if (currentStatus) {
+            try {
+                // Buscar o bônus completo com pré-requisitos
+                const { data: bonusData, error: bonusError } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("bonuses")
+                    .select("*, bonus_collaborators!inner(colaboradora_id, profiles!inner(id, name, store_id))")
+                    .eq("id", id)
+                    .single();
 
-        if (error) {
-            toast.error("Erro ao atualizar status");
-            return;
+                if (bonusError || !bonusData) {
+                    toast.error("Erro ao buscar dados do bônus");
+                    return;
+                }
+
+                // Buscar colaboradoras vinculadas
+                const { data: colabData } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("bonus_collaborators")
+                    .select(`
+                        colaboradora_id,
+                        profiles!inner(id, name, store_id)
+                    `)
+                    .eq("bonus_id", id)
+                    .eq("active", true);
+
+                if (!colabData || colabData.length === 0) {
+                    // Sem colaboradoras, pode desativar normalmente
+                    const { error } = await supabase
+                        .schema("sistemaretiradas")
+                        .from("bonuses")
+                        .update({ ativo: false })
+                        .eq("id", id);
+
+                    if (error) {
+                        toast.error("Erro ao desativar bônus");
+                        return;
+                    }
+
+                    toast.success("Bônus desativado");
+                    fetchBonuses();
+                    return;
+                }
+
+                // Validar pré-requisitos de cada colaboradora
+                const { validateBonusPreRequisitos } = await import("@/lib/bonusValidation");
+                
+                const validacoes = await Promise.all(
+                    colabData.map(async (colab) => {
+                        const validation = await validateBonusPreRequisitos(
+                            (bonusData as any).pre_requisitos,
+                            id,
+                            colab.colaboradora_id,
+                            colab.profiles?.store_id
+                        );
+                        return {
+                            colaboradora: colab.profiles?.name || "Desconhecida",
+                            isValid: validation.isValid,
+                            reason: validation.reason,
+                        };
+                    })
+                );
+
+                // Separar colaboradoras que cumpriram e não cumpriram pré-requisitos
+                const cumpriram = validacoes.filter(v => v.isValid);
+                const naoCumpriram = validacoes.filter(v => !v.isValid);
+
+                // Mostrar resultado detalhado
+                if (naoCumpriram.length > 0) {
+                    const mensagem = `⚠️ ATENÇÃO: ${naoCumpriram.length} colaboradora(s) NÃO cumpriram os pré-requisitos:\n\n` +
+                        naoCumpriram.map(c => `❌ ${c.colaboradora}: ${c.reason || "Pré-requisito não atendido"}`).join("\n") +
+                        (cumpriram.length > 0 ? `\n\n✅ ${cumpriram.length} colaboradora(s) cumpriram os pré-requisitos.` : "");
+
+                    // Confirmar se deseja desativar mesmo assim
+                    const confirmar = window.confirm(
+                        mensagem + "\n\nDeseja desativar o bônus mesmo assim?"
+                    );
+
+                    if (!confirmar) {
+                        return; // Cancelar desativação
+                    }
+                } else {
+                    // Todas cumpriram
+                    toast.success(`✅ Todas as ${validacoes.length} colaboradoras cumpriram os pré-requisitos!`);
+                }
+
+                // Desativar o bônus
+                const { error } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("bonuses")
+                    .update({ ativo: false })
+                    .eq("id", id);
+
+                if (error) {
+                    toast.error("Erro ao desativar bônus");
+                    return;
+                }
+
+                // Mostrar resumo final
+                if (naoCumpriram.length > 0) {
+                    toast.warning(
+                        `Bônus desativado. ${naoCumpriram.length} colaboradora(s) não cumpriram pré-requisitos.`,
+                        { duration: 5000 }
+                    );
+                } else {
+                    toast.success("Bônus desativado com sucesso!");
+                }
+
+                fetchBonuses();
+            } catch (error: any) {
+                console.error("Erro ao validar pré-requisitos:", error);
+                toast.error("Erro ao validar pré-requisitos: " + (error.message || "Erro desconhecido"));
+            }
+        } else {
+            // Ativando o bônus (não precisa validar)
+            const { error } = await supabase
+                .schema("sistemaretiradas")
+                .from("bonuses")
+                .update({ ativo: true })
+                .eq("id", id);
+
+            if (error) {
+                toast.error("Erro ao ativar bônus");
+                return;
+            }
+
+            toast.success("Bônus ativado");
+            fetchBonuses();
         }
-
-        toast.success(currentStatus ? "Bônus desativado" : "Bônus ativado");
-        fetchBonuses();
     };
 
     const resetForm = () => {
