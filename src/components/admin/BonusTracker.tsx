@@ -413,6 +413,8 @@ export function BonusTracker() {
                                                     </div>
                                                     
                                                     {/* Barra de progresso APENAS para faturamento/meta (não para indicadores) */}
+                                                    {/* REMOVIDO: Para indicadores (ticket médio, PA, peças), não faz sentido mostrar barra de progresso */}
+                                                    {/* Indicadores são números absolutos, não progresso em relação a uma meta */}
                                                     {!isIndicador && (
                                                         <div className="mt-2">
                                                             <Progress 
