@@ -1354,7 +1354,32 @@ export default function LojaDashboard() {
             console.error('[LojaDashboard] Erro ao carregar vendas:', error);
             toast.error('Erro ao carregar vendas');
         } else {
-            setSales(data || []);
+            // Remover duplicatas usando Map (chave: sale.id)
+            const uniqueSalesMap = new Map<string, typeof data[0]>();
+            (data || []).forEach((sale) => {
+                if (!uniqueSalesMap.has(sale.id)) {
+                    uniqueSalesMap.set(sale.id, sale);
+                }
+            });
+            
+            const uniqueSales = Array.from(uniqueSalesMap.values());
+            
+            // Ordenar vendas: primeiro por data_venda (desc), depois por created_at (desc) para ordem consistente
+            const sortedSales = uniqueSales.sort((a, b) => {
+                const dateA = new Date(a.data_venda).getTime();
+                const dateB = new Date(b.data_venda).getTime();
+                
+                if (dateB !== dateA) {
+                    return dateB - dateA; // Mais recente primeiro
+                }
+                
+                // Se as datas forem iguais, ordenar por created_at (mais recente primeiro)
+                const createdA = new Date(a.created_at || 0).getTime();
+                const createdB = new Date(b.created_at || 0).getTime();
+                return createdB - createdA;
+            });
+            
+            setSales(sortedSales);
         }
     };
 
@@ -3085,7 +3110,7 @@ export default function LojaDashboard() {
                             <TableBody>
                                 {sales.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center text-muted-foreground text-xs sm:text-sm py-6">
+                                        <TableCell colSpan={6} className="text-center text-muted-foreground text-xs sm:text-sm py-6">
                                             {salesDateFilter === format(new Date(), 'yyyy-MM-dd') 
                                                 ? 'Nenhuma venda lançada hoje'
                                                 : `Nenhuma venda encontrada para ${format(new Date(salesDateFilter), 'dd/MM/yyyy')}`
