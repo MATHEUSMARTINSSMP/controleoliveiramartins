@@ -876,6 +876,31 @@ exports.handler = async (event, context) => {
 
     console.log(`[SyncBackground] ✅ Sincronização concluída: ${synced} novos, ${updated} atualizados, ${errors} erros`);
 
+    // ✅ NOVA FUNCIONALIDADE: Criar vendas automaticamente a partir dos pedidos sincronizados
+    console.log(`[SyncBackground] 🔄 Criando vendas automaticamente a partir dos pedidos do Tiny...`);
+    try {
+      const { data: vendasResult, error: vendasError } = await supabase
+        .schema('sistemaretiradas')
+        .rpc('criar_vendas_de_tiny_orders', {
+          p_store_id: storeId || null,
+          p_data_inicio: null // Processar todos os pedidos (ou usar data_inicio se fornecido)
+        });
+
+      if (vendasError) {
+        console.error(`[SyncBackground] ❌ Erro ao criar vendas:`, vendasError);
+      } else if (vendasResult && vendasResult.length > 0) {
+        const result = vendasResult[0];
+        console.log(`[SyncBackground] ✅ Vendas criadas: ${result.vendas_criadas} novas, ${result.vendas_atualizadas} atualizadas, ${result.erros} erros`);
+        
+        if (result.erros > 0) {
+          console.warn(`[SyncBackground] ⚠️ Alguns pedidos tiveram erro ao criar venda. Verifique os detalhes.`);
+        }
+      }
+    } catch (vendasException) {
+      console.error(`[SyncBackground] ❌ Exceção ao criar vendas (não bloqueia sincronização):`, vendasException);
+      // Não falhar a sincronização se a criação de vendas falhar
+    }
+
     return {
       statusCode: 200,
       headers,
@@ -2356,6 +2381,17 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
       .lte('data_pedido', `${hojeStr}T23:59:59`);
 
     const totalDia = vendasHoje?.reduce((sum, v) => sum + (parseFloat(v.valor_total) || 0), 0) || 0;
+    
+    // ✅ IMPORTANTE: Adicionar a venda atual ao total do dia (se for de hoje)
+    const valorVendaAtual = parseFloat(orderData.valor_total) || 0;
+    const dataPedido = orderData.data_pedido ? new Date(orderData.data_pedido).toISOString().split('T')[0] : null;
+    let totalDiaComVendaAtual = totalDia;
+    if (dataPedido === hojeStr) {
+      totalDiaComVendaAtual = totalDia + valorVendaAtual;
+      console.log(`[SyncBackground] 📊 Total do dia ANTES da venda atual: ${totalDia.toFixed(2)}`);
+      console.log(`[SyncBackground] 📊 Valor da venda atual: ${valorVendaAtual.toFixed(2)}`);
+      console.log(`[SyncBackground] 📊 Total do dia COM venda atual: ${totalDiaComVendaAtual.toFixed(2)}`);
+    }
 
     const mesAtual = new Date().toISOString().slice(0, 7).replace('-', '');
     const { data: vendasMes } = await supabase
@@ -2367,6 +2403,17 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
       .lte('data_pedido', `${mesAtual}-31T23:59:59`);
 
     const totalMes = vendasMes?.reduce((sum, v) => sum + (parseFloat(v.valor_total) || 0), 0) || 0;
+    
+    // ✅ IMPORTANTE: Adicionar a venda atual ao total do mês
+    // Verificar se a venda é do mês atual
+    const mesPedido = dataPedido ? dataPedido.slice(0, 7).replace('-', '') : null;
+    let totalMesComVendaAtual = totalMes;
+    if (mesPedido === mesAtual) {
+      totalMesComVendaAtual = totalMes + valorVendaAtual;
+      console.log(`[SyncBackground] 📊 Total do mês ANTES da venda atual: ${totalMes.toFixed(2)}`);
+      console.log(`[SyncBackground] 📊 Valor da venda atual: ${valorVendaAtual.toFixed(2)}`);
+      console.log(`[SyncBackground] 📊 Total do mês COM venda atual: ${totalMesComVendaAtual.toFixed(2)}`);
+    }
 
     // 5. Formatar produtos para observações
     // ✅ CRÍTICO: Usar itens ORIGINAIS do pedido completo (não processados) para pegar descrição limpa
@@ -2555,19 +2602,21 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     
     message += `*Data:* ${dataFormatada}\n`;
     
-    if (totalDia > 0) {
+    // ✅ Usar total do dia COM a venda atual incluída
+    if (totalDiaComVendaAtual > 0) {
       const totalDiaFormatado = new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: 'BRL',
-      }).format(totalDia);
+      }).format(totalDiaComVendaAtual);
       message += `*Total Vendido (Hoje):* ${totalDiaFormatado}\n`;
     }
     
-    if (totalMes > 0) {
+    // ✅ Usar total do mês COM a venda atual incluída
+    if (totalMesComVendaAtual > 0) {
       const totalMesFormatado = new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: 'BRL',
-      }).format(totalMes);
+      }).format(totalMesComVendaAtual);
       message += `*Total Mês:* ${totalMesFormatado}\n`;
     }
     

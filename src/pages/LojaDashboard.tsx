@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award, Download, FileSpreadsheet, FileText } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award, Download, FileSpreadsheet, FileText, Database, ChevronDown, ChevronRight } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -25,6 +26,7 @@ import { sendWhatsAppMessage, formatVendaMessage } from "@/lib/whatsapp";
 import { checkAndCreateMonthlyTrophies, checkAndCreateWeeklyTrophies } from "@/lib/trophies";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CashbackLojaView from "@/components/loja/CashbackLojaView";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface Sale {
     id: string;
@@ -33,6 +35,7 @@ interface Sale {
     qtd_pecas: number;
     data_venda: string;
     observacoes: string | null;
+    tiny_order_id: string | null;
     colaboradora: {
         name: string;
     };
@@ -1749,6 +1752,7 @@ export default function LojaDashboard() {
                             // Buscar total do dia (todas as vendas do dia da loja) - AGORA incluindo a venda recém-salva
                             const hoje = new Date();
                             const hojeStr = format(hoje, 'yyyy-MM-dd');
+                            const valorVendaAtual = parseFloat(vendaData.valor) || 0;
                             
                             const { data: vendasHoje, error: vendasHojeError } = await supabase
                                 .schema('sistemaretiradas')
@@ -1758,16 +1762,15 @@ export default function LojaDashboard() {
                                 .gte('data_venda', `${hojeStr}T00:00:00`)
                                 .lte('data_venda', `${hojeStr}T23:59:59`);
                             
+                            // ✅ IMPORTANTE: Calcular total do dia e ADICIONAR a venda atual sempre
                             let totalDia = 0;
                             if (!vendasHojeError && vendasHoje) {
                                 totalDia = vendasHoje.reduce((sum: number, v: any) => sum + parseFloat(v.valor || 0), 0);
-                            } else {
-                                // Fallback: se houver erro, adicionar manualmente o valor da venda atual
-                                console.warn('📱 [4/4] Erro ao buscar vendas do dia, usando fallback');
-                                totalDia = parseFloat(vendaData.valor) || 0;
                             }
+                            // ✅ SEMPRE adicionar a venda atual ao total do dia (pode não estar na query ainda)
+                            totalDia = totalDia + valorVendaAtual;
                             
-                            // ✅ CORREÇÃO: Recalcular total do mês também, incluindo a venda recém-salva
+                            // ✅ CORREÇÃO: Recalcular total do mês também, SEMPRE incluindo a venda recém-salva
                             const mesAtual = new Date().toISOString().slice(0, 7).replace('-', '');
                             const { data: vendasMes, error: vendasMesError } = await supabase
                                 .schema('sistemaretiradas')
@@ -1777,17 +1780,22 @@ export default function LojaDashboard() {
                                 .gte('data_venda', `${mesAtual}-01T00:00:00`)
                                 .lte('data_venda', `${mesAtual}-31T23:59:59`);
                             
-                            let totalMesAtualizado = monthlyRealizado;
+                            // ✅ IMPORTANTE: Calcular total do mês e ADICIONAR a venda atual sempre
+                            let totalMesAtualizado = 0;
                             if (!vendasMesError && vendasMes) {
                                 totalMesAtualizado = vendasMes.reduce((sum: number, v: any) => sum + parseFloat(v.valor || 0), 0);
                             } else {
-                                // Fallback: se houver erro, adicionar manualmente o valor da venda atual ao total do mês
-                                console.warn('📱 [4/4] Erro ao buscar vendas do mês, usando fallback');
-                                totalMesAtualizado = (monthlyRealizado || 0) + (parseFloat(vendaData.valor) || 0);
+                                // Se houver erro, usar monthlyRealizado como base
+                                totalMesAtualizado = monthlyRealizado || 0;
                             }
+                            // ✅ SEMPRE adicionar a venda atual ao total do mês (pode não estar na query ainda)
+                            totalMesAtualizado = totalMesAtualizado + valorVendaAtual;
                             
-                            console.log('📱 [4/4] Total do dia (atualizado):', totalDia);
-                            console.log('📱 [4/4] Total do mês (atualizado):', totalMesAtualizado);
+                            console.log('📱 [4/4] Total do dia ANTES da venda atual:', (totalDia - valorVendaAtual).toFixed(2));
+                            console.log('📱 [4/4] Valor da venda atual:', valorVendaAtual.toFixed(2));
+                            console.log('📱 [4/4] Total do dia COM venda atual:', totalDia.toFixed(2));
+                            console.log('📱 [4/4] Total do mês ANTES da venda atual:', (totalMesAtualizado - valorVendaAtual).toFixed(2));
+                            console.log('📱 [4/4] Total do mês COM venda atual:', totalMesAtualizado.toFixed(2));
                             
                             console.log('📱 [4/4] Formatando mensagem...');
                             const message = formatVendaMessage({
@@ -1935,6 +1943,44 @@ export default function LojaDashboard() {
     };
 
     const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
+    const [expandedSales, setExpandedSales] = useState<Set<string>>(new Set());
+    const [erpSaleDetails, setErpSaleDetails] = useState<Record<string, any>>({});
+
+    const toggleSaleExpansion = async (saleId: string, tinyOrderId: string | null) => {
+        if (!tinyOrderId) return;
+        
+        const isExpanded = expandedSales.has(saleId);
+        const newExpanded = new Set(expandedSales);
+        
+        if (isExpanded) {
+            newExpanded.delete(saleId);
+        } else {
+            newExpanded.add(saleId);
+            
+            // Buscar detalhes se ainda não foram carregados
+            if (!erpSaleDetails[saleId]) {
+                try {
+                    const { data, error } = await supabase
+                        .schema("sistemaretiradas")
+                        .from('tiny_orders')
+                        .select('cliente_nome, itens, forma_pagamento')
+                        .eq('id', tinyOrderId)
+                        .single();
+                    
+                    if (!error && data) {
+                        setErpSaleDetails(prev => ({
+                            ...prev,
+                            [saleId]: data
+                        }));
+                    }
+                } catch (error) {
+                    console.error('Erro ao buscar detalhes do ERP:', error);
+                }
+            }
+        }
+        
+        setExpandedSales(newExpanded);
+    };
 
     const handleEdit = (sale: Sale) => {
         setFormData({
@@ -1956,6 +2002,20 @@ export default function LojaDashboard() {
             return;
         }
 
+        // Buscar a venda para verificar se tem tiny_order_id
+        const { data: sale, error: saleError } = await supabase
+            .schema("sistemaretiradas")
+            .from('sales')
+            .select('id, tiny_order_id')
+            .eq('id', editingSaleId!)
+            .single();
+
+        if (saleError) {
+            toast.error('Erro ao buscar venda');
+            console.error(saleError);
+            return;
+        }
+
         // Preparar observações com formas de pagamento
         let observacoesFinal = formData.observacoes || '';
         const formasPagamentoTexto = formasPagamento.map(f => {
@@ -1972,22 +2032,50 @@ export default function LojaDashboard() {
             observacoesFinal = `Formas de Pagamento: ${formasPagamentoTexto}`;
         }
 
-        const { error } = await supabase
-          .from('sales')
-          .update({
-            colaboradora_id: formData.colaboradora_id,
-            valor: parseFloat(formData.valor),
-            qtd_pecas: parseInt(formData.qtd_pecas),
-            data_venda: formData.data_venda,
-            observacoes: observacoesFinal || null,
-          })
-          .eq('id', editingSaleId!);
+        try {
+            // Atualizar a venda
+            const { error } = await supabase
+                .schema("sistemaretiradas")
+                .from('sales')
+                .update({
+                    colaboradora_id: formData.colaboradora_id,
+                    valor: parseFloat(formData.valor),
+                    qtd_pecas: parseInt(formData.qtd_pecas),
+                    data_venda: formData.data_venda,
+                    observacoes: observacoesFinal || null,
+                })
+                .eq('id', editingSaleId!);
 
-        if (error) {
-            toast.error('Erro ao atualizar venda');
-            console.error(error);
-        } else {
-            toast.success('Venda atualizada com sucesso!');
+            if (error) {
+                toast.error('Erro ao atualizar venda');
+                console.error(error);
+                return;
+            }
+
+            // Se for venda do ERP, atualizar também o tiny_orders
+            if (sale.tiny_order_id) {
+                const { error: orderError } = await supabase
+                    .schema("sistemaretiradas")
+                    .from('tiny_orders')
+                    .update({
+                        colaboradora_id: formData.colaboradora_id,
+                        valor_total: parseFloat(formData.valor),
+                        data_pedido: formData.data_venda,
+                        observacoes: observacoesFinal || null,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', sale.tiny_order_id);
+
+                if (orderError) {
+                    console.error('Erro ao atualizar pedido do Tiny:', orderError);
+                    toast.warning('Venda atualizada, mas houve erro ao atualizar pedido do Tiny');
+                } else {
+                    toast.success('Venda e pedido do ERP atualizados com sucesso!');
+                }
+            } else {
+                toast.success('Venda atualizada com sucesso!');
+            }
+
             setDialogOpen(false);
             resetForm();
             
@@ -2016,23 +2104,67 @@ export default function LojaDashboard() {
                 fetch7DayHistoryWithStoreId(storeId!),
                 fetchMonthlyDataByDayWithStoreId(storeId!)
             ]);
+        } catch (error: any) {
+            toast.error('Erro ao atualizar venda: ' + error.message);
+            console.error(error);
         }
     };
 
     const handleDelete = async (saleId: string) => {
-        if (!confirm('Tem certeza que deseja deletar esta venda?')) return;
-
-        const { error } = await supabase
+        // Buscar a venda para verificar se tem tiny_order_id
+        const { data: sale, error: saleError } = await supabase
+            .schema("sistemaretiradas")
             .from('sales')
-            .delete()
-            .eq('id', saleId);
+            .select('id, tiny_order_id')
+            .eq('id', saleId)
+            .single();
 
-        if (error) {
-            toast.error('Erro ao deletar venda');
+        if (saleError) {
+            toast.error('Erro ao buscar venda');
+            console.error(saleError);
+            return;
+        }
+
+        const isVendaERP = sale.tiny_order_id !== null;
+        const confirmMessage = isVendaERP 
+            ? 'Tem certeza que deseja deletar esta venda do ERP? Isso excluirá a venda e o pedido do Tiny.'
+            : 'Tem certeza que deseja deletar esta venda?';
+
+        if (!confirm(confirmMessage)) return;
+
+        try {
+            // Se for venda do ERP, excluir também do tiny_orders
+            if (isVendaERP && sale.tiny_order_id) {
+                const { error: orderError } = await supabase
+                    .schema("sistemaretiradas")
+                    .from('tiny_orders')
+                    .delete()
+                    .eq('id', sale.tiny_order_id);
+
+                if (orderError) {
+                    console.error('Erro ao excluir pedido do Tiny:', orderError);
+                    toast.error('Erro ao excluir pedido do Tiny');
+                    return;
+                }
+            }
+
+            // Excluir a venda
+            const { error } = await supabase
+                .schema("sistemaretiradas")
+                .from('sales')
+                .delete()
+                .eq('id', saleId);
+
+            if (error) {
+                toast.error('Erro ao deletar venda');
+                console.error(error);
+            } else {
+                toast.success(isVendaERP ? 'Venda e pedido do ERP excluídos com sucesso!' : 'Venda excluída com sucesso!');
+                await fetchData();
+            }
+        } catch (error: any) {
+            toast.error('Erro ao deletar: ' + error.message);
             console.error(error);
-        } else {
-            toast.success('Venda excluída com sucesso!');
-            await fetchData();
         }
     };
 
@@ -2961,32 +3093,105 @@ export default function LojaDashboard() {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    sales.map((sale) => (
-                                        <TableRow key={sale.id}>
-                                            <TableCell className="text-xs sm:text-sm">
-                                                {salesDateFilter === format(new Date(), 'yyyy-MM-dd')
-                                                    ? format(new Date(sale.data_venda), 'HH:mm')
-                                                    : format(new Date(sale.data_venda), 'dd/MM/yyyy HH:mm')
-                                                }
-                                            </TableCell>
-                                            <TableCell className="text-xs sm:text-sm font-medium break-words">
-                                                {sale.colaboradora?.name || 'Colaboradora não encontrada'}
-                                            </TableCell>
-                                            <TableCell className="text-xs sm:text-sm font-medium">R$ {sale.valor.toFixed(2)}</TableCell>
-                                            <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{sale.qtd_pecas}</TableCell>
-                                            <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {sale.valor.toFixed(2)}</TableCell>
-                                            <TableCell>
-                                                <div className="flex gap-1 sm:gap-2">
-                                                    <Button variant="ghost" size="sm" onClick={() => handleEdit(sale)} className="h-8 w-8 p-0">
-                                                        <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="sm" className="text-destructive h-8 w-8 p-0" onClick={() => handleDelete(sale.id)}>
-                                                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                                                    </Button>
-                                            </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
+                                    sales.map((sale) => {
+                                        const isExpanded = expandedSales.has(sale.id);
+                                        const details = erpSaleDetails[sale.id];
+                                        const isErpSale = !!sale.tiny_order_id;
+                                        
+                                        return (
+                                            <Collapsible
+                                                key={sale.id}
+                                                open={isExpanded}
+                                                onOpenChange={() => toggleSaleExpansion(sale.id, sale.tiny_order_id)}
+                                            >
+                                                <TableRow>
+                                                    <TableCell className="text-xs sm:text-sm">
+                                                        <div className="flex items-center gap-1">
+                                                            {isErpSale && (
+                                                                <CollapsibleTrigger asChild>
+                                                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 -ml-1">
+                                                                        {isExpanded ? (
+                                                                            <ChevronDown className="h-3 w-3" />
+                                                                        ) : (
+                                                                            <ChevronRight className="h-3 w-3" />
+                                                                        )}
+                                                                    </Button>
+                                                                </CollapsibleTrigger>
+                                                            )}
+                                                            <span>
+                                                                {salesDateFilter === format(new Date(), 'yyyy-MM-dd')
+                                                                    ? format(new Date(sale.data_venda), 'HH:mm')
+                                                                    : format(new Date(sale.data_venda), 'dd/MM/yyyy HH:mm')
+                                                                }
+                                                            </span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-xs sm:text-sm font-medium break-words">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span>{sale.colaboradora?.name || 'Colaboradora não encontrada'}</span>
+                                                            {isErpSale && (
+                                                                <Badge variant="outline" className="text-xs flex items-center gap-1">
+                                                                    <Database className="h-3 w-3" />
+                                                                    via ERP
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-xs sm:text-sm font-medium">R$ {sale.valor.toFixed(2)}</TableCell>
+                                                    <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{sale.qtd_pecas}</TableCell>
+                                                    <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {sale.valor.toFixed(2)}</TableCell>
+                                                    <TableCell>
+                                                        <div className="flex gap-1 sm:gap-2">
+                                                            <Button variant="ghost" size="sm" onClick={() => handleEdit(sale)} className="h-8 w-8 p-0">
+                                                                <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="sm" className="text-destructive h-8 w-8 p-0" onClick={() => handleDelete(sale.id)}>
+                                                                <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                                {isErpSale && (
+                                                    <CollapsibleContent asChild>
+                                                        <TableRow>
+                                                            <TableCell colSpan={6} className="bg-muted/50">
+                                                                <div className="space-y-2 py-2">
+                                                                    {details ? (
+                                                                        <>
+                                                                            {details.cliente_nome && (
+                                                                                <div className="text-xs">
+                                                                                    <span className="font-medium">Cliente:</span> {details.cliente_nome}
+                                                                                </div>
+                                                                            )}
+                                                                            {details.forma_pagamento && (
+                                                                                <div className="text-xs">
+                                                                                    <span className="font-medium">Forma de Pagamento:</span> {details.forma_pagamento}
+                                                                                </div>
+                                                                            )}
+                                                                            {details.itens && Array.isArray(details.itens) && details.itens.length > 0 && (
+                                                                                <div className="text-xs">
+                                                                                    <span className="font-medium">Peças:</span>
+                                                                                    <ul className="list-disc list-inside mt-1 space-y-1">
+                                                                                        {details.itens.map((item: any, idx: number) => (
+                                                                                            <li key={idx}>
+                                                                                                {item.quantidade || 1}x {item.descricao || item.nome || item.produto?.descricao || 'Produto sem descrição'}
+                                                                                            </li>
+                                                                                        ))}
+                                                                                    </ul>
+                                                                                </div>
+                                                                            )}
+                                                                        </>
+                                                                    ) : (
+                                                                        <div className="text-xs text-muted-foreground">Carregando detalhes...</div>
+                                                                    )}
+                                                                </div>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    </CollapsibleContent>
+                                                )}
+                                            </Collapsible>
+                                        );
+                                    })
                                 )}
                             </TableBody>
                         </Table>
@@ -3942,32 +4147,105 @@ export default function LojaDashboard() {
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        sales.map((sale) => (
-                                            <TableRow key={sale.id}>
-                                                <TableCell className="text-xs sm:text-sm">
-                                                    {salesDateFilter === format(new Date(), 'yyyy-MM-dd')
-                                                        ? format(new Date(sale.data_venda), 'HH:mm')
-                                                        : format(new Date(sale.data_venda), 'dd/MM/yyyy HH:mm')
-                                                    }
-                                                </TableCell>
-                                                <TableCell className="text-xs sm:text-sm font-medium break-words">
-                                                    {sale.colaboradora?.name || 'Colaboradora não encontrada'}
-                                                </TableCell>
-                                                <TableCell className="text-xs sm:text-sm font-medium">R$ {sale.valor.toFixed(2)}</TableCell>
-                                                <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{sale.qtd_pecas}</TableCell>
-                                                <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {sale.valor.toFixed(2)}</TableCell>
-                                                <TableCell>
-                                                    <div className="flex gap-1 sm:gap-2">
-                                                        <Button variant="ghost" size="sm" onClick={() => handleEdit(sale)} className="h-8 w-8 p-0">
-                                                            <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
-                                                        </Button>
-                                                        <Button variant="ghost" size="sm" className="text-destructive h-8 w-8 p-0" onClick={() => handleDelete(sale.id)}>
-                                                            <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
+                                        sales.map((sale) => {
+                                            const isExpanded = expandedSales.has(sale.id);
+                                            const details = erpSaleDetails[sale.id];
+                                            const isErpSale = !!sale.tiny_order_id;
+                                            
+                                            return (
+                                                <Collapsible
+                                                    key={sale.id}
+                                                    open={isExpanded}
+                                                    onOpenChange={() => toggleSaleExpansion(sale.id, sale.tiny_order_id)}
+                                                >
+                                                    <TableRow>
+                                                        <TableCell className="text-xs sm:text-sm">
+                                                            <div className="flex items-center gap-1">
+                                                                {isErpSale && (
+                                                                    <CollapsibleTrigger asChild>
+                                                                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 -ml-1">
+                                                                            {isExpanded ? (
+                                                                                <ChevronDown className="h-3 w-3" />
+                                                                            ) : (
+                                                                                <ChevronRight className="h-3 w-3" />
+                                                                            )}
+                                                                        </Button>
+                                                                    </CollapsibleTrigger>
+                                                                )}
+                                                                <span>
+                                                                    {salesDateFilter === format(new Date(), 'yyyy-MM-dd')
+                                                                        ? format(new Date(sale.data_venda), 'HH:mm')
+                                                                        : format(new Date(sale.data_venda), 'dd/MM/yyyy HH:mm')
+                                                                    }
+                                                                </span>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-xs sm:text-sm font-medium break-words">
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span>{sale.colaboradora?.name || 'Colaboradora não encontrada'}</span>
+                                                                {isErpSale && (
+                                                                    <Badge variant="outline" className="text-xs flex items-center gap-1">
+                                                                        <Database className="h-3 w-3" />
+                                                                        via ERP
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-xs sm:text-sm font-medium">R$ {sale.valor.toFixed(2)}</TableCell>
+                                                        <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{sale.qtd_pecas}</TableCell>
+                                                        <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {sale.valor.toFixed(2)}</TableCell>
+                                                        <TableCell>
+                                                            <div className="flex gap-1 sm:gap-2">
+                                                                <Button variant="ghost" size="sm" onClick={() => handleEdit(sale)} className="h-8 w-8 p-0">
+                                                                    <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
+                                                                </Button>
+                                                                <Button variant="ghost" size="sm" className="text-destructive h-8 w-8 p-0" onClick={() => handleDelete(sale.id)}>
+                                                                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                    {isErpSale && (
+                                                        <CollapsibleContent asChild>
+                                                            <TableRow>
+                                                                <TableCell colSpan={6} className="bg-muted/50">
+                                                                    <div className="space-y-2 py-2">
+                                                                        {details ? (
+                                                                            <>
+                                                                                {details.cliente_nome && (
+                                                                                    <div className="text-xs">
+                                                                                        <span className="font-medium">Cliente:</span> {details.cliente_nome}
+                                                                                    </div>
+                                                                                )}
+                                                                                {details.forma_pagamento && (
+                                                                                    <div className="text-xs">
+                                                                                        <span className="font-medium">Forma de Pagamento:</span> {details.forma_pagamento}
+                                                                                    </div>
+                                                                                )}
+                                                                                {details.itens && Array.isArray(details.itens) && details.itens.length > 0 && (
+                                                                                    <div className="text-xs">
+                                                                                        <span className="font-medium">Peças:</span>
+                                                                                        <ul className="list-disc list-inside mt-1 space-y-1">
+                                                                                            {details.itens.map((item: any, idx: number) => (
+                                                                                                <li key={idx}>
+                                                                                                    {item.quantidade || 1}x {item.descricao || item.nome || item.produto?.descricao || 'Produto sem descrição'}
+                                                                                                </li>
+                                                                                            ))}
+                                                                                        </ul>
+                                                                                    </div>
+                                                                                )}
+                                                                            </>
+                                                                        ) : (
+                                                                            <div className="text-xs text-muted-foreground">Carregando detalhes...</div>
+                                                                        )}
+                                                                    </div>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        </CollapsibleContent>
+                                                    )}
+                                                </Collapsible>
+                                            );
+                                        })
                                     )}
                                 </TableBody>
                             </Table>
