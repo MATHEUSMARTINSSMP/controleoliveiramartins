@@ -337,18 +337,36 @@ export default function CashbackManagement() {
   const fetchCategoriasProdutos = async () => {
     try {
       setLoadingCategorias(true);
+      // Buscar itens dos últimos 1000 pedidos para extrair categorias
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
-        .select('categoria')
-        .not('categoria', 'is', null)
-        .neq('categoria', '');
+        .select('itens')
+        .order('created_at', { ascending: false })
+        .limit(1000);
 
       if (error) throw error;
 
+      const categoriasSet = new Set<string>();
+
+      data?.forEach((order: any) => {
+        try {
+          const itens = typeof order.itens === 'string' ? JSON.parse(order.itens) : order.itens || [];
+          if (Array.isArray(itens)) {
+            itens.forEach((item: any) => {
+              if (item.categoria && typeof item.categoria === 'string' && item.categoria.trim() !== '') {
+                categoriasSet.add(item.categoria.trim());
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('Erro ao processar itens do pedido:', e);
+        }
+      });
+
       // Extrair categorias únicas
-      const categoriasUnicas = Array.from(new Set(data.map((item: any) => item.categoria))).sort();
-      setCategoriasProdutos(categoriasUnicas as string[]);
+      const categoriasUnicas = Array.from(categoriasSet).sort();
+      setCategoriasProdutos(categoriasUnicas);
     } catch (error) {
       console.error('Erro ao buscar categorias:', error);
       toast.error('Erro ao carregar categorias de produtos');
