@@ -83,10 +83,24 @@ WHERE c.store_id = v.store_id
          SPLIT_PART(LOWER(REGEXP_REPLACE(v.vendedor_nome, '[^a-z ]', '', 'g')), ' ', 1)
   )
 ORDER BY 
-    CASE confianca_match
-        WHEN '✅ MATCH EXATO - Alta Confiança' THEN 1
-        WHEN '⚠️ MATCH PARCIAL - Verificar Manualmente' THEN 2
-        WHEN '⚠️ PRIMEIRO NOME IGUAL - Verificar' THEN 3
+    CASE 
+        -- Nome exato (normalizado)
+        WHEN LOWER(REGEXP_REPLACE(c.nome_colaboradora, '[^a-z ]', '', 'g')) = 
+             LOWER(REGEXP_REPLACE(v.vendedor_nome, '[^a-z ]', '', 'g')) 
+        THEN 1
+        
+        -- Nome contém o outro
+        WHEN LOWER(REGEXP_REPLACE(c.nome_colaboradora, '[^a-z ]', '', 'g')) LIKE 
+             '%' || LOWER(REGEXP_REPLACE(v.vendedor_nome, '[^a-z ]', '', 'g')) || '%'
+          OR LOWER(REGEXP_REPLACE(v.vendedor_nome, '[^a-z ]', '', 'g')) LIKE 
+             '%' || LOWER(REGEXP_REPLACE(c.nome_colaboradora, '[^a-z ]', '', 'g')) || '%'
+        THEN 2
+        
+        -- Primeiro nome igual
+        WHEN SPLIT_PART(LOWER(REGEXP_REPLACE(c.nome_colaboradora, '[^a-z ]', '', 'g')), ' ', 1) = 
+             SPLIT_PART(LOWER(REGEXP_REPLACE(v.vendedor_nome, '[^a-z ]', '', 'g')), ' ', 1)
+        THEN 3
+        
         ELSE 4
     END,
     v.total_pedidos DESC;
