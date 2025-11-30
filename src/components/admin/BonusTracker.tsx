@@ -280,80 +280,85 @@ export function BonusTracker() {
                                             ? ((sorted[0] as any).rankingValue !== undefined ? (sorted[0] as any).rankingValue : sorted[0].progress)
                                             : 100;
 
+                                        // Verificar se é um indicador (não faturamento/meta)
+                                        const tipoCondicao = (bonus.tipo_condicao || "").toUpperCase().trim();
+                                        const isIndicador = tipoCondicao === "TICKET_MEDIO" || 
+                                                          tipoCondicao === "TICKET MÉDIO" || 
+                                                          tipoCondicao === "PA" || 
+                                                          tipoCondicao === "NUMERO_PECAS" || 
+                                                          tipoCondicao === "NUMERO DE PEÇAS";
+                                        
                                         return sorted.map((colab, index) => {
                                             const position = index + 1;
                                             const rankingValue = (colab as any).rankingValue !== undefined ? (colab as any).rankingValue : colab.progress;
+                                            const colabData = colab as any;
                                             
-                                            // Calcular progresso relativo ao primeiro colocado (para a barra)
+                                            // Calcular progresso relativo ao primeiro colocado (apenas para faturamento/meta)
                                             const relativeProgress = maxValue > 0 ? (rankingValue / maxValue) * 100 : 0;
 
                                             // Ícone de medalha baseado na posição
                                             const getMedalIcon = () => {
-                                                if (position === 1) return <Trophy className="h-4 w-4 text-yellow-500" />;
-                                                if (position === 2) return <Medal className="h-4 w-4 text-gray-400" />;
-                                                if (position === 3) return <Medal className="h-4 w-4 text-amber-600" />;
-                                                return <span className="text-xs font-bold text-muted-foreground w-4 text-center">{position}º</span>;
+                                                if (position === 1) return <Trophy className="h-5 w-5 text-yellow-500" />;
+                                                if (position === 2) return <Medal className="h-5 w-5 text-gray-400" />;
+                                                if (position === 3) return <Medal className="h-5 w-5 text-amber-600" />;
+                                                return <span className="text-xs font-bold text-muted-foreground w-5 text-center">{position}º</span>;
                                             };
 
                                             // Valor formatado baseado no tipo_condicao
                                             const getFormattedValue = () => {
-                                                // Acessar valores diretamente do objeto colab
-                                                const colabData = colab as any;
-                                                
-                                                // Normalizar tipo_condicao para comparação (case-insensitive)
-                                                const tipoCondicao = (bonus.tipo_condicao || "").toUpperCase().trim();
-                                                
-                                                // Debug: verificar tipo_condicao e valores
-                                                console.log(`[BonusTracker] Bonus: ${bonus.nome}, tipo_condicao original: "${bonus.tipo_condicao}", normalizado: "${tipoCondicao}"`);
-                                                console.log(`[BonusTracker] Colab: ${colab.name}, ticketMedio: ${colabData.ticketMedio}, pa: ${colabData.pa}, qtdPecas: ${colabData.qtdPecas}, rankingValue: ${rankingValue}`);
-                                                
-                                                // Usar rankingValue como fonte principal, pois já foi calculado corretamente baseado no tipo_condicao
+                                                // Para indicadores, usar rankingValue diretamente
                                                 if (tipoCondicao === "TICKET_MEDIO" || tipoCondicao === "TICKET MÉDIO") {
-                                                    // rankingValue já contém o ticket médio quando tipo_condicao é TICKET_MEDIO
                                                     const ticketMedio = rankingValue > 0 ? rankingValue : (colabData.ticketMedio || 0);
-                                                    console.log(`[BonusTracker] ✅ Retornando ticket médio: R$ ${ticketMedio.toFixed(2)} (rankingValue: ${rankingValue}, colabData.ticketMedio: ${colabData.ticketMedio})`);
                                                     return `R$ ${ticketMedio.toFixed(2)}`;
                                                 } else if (tipoCondicao === "PA") {
-                                                    // rankingValue já contém o PA quando tipo_condicao é PA
                                                     const pa = rankingValue > 0 ? rankingValue : (colabData.pa || 0);
                                                     return `${pa.toFixed(1)} peças/venda`;
                                                 } else if (tipoCondicao === "NUMERO_PECAS" || tipoCondicao === "NUMERO DE PEÇAS") {
-                                                    // rankingValue já contém o número de peças quando tipo_condicao é NUMERO_PECAS
                                                     const qtdPecas = rankingValue > 0 ? rankingValue : (colabData.qtdPecas || 0);
                                                     return `${Math.round(qtdPecas)} peças`;
                                                 } else {
-                                                    // Para outros tipos (PERCENTUAL_META, etc.), mostrar progresso da meta
-                                                    console.log(`[BonusTracker] ⚠️ Tipo não reconhecido (${tipoCondicao}), usando progress: ${colab.progress.toFixed(0)}%`);
+                                                    // Para faturamento/meta, mostrar porcentagem
                                                     return `${colab.progress.toFixed(0)}%`;
                                                 }
                                             };
 
                                             return (
-                                                <div key={colab.id} className="space-y-1.5 p-2 rounded-lg bg-muted/30 border border-border/50">
-                                                    <div className="flex items-center gap-2">
+                                                <div key={colab.id} className={`p-3 rounded-lg border border-border/50 ${
+                                                    isIndicador 
+                                                        ? "bg-gradient-to-r from-muted/50 to-muted/30" 
+                                                        : "bg-muted/30"
+                                                }`}>
+                                                    <div className="flex items-center gap-3">
                                                         {/* Medalha/Posição */}
                                                         <div className="flex-shrink-0">
                                                             {getMedalIcon()}
                                                         </div>
                                                         {/* Nome */}
-                                                        <span className="break-words flex-1 min-w-0 text-xs font-medium">{colab.name}</span>
-                                                        {/* Valor do indicador */}
-                                                        <span className={`font-bold text-sm ${colab.achieved ? "text-green-600" : position === 1 ? "text-yellow-600" : ""}`}>
+                                                        <span className="break-words flex-1 min-w-0 text-sm font-medium">{colab.name}</span>
+                                                        {/* Valor do indicador ou progresso */}
+                                                        <span className={`font-bold text-base ${
+                                                            colab.achieved ? "text-green-600" : 
+                                                            position === 1 ? "text-yellow-600" : 
+                                                            position === 2 ? "text-gray-600" :
+                                                            position === 3 ? "text-amber-600" :
+                                                            ""
+                                                        }`}>
                                                             {getFormattedValue()}
                                                         </span>
                                                     </div>
-                                                    {/* Barra de progresso relativa ao primeiro colocado */}
-                                                    <Progress 
-                                                        value={relativeProgress} 
-                                                        className={`h-2 ${
-                                                            position === 1 ? "[&>div]:bg-yellow-500" :
-                                                            position === 2 ? "[&>div]:bg-gray-400" :
-                                                            position === 3 ? "[&>div]:bg-amber-600" :
-                                                            "[&>div]:bg-blue-500"
-                                                        }`} 
-                                                    />
+                                                    
+                                                    {/* Barra de progresso APENAS para faturamento/meta (não para indicadores) */}
+                                                    {!isIndicador && (
+                                                        <div className="mt-2">
+                                                            <Progress 
+                                                                value={colab.progress} 
+                                                                className={`h-2 ${getProgressColor(colab.progress)}`} 
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    
                                                     {colab.progress >= (bonus.meta_minima_percentual || 0) && !colab.achieved && colab.preRequisitosReason && (
-                                                        <div className="flex items-center gap-1 text-[10px] text-orange-600 mt-1">
+                                                        <div className="flex items-center gap-1 text-[10px] text-orange-600 mt-2">
                                                             <AlertCircle className="h-3 w-3" />
                                                             <span className="break-words">{colab.preRequisitosReason}</span>
                                                         </div>
