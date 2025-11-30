@@ -330,6 +330,7 @@ export default function CashbackManagement() {
   useEffect(() => {
     if (!authLoading && profile) {
       fetchData();
+      fetchCategoriasProdutos();
     }
   }, [authLoading, profile]);
 
