@@ -154,6 +154,8 @@ export default function CashbackManagement() {
   const [novaTag, setNovaTag] = useState('');
   const [salvandoTags, setSalvandoTags] = useState(false);
   const [bonificandoIndividual, setBonificandoIndividual] = useState<string | null>(null);
+  const [categoriasProdutos, setCategoriasProdutos] = useState<string[]>([]);
+  const [loadingCategorias, setLoadingCategorias] = useState(false);
   const [valorBonificacaoIndividual, setValorBonificacaoIndividual] = useState('');
   const [descricaoBonificacaoIndividual, setDescricaoBonificacaoIndividual] = useState('');
   const [tipoValidadeBonificacaoIndividual, setTipoValidadeBonificacaoIndividual] = useState<'data' | 'dias'>('dias');
@@ -2287,11 +2289,26 @@ export default function CashbackManagement() {
                                 {filtro.tipo === 'categoria' && (
                                   <div>
                                     <Label>Categoria de Produto</Label>
-                                    <Input
-                                      placeholder="Digite o nome da categoria de produto"
+                                    <Select
                                       value={filtro.categoria || ''}
-                                      onChange={(e) => atualizarFiltroCliente(index, { categoria: e.target.value })}
-                                    />
+                                      onValueChange={(v) => atualizarFiltroCliente(index, { categoria: v })}
+                                      disabled={loadingCategorias}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder={loadingCategorias ? "Carregando..." : "Selecione a categoria"} />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {categoriasProdutos.length === 0 && !loadingCategorias ? (
+                                          <SelectItem value="" disabled>Nenhuma categoria encontrada</SelectItem>
+                                        ) : (
+                                          categoriasProdutos.map((cat) => (
+                                            <SelectItem key={cat} value={cat}>
+                                              {cat}
+                                            </SelectItem>
+                                          ))
+                                        )}
+                                      </SelectContent>
+                                    </Select>
                                   </div>
                                 )}
 
@@ -3073,11 +3090,26 @@ export default function CashbackManagement() {
                               {filtro.tipo === 'categoria' && (
                                 <div>
                                   <Label>Categoria de Produto</Label>
-                                  <Input
-                                    placeholder="Digite o nome da categoria de produto"
+                                  <Select
                                     value={filtro.categoria || ''}
-                                    onChange={(e) => atualizarFiltro(index, { categoria: e.target.value })}
-                                  />
+                                    onValueChange={(v) => atualizarFiltro(index, { categoria: v })}
+                                    disabled={loadingCategorias}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder={loadingCategorias ? "Carregando..." : "Selecione a categoria"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {categoriasProdutos.length === 0 && !loadingCategorias ? (
+                                        <SelectItem value="" disabled>Nenhuma categoria encontrada</SelectItem>
+                                      ) : (
+                                        categoriasProdutos.map((cat) => (
+                                          <SelectItem key={cat} value={cat}>
+                                            {cat}
+                                          </SelectItem>
+                                        ))
+                                      )}
+                                    </SelectContent>
+                                  </Select>
                                 </div>
                               )}
 
