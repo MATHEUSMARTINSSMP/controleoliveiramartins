@@ -1076,31 +1076,17 @@ export default function CashbackManagement() {
               break;
             }
             case 'categoria': {
-              // Buscar categoria do cliente baseada no faturamento
-              const { data: ordersData } = await supabase
-                .schema('sistemaretiradas')
-                .from('tiny_orders')
-                .select('cliente_id, valor_total');
-
-              const totalComprasPorCliente = new Map<string, number>();
-              ordersData?.forEach((order: any) => {
-                if (order.cliente_id) {
-                  const atual = totalComprasPorCliente.get(order.cliente_id) || 0;
-                  totalComprasPorCliente.set(order.cliente_id, atual + parseFloat(order.valor_total || 0));
-                }
-              });
-
-              const obterCategoriaCliente = (clienteId: string): string | null => {
-                const totalCompras = totalComprasPorCliente.get(clienteId) || 0;
-                if (totalCompras > 10000) return 'BLACK';
-                if (totalCompras >= 5000) return 'PLATINUM';
-                if (totalCompras >= 1000) return 'VIP';
-                if (totalCompras > 0) return 'REGULAR';
+              // Usar totalFaturamento já calculado no clienteMap
+              const obterCategoriaCliente = (totalFaturamento: number): string | null => {
+                if (totalFaturamento > 10000) return 'BLACK';
+                if (totalFaturamento >= 5000) return 'PLATINUM';
+                if (totalFaturamento >= 1000) return 'VIP';
+                if (totalFaturamento > 0) return 'REGULAR';
                 return null;
               };
 
               clienteMap.forEach((data, id) => {
-                const categoriaCliente = obterCategoriaCliente(id);
+                const categoriaCliente = obterCategoriaCliente(data.totalFaturamento || 0);
                 if (categoriaCliente === filtro.categoria) {
                   clientesFiltro.add(id);
                 }
@@ -1437,31 +1423,17 @@ export default function CashbackManagement() {
               break;
             }
             case 'categoria': {
-              // Buscar categoria do cliente baseada no faturamento
-              const { data: ordersData } = await supabase
-                .schema('sistemaretiradas')
-                .from('tiny_orders')
-                .select('cliente_id, valor_total');
-
-              const totalComprasPorCliente = new Map<string, number>();
-              ordersData?.forEach((order: any) => {
-                if (order.cliente_id) {
-                  const atual = totalComprasPorCliente.get(order.cliente_id) || 0;
-                  totalComprasPorCliente.set(order.cliente_id, atual + parseFloat(order.valor_total || 0));
-                }
-              });
-
-              const obterCategoriaCliente = (clienteId: string): string | null => {
-                const totalCompras = totalComprasPorCliente.get(clienteId) || 0;
-                if (totalCompras > 10000) return 'BLACK';
-                if (totalCompras >= 5000) return 'PLATINUM';
-                if (totalCompras >= 1000) return 'VIP';
-                if (totalCompras > 0) return 'REGULAR';
+              // Usar totalFaturamento já calculado no clienteMap
+              const obterCategoriaCliente = (totalFaturamento: number): string | null => {
+                if (totalFaturamento > 10000) return 'BLACK';
+                if (totalFaturamento >= 5000) return 'PLATINUM';
+                if (totalFaturamento >= 1000) return 'VIP';
+                if (totalFaturamento > 0) return 'REGULAR';
                 return null;
               };
 
               clienteMap.forEach((data, id) => {
-                const categoriaCliente = obterCategoriaCliente(id);
+                const categoriaCliente = obterCategoriaCliente(data.totalFaturamento || 0);
                 if (categoriaCliente === filtro.categoria) {
                   clientesFiltro.add(id);
                 }
@@ -1585,31 +1557,17 @@ export default function CashbackManagement() {
               break;
             }
             case 'categoria': {
-              // Buscar categoria do cliente baseada no faturamento
-              const { data: ordersData } = await supabase
-                .schema('sistemaretiradas')
-                .from('tiny_orders')
-                .select('cliente_id, valor_total');
-
-              const totalComprasPorCliente = new Map<string, number>();
-              ordersData?.forEach((order: any) => {
-                if (order.cliente_id) {
-                  const atual = totalComprasPorCliente.get(order.cliente_id) || 0;
-                  totalComprasPorCliente.set(order.cliente_id, atual + parseFloat(order.valor_total || 0));
-                }
-              });
-
-              const obterCategoriaCliente = (clienteId: string): string | null => {
-                const totalCompras = totalComprasPorCliente.get(clienteId) || 0;
-                if (totalCompras > 10000) return 'BLACK';
-                if (totalCompras >= 5000) return 'PLATINUM';
-                if (totalCompras >= 1000) return 'VIP';
-                if (totalCompras > 0) return 'REGULAR';
+              // Usar totalFaturamento já calculado no clienteMap
+              const obterCategoriaCliente = (totalFaturamento: number): string | null => {
+                if (totalFaturamento > 10000) return 'BLACK';
+                if (totalFaturamento >= 5000) return 'PLATINUM';
+                if (totalFaturamento >= 1000) return 'VIP';
+                if (totalFaturamento > 0) return 'REGULAR';
                 return null;
               };
 
               clienteMap.forEach((data, id) => {
-                const categoriaCliente = obterCategoriaCliente(id);
+                const categoriaCliente = obterCategoriaCliente(data.totalFaturamento || 0);
                 if (categoriaCliente === filtro.categoria) {
                   clientesFiltro.add(id);
                 }
