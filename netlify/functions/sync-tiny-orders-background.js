@@ -2176,11 +2176,20 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     forma_pagamento: (() => {
       const formasPagamento = [];
       
+      // ✅ RECALCULAR valor do vale troca para garantir que temos o valor correto
+      let valorValeTrocaParaFormaPagamento = 0;
+      
       // Coletar todas as formas de pagamento das parcelas (exceto vale troca)
       if (pedidoCompleto?.pagamento?.parcelas && Array.isArray(pedidoCompleto.pagamento.parcelas)) {
         pedidoCompleto.pagamento.parcelas.forEach((parcela) => {
           const formaPagamento = parcela.formaPagamento?.nome || parcela.formaPagamento || '';
           const meioPagamento = parcela.meioPagamento?.nome || parcela.meioPagamento || '';
+          
+          // Calcular valor do vale troca
+          if (isValeTroca(formaPagamento) || isValeTroca(meioPagamento)) {
+            const valorParcela = parseFloat(parcela.valor || parcela.valorParcela || 0);
+            valorValeTrocaParaFormaPagamento += valorParcela;
+          }
           
           // Adicionar forma de pagamento se não for vale troca
           if (formaPagamento && !isValeTroca(formaPagamento)) {
@@ -2198,7 +2207,7 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
       }
       
       // Se não encontrou nas parcelas, usar forma de pagamento principal
-      if (formasPagamento.length === 0) {
+      if (formasPagamento.length === 0 && !valorValeTrocaParaFormaPagamento) {
         const formaPagamentoPrincipal = pedido.pagamento?.formaPagamento?.nome || null;
         if (formaPagamentoPrincipal && !isValeTroca(formaPagamentoPrincipal)) {
           formasPagamento.push(formaPagamentoPrincipal);
@@ -2206,13 +2215,16 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
       }
       
       // Adicionar "Vale Troca" como informação (se houver)
-      if (valorValeTroca > 0) {
-        console.log(`[SyncBackground] 💳 Valor do Vale Troca antes de formatar: ${valorValeTroca}`);
+      // Usar valorValeTroca se disponível, senão usar o recalculado
+      const valorFinalValeTroca = valorValeTroca > 0 ? valorValeTroca : valorValeTrocaParaFormaPagamento;
+      
+      if (valorFinalValeTroca > 0) {
+        console.log(`[SyncBackground] 💳 Valor do Vale Troca para formato: ${valorFinalValeTroca}`);
         // Formatar valor em reais (R$ X.XXX,XX)
         const valorFormatado = new Intl.NumberFormat('pt-BR', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2
-        }).format(valorValeTroca);
+        }).format(valorFinalValeTroca);
         formasPagamento.push(`Vale Troca (R$ ${valorFormatado})`);
         console.log(`[SyncBackground] 💳 Forma de pagamento com Vale Troca: ${formasPagamento.join(' + ')}`);
       }
