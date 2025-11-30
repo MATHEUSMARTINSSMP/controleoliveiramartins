@@ -393,12 +393,47 @@ export default function CashbackManagement() {
         }
       });
 
-      // Debug: contar quantos clientes BLACK existem
+      // Debug: contar quantos clientes existem em cada categoria
       const clientesBLACK = Array.from(totalComprasPorCliente.entries())
         .filter(([_, total]) => total > 10000)
         .map(([id, total]) => ({ id, total }));
+      
+      const clientesPLATINUM = Array.from(totalComprasPorCliente.entries())
+        .filter(([_, total]) => total >= 5000 && total <= 10000)
+        .map(([id, total]) => ({ id, total }));
+      
+      const clientesVIP = Array.from(totalComprasPorCliente.entries())
+        .filter(([_, total]) => total >= 1000 && total < 5000)
+        .map(([id, total]) => ({ id, total }));
+      
+      const clientesREGULAR = Array.from(totalComprasPorCliente.entries())
+        .filter(([_, total]) => total > 0 && total < 1000)
+        .map(([id, total]) => ({ id, total }));
+      
+      const clientesSemCompras = Array.from(totalComprasPorCliente.entries())
+        .filter(([_, total]) => total === 0)
+        .map(([id, total]) => ({ id, total }));
+
+      console.log(`[CashbackManagement] 📊 ===== VERIFICAÇÃO DE CATEGORIAS =====`);
       console.log(`[CashbackManagement] 📊 Total de pedidos encontrados: ${ordersData?.length || 0}`);
-      console.log(`[CashbackManagement] 📊 Clientes BLACK (>R$ 10K): ${clientesBLACK.length}`, clientesBLACK);
+      console.log(`[CashbackManagement] 📊 Total de clientes únicos com pedidos: ${totalComprasPorCliente.size}`);
+      console.log(`[CashbackManagement] 🖤 Clientes BLACK (>R$ 10.000): ${clientesBLACK.length}`, clientesBLACK);
+      console.log(`[CashbackManagement] ⚪ Clientes PLATINUM (R$ 5.000 - R$ 10.000): ${clientesPLATINUM.length}`, clientesPLATINUM);
+      console.log(`[CashbackManagement] 💎 Clientes VIP (R$ 1.000 - R$ 5.000): ${clientesVIP.length}`, clientesVIP);
+      console.log(`[CashbackManagement] 📋 Clientes REGULAR (<R$ 1.000): ${clientesREGULAR.length}`, clientesREGULAR);
+      console.log(`[CashbackManagement] ⚠️ Clientes sem compras (R$ 0): ${clientesSemCompras.length}`);
+      console.log(`[CashbackManagement] 📊 ======================================`);
+      
+      // Verificar se há pedidos com cliente_id null ou valor_total inválido
+      const pedidosSemCliente = ordersData?.filter((o: any) => !o.cliente_id) || [];
+      const pedidosSemValor = ordersData?.filter((o: any) => !o.valor_total || isNaN(parseFloat(o.valor_total || 0))) || [];
+      
+      if (pedidosSemCliente.length > 0) {
+        console.warn(`[CashbackManagement] ⚠️ Pedidos sem cliente_id: ${pedidosSemCliente.length}`, pedidosSemCliente);
+      }
+      if (pedidosSemValor.length > 0) {
+        console.warn(`[CashbackManagement] ⚠️ Pedidos com valor_total inválido: ${pedidosSemValor.length}`, pedidosSemValor);
+      }
 
       // Função para obter categoria do cliente (do maior para o menor)
       const obterCategoriaCliente = (clienteId: string): string | null => {
