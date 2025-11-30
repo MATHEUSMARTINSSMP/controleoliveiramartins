@@ -463,3 +463,56 @@ export function formatBonusMessage(params: {
   return message;
 }
 
+/**
+ * Formata mensagem de cashback gerado (notificação para cliente)
+ */
+export function formatCashbackMessage(params: {
+  clienteNome: string;
+  storeName: string;
+  cashbackAmount: number;
+  dataExpiracao: string;
+  percentualUsoMaximo: number;
+  saldoAtual: number;
+}): string {
+  const { clienteNome, storeName, cashbackAmount, dataExpiracao, percentualUsoMaximo, saldoAtual } = params;
+  
+  // Extrair apenas o primeiro nome
+  const primeiroNome = clienteNome.split(' ')[0];
+  
+  // Formatar valores monetários
+  const cashbackFormatado = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(cashbackAmount);
+  
+  const saldoFormatado = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(saldoAtual);
+  
+  // Formatar data de expiração
+  const dataExpiracaoFormatada = new Date(dataExpiracao).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  
+  // Formatar percentual de uso máximo
+  const percentualFormatado = new Intl.NumberFormat('pt-BR', {
+    style: 'percent',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(percentualUsoMaximo / 100);
+  
+  let message = `🎁 *Cashback Gerado!*\n\n`;
+  message += `${primeiroNome},\n\n`;
+  message += `Obrigado pela sua compra na ${storeName}, nós somos muito gratos por ter você como nossa cliente.\n\n`;
+  message += `Você gerou ${cashbackFormatado} de cashback para você utilizar em nossa loja.\n\n`;
+  message += `Esse cashback é válido até o dia ${dataExpiracaoFormatada} e você poderá cobrir até ${percentualFormatado} do valor da sua próxima compra.\n\n`;
+  message += `Seu saldo atual é ${saldoFormatado}.\n\n`;
+  message += `Com carinho,\n${storeName}\n\n`;
+  message += `Sistema EleveaOne 📊`;
+
+  return message;
+}
+
