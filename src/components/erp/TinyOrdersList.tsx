@@ -64,6 +64,8 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
   // ✅ Refs para acessar valores atuais sem causar re-subscrições
   const ordersRef = useRef<TinyOrder[]>([]);
   const isFirstLoadRef = useRef(true);
+  // ✅ Set para rastrear pedidos já notificados (evitar duplicação)
+  const pedidosNotificadosRef = useRef<Set<string>>(new Set());
   
   // Atualizar refs quando os valores mudarem
   useEffect(() => {
@@ -156,57 +158,61 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
             
             // ✅ SEMPRE mostrar notificação se não existir na lista (removido check de isFirstLoad)
             if (!jaExiste) {
-              console.log('[TinyOrdersList] 🔔 [REALTIME] ✅ Nova venda detectada - mostrando notificação IMEDIATA');
+              const pedidoId = novoPedido.id || novoPedido.numero_pedido || novoPedido.tiny_id;
+              const jaFoiNotificado = pedidosNotificadosRef.current.has(pedidoId);
               
-              // ✅ Mostrar notificação IMEDIATAMENTE (balãozinho)
-              toast({
-                title: "🎉 Nova Venda Detectada!",
-                description: (
-                  <div className="flex flex-col gap-1">
-                    <span className="font-medium">{novoPedido.cliente_nome || 'Cliente'}</span>
-                    <span>Pedido #{novoPedido.numero_pedido || novoPedido.tiny_id}</span>
-                    <span className="font-bold text-green-600">{formatCurrency(Number(novoPedido.valor_total) || 0)}</span>
-                  </div>
-                ),
-                duration: 5000,
-                className: "bg-white border-green-500 border-l-4 shadow-lg",
-              });
-              
-              // ✅ Também mostrar notificação Sonner (minimalista)
-              sonnerToast.success("🎉 Nova Venda!", {
-                description: `Pedido ${novoPedido.numero_pedido || novoPedido.tiny_id} - ${novoPedido.cliente_nome || 'Cliente'} - ${formatCurrency(Number(novoPedido.valor_total) || 0)}`,
-                duration: 5000,
-              });
-              
-              // ✅ Adicionar imediatamente no topo da lista
-              setOrders((prevOrders) => {
-                const existingIds = new Set(prevOrders.map((o) => o.id));
-                if (existingIds.has(novoPedido.id)) {
-                  console.log('[TinyOrdersList] 🔔 [REALTIME] ⚠️ Pedido já existe na lista, não adicionando novamente');
-                  return prevOrders; // Já existe, não adicionar
-                }
+              if (!jaFoiNotificado) {
+                console.log('[TinyOrdersList] 🔔 [REALTIME] ✅ Nova venda detectada - mostrando notificação IMEDIATA');
                 
-                const pedidoNormalizado = {
-                  ...novoPedido,
-                  valor_total: Number(novoPedido.valor_total) || 0,
-                };
+                // ✅ Marcar como notificado ANTES de mostrar (evitar duplicação)
+                pedidosNotificadosRef.current.add(pedidoId);
                 
-                console.log('[TinyOrdersList] 🔔 [REALTIME] ✅ Adicionando pedido no topo da lista');
-                
-                // Adicionar no topo e ordenar
-                const todasAsVendas = [pedidoNormalizado, ...prevOrders];
-                return todasAsVendas.sort((a, b) => {
-                  const numA = parseInt(a.numero_pedido || a.numero_ecommerce || '0');
-                  const numB = parseInt(b.numero_pedido || b.numero_ecommerce || '0');
-                  return numB - numA;
+                // ✅ Mostrar notificação IMEDIATAMENTE (balãozinho)
+                toast({
+                  title: "🎉 Nova Venda Detectada!",
+                  description: (
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium">{novoPedido.cliente_nome || 'Cliente'}</span>
+                      <span>Pedido #{novoPedido.numero_pedido || novoPedido.tiny_id}</span>
+                      <span className="font-bold text-green-600">{formatCurrency(Number(novoPedido.valor_total) || 0)}</span>
+                    </div>
+                  ),
+                  duration: 5000,
+                  className: "bg-white border-green-500 border-l-4 shadow-lg",
                 });
-              });
+                
+                // ✅ Adicionar imediatamente no topo da lista
+                setOrders((prevOrders) => {
+                  const existingIds = new Set(prevOrders.map((o) => o.id));
+                  if (existingIds.has(novoPedido.id)) {
+                    console.log('[TinyOrdersList] 🔔 [REALTIME] ⚠️ Pedido já existe na lista, não adicionando novamente');
+                    return prevOrders; // Já existe, não adicionar
+                  }
+                  
+                  const pedidoNormalizado = {
+                    ...novoPedido,
+                    valor_total: Number(novoPedido.valor_total) || 0,
+                  };
+                  
+                  console.log('[TinyOrdersList] 🔔 [REALTIME] ✅ Adicionando pedido no topo da lista');
+                  
+                  // Adicionar no topo e ordenar
+                  const todasAsVendas = [pedidoNormalizado, ...prevOrders];
+                  return todasAsVendas.sort((a, b) => {
+                    const numA = parseInt(a.numero_pedido || a.numero_ecommerce || '0');
+                    const numB = parseInt(b.numero_pedido || b.numero_ecommerce || '0');
+                    return numB - numA;
+                  });
+                });
+              } else {
+                console.log('[TinyOrdersList] 🔔 [REALTIME] ⚠️ Pedido já foi notificado, não mostrando novamente');
+              }
             } else {
               console.log('[TinyOrdersList] 🔔 [REALTIME] ⚠️ Pedido já existe na lista, não mostrando notificação');
             }
           }
           
-          // ✅ Depois, atualizar lista completa para garantir sincronização
+          // ✅ Depois, atualizar lista completa para garantir sincronização (mas sem mostrar notificação duplicada)
           fetchOrdersSilently();
         }
       )
@@ -294,31 +300,39 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
             const existingIds = new Set(prevOrders.map((o) => o.id));
             const novosSemDuplicados = novosPedidos.filter((o) => !existingIds.has(o.id));
 
-            // 🔔 Mostrar notificação sonner APENAS se NÃO for primeira carga
+            // 🔔 Mostrar notificação APENAS se NÃO for primeira carga E se não foi notificado pelo Realtime
             if (novosSemDuplicados.length > 0 && !isFirstLoad) {
-              console.log(`[AUTO-REFRESH] 🔔 Mostrando ${novosSemDuplicados.length} notificações`);
-              novosSemDuplicados.forEach((novoPedido) => {
-                // ✅ Notificação Sonner (Minimalista) - SEMPRE mostrar
-                sonnerToast.success("🎉 Nova Venda!", {
-                  description: `Pedido ${novoPedido.numero_pedido || novoPedido.tiny_id} - ${novoPedido.cliente_nome || 'Cliente'} - ${formatCurrency(novoPedido.valor_total || 0)}`,
-                  duration: 5000,
-                });
-
-                // ✅ Notificação Toast (Balãozinho - Shadcn UI) - SEMPRE mostrar
-                // O usuário prefere este estilo visual
-                toast({
-                  title: "🎉 Nova Venda Detectada!",
-                  description: (
-                    <div className="flex flex-col gap-1">
-                      <span className="font-medium">{novoPedido.cliente_nome || 'Cliente'}</span>
-                      <span>Pedido #{novoPedido.numero_pedido || novoPedido.tiny_id}</span>
-                      <span className="font-bold text-green-600">{formatCurrency(novoPedido.valor_total || 0)}</span>
-                    </div>
-                  ),
-                  duration: 5000,
-                  className: "bg-white border-green-500 border-l-4 shadow-lg",
-                });
+              const novosParaNotificar = novosSemDuplicados.filter((novoPedido) => {
+                const pedidoId = novoPedido.id || novoPedido.numero_pedido || novoPedido.tiny_id;
+                const jaFoiNotificado = pedidosNotificadosRef.current.has(pedidoId);
+                if (!jaFoiNotificado) {
+                  // Marcar como notificado
+                  pedidosNotificadosRef.current.add(pedidoId);
+                  return true;
+                }
+                return false;
               });
+              
+              if (novosParaNotificar.length > 0) {
+                console.log(`[AUTO-REFRESH] 🔔 Mostrando ${novosParaNotificar.length} notificações (${novosSemDuplicados.length - novosParaNotificar.length} já foram notificadas pelo Realtime)`);
+                novosParaNotificar.forEach((novoPedido) => {
+                  // ✅ Notificação Toast (Balãozinho - Shadcn UI) - SEMPRE mostrar
+                  toast({
+                    title: "🎉 Nova Venda Detectada!",
+                    description: (
+                      <div className="flex flex-col gap-1">
+                        <span className="font-medium">{novoPedido.cliente_nome || 'Cliente'}</span>
+                        <span>Pedido #{novoPedido.numero_pedido || novoPedido.tiny_id}</span>
+                        <span className="font-bold text-green-600">{formatCurrency(novoPedido.valor_total || 0)}</span>
+                      </div>
+                    ),
+                    duration: 5000,
+                    className: "bg-white border-green-500 border-l-4 shadow-lg",
+                  });
+                });
+              } else {
+                console.log(`[AUTO-REFRESH] ⏭️ Todos os ${novosSemDuplicados.length} pedidos já foram notificados pelo Realtime`);
+              }
             } else if (isFirstLoad) {
               console.log('[AUTO-REFRESH] ⏭️ Primeira carga - notificações suprimidas');
             }
