@@ -2144,10 +2144,15 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     console.log(`[SyncBackground] 📱 pedidoCompleto: ${pedidoCompleto ? 'SIM' : 'NÃO'}`);
     if (pedidoCompleto) {
       console.log(`[SyncBackground] 📱 pedidoCompleto.itens: ${pedidoCompleto.itens?.length || 0} itens`);
+      console.log(`[SyncBackground] 📱 pedidoCompleto.parcelas: ${pedidoCompleto.parcelas?.length || 0} parcelas`);
+      if (pedidoCompleto.parcelas && pedidoCompleto.parcelas.length > 0) {
+        console.log(`[SyncBackground] 📱 Primeira parcela:`, JSON.stringify(pedidoCompleto.parcelas[0], null, 2));
+      }
     }
     console.log(`[SyncBackground] 📱 orderData.colaboradora_id: ${orderData.colaboradora_id}`);
     console.log(`[SyncBackground] 📱 orderData.vendedor_nome: ${orderData.vendedor_nome}`);
     console.log(`[SyncBackground] 📱 orderData.data_pedido: ${orderData.data_pedido}`);
+    console.log(`[SyncBackground] 📱 orderData.forma_pagamento: ${orderData.forma_pagamento}`);
 
     // 1. Buscar dados da loja e admin
     const { data: storeData, error: storeError } = await supabase
@@ -2412,13 +2417,32 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     message += `*Quantidade de Peças:* ${qtdPecas}\n`;
     
     // ✅ Formatar formas de pagamento (listar todas com valores)
+    console.log(`[SyncBackground] 📝 [WHATSAPP] ========== FORMATANDO FORMAS DE PAGAMENTO ==========`);
+    console.log(`[SyncBackground] 📝 [WHATSAPP] pedidoCompleto existe: ${!!pedidoCompleto}`);
+    console.log(`[SyncBackground] 📝 [WHATSAPP] pedidoCompleto.parcelas existe: ${!!pedidoCompleto?.parcelas}`);
+    console.log(`[SyncBackground] 📝 [WHATSAPP] pedidoCompleto.parcelas é array: ${Array.isArray(pedidoCompleto?.parcelas)}`);
+    console.log(`[SyncBackground] 📝 [WHATSAPP] pedidoCompleto.parcelas.length: ${pedidoCompleto?.parcelas?.length || 0}`);
+    console.log(`[SyncBackground] 📝 [WHATSAPP] orderData.forma_pagamento: ${orderData.forma_pagamento}`);
+    
+    // ✅ Tentar buscar parcelas do pedido completo OU do pedido original
+    let parcelasParaProcessar = null;
+    
     if (pedidoCompleto?.parcelas && Array.isArray(pedidoCompleto.parcelas) && pedidoCompleto.parcelas.length > 0) {
-      console.log(`[SyncBackground] 📝 [WHATSAPP] Processando ${pedidoCompleto.parcelas.length} parcelas para formatar formas de pagamento`);
+      parcelasParaProcessar = pedidoCompleto.parcelas;
+      console.log(`[SyncBackground] 📝 [WHATSAPP] ✅ Usando parcelas do pedidoCompleto: ${parcelasParaProcessar.length}`);
+    } else if (pedidoCompleto?.pagamento?.parcelas && Array.isArray(pedidoCompleto.pagamento.parcelas) && pedidoCompleto.pagamento.parcelas.length > 0) {
+      parcelasParaProcessar = pedidoCompleto.pagamento.parcelas;
+      console.log(`[SyncBackground] 📝 [WHATSAPP] ✅ Usando parcelas do pedidoCompleto.pagamento: ${parcelasParaProcessar.length}`);
+    }
+    
+    if (parcelasParaProcessar && parcelasParaProcessar.length > 0) {
+      console.log(`[SyncBackground] 📝 [WHATSAPP] ✅ Processando ${parcelasParaProcessar.length} parcelas para formatar formas de pagamento`);
+      console.log(`[SyncBackground] 📝 [WHATSAPP] Estrutura da primeira parcela:`, JSON.stringify(parcelasParaProcessar[0], null, 2));
       
       // ✅ Agrupar parcelas por forma de pagamento
       const formasPagamentoMap = new Map();
       
-      pedidoCompleto.parcelas.forEach((parcela, index) => {
+      parcelasParaProcessar.forEach((parcela, index) => {
         // Tentar pegar forma de pagamento da parcela (pode estar em diferentes campos)
         const formaPagamento = parcela.formaPagamento?.nome || 
                                parcela.formaPagamento ||
@@ -2468,10 +2492,30 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
           // Se tiver múltiplas formas, mostrar uma por linha
           message += `*Formas de Pagamento:*\n${formasFormatadas.map(f => `  • ${f}`).join('\n')}\n`;
         }
+      } else {
+        console.warn(`[SyncBackground] 📝 [WHATSAPP] ⚠️ Nenhuma forma de pagamento formatada, usando fallback`);
+        // Se não conseguiu formatar, usar forma_pagamento simples
+        if (orderData.forma_pagamento) {
+          message += `*Formas de Pagamento:* ${orderData.forma_pagamento}\n`;
+        }
       }
-    } else if (orderData.forma_pagamento) {
+    } else {
+      console.log(`[SyncBackground] 📝 [WHATSAPP] ⚠️ Não tem parcelas no pedido completo, usando forma_pagamento do orderData`);
       // Fallback: se não tiver parcelas, usar forma_pagamento simples
-      message += `*Formas de Pagamento:* ${orderData.forma_pagamento}\n`;
+      if (orderData.forma_pagamento) {
+        // ✅ Se for "Múltipla" ou "MULTIPLA", tentar buscar das parcelas mesmo assim
+        if (orderData.forma_pagamento.toLowerCase().includes('múltipl') || 
+            orderData.forma_pagamento.toLowerCase().includes('multipl')) {
+          console.log(`[SyncBackground] 📝 [WHATSAPP] ⚠️ Forma de pagamento é "Múltipla", tentando buscar das parcelas mesmo sem pedidoCompleto`);
+          
+          // Tentar buscar parcelas de outra fonte se disponível
+          // Por enquanto, vamos mostrar "Múltipla" mas com log para investigar
+          message += `*Formas de Pagamento:* ${orderData.forma_pagamento}\n`;
+          console.warn(`[SyncBackground] 📝 [WHATSAPP] ⚠️ Não foi possível detalhar formas de pagamento - pedidoCompleto não disponível ou sem parcelas`);
+        } else {
+          message += `*Formas de Pagamento:* ${orderData.forma_pagamento}\n`;
+        }
+      }
     }
     
     message += `*Data:* ${dataFormatada}\n`;
