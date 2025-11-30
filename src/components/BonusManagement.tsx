@@ -316,6 +316,25 @@ export default function BonusManagement() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        // ✅ Validação: Para indicadores (TICKET_MEDIO, PA, NUMERO_PECAS), período é obrigatório
+        const tipoCondicao = (formData.tipo_condicao || "").toUpperCase();
+        const isIndicador = tipoCondicao === "TICKET_MEDIO" || 
+                          tipoCondicao === "PA" || 
+                          tipoCondicao === "NUMERO_PECAS";
+        
+        if (isIndicador) {
+            if (!formData.periodo_data_inicio || !formData.periodo_data_fim) {
+                toast.error("Para indicadores (Ticket Médio, PA, Número de Peças), é obrigatório definir Data Início e Data Fim do período.");
+                return;
+            }
+            
+            // Validar que data fim seja maior que data início
+            if (new Date(formData.periodo_data_fim) < new Date(formData.periodo_data_inicio)) {
+                toast.error("Data Fim deve ser maior ou igual à Data Início.");
+                return;
+            }
+        }
+
         // Para bônus semanais, meta_minima_percentual é sempre 100 (atingir 100% da meta)
         const metaMinimaPercentual = (formData.tipo_condicao === 'META_SEMANAL' || formData.tipo_condicao === 'SUPER_META_SEMANAL')
             ? 100
@@ -1328,56 +1347,104 @@ export default function BonusManagement() {
                         <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
                             <Label className="text-xs sm:text-sm font-semibold">Período de Referência</Label>
 
-                            <div>
-                                <Label className="text-xs sm:text-sm">Tipo de Período</Label>
-                                <Select
-                                    value={formData.periodo_tipo}
-                                    onValueChange={(v) => {
-                                        setFormData({
-                                            ...formData,
-                                            periodo_tipo: v,
-                                            // Reset campos específicos
-                                            periodo_data_inicio: "",
-                                            periodo_data_fim: "",
-                                            periodo_mes: "",
-                                            periodo_semana: "",
-                                        });
-                                    }}
-                                >
-                                    <SelectTrigger className="text-xs sm:text-sm">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="MES_ATUAL">Mês Atual</SelectItem>
-                                        <SelectItem value="CUSTOM">Período Customizado (Data X a Data X)</SelectItem>
-                                        <SelectItem value="MES">Mês Específico</SelectItem>
-                                        <SelectItem value="SEMANA">Semana Específica</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            {/* Verificar se é indicador (ticket médio, PA, número de peças) */}
+                            {(() => {
+                                const tipoCondicao = (formData.tipo_condicao || "").toUpperCase();
+                                const isIndicador = tipoCondicao === "TICKET_MEDIO" || 
+                                                  tipoCondicao === "PA" || 
+                                                  tipoCondicao === "NUMERO_PECAS";
+                                
+                                // Para indicadores, sempre mostrar campos de data (obrigatórios)
+                                if (isIndicador) {
+                                    return (
+                                        <div className="space-y-2">
+                                            <div className="bg-blue-50 dark:bg-blue-950/20 p-2 rounded border border-blue-200 dark:border-blue-800">
+                                                <p className="text-xs text-blue-700 dark:text-blue-300">
+                                                    ⚠️ Para indicadores (Ticket Médio, PA, Número de Peças), é obrigatório definir o período exato.
+                                                </p>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <Label className="text-xs sm:text-sm">Data Início <span className="text-red-500">*</span></Label>
+                                                    <Input
+                                                        type="date"
+                                                        value={formData.periodo_data_inicio}
+                                                        onChange={(e) => setFormData({ ...formData, periodo_data_inicio: e.target.value })}
+                                                        className="text-xs sm:text-sm"
+                                                        required
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <Label className="text-xs sm:text-sm">Data Fim <span className="text-red-500">*</span></Label>
+                                                    <Input
+                                                        type="date"
+                                                        value={formData.periodo_data_fim}
+                                                        onChange={(e) => setFormData({ ...formData, periodo_data_fim: e.target.value })}
+                                                        className="text-xs sm:text-sm"
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                
+                                // Para outros tipos, mostrar seletor de período
+                                return (
+                                    <>
+                                        <div>
+                                            <Label className="text-xs sm:text-sm">Tipo de Período</Label>
+                                            <Select
+                                                value={formData.periodo_tipo}
+                                                onValueChange={(v) => {
+                                                    setFormData({
+                                                        ...formData,
+                                                        periodo_tipo: v,
+                                                        // Reset campos específicos
+                                                        periodo_data_inicio: "",
+                                                        periodo_data_fim: "",
+                                                        periodo_mes: "",
+                                                        periodo_semana: "",
+                                                    });
+                                                }}
+                                            >
+                                                <SelectTrigger className="text-xs sm:text-sm">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="MES_ATUAL">Mês Atual</SelectItem>
+                                                    <SelectItem value="CUSTOM">Período Customizado (Data X a Data X)</SelectItem>
+                                                    <SelectItem value="MES">Mês Específico</SelectItem>
+                                                    <SelectItem value="SEMANA">Semana Específica</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
 
-                            {formData.periodo_tipo === "CUSTOM" && (
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <Label className="text-xs sm:text-sm">Data Início</Label>
-                                        <Input
-                                            type="date"
-                                            value={formData.periodo_data_inicio}
-                                            onChange={(e) => setFormData({ ...formData, periodo_data_inicio: e.target.value })}
-                                            className="text-xs sm:text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label className="text-xs sm:text-sm">Data Fim</Label>
-                                        <Input
-                                            type="date"
-                                            value={formData.periodo_data_fim}
-                                            onChange={(e) => setFormData({ ...formData, periodo_data_fim: e.target.value })}
-                                            className="text-xs sm:text-sm"
-                                        />
-                                    </div>
-                                </div>
-                            )}
+                                        {formData.periodo_tipo === "CUSTOM" && (
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <Label className="text-xs sm:text-sm">Data Início</Label>
+                                                    <Input
+                                                        type="date"
+                                                        value={formData.periodo_data_inicio}
+                                                        onChange={(e) => setFormData({ ...formData, periodo_data_inicio: e.target.value })}
+                                                        className="text-xs sm:text-sm"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <Label className="text-xs sm:text-sm">Data Fim</Label>
+                                                    <Input
+                                                        type="date"
+                                                        value={formData.periodo_data_fim}
+                                                        onChange={(e) => setFormData({ ...formData, periodo_data_fim: e.target.value })}
+                                                        className="text-xs sm:text-sm"
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
 
                             {formData.periodo_tipo === "MES" && (
                                 <div>

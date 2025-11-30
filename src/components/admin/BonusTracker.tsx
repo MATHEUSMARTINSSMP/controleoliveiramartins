@@ -328,11 +328,18 @@ export function BonusTracker() {
 
                                         // Verificar se é um indicador (não faturamento/meta)
                                         const tipoCondicao = (bonus.tipo_condicao || "").toUpperCase().trim();
+                                        const nomeBonusUpper = (bonus.nome || "").toUpperCase();
+                                        const nomeContemTicketMedio = nomeBonusUpper.includes("TICKET") && (nomeBonusUpper.includes("MÉDIO") || nomeBonusUpper.includes("MEDIO"));
+                                        
+                                        // isIndicador: ticket médio, PA, número de peças (verificar também pelo nome do bônus)
                                         const isIndicador = tipoCondicao === "TICKET_MEDIO" || 
                                                           tipoCondicao === "TICKET MÉDIO" || 
                                                           tipoCondicao === "PA" || 
                                                           tipoCondicao === "NUMERO_PECAS" || 
-                                                          tipoCondicao === "NUMERO DE PEÇAS";
+                                                          tipoCondicao === "NUMERO DE PEÇAS" ||
+                                                          nomeContemTicketMedio ||
+                                                          nomeBonusUpper.includes("PA") ||
+                                                          nomeBonusUpper.includes("PEÇAS");
                                         
                                         // Debug: verificar tipo_condicao do bônus
                                         console.log(`[BonusTracker] 🔍 Bonus: "${bonus.nome}", tipo_condicao original: "${bonus.tipo_condicao}", normalizado: "${tipoCondicao}", isIndicador: ${isIndicador}`);
