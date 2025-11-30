@@ -1814,11 +1814,11 @@ async function findCollaboratorByVendedor(supabase, storeId, vendedor) {
       }
     }
 
-    // Buscar colaboradoras da loja
+    // Buscar colaboradoras da loja (incluindo tiny_vendedor_id)
     const { data: colaboradoras } = await supabase
       .schema('sistemaretiradas')
       .from('profiles')
-      .select('id, name, email, cpf')
+      .select('id, name, email, cpf, tiny_vendedor_id')
       .eq('role', 'COLABORADORA')
       .eq('active', true)
       .eq('store_id', storeId);
@@ -1830,23 +1830,37 @@ async function findCollaboratorByVendedor(supabase, storeId, vendedor) {
     const normalizeCPF = (cpf) => cpf ? String(cpf).replace(/\D/g, '') : null;
     const normalizedVendedorCPF = normalizeCPF(vendedorCompleto.cpf);
 
-    // Tentar matching por CPF primeiro
+    // ✅ 1. Tentar matching por CPF primeiro (mais confiável)
     if (normalizedVendedorCPF && normalizedVendedorCPF.length >= 11) {
       const matchByCPF = colaboradoras.find((colab) => {
         const colabCPF = normalizeCPF(colab.cpf);
         return colabCPF && colabCPF === normalizedVendedorCPF;
       });
       if (matchByCPF) {
+        console.log(`[SyncBackground] ✅ Match por CPF: ${vendedorCompleto.nome} -> ${matchByCPF.name}`);
         return matchByCPF.id;
       }
     }
 
-    // Tentar matching por email
+    // ✅ 2. NOVO: Tentar matching por tiny_vendedor_id (ID do Tiny - muito confiável)
+    if (vendedorCompleto.id) {
+      const vendedorTinyId = String(vendedorCompleto.id);
+      const matchByTinyId = colaboradoras.find((colab) => {
+        return colab.tiny_vendedor_id && String(colab.tiny_vendedor_id) === vendedorTinyId;
+      });
+      if (matchByTinyId) {
+        console.log(`[SyncBackground] ✅ Match por Tiny ID: ${vendedorCompleto.nome} (ID: ${vendedorTinyId}) -> ${matchByTinyId.name}`);
+        return matchByTinyId.id;
+      }
+    }
+
+    // ✅ 3. Tentar matching por email
     if (vendedorCompleto.email) {
       const matchByEmail = colaboradoras.find(
         (colab) => colab.email && colab.email.toLowerCase() === vendedorCompleto.email?.toLowerCase()
       );
       if (matchByEmail) {
+        console.log(`[SyncBackground] ✅ Match por Email: ${vendedorCompleto.nome} -> ${matchByEmail.name}`);
         return matchByEmail.id;
       }
     }
@@ -1868,7 +1882,10 @@ async function findCollaboratorByVendedor(supabase, storeId, vendedor) {
       });
 
       if (matchByName) {
+        console.log(`[SyncBackground] ✅ Match por Nome: ${vendedorCompleto.nome} -> ${matchByName.name}`);
         return matchByName.id;
+      } else {
+        console.log(`[SyncBackground] ⚠️ Nenhum match encontrado para vendedor: ${vendedorCompleto.nome} (ID: ${vendedorCompleto.id})`);
       }
     }
 
