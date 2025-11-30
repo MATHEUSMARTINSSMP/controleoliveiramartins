@@ -134,7 +134,7 @@ export default function CashbackManagement() {
 
   // Estados para filtros na aba Clientes
   interface FiltroClientes {
-    tipo: 'melhores_clientes' | 'compra_periodo' | 'nao_visita' | 'aniversario' | 'tag' | 'todos' | 'categoria' | 'produto';
+    tipo: 'melhores_clientes' | 'compra_periodo' | 'nao_visita' | 'aniversario' | 'tag' | 'todos' | 'categoria' | 'categoria_cliente' | 'produto';
     incluir: boolean;
     parametro?: 'ticket_medio' | 'pa' | 'faturamento';
     quantidade?: number;
@@ -142,7 +142,8 @@ export default function CashbackManagement() {
     dataFim?: string;
     mesAniversario?: number;
     tag?: string;
-    categoria?: string;
+    categoria?: string; // Categoria de produto
+    categoria_cliente?: string; // Categoria de cliente (BLACK, PLATINUM, VIP, REGULAR)
     produto?: string;
   }
   const [filtrosClientes, setFiltrosClientes] = useState<FiltroClientes[]>([]);
@@ -171,7 +172,7 @@ export default function CashbackManagement() {
 
   // Estados para Bonificar
   interface FiltroBonificacao {
-    tipo: 'melhores_clientes' | 'compra_periodo' | 'nao_visita' | 'aniversario' | 'tag' | 'todos' | 'categoria' | 'produto';
+    tipo: 'melhores_clientes' | 'compra_periodo' | 'nao_visita' | 'aniversario' | 'tag' | 'todos' | 'categoria' | 'categoria_cliente' | 'produto';
     incluir: boolean; // true = incluir, false = excluir
     parametro?: 'ticket_medio' | 'pa' | 'faturamento'; // Para melhores clientes
     quantidade?: number; // Para melhores clientes
@@ -179,7 +180,8 @@ export default function CashbackManagement() {
     dataFim?: string; // Para compra_periodo
     mesAniversario?: number; // Para aniversario (1-12)
     tag?: string; // Para tag
-    categoria?: string; // Para categoria
+    categoria?: string; // Para categoria de produto
+    categoria_cliente?: string; // Para categoria de cliente (BLACK, PLATINUM, VIP, REGULAR)
     produto?: string; // Para produto
   }
   const [filtrosBonificacao, setFiltrosBonificacao] = useState<FiltroBonificacao[]>([]);
@@ -1076,7 +1078,16 @@ export default function CashbackManagement() {
               break;
             }
             case 'categoria': {
-              // Usar totalFaturamento já calculado no clienteMap
+              // Categoria de PRODUTO (não de cliente)
+              clienteMap.forEach((data, id) => {
+                if (data.categorias.has(filtro.categoria || '')) {
+                  clientesFiltro.add(id);
+                }
+              });
+              break;
+            }
+            case 'categoria_cliente': {
+              // Categoria de CLIENTE (BLACK, PLATINUM, VIP, REGULAR)
               const obterCategoriaCliente = (totalFaturamento: number): string | null => {
                 if (totalFaturamento > 10000) return 'BLACK';
                 if (totalFaturamento >= 5000) return 'PLATINUM';
@@ -1087,7 +1098,7 @@ export default function CashbackManagement() {
 
               clienteMap.forEach((data, id) => {
                 const categoriaCliente = obterCategoriaCliente(data.totalFaturamento || 0);
-                if (categoriaCliente === filtro.categoria) {
+                if (categoriaCliente === filtro.categoria_cliente) {
                   clientesFiltro.add(id);
                 }
               });
@@ -1423,7 +1434,16 @@ export default function CashbackManagement() {
               break;
             }
             case 'categoria': {
-              // Usar totalFaturamento já calculado no clienteMap
+              // Categoria de PRODUTO (não de cliente)
+              clienteMap.forEach((data, id) => {
+                if (data.categorias.has(filtro.categoria || '')) {
+                  clientesFiltro.add(id);
+                }
+              });
+              break;
+            }
+            case 'categoria_cliente': {
+              // Categoria de CLIENTE (BLACK, PLATINUM, VIP, REGULAR)
               const obterCategoriaCliente = (totalFaturamento: number): string | null => {
                 if (totalFaturamento > 10000) return 'BLACK';
                 if (totalFaturamento >= 5000) return 'PLATINUM';
@@ -1434,7 +1454,7 @@ export default function CashbackManagement() {
 
               clienteMap.forEach((data, id) => {
                 const categoriaCliente = obterCategoriaCliente(data.totalFaturamento || 0);
-                if (categoriaCliente === filtro.categoria) {
+                if (categoriaCliente === filtro.categoria_cliente) {
                   clientesFiltro.add(id);
                 }
               });
@@ -1557,7 +1577,16 @@ export default function CashbackManagement() {
               break;
             }
             case 'categoria': {
-              // Usar totalFaturamento já calculado no clienteMap
+              // Categoria de PRODUTO (não de cliente)
+              clienteMap.forEach((data, id) => {
+                if (data.categorias.has(filtro.categoria || '')) {
+                  clientesFiltro.add(id);
+                }
+              });
+              break;
+            }
+            case 'categoria_cliente': {
+              // Categoria de CLIENTE (BLACK, PLATINUM, VIP, REGULAR)
               const obterCategoriaCliente = (totalFaturamento: number): string | null => {
                 if (totalFaturamento > 10000) return 'BLACK';
                 if (totalFaturamento >= 5000) return 'PLATINUM';
@@ -1568,7 +1597,7 @@ export default function CashbackManagement() {
 
               clienteMap.forEach((data, id) => {
                 const categoriaCliente = obterCategoriaCliente(data.totalFaturamento || 0);
-                if (categoriaCliente === filtro.categoria) {
+                if (categoriaCliente === filtro.categoria_cliente) {
                   clientesFiltro.add(id);
                 }
               });
@@ -2129,7 +2158,8 @@ export default function CashbackManagement() {
                                         <SelectItem value="aniversario">Aniversário no Mês</SelectItem>
                                         <SelectItem value="tag">Cliente com Tag</SelectItem>
                                         <SelectItem value="todos">Todos os Clientes</SelectItem>
-                                        <SelectItem value="categoria">Comprou Categoria</SelectItem>
+                                        <SelectItem value="categoria">Comprou Categoria de Produto</SelectItem>
+                                        <SelectItem value="categoria_cliente">Categoria de Cliente</SelectItem>
                                         <SelectItem value="produto">Comprou Produto</SelectItem>
                                       </SelectContent>
                                     </Select>
@@ -2256,10 +2286,21 @@ export default function CashbackManagement() {
 
                                 {filtro.tipo === 'categoria' && (
                                   <div>
-                                    <Label>Categoria</Label>
-                                    <Select
+                                    <Label>Categoria de Produto</Label>
+                                    <Input
+                                      placeholder="Digite o nome da categoria de produto"
                                       value={filtro.categoria || ''}
-                                      onValueChange={(v) => atualizarFiltroCliente(index, { categoria: v })}
+                                      onChange={(e) => atualizarFiltroCliente(index, { categoria: e.target.value })}
+                                    />
+                                  </div>
+                                )}
+
+                                {filtro.tipo === 'categoria_cliente' && (
+                                  <div>
+                                    <Label>Categoria de Cliente</Label>
+                                    <Select
+                                      value={filtro.categoria_cliente || ''}
+                                      onValueChange={(v) => atualizarFiltroCliente(index, { categoria_cliente: v })}
                                     >
                                       <SelectTrigger>
                                         <SelectValue placeholder="Selecione a categoria" />
@@ -3031,10 +3072,21 @@ export default function CashbackManagement() {
 
                               {filtro.tipo === 'categoria' && (
                                 <div>
-                                  <Label>Categoria</Label>
-                                  <Select
+                                  <Label>Categoria de Produto</Label>
+                                  <Input
+                                    placeholder="Digite o nome da categoria de produto"
                                     value={filtro.categoria || ''}
-                                    onValueChange={(v) => atualizarFiltro(index, { categoria: v })}
+                                    onChange={(e) => atualizarFiltro(index, { categoria: e.target.value })}
+                                  />
+                                </div>
+                              )}
+
+                              {filtro.tipo === 'categoria_cliente' && (
+                                <div>
+                                  <Label>Categoria de Cliente</Label>
+                                  <Select
+                                    value={filtro.categoria_cliente || ''}
+                                    onValueChange={(v) => atualizarFiltro(index, { categoria_cliente: v })}
                                   >
                                     <SelectTrigger>
                                       <SelectValue placeholder="Selecione a categoria" />
