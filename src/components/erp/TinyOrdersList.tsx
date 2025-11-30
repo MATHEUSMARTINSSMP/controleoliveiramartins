@@ -5,7 +5,7 @@
  * Documentação: https://erp.tiny.com.br/public-api/v3/swagger/index.html
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -60,6 +60,16 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
 
   // ✅ Flag para evitar notificações de pedidos antigos na primeira carga
   const [isFirstLoad, setIsFirstLoad] = useState(true);
+  
+  // ✅ Refs para acessar valores atuais sem causar re-subscrições
+  const ordersRef = useRef<TinyOrder[]>([]);
+  const isFirstLoadRef = useRef(true);
+  
+  // Atualizar refs quando os valores mudarem
+  useEffect(() => {
+    ordersRef.current = orders;
+    isFirstLoadRef.current = isFirstLoad;
+  }, [orders, isFirstLoad]);
 
   useEffect(() => {
     fetchOrders();
@@ -75,6 +85,14 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+
+  // ✅ Função helper para formatar moeda (definida antes do Realtime para estar acessível)
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value);
+  };
 
   // ✅ AUTO-REFRESH SILENCIOSO - Atualizar lista quando houver novas vendas
   // Não mostra loading, apenas atualiza a lista silenciosamente
@@ -108,8 +126,87 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
         },
         (payload) => {
           console.log('[TinyOrdersList] 🔔 Mudança detectada em tempo real:', payload.eventType, payload);
-          // ✅ CORREÇÃO: Usar fetchOrdersSilently para detectar novos pedidos e mostrar notificações
-          // fetchOrders() não mostra notificações, apenas recarrega a lista
+          
+          // ✅ NOVA LÓGICA: Se for INSERT, mostrar notificação IMEDIATAMENTE usando o payload
+          if (payload.eventType === 'INSERT' && payload.new) {
+            const novoPedido = payload.new as any;
+            
+            console.log('[TinyOrdersList] 🔔 [REALTIME] INSERT detectado:', {
+              id: novoPedido.id,
+              numero_pedido: novoPedido.numero_pedido,
+              cliente_nome: novoPedido.cliente_nome,
+              valor_total: novoPedido.valor_total
+            });
+            
+            // ✅ Usar refs para acessar valores atuais sem causar re-subscrições
+            const currentOrders = ordersRef.current;
+            const currentIsFirstLoad = isFirstLoadRef.current;
+            
+            // Verificar se já existe na lista (evitar duplicatas)
+            const jaExiste = currentOrders.some((o) => 
+              o.id === novoPedido.id || 
+              (o.numero_pedido && novoPedido.numero_pedido && o.numero_pedido === novoPedido.numero_pedido)
+            );
+            
+            console.log('[TinyOrdersList] 🔔 [REALTIME] Verificações:', {
+              jaExiste,
+              currentIsFirstLoad,
+              totalOrders: currentOrders.length
+            });
+            
+            // ✅ SEMPRE mostrar notificação se não existir na lista (removido check de isFirstLoad)
+            if (!jaExiste) {
+              console.log('[TinyOrdersList] 🔔 [REALTIME] ✅ Nova venda detectada - mostrando notificação IMEDIATA');
+              
+              // ✅ Mostrar notificação IMEDIATAMENTE (balãozinho)
+              toast({
+                title: "🎉 Nova Venda Detectada!",
+                description: (
+                  <div className="flex flex-col gap-1">
+                    <span className="font-medium">{novoPedido.cliente_nome || 'Cliente'}</span>
+                    <span>Pedido #{novoPedido.numero_pedido || novoPedido.tiny_id}</span>
+                    <span className="font-bold text-green-600">{formatCurrency(Number(novoPedido.valor_total) || 0)}</span>
+                  </div>
+                ),
+                duration: 5000,
+                className: "bg-white border-green-500 border-l-4 shadow-lg",
+              });
+              
+              // ✅ Também mostrar notificação Sonner (minimalista)
+              sonnerToast.success("🎉 Nova Venda!", {
+                description: `Pedido ${novoPedido.numero_pedido || novoPedido.tiny_id} - ${novoPedido.cliente_nome || 'Cliente'} - ${formatCurrency(Number(novoPedido.valor_total) || 0)}`,
+                duration: 5000,
+              });
+              
+              // ✅ Adicionar imediatamente no topo da lista
+              setOrders((prevOrders) => {
+                const existingIds = new Set(prevOrders.map((o) => o.id));
+                if (existingIds.has(novoPedido.id)) {
+                  console.log('[TinyOrdersList] 🔔 [REALTIME] ⚠️ Pedido já existe na lista, não adicionando novamente');
+                  return prevOrders; // Já existe, não adicionar
+                }
+                
+                const pedidoNormalizado = {
+                  ...novoPedido,
+                  valor_total: Number(novoPedido.valor_total) || 0,
+                };
+                
+                console.log('[TinyOrdersList] 🔔 [REALTIME] ✅ Adicionando pedido no topo da lista');
+                
+                // Adicionar no topo e ordenar
+                const todasAsVendas = [pedidoNormalizado, ...prevOrders];
+                return todasAsVendas.sort((a, b) => {
+                  const numA = parseInt(a.numero_pedido || a.numero_ecommerce || '0');
+                  const numB = parseInt(b.numero_pedido || b.numero_ecommerce || '0');
+                  return numB - numA;
+                });
+              });
+            } else {
+              console.log('[TinyOrdersList] 🔔 [REALTIME] ⚠️ Pedido já existe na lista, não mostrando notificação');
+            }
+          }
+          
+          // ✅ Depois, atualizar lista completa para garantir sincronização
           fetchOrdersSilently();
         }
       )
@@ -126,7 +223,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
       console.log('[TinyOrdersList] 🔌 Desconectando Realtime');
       supabase.removeChannel(channel);
     };
-  }, [storeId]);
+  }, [storeId]); // ✅ Remover orders e isFirstLoad das dependências (usar refs)
 
   // ✅ Buscar pedidos silenciosamente (sem mostrar loading)
   const fetchOrdersSilently = async () => {
@@ -152,31 +249,40 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
 
 
         // ✅ Detectar novos pedidos usando TIMESTAMP de sincronização
-        // Considerar "novo" qualquer pedido sincronizado nos últimos 5 minutos (aumentado para garantir detecção)
-        const cincoMinutosAtras = new Date(Date.now() - 5 * 60 * 1000);
+        // Considerar "novo" qualquer pedido sincronizado nos últimos 10 minutos (aumentado para garantir detecção)
+        const dezMinutosAtras = new Date(Date.now() - 10 * 60 * 1000);
 
         const novosPedidos = normalizedData.filter((order) => {
-          // Verificar se já estava na lista anterior (comparar por ID)
-          const jaExistia = orders.some((existingOrder) => existingOrder.id === order.id);
+          // Verificar se já estava na lista anterior (comparar por ID e numero_pedido)
+          const jaExistia = orders.some((existingOrder) => 
+            existingOrder.id === order.id || 
+            (existingOrder.numero_pedido && order.numero_pedido && existingOrder.numero_pedido === order.numero_pedido)
+          );
 
           // Se já existia, não é novo
           if (jaExistia) return false;
 
-          // Se não tem sync_at, verificar se é realmente novo comparando com data_pedido
-          if (!order.sync_at) {
-            // Se não tem sync_at mas tem data_pedido recente, considerar novo
-            if (order.data_pedido) {
-              const dataPedido = new Date(order.data_pedido);
-              return dataPedido > cincoMinutosAtras;
+          // ✅ PRIORIDADE 1: Verificar sync_at (mais confiável para detectar novas sincronizações)
+          if (order.sync_at) {
+            const syncDate = new Date(order.sync_at);
+            const isRecent = syncDate > dezMinutosAtras;
+            if (isRecent) {
+              console.log(`[AUTO-REFRESH] ✅ Pedido ${order.numero_pedido} detectado como NOVO (sync_at recente: ${order.sync_at})`);
+              return true;
             }
-            return false;
           }
 
-          const syncDate = new Date(order.sync_at);
-          const isRecent = syncDate > cincoMinutosAtras;
+          // ✅ PRIORIDADE 2: Se não tem sync_at, verificar data_pedido recente
+          if (order.data_pedido) {
+            const dataPedido = new Date(order.data_pedido);
+            const isRecent = dataPedido > dezMinutosAtras;
+            if (isRecent) {
+              console.log(`[AUTO-REFRESH] ✅ Pedido ${order.numero_pedido} detectado como NOVO (data_pedido recente: ${order.data_pedido})`);
+              return true;
+            }
+          }
 
-          // É novo se foi sincronizado recentemente E não estava na lista anterior
-          return isRecent;
+          return false;
         });
 
         console.log(`[AUTO-REFRESH] 📊 ${novosPedidos.length} novos pedidos detectados (isFirstLoad: ${isFirstLoad})`);
@@ -383,13 +489,6 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
     }
 
     setFilteredOrders(filtered);
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
   };
 
   const formatDate = (dateString: string | null) => {
