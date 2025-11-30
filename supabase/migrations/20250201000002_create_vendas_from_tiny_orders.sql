@@ -117,7 +117,9 @@ BEGIN
           'qtd_pecas', v_qtd_pecas
         );
       ELSE
-        -- Criar nova venda
+        -- ✅ CRIAR NOVA VENDA COM PROTEÇÃO CONTRA DUPLICATAS
+        -- Usar INSERT ... ON CONFLICT para garantir que não haverá duplicatas mesmo em execuções simultâneas
+        -- O índice único idx_sales_tiny_order_id_unique garante que cada pedido gere apenas uma venda
         INSERT INTO sistemaretiradas.sales (
           tiny_order_id,
           colaboradora_id,
@@ -137,17 +139,29 @@ BEGIN
           v_observacoes,
           NULL -- Vendas do ERP não têm lancado_por_id
         )
+        ON CONFLICT (tiny_order_id)
+        DO UPDATE SET
+          colaboradora_id = EXCLUDED.colaboradora_id,
+          store_id = EXCLUDED.store_id,
+          valor = EXCLUDED.valor,
+          qtd_pecas = EXCLUDED.qtd_pecas,
+          data_venda = EXCLUDED.data_venda,
+          observacoes = EXCLUDED.observacoes,
+          updated_at = NOW()
         RETURNING id INTO v_sale_id;
         
+        -- ✅ ON CONFLICT garante que não haverá duplicatas
+        -- Se chegou aqui, a venda foi criada (ou atualizada pelo ON CONFLICT)
+        -- Como o LEFT JOIN já filtra vendas existentes, contamos como criada
+        -- O ON CONFLICT é apenas uma proteção adicional contra race conditions
         v_vendas_criadas := v_vendas_criadas + 1;
         
-        -- Adicionar ao detalhes
         v_detalhes := v_detalhes || jsonb_build_object(
           'tipo', 'criada',
           'tiny_order_id', v_pedido.tiny_order_id,
           'sale_id', v_sale_id,
           'numero_pedido', v_pedido.numero_pedido,
-          'valor', v_pedido.valor_total, -- ✅ O valor_total já está correto (vale troca descontado no tiny_orders)
+          'valor', v_pedido.valor_total,
           'qtd_pecas', v_qtd_pecas
         );
       END IF;
