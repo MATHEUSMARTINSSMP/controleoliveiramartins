@@ -41,24 +41,49 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Normalizar telefone para o formato esperado pelo webhook n8n
+    // Normalizar telefone para WhatsApp (DDI + DDD + número)
+    // Formato esperado: 55DDDXXXXXXXXX (ex: 5596981032928)
     // O webhook n8n espera número com DDI do país (55) mas sem @s.whatsapp.net
     const normalizePhone = (phoneNumber) => {
-      // Remove todos os caracteres não numéricos
+      if (!phoneNumber) return '';
+      
+      // 1. Remove todos os caracteres não numéricos
       let cleaned = phoneNumber.replace(/\D/g, '');
       
-      // Se começar com 0, remove
+      // 2. Remove zero inicial se houver (ex: 096 -> 96)
       if (cleaned.startsWith('0')) {
         cleaned = cleaned.substring(1);
       }
       
-      // Se não começar com 55 (Brasil), adiciona
-      // O webhook precisa do DDI do país
+      // 3. Remove +55, 55 inicial se houver (normalizar para adicionar depois)
+      if (cleaned.startsWith('55') && cleaned.length > 12) {
+        cleaned = cleaned.substring(2);
+      }
+      
+      // 4. Validação de tamanho mínimo (10 dígitos = DDD + número)
+      // ou 11 dígitos = DDD + número com 9º dígito
+      if (cleaned.length < 10 || cleaned.length > 11) {
+        console.warn(`[normalizePhone] ⚠️ Telefone com tamanho inválido: ${cleaned.length} dígitos (${phoneNumber})`);
+        // Se tiver menos de 10 dígitos, pode estar incompleto - retornar como está
+        if (cleaned.length < 10) {
+          return cleaned;
+        }
+      }
+      
+      // 5. Adiciona DDI 55 (Brasil) se não tiver
       if (!cleaned.startsWith('55')) {
         cleaned = '55' + cleaned;
       }
       
-      // Não adiciona @s.whatsapp.net (o webhook não precisa disso)
+      // 6. Validação final: deve ter 13 dígitos (55 + DDD + 9 dígitos) ou 12 (55 + DDD + 8 dígitos)
+      // Formato: 55 + DDD (2 dígitos) + número (8 ou 9 dígitos)
+      const expectedLength = cleaned.startsWith('55') ? (cleaned.length === 13 || cleaned.length === 12) : false;
+      
+      if (expectedLength || cleaned.length >= 12) {
+        return cleaned;
+      }
+      
+      console.warn(`[normalizePhone] ⚠️ Telefone normalizado com formato inesperado: ${cleaned} (original: ${phoneNumber})`);
       return cleaned;
     };
 
