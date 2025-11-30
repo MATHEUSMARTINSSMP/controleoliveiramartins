@@ -2172,18 +2172,45 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     valor_total: valorTotal || 0,
     valor_desconto: parseFloat(pedido.valorDesconto || pedido.valor_desconto || 0),
     valor_frete: parseFloat(pedido.valorFrete || pedido.valor_frete || 0),
-    // ✅ REMOVER "VALE TROCA" da forma de pagamento antes de salvar
+    // ✅ ADICIONAR VALE TROCA na forma de pagamento (apenas para informação, sem somar ao valor)
     forma_pagamento: (() => {
-      const formaPagamento = pedido.pagamento?.formaPagamento?.nome || null;
-      if (!formaPagamento) return null;
+      const formasPagamento = [];
       
-      // ✅ Usar função auxiliar global para detectar vale troca
-      // Se a forma de pagamento é "Vale Troca", não salvar (já foi descontado do valor)
-      if (isValeTroca(formaPagamento)) {
-        return null; // Se for vale troca, não salvar forma de pagamento
+      // Coletar todas as formas de pagamento das parcelas (exceto vale troca)
+      if (pedidoCompleto?.pagamento?.parcelas && Array.isArray(pedidoCompleto.pagamento.parcelas)) {
+        pedidoCompleto.pagamento.parcelas.forEach((parcela) => {
+          const formaPagamento = parcela.formaPagamento?.nome || parcela.formaPagamento || '';
+          const meioPagamento = parcela.meioPagamento?.nome || parcela.meioPagamento || '';
+          
+          // Adicionar forma de pagamento se não for vale troca
+          if (formaPagamento && !isValeTroca(formaPagamento)) {
+            if (!formasPagamento.includes(formaPagamento)) {
+              formasPagamento.push(formaPagamento);
+            }
+          }
+          
+          if (meioPagamento && !isValeTroca(meioPagamento) && formaPagamento !== meioPagamento) {
+            if (!formasPagamento.includes(meioPagamento)) {
+              formasPagamento.push(meioPagamento);
+            }
+          }
+        });
       }
       
-      return formaPagamento;
+      // Se não encontrou nas parcelas, usar forma de pagamento principal
+      if (formasPagamento.length === 0) {
+        const formaPagamentoPrincipal = pedido.pagamento?.formaPagamento?.nome || null;
+        if (formaPagamentoPrincipal && !isValeTroca(formaPagamentoPrincipal)) {
+          formasPagamento.push(formaPagamentoPrincipal);
+        }
+      }
+      
+      // Adicionar "Vale Troca" como informação (se houver)
+      if (valorValeTroca > 0) {
+        formasPagamento.push(`Vale Troca (R$ ${valorValeTroca.toFixed(2)})`);
+      }
+      
+      return formasPagamento.length > 0 ? formasPagamento.join(' + ') : null;
     })(),
     forma_envio: pedido.transportador?.formaEnvio?.nome || null,
     endereco_entrega: pedido.enderecoEntrega || null,
