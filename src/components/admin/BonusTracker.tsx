@@ -307,18 +307,22 @@ export function BonusTracker() {
                                                 console.log(`[BonusTracker] Bonus: ${bonus.nome}, tipo_condicao original: "${bonus.tipo_condicao}", normalizado: "${tipoCondicao}"`);
                                                 console.log(`[BonusTracker] Colab: ${colab.name}, ticketMedio: ${colabData.ticketMedio}, pa: ${colabData.pa}, qtdPecas: ${colabData.qtdPecas}, rankingValue: ${rankingValue}`);
                                                 
+                                                // Usar rankingValue como fonte principal, pois já foi calculado corretamente baseado no tipo_condicao
                                                 if (tipoCondicao === "TICKET_MEDIO" || tipoCondicao === "TICKET MÉDIO") {
-                                                    const ticketMedio = colabData.ticketMedio || rankingValue || 0;
-                                                    console.log(`[BonusTracker] ✅ Retornando ticket médio: R$ ${ticketMedio.toFixed(2)}`);
+                                                    // rankingValue já contém o ticket médio quando tipo_condicao é TICKET_MEDIO
+                                                    const ticketMedio = rankingValue > 0 ? rankingValue : (colabData.ticketMedio || 0);
+                                                    console.log(`[BonusTracker] ✅ Retornando ticket médio: R$ ${ticketMedio.toFixed(2)} (rankingValue: ${rankingValue}, colabData.ticketMedio: ${colabData.ticketMedio})`);
                                                     return `R$ ${ticketMedio.toFixed(2)}`;
                                                 } else if (tipoCondicao === "PA") {
-                                                    const pa = colabData.pa || rankingValue || 0;
+                                                    // rankingValue já contém o PA quando tipo_condicao é PA
+                                                    const pa = rankingValue > 0 ? rankingValue : (colabData.pa || 0);
                                                     return `${pa.toFixed(1)} peças/venda`;
                                                 } else if (tipoCondicao === "NUMERO_PECAS" || tipoCondicao === "NUMERO DE PEÇAS") {
-                                                    const qtdPecas = colabData.qtdPecas || rankingValue || 0;
-                                                    return `${qtdPecas} peças`;
+                                                    // rankingValue já contém o número de peças quando tipo_condicao é NUMERO_PECAS
+                                                    const qtdPecas = rankingValue > 0 ? rankingValue : (colabData.qtdPecas || 0);
+                                                    return `${Math.round(qtdPecas)} peças`;
                                                 } else {
-                                                    // Para outros tipos, mostrar progresso da meta
+                                                    // Para outros tipos (PERCENTUAL_META, etc.), mostrar progresso da meta
                                                     console.log(`[BonusTracker] ⚠️ Tipo não reconhecido (${tipoCondicao}), usando progress: ${colab.progress.toFixed(0)}%`);
                                                     return `${colab.progress.toFixed(0)}%`;
                                                 }
