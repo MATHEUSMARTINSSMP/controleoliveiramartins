@@ -221,35 +221,37 @@ exports.handler = async (event, context) => {
         cleaned = cleaned.substring(1);
       }
       
-      // 3. Remove +55, 55 inicial se houver (normalizar para adicionar depois)
-      if (cleaned.startsWith('55') && cleaned.length > 12) {
+      // 3. Se já tem DDI 55 e está no tamanho correto (12 ou 13 dígitos), manter
+      // Formato correto: 55 + DDD (2) + número (8 ou 9) = 12 ou 13 dígitos
+      if (cleaned.startsWith('55') && (cleaned.length === 12 || cleaned.length === 13)) {
+        return cleaned; // Já está no formato correto
+      }
+      
+      // 4. Se tem DDI 55 mas está muito longo (possível duplicação), remover o primeiro 55
+      if (cleaned.startsWith('55') && cleaned.length > 13) {
         cleaned = cleaned.substring(2);
       }
       
-      // 4. Validação de tamanho mínimo (10 dígitos = DDD + número)
-      // ou 11 dígitos = DDD + número com 9º dígito
+      // 5. Validação de tamanho após limpeza (deve ter 10 ou 11 dígitos = DDD + número)
       if (cleaned.length < 10 || cleaned.length > 11) {
-        console.warn(`[normalizePhone] ⚠️ Telefone com tamanho inválido: ${cleaned.length} dígitos (${phoneNumber})`);
-        // Se tiver menos de 10 dígitos, pode estar incompleto - retornar como está
+        console.warn(`[normalizePhone] ⚠️ Telefone com tamanho inválido após limpeza: ${cleaned.length} dígitos (${phoneNumber})`);
+        // Se tiver menos de 10 dígitos, pode estar incompleto
         if (cleaned.length < 10) {
           return cleaned;
         }
       }
       
-      // 5. Adiciona DDI 55 (Brasil) se não tiver
+      // 6. Adiciona DDI 55 (Brasil) se não tiver
       if (!cleaned.startsWith('55')) {
         cleaned = '55' + cleaned;
       }
       
-      // 6. Validação final: deve ter 13 dígitos (55 + DDD + 9 dígitos) ou 12 (55 + DDD + 8 dígitos)
-      // Formato: 55 + DDD (2 dígitos) + número (8 ou 9 dígitos)
-      const expectedLength = cleaned.startsWith('55') ? (cleaned.length === 13 || cleaned.length === 12) : false;
-      
-      if (expectedLength || cleaned.length >= 12) {
+      // 7. Validação final: deve ter 13 dígitos (55 + DDD + 9 dígitos) ou 12 (55 + DDD + 8 dígitos)
+      if (cleaned.length === 12 || cleaned.length === 13) {
         return cleaned;
       }
       
-      console.warn(`[normalizePhone] ⚠️ Telefone normalizado com formato inesperado: ${cleaned} (original: ${phoneNumber})`);
+      console.warn(`[normalizePhone] ⚠️ Telefone normalizado com formato inesperado: ${cleaned} (${cleaned.length} dígitos, original: ${phoneNumber})`);
       return cleaned;
     };
 
