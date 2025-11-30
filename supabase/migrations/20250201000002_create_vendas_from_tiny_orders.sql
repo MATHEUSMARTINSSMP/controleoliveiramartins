@@ -79,6 +79,9 @@ BEGIN
         v_qtd_pecas := 1;
       END IF;
       
+      -- ✅ IMPORTANTE: O valor_total do tiny_orders JÁ está com o vale troca descontado
+      -- Não precisamos descontar novamente aqui, apenas usar o valor que já está correto
+      
       -- Preparar observações (incluir número do pedido se disponível)
       v_observacoes := COALESCE(v_pedido.observacoes, '');
       
@@ -95,7 +98,7 @@ BEGIN
         SET
           colaboradora_id = v_pedido.colaboradora_id,
           store_id = v_pedido.store_id,
-          valor = v_pedido.valor_total,
+          valor = v_pedido.valor_total, -- ✅ O valor_total já está correto (vale troca descontado no tiny_orders)
           qtd_pecas = v_qtd_pecas,
           data_venda = v_pedido.data_pedido,
           observacoes = v_observacoes,
@@ -110,7 +113,7 @@ BEGIN
           'tiny_order_id', v_pedido.tiny_order_id,
           'sale_id', v_pedido.sale_id,
           'numero_pedido', v_pedido.numero_pedido,
-          'valor', v_pedido.valor_total,
+          'valor', v_pedido.valor_total, -- ✅ O valor_total já está correto (vale troca descontado no tiny_orders)
           'qtd_pecas', v_qtd_pecas
         );
       ELSE
@@ -128,7 +131,7 @@ BEGIN
           v_pedido.tiny_order_id,
           v_pedido.colaboradora_id,
           v_pedido.store_id,
-          v_pedido.valor_total,
+          v_pedido.valor_total, -- ✅ O valor_total já está correto (vale troca descontado no tiny_orders)
           v_qtd_pecas,
           v_pedido.data_pedido,
           v_observacoes,
@@ -144,7 +147,7 @@ BEGIN
           'tiny_order_id', v_pedido.tiny_order_id,
           'sale_id', v_sale_id,
           'numero_pedido', v_pedido.numero_pedido,
-          'valor', v_pedido.valor_total,
+          'valor', v_pedido.valor_total, -- ✅ O valor_total já está correto (vale troca descontado no tiny_orders)
           'qtd_pecas', v_qtd_pecas
         );
       END IF;

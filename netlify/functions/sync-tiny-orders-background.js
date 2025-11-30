@@ -764,6 +764,12 @@ exports.handler = async (event, context) => {
         // ✅ TAREFA 6 (MOVIDA): Preparar dados do pedido completo (agora com existingOrder)
         const orderData = prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId, colaboradoraId, itensProcessados, tinyId, existingOrder);
 
+        // ✅ Pular pedidos com valor zero ou negativo (vale troca cobriu 100% ou mais)
+        if (!orderData || orderData.valor_total <= 0) {
+          console.log(`[SyncBackground] ⏭️ Pedido ${tinyId} ignorado (valor zero ou negativo após desconto de vale troca)`);
+          continue;
+        }
+
         const precisaAtualizar = !existingOrder || shouldUpdateOrder(existingOrder, orderData);
 
         if (!precisaAtualizar && existingOrder) {
@@ -2122,8 +2128,9 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     }
   }
   
-  // ✅ DESCONTAR VALE TROCA do valor total antes de salvar no tiny_orders
-  // IMPORTANTE: O desconto é aplicado aqui para que a venda seja criada já com o valor correto (sem vale troca)
+  // ✅ DESCONTAR VALE TROCA diretamente no tiny_orders
+  // O valor_total no tiny_orders deve ser o valor CORRETO (já descontado o vale troca)
+  // Isso garante que o ERP Dashboard mostre o valor correto
   if (valorValeTroca > 0) {
     const valorTotalAntes = valorTotal;
     
@@ -2132,10 +2139,10 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
       valorTotal = valorTotal - valorValeTroca; // Descontar vale troca
       console.log(`[SyncBackground] 💰 Valor antes: R$ ${valorTotalAntes.toFixed(2)} | Vale Troca: R$ ${valorValeTroca.toFixed(2)} | Valor final: R$ ${valorTotal.toFixed(2)}`);
     } else {
-      // Se vale troca cobre 100% ou mais, definir valor mínimo para não quebrar validações
-      // Mas garantir que seja um valor válido (> 0)
-      valorTotal = Math.max(0.01, valorTotal - valorValeTroca);
-      console.log(`[SyncBackground] ⚠️ Vale Troca (R$ ${valorValeTroca.toFixed(2)}) cobre todo o valor (R$ ${valorTotalAntes.toFixed(2)}). Valor final ajustado para: R$ ${valorTotal.toFixed(2)}`);
+      // Se vale troca cobre 100% ou mais, definir valor como zero
+      // O pedido será salvo mas a venda não será criada (valor_total > 0 é necessário)
+      valorTotal = 0;
+      console.log(`[SyncBackground] ⚠️ Vale Troca (R$ ${valorValeTroca.toFixed(2)}) cobre todo o valor (R$ ${valorTotalAntes.toFixed(2)}). Valor definido como R$ 0,00.`);
     }
   }
 
