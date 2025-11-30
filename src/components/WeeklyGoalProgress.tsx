@@ -206,20 +206,34 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
             
             if (monthlyGoalData) {
                 const dailyWeights = monthlyGoalData.daily_weights || {};
+                const metaMensal = parseFloat(monthlyGoalData.meta_valor || 0);
+                const superMetaMensal = parseFloat(monthlyGoalData.super_meta_valor || 0);
+                
                 metaSemanalObrigatoria = calculateWeeklyGoalFromMonthly(
-                    parseFloat(monthlyGoalData.meta_valor || 0),
+                    metaMensal,
                     dailyWeights,
                     weekRange
                 );
                 superMetaSemanalObrigatoria = calculateWeeklyGoalFromMonthly(
-                    parseFloat(monthlyGoalData.super_meta_valor || 0),
+                    superMetaMensal,
                     dailyWeights,
                     weekRange
                 );
+                
+                // Log para debug do cálculo
+                console.log(`[WeeklyGoalProgress] 📊 Cálculo da Meta Semanal (${colaboradoraId ? 'Colaboradora' : 'Loja'}):`);
+                console.log(`  - Meta Mensal: R$ ${metaMensal.toFixed(2)}`);
+                console.log(`  - Super Meta Mensal: R$ ${superMetaMensal.toFixed(2)}`);
+                console.log(`  - Meta Semanal (base): R$ ${metaSemanalObrigatoria.toFixed(2)}`);
+                console.log(`  - Super Meta Semanal (base): R$ ${superMetaSemanalObrigatoria.toFixed(2)}`);
+                console.log(`  - Proporção da meta semanal em relação à mensal: ${((metaSemanalObrigatoria / metaMensal) * 100).toFixed(1)}%`);
+                console.log(`  - Daily weights configurados: ${Object.keys(dailyWeights).length > 0 ? 'Sim' : 'Não'}`);
             }
 
             // COMPENSAÇÃO: Calcular déficit acumulado de semanas anteriores (apenas para Meta Semanal, não Gincana)
             let deficitAcumuladoSemanasAnteriores = 0;
+            const metaMensal = monthlyGoalData ? parseFloat(monthlyGoalData.meta_valor || 0) : 0;
+            
             if (colaboradoraId && monthlyGoalData) {
                 // Buscar todas as semanas anteriores do mês atual
                 const mesAtualStart = startOfMonth(hoje);
@@ -264,12 +278,43 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                 
                 // Adicionar déficit acumulado à meta semanal atual
                 if (deficitAcumuladoSemanasAnteriores > 0) {
-                    console.log(`[WeeklyGoalProgress] Déficit acumulado de semanas anteriores: ${formatCurrency(deficitAcumuladoSemanasAnteriores)}`);
-                    metaSemanalObrigatoria += deficitAcumuladoSemanasAnteriores;
-                    // Também ajustar super meta proporcionalmente
-                    if (superMetaSemanalObrigatoria > 0 && metaSemanalObrigatoria > 0) {
-                        const ratio = superMetaSemanalObrigatoria / (metaSemanalObrigatoria - deficitAcumuladoSemanasAnteriores);
-                        superMetaSemanalObrigatoria = metaSemanalObrigatoria * ratio;
+                    console.log(`[WeeklyGoalProgress] ⚠️ Déficit acumulado de semanas anteriores: R$ ${deficitAcumuladoSemanasAnteriores.toFixed(2)}`);
+                    console.log(`[WeeklyGoalProgress] 📊 Meta semanal ANTES do déficit: R$ ${metaSemanalObrigatoria.toFixed(2)}`);
+                    
+                    // IMPORTANTE: Limitar o déficit acumulado para não ultrapassar a meta mensal
+                    // O déficit acumulado não deve fazer a meta semanal ficar maior que a proporção razoável
+                    const proporcaoMaximaSemanal = 0.35; // Máximo 35% da meta mensal por semana (considerando 4 semanas)
+                    const metaSemanalMaxima = metaMensal * proporcaoMaximaSemanal;
+                    
+                    const metaSemanalComDeficit = metaSemanalObrigatoria + deficitAcumuladoSemanasAnteriores;
+                    
+                    if (metaSemanalComDeficit > metaSemanalMaxima) {
+                        console.warn(`[WeeklyGoalProgress] ⚠️ Déficit acumulado muito alto! Limitando meta semanal.`);
+                        console.warn(`  - Meta semanal com déficit: R$ ${metaSemanalComDeficit.toFixed(2)}`);
+                        console.warn(`  - Meta semanal máxima permitida: R$ ${metaSemanalMaxima.toFixed(2)}`);
+                        console.warn(`  - Déficit aplicado limitado: R$ ${(metaSemanalMaxima - metaSemanalObrigatoria).toFixed(2)}`);
+                        
+                        // Limitar o déficit aplicado
+                        const deficitLimitado = metaSemanalMaxima - metaSemanalObrigatoria;
+                        metaSemanalObrigatoria = metaSemanalMaxima;
+                        
+                        // Ajustar super meta proporcionalmente
+                        if (superMetaSemanalObrigatoria > 0) {
+                            const ratio = superMetaSemanalObrigatoria / (metaSemanalObrigatoria - deficitLimitado);
+                            superMetaSemanalObrigatoria = metaSemanalObrigatoria * ratio;
+                        }
+                    } else {
+                        metaSemanalObrigatoria += deficitAcumuladoSemanasAnteriores;
+                        // Também ajustar super meta proporcionalmente
+                        if (superMetaSemanalObrigatoria > 0 && metaSemanalObrigatoria > 0) {
+                            const ratio = superMetaSemanalObrigatoria / (metaSemanalObrigatoria - deficitAcumuladoSemanasAnteriores);
+                            superMetaSemanalObrigatoria = metaSemanalObrigatoria * ratio;
+                        }
+                    }
+                    
+                    console.log(`[WeeklyGoalProgress] 📊 Meta semanal DEPOIS do déficit: R$ ${metaSemanalObrigatoria.toFixed(2)}`);
+                    if (metaMensal > 0) {
+                        console.log(`[WeeklyGoalProgress] 📊 Proporção final em relação à meta mensal: ${((metaSemanalObrigatoria / metaMensal) * 100).toFixed(1)}%`);
                     }
                 }
             }
@@ -832,7 +877,10 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                     <div>
                                         <p className="font-bold text-green-900 text-lg">🎉 Meta Semanal Batida!</p>
                                         <p className="text-sm text-green-700 mt-1">
-                                            Parabéns! Você alcançou a meta semanal. {progress.superProgress < 100 && 'Continue para bater a super meta!'}
+                                            {colaboradoraId 
+                                                ? `Parabéns! Você alcançou a meta semanal. ${progress.superProgress < 100 ? 'Continue para bater a super meta!' : ''}`
+                                                : `Parabéns, Equipe! A loja atingiu a meta semanal. ${progress.superProgress < 100 ? 'Continue para bater a super meta!' : ''}`
+                                            }
                                         </p>
                                     </div>
                                 </div>
