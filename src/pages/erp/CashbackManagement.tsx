@@ -137,6 +137,9 @@ export default function CashbackManagement() {
   const [descricaoBonificacao, setDescricaoBonificacao] = useState('');
   const [bonificando, setBonificando] = useState(false);
   const [selectedClientesBonificar, setSelectedClientesBonificar] = useState<Set<string>>(new Set());
+  const [tipoValidadeBonificacao, setTipoValidadeBonificacao] = useState<'data' | 'dias'>('dias');
+  const [dataExpiracaoBonificacao, setDataExpiracaoBonificacao] = useState('');
+  const [diasValidadeBonificacao, setDiasValidadeBonificacao] = useState('30');
 
   // KPIs
   const [kpis, setKpis] = useState({
@@ -657,7 +660,8 @@ export default function CashbackManagement() {
         const todosClientes = Array.from(clienteMap.keys());
         clientesFiltradosSet = new Set(todosClientes);
 
-        filtrosBonificacao.forEach((filtro) => {
+        // Usar for...of async para permitir await
+        for (const filtro of filtrosBonificacao) {
           const clientesFiltro = new Set<string>();
 
           switch (filtro.tipo) {
@@ -770,7 +774,7 @@ export default function CashbackManagement() {
             // Excluir
             clientesFiltro.forEach(id => clientesFiltradosSet.delete(id));
           }
-        });
+        }
       } else {
         // OR: Pelo menos um filtro deve ser satisfeito
         const clientesPorFiltro: Set<string>[] = [];
@@ -937,9 +941,20 @@ export default function CashbackManagement() {
       return;
     }
 
+    // Validar prazo de validade
+    if (tipoValidadeBonificacao === 'data' && !dataExpiracaoBonificacao) {
+      toast.error('Informe a data de expiração');
+      return;
+    }
+
+    if (tipoValidadeBonificacao === 'dias' && (!diasValidadeBonificacao || parseInt(diasValidadeBonificacao) <= 0)) {
+      toast.error('Informe o número de dias de validade');
+      return;
+    }
+
     setBonificando(true);
     try {
-      // Buscar configurações de cashback
+      // Buscar configurações de cashback (apenas para prazo de liberação)
       const { data: settingsData } = await supabase
         .schema('sistemaretiradas')
         .from('cashback_settings')
@@ -948,9 +963,7 @@ export default function CashbackManagement() {
         .single();
 
       const settings = settingsData || {
-        percentual_cashback: 15.00,
         prazo_liberacao_dias: 2,
-        prazo_expiracao_dias: 30,
       };
 
       const valorBonificacaoNum = parseFloat(valorBonificacao);
@@ -958,19 +971,29 @@ export default function CashbackManagement() {
       const macapaOffset = -3 * 60;
       const macapaTime = new Date(agora.getTime() + (macapaOffset - agora.getTimezoneOffset()) * 60000);
 
+      // Data de liberação (usa configuração padrão)
       const dataLiberacao = new Date(macapaTime);
       dataLiberacao.setDate(dataLiberacao.getDate() + settings.prazo_liberacao_dias);
 
-      const dataExpiracao = new Date(dataLiberacao);
-      dataExpiracao.setDate(dataExpiracao.getDate() + settings.prazo_expiracao_dias);
+      // Data de expiração (usa configuração específica da bonificação)
+      let dataExpiracao: Date;
+      if (tipoValidadeBonificacao === 'data') {
+        // Usar data específica informada
+        dataExpiracao = new Date(dataExpiracaoBonificacao + 'T23:59:59');
+      } else {
+        // Usar dias de validade
+        dataExpiracao = new Date(dataLiberacao);
+        dataExpiracao.setDate(dataExpiracao.getDate() + parseInt(diasValidadeBonificacao));
+      }
 
       // Inserir transações para todos os clientes selecionados
+      // Usar description com prefixo "BONIFICAÇÃO:" para identificar
       const transacoes = Array.from(selectedClientesBonificar).map(clienteId => ({
         cliente_id: clienteId,
         tiny_order_id: null,
         transaction_type: 'EARNED' as const,
         amount: valorBonificacaoNum,
-        description: descricaoBonificacao || 'Bonificação em massa',
+        description: `BONIFICAÇÃO: ${descricaoBonificacao || 'Bonificação em massa'}`,
         data_liberacao: dataLiberacao.toISOString(),
         data_expiracao: dataExpiracao.toISOString(),
       }));
@@ -986,6 +1009,9 @@ export default function CashbackManagement() {
       setSelectedClientesBonificar(new Set());
       setValorBonificacao('');
       setDescricaoBonificacao('');
+      setTipoValidadeBonificacao('dias');
+      setDataExpiracaoBonificacao('');
+      setDiasValidadeBonificacao('30');
       await fetchData();
     } catch (error: any) {
       console.error('Erro ao bonificar:', error);
@@ -1406,9 +1432,17 @@ export default function CashbackManagement() {
                                           <TableCell>
                                             <div className="flex items-center gap-2">
                                               {t.transaction_type === 'EARNED' && (
-                                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                                  Ganhou
-                                                </Badge>
+                                                <>
+                                                  {t.description?.startsWith('BONIFICAÇÃO:') ? (
+                                                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                                                      Bonificação
+                                                    </Badge>
+                                                  ) : (
+                                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                                      Ganhou
+                                                    </Badge>
+                                                  )}
+                                                </>
                                               )}
                                               {t.transaction_type === 'REDEEMED' && (
                                                 <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
@@ -1555,9 +1589,17 @@ export default function CashbackManagement() {
                             </TableCell>
                             <TableCell>
                               {t.transaction_type === 'EARNED' && (
-                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                  Ganhou
-                                </Badge>
+                                <>
+                                  {t.description?.startsWith('BONIFICAÇÃO:') ? (
+                                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                                      Bonificação
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                      Ganhou
+                                    </Badge>
+                                  )}
+                                </>
                               )}
                               {t.transaction_type === 'REDEEMED' && (
                                 <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
@@ -1954,6 +1996,69 @@ export default function CashbackManagement() {
                           value={descricaoBonificacao}
                           onChange={(e) => setDescricaoBonificacao(e.target.value)}
                         />
+                      </div>
+                    </div>
+
+                    {/* Prazo de Validade da Bonificação */}
+                    <div className="space-y-4 border rounded-lg p-4 bg-muted/50">
+                      <Label className="text-base font-semibold">Prazo de Validade da Bonificação</Label>
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              id="validade-dias"
+                              name="tipo-validade"
+                              checked={tipoValidadeBonificacao === 'dias'}
+                              onChange={() => setTipoValidadeBonificacao('dias')}
+                              className="w-4 h-4"
+                            />
+                            <Label htmlFor="validade-dias" className="font-normal cursor-pointer">
+                              Válido por X dias
+                            </Label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              id="validade-data"
+                              name="tipo-validade"
+                              checked={tipoValidadeBonificacao === 'data'}
+                              onChange={() => setTipoValidadeBonificacao('data')}
+                              className="w-4 h-4"
+                            />
+                            <Label htmlFor="validade-data" className="font-normal cursor-pointer">
+                              Válido até data específica
+                            </Label>
+                          </div>
+                        </div>
+
+                        {tipoValidadeBonificacao === 'dias' ? (
+                          <div className="space-y-2">
+                            <Label>Dias de Validade *</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              placeholder="30"
+                              value={diasValidadeBonificacao}
+                              onChange={(e) => setDiasValidadeBonificacao(e.target.value)}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              O cashback será válido por {diasValidadeBonificacao || 'X'} dias após a liberação
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Label>Data de Expiração *</Label>
+                            <Input
+                              type="date"
+                              value={dataExpiracaoBonificacao}
+                              onChange={(e) => setDataExpiracaoBonificacao(e.target.value)}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              O cashback será válido até a data informada
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                     {selectedClientesBonificar.size > 0 && valorBonificacao && (
