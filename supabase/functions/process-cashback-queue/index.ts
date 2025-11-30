@@ -1,12 +1,127 @@
 // Supabase Edge Function: Processar Fila de WhatsApp de Cashback
 // Esta função processa a fila de WhatsApp de cashback automaticamente
-// Pode ser chamada via Scheduled Job do Supabase
+// Usa a mesma lógica de envio de WhatsApp que já existe no sistema
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// Função para normalizar telefone (mesma lógica do send-whatsapp-message.js)
+function normalizePhone(phoneNumber: string): string {
+  let cleaned = phoneNumber.replace(/\D/g, '')
+  if (cleaned.startsWith('0')) {
+    cleaned = cleaned.substring(1)
+  }
+  if (!cleaned.startsWith('55')) {
+    cleaned = '55' + cleaned
+  }
+  return cleaned
+}
+
+// Função para formatar mensagem de cashback (mesma lógica do formatCashbackMessage)
+function formatCashbackMessage(params: {
+  clienteNome: string
+  storeName: string
+  cashbackAmount: number
+  dataExpiracao: string
+  percentualUsoMaximo: number
+  saldoAtual: number
+}): string {
+  const { clienteNome, storeName, cashbackAmount, dataExpiracao, percentualUsoMaximo, saldoAtual } = params
+  
+  // Extrair apenas o primeiro nome
+  const primeiroNome = clienteNome.split(' ')[0]
+  
+  // Formatar valores monetários
+  const cashbackFormatado = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(cashbackAmount)
+  
+  const saldoFormatado = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(saldoAtual)
+  
+  // Formatar data de expiração
+  const dataExpiracaoFormatada = new Date(dataExpiracao).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+  
+  // Formatar percentual de uso máximo
+  const percentualFormatado = new Intl.NumberFormat('pt-BR', {
+    style: 'percent',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(percentualUsoMaximo / 100)
+  
+  let message = `🎁 *Cashback Gerado!*\n\n`
+  message += `${primeiroNome},\n\n`
+  message += `Obrigado pela sua compra na ${storeName}, nós somos muito gratos por ter você como nossa cliente.\n\n`
+  message += `Você gerou ${cashbackFormatado} de cashback para você utilizar em nossa loja.\n\n`
+  message += `Esse cashback é válido até o dia ${dataExpiracaoFormatada} e você poderá cobrir até ${percentualFormatado} do valor da sua próxima compra.\n\n`
+  message += `Seu saldo atual é ${saldoFormatado}.\n\n`
+  message += `Com carinho,\n${storeName}\n\n`
+  message += `Sistema EleveaOne 📊`
+
+  return message
+}
+
+// Função para enviar WhatsApp via webhook n8n (mesma lógica do send-whatsapp-message.js)
+async function sendWhatsAppMessage(phone: string, message: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Normalizar telefone
+    const normalizedPhone = normalizePhone(phone)
+    
+    // Credenciais do webhook (mesmas do send-whatsapp-message.js)
+    const webhookUrl = 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send'
+    const webhookAuth = '#mmP220411'
+    const siteSlug = 'elevea'
+    const customerId = 'mathmartins@gmail.com'
+
+    // Escapar mensagem como string JSON (mesma lógica do send-whatsapp-message.js)
+    const messageEscaped = JSON.stringify(message)
+    const messageSafe = messageEscaped.slice(1, -1)
+
+    const payload = {
+      siteSlug: siteSlug,
+      customerId: customerId,
+      phoneNumber: normalizedPhone,
+      message: messageSafe,
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-app-key': webhookAuth,
+    }
+
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(payload),
+    })
+
+    const responseText = await response.text()
+    let responseData: any
+    try {
+      responseData = JSON.parse(responseText)
+    } catch (e) {
+      responseData = { message: responseText, raw: responseText }
+    }
+
+    if (!response.ok) {
+      throw new Error(responseData.message || responseData.error || `HTTP ${response.status}`)
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message || String(error) }
+  }
 }
 
 Deno.serve(async (req) => {
@@ -68,16 +183,6 @@ Deno.serve(async (req) => {
 
     console.log(`[ProcessCashbackQueue] 📋 ${queueItems.length} item(ns) encontrado(s) na fila`)
 
-    // Obter URL do Netlify da configuração
-    const { data: netlifyConfig } = await supabase
-      .from('app_config')
-      .select('value')
-      .eq('key', 'netlify_url')
-      .single()
-
-    const netlifyUrl = netlifyConfig?.value || 'https://eleveaone.com.br'
-    const sendFunctionUrl = `${netlifyUrl}/.netlify/functions/send-cashback-whatsapp`
-
     let processed = 0
     let sent = 0
     let failed = 0
@@ -97,22 +202,91 @@ Deno.serve(async (req) => {
           })
           .eq('id', item.id)
 
-        // Chamar a função send-cashback-whatsapp para enviar
-        const response = await fetch(sendFunctionUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            transaction_id: item.transaction_id,
-            cliente_id: item.cliente_id,
-            store_id: item.store_id,
-          }),
+        // 1. Buscar dados da transação de cashback
+        const { data: transaction, error: transactionError } = await supabase
+          .from('cashback_transactions')
+          .select('amount, data_expiracao')
+          .eq('id', item.transaction_id)
+          .eq('transaction_type', 'EARNED')
+          .single()
+
+        if (transactionError || !transaction) {
+          throw new Error('Transação de cashback não encontrada')
+        }
+
+        // 2. Buscar dados do cliente (nome e telefone)
+        const { data: cliente, error: clienteError } = await supabase
+          .from('tiny_contacts')
+          .select('nome, telefone')
+          .eq('id', item.cliente_id)
+          .single()
+
+        if (clienteError || !cliente) {
+          throw new Error('Cliente não encontrado')
+        }
+
+        // Verificar se cliente tem telefone
+        if (!cliente.telefone || cliente.telefone.trim() === '') {
+          await supabase
+            .from('cashback_whatsapp_queue')
+            .update({
+              status: 'SKIPPED',
+              error_message: 'Cliente não possui telefone cadastrado',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', item.id)
+
+          skipped++
+          console.log(`[ProcessCashbackQueue] ⏭️ WhatsApp pulado: cliente sem telefone (transação ${item.transaction_id})`)
+          processed++
+          continue
+        }
+
+        // 3. Buscar dados da loja (nome)
+        const { data: loja, error: lojaError } = await supabase
+          .from('stores')
+          .select('name')
+          .eq('id', item.store_id)
+          .single()
+
+        if (lojaError || !loja) {
+          throw new Error('Loja não encontrada')
+        }
+
+        // 4. Buscar configurações de cashback
+        const { data: settings } = await supabase
+          .from('cashback_settings')
+          .select('percentual_uso_maximo')
+          .or(`store_id.is.null,store_id.eq.${item.store_id}`)
+          .order('store_id', { ascending: false, nullsFirst: false })
+          .limit(1)
+          .maybeSingle()
+
+        const percentualUsoMaximo = settings?.percentual_uso_maximo || 30.0
+
+        // 5. Buscar saldo atual do cliente
+        const { data: saldo } = await supabase
+          .from('cashback_balance')
+          .select('balance')
+          .eq('cliente_id', item.cliente_id)
+          .single()
+
+        const saldoAtual = saldo?.balance || 0
+
+        // 6. Formatar mensagem usando a mesma função do sistema
+        const message = formatCashbackMessage({
+          clienteNome: cliente.nome,
+          storeName: loja.name,
+          cashbackAmount: Number(transaction.amount),
+          dataExpiracao: transaction.data_expiracao,
+          percentualUsoMaximo: Number(percentualUsoMaximo),
+          saldoAtual: Number(saldoAtual),
         })
 
-        const result = await response.json()
+        // 7. Enviar WhatsApp usando a mesma lógica do send-whatsapp-message.js
+        const sendResult = await sendWhatsAppMessage(cliente.telefone, message)
 
-        if (response.ok && result.success) {
+        if (sendResult.success) {
           // Sucesso
           await supabase
             .from('cashback_whatsapp_queue')
@@ -124,19 +298,6 @@ Deno.serve(async (req) => {
 
           sent++
           console.log(`[ProcessCashbackQueue] ✅ WhatsApp enviado para transação ${item.transaction_id}`)
-        } else if (result.skipped) {
-          // Cliente sem telefone - marcar como SKIPPED
-          await supabase
-            .from('cashback_whatsapp_queue')
-            .update({
-              status: 'SKIPPED',
-              error_message: result.error || 'Cliente sem telefone',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', item.id)
-
-          skipped++
-          console.log(`[ProcessCashbackQueue] ⏭️ WhatsApp pulado para transação ${item.transaction_id}: ${result.error}`)
         } else {
           // Falha
           const newStatus = item.attempts >= 2 ? 'FAILED' : 'PENDING' // Tentar até 3 vezes
@@ -145,21 +306,21 @@ Deno.serve(async (req) => {
             .from('cashback_whatsapp_queue')
             .update({
               status: newStatus,
-              error_message: result.error || 'Erro desconhecido',
+              error_message: sendResult.error || 'Erro desconhecido',
               updated_at: new Date().toISOString(),
             })
             .eq('id', item.id)
 
           if (newStatus === 'FAILED') {
             failed++
-            console.log(`[ProcessCashbackQueue] ❌ WhatsApp falhou após 3 tentativas para transação ${item.transaction_id}`)
+            console.log(`[ProcessCashbackQueue] ❌ WhatsApp falhou após 3 tentativas para transação ${item.transaction_id}: ${sendResult.error}`)
           } else {
-            console.log(`[ProcessCashbackQueue] ⚠️ Tentativa ${item.attempts + 1} falhou, tentando novamente: ${result.error}`)
+            console.log(`[ProcessCashbackQueue] ⚠️ Tentativa ${item.attempts + 1} falhou, tentando novamente: ${sendResult.error}`)
           }
         }
 
         processed++
-      } catch (itemError) {
+      } catch (itemError: any) {
         console.error(`[ProcessCashbackQueue] ❌ Erro ao processar item ${item.id}:`, itemError)
 
         // Marcar como PENDING novamente se não excedeu tentativas
@@ -168,7 +329,7 @@ Deno.serve(async (req) => {
             .from('cashback_whatsapp_queue')
             .update({
               status: 'PENDING',
-              error_message: String(itemError),
+              error_message: itemError.message || String(itemError),
               updated_at: new Date().toISOString(),
             })
             .eq('id', item.id)
@@ -177,7 +338,7 @@ Deno.serve(async (req) => {
             .from('cashback_whatsapp_queue')
             .update({
               status: 'FAILED',
-              error_message: String(itemError),
+              error_message: itemError.message || String(itemError),
               updated_at: new Date().toISOString(),
             })
             .eq('id', item.id)
@@ -201,7 +362,7 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     )
-  } catch (error) {
+  } catch (error: any) {
     console.error('[ProcessCashbackQueue] ❌ Erro fatal:', error)
     return new Response(
       JSON.stringify({
