@@ -2090,9 +2090,7 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     }
   }
 
-  // ✅ Usar função auxiliar global para detectar vale troca
-
-  // ✅ DESCONTAR VALE TROCA: Se houver forma de pagamento "vale troca", subtrair do valor total
+  // ✅ CALCULAR VALE TROCA: Detectar e calcular o valor do vale troca para desconto
   let valorValeTroca = 0;
   
   // Verificar parcelas do pedido completo (mais confiável)
@@ -2124,11 +2122,21 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     }
   }
   
-  // Descontar vale troca do valor total
+  // ✅ DESCONTAR VALE TROCA do valor total antes de salvar no tiny_orders
+  // IMPORTANTE: O desconto é aplicado aqui para que a venda seja criada já com o valor correto (sem vale troca)
   if (valorValeTroca > 0) {
     const valorTotalAntes = valorTotal;
-    valorTotal = Math.max(0, valorTotal - valorValeTroca); // Garantir que não fique negativo
-    console.log(`[SyncBackground] 💰 Valor antes: R$ ${valorTotalAntes.toFixed(2)} | Vale Troca: R$ ${valorValeTroca.toFixed(2)} | Valor final: R$ ${valorTotal.toFixed(2)}`);
+    
+    // Se o vale troca for menor que o valor total, descontar normalmente
+    if (valorTotal > valorValeTroca) {
+      valorTotal = valorTotal - valorValeTroca; // Descontar vale troca
+      console.log(`[SyncBackground] 💰 Valor antes: R$ ${valorTotalAntes.toFixed(2)} | Vale Troca: R$ ${valorValeTroca.toFixed(2)} | Valor final: R$ ${valorTotal.toFixed(2)}`);
+    } else {
+      // Se vale troca cobre 100% ou mais, definir valor mínimo para não quebrar validações
+      // Mas garantir que seja um valor válido (> 0)
+      valorTotal = Math.max(0.01, valorTotal - valorValeTroca);
+      console.log(`[SyncBackground] ⚠️ Vale Troca (R$ ${valorValeTroca.toFixed(2)}) cobre todo o valor (R$ ${valorTotalAntes.toFixed(2)}). Valor final ajustado para: R$ ${valorTotal.toFixed(2)}`);
+    }
   }
 
   // Preparar objeto do pedido
