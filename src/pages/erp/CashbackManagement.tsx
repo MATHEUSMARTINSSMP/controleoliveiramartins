@@ -45,6 +45,14 @@ import {
   Plus,
   X,
   Edit2,
+  Filter,
+  Calendar,
+  Package,
+  ShoppingBag,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Save
 } from 'lucide-react';
 import {
   Dialog,
@@ -61,7 +69,6 @@ import { formatCurrency } from '@/lib/utils';
 import CashbackSettings from '@/components/erp/CashbackSettings';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { Filter, Calendar, Package, ShoppingBag, Download, FileSpreadsheet, FileText, Save } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -205,22 +212,22 @@ export default function CashbackManagement() {
   const formatarTelefoneWhatsApp = (telefone: string | null): string => {
     const numeros = normalizarTelefone(telefone);
     if (numeros.length === 0) return '';
-    
+
     // Se já começa com 55, retornar como está
     if (numeros.startsWith('55')) {
       return numeros;
     }
-    
+
     // Se tem 11 dígitos (DDD + 9 dígitos), adicionar 55
     if (numeros.length === 11) {
       return `55${numeros}`;
     }
-    
+
     // Se tem 10 dígitos (DDD + 8 dígitos), adicionar 55
     if (numeros.length === 10) {
       return `55${numeros}`;
     }
-    
+
     // Caso contrário, retornar como está
     return numeros;
   };
@@ -230,7 +237,7 @@ export default function CashbackManagement() {
     const partes = nomeCompleto.trim().split(/\s+/);
     if (partes.length === 0) return { primeiroNome: '', sobrenome: '' };
     if (partes.length === 1) return { primeiroNome: partes[0], sobrenome: '' };
-    
+
     const primeiroNome = partes[0];
     const sobrenome = partes.slice(1).join(' ');
     return { primeiroNome, sobrenome };
@@ -253,7 +260,7 @@ export default function CashbackManagement() {
       const ws = XLSX.utils.json_to_sheet(dados);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Bonificação');
-      
+
       const nomeArquivo = `bonificacao_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.xlsx`;
       XLSX.writeFile(wb, nomeArquivo);
       toast.success('Arquivo XLSX exportado com sucesso!');
@@ -295,7 +302,7 @@ export default function CashbackManagement() {
     const dados = ultimaBonificacao.map(c => {
       const { primeiroNome, sobrenome } = separarNome(c.nome);
       const telefoneWhatsApp = formatarTelefoneWhatsApp(c.telefone);
-      
+
       return {
         'Primeiro Nome': primeiroNome,
         'Sobrenome': sobrenome,
@@ -306,7 +313,7 @@ export default function CashbackManagement() {
     const ws = XLSX.utils.json_to_sheet(dados);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Bonificação WhatsApp');
-    
+
     const nomeArquivo = `bonificacao_whatsapp_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.xlsx`;
     XLSX.writeFile(wb, nomeArquivo);
     toast.success('Arquivo XLSX (WhatsApp) exportado com sucesso!');
@@ -752,7 +759,7 @@ export default function CashbackManagement() {
     if (!searchClienteLancar) return [];
     const searchLower = searchClienteLancar.toLowerCase();
     return clientes
-      .filter(c => 
+      .filter(c =>
         c.nome.toLowerCase().includes(searchLower) ||
         c.cpf_cnpj?.toLowerCase().includes(searchLower) ||
         c.telefone?.toLowerCase().includes(searchLower)
@@ -764,7 +771,7 @@ export default function CashbackManagement() {
     if (!searchClienteResgatar) return [];
     const searchLower = searchClienteResgatar.toLowerCase();
     return clientes
-      .filter(c => 
+      .filter(c =>
         c.nome.toLowerCase().includes(searchLower) ||
         c.cpf_cnpj?.toLowerCase().includes(searchLower) ||
         c.telefone?.toLowerCase().includes(searchLower)
@@ -785,7 +792,7 @@ export default function CashbackManagement() {
       if (error) throw error;
 
       // Atualizar lista de clientes
-      setClientes(prev => prev.map(c => 
+      setClientes(prev => prev.map(c =>
         c.id === clienteId ? { ...c, tags: tags.length > 0 ? tags : null } : c
       ));
 
@@ -973,7 +980,7 @@ export default function CashbackManagement() {
       clienteMap.forEach((data) => {
         const qtdPedidos = data.pedidos.length;
         data.ticketMedio = qtdPedidos > 0 ? data.totalFaturamento / qtdPedidos : 0;
-        
+
         const totalPecas = data.pedidos.reduce((sum, p) => {
           if (p.itens && Array.isArray(p.itens)) {
             return sum + p.itens.reduce((s: number, i: any) => s + (parseFloat(i.quantidade || 0)), 0);
@@ -1324,7 +1331,7 @@ export default function CashbackManagement() {
       clienteMap.forEach((data) => {
         const qtdPedidos = data.pedidos.length;
         data.ticketMedio = qtdPedidos > 0 ? data.totalFaturamento / qtdPedidos : 0;
-        
+
         // Calcular PA (peças por atendimento)
         const totalPecas = data.pedidos.reduce((sum, p) => {
           if (p.itens && Array.isArray(p.itens)) {
@@ -2386,22 +2393,22 @@ export default function CashbackManagement() {
                   {(() => {
                     // Se houver filtros aplicados, usar clientesFiltradosClientes
                     // Caso contrário, usar filteredClientes normal
-                    const clientesParaExibir = clientesFiltradosClientes.length > 0 
+                    const clientesParaExibir = clientesFiltradosClientes.length > 0
                       ? clientesFiltradosClientes.map(c => {
-                          const clienteComSaldo = clientesComSaldo.find(cs => cs.cliente.id === c.id);
-                          return clienteComSaldo || {
-                            cliente: c,
-                            saldo_disponivel: 0,
-                            saldo_pendente: 0,
-                            transactions: [],
-                          };
-                        })
+                        const clienteComSaldo = clientesComSaldo.find(cs => cs.cliente.id === c.id);
+                        return clienteComSaldo || {
+                          cliente: c,
+                          saldo_disponivel: 0,
+                          saldo_pendente: 0,
+                          transactions: [],
+                        };
+                      })
                       : filteredClientes;
 
                     if (clientesParaExibir.length === 0) {
                       return (
                         <div className="text-center py-8 text-muted-foreground">
-                          {clientesFiltradosClientes.length > 0 
+                          {clientesFiltradosClientes.length > 0
                             ? 'Nenhuma cliente encontrada com os filtros aplicados'
                             : 'Nenhuma cliente encontrada'}
                         </div>
@@ -3235,69 +3242,69 @@ export default function CashbackManagement() {
                           </p>
                         )}
 
-                  <div className="border rounded-lg max-h-96 overflow-y-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12">
-                            <Checkbox
-                              checked={selectedClientesBonificar.size === clientesFiltrados.length && clientesFiltrados.length > 0}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setSelectedClientesBonificar(new Set(clientesFiltrados.map(c => c.id)));
-                                } else {
-                                  setSelectedClientesBonificar(new Set());
-                                }
-                              }}
-                            />
-                          </TableHead>
-                          <TableHead>Cliente</TableHead>
-                          <TableHead>CPF/CNPJ</TableHead>
-                          <TableHead>Telefone</TableHead>
-                          {clientesFiltrados[0]?.parametroFiltro && (
-                            <TableHead className="text-right">
-                              {clientesFiltrados[0].parametroFiltro === 'ticket_medio' && 'Ticket Médio'}
-                              {clientesFiltrados[0].parametroFiltro === 'pa' && 'PA'}
-                              {clientesFiltrados[0].parametroFiltro === 'faturamento' && 'Faturamento'}
-                            </TableHead>
-                          )}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {clientesFiltradosBusca.map((cliente) => (
-                          <TableRow key={cliente.id}>
-                            <TableCell>
-                              <Checkbox
-                                checked={selectedClientesBonificar.has(cliente.id)}
-                                onCheckedChange={(checked) => {
-                                  const novoSet = new Set(selectedClientesBonificar);
-                                  if (checked) {
-                                    novoSet.add(cliente.id);
-                                  } else {
-                                    novoSet.delete(cliente.id);
-                                  }
-                                  setSelectedClientesBonificar(novoSet);
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell className="font-medium">{cliente.nome}</TableCell>
-                            <TableCell>{cliente.cpf_cnpj || '-'}</TableCell>
-                            <TableCell>{cliente.telefone ? normalizarTelefone(cliente.telefone) : '-'}</TableCell>
-                            {cliente.parametroFiltro && (
-                              <TableCell className="text-right font-medium">
-                                {cliente.parametroFiltro === 'ticket_medio' && formatCurrency(cliente.ticketMedio || 0)}
-                                {cliente.parametroFiltro === 'pa' && (cliente.pa?.toFixed(2) || '0.00')}
-                                {cliente.parametroFiltro === 'faturamento' && formatCurrency(cliente.totalFaturamento || 0)}
-                              </TableCell>
-                            )}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  </>
-                  );
-                })()}
+                        <div className="border rounded-lg max-h-96 overflow-y-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-12">
+                                  <Checkbox
+                                    checked={selectedClientesBonificar.size === clientesFiltrados.length && clientesFiltrados.length > 0}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setSelectedClientesBonificar(new Set(clientesFiltrados.map(c => c.id)));
+                                      } else {
+                                        setSelectedClientesBonificar(new Set());
+                                      }
+                                    }}
+                                  />
+                                </TableHead>
+                                <TableHead>Cliente</TableHead>
+                                <TableHead>CPF/CNPJ</TableHead>
+                                <TableHead>Telefone</TableHead>
+                                {clientesFiltrados[0]?.parametroFiltro && (
+                                  <TableHead className="text-right">
+                                    {clientesFiltrados[0].parametroFiltro === 'ticket_medio' && 'Ticket Médio'}
+                                    {clientesFiltrados[0].parametroFiltro === 'pa' && 'PA'}
+                                    {clientesFiltrados[0].parametroFiltro === 'faturamento' && 'Faturamento'}
+                                  </TableHead>
+                                )}
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {clientesFiltradosBusca.map((cliente) => (
+                                <TableRow key={cliente.id}>
+                                  <TableCell>
+                                    <Checkbox
+                                      checked={selectedClientesBonificar.has(cliente.id)}
+                                      onCheckedChange={(checked) => {
+                                        const novoSet = new Set(selectedClientesBonificar);
+                                        if (checked) {
+                                          novoSet.add(cliente.id);
+                                        } else {
+                                          novoSet.delete(cliente.id);
+                                        }
+                                        setSelectedClientesBonificar(novoSet);
+                                      }}
+                                    />
+                                  </TableCell>
+                                  <TableCell className="font-medium">{cliente.nome}</TableCell>
+                                  <TableCell>{cliente.cpf_cnpj || '-'}</TableCell>
+                                  <TableCell>{cliente.telefone ? normalizarTelefone(cliente.telefone) : '-'}</TableCell>
+                                  {cliente.parametroFiltro && (
+                                    <TableCell className="text-right font-medium">
+                                      {cliente.parametroFiltro === 'ticket_medio' && formatCurrency(cliente.ticketMedio || 0)}
+                                      {cliente.parametroFiltro === 'pa' && (cliente.pa?.toFixed(2) || '0.00')}
+                                      {cliente.parametroFiltro === 'faturamento' && formatCurrency(cliente.totalFaturamento || 0)}
+                                    </TableCell>
+                                  )}
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </>
+                    );
+                  })()}
 
                   <Separator />
 
