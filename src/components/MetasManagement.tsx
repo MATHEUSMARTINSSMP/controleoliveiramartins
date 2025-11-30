@@ -273,6 +273,25 @@ const MetasManagementContent = () => {
         if (data) setColaboradoras(data);
     };
 
+    // Function to complete weights for all days in month (fill missing days)
+    const completeWeightsForMonth = (existingWeights: Record<string, number>, monthRef: string): Record<string, number> => {
+        const year = parseInt(monthRef.substring(0, 4));
+        const month = parseInt(monthRef.substring(4, 6)) - 1;
+        const daysInMonth = getDaysInMonth(new Date(year, month));
+        const completed: Record<string, number> = { ...existingWeights };
+        
+        // Add missing days with weight 0
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(year, month, day);
+            const dateStr = format(date, "yyyy-MM-dd");
+            if (!completed[dateStr]) {
+                completed[dateStr] = 0;
+            }
+        }
+        
+        return completed;
+    };
+
     // Logic to generate weights
     const generateWeights = () => {
         const year = parseInt(mesReferencia.substring(0, 4));
@@ -605,7 +624,9 @@ const MetasManagementContent = () => {
         setMesReferencia(month);
         setMetaLoja(storeGoal.meta_valor.toString());
         setSuperMetaLoja(storeGoal.super_meta_valor.toString());
-        setDailyWeights(storeGoal.daily_weights || {});
+        // Complete weights for all days in month (fix missing days like day 31)
+        const completedWeights = completeWeightsForMonth(storeGoal.daily_weights || {}, month);
+        setDailyWeights(completedWeights);
 
         // 4. Map individual goals to colabGoals format
         // Load collaborators for the store, then merge with existing goals values
@@ -1322,52 +1343,85 @@ const MetasManagementContent = () => {
                                             </div>
                                         ))}
 
-                                        {/* Days */}
-                                        {Object.entries(dailyWeights).sort().map(([date, weight]) => {
-                                            const dayNum = parseInt(date.split('-')[2]);
-                                            const metaValue = parseFloat(metaLoja || "0");
-                                            const superMetaValue = parseFloat(superMetaLoja || "0");
-                                            // weight is already a percentage (e.g., 5.91 means 5.91%)
-                                            const dailyMeta = (metaValue * weight) / 100;
-                                            const dailySuperMeta = (superMetaValue * weight) / 100;
-                                            const isFirstHalf = dayNum <= 15;
+                                        {/* Days - Generate all days of month to ensure day 31 appears */}
+                                        {(() => {
+                                            const year = parseInt(mesReferencia.substring(0, 4));
+                                            const month = parseInt(mesReferencia.substring(4, 6)) - 1;
+                                            const daysInMonth = getDaysInMonth(new Date(year, month));
+                                            
+                                            // Get first day of week for the month (0 = Sunday, 1 = Monday, etc)
+                                            const firstDayOfMonth = new Date(year, month, 1);
+                                            const firstDayOfWeek = getDay(firstDayOfMonth);
+                                            
+                                            const days: Array<{ date: string; dayNum: number; weight: number }> = [];
+                                            
+                                            // Add empty cells for days before the first day of month
+                                            for (let i = 0; i < firstDayOfWeek; i++) {
+                                                days.push({
+                                                    date: `empty-${i}`,
+                                                    dayNum: 0,
+                                                    weight: 0
+                                                });
+                                            }
+                                            
+                                            // Generate all days of the month
+                                            for (let day = 1; day <= daysInMonth; day++) {
+                                                const date = new Date(year, month, day);
+                                                const dateStr = format(date, "yyyy-MM-dd");
+                                                days.push({
+                                                    date: dateStr,
+                                                    dayNum: day,
+                                                    weight: dailyWeights[dateStr] || 0
+                                                });
+                                            }
+                                            
+                                            return days.map(({ date, dayNum, weight }) => {
+                                                if (dayNum === 0) {
+                                                    return <div key={date} className="p-3" />; // Empty cell
+                                                }
+                                                
+                                                const metaValue = parseFloat(metaLoja || "0");
+                                                const superMetaValue = parseFloat(superMetaLoja || "0");
+                                                const dailyMeta = (metaValue * weight) / 100;
+                                                const dailySuperMeta = (superMetaValue * weight) / 100;
+                                                const isFirstHalf = dayNum <= 15;
 
-
-                                            return (
-                                                <div
-                                                    key={date}
-                                                    className={`p-3 rounded-lg border-2 transition-all hover:shadow-md ${isFirstHalf
-                                                        ? 'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20 border-blue-300 dark:border-blue-700'
-                                                        : 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/30 dark:to-gray-800/20 border-gray-300 dark:border-gray-700'
-                                                        }`}
-                                                >
-                                                    <div className="text-center space-y-1">
-                                                        <div className="text-sm font-bold text-foreground">{dayNum}</div>
-                                                        <Input
-                                                            type="number"
-                                                            step="0.1"
-                                                            value={weight}
-                                                            onChange={e => {
-                                                                const val = parseFloat(e.target.value) || 0;
-                                                                const rounded = Math.round(val * 10) / 10; // Round to 1 decimal
-                                                                setDailyWeights(prev => ({ ...prev, [date]: rounded }));
-                                                            }}
-                                                            className="h-7 text-xs p-1 text-center font-semibold border-2"
-                                                        />
-                                                        {metaValue > 0 && (
-                                                            <>
-                                                                <div className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
-                                                                    R$ {dailyMeta.toFixed(0)}
-                                                                </div>
-                                                                <div className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">
-                                                                    R$ {dailySuperMeta.toFixed(0)}
-                                                                </div>
-                                                            </>
-                                                        )}
+                                                return (
+                                                    <div
+                                                        key={date}
+                                                        className={`p-3 rounded-lg border-2 transition-all hover:shadow-md ${isFirstHalf
+                                                            ? 'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20 border-blue-300 dark:border-blue-700'
+                                                            : 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/30 dark:to-gray-800/20 border-gray-300 dark:border-gray-700'
+                                                            }`}
+                                                    >
+                                                        <div className="text-center space-y-1">
+                                                            <div className="text-sm font-bold text-foreground">{dayNum}</div>
+                                                            <Input
+                                                                type="number"
+                                                                step="0.1"
+                                                                value={weight}
+                                                                onChange={e => {
+                                                                    const val = parseFloat(e.target.value) || 0;
+                                                                    const rounded = Math.round(val * 10) / 10; // Round to 1 decimal
+                                                                    setDailyWeights(prev => ({ ...prev, [date]: rounded }));
+                                                                }}
+                                                                className="h-7 text-xs p-1 text-center font-semibold border-2"
+                                                            />
+                                                            {metaValue > 0 && (
+                                                                <>
+                                                                    <div className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                                                                        R$ {dailyMeta.toFixed(0)}
+                                                                    </div>
+                                                                    <div className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">
+                                                                        R$ {dailySuperMeta.toFixed(0)}
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
+                                                );
+                                            });
+                                        })()}
                                     </div>
 
                                     {/* Total Sum Indicator */}
