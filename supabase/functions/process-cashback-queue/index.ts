@@ -106,10 +106,20 @@ function formatCashbackMessage(params: {
 }
 
 // Função para enviar WhatsApp via webhook n8n (mesma lógica do send-whatsapp-message.js)
-async function sendWhatsAppMessage(phone: string, message: string): Promise<{ success: boolean; error?: string }> {
+async function sendWhatsAppMessage(phone: string, message: string): Promise<{ success: boolean; error?: string; skipped?: boolean }> {
   try {
+    // Validar telefone antes de normalizar
+    if (!phone || phone.trim() === '') {
+      return { success: false, error: 'Telefone vazio', skipped: true }
+    }
+
     // Normalizar telefone
     const normalizedPhone = normalizePhone(phone)
+    
+    // Validar telefone normalizado (deve ter pelo menos 12 dígitos: 55 + DDD + número)
+    if (!normalizedPhone || normalizedPhone.length < 12) {
+      return { success: false, error: `Telefone normalizado inválido: ${normalizedPhone}`, skipped: true }
+    }
     
     // Credenciais do webhook (mesmas do send-whatsapp-message.js)
     const webhookUrl = 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send'
@@ -258,7 +268,7 @@ Deno.serve(async (req) => {
           throw new Error('Cliente não encontrado')
         }
 
-        // Verificar se cliente tem telefone
+        // Verificar se cliente tem telefone válido
         if (!cliente.telefone || cliente.telefone.trim() === '') {
           await supabase
             .from('cashback_whatsapp_queue')
@@ -271,6 +281,24 @@ Deno.serve(async (req) => {
 
           skipped++
           console.log(`[ProcessCashbackQueue] ⏭️ WhatsApp pulado: cliente sem telefone (transação ${item.transaction_id})`)
+          processed++
+          continue
+        }
+
+        // Validar telefone antes de normalizar (deve ter pelo menos 10 dígitos após limpar)
+        const telefoneLimpo = cliente.telefone.replace(/\D/g, '')
+        if (telefoneLimpo.length < 10) {
+          await supabase
+            .from('cashback_whatsapp_queue')
+            .update({
+              status: 'SKIPPED',
+              error_message: `Telefone inválido: ${cliente.telefone} (menos de 10 dígitos)`,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', item.id)
+
+          skipped++
+          console.log(`[ProcessCashbackQueue] ⏭️ WhatsApp pulado: telefone inválido (${cliente.telefone}) - transação ${item.transaction_id}`)
           processed++
           continue
         }
