@@ -46,6 +46,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
+import CashbackSettings from '@/components/erp/CashbackSettings';
 
 interface Cliente {
   id: string;
@@ -614,10 +615,11 @@ export default function CashbackManagement() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="lancar">Lançar</TabsTrigger>
           <TabsTrigger value="clientes">Clientes</TabsTrigger>
           <TabsTrigger value="historico">Histórico Geral</TabsTrigger>
+          <TabsTrigger value="configuracoes">Configurações</TabsTrigger>
         </TabsList>
 
         {/* TAB 1: LANÇAR */}
@@ -1147,6 +1149,11 @@ export default function CashbackManagement() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* TAB 4: CONFIGURAÇÕES */}
+        <TabsContent value="configuracoes" className="space-y-4">
+          <CashbackSettings />
         </TabsContent>
       </Tabs>
     </div>
