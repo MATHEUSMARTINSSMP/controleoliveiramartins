@@ -2207,10 +2207,16 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
       
       // Adicionar "Vale Troca" como informação (se houver)
       if (valorValeTroca > 0) {
-        formasPagamento.push(`Vale Troca (R$ ${valorValeTroca.toFixed(2)})`);
+        const valorFormatado = valorValeTroca.toFixed(2).replace('.', ',');
+        formasPagamento.push(`Vale Troca (R$ ${valorFormatado})`);
+        console.log(`[SyncBackground] 💳 Forma de pagamento com Vale Troca: ${formasPagamento.join(' + ')}`);
       }
       
-      return formasPagamento.length > 0 ? formasPagamento.join(' + ') : null;
+      const formaPagamentoFinal = formasPagamento.length > 0 ? formasPagamento.join(' + ') : null;
+      if (formaPagamentoFinal) {
+        console.log(`[SyncBackground] 💳 Forma de pagamento final: ${formaPagamentoFinal}`);
+      }
+      return formaPagamentoFinal;
     })(),
     forma_envio: pedido.transportador?.formaEnvio?.nome || null,
     endereco_entrega: pedido.enderecoEntrega || null,
