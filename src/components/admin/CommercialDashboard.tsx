@@ -74,6 +74,7 @@ export const CommercialDashboard = () => {
         stores: TodaySales[];
     } | null>(null);
     const [loadingSummary, setLoadingSummary] = useState(false);
+    const [monthlySalesByStore, setMonthlySalesByStore] = useState<Record<string, number>>({}); // Faturamento mensal acumulado por loja
     const hasMountedRef = useRef(false);
     const lastFetchParamsRef = useRef<string>('');
 
@@ -365,6 +366,24 @@ export const CommercialDashboard = () => {
                 trendsMap[dateKey].total += day.total_valor;
             });
             setDailyTrends(Object.values(trendsMap));
+
+            // ✅ Buscar faturamento mensal acumulado para calcular progresso mensal corretamente
+            // (independente do período filtrado)
+            const monthStart = format(startOfMonth(month), 'yyyy-MM-dd');
+            const monthEnd = format(endOfMonth(month), 'yyyy-MM-dd');
+            
+            const { data: monthlyData } = await supabase
+                .schema('sistemaretiradas')
+                .from('analytics_daily_performance')
+                .select('store_id, total_valor')
+                .gte('data_referencia', monthStart)
+                .lte('data_referencia', monthEnd);
+
+            const monthlySalesMap: Record<string, number> = {};
+            monthlyData?.forEach((day: any) => {
+                monthlySalesMap[day.store_id] = (monthlySalesMap[day.store_id] || 0) + (day.total_valor || 0);
+            });
+            setMonthlySalesByStore(monthlySalesMap);
 
         } catch (error) {
             console.error("Error fetching commercial data:", error);
@@ -765,7 +784,9 @@ export const CommercialDashboard = () => {
                 {analytics.map(store => {
                     const goal = goals[store.store_id];
                     const bench = benchmarks[store.store_id];
-                    const progress = goal ? (store.total_valor / goal.meta_valor) * 100 : 0;
+                    // ✅ Usar faturamento mensal acumulado para calcular progresso mensal, não o do período filtrado
+                    const monthlyTotal = monthlySalesByStore[store.store_id] || 0;
+                    const progress = goal ? (monthlyTotal / goal.meta_valor) * 100 : 0;
 
                     return (
                         <Card key={store.store_id} className="overflow-hidden border-t-4 border-t-primary shadow-md hover:shadow-lg transition-shadow">
@@ -788,7 +809,7 @@ export const CommercialDashboard = () => {
                                     </div>
                                     <Progress value={progress} className="h-2 sm:h-3" />
                                     <div className="flex justify-between text-[10px] sm:text-xs mt-1 text-muted-foreground">
-                                        <span className="break-words pr-1">R$ {store.total_valor.toLocaleString('pt-BR')}</span>
+                                        <span className="break-words pr-1">R$ {monthlyTotal.toLocaleString('pt-BR')}</span>
                                         <span className="break-words pl-1">R$ {goal?.meta_valor?.toLocaleString('pt-BR') || '0'}</span>
                                     </div>
                                 </div>

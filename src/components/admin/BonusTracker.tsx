@@ -24,6 +24,10 @@ interface BonusData {
         achieved: boolean;
         preRequisitosValidos?: boolean;
         preRequisitosReason?: string;
+        rankingValue?: number;
+        ticketMedio?: number;
+        pa?: number;
+        qtdPecas?: number;
     }[];
 }
 
@@ -95,15 +99,20 @@ export function BonusTracker() {
                                 .eq("tipo", "INDIVIDUAL")
                                 .maybeSingle();
 
-                            // Buscar vendas do mês
+                            // Buscar vendas do mês (com quantidade de peças para calcular ticket médio, PA, etc)
                             const { data: salesData } = await supabase
                                 .schema("sistemaretiradas")
                                 .from("sales")
-                                .select("valor")
+                                .select("valor, qtd_pecas")
                                 .eq("colaboradora_id", colabId)
                                 .gte("data_venda", `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01T00:00:00`);
 
                             const totalVendido = salesData?.reduce((sum, sale) => sum + Number(sale.valor || 0), 0) || 0;
+                            const qtdVendas = salesData?.length || 0;
+                            const qtdPecas = salesData?.reduce((sum, sale) => sum + Number(sale.qtd_pecas || 0), 0) || 0;
+                            const ticketMedio = qtdVendas > 0 ? totalVendido / qtdVendas : 0;
+                            const pa = qtdVendas > 0 ? qtdPecas / qtdVendas : 0;
+                            
                             const metaValor = metaData?.meta_valor || 0;
                             const progress = metaValor > 0 ? (totalVendido / metaValor) * 100 : 0;
 
@@ -134,6 +143,16 @@ export function BonusTracker() {
                                 }
                             }
 
+                            // Calcular valor de ranking baseado no tipo_condicao
+                            let rankingValue = progress; // Padrão: progresso de faturamento
+                            if (bonus.tipo_condicao === "TICKET_MEDIO") {
+                                rankingValue = ticketMedio; // Ordenar por ticket médio
+                            } else if (bonus.tipo_condicao === "PA") {
+                                rankingValue = pa; // Ordenar por PA (Peças por Atendimento)
+                            } else if (bonus.tipo_condicao === "NUMERO_PECAS") {
+                                rankingValue = qtdPecas; // Ordenar por número de peças vendidas
+                            }
+
                             return {
                                 id: colabId,
                                 name: colabName,
@@ -141,6 +160,10 @@ export function BonusTracker() {
                                 achieved,
                                 preRequisitosValidos,
                                 preRequisitosReason: preRequisitosReason || undefined,
+                                rankingValue, // Valor usado para ordenação
+                                ticketMedio,
+                                pa,
+                                qtdPecas,
                             };
                         })
                     );
@@ -239,13 +262,25 @@ export function BonusTracker() {
                                 </div>
                                 <div className="space-y-1.5">
                                     {bonus.collaborators
-                                        .sort((a, b) => b.progress - a.progress)
+                                        .sort((a, b) => {
+                                            // Ordenar por rankingValue (decrescente) se disponível, senão por progress
+                                            const aValue = (a as any).rankingValue !== undefined ? (a as any).rankingValue : a.progress;
+                                            const bValue = (b as any).rankingValue !== undefined ? (b as any).rankingValue : b.progress;
+                                            return bValue - aValue;
+                                        })
                                         .map((colab) => (
                                             <div key={colab.id} className="space-y-1">
                                                 <div className="flex items-center justify-between text-xs">
                                                     <span className="break-words flex-1 min-w-0">{colab.name}</span>
                                                     <span className={`font-semibold ${colab.achieved ? "text-green-600" : ""}`}>
-                                                        {colab.progress.toFixed(0)}%
+                                                        {bonus.tipo_condicao === "TICKET_MEDIO" 
+                                                            ? `R$ ${((colab as any).ticketMedio || 0).toFixed(2)}`
+                                                            : bonus.tipo_condicao === "PA"
+                                                            ? `${((colab as any).pa || 0).toFixed(1)}`
+                                                            : bonus.tipo_condicao === "NUMERO_PECAS"
+                                                            ? `${((colab as any).qtdPecas || 0)} peças`
+                                                            : `${colab.progress.toFixed(0)}%`
+                                                        }
                                                     </span>
                                                 </div>
                                                 <Progress value={colab.progress} className={`h-1.5 ${getProgressColor(colab.progress)}`} />

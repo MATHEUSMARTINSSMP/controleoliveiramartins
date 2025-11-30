@@ -604,7 +604,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                             
                             {/* Labels acima da barra - fora do container da barra para não sair */}
                             <div className="relative h-12 mb-2">
-                                {/* Label Meta acima */}
+                                {/* Label Meta acima (Checkpoint) */}
                                 {progress.meta_valor > 0 && (
                                     <div 
                                         className={`absolute text-[10px] sm:text-xs font-bold whitespace-nowrap px-1.5 py-0.5 sm:px-2 sm:py-1 rounded shadow-md ${
@@ -622,13 +622,13 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                             zIndex: 10
                                         }}
                                     >
-                                        🎯 Meta
-                                        <div className="text-[9px] font-normal mt-0.5 whitespace-nowrap">
-                                            {formatCurrency(progress.meta_valor, { showSymbol: false, maximumFractionDigits: 0 })}
+                                        🎯 CP1: {formatCurrency(progress.meta_valor, { showSymbol: false, maximumFractionDigits: 0 })}
+                                        <div className="text-[9px] font-normal mt-0.5 whitespace-nowrap text-center">
+                                            Checkpoint
                                         </div>
                                     </div>
                                 )}
-                                {/* Label Super Meta acima - garantir espaçamento da Meta */}
+                                {/* Label Super Meta acima (Final) */}
                                 <div 
                                     className={`absolute text-[10px] sm:text-xs font-bold whitespace-nowrap px-1.5 py-0.5 sm:px-2 sm:py-1 rounded shadow-md ${
                                         progress.realizado >= progress.super_meta_valor 
@@ -644,9 +644,9 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                         zIndex: 10
                                     }}
                                 >
-                                    <span className="hidden sm:inline">🏆 </span>Super
-                                    <div className="text-[9px] font-normal mt-0.5 whitespace-nowrap">
-                                        {formatCurrency(progress.super_meta_valor, { showSymbol: false, maximumFractionDigits: 0 })}
+                                    <span className="hidden sm:inline">🏆 </span>Final: {formatCurrency(progress.super_meta_valor, { showSymbol: false, maximumFractionDigits: 0 })}
+                                    <div className="text-[9px] font-normal mt-0.5 whitespace-nowrap text-right">
+                                        Meta Final
                                     </div>
                                 </div>
 
