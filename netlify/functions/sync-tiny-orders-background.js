@@ -37,6 +37,26 @@ const {
   extrairCorDaDescricao,
 } = require('./utils/normalization');
 
+/**
+ * ✅ FUNÇÃO AUXILIAR: Detectar se é vale troca (com todas as variações)
+ * Variações suportadas:
+ * - vale troca, vale-troca
+ * - vales trocas, vale-trocas
+ * - troca
+ * - cupom de troca, cupons de troca
+ */
+function isValeTroca(texto) {
+  if (!texto) return false;
+  const textoLower = texto.toString().toLowerCase().replace(/[-\s]/g, '');
+  
+  const variacoes = [
+    'valetroca', 'valestrocas', 'troca',
+    'cupomdetroca', 'cuponsdetroca'
+  ];
+  
+  return variacoes.some(variacao => textoLower.includes(variacao));
+}
+
 const {
   shouldUpdateOrder,
   shouldUpdateContact,
@@ -2070,6 +2090,47 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     }
   }
 
+  // ✅ Usar função auxiliar global para detectar vale troca
+
+  // ✅ DESCONTAR VALE TROCA: Se houver forma de pagamento "vale troca", subtrair do valor total
+  let valorValeTroca = 0;
+  
+  // Verificar parcelas do pedido completo (mais confiável)
+  if (pedidoCompleto?.pagamento?.parcelas && Array.isArray(pedidoCompleto.pagamento.parcelas)) {
+    pedidoCompleto.pagamento.parcelas.forEach((parcela) => {
+      const formaPagamento = parcela.formaPagamento?.nome || parcela.formaPagamento || '';
+      const meioPagamento = parcela.meioPagamento?.nome || parcela.meioPagamento || '';
+      
+      // Verificar se é vale troca (usando função auxiliar)
+      if (isValeTroca(formaPagamento) || isValeTroca(meioPagamento)) {
+        const valorParcela = parseFloat(parcela.valor || parcela.valorParcela || 0);
+        valorValeTroca += valorParcela;
+        console.log(`[SyncBackground] 🔄 Vale Troca encontrado: R$ ${valorParcela.toFixed(2)} (${formaPagamento || meioPagamento || 'Desconhecido'})`);
+      }
+    });
+  }
+  
+  // Se não encontrou nas parcelas, verificar na forma de pagamento principal
+  if (valorValeTroca === 0 && pedido?.pagamento?.formaPagamento?.nome) {
+    const formaPagamentoNome = pedido.pagamento.formaPagamento.nome;
+    if (isValeTroca(formaPagamentoNome)) {
+      // Se a forma de pagamento é vale troca, verificar se todas as parcelas são vale troca
+      if (pedidoCompleto?.pagamento?.parcelas && Array.isArray(pedidoCompleto.pagamento.parcelas)) {
+        valorValeTroca = pedidoCompleto.pagamento.parcelas.reduce((sum, parcela) => {
+          return sum + (parseFloat(parcela.valor || parcela.valorParcela || 0));
+        }, 0);
+        console.log(`[SyncBackground] 🔄 Vale Troca detectado via formaPagamento principal: R$ ${valorValeTroca.toFixed(2)}`);
+      }
+    }
+  }
+  
+  // Descontar vale troca do valor total
+  if (valorValeTroca > 0) {
+    const valorTotalAntes = valorTotal;
+    valorTotal = Math.max(0, valorTotal - valorValeTroca); // Garantir que não fique negativo
+    console.log(`[SyncBackground] 💰 Valor antes: R$ ${valorTotalAntes.toFixed(2)} | Vale Troca: R$ ${valorValeTroca.toFixed(2)} | Valor final: R$ ${valorTotal.toFixed(2)}`);
+  }
+
   // Preparar objeto do pedido
   // ✅ CRÍTICO: Se já existe pedido, usar SEMPRE a data_pedido original (NUNCA recalcular)
   const finalDataPedido = (existingOrder && existingOrder.data_pedido)
@@ -2096,7 +2157,19 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     valor_total: valorTotal || 0,
     valor_desconto: parseFloat(pedido.valorDesconto || pedido.valor_desconto || 0),
     valor_frete: parseFloat(pedido.valorFrete || pedido.valor_frete || 0),
-    forma_pagamento: pedido.pagamento?.formaPagamento?.nome || null,
+    // ✅ REMOVER "VALE TROCA" da forma de pagamento antes de salvar
+    forma_pagamento: (() => {
+      const formaPagamento = pedido.pagamento?.formaPagamento?.nome || null;
+      if (!formaPagamento) return null;
+      
+      // ✅ Usar função auxiliar global para detectar vale troca
+      // Se a forma de pagamento é "Vale Troca", não salvar (já foi descontado do valor)
+      if (isValeTroca(formaPagamento)) {
+        return null; // Se for vale troca, não salvar forma de pagamento
+      }
+      
+      return formaPagamento;
+    })(),
     forma_envio: pedido.transportador?.formaEnvio?.nome || null,
     endereco_entrega: pedido.enderecoEntrega || null,
     itens: (itensComCategorias && itensComCategorias.length > 0) ? itensComCategorias : null,
@@ -2370,17 +2443,17 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
       return;
     }
 
-    // 4. Calcular totais (dia e mês)
+    // 4. Calcular totais (dia e mês) - ✅ BUSCAR DE SALES (não tiny_orders)
     const hojeStr = new Date().toISOString().split('T')[0];
     const { data: vendasHoje } = await supabase
       .schema('sistemaretiradas')
-      .from('tiny_orders')
-      .select('valor_total')
+      .from('sales')
+      .select('valor')
       .eq('store_id', storeId)
-      .gte('data_pedido', `${hojeStr}T00:00:00`)
-      .lte('data_pedido', `${hojeStr}T23:59:59`);
+      .gte('data_venda', `${hojeStr}T00:00:00`)
+      .lte('data_venda', `${hojeStr}T23:59:59`);
 
-    const totalDia = vendasHoje?.reduce((sum, v) => sum + (parseFloat(v.valor_total) || 0), 0) || 0;
+    const totalDia = vendasHoje?.reduce((sum, v) => sum + (parseFloat(v.valor) || 0), 0) || 0;
     
     // ✅ IMPORTANTE: Adicionar a venda atual ao total do dia (se for de hoje)
     const valorVendaAtual = parseFloat(orderData.valor_total) || 0;
@@ -2393,26 +2466,32 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
       console.log(`[SyncBackground] 📊 Total do dia COM venda atual: ${totalDiaComVendaAtual.toFixed(2)}`);
     }
 
-    const mesAtual = new Date().toISOString().slice(0, 7).replace('-', '');
+    // ✅ BUSCAR TOTAL DO MÊS DE SALES (não tiny_orders)
+    const mesAtual = new Date().toISOString().slice(0, 7); // Formato: YYYY-MM
+    const primeiroDiaMes = `${mesAtual}-01`;
+    const ultimoDiaMes = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0];
+    
     const { data: vendasMes } = await supabase
       .schema('sistemaretiradas')
-      .from('tiny_orders')
-      .select('valor_total')
+      .from('sales')
+      .select('valor, data_venda')
       .eq('store_id', storeId)
-      .gte('data_pedido', `${mesAtual}-01T00:00:00`)
-      .lte('data_pedido', `${mesAtual}-31T23:59:59`);
+      .gte('data_venda', `${primeiroDiaMes}T00:00:00`)
+      .lte('data_venda', `${ultimoDiaMes}T23:59:59`);
 
-    const totalMes = vendasMes?.reduce((sum, v) => sum + (parseFloat(v.valor_total) || 0), 0) || 0;
+    const totalMes = vendasMes?.reduce((sum, v) => sum + (parseFloat(v.valor) || 0), 0) || 0;
     
     // ✅ IMPORTANTE: Adicionar a venda atual ao total do mês
     // Verificar se a venda é do mês atual
-    const mesPedido = dataPedido ? dataPedido.slice(0, 7).replace('-', '') : null;
+    const mesPedido = dataPedido ? dataPedido.slice(0, 7) : null; // Formato: YYYY-MM
     let totalMesComVendaAtual = totalMes;
     if (mesPedido === mesAtual) {
       totalMesComVendaAtual = totalMes + valorVendaAtual;
-      console.log(`[SyncBackground] 📊 Total do mês ANTES da venda atual: ${totalMes.toFixed(2)}`);
+      console.log(`[SyncBackground] 📊 Total do mês ANTES da venda atual (de sales): ${totalMes.toFixed(2)}`);
       console.log(`[SyncBackground] 📊 Valor da venda atual: ${valorVendaAtual.toFixed(2)}`);
       console.log(`[SyncBackground] 📊 Total do mês COM venda atual: ${totalMesComVendaAtual.toFixed(2)}`);
+    } else {
+      console.log(`[SyncBackground] 📊 Venda não é do mês atual (mesPedido: ${mesPedido}, mesAtual: ${mesAtual}), usando total sem adicionar`);
     }
 
     // 5. Formatar produtos para observações
@@ -2533,6 +2612,12 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
                                orderData.forma_pagamento || 
                                'Não informado';
         const valorParcela = parseFloat(parcela.valor || parcela.valorParcela || 0);
+        
+        // ✅ IGNORAR VALE TROCA: Não incluir nas formas de pagamento exibidas (usar função auxiliar global)
+        if (isValeTroca(formaPagamento)) {
+          console.log(`[SyncBackground] 📝 [WHATSAPP] ⏭️  Parcela ${index + 1}: Vale Troca ignorado (R$ ${valorParcela.toFixed(2)})`);
+          return; // Pular esta parcela (não incluir na lista de formas de pagamento)
+        }
         
         console.log(`[SyncBackground] 📝 [WHATSAPP] Parcela ${index + 1}: ${formaPagamento} - R$ ${valorParcela.toFixed(2)}`);
         

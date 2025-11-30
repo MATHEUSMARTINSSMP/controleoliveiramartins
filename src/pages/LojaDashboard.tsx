@@ -1330,6 +1330,48 @@ export default function LojaDashboard() {
         }
     }, [salesDateFilter, storeId]);
 
+    // ✅ SUBSCRIÇÃO REAL-TIME: Escutar novas vendas e atualizar automaticamente
+    useEffect(() => {
+        if (!storeId) return;
+
+        console.log('[LojaDashboard] 📡 Configurando subscription real-time para vendas...');
+
+        // Configurar canal de real-time para escutar mudanças na tabela sales
+        const channel = supabase
+            .channel(`sales-${storeId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*', // Escutar INSERT, UPDATE, DELETE
+                    schema: 'sistemaretiradas',
+                    table: 'sales',
+                    filter: `store_id=eq.${storeId}`,
+                },
+                (payload) => {
+                    console.log('[LojaDashboard] 📡 Mudança detectada na tabela sales:', payload.eventType);
+                    
+                    // Se for uma inserção ou atualização, recarregar vendas
+                    if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
+                        console.log('[LojaDashboard] 🔄 Recarregando vendas devido a mudança real-time...');
+                        
+                        // Pequeno delay para garantir que a mudança foi persistida
+                        setTimeout(() => {
+                            fetchSalesWithStoreId(storeId, salesDateFilter);
+                            // Também atualizar metas e outros dados que podem ter mudado
+                            fetchGoalsWithStoreId(storeId);
+                        }, 500);
+                    }
+                }
+            )
+            .subscribe();
+
+        // Cleanup: remover subscription quando componente desmontar ou storeId mudar
+        return () => {
+            console.log('[LojaDashboard] 🛑 Removendo subscription real-time...');
+            supabase.removeChannel(channel);
+        };
+    }, [storeId, salesDateFilter]);
+
     const fetchSalesWithStoreId = async (currentStoreId: string, filterDate?: string) => {
         if (!currentStoreId) return;
 
