@@ -2218,11 +2218,93 @@ export default function CashbackManagement() {
                                 ) : (
                                   <ChevronRight className="h-4 w-4" />
                                 )}
-                                <div>
+                                <div className="flex-1">
                                   <div className="font-medium">{cliente.nome}</div>
                                   <div className="text-sm text-muted-foreground">
                                     {cliente.cpf_cnpj} • {transactions.length} transações
                                   </div>
+                                  {/* Tags */}
+                                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                    {cliente.tags && cliente.tags.length > 0 ? (
+                                      cliente.tags.map((tag, idx) => (
+                                        <Badge key={idx} variant="secondary" className="text-xs">
+                                          {tag}
+                                        </Badge>
+                                      ))
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">Sem tags</span>
+                                    )}
+                                    {editandoTags === cliente.id ? (
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <Input
+                                          placeholder="Nova tag"
+                                          value={novaTag}
+                                          onChange={(e) => setNovaTag(e.target.value)}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              handleAdicionarTag(cliente.id, cliente.tags || []);
+                                            }
+                                          }}
+                                          className="h-7 text-xs w-32"
+                                          size={1}
+                                        />
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => handleAdicionarTag(cliente.id, cliente.tags || [])}
+                                          disabled={salvandoTags}
+                                          className="h-7 px-2"
+                                        >
+                                          <Plus className="h-3 w-3" />
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => {
+                                            setEditandoTags(null);
+                                            setNovaTag('');
+                                          }}
+                                          className="h-7 px-2"
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditandoTags(cliente.id);
+                                          setNovaTag('');
+                                        }}
+                                        className="h-6 px-2 text-xs mt-1"
+                                      >
+                                        <Edit2 className="h-3 w-3 mr-1" />
+                                        {cliente.tags && cliente.tags.length > 0 ? 'Editar' : 'Adicionar'} Tags
+                                      </Button>
+                                    )}
+                                  </div>
+                                  {/* Remover tags */}
+                                  {editandoTags === cliente.id && cliente.tags && cliente.tags.length > 0 && (
+                                    <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                      {cliente.tags.map((tag, idx) => (
+                                        <Badge key={idx} variant="secondary" className="text-xs flex items-center gap-1">
+                                          {tag}
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleRemoverTag(cliente.id, tag, cliente.tags || []);
+                                            }}
+                                            className="hover:text-red-600"
+                                            disabled={salvandoTags}
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </button>
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                               <div className="text-right">
