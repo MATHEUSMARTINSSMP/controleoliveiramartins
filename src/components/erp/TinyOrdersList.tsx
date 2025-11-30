@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Search, Calendar, DollarSign, User, Package, ChevronLeft, ChevronRight, Gift, Trash2 } from 'lucide-react';
+import { Loader2, Search, Calendar, DollarSign, User, Package, ChevronLeft, ChevronRight, Gift, Trash2, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { toast as sonnerToast } from 'sonner';
@@ -697,6 +697,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
                     <TableHead>Cliente</TableHead>
                     <TableHead>Vendedor</TableHead>
                     <TableHead>Valor</TableHead>
+                    <TableHead>Forma de Pagamento</TableHead>
                     <TableHead>Cashback Gerado</TableHead>
                     <TableHead>Validade</TableHead>
                     {isAdmin && <TableHead>Ações</TableHead>}
@@ -747,6 +748,16 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
                           <DollarSign className="h-3 w-3 text-muted-foreground" />
                           {formatCurrency(order.valor_total || 0)}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {order.forma_pagamento ? (
+                          <div className="flex items-center gap-1 text-xs">
+                            <CreditCard className="h-3 w-3 text-muted-foreground" />
+                            <span className="break-words">{order.forma_pagamento}</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {order.cashback_gerado && order.cashback_gerado > 0 ? (
