@@ -24,6 +24,7 @@ import { TrophiesGallery } from "@/components/loja/TrophiesGallery";
 import { StoreLogo } from "@/lib/storeLogo";
 import { sendWhatsAppMessage, formatVendaMessage } from "@/lib/whatsapp";
 import { checkAndCreateMonthlyTrophies, checkAndCreateWeeklyTrophies } from "@/lib/trophies";
+import { createPostSaleFromSale } from "@/lib/crm-helpers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CashbackLojaView from "@/components/loja/CashbackLojaView";
 import CRMLojaView from "@/components/loja/CRMLojaView";
@@ -1706,7 +1707,7 @@ export default function LojaDashboard() {
             observacoesFinal = `Formas de Pagamento: ${formasPagamentoTexto}`;
         }
 
-        const { error } = await supabase
+        const { data: insertedSale, error } = await supabase
             .schema("sistemaretiradas")
             .from('sales')
             .insert({
@@ -1717,7 +1718,9 @@ export default function LojaDashboard() {
                 data_venda: formData.data_venda,
                 observacoes: observacoesFinal || null,
                 lancado_por_id: profile?.id,
-            });
+            })
+            .select()
+            .single();
 
         if (error) {
             toast.error('Erro ao lançar venda');
@@ -1732,6 +1735,21 @@ export default function LojaDashboard() {
                 data_venda: formData.data_venda,
                 observacoes: formData.observacoes || null,
             };
+
+            // ✅ CRIAR PÓS-VENDA AUTOMATICAMENTE (se CRM estiver ativo)
+            if (insertedSale?.id) {
+                // Executar em background para não bloquear a UI
+                createPostSaleFromSale(
+                    insertedSale.id,
+                    storeId,
+                    formData.colaboradora_id,
+                    null, // Nome do cliente não disponível em vendas manuais
+                    formData.data_venda,
+                    7 // Follow-up em 7 dias
+                ).catch(err => {
+                    console.error('[LojaDashboard] Erro ao criar pós-venda automática:', err);
+                });
+            }
 
             // Salvar formas de pagamento antes de resetar
             const formasPagamentoData = [...formasPagamento];
