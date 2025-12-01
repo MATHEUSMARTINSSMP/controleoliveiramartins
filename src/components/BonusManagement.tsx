@@ -375,7 +375,7 @@ export default function BonusManagement() {
             ativo: true,
             // Novos campos para condições avançadas
             condicao_tipo: formData.condicao_tipo || null,
-            condicao_ranking: formData.condicao_ranking ? parseInt(formData.condicao_ranking) : null,
+            condicao_ranking: formData.condicao_ranking === "TODAS" ? "TODAS" : (formData.condicao_ranking ? parseInt(formData.condicao_ranking) : null),
             condicao_meta_tipo: formData.condicao_meta_tipo || null,
             condicao_escopo: formData.condicao_escopo || null,
             condicao_faturamento: formData.condicao_faturamento ? parseFloat(formData.condicao_faturamento) : null,
@@ -1498,9 +1498,26 @@ export default function BonusManagement() {
                                                 <SelectValue placeholder="Selecione o ranking" />
                                             </SelectTrigger>
                                             <SelectContent>
+                                                <SelectItem value="TODAS">Todas que atingirem</SelectItem>
                                                 <SelectItem value="1">Melhor (1º lugar)</SelectItem>
                                                 <SelectItem value="2">Top 2</SelectItem>
                                                 <SelectItem value="3">Top 3</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+                                {formData.condicao_tipo === "FATURAMENTO" && (formData.condicao_meta_tipo === "GINCANA_SEMANAL" || formData.condicao_meta_tipo === "SUPER_GINCANA_SEMANAL") && (
+                                    <div>
+                                        <Label className="text-xs sm:text-sm">Ranking</Label>
+                                        <Select
+                                            value={formData.condicao_ranking || "TODAS"}
+                                            onValueChange={(v) => setFormData({ ...formData, condicao_ranking: v })}
+                                        >
+                                            <SelectTrigger className="text-xs sm:text-sm">
+                                                <SelectValue placeholder="Selecione o ranking" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="TODAS">Todas que atingirem</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>

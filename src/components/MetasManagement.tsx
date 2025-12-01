@@ -638,8 +638,8 @@ const MetasManagementContent = () => {
                 // Campos obrigatórios para exibição correta no formulário
                 // Métrica: FATURAMENTO (obrigatório para gincana semanal)
                 condicao_tipo: "FATURAMENTO",
-                // Ranking: null (todas que atingirem ganham, não é ranking, mas campo deve estar preenchido)
-                condicao_ranking: null,
+                // Ranking: "TODAS" (todas que atingirem ganham)
+                condicao_ranking: "TODAS",
                 // Identificador de gincana semanal
                 condicao_meta_tipo: "GINCANA_SEMANAL",
                 condicao_escopo: "INDIVIDUAL",
