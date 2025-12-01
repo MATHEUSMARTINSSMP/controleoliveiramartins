@@ -146,27 +146,42 @@ export default function Landing() {
   const plans = [
     {
       name: "Starter",
-      price: "R$ 97",
+      price: "R$ 249",
       period: "/mês",
       description: "Perfeito para começar",
-      features: ["1 Loja", "5 Colaboradores", "Dashboard básico", "Relatórios simples", "Suporte por email"],
+      features: ["1 Loja", "5 Colaboradores", "Dashboard completo", "Relatórios completos", "Suporte por email", "WhatsApp da agência"],
       popular: false
     },
     {
-      name: "Pro",
-      price: "R$ 197",
+      name: "Business",
+      price: "R$ 499",
       period: "/mês",
       description: "Para negócios em crescimento",
-      features: ["3 Lojas", "15 Colaboradores", "Dashboard avançado", "Cashback automático", "Integração Tiny ERP", "WhatsApp notifications"],
+      features: ["3 Lojas", "25 Colaboradores", "Dashboard completo", "Relatórios completos", "Integração Tiny ERP", "WhatsApp próprio integrado", "Suporte por WhatsApp"],
       popular: true
     },
     {
       name: "Enterprise",
-      price: "R$ 497",
+      price: "R$ 799",
       period: "/mês",
       description: "Solução completa para redes",
-      features: ["Ilimitadas", "Ilimitados", "Recursos ilimitados", "API dedicada", "Relatórios customizados", "Gerente de conta"],
+      features: ["7 Lojas", "80 Colaboradores", "Suporte prioritário 24/7", "+ 3 lojas extras grátis", "+ 10 colaboradores extras grátis", "Todos os recursos ilimitados"],
       popular: false
+    }
+  ];
+
+  const addOns = [
+    {
+      name: "Loja Extra",
+      price: "R$ 100",
+      period: "/mês",
+      description: "Adicione mais uma loja"
+    },
+    {
+      name: "5 Colaboradores Extra",
+      price: "R$ 49",
+      period: "/mês",
+      description: "Adicione mais 5 colaboradores"
     }
   ];
 
@@ -419,7 +434,8 @@ export default function Landing() {
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          {/* Main Plans */}
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto mb-16">
             {plans.map((plan, i) => (
               <div
                 key={i}
@@ -472,6 +488,29 @@ export default function Landing() {
                 </GlassCard>
               </div>
             ))}
+          </div>
+
+          {/* Add-ons */}
+          <div className="border-t border-violet-500/20 pt-16 mt-16">
+            <div className="text-center mb-12">
+              <h3 className="text-3xl font-bold mb-2">
+                Precisa de mais?
+              </h3>
+              <p className="text-slate-300">Adicione recursos conforme sua loja cresce</p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-8 max-w-2xl mx-auto">
+              {addOns.map((addon, i) => (
+                <GlassCard key={i} className="text-center p-6" data-testid={`addon-${i}`}>
+                  <h4 className="text-xl font-bold mb-2">{addon.name}</h4>
+                  <p className="text-sm text-slate-400 mb-4">{addon.description}</p>
+                  <div>
+                    <span className="text-3xl font-bold">{addon.price}</span>
+                    <span className="text-slate-400">{addon.period}</span>
+                  </div>
+                </GlassCard>
+              ))}
+            </div>
           </div>
         </div>
       </section>
