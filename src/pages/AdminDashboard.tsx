@@ -20,6 +20,7 @@ import { WhatsAppNotificationConfig } from "@/components/admin/WhatsAppNotificat
 import { GoalsTracking } from "@/components/admin/GoalsTracking";
 import { CashbackStoreConfig } from "@/components/admin/CashbackStoreConfig";
 import { CRMStoreConfig } from "@/components/admin/CRMStoreConfig";
+import { CRMManagement } from "@/components/admin/CRMManagement";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -163,7 +164,7 @@ const AdminDashboard = () => {
 
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         <Tabs defaultValue="gestao-metas" className="space-y-4 sm:space-y-6">
-          <TabsList className="grid w-full grid-cols-4 max-w-4xl bg-muted/50 p-1 rounded-xl">
+          <TabsList className="grid w-full grid-cols-5 max-w-5xl bg-muted/50 p-1 rounded-xl">
             <TabsTrigger value="gestao-metas" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <span className="hidden sm:inline">Gestão de Metas</span>
               <span className="sm:hidden">Metas</span>
@@ -175,6 +176,10 @@ const AdminDashboard = () => {
             <TabsTrigger value="gestao-sistemas" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <span className="hidden sm:inline">Gestão de Sistemas</span>
               <span className="sm:hidden">Sistemas</span>
+            </TabsTrigger>
+            <TabsTrigger value="gestao-crm" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <span className="hidden sm:inline">Gestão CRM</span>
+              <span className="sm:hidden">CRM</span>
             </TabsTrigger>
             <TabsTrigger value="configuracoes" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <span className="hidden sm:inline">Configurações</span>
@@ -327,6 +332,10 @@ const AdminDashboard = () => {
                 <CashbackManagement />
               </TabsContent>
             </Tabs>
+          </TabsContent>
+
+          <TabsContent value="gestao-crm" className="animate-in fade-in-50 duration-500 space-y-4 sm:space-y-6">
+            <CRMManagement />
           </TabsContent>
 
           <TabsContent value="configuracoes" className="animate-in fade-in-50 duration-500 space-y-4 sm:space-y-6">
