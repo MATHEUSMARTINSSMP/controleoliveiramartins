@@ -227,15 +227,6 @@ BEGIN
               );
             END IF;
         END;
-        
-        v_detalhes := v_detalhes || jsonb_build_object(
-          'tipo', 'criada',
-          'tiny_order_id', v_pedido.tiny_order_id,
-          'sale_id', v_sale_id,
-          'numero_pedido', v_pedido.numero_pedido,
-          'valor', v_pedido.valor_total,
-          'qtd_pecas', v_qtd_pecas
-        );
       END IF;
       
     EXCEPTION WHEN OTHERS THEN
