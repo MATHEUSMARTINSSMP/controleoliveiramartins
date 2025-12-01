@@ -406,28 +406,46 @@ const WeeklyGoalsManagement = () => {
         dailyWeights: Record<string, number>, 
         weekRange: { start: Date; end: Date }
     ): number => {
+        console.log('[calculateWeeklyGoalFromMonthly] 📊 Iniciando cálculo:');
+        console.log('[calculateWeeklyGoalFromMonthly] Meta mensal:', monthlyGoal);
+        console.log('[calculateWeeklyGoalFromMonthly] Daily weights:', dailyWeights);
+        console.log('[calculateWeeklyGoalFromMonthly] Week range:', weekRange);
+        
         // Obter todos os dias da semana (segunda a domingo)
         const weekDays = eachDayOfInterval({ start: weekRange.start, end: weekRange.end });
+        console.log('[calculateWeeklyGoalFromMonthly] Dias da semana:', weekDays.map(d => format(d, 'yyyy-MM-dd')));
         
         // Se não houver daily_weights, dividir igualmente pelos dias do mês
-        if (Object.keys(dailyWeights).length === 0) {
+        if (!dailyWeights || Object.keys(dailyWeights).length === 0) {
+            console.warn('[calculateWeeklyGoalFromMonthly] ⚠️ Nenhum daily_weight encontrado, usando divisão proporcional');
             const daysInMonth = new Date(weekRange.start.getFullYear(), weekRange.start.getMonth() + 1, 0).getDate();
             const dailyGoal = monthlyGoal / daysInMonth;
-            return dailyGoal * 7; // 7 dias da semana
+            const weeklyGoal = dailyGoal * 7; // 7 dias da semana
+            console.log('[calculateWeeklyGoalFromMonthly] Cálculo proporcional: dias no mês =', daysInMonth, ', meta semanal =', weeklyGoal);
+            return weeklyGoal;
         }
         
         // IMPORTANTE: Os daily_weights somam 100% do mês inteiro
         // Precisamos calcular a soma dos pesos dos dias da semana
         let somaPesosSemana = 0;
+        const pesosDetalhados: string[] = [];
         
         weekDays.forEach(day => {
             const dayKey = format(day, 'yyyy-MM-dd');
             const dayWeight = dailyWeights[dayKey] || 0;
             somaPesosSemana += dayWeight;
+            if (dayWeight > 0) {
+                pesosDetalhados.push(`${dayKey}: ${dayWeight}%`);
+            }
         });
+        
+        console.log('[calculateWeeklyGoalFromMonthly] Soma dos pesos da semana:', somaPesosSemana + '%');
+        console.log('[calculateWeeklyGoalFromMonthly] Pesos encontrados:', pesosDetalhados);
         
         // Calcular meta semanal: (meta_mensal * soma_pesos_semana) / 100
         const totalWeeklyGoal = (monthlyGoal * somaPesosSemana) / 100;
+        
+        console.log('[calculateWeeklyGoalFromMonthly] ✅ Meta semanal calculada:', totalWeeklyGoal);
         
         return totalWeeklyGoal;
     };
@@ -438,24 +456,39 @@ const WeeklyGoalsManagement = () => {
             const activeCount = colaboradorasAtivas.filter(c => c.active).length;
             if (activeCount > 0 && selectedWeek) {
                 try {
+                    console.log('[useEffect] Recalculando sugestões com', activeCount, 'colaboradoras ativas');
                     // Calcular usando pesos diários
                     const weekRange = getWeekRange(selectedWeek);
-                    const weeklyMeta = calculateWeeklyGoalFromMonthly(
+                    
+                    // Garantir que daily_weights é um objeto válido
+                    const dailyWeights = monthlyGoal.daily_weights && typeof monthlyGoal.daily_weights === 'object' 
+                        ? monthlyGoal.daily_weights as Record<string, number>
+                        : {};
+                    
+                    const weeklyMetaTotal = calculateWeeklyGoalFromMonthly(
                         monthlyGoal.meta_valor, 
-                        monthlyGoal.daily_weights || {}, 
+                        dailyWeights, 
                         weekRange
-                    ) / activeCount;
-                    const weeklySuperMeta = calculateWeeklyGoalFromMonthly(
+                    );
+                    const weeklySuperMetaTotal = calculateWeeklyGoalFromMonthly(
                         monthlyGoal.super_meta_valor, 
-                        monthlyGoal.daily_weights || {}, 
+                        dailyWeights, 
                         weekRange
-                    ) / activeCount;
+                    );
+                    
+                    const weeklyMeta = weeklyMetaTotal / activeCount;
+                    const weeklySuperMeta = weeklySuperMetaTotal / activeCount;
+                    
+                    console.log('[useEffect] ✅ Meta semanal recalculada:', weeklyMeta);
+                    console.log('[useEffect] ✅ Super meta semanal recalculada:', weeklySuperMeta);
                     
                     setSuggestedWeeklyMeta(parseFloat(weeklyMeta.toFixed(2)));
                     setSuggestedWeeklySuperMeta(parseFloat(weeklySuperMeta.toFixed(2)));
                 } catch (err) {
-                    console.error("Erro ao calcular sugestões semanais:", err);
-                    // Fallback: dividir igualmente
+                    console.error("[useEffect] ❌ Erro ao calcular sugestões semanais:", err);
+                    console.error("[useEffect] Stack:", err instanceof Error ? err.stack : 'N/A');
+                    // Fallback: dividir igualmente (APENAS EM CASO DE ERRO)
+                    console.warn("[useEffect] ⚠️ Usando fallback proporcional (4.33) devido a erro");
                     const weeklyMeta = monthlyGoal.meta_valor / 4.33 / activeCount;
                     const weeklySuperMeta = monthlyGoal.super_meta_valor / 4.33 / activeCount;
                     setSuggestedWeeklyMeta(parseFloat(weeklyMeta.toFixed(2)));
@@ -478,7 +511,7 @@ const WeeklyGoalsManagement = () => {
                     const monthRef = format(weekRange.start, "yyyyMM");
                     
                     // Get monthly goal for the store (incluindo daily_weights)
-                    const { data: monthlyStoreGoal } = await supabase
+                    const { data: monthlyStoreGoal, error: goalError } = await supabase
                         .schema("sistemaretiradas")
                         .from("goals")
                         .select("meta_valor, super_meta_valor, daily_weights")
@@ -488,26 +521,69 @@ const WeeklyGoalsManagement = () => {
                         .is("colaboradora_id", null)
                         .single();
 
+                    if (goalError) {
+                        console.error('[loadSuggestions] ❌ Erro ao buscar meta mensal:', goalError);
+                    }
+
                     if (monthlyStoreGoal) {
-                        setMonthlyGoal(monthlyStoreGoal);
+                        console.log('[loadSuggestions] ✅ Meta mensal encontrada:', monthlyStoreGoal);
+                        console.log('[loadSuggestions] Daily weights recebidos (raw):', monthlyStoreGoal.daily_weights);
+                        console.log('[loadSuggestions] Tipo de daily_weights:', typeof monthlyStoreGoal.daily_weights);
+                        
+                        // Parsear daily_weights se vier como string JSON
+                        let parsedDailyWeights: Record<string, number> = {};
+                        if (monthlyStoreGoal.daily_weights) {
+                            if (typeof monthlyStoreGoal.daily_weights === 'string') {
+                                try {
+                                    parsedDailyWeights = JSON.parse(monthlyStoreGoal.daily_weights);
+                                    console.log('[loadSuggestions] ✅ Daily weights parseados de JSON string');
+                                } catch (e) {
+                                    console.error('[loadSuggestions] ❌ Erro ao parsear daily_weights como JSON:', e);
+                                }
+                            } else if (typeof monthlyStoreGoal.daily_weights === 'object') {
+                                parsedDailyWeights = monthlyStoreGoal.daily_weights as Record<string, number>;
+                                console.log('[loadSuggestions] ✅ Daily weights já é objeto');
+                            }
+                        }
+                        
+                        console.log('[loadSuggestions] Daily weights parseados:', parsedDailyWeights);
+                        console.log('[loadSuggestions] Chaves de daily_weights:', Object.keys(parsedDailyWeights));
+                        console.log('[loadSuggestions] Total de chaves:', Object.keys(parsedDailyWeights).length);
+                        
+                        // Atualizar monthlyStoreGoal com daily_weights parseado
+                        const monthlyGoalWithParsedWeights = {
+                            ...monthlyStoreGoal,
+                            daily_weights: parsedDailyWeights
+                        };
+                        
+                        setMonthlyGoal(monthlyGoalWithParsedWeights);
                         
                         // Get active collaborators for the store
                         const activeColabs = colaboradoras.filter(c => c.store_id === selectedStore);
                         const colabsAtivasCount = activeColabs.length;
+                        console.log('[loadSuggestions] Colaboradoras ativas:', colabsAtivasCount);
                         
                         // ✅ Calcular usando pesos diários (daily_weights)
                         try {
                             const weekRange = getWeekRange(selectedWeek);
+                            console.log('[loadSuggestions] Calculando meta semanal com pesos diários...');
+                            
+                            // Usar daily_weights já parseado
+                            const dailyWeights = parsedDailyWeights;
+                            
                             const weeklyMetaTotal = calculateWeeklyGoalFromMonthly(
                                 monthlyStoreGoal.meta_valor, 
-                                monthlyStoreGoal.daily_weights || {}, 
+                                dailyWeights, 
                                 weekRange
                             );
                             const weeklySuperMetaTotal = calculateWeeklyGoalFromMonthly(
                                 monthlyStoreGoal.super_meta_valor, 
-                                monthlyStoreGoal.daily_weights || {}, 
+                                dailyWeights, 
                                 weekRange
                             );
+                            
+                            console.log('[loadSuggestions] Meta semanal total (antes de dividir):', weeklyMetaTotal);
+                            console.log('[loadSuggestions] Super meta semanal total (antes de dividir):', weeklySuperMetaTotal);
                             
                             // Dividir pelo número de colaboradoras ativas
                             const weeklyMeta = colabsAtivasCount > 0 
@@ -517,11 +593,16 @@ const WeeklyGoalsManagement = () => {
                                 ? weeklySuperMetaTotal / colabsAtivasCount
                                 : weeklySuperMetaTotal;
 
+                            console.log('[loadSuggestions] ✅ Meta semanal por colaboradora:', weeklyMeta);
+                            console.log('[loadSuggestions] ✅ Super meta semanal por colaboradora:', weeklySuperMeta);
+
                             setSuggestedWeeklyMeta(parseFloat(weeklyMeta.toFixed(2)));
                             setSuggestedWeeklySuperMeta(parseFloat(weeklySuperMeta.toFixed(2)));
                         } catch (err) {
-                            console.error("Erro ao calcular sugestões com pesos:", err);
-                            // Fallback: dividir igualmente por 4.33
+                            console.error("[loadSuggestions] ❌ Erro ao calcular sugestões com pesos:", err);
+                            console.error("[loadSuggestions] Stack:", err instanceof Error ? err.stack : 'N/A');
+                            // Fallback: dividir igualmente por 4.33 (APENAS EM CASO DE ERRO)
+                            console.warn("[loadSuggestions] ⚠️ Usando fallback proporcional (4.33) devido a erro");
                             const weeklyMeta = colabsAtivasCount > 0 
                                 ? monthlyStoreGoal.meta_valor / 4.33 / colabsAtivasCount
                                 : monthlyStoreGoal.meta_valor / 4.33;
