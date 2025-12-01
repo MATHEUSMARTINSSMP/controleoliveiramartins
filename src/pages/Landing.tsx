@@ -292,12 +292,12 @@ export default function Landing() {
               <Button 
                 size="lg" 
                 variant="outline" 
-                className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8 py-2.5 sm:py-3 h-auto min-h-[44px] border-violet-500/30 hover:bg-violet-500/10"
+                className="w-full sm:w-auto text-lg sm:text-xl px-6 sm:px-10 py-3 sm:py-4 h-auto min-h-[48px] border-violet-500/50 hover:bg-violet-500/20 font-semibold"
                 onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
                 data-testid="button-see-features"
               >
                 Ver Recursos
-                <ChevronRight className="ml-2 h-5 w-5" />
+                <ChevronRight className="ml-2 h-6 w-6" />
               </Button>
             </div>
 
@@ -371,54 +371,56 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-24 relative z-10">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <Badge className="mb-4 px-4 py-2 bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20" variant="outline">
-              Funcionalidades
-            </Badge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Tudo que você precisa em
-              <br />
-              <GradientText>uma plataforma</GradientText>
-            </h2>
-          </div>
+      {/* Features Section - Spread Throughout */}
+      <section id="features" className="relative z-10">
+        <div className="text-center py-16 sm:py-24">
+          <Badge className="mb-4 px-4 py-2 bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20" variant="outline">
+            Funcionalidades
+          </Badge>
+          <h2 className="text-4xl md:text-5xl font-bold mb-4 px-4">
+            Tudo que você precisa em
+            <br />
+            <GradientText>uma plataforma</GradientText>
+          </h2>
+        </div>
 
-          {/* Interactive Features Grid - Mobile Stack */}
-          <div className="max-w-7xl mx-auto">
-            {/* Mobile - Vertical Stack, Desktop - Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-8">
-              {features.map((feature, i) => (
-                <GlassCard
-                  key={i}
-                  onClick={() => setActiveFeature(i)}
-                  className={`cursor-pointer transition-all p-3 sm:p-4 min-h-[100px] sm:min-h-auto flex flex-col justify-start ${activeFeature === i ? 'border-violet-500/50 bg-violet-500/20' : ''}`}
-                  data-testid={`feature-button-${i}`}
-                >
-                  <div className="flex items-start gap-2 sm:gap-3">
-                    <div className="text-violet-300 mt-1 flex-shrink-0 h-5 w-5 sm:h-6 sm:w-6">{feature.icon}</div>
-                    <div className="text-left min-w-0">
-                      <h3 className="font-semibold text-slate-100 text-xs sm:text-sm leading-snug">{feature.title}</h3>
-                      <p className="text-xs text-slate-300 mt-1 leading-snug">{feature.description}</p>
-                    </div>
+        {/* Feature Sections - Alternating Layout */}
+        {features.map((feature, i) => (
+          <section key={i} className={`py-16 sm:py-24 relative z-10 ${i % 2 === 0 ? 'bg-gradient-to-r from-violet-950/20 to-transparent' : ''}`}>
+            <div className="container mx-auto px-4">
+              <div className={`flex flex-col ${i % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'} items-center gap-8 sm:gap-12 max-w-5xl mx-auto`}>
+                {/* Text Content */}
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="text-violet-400 flex-shrink-0">{feature.icon}</div>
+                    <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold">{feature.title}</h3>
                   </div>
-                </GlassCard>
-              ))}
-            </div>
+                  <p className="text-base sm:text-lg text-slate-200 mb-6 leading-relaxed">
+                    {feature.description}
+                  </p>
+                  <Button 
+                    className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 min-h-[44px] px-6 sm:px-8 text-sm sm:text-base"
+                    data-testid={`feature-cta-${i}`}
+                  >
+                    Saiba mais
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </div>
 
-            {/* Large Feature Display - Mobile Responsive */}
-            <div className="relative">
-              <div className="rounded-lg sm:rounded-2xl overflow-hidden border border-violet-500/20 shadow-2xl shadow-violet-500/10 h-48 sm:h-72 md:h-96">
-                <img 
-                  src={features[activeFeature].image} 
-                  alt={features[activeFeature].title}
-                  className="w-full h-full object-cover transition-all duration-500"
-                />
+                {/* Image */}
+                <div className="flex-1 w-full">
+                  <div className="rounded-lg sm:rounded-2xl overflow-hidden border border-violet-500/20 shadow-2xl shadow-violet-500/10 h-56 sm:h-72 md:h-80">
+                    <img 
+                      src={feature.image} 
+                      alt={feature.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </section>
+        ))}
       </section>
 
       {/* Pricing Section */}
@@ -456,11 +458,11 @@ export default function Landing() {
                 )}
                 <GlassCard className={`h-full flex flex-col p-4 sm:p-6 ${plan.popular ? 'border-violet-500/50 bg-violet-500/20' : ''}`}>
                   <div className="flex-1">
-                    <h3 className="text-xl sm:text-2xl font-bold mb-2">{plan.name}</h3>
-                    <p className="text-xs sm:text-sm text-slate-300 mb-4 sm:mb-6">{plan.description}</p>
-                    <div className="mb-6 sm:mb-8">
-                      <span className="text-3xl sm:text-4xl font-bold">{plan.price}</span>
-                      <span className="text-xs sm:text-sm text-slate-300">{plan.period}</span>
+                    <h3 className="text-2xl sm:text-3xl font-bold mb-3">{plan.name}</h3>
+                    <p className="text-sm sm:text-base text-slate-200 mb-6 sm:mb-8">{plan.description}</p>
+                    <div className="mb-8 sm:mb-10">
+                      <span className="text-4xl sm:text-5xl font-bold">{plan.price}</span>
+                      <span className="text-sm sm:text-base text-slate-200 block mt-1">{plan.period}</span>
                     </div>
                     <Button 
                       className={`w-full mb-6 min-h-[44px] text-sm sm:text-base ${
@@ -475,15 +477,15 @@ export default function Landing() {
                       Começar Agora
                     </Button>
                   </div>
-                  <ul className="space-y-2 sm:space-y-3">
+                  <ul className="space-y-3 sm:space-y-4">
                     {plan.features.map((feature, j) => (
-                      <li key={j} className="flex items-start gap-2.5 text-xs sm:text-sm">
-                        <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                      <li key={j} className="flex items-start gap-3 text-sm sm:text-base">
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
                           plan.popular ? 'bg-violet-500/30' : 'bg-slate-800'
                         }`}>
-                          <Check className={`h-3 w-3 ${plan.popular ? 'text-violet-300' : 'text-slate-300'}`} />
+                          <Check className={`h-3.5 w-3.5 ${plan.popular ? 'text-violet-300' : 'text-slate-300'}`} />
                         </div>
-                        <span className="text-slate-200">{feature}</span>
+                        <span className="text-slate-100">{feature}</span>
                       </li>
                     ))}
                   </ul>
