@@ -1,10 +1,9 @@
 -- ============================================================================
--- Migration: Função para criar vendas automaticamente a partir de pedidos do Tiny
--- Data: 2025-02-01
--- Descrição: Converte pedidos do Tiny ERP em vendas (sales) automaticamente
+-- CORREÇÃO: Adicionar validação de store_id na função criar_vendas_de_tiny_orders
+-- Execute este script para corrigir a função
 -- ============================================================================
 
--- Função RPC para criar vendas a partir de pedidos do Tiny
+-- Atualizar a função para incluir validação de store_id
 CREATE OR REPLACE FUNCTION sistemaretiradas.criar_vendas_de_tiny_orders(
   p_store_id UUID DEFAULT NULL,
   p_data_inicio TIMESTAMPTZ DEFAULT NULL
@@ -53,7 +52,7 @@ BEGIN
       AND (p_data_inicio IS NULL OR o.data_pedido >= p_data_inicio)
       -- Apenas pedidos com colaboradora mapeada (obrigatório para criar venda)
       AND o.colaboradora_id IS NOT NULL
-      -- Apenas pedidos com store_id preenchido (obrigatório para criar venda)
+      -- ✅ CORREÇÃO: Apenas pedidos com store_id preenchido (obrigatório para criar venda)
       AND o.store_id IS NOT NULL
       -- Apenas pedidos com valor > 0
       AND o.valor_total > 0
@@ -206,9 +205,7 @@ Retorna:
 - vendas_criadas: Quantidade de vendas criadas
 - vendas_atualizadas: Quantidade de vendas atualizadas
 - erros: Quantidade de erros
-- detalhes: JSONB com detalhes de cada operação';
+- detalhes: JSONB com detalhes de cada operação
 
--- ============================================================================
--- ✅ MIGRATION COMPLETA
--- ============================================================================
+✅ CORREÇÃO: Agora valida também store_id (obrigatório)';
 
