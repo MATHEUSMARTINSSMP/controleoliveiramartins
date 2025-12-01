@@ -246,6 +246,8 @@ const WeeklyGoalsManagement = () => {
     const fetchWeeklyGoals = async () => {
         setLoading(true);
         try {
+            console.log('[fetchWeeklyGoals] 🔍 Iniciando busca de gincanas semanais...');
+            
             // ✅ BUSCAR TODAS AS GINCANAS SEM FILTRO DE DATA (passadas e futuras)
             const { data, error } = await supabase
                 .schema("sistemaretiradas")
@@ -255,21 +257,47 @@ const WeeklyGoalsManagement = () => {
                 .order("created_at", { ascending: false })
                 .limit(1000); // Aumentar limite para incluir histórico
 
-            if (error) throw error;
+            if (error) {
+                console.error('[fetchWeeklyGoals] ❌ Erro na query:', error);
+                throw error;
+            }
+            
             if (data) {
                 console.log(`[fetchWeeklyGoals] ✅ Total de gincanas encontradas: ${data.length}`);
+                
+                // Log detalhado das semanas encontradas
+                const semanasUnicas = new Set(data.map((g: any) => g.semana_referencia).filter(Boolean));
+                console.log(`[fetchWeeklyGoals] 📅 Semanas únicas encontradas: ${semanasUnicas.size}`);
+                console.log(`[fetchWeeklyGoals] 📅 Lista de semanas:`, Array.from(semanasUnicas));
+                
+                // Verificar semanas passadas
+                const hoje = new Date();
+                const semanasPassadas = data.filter((g: any) => {
+                    try {
+                        const weekRange = getWeekRange(g.semana_referencia || "");
+                        return weekRange.end < hoje;
+                    } catch {
+                        return false;
+                    }
+                });
+                console.log(`[fetchWeeklyGoals] 📊 Gincanas passadas encontradas: ${semanasPassadas.length}`);
+                
                 // Ordenar no frontend para garantir ordenação correta com novo formato
                 const sorted = [...data].sort((a: any, b: any) => 
                     sortWeekRef(a.semana_referencia || "", b.semana_referencia || "")
                 );
+                
+                console.log(`[fetchWeeklyGoals] ✅ Gincanas ordenadas e prontas para exibição`);
                 setWeeklyGoals(sorted as any);
             } else {
-                console.warn('[fetchWeeklyGoals] ⚠️ Nenhuma gincana encontrada');
+                console.warn('[fetchWeeklyGoals] ⚠️ Nenhuma gincana encontrada (data é null/undefined)');
                 setWeeklyGoals([]);
             }
-        } catch (err) {
-            console.error("Error fetching weekly goals:", err);
-            toast.error("Erro ao carregar gincanas semanais");
+        } catch (err: any) {
+            console.error("[fetchWeeklyGoals] ❌ Erro ao buscar gincanas:", err);
+            console.error("[fetchWeeklyGoals] Stack:", err?.stack);
+            toast.error(`Erro ao carregar gincanas semanais: ${err?.message || 'Erro desconhecido'}`);
+            setWeeklyGoals([]);
         } finally {
             setLoading(false);
         }
@@ -1198,6 +1226,10 @@ const WeeklyGoalsManagement = () => {
                         }
                         // Dentro de cada loja, agrupar por semana
                         const weekKey = goal.semana_referencia;
+                        if (!weekKey) {
+                            console.warn('[WeeklyGoalsManagement] ⚠️ Gincana sem semana_referencia:', goal);
+                            return acc; // Pular gincanas sem semana_referencia
+                        }
                         if (!acc[storeId].weeks[weekKey]) {
                             acc[storeId].weeks[weekKey] = {
                                 semana_referencia: weekKey,
@@ -1224,11 +1256,14 @@ const WeeklyGoalsManagement = () => {
                                 const rangeB = getWeekRange(weekRefB as string);
                                 // Ordenar por data de início (mais recentes primeiro)
                                 return rangeB.start.getTime() - rangeA.start.getTime();
-                            } catch (err) {
-                                // Se houver erro, manter ordem original
+                            } catch (err: any) {
+                                // Se houver erro, logar e manter ordem original
+                                console.warn(`[WeeklyGoalsManagement] ⚠️ Erro ao ordenar semana ${weekRefA} ou ${weekRefB}:`, err?.message);
                                 return 0;
                             }
                         });
+                    
+                    console.log(`[WeeklyGoalsManagement] 📊 Loja ${storeGroup.store?.name}: ${sortedWeeks.length} semanas encontradas`);
                     
                     return (
                         <div key={storeId} className="space-y-3">
