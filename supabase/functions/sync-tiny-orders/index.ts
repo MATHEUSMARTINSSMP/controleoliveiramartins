@@ -64,30 +64,60 @@ async function verificarNovaVenda(
     // ✅ SEM parâmetro situacao - buscar todos e filtrar depois (API Tiny não aceita string)
     const checkUrl = `${netlifyUrl}/.netlify/functions/erp-api-proxy`;
     
-    const checkResponse = await fetch(checkUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        store_id: storeId,
-        endpoint: '/pedidos',
-        params: {
-          // ✅ SEM situacao - buscar todos e filtrar depois
-          limit: 10, // Buscar 10 para garantir que encontramos um válido
-          ordenar: 'numeroPedido|DESC', // Último pedido primeiro
+    // ✅ Adicionar timeout de 10 segundos para evitar travamento
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos
+    
+    let checkResponse;
+    try {
+      checkResponse = await fetch(checkUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        method: 'GET',
-      }),
-    });
-
-    if (!checkResponse.ok) {
-      console.warn(`[SyncTiny] ⚠️ Erro ao verificar última venda na API:`, checkResponse.status);
+        body: JSON.stringify({
+          store_id: storeId,
+          endpoint: '/pedidos',
+          params: {
+            // ✅ SEM situacao - buscar todos e filtrar depois
+            limit: 10, // Buscar 10 para garantir que encontramos um válido
+            ordenar: 'numeroPedido|DESC', // Último pedido primeiro
+          },
+          method: 'GET',
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        console.warn(`[SyncTiny] ⚠️ Timeout ao verificar última venda na API (10s)`);
+      } else {
+        console.warn(`[SyncTiny] ⚠️ Erro de rede ao verificar última venda:`, fetchError?.message || fetchError);
+      }
       // Em caso de erro, assumir que há nova venda (sincronizar por segurança)
       return { temNovaVenda: true, ultimoNumeroConhecido };
     }
 
-    const checkData = await checkResponse.json();
+    if (!checkResponse.ok) {
+      const errorText = await checkResponse.text().catch(() => 'Erro desconhecido');
+      console.warn(`[SyncTiny] ⚠️ Erro ao verificar última venda na API:`, {
+        status: checkResponse.status,
+        statusText: checkResponse.statusText,
+        error: errorText.substring(0, 200)
+      });
+      // Em caso de erro, assumir que há nova venda (sincronizar por segurança)
+      return { temNovaVenda: true, ultimoNumeroConhecido };
+    }
+
+    let checkData;
+    try {
+      checkData = await checkResponse.json();
+    } catch (jsonError) {
+      console.error(`[SyncTiny] ❌ Erro ao parsear resposta JSON:`, jsonError);
+      // Em caso de erro, assumir que há nova venda (sincronizar por segurança)
+      return { temNovaVenda: true, ultimoNumeroConhecido };
+    }
     const pedidos = checkData?.itens || checkData?.pedidos || checkData?.response?.pedidos || [];
     
     // ✅ FILTRAR: Apenas pedidos Aprovado (1) ou Faturado (3)
@@ -481,24 +511,31 @@ serve(async (req) => {
       try {
         // ✅ Para incremental_1min: Verificar se há nova venda antes de sincronizar
         if (tipoSync === 'incremental_1min') {
-          const { temNovaVenda, ultimoNumeroConhecido } = await verificarNovaVenda(supabase, storeId, netlifyUrl);
+          try {
+            const { temNovaVenda, ultimoNumeroConhecido } = await verificarNovaVenda(supabase, storeId, netlifyUrl);
 
-          if (!temNovaVenda) {
-            console.log(`[SyncTinyOrders] ⏭️ Sem nova venda detectada para loja ${storeName}. Pulando sincronização.`);
-            results.push({
-              store_id: storeId,
-              store_name: storeName,
-              success: true,
-              synced: 0,
-              updated: 0,
-              errors: 0,
-              message: 'Sem nova venda detectada. Sincronização não necessária.',
-            });
-            continue; // Pular para próxima loja
+            if (!temNovaVenda) {
+              console.log(`[SyncTinyOrders] ⏭️ Sem nova venda detectada para loja ${storeName}. Pulando sincronização.`);
+              results.push({
+                store_id: storeId,
+                store_name: storeName,
+                success: true,
+                synced: 0,
+                updated: 0,
+                errors: 0,
+                message: 'Sem nova venda detectada. Sincronização não necessária.',
+              });
+              continue; // Pular para próxima loja
+            }
+
+            console.log(`[SyncTinyOrders] ✅ Nova venda detectada para loja ${storeName}! Último conhecido: ${ultimoNumeroConhecido || 'nenhum'}.`);
+            syncParams.ultimo_numero_conhecido = ultimoNumeroConhecido;
+          } catch (pollingError: any) {
+            // Se o polling falhar, continuar com a sincronização por segurança
+            console.error(`[SyncTinyOrders] ⚠️ Erro no polling inteligente para loja ${storeName}:`, pollingError?.message || pollingError);
+            console.log(`[SyncTinyOrders] ⚠️ Continuando com sincronização por segurança...`);
+            // Não adicionar ultimo_numero_conhecido, deixar sincronizar normalmente
           }
-
-          console.log(`[SyncTinyOrders] ✅ Nova venda detectada para loja ${storeName}! Último conhecido: ${ultimoNumeroConhecido || 'nenhum'}.`);
-          syncParams.ultimo_numero_conhecido = ultimoNumeroConhecido;
         }
 
         // ✅ Para outros tipos: Verificar se há mudanças (opcional, pode ser implementado depois)
