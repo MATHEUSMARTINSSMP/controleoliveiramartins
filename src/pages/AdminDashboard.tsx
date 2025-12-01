@@ -19,6 +19,7 @@ import { StorePerformanceReports } from "@/components/admin/StorePerformanceRepo
 import { WhatsAppNotificationConfig } from "@/components/admin/WhatsAppNotificationConfig";
 import { GoalsTracking } from "@/components/admin/GoalsTracking";
 import { CashbackStoreConfig } from "@/components/admin/CashbackStoreConfig";
+import { CRMStoreConfig } from "@/components/admin/CRMStoreConfig";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -333,6 +334,9 @@ const AdminDashboard = () => {
             
             {/* Configuração de Cashback por Loja */}
             <CashbackStoreConfig />
+
+            {/* Configuração de CRM por Loja */}
+            <CRMStoreConfig />
             
             {/* Integrações ERP */}
             <Card className="border-primary/20">

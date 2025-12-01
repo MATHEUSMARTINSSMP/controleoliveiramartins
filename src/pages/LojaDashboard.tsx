@@ -59,6 +59,7 @@ export default function LojaDashboard() {
     const [storeName, setStoreName] = useState<string | null>(null);
     const [salesDateFilter, setSalesDateFilter] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [cashbackAtivo, setCashbackAtivo] = useState<boolean>(false);
+    const [crmAtivo, setCrmAtivo] = useState<boolean>(false);
     const [activeView, setActiveView] = useState<'metas' | 'cashback' | 'crm'>('metas');
 
     interface FormaPagamento {
