@@ -68,9 +68,21 @@ export function BonusTracker() {
                 return;
             }
 
+            // Filtrar bônus de gincana semanal - não devem aparecer aqui, apenas na seção de Gincana Semanal
+            const bonusesFiltrados = bonusesData.filter((bonus: any) => {
+                const condicaoMetaTipo = bonus.condicao_meta_tipo;
+                return condicaoMetaTipo !== "GINCANA_SEMANAL" && condicaoMetaTipo !== "SUPER_GINCANA_SEMANAL";
+            });
+
+            if (bonusesFiltrados.length === 0) {
+                setBonuses([]);
+                setLoading(false);
+                return;
+            }
+
             // 2. Para cada bônus, buscar colaboradoras vinculadas e calcular progresso
             const bonusesWithProgress = await Promise.all(
-                bonusesData.map(async (bonus) => {
+                bonusesFiltrados.map(async (bonus) => {
                     // Buscar colaboradoras vinculadas
                     const { data: colabData } = await supabase
                         .schema("sistemaretiradas")
