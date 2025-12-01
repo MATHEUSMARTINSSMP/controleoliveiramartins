@@ -178,7 +178,7 @@ USING (
         SELECT 1 FROM sistemaretiradas.profiles p
         WHERE p.id = auth.uid()
         AND p.role = 'LOJA'
-        AND p.store_default = crm_contacts.store_id
+        AND p.store_default::UUID = crm_contacts.store_id
     )
 );
 
@@ -213,7 +213,7 @@ WITH CHECK (
         SELECT 1 FROM sistemaretiradas.profiles p
         WHERE p.id = auth.uid()
         AND p.role = 'LOJA'
-        AND p.store_default = crm_contacts.store_id
+        AND p.store_default::UUID = crm_contacts.store_id
     )
 );
 
@@ -248,7 +248,7 @@ USING (
         SELECT 1 FROM sistemaretiradas.profiles p
         WHERE p.id = auth.uid()
         AND p.role = 'LOJA'
-        AND p.store_default = crm_contacts.store_id
+        AND p.store_default::UUID = crm_contacts.store_id
     )
 );
 
@@ -295,7 +295,7 @@ USING (
         SELECT 1 FROM sistemaretiradas.profiles p
         WHERE p.id = auth.uid()
         AND p.role = 'LOJA'
-        AND p.store_default = crm_tasks.store_id
+        AND p.store_default::UUID = crm_tasks.store_id
     )
 );
 
@@ -330,7 +330,7 @@ USING (
         SELECT 1 FROM sistemaretiradas.profiles p
         WHERE p.id = auth.uid()
         AND p.role = 'LOJA'
-        AND p.store_default = crm_tasks.store_id
+        AND p.store_default::UUID = crm_tasks.store_id
     )
 );
 
@@ -366,7 +366,7 @@ USING (
         SELECT 1 FROM sistemaretiradas.profiles p
         WHERE p.id = auth.uid()
         AND p.role = 'LOJA'
-        AND p.store_default = crm_commitments.store_id
+        AND p.store_default::UUID = crm_commitments.store_id
     )
 );
 
@@ -402,7 +402,7 @@ USING (
         SELECT 1 FROM sistemaretiradas.profiles p
         WHERE p.id = auth.uid()
         AND p.role = 'LOJA'
-        AND p.store_default = crm_post_sales.store_id
+        AND p.store_default::UUID = crm_post_sales.store_id
     )
 );
 
