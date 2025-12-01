@@ -248,6 +248,7 @@ export function formatParabensMessage(params: {
 
 /**
  * Formata mensagem de nova gincana semanal (notificação para colaboradora)
+ * Formato consolidado: GINCANA SEMANAL LANÇADA PARA VOCÊ - LOJA X
  */
 export function formatGincanaMessage(params: {
   colaboradoraName: string;
@@ -257,10 +258,10 @@ export function formatGincanaMessage(params: {
   superMetaValor: number | null;
   dataInicio: string; // Data de início da semana (formato: DD/MM/YYYY)
   dataFim: string; // Data de fim da semana (formato: DD/MM/YYYY)
-  premio?: string | null; // Texto do prêmio (ex: "Airfryer" ou "R$ 500")
-  condicoes?: string | null; // Condições do bônus
+  premioCheckpoint1?: string | null; // Prêmio checkpoint 1 (gincana semanal)
+  premioCheckpointFinal?: string | null; // Prêmio checkpoint final (super gincana)
 }): string {
-  const { colaboradoraName, storeName, semanaReferencia, metaValor, superMetaValor, dataInicio, dataFim, premio, condicoes } = params;
+  const { colaboradoraName, storeName, semanaReferencia, metaValor, superMetaValor, dataInicio, dataFim, premioCheckpoint1, premioCheckpointFinal } = params;
   
   // Extrair apenas o primeiro nome
   const primeiroNome = colaboradoraName.split(' ')[0];
@@ -269,44 +270,42 @@ export function formatGincanaMessage(params: {
   const metaFormatada = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(metaValor);
   
   const superMetaFormatada = superMetaValor 
     ? new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: 'BRL',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
       }).format(superMetaValor)
     : null;
 
-  // Extrair semana e ano
-  const semana = semanaReferencia.slice(0, 2);
-  const ano = semanaReferencia.slice(2, 6);
+  // Formatar prêmios
+  const premioCheckpoint1Formatado = premioCheckpoint1 ? premioCheckpoint1.trim() : null;
+  const premioCheckpointFinalFormatado = premioCheckpointFinal ? premioCheckpointFinal.trim() : null;
 
-  let message = `🎯 *Nova Gincana Semanal!*\n\n`;
-  message += `Olá, ${primeiroNome}!\n\n`;
-  message += `Uma nova gincana semanal foi criada para você:\n\n`;
-  message += `*Loja:* ${storeName}\n`;
-  message += `*Período:* ${dataInicio} a ${dataFim}\n`;
-  message += `*Semana:* Semana ${semana} de ${ano}\n\n`;
-  message += `*Metas:*\n`;
-  message += `• Meta: ${metaFormatada}\n`;
-  if (superMetaFormatada) {
-    message += `• Super Meta: ${superMetaFormatada}\n`;
+  // Formato consolidado solicitado
+  let message = `*GINCANA SEMANAL LANÇADA PARA VOCÊ - ${storeName.toUpperCase()}*\n\n`;
+  message += `${primeiroNome}, VOCÊ TEM NOVA GINCANA SEMANAL LANÇADA PARA VOCÊ\n\n`;
+  message += `*GINCANA SEMANAL - DE ${dataInicio} ATÉ ${dataFim}*\n\n`;
+  message += `VALOR META GINCANA SEMANAL ${metaFormatada}`;
+  if (premioCheckpoint1Formatado) {
+    message += ` PREMIO ${premioCheckpoint1Formatado}`;
   }
   message += `\n`;
   
-  // Adicionar prêmio se disponível
-  if (premio && premio.trim()) {
-    message += `*Prêmio:*\n${premio.trim()}\n\n`;
+  if (superMetaFormatada) {
+    message += `VALOR META SUPER GINCANA SEMANAL ${superMetaFormatada}`;
+    if (premioCheckpointFinalFormatado) {
+      message += ` PREMIO ${premioCheckpointFinalFormatado}`;
+    }
+    message += `\n`;
   }
   
-  // Adicionar condições se disponíveis
-  if (condicoes && condicoes.trim()) {
-    message += `*Condições:*\n${condicoes.trim()}\n\n`;
-  }
-  
-  message += `Boa sorte! 💪\n\n`;
-  message += `Sistema EleveaOne 📊`;
+  message += `\nBOA SORTE E BOAS VENDAS!`;
 
   return message;
 }

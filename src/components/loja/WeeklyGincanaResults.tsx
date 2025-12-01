@@ -2,12 +2,15 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Trophy, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { format, startOfWeek, endOfWeek, getWeek, getYear, addWeeks } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Progress } from "@/components/ui/progress";
+import { formatCurrency } from "@/lib/utils";
 
 interface WeekResult {
     colaboradora_id: string;
@@ -69,6 +72,9 @@ export default function WeeklyGincanaResults({
 }: WeeklyGincanaResultsProps) {
     const [weeklyGoals, setWeeklyGoals] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [expandedWeeks, setExpandedWeeks] = useState<Set<string>>(new Set());
+    const [weekResultsMap, setWeekResultsMap] = useState<Map<string, WeekResult[]>>(new Map());
+    const [loadingResultsMap, setLoadingResultsMap] = useState<Map<string, boolean>>(new Map());
     const [resultsDialogOpen, setResultsDialogOpen] = useState(false);
     const [selectedWeekForResults, setSelectedWeekForResults] = useState<string>("");
     const [weekResults, setWeekResults] = useState<WeekResult[]>([]);
@@ -133,16 +139,24 @@ export default function WeeklyGincanaResults({
         }
     };
 
-    const fetchWeekResults = async (weekRef: string) => {
-        setLoadingResults(true);
+    const fetchWeekResults = async (weekRef: string, useMap = true) => {
+        if (useMap) {
+            setLoadingResultsMap(prev => new Map(prev).set(weekRef, true));
+        }
+        
         try {
             const weekRange = getWeekRange(weekRef);
             const hoje = new Date();
             const isPastWeek = weekRange.end < hoje;
             
             if (!isPastWeek) {
-                toast.info("Esta semana ainda não terminou. Os resultados estarão disponíveis após o término da semana.");
-                setLoadingResults(false);
+                if (useMap) {
+                    setLoadingResultsMap(prev => {
+                        const newMap = new Map(prev);
+                        newMap.delete(weekRef);
+                        return newMap;
+                    });
+                }
                 return;
             }
             
@@ -157,6 +171,128 @@ export default function WeeklyGincanaResults({
                 .not("colaboradora_id", "is", null);
 
             // Se colaboradoraId fornecido e showAllResults false, filtrar apenas essa colaboradora
+            if (colaboradoraId && !showAllResults) {
+                query = query.eq("colaboradora_id", colaboradoraId);
+            }
+
+            const { data: goals, error: goalsError } = await query;
+            
+            if (goalsError) throw goalsError;
+            if (!goals || goals.length === 0) {
+                if (useMap) {
+                    setLoadingResultsMap(prev => {
+                        const newMap = new Map(prev);
+                        newMap.delete(weekRef);
+                        return newMap;
+                    });
+                }
+                return;
+            }
+            
+            // Buscar vendas de cada colaboradora na semana
+            const results = await Promise.all(
+                goals.map(async (goal: any) => {
+                    const { data: sales, error: salesError } = await supabase
+                        .schema("sistemaretiradas")
+                        .from("sales")
+                        .select("valor")
+                        .eq("colaboradora_id", goal.colaboradora_id)
+                        .eq("store_id", storeId)
+                        .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
+                        .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+            
+                    if (salesError) {
+                        console.error(`Erro ao buscar vendas para colaboradora ${goal.colaboradora_id}:`, salesError);
+                        return null;
+                    }
+                    
+                    const realizado = sales?.reduce((sum, s) => sum + parseFloat(s.valor || '0'), 0) || 0;
+                    const meta_valor = parseFloat(goal.meta_valor || 0);
+                    const super_meta_valor = parseFloat(goal.super_meta_valor || 0);
+                    const bateu_meta = realizado >= meta_valor;
+                    const bateu_super_meta = realizado >= super_meta_valor;
+                    const percentual = meta_valor > 0 ? (realizado / meta_valor) * 100 : 0;
+                    
+                    return {
+                        colaboradora_id: goal.colaboradora_id,
+                        colaboradora_name: goal.profiles?.name || "Colaboradora desconhecida",
+                        meta_valor,
+                        super_meta_valor,
+                        realizado,
+                        bateu_meta,
+                        bateu_super_meta,
+                        percentual
+                    };
+                })
+            );
+            
+            // Filtrar resultados nulos
+            const validResults = results.filter(r => r !== null) as WeekResult[];
+            
+            if (useMap) {
+                setWeekResultsMap(prev => new Map(prev).set(weekRef, validResults));
+                setLoadingResultsMap(prev => {
+                    const newMap = new Map(prev);
+                    newMap.delete(weekRef);
+                    return newMap;
+                });
+            }
+        } catch (err: any) {
+            console.error("Erro ao buscar resultados:", err);
+            if (useMap) {
+                setLoadingResultsMap(prev => {
+                    const newMap = new Map(prev);
+                    newMap.delete(weekRef);
+                    return newMap;
+                });
+            }
+        }
+    };
+    
+    const toggleWeekExpanded = (weekRef: string) => {
+        setExpandedWeeks(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(weekRef)) {
+                newSet.delete(weekRef);
+            } else {
+                newSet.add(weekRef);
+                // Buscar resultados se ainda não foram carregados
+                if (!weekResultsMap.has(weekRef)) {
+                    fetchWeekResults(weekRef, true);
+                }
+            }
+            return newSet;
+        });
+    };
+
+    const handleViewResults = async (weekRef: string) => {
+        setSelectedWeekForResults(weekRef);
+        setResultsDialogOpen(true);
+        setLoadingResults(true);
+        
+        // Buscar resultados
+        try {
+            const weekRange = getWeekRange(weekRef);
+            const hoje = new Date();
+            const isPastWeek = weekRange.end < hoje;
+            
+            if (!isPastWeek) {
+                toast.info("Esta semana ainda não terminou. Os resultados estarão disponíveis após o término da semana.");
+                setLoadingResults(false);
+                setResultsDialogOpen(false);
+                return;
+            }
+            
+            // Buscar todas as metas da gincana desta semana e loja
+            let query = supabase
+                .schema("sistemaretiradas")
+                .from("goals")
+                .select("*, profiles (name)")
+                .eq("store_id", storeId)
+                .eq("semana_referencia", weekRef)
+                .eq("tipo", "SEMANAL")
+                .not("colaboradora_id", "is", null);
+
             if (colaboradoraId && !showAllResults) {
                 query = query.eq("colaboradora_id", colaboradoraId);
             }
@@ -207,7 +343,6 @@ export default function WeeklyGincanaResults({
                 })
             );
             
-            // Filtrar resultados nulos
             const validResults = results.filter(r => r !== null) as WeekResult[];
             setWeekResults(validResults);
         } catch (err: any) {
@@ -218,11 +353,6 @@ export default function WeeklyGincanaResults({
         }
     };
 
-    const handleViewResults = (weekRef: string) => {
-        setSelectedWeekForResults(weekRef);
-        setResultsDialogOpen(true);
-        fetchWeekResults(weekRef);
-    };
 
     if (loading) {
         return <div className="text-center py-4 text-muted-foreground">Carregando gincanas...</div>;
@@ -323,7 +453,7 @@ export default function WeeklyGincanaResults({
                 </CardContent>
             </Card>
 
-            {/* Dialog de Resultados */}
+            {/* Dialog de Resultados - Formato Bonito como antes */}
             <Dialog open={resultsDialogOpen} onOpenChange={setResultsDialogOpen}>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>

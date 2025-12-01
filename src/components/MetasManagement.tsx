@@ -16,6 +16,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StoreLogo } from "@/lib/storeLogo";
+import { sendWhatsAppMessage, formatGincanaMessage } from "@/lib/whatsapp";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Progress } from "@/components/ui/progress";
+import { Trophy, Medal, ChevronDown, ChevronUp, XCircle } from "lucide-react";
+import WeeklyGincanaResults from "@/components/loja/WeeklyGincanaResults";
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
@@ -651,7 +656,7 @@ const MetasManagementContent = () => {
                 periodo_mes: null,
                 periodo_semana: semanaReferencia,
                 pre_requisitos: JSON.stringify(["Loja bateu meta mensal"]),
-                enviar_notificacao_gincana: true,
+                enviar_notificacao_gincana: false, // Desativar para evitar envio duplicado - vamos enviar mensagem única consolidada
             };
             
             const { data: bonusGincana, error: errorGincana } = await supabase
@@ -707,6 +712,95 @@ const MetasManagementContent = () => {
                     .schema("sistemaretiradas")
                     .from("bonus_collaborators")
                     .insert(collaboratorsPayload);
+            }
+            
+            // Enviar UMA mensagem consolidada para as colaboradoras (apenas se criou novos bônus)
+            if (!existingBonus && activeColabIds.length > 0 && bonusGincana) {
+                // Buscar dados das colaboradoras (nome e telefone)
+                const { data: colaboradorasData } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("profiles")
+                    .select("id, name, whatsapp")
+                    .in("id", activeColabIds)
+                    .eq("role", "COLABORADORA");
+                
+                if (colaboradorasData && colaboradorasData.length > 0) {
+                    // Buscar metas da gincana para cada colaboradora
+                    const { data: metasData } = await supabase
+                        .schema("sistemaretiradas")
+                        .from("goals")
+                        .select("colaboradora_id, meta_valor, super_meta_valor")
+                        .eq("store_id", storeId)
+                        .eq("semana_referencia", semanaReferencia)
+                        .eq("tipo", "SEMANAL")
+                        .in("colaboradora_id", activeColabIds);
+                    
+                    // Criar mapa de metas por colaboradora
+                    const metasMap = new Map<string, { meta: number; superMeta: number | null }>();
+                    metasData?.forEach((meta: any) => {
+                        metasMap.set(meta.colaboradora_id, {
+                            meta: parseFloat(meta.meta_valor || 0),
+                            superMeta: meta.super_meta_valor ? parseFloat(meta.super_meta_valor) : null
+                        });
+                    });
+                    
+                    // Formatar prêmios
+                    const premioCheckpoint1Str = valorBonusTexto1 || (valorBonus1 && valorBonus1 > 0 ? `R$ ${valorBonus1.toFixed(2)}` : null);
+                    const premioCheckpointFinalStr = valorBonusTextoFinal || (valorBonusFinal && valorBonusFinal > 0 ? `R$ ${valorBonusFinal.toFixed(2)}` : null);
+                    
+                    // Enviar UMA mensagem consolidada para cada colaboradora
+                    colaboradorasData.forEach((colab) => {
+                        const metaData = metasMap.get(colab.id);
+                        if (!metaData) return;
+                        
+                        // Normalizar telefone
+                        let telefone = colab.whatsapp;
+                        if (!telefone || telefone.trim() === '') {
+                            console.warn(`[createBonusForWeeklyGincana] Colaboradora ${colab.name} não tem WhatsApp cadastrado`);
+                            return;
+                        }
+                        
+                        // Remover caracteres não numéricos
+                        telefone = telefone.replace(/\D/g, '');
+                        
+                        // Garantir DDI 55 (Brasil)
+                        if (!telefone.startsWith('55')) {
+                            telefone = '55' + telefone;
+                        }
+                        
+                        // Formatar mensagem consolidada
+                        const message = formatGincanaMessage({
+                            colaboradoraName: colab.name,
+                            storeName: storeName,
+                            semanaReferencia: semanaReferencia,
+                            metaValor: metaData.meta,
+                            superMetaValor: metaData.superMeta,
+                            dataInicio: weekStartStr,
+                            dataFim: weekEndStr,
+                            premioCheckpoint1: premioCheckpoint1Str,
+                            premioCheckpointFinal: premioCheckpointFinalStr
+                        });
+                        
+                        // Enviar mensagem em background (não bloqueia)
+                        (async () => {
+                            try {
+                                console.log(`[createBonusForWeeklyGincana] 📱 Enviando WhatsApp consolidado para ${colab.name} (${telefone})...`);
+                                const result = await sendWhatsAppMessage({
+                                    phone: telefone,
+                                    message: message
+                                });
+                                
+                                if (result.success) {
+                                    console.log(`[createBonusForWeeklyGincana] ✅ Mensagem consolidada enviada com sucesso para ${colab.name}`);
+                                } else {
+                                    console.error(`[createBonusForWeeklyGincana] ❌ Erro ao enviar mensagem consolidada para ${colab.name}:`, result.error);
+                                }
+                            } catch (error: any) {
+                                console.error(`[createBonusForWeeklyGincana] ❌ Erro ao enviar WhatsApp consolidado para ${colab.name}:`, error);
+                            }
+                        })();
+                    });
+                }
             }
         } catch (err) {
             console.error(`[createBonusForWeeklyGincana] Erro ao criar bônus:`, err);
@@ -1996,6 +2090,29 @@ const MetasManagementContent = () => {
                             </Card>
                         )}
                     </div>
+                    
+                    {/* Histórico Expandido de Gincanas Semanais */}
+                    {weeklyGoals.length > 0 && stores.length > 0 && (
+                        <div className="space-y-6 mt-8">
+                            {stores.map((store) => {
+                                const hasGoalsForStore = weeklyGoals.some(g => g.store_id === store.id);
+                                if (!hasGoalsForStore) return null;
+                                
+                                return (
+                                    <div key={store.id} className="space-y-4">
+                                        <div className="flex items-center gap-3 pb-2 border-b-2 border-primary/30">
+                                            <StoreLogo storeId={store.id} className="w-8 h-8 sm:w-10 sm:h-10 object-contain flex-shrink-0" />
+                                            <h2 className="text-lg sm:text-xl font-bold text-primary">{store.name}</h2>
+                                        </div>
+                                        <WeeklyGincanaResults 
+                                            storeId={store.id} 
+                                            showAllResults={true}
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </TabsContent>
             </Tabs>
 
