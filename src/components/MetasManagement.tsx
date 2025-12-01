@@ -277,52 +277,7 @@ const MetasManagementContent = () => {
                             daily_weights: parsedDailyWeights
                         });
                         
-                        const activeColabs = colaboradoras.filter(c => c.store_id === selectedStore);
-                        const colabsAtivasCount = activeColabs.length;
-                        
-                        try {
-                            const dailyWeights = parsedDailyWeights;
-                            let weeklyMetaTotal = 0;
-                            let weeklySuperMetaTotal = 0;
-                            
-                            if (semanaCruzaMeses && monthlyStoreGoalEnd) {
-                                let parsedDailyWeightsEnd: Record<string, number> = {};
-                                if (monthlyStoreGoalEnd.daily_weights) {
-                                    if (typeof monthlyStoreGoalEnd.daily_weights === 'string') {
-                                        try {
-                                            parsedDailyWeightsEnd = JSON.parse(monthlyStoreGoalEnd.daily_weights);
-                                        } catch (e) {
-                                            console.error('[loadSuggestions] Erro ao parsear daily_weights do segundo mês:', e);
-                                        }
-                                    } else if (typeof monthlyStoreGoalEnd.daily_weights === 'object') {
-                                        parsedDailyWeightsEnd = monthlyStoreGoalEnd.daily_weights as Record<string, number>;
-                                    }
-                                }
-                                
-                                const metaMes1 = calculateWeeklyGoalFromMonthlyHelper(monthlyStoreGoal.meta_valor, dailyWeights, weekRange, startMonth);
-                                const superMetaMes1 = calculateWeeklyGoalFromMonthlyHelper(monthlyStoreGoal.super_meta_valor, dailyWeights, weekRange, startMonth);
-                                const metaMes2 = calculateWeeklyGoalFromMonthlyHelper(monthlyStoreGoalEnd.meta_valor, parsedDailyWeightsEnd, weekRange, endMonth);
-                                const superMetaMes2 = calculateWeeklyGoalFromMonthlyHelper(monthlyStoreGoalEnd.super_meta_valor, parsedDailyWeightsEnd, weekRange, endMonth);
-                                
-                                weeklyMetaTotal = metaMes1 + metaMes2;
-                                weeklySuperMetaTotal = superMetaMes1 + superMetaMes2;
-                            } else {
-                                weeklyMetaTotal = calculateWeeklyGoalFromMonthlyHelper(monthlyStoreGoal.meta_valor, dailyWeights, weekRange, startMonth);
-                                weeklySuperMetaTotal = calculateWeeklyGoalFromMonthlyHelper(monthlyStoreGoal.super_meta_valor, dailyWeights, weekRange, startMonth);
-                            }
-                            
-                            const weeklyMeta = colabsAtivasCount > 0 ? weeklyMetaTotal / colabsAtivasCount : weeklyMetaTotal;
-                            const weeklySuperMeta = colabsAtivasCount > 0 ? weeklySuperMetaTotal / colabsAtivasCount : weeklySuperMetaTotal;
-
-                            setSuggestedWeeklyMeta(parseFloat(weeklyMeta.toFixed(2)));
-                            setSuggestedWeeklySuperMeta(parseFloat(weeklySuperMeta.toFixed(2)));
-                        } catch (err) {
-                            console.error("[loadSuggestions] Erro ao calcular sugestões:", err);
-                            const weeklyMeta = colabsAtivasCount > 0 ? monthlyStoreGoal.meta_valor / 4.33 / colabsAtivasCount : monthlyStoreGoal.meta_valor / 4.33;
-                            const weeklySuperMeta = colabsAtivasCount > 0 ? monthlyStoreGoal.super_meta_valor / 4.33 / colabsAtivasCount : monthlyStoreGoal.super_meta_valor / 4.33;
-                            setSuggestedWeeklyMeta(parseFloat(weeklyMeta.toFixed(2)));
-                            setSuggestedWeeklySuperMeta(parseFloat(weeklySuperMeta.toFixed(2)));
-                        }
+                        // O cálculo será feito pelo useEffect quando colaboradorasAtivas for definido
                     } else {
                         setMonthlyGoal(null);
                         setSuggestedWeeklyMeta(0);
@@ -785,6 +740,89 @@ const MetasManagementContent = () => {
         }
     }, [selectedWeek, selectedStore, weeklyDialogOpen]);
 
+    // Recalcular sugestões quando o número de colaboradoras ativas mudar
+    useEffect(() => {
+        const recalculate = async () => {
+            if (weeklyDialogOpen && selectedStore && selectedWeek && monthlyGoal) {
+                const activeColabsCount = colaboradorasAtivas.filter(c => c.active).length;
+                
+                if (activeColabsCount === 0) {
+                    setSuggestedWeeklyMeta(0);
+                    setSuggestedWeeklySuperMeta(0);
+                    return;
+                }
+                
+                try {
+                    const weekRange = getWeekRange(selectedWeek);
+                    const startMonth = { year: weekRange.start.getFullYear(), month: weekRange.start.getMonth() };
+                    const endMonth = { year: weekRange.end.getFullYear(), month: weekRange.end.getMonth() };
+                    const semanaCruzaMeses = startMonth.year !== endMonth.year || startMonth.month !== endMonth.month;
+                    
+                    const dailyWeights = monthlyGoal.daily_weights || {};
+                    let weeklyMetaTotal = 0;
+                    let weeklySuperMetaTotal = 0;
+                    
+                    if (semanaCruzaMeses) {
+                        // Se cruza meses, buscar o segundo mês também
+                        const monthRefStart = format(weekRange.start, "yyyyMM");
+                        const monthRefEnd = format(weekRange.end, "yyyyMM");
+                        
+                        const { data: monthlyStoreGoalEnd } = await supabase
+                            .schema("sistemaretiradas")
+                            .from("goals")
+                            .select("meta_valor, super_meta_valor, daily_weights")
+                            .eq("store_id", selectedStore)
+                            .eq("tipo", "MENSAL")
+                            .eq("mes_referencia", monthRefEnd)
+                            .is("colaboradora_id", null)
+                            .single();
+                        
+                        if (monthlyStoreGoalEnd) {
+                            let parsedDailyWeightsEnd: Record<string, number> = {};
+                            if (monthlyStoreGoalEnd.daily_weights) {
+                                if (typeof monthlyStoreGoalEnd.daily_weights === 'string') {
+                                    try {
+                                        parsedDailyWeightsEnd = JSON.parse(monthlyStoreGoalEnd.daily_weights);
+                                    } catch (e) {
+                                        console.error('[useEffect] Erro ao parsear daily_weights do segundo mês:', e);
+                                    }
+                                } else if (typeof monthlyStoreGoalEnd.daily_weights === 'object') {
+                                    parsedDailyWeightsEnd = monthlyStoreGoalEnd.daily_weights as Record<string, number>;
+                                }
+                            }
+                            
+                            const metaMes1 = calculateWeeklyGoalFromMonthlyHelper(monthlyGoal.meta_valor, dailyWeights, weekRange, startMonth);
+                            const superMetaMes1 = calculateWeeklyGoalFromMonthlyHelper(monthlyGoal.super_meta_valor, dailyWeights, weekRange, startMonth);
+                            const metaMes2 = calculateWeeklyGoalFromMonthlyHelper(monthlyStoreGoalEnd.meta_valor, parsedDailyWeightsEnd, weekRange, endMonth);
+                            const superMetaMes2 = calculateWeeklyGoalFromMonthlyHelper(monthlyStoreGoalEnd.super_meta_valor, parsedDailyWeightsEnd, weekRange, endMonth);
+                            
+                            weeklyMetaTotal = metaMes1 + metaMes2;
+                            weeklySuperMetaTotal = superMetaMes1 + superMetaMes2;
+                        } else {
+                            // Se não encontrou o segundo mês, usar apenas o primeiro
+                            weeklyMetaTotal = calculateWeeklyGoalFromMonthlyHelper(monthlyGoal.meta_valor, dailyWeights, weekRange, startMonth);
+                            weeklySuperMetaTotal = calculateWeeklyGoalFromMonthlyHelper(monthlyGoal.super_meta_valor, dailyWeights, weekRange, startMonth);
+                        }
+                    } else {
+                        weeklyMetaTotal = calculateWeeklyGoalFromMonthlyHelper(monthlyGoal.meta_valor, dailyWeights, weekRange, startMonth);
+                        weeklySuperMetaTotal = calculateWeeklyGoalFromMonthlyHelper(monthlyGoal.super_meta_valor, dailyWeights, weekRange, startMonth);
+                    }
+                    
+                    // Dividir pelo número de colaboradoras ATIVAS (com switch ligado)
+                    const weeklyMeta = activeColabsCount > 0 ? weeklyMetaTotal / activeColabsCount : weeklyMetaTotal;
+                    const weeklySuperMeta = activeColabsCount > 0 ? weeklySuperMetaTotal / activeColabsCount : weeklySuperMetaTotal;
+
+                    setSuggestedWeeklyMeta(parseFloat(weeklyMeta.toFixed(2)));
+                    setSuggestedWeeklySuperMeta(parseFloat(weeklySuperMeta.toFixed(2)));
+                } catch (err) {
+                    console.error("[useEffect] Erro ao recalcular sugestões:", err);
+                }
+            }
+        };
+        
+        recalculate();
+    }, [colaboradorasAtivas, weeklyDialogOpen, selectedStore, selectedWeek, monthlyGoal]);
+
     // ✅ Recalcular pesos automaticamente quando o mês ou loja mudar (apenas para novas distribuições)
     useEffect(() => {
         // Apenas gerar pesos automaticamente se:
@@ -869,10 +907,32 @@ const MetasManagementContent = () => {
 
             if (error) throw error;
             if (data) {
-                // Ordenar no frontend para garantir ordenação correta com novo formato
-                const sorted = [...data].sort((a: any, b: any) =>
-                    sortWeekRef(a.semana_referencia || "", b.semana_referencia || "")
-                );
+                // Agrupar por loja e ordenar: por loja (alfabética), depois por semana (mais recente primeiro)
+                const groupedByStore = new Map<string, any[]>();
+                
+                data.forEach((goal: any) => {
+                    const storeId = goal.store_id || 'unknown';
+                    if (!groupedByStore.has(storeId)) {
+                        groupedByStore.set(storeId, []);
+                    }
+                    groupedByStore.get(storeId)!.push(goal);
+                });
+                
+                // Ordenar cada grupo por semana (mais recente primeiro)
+                groupedByStore.forEach((goals, storeId) => {
+                    goals.sort((a: any, b: any) =>
+                        sortWeekRef(a.semana_referencia || "", b.semana_referencia || "")
+                    );
+                });
+                
+                // Ordenar lojas alfabeticamente e juntar tudo
+                const sortedStores = Array.from(groupedByStore.keys()).sort();
+                const sorted: any[] = [];
+                
+                sortedStores.forEach(storeId => {
+                    sorted.push(...groupedByStore.get(storeId)!);
+                });
+                
                 setWeeklyGoals(sorted as any);
             }
         } catch (err) {
