@@ -108,7 +108,7 @@ export default function Landing() {
     {
       icon: <MessageSquare className="h-6 w-6" />,
       title: "WhatsApp Notifications",
-      description: "Notifique clientes sobre novas vendas, parabenize colaboradoras e comunique pedidos.",
+      description: "Notifique administradores sobre novas vendas, parabenize colaboradoras e comunique pedidos.",
       image: dataFlow
     },
     {
