@@ -58,6 +58,22 @@ const WeeklyGoalsManagement = () => {
     const [customMetaEqual, setCustomMetaEqual] = useState<string>("");
     const [customSuperMetaEqual, setCustomSuperMetaEqual] = useState<string>("");
     const [customMetasIndividuais, setCustomMetasIndividuais] = useState<{ id: string; meta: number; superMeta: number }[]>([]);
+    
+    // Histórico de resultados
+    const [resultsDialogOpen, setResultsDialogOpen] = useState(false);
+    const [selectedWeekForResults, setSelectedWeekForResults] = useState<string>("");
+    const [selectedStoreForResults, setSelectedStoreForResults] = useState<string>("");
+    const [weekResults, setWeekResults] = useState<Array<{
+        colaboradora_id: string;
+        colaboradora_name: string;
+        meta_valor: number;
+        super_meta_valor: number;
+        realizado: number;
+        bateu_meta: boolean;
+        bateu_super_meta: boolean;
+        percentual: number;
+    }>>([]);
+    const [loadingResults, setLoadingResults] = useState(false);
 
     useEffect(() => {
         console.log('[WeeklyGoalsManagement] useEffect inicial - carregando dados...');
@@ -230,19 +246,25 @@ const WeeklyGoalsManagement = () => {
     const fetchWeeklyGoals = async () => {
         setLoading(true);
         try {
+            // ✅ BUSCAR TODAS AS GINCANAS SEM FILTRO DE DATA (passadas e futuras)
             const { data, error } = await supabase
                 .from("goals")
                 .select(`*, stores (name), profiles (name)`)
                 .eq("tipo", "SEMANAL")
-                .limit(500); // Limitar para evitar problemas de performance
+                .order("created_at", { ascending: false })
+                .limit(1000); // Aumentar limite para incluir histórico
 
             if (error) throw error;
             if (data) {
+                console.log(`[fetchWeeklyGoals] ✅ Total de gincanas encontradas: ${data.length}`);
                 // Ordenar no frontend para garantir ordenação correta com novo formato
                 const sorted = [...data].sort((a: any, b: any) => 
                     sortWeekRef(a.semana_referencia || "", b.semana_referencia || "")
                 );
                 setWeeklyGoals(sorted as any);
+            } else {
+                console.warn('[fetchWeeklyGoals] ⚠️ Nenhuma gincana encontrada');
+                setWeeklyGoals([]);
             }
         } catch (err) {
             console.error("Error fetching weekly goals:", err);
@@ -250,6 +272,90 @@ const WeeklyGoalsManagement = () => {
         } finally {
             setLoading(false);
         }
+    };
+    
+    // Função para buscar resultados de uma gincana passada
+    const fetchWeekResults = async (weekRef: string, storeId: string) => {
+        setLoadingResults(true);
+        try {
+            const weekRange = getWeekRange(weekRef);
+            const hoje = new Date();
+            const isPastWeek = weekRange.end < hoje;
+            
+            if (!isPastWeek) {
+                toast.info("Esta semana ainda não terminou. Os resultados estarão disponíveis após o término da semana.");
+                setLoadingResults(false);
+                return;
+            }
+            
+            // Buscar todas as metas da gincana desta semana e loja
+            const { data: goals, error: goalsError } = await supabase
+                .from("goals")
+                .select("*, profiles (name)")
+                .eq("store_id", storeId)
+                .eq("semana_referencia", weekRef)
+                .eq("tipo", "SEMANAL")
+                .not("colaboradora_id", "is", null);
+            
+            if (goalsError) throw goalsError;
+            if (!goals || goals.length === 0) {
+                toast.info("Nenhuma meta encontrada para esta gincana.");
+                setLoadingResults(false);
+                return;
+            }
+            
+            // Buscar vendas de cada colaboradora na semana
+            const results = await Promise.all(
+                goals.map(async (goal: any) => {
+                    const { data: sales, error: salesError } = await supabase
+                        .from("sales")
+                        .select("valor")
+                        .eq("colaboradora_id", goal.colaboradora_id)
+                        .eq("store_id", storeId)
+                        .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
+                        .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+                    
+                    if (salesError) {
+                        console.error(`Erro ao buscar vendas para colaboradora ${goal.colaboradora_id}:`, salesError);
+                        return null;
+                    }
+                    
+                    const realizado = sales?.reduce((sum, s) => sum + parseFloat(s.valor || '0'), 0) || 0;
+                    const meta_valor = parseFloat(goal.meta_valor || 0);
+                    const super_meta_valor = parseFloat(goal.super_meta_valor || 0);
+                    const bateu_meta = realizado >= meta_valor;
+                    const bateu_super_meta = realizado >= super_meta_valor;
+                    const percentual = meta_valor > 0 ? (realizado / meta_valor) * 100 : 0;
+                    
+                    return {
+                        colaboradora_id: goal.colaboradora_id,
+                        colaboradora_name: goal.profiles?.name || "Colaboradora desconhecida",
+                        meta_valor,
+                        super_meta_valor,
+                        realizado,
+                        bateu_meta,
+                        bateu_super_meta,
+                        percentual
+                    };
+                })
+            );
+            
+            // Filtrar resultados nulos
+            const validResults = results.filter(r => r !== null) as typeof results[0][];
+            setWeekResults(validResults);
+        } catch (err: any) {
+            console.error("Erro ao buscar resultados da gincana:", err);
+            toast.error(`Erro ao buscar resultados: ${err.message || 'Erro desconhecido'}`);
+        } finally {
+            setLoadingResults(false);
+        }
+    };
+    
+    const handleViewResults = (weekRef: string, storeId: string) => {
+        setSelectedWeekForResults(weekRef);
+        setSelectedStoreForResults(storeId);
+        setResultsDialogOpen(true);
+        fetchWeekResults(weekRef, storeId);
     };
 
     // Carregar sugestões quando loja ou semana mudarem
@@ -1135,6 +1241,7 @@ const WeeklyGoalsManagement = () => {
                                         weekRange = { start: new Date(), end: new Date() };
                                     }
                                     const isCurrentWeek = group.semana_referencia === getCurrentWeekRef();
+                                    const isPastWeek = weekRange.end < new Date();
                                     
                                     // Contar colaboradoras únicas (pode ter metas duplicadas)
                                     const uniqueColabs = new Set(group.goals.map((g: any) => g.colaboradora_id).filter((id: any) => id != null));
@@ -1147,17 +1254,24 @@ const WeeklyGoalsManagement = () => {
                                         <Card 
                                             key={weekKey} 
                                             className={`relative overflow-hidden shadow-md hover:shadow-lg transition-shadow ${
-                                                isCurrentWeek ? 'border-2 border-primary' : ''
+                                                isCurrentWeek ? 'border-2 border-primary' : isPastWeek ? 'border-2 border-muted' : ''
                                             }`}
                                         >
                                             <CardHeader className="pb-2 bg-gradient-to-r from-primary/10 to-purple-500/10">
                                                 <CardTitle className="flex justify-between items-center text-lg">
                                                     <span>{format(weekRange.start, "dd/MM", { locale: ptBR })} - {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}</span>
-                                                    {isCurrentWeek && (
-                                                        <span className="text-xs font-normal bg-primary text-primary-foreground px-2 py-1 rounded">
-                                                            Semana Atual
-                                                        </span>
-                                                    )}
+                                                    <div className="flex gap-2">
+                                                        {isCurrentWeek && (
+                                                            <span className="text-xs font-normal bg-primary text-primary-foreground px-2 py-1 rounded">
+                                                                Semana Atual
+                                                            </span>
+                                                        )}
+                                                        {isPastWeek && !isCurrentWeek && (
+                                                            <span className="text-xs font-normal bg-muted text-muted-foreground px-2 py-1 rounded">
+                                                                Finalizada
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </CardTitle>
                                             </CardHeader>
                             <CardContent className="pt-4 space-y-3">
@@ -1175,14 +1289,27 @@ const WeeklyGoalsManagement = () => {
                                         </span>
                                     </div>
                                 </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="w-full"
-                                    onClick={() => handleEditWeekly(group.goals[0])}
-                                >
-                                    Editar
-                                </Button>
+                                <div className="flex gap-2">
+                                    {isPastWeek && (
+                                        <Button
+                                            variant="default"
+                                            size="sm"
+                                            className="flex-1"
+                                            onClick={() => handleViewResults(group.semana_referencia, storeId)}
+                                        >
+                                            <Trophy className="h-4 w-4 mr-2" />
+                                            Ver Resultados
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className={isPastWeek ? "flex-1" : "w-full"}
+                                        onClick={() => handleEditWeekly(group.goals[0])}
+                                    >
+                                        Editar
+                                    </Button>
+                                </div>
                             </CardContent>
                         </Card>
                                     );
