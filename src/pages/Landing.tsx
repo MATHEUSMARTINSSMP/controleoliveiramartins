@@ -39,16 +39,16 @@ import { FloatingParticles } from '@/components/FloatingParticles';
 import { GradientText } from '@/components/GradientText';
 import { MouseTrackingBackground } from '@/components/MouseTrackingBackground';
 
-import heroImage from "@assets/generated_images/futuristic_tech_dashboard_hero.png";
-import abstractWaves from "@assets/generated_images/abstract_tech_gradient_waves.png";
-import dataVisualization from "@assets/generated_images/3d_data_analytics_visualization.png";
-import devicesMockup from "@assets/generated_images/devices_dashboard_mockup.png";
-import aiNetwork from "@assets/generated_images/ai_network_intelligence_abstract.png";
-import gamificationTrophy from "@assets/generated_images/gamification_trophy_achievement.png";
-import dashboardImage from "@assets/generated_images/saas_dashboard_analytics_interface.png";
-import teamCelebration from "@assets/generated_images/team_celebration_success_moment.png";
-import mobileWhatsapp from "@assets/generated_images/mobile_app_whatsapp_notifications.png";
-import dataFlow from "@assets/generated_images/data_flow_technology_background.png";
+import heroImage from "@assets/generated_images/futuristic_tech_dashboard_hero.webp";
+import abstractWaves from "@assets/generated_images/abstract_tech_gradient_waves.webp";
+import dataVisualization from "@assets/generated_images/3d_data_analytics_visualization.webp";
+import devicesMockup from "@assets/generated_images/devices_dashboard_mockup.webp";
+import aiNetwork from "@assets/generated_images/ai_network_intelligence_abstract.webp";
+import gamificationTrophy from "@assets/generated_images/gamification_trophy_achievement.webp";
+import dashboardImage from "@assets/generated_images/saas_dashboard_analytics_interface.webp";
+import teamCelebration from "@assets/generated_images/team_celebration_success_moment.webp";
+import mobileWhatsapp from "@assets/generated_images/mobile_app_whatsapp_notifications.webp";
+import dataFlow from "@assets/generated_images/data_flow_technology_background.webp";
 
 export default function Landing() {
   const navigate = useNavigate();
