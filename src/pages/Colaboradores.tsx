@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { normalizeCPF } from "@/lib/cpf";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StoreManagement } from "@/components/admin/StoreManagement";
 import {
   Dialog,
   DialogContent,
@@ -95,7 +96,7 @@ const Colaboradores = () => {
     try {
       console.log("[fetchColaboradoras] ========== INÍCIO DA BUSCA ==========");
       console.log("[fetchColaboradoras] Buscando colaboradoras...");
-      
+
       // Verificar contexto de autenticação
       const { data: { user: authUser } } = await supabase.auth.getUser();
       console.log("[fetchColaboradoras] Auth User ID:", authUser?.id);
@@ -103,13 +104,13 @@ const Colaboradores = () => {
       console.log("[fetchColaboradoras] Profile role:", profile?.role);
       console.log("[fetchColaboradoras] Profile active:", profile?.active);
       console.log("[fetchColaboradoras] É ADMIN?", profile?.role === 'ADMIN' && profile?.active === true);
-      
+
       // Testar a função is_user_admin() via RPC se possível
       try {
         const { data: isAdminResult, error: rpcError } = await supabase
           .schema("sistemaretiradas")
           .rpc('is_user_admin');
-        
+
         if (rpcError) {
           console.warn("[fetchColaboradoras] ⚠️ Erro ao chamar is_user_admin() via RPC:", rpcError);
         } else {
@@ -118,9 +119,9 @@ const Colaboradores = () => {
       } catch (rpcErr: any) {
         console.warn("[fetchColaboradoras] ⚠️ Exceção ao chamar is_user_admin() via RPC:", rpcErr);
       }
-      
+
       console.log("[fetchColaboradoras] Executando query SELECT...");
-      
+
       const { data, error } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
@@ -136,7 +137,7 @@ const Colaboradores = () => {
 
       if (error) {
         console.error("[fetchColaboradoras] ❌ Erro na query:", error);
-        
+
         // Se for erro de permissão RLS
         if (error.code === '42501' || error.message?.includes('permission denied') || error.message?.includes('row-level security')) {
           console.error("[fetchColaboradoras] ❌ ERRO DE RLS! A política 'ADMIN can view all profiles' pode não estar funcionando.");
@@ -147,14 +148,14 @@ const Colaboradores = () => {
           console.error("[fetchColaboradoras] 3. Se a função is_user_admin() está funcionando corretamente");
           toast.error("Erro de permissão RLS. Verifique o console para detalhes.");
         }
-        
+
         throw error;
       }
 
       console.log("[fetchColaboradoras] ✅ Query executada com sucesso!");
       console.log("[fetchColaboradoras] Colaboradoras encontradas:", data?.length || 0);
       console.log("[fetchColaboradoras] Dados completos:", data);
-      
+
       // Garantir que active seja sempre boolean
       const colaboradorasNormalizadas = (data || []).map(colab => ({
         ...colab,
@@ -258,7 +259,7 @@ const Colaboradores = () => {
             .from("stores")
             .select("id, name")
             .eq("active", true);
-          
+
           if (storeData) {
             // Normalizar nome para busca flexível
             const normalizeName = (name: string) => {
@@ -268,16 +269,16 @@ const Colaboradores = () => {
                 .replace(/\s+/g, ' ')
                 .trim();
             };
-            
+
             const normalizedStoreName = normalizeName(formData.store);
             const matchingStore = storeData.find(s => {
               const normalizedStore = normalizeName(s.name);
-              return normalizedStore === normalizedStoreName || 
-                     s.name === formData.store ||
-                     normalizedStore.includes(normalizedStoreName) ||
-                     normalizedStoreName.includes(normalizedStore);
+              return normalizedStore === normalizedStoreName ||
+                s.name === formData.store ||
+                normalizedStore.includes(normalizedStoreName) ||
+                normalizedStoreName.includes(normalizedStore);
             });
-            
+
             if (matchingStore) {
               updateData.store_id = matchingStore.id;
             }
@@ -314,7 +315,7 @@ const Colaboradores = () => {
             .from("stores")
             .select("id, name")
             .eq("active", true);
-          
+
           if (storeData) {
             // Normalizar nome para busca flexível
             const normalizeName = (name: string) => {
@@ -324,16 +325,16 @@ const Colaboradores = () => {
                 .replace(/\s+/g, ' ')
                 .trim();
             };
-            
+
             const normalizedStoreName = normalizeName(formData.store);
             const matchingStore = storeData.find(s => {
               const normalizedStore = normalizeName(s.name);
-              return normalizedStore === normalizedStoreName || 
-                     s.name === formData.store ||
-                     normalizedStore.includes(normalizedStoreName) ||
-                     normalizedStoreName.includes(normalizedStore);
+              return normalizedStore === normalizedStoreName ||
+                s.name === formData.store ||
+                normalizedStore.includes(normalizedStoreName) ||
+                normalizedStoreName.includes(normalizedStore);
             });
-            
+
             if (matchingStore) {
               storeIdToSend = matchingStore.id;
             }
@@ -417,27 +418,27 @@ const Colaboradores = () => {
       console.log("[handleDelete] Desativando colaboradora ID:", id);
       console.log("[handleDelete] Profile atual:", profile);
       console.log("[handleDelete] Role do profile:", profile?.role);
-      
+
       // Verificar se o usuário é ADMIN
       if (profile?.role !== 'ADMIN') {
         toast.error("Apenas administradores podem desativar colaboradoras");
         return;
       }
-      
+
       // TESTE 1: Verificar auth.uid() diretamente
       console.log("[handleDelete] --- TESTE 1: Verificando auth.uid() ---");
       const { data: { user: authUser } } = await supabase.auth.getUser();
       console.log("[handleDelete] Auth User ID:", authUser?.id);
       console.log("[handleDelete] Profile ID:", profile?.id);
       console.log("[handleDelete] IDs correspondem?", authUser?.id === profile?.id);
-      
+
       // TESTE 2: Chamar is_user_admin() via RPC (se disponível)
       console.log("[handleDelete] --- TESTE 2: Testando is_user_admin() via RPC ---");
       try {
         const { data: isAdminResult, error: rpcError } = await supabase
           .schema("sistemaretiradas")
           .rpc('is_user_admin');
-        
+
         if (rpcError) {
           console.warn("[handleDelete] ⚠️ Erro ao chamar is_user_admin() via RPC:", rpcError);
           console.warn("[handleDelete] Isso é normal se a função não estiver exposta como RPC");
@@ -448,7 +449,7 @@ const Colaboradores = () => {
       } catch (rpcErr: any) {
         console.warn("[handleDelete] ⚠️ Exceção ao chamar is_user_admin() via RPC:", rpcErr);
       }
-      
+
       // TESTE 3: Verificar se o profile do usuário está ativo e é ADMIN
       console.log("[handleDelete] --- TESTE 3: Verificando profile do usuário ---");
       const { data: currentUserProfile, error: profileError } = await supabase
@@ -457,7 +458,7 @@ const Colaboradores = () => {
         .select("id, name, role, active")
         .eq("id", authUser?.id || profile?.id)
         .single();
-      
+
       if (profileError) {
         console.error("[handleDelete] ❌ Erro ao buscar profile do usuário:", profileError);
       } else {
@@ -466,7 +467,7 @@ const Colaboradores = () => {
         console.log("[handleDelete] Active:", currentUserProfile?.active);
         console.log("[handleDelete] É ADMIN e está ativo?", currentUserProfile?.role === 'ADMIN' && currentUserProfile?.active === true);
       }
-      
+
       // Primeiro, verificar o estado atual da colaboradora a ser desativada
       const { data: currentData, error: checkError } = await supabase
         .schema("sistemaretiradas")
@@ -474,16 +475,16 @@ const Colaboradores = () => {
         .select("id, name, active")
         .eq("id", id)
         .single();
-      
+
       if (checkError) {
         console.error("[handleDelete] Erro ao verificar estado atual:", checkError);
         throw checkError;
       }
-      
+
       console.log("[handleDelete] Estado atual da colaboradora:", currentData);
       console.log("[handleDelete] Estado atual - active:", currentData?.active);
       console.log("[handleDelete] Estado atual - active (tipo):", typeof currentData?.active);
-      
+
       // TESTE 4: Verificar se podemos fazer SELECT na colaboradora antes do UPDATE
       console.log("[handleDelete] --- TESTE 4: Verificando permissões RLS de SELECT ---");
       const { data: selectTest, error: selectError } = await supabase
@@ -492,17 +493,17 @@ const Colaboradores = () => {
         .select("id, name, active, role")
         .eq("id", id)
         .single();
-      
+
       if (selectError) {
         console.error("[handleDelete] ❌ Erro ao fazer SELECT na colaboradora (problema de RLS?):", selectError);
       } else {
         console.log("[handleDelete] ✅ SELECT funcionou. Dados:", selectTest);
       }
-      
+
       // TESTE 5: Tentar UPDATE
       console.log("[handleDelete] --- TESTE 5: Executando UPDATE ---");
       console.log("[handleDelete] Tentando atualizar active = false para colaboradora ID:", id);
-      
+
       // Tentar update com .select() para verificar quantas linhas foram afetadas
       const { data: updateData, error: updateError, count } = await supabase
         .schema("sistemaretiradas")
@@ -510,7 +511,7 @@ const Colaboradores = () => {
         .update({ active: false })
         .eq("id", id)
         .select("id, active", { count: 'exact' });
-      
+
       console.log("[handleDelete] Dados retornados pelo UPDATE:", updateData);
       console.log("[handleDelete] Count de linhas afetadas:", count);
       console.log("[handleDelete] Erro do UPDATE (se houver):", updateError);
@@ -521,7 +522,7 @@ const Colaboradores = () => {
         console.error("[handleDelete] Mensagem:", updateError.message);
         console.error("[handleDelete] Detalhes:", updateError.details);
         console.error("[handleDelete] Hint:", updateError.hint);
-        
+
         // Verificar se é erro de RLS
         if (updateError.code === '42501' || updateError.message?.includes('permission denied')) {
           toast.error("Erro de permissão RLS: A política 'ADMIN can update all profiles' pode não estar funcionando. Execute VERIFICAR_FUNCAO_IS_USER_ADMIN.sql no Supabase.");
@@ -548,11 +549,11 @@ const Colaboradores = () => {
       } else {
         console.log("[handleDelete] ✅ UPDATE executado com sucesso!");
         console.log("[handleDelete] Dados atualizados:", updateData);
-        
+
         // Verificar se active foi realmente alterado nos dados retornados
         const updatedProfile = updateData[0];
         const isStillActive = updatedProfile?.active === true || updatedProfile?.active === 'true' || updatedProfile?.active === 1;
-        
+
         if (isStillActive) {
           console.error("[handleDelete] ❌ ATENÇÃO: O UPDATE retornou active = true!");
           console.error("[handleDelete] Isso pode indicar um problema com o tipo de dados do campo active");
@@ -562,10 +563,10 @@ const Colaboradores = () => {
       }
 
       console.log("[handleDelete] Update executado. Linhas afetadas:", count);
-      
+
       // Aguardar um pouco para garantir que o banco foi atualizado
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Agora verificar se realmente foi atualizado (usando query separada)
       const { data: verifyData, error: verifyError } = await supabase
         .schema("sistemaretiradas")
@@ -573,13 +574,13 @@ const Colaboradores = () => {
         .select("id, name, active")
         .eq("id", id)
         .single();
-      
+
       if (verifyError) {
         console.error("[handleDelete] Erro ao verificar após update:", verifyError);
         toast.error("Update executado, mas não foi possível verificar o resultado: " + verifyError.message);
       } else {
         console.log("[handleDelete] Estado após update:", verifyData);
-        
+
         // Verificar se active foi realmente alterado
         const isStillActive = verifyData?.active === true || verifyData?.active === 'true' || verifyData?.active === 1;
         if (isStillActive) {
@@ -595,7 +596,7 @@ const Colaboradores = () => {
           toast.success("Colaboradora desativada com sucesso!");
         }
       }
-      
+
       // Recarregar lista de colaboradoras
       await fetchColaboradoras();
     } catch (error: any) {
@@ -611,7 +612,7 @@ const Colaboradores = () => {
   const handleReactivate = async (id: string, type: "colaboradora" | "loja") => {
     try {
       console.log("[handleReactivate] Reativando", type, "ID:", id);
-      
+
       const { data, error } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
@@ -625,12 +626,12 @@ const Colaboradores = () => {
       }
 
       console.log("[handleReactivate] Reativada com sucesso. Dados:", data);
-      
+
       toast.success(`${type === "loja" ? "Loja" : "Colaboradora"} reativada com sucesso!`);
-      
+
       // Aguardar um pouco antes de recarregar
       await new Promise(resolve => setTimeout(resolve, 300));
-      
+
       if (type === "loja") {
         await fetchLojas();
       } else {
@@ -741,11 +742,10 @@ const Colaboradores = () => {
                             <TableCell className="text-xs sm:text-sm hidden lg:table-cell">{formatCurrency(colab.limite_total)}</TableCell>
                             <TableCell className="text-xs sm:text-sm hidden lg:table-cell">{formatCurrency(colab.limite_mensal)}</TableCell>
                             <TableCell className="text-xs sm:text-sm">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                                (colab.active === true || colab.active === 'true' || colab.active === 1)
-                                  ? "bg-success/10 text-success"
-                                  : "bg-muted text-muted-foreground"
-                              }`}>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${(colab.active === true || colab.active === 'true' || colab.active === 1)
+                                ? "bg-success/10 text-success"
+                                : "bg-muted text-muted-foreground"
+                                }`}>
                                 {(colab.active === true || colab.active === 'true' || colab.active === 1) ? "Ativa" : "Inativa"}
                               </span>
                             </TableCell>
@@ -801,80 +801,7 @@ const Colaboradores = () => {
               </TabsContent>
 
               <TabsContent value="lojas" className="space-y-4">
-                {lojas.length === 0 && !loadingData ? (
-                  <div className="text-center text-muted-foreground py-12">
-                    Nenhuma loja cadastrada
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-primary/10 overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/50">
-                          <TableHead className="font-semibold">Nome</TableHead>
-                          <TableHead className="font-semibold">Email</TableHead>
-                          <TableHead className="font-semibold">Loja</TableHead>
-                          <TableHead className="font-semibold">Status</TableHead>
-                          <TableHead className="font-semibold">Ações</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {lojas.map((loja: any) => (
-                          <TableRow key={loja.id} className="hover:bg-muted/50 transition-colors">
-                            <TableCell className="font-medium text-xs sm:text-sm sticky left-0 bg-background z-10 min-w-[150px]">{loja.name}</TableCell>
-                            <TableCell className="text-xs sm:text-sm hidden md:table-cell min-w-[180px] break-words">{loja.email}</TableCell>
-                            <TableCell className="text-xs sm:text-sm">
-                              <span className="text-xs font-medium px-2 py-1 bg-primary/10 rounded-full whitespace-nowrap">
-                                {loja.store_name || loja.store_default || "-"}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-xs sm:text-sm">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${loja.active
-                                ? "bg-success/10 text-success"
-                                : "bg-muted text-muted-foreground"
-                                }`}>
-                                {loja.active ? "Ativa" : "Inativa"}
-                              </span>
-                            </TableCell>
-                            <TableCell className="sticky right-0 bg-background z-10">
-                              <div className="flex gap-1 sm:gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleResetPassword(loja.id, loja.email, loja.name)}
-                                  className="hover:bg-warning/10 text-warning"
-                                  title="Resetar Senha"
-                                >
-                                  <Mail className="h-4 w-4" />
-                                </Button>
-                                {loja.active ? (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setDeleteDialog(`loja_${loja.id}`)}
-                                    className="hover:bg-destructive/10 text-destructive"
-                                    title="Desativar"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleReactivate(loja.id, "loja")}
-                                    className="hover:bg-success/10 text-success"
-                                    title="Reativar"
-                                  >
-                                    <UserCheck className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
+                <StoreManagement adminId={profile.id} />
               </TabsContent>
             </Tabs>
           </CardContent>

@@ -57,6 +57,7 @@ exports.handler = async (event, context) => {
         id,
         cliente_id,
         store_id,
+        colaboradora_id,
         valor_total,
         numero_pedido,
         situacao,
@@ -118,6 +119,7 @@ exports.handler = async (event, context) => {
                     p_tiny_order_id: pedido.id,
                     p_cliente_id: pedido.cliente_id,
                     p_store_id: pedido.store_id,
+                    p_colaboradora_id: pedido.colaboradora_id,
                     p_valor_total: pedido.valor_total,
                 });
 

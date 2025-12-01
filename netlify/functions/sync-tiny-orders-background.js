@@ -48,12 +48,12 @@ const {
 function isValeTroca(texto) {
   if (!texto) return false;
   const textoLower = texto.toString().toLowerCase().replace(/[-\s]/g, '');
-  
+
   const variacoes = [
     'valetroca', 'valestrocas', 'troca',
     'cupomdetroca', 'cuponsdetroca'
   ];
-  
+
   return variacoes.some(variacao => textoLower.includes(variacao));
 }
 
@@ -816,7 +816,7 @@ exports.handler = async (event, context) => {
           } else {
             synced++;
             console.log(`[SyncBackground] ✅ Pedido ${tinyId} criado`);
-            
+
             // ✅ NOVA FUNCIONALIDADE: Enviar WhatsApp quando detectar nova venda do ERP
             // Executar em background (não bloquear sincronização)
             (async () => {
@@ -858,6 +858,7 @@ exports.handler = async (event, context) => {
                     p_tiny_order_id: orderSavedId,
                     p_cliente_id: clienteId,
                     p_store_id: storeId,
+                    p_colaboradora_id: colaboradoraId, // ✅ NOVO: Passar colaboradora
                     p_valor_total: orderData.valor_total
                   });
 
@@ -865,7 +866,7 @@ exports.handler = async (event, context) => {
                   console.error(`[SyncBackground] ❌ Erro no FALLBACK manual para pedido ${tinyId}:`, cashbackError);
                 } else if (cashbackResult && cashbackResult.success) {
                   console.log(`[SyncBackground] ✅ Cashback gerado via FALLBACK manual: R$ ${cashbackResult.amount}`);
-                  
+
                   // ✅ NOVO: Processar fila de WhatsApp após gerar cashback
                   if (cashbackResult.whatsapp_queue_id) {
                     console.log(`[SyncBackground] 📱 Processando fila de WhatsApp para cashback gerado (Queue ID: ${cashbackResult.whatsapp_queue_id})`);
@@ -917,7 +918,7 @@ exports.handler = async (event, context) => {
       } else if (vendasResult && vendasResult.length > 0) {
         const result = vendasResult[0];
         console.log(`[SyncBackground] ✅ Vendas criadas: ${result.vendas_criadas} novas, ${result.vendas_atualizadas} atualizadas, ${result.erros} erros`);
-        
+
         if (result.erros > 0) {
           console.warn(`[SyncBackground] ⚠️ Alguns pedidos tiveram erro ao criar venda. Verifique os detalhes.`);
         }
@@ -1274,7 +1275,7 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
         } else {
           synced++;
           console.log(`[SyncBackground] ✅ Pedido ${tinyId} inserido com data_pedido: ${orderData.data_pedido}`);
-          
+
           // ✅ NOVA FUNCIONALIDADE: Enviar WhatsApp quando detectar nova venda do ERP
           // Executar em background (não bloquear sincronização)
           (async () => {
@@ -2098,13 +2099,13 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
 
   // ✅ CALCULAR VALE TROCA: Detectar e calcular o valor do vale troca para desconto
   let valorValeTroca = 0;
-  
+
   // Verificar parcelas do pedido completo (mais confiável)
   if (pedidoCompleto?.pagamento?.parcelas && Array.isArray(pedidoCompleto.pagamento.parcelas)) {
     pedidoCompleto.pagamento.parcelas.forEach((parcela) => {
       const formaPagamento = parcela.formaPagamento?.nome || parcela.formaPagamento || '';
       const meioPagamento = parcela.meioPagamento?.nome || parcela.meioPagamento || '';
-      
+
       // Verificar se é vale troca (usando função auxiliar)
       if (isValeTroca(formaPagamento) || isValeTroca(meioPagamento)) {
         const valorParcela = parseFloat(parcela.valor || parcela.valorParcela || 0);
@@ -2113,7 +2114,7 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
       }
     });
   }
-  
+
   // Se não encontrou nas parcelas, verificar na forma de pagamento principal
   if (valorValeTroca === 0 && pedido?.pagamento?.formaPagamento?.nome) {
     const formaPagamentoNome = pedido.pagamento.formaPagamento.nome;
@@ -2127,13 +2128,13 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
       }
     }
   }
-  
+
   // ✅ DESCONTAR VALE TROCA diretamente no tiny_orders
   // O valor_total no tiny_orders deve ser o valor CORRETO (já descontado o vale troca)
   // Isso garante que o ERP Dashboard mostre o valor correto
   if (valorValeTroca > 0) {
     const valorTotalAntes = valorTotal;
-    
+
     // Se o vale troca for menor que o valor total, descontar normalmente
     if (valorTotal > valorValeTroca) {
       valorTotal = valorTotal - valorValeTroca; // Descontar vale troca
@@ -2175,29 +2176,29 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     // ✅ ADICIONAR VALE TROCA na forma de pagamento (apenas para informação, sem somar ao valor)
     forma_pagamento: (() => {
       const formasPagamento = [];
-      
+
       // ✅ RECALCULAR valor do vale troca para garantir que temos o valor correto
       let valorValeTrocaParaFormaPagamento = 0;
-      
+
       // Coletar todas as formas de pagamento das parcelas (exceto vale troca)
       if (pedidoCompleto?.pagamento?.parcelas && Array.isArray(pedidoCompleto.pagamento.parcelas)) {
         pedidoCompleto.pagamento.parcelas.forEach((parcela) => {
           const formaPagamento = parcela.formaPagamento?.nome || parcela.formaPagamento || '';
           const meioPagamento = parcela.meioPagamento?.nome || parcela.meioPagamento || '';
-          
+
           // Calcular valor do vale troca
           if (isValeTroca(formaPagamento) || isValeTroca(meioPagamento)) {
             const valorParcela = parseFloat(parcela.valor || parcela.valorParcela || 0);
             valorValeTrocaParaFormaPagamento += valorParcela;
           }
-          
+
           // Adicionar forma de pagamento se não for vale troca
           if (formaPagamento && !isValeTroca(formaPagamento)) {
             if (!formasPagamento.includes(formaPagamento)) {
               formasPagamento.push(formaPagamento);
             }
           }
-          
+
           if (meioPagamento && !isValeTroca(meioPagamento) && formaPagamento !== meioPagamento) {
             if (!formasPagamento.includes(meioPagamento)) {
               formasPagamento.push(meioPagamento);
@@ -2205,7 +2206,7 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
           }
         });
       }
-      
+
       // Se não encontrou nas parcelas, usar forma de pagamento principal
       if (formasPagamento.length === 0 && !valorValeTrocaParaFormaPagamento) {
         const formaPagamentoPrincipal = pedido.pagamento?.formaPagamento?.nome || null;
@@ -2213,11 +2214,11 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
           formasPagamento.push(formaPagamentoPrincipal);
         }
       }
-      
+
       // Adicionar "Vale Troca" como informação (se houver)
       // Usar valorValeTroca se disponível, senão usar o recalculado
       const valorFinalValeTroca = valorValeTroca > 0 ? valorValeTroca : valorValeTrocaParaFormaPagamento;
-      
+
       if (valorFinalValeTroca > 0) {
         console.log(`[SyncBackground] 💳 Valor do Vale Troca para formato: ${valorFinalValeTroca}`);
         // Formatar valor em reais (R$ X.XXX,XX)
@@ -2228,7 +2229,7 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
         formasPagamento.push(`Vale Troca (R$ ${valorFormatado})`);
         console.log(`[SyncBackground] 💳 Forma de pagamento com Vale Troca: ${formasPagamento.join(' + ')}`);
       }
-      
+
       const formaPagamentoFinal = formasPagamento.length > 0 ? formasPagamento.join(' + ') : null;
       if (formaPagamentoFinal) {
         console.log(`[SyncBackground] 💳 Forma de pagamento final salva: ${formaPagamentoFinal}`);
@@ -2257,7 +2258,7 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
 function formatarProdutosParaObservacoes(itens) {
   console.log(`[SyncBackground] 📝 [FORMATAR] ========== FORMATANDO PRODUTOS ==========`);
   console.log(`[SyncBackground] 📝 [FORMATAR] Total de itens: ${itens?.length || 0}`);
-  
+
   if (!itens || !Array.isArray(itens) || itens.length === 0) {
     console.log(`[SyncBackground] 📝 [FORMATAR] ⚠️ Nenhum item para formatar`);
     return null;
@@ -2277,13 +2278,13 @@ function formatarProdutosParaObservacoes(itens) {
     // ✅ PRIORIDADE 1: Descrição do produto base (sem variações)
     // Se o item vem do pedido completo original, usar produto.descricao diretamente
     let descricaoBase = null;
-    
+
     // ✅ ESTRATÉGIA: Pegar descrição do produto base, não do item processado
     if (item.produto) {
       // Item original do Tiny tem produto.descricao (descrição base sem variações)
       descricaoBase = item.produto.descricao || item.produto.nome || null;
     }
-    
+
     // ✅ PRIORIDADE 2: Se não tem produto.descricao, usar infoAdicional (descrição original)
     if (!descricaoBase && item.infoAdicional) {
       descricaoBase = item.infoAdicional;
@@ -2291,7 +2292,7 @@ function formatarProdutosParaObservacoes(itens) {
       descricaoBase = descricaoBase.replace(/\s*-\s*([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)\s*$/i, '').trim();
       descricaoBase = descricaoBase.replace(/\s*-\s*([A-Z\s]+)\s*-\s*([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)\s*$/i, '').trim();
     }
-    
+
     // ✅ PRIORIDADE 3: Se ainda não tem, usar descricao do item (mas limpar variações)
     if (!descricaoBase && item.descricao) {
       descricaoBase = item.descricao;
@@ -2299,7 +2300,7 @@ function formatarProdutosParaObservacoes(itens) {
       descricaoBase = descricaoBase.replace(/\s*-\s*([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)\s*$/i, '').trim();
       descricaoBase = descricaoBase.replace(/\s*-\s*([A-Z\s]+)\s*-\s*([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)\s*$/i, '').trim();
     }
-    
+
     // ✅ PRIORIDADE 4: Fallback para nome
     if (!descricaoBase && item.nome) {
       descricaoBase = item.nome;
@@ -2307,17 +2308,17 @@ function formatarProdutosParaObservacoes(itens) {
       descricaoBase = descricaoBase.replace(/\s*-\s*([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)\s*$/i, '').trim();
       descricaoBase = descricaoBase.replace(/\s*-\s*([A-Z\s]+)\s*-\s*([0-9]{2}|PP|P|M|G|GG|XG|XGG|U|ÚNICO|UNICO|UN)\s*$/i, '').trim();
     }
-    
+
     // Fallback final
     if (!descricaoBase) {
       descricaoBase = 'Produto sem nome';
     }
-    
+
     const quantidade = item.quantidade || 1;
-    
+
     const resultado = `${quantidade}x ${descricaoBase.trim()}`;
     console.log(`[SyncBackground] 📝 [FORMATAR] Item ${index + 1} formatado: "${resultado}"`);
-    
+
     // ✅ SOMENTE descrição base e quantidade, SEM tamanho, cor ou outras variações
     // ✅ Cada item em uma linha separada
     return resultado;
@@ -2368,12 +2369,12 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     // 2. Buscar nome da colaboradora (se houver)
     // ✅ BUSCA ROBUSTA: Verificar no banco se colaboradora_id foi salvo corretamente
     let colaboradoraName = null;
-    
+
     console.log(`[SyncBackground] 🔍 [WHATSAPP] Buscando colaboradora para pedido ${orderData.numero_pedido}`);
     console.log(`[SyncBackground]   [WHATSAPP] colaboradora_id do orderData: ${orderData.colaboradora_id}`);
     console.log(`[SyncBackground]   [WHATSAPP] vendedor_nome: ${orderData.vendedor_nome}`);
     console.log(`[SyncBackground]   [WHATSAPP] vendedor_tiny_id: ${orderData.vendedor_tiny_id}`);
-    
+
     // ✅ PRIORIDADE 1: Buscar pelo colaboradora_id (se foi vinculado corretamente)
     if (orderData.colaboradora_id) {
       const { data: colaboradoraData, error: colaboradoraError } = await supabase
@@ -2390,11 +2391,11 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
         console.log(`[SyncBackground] ✅ [WHATSAPP] Colaboradora encontrada por ID: ${colaboradoraName} (ID: ${colaboradoraData.id})`);
       }
     }
-    
+
     // ✅ PRIORIDADE 2: Se não encontrou por ID, buscar diretamente no banco pelo pedido
     if (!colaboradoraName) {
       console.log(`[SyncBackground] 🔍 [WHATSAPP] Colaboradora não encontrada por ID, buscando no banco pelo pedido...`);
-      
+
       const { data: pedidoNoBanco } = await supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
@@ -2402,28 +2403,28 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
         .eq('store_id', storeId)
         .eq('numero_pedido', orderData.numero_pedido)
         .maybeSingle();
-      
+
       if (pedidoNoBanco?.colaboradora_id) {
         console.log(`[SyncBackground] 🔍 [WHATSAPP] Pedido encontrado no banco com colaboradora_id: ${pedidoNoBanco.colaboradora_id}`);
-        
+
         const { data: colaboradoraDoBanco } = await supabase
           .schema('sistemaretiradas')
           .from('profiles')
           .select('id, name')
           .eq('id', pedidoNoBanco.colaboradora_id)
           .single();
-        
+
         if (colaboradoraDoBanco?.name) {
           colaboradoraName = colaboradoraDoBanco.name;
           console.log(`[SyncBackground] ✅ [WHATSAPP] Colaboradora encontrada no banco: ${colaboradoraName}`);
         }
       }
     }
-    
+
     // ✅ PRIORIDADE 3: Buscar pelo vendedor_nome (busca flexível)
     if (!colaboradoraName && orderData.vendedor_nome) {
       console.log(`[SyncBackground] 🔍 [WHATSAPP] Tentando buscar colaboradora pelo vendedor_nome: "${orderData.vendedor_nome}"`);
-      
+
       const normalizeName = (name) => {
         return name
           .toLowerCase()
@@ -2433,7 +2434,7 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
           .replace(/\s+/g, ' ')
           .trim();
       };
-      
+
       const { data: todasColaboradoras } = await supabase
         .schema('sistemaretiradas')
         .from('profiles')
@@ -2441,42 +2442,42 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
         .eq('role', 'COLABORADORA')
         .eq('active', true)
         .eq('store_id', storeId);
-      
+
       if (todasColaboradoras && todasColaboradoras.length > 0) {
         const vendedorNomeNormalizado = normalizeName(orderData.vendedor_nome);
-        
+
         // Tentar match exato primeiro
-        let match = todasColaboradoras.find(c => 
+        let match = todasColaboradoras.find(c =>
           normalizeName(c.name) === vendedorNomeNormalizado
         );
-        
+
         // Se não encontrou, tentar match parcial
         if (!match) {
-          match = todasColaboradoras.find(c => 
+          match = todasColaboradoras.find(c =>
             normalizeName(c.name).includes(vendedorNomeNormalizado) ||
             vendedorNomeNormalizado.includes(normalizeName(c.name))
           );
         }
-        
+
         if (match) {
           colaboradoraName = match.name;
           console.log(`[SyncBackground] ✅ [WHATSAPP] Colaboradora encontrada por nome: ${colaboradoraName}`);
         }
       }
     }
-    
+
     // ✅ PRIORIDADE 4: Se não encontrou, usar vendedor_nome do pedido
     if (!colaboradoraName && orderData.vendedor_nome) {
       colaboradoraName = orderData.vendedor_nome;
       console.log(`[SyncBackground] ⚠️ [WHATSAPP] Usando vendedor_nome do pedido (não encontrado no sistema): ${colaboradoraName}`);
     }
-    
+
     // ✅ PRIORIDADE 5: Se ainda não tem, usar fallback
     if (!colaboradoraName) {
       colaboradoraName = 'Sistema ERP';
       console.warn(`[SyncBackground] ⚠️ [WHATSAPP] Nenhuma colaboradora encontrada, usando fallback: ${colaboradoraName}`);
     }
-    
+
     console.log(`[SyncBackground] 📝 [WHATSAPP] Colaboradora final para WhatsApp: ${colaboradoraName}`);
 
     // 3. Buscar destinatários WhatsApp do admin (tipo VENDA)
@@ -2519,7 +2520,7 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
       .lte('data_venda', `${hojeStr}T23:59:59`);
 
     const totalDia = vendasHoje?.reduce((sum, v) => sum + (parseFloat(v.valor) || 0), 0) || 0;
-    
+
     // ✅ IMPORTANTE: Adicionar a venda atual ao total do dia (se for de hoje)
     const valorVendaAtual = parseFloat(orderData.valor_total) || 0;
     const dataPedido = orderData.data_pedido ? new Date(orderData.data_pedido).toISOString().split('T')[0] : null;
@@ -2535,7 +2536,7 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     const mesAtual = new Date().toISOString().slice(0, 7); // Formato: YYYY-MM
     const primeiroDiaMes = `${mesAtual}-01`;
     const ultimoDiaMes = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0];
-    
+
     const { data: vendasMes } = await supabase
       .schema('sistemaretiradas')
       .from('sales')
@@ -2545,7 +2546,7 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
       .lte('data_venda', `${ultimoDiaMes}T23:59:59`);
 
     const totalMes = vendasMes?.reduce((sum, v) => sum + (parseFloat(v.valor) || 0), 0) || 0;
-    
+
     // ✅ IMPORTANTE: Adicionar a venda atual ao total do mês
     // Verificar se a venda é do mês atual
     const mesPedido = dataPedido ? dataPedido.slice(0, 7) : null; // Formato: YYYY-MM
@@ -2564,7 +2565,7 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     console.log(`[SyncBackground] 📝 [WHATSAPP] ========== FORMATANDO PRODUTOS ==========`);
     console.log(`[SyncBackground] 📝 [WHATSAPP] itensComCategorias: ${JSON.stringify(itensComCategorias?.slice(0, 2), null, 2)}`);
     console.log(`[SyncBackground] 📝 [WHATSAPP] pedidoCompleto?.itens: ${JSON.stringify(pedidoCompleto?.itens?.slice(0, 2), null, 2)}`);
-    
+
     let itensParaFormatar = itensComCategorias;
     if (pedidoCompleto && pedidoCompleto.itens && Array.isArray(pedidoCompleto.itens) && pedidoCompleto.itens.length > 0) {
       // Usar itens originais do Tiny (antes do processamento)
@@ -2573,7 +2574,7 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     } else {
       console.log(`[SyncBackground] 📝 [WHATSAPP] ⚠️ Usando ${itensComCategorias?.length || 0} itens processados (pedido completo não disponível ou sem itens)`);
     }
-    
+
     console.log(`[SyncBackground] 📝 [WHATSAPP] Itens que serão formatados: ${itensParaFormatar?.length || 0}`);
     const produtosTexto = formatarProdutosParaObservacoes(itensParaFormatar);
     console.log(`[SyncBackground] 📝 [WHATSAPP] Produtos formatados: ${produtosTexto?.substring(0, 200)}...`);
@@ -2590,14 +2591,14 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
       // A data vem do Tiny ERP em formato ISO (provavelmente UTC ou horário local do servidor)
       // Macapá-AP usa UTC-3 (mesmo fuso de Manaus)
       // Precisamos converter corretamente para UTC-3
-      
+
       const dataPedido = new Date(orderData.data_pedido);
-      
+
       console.log(`[SyncBackground] 🕐 [WHATSAPP] Formatação de data:`);
       console.log(`[SyncBackground]   [WHATSAPP] data_pedido original: ${orderData.data_pedido}`);
       console.log(`[SyncBackground]   [WHATSAPP] dataPedido (Date object UTC): ${dataPedido.toISOString()}`);
       console.log(`[SyncBackground]   [WHATSAPP] dataPedido (Date object local): ${dataPedido.toString()}`);
-      
+
       // ✅ CORREÇÃO: Macapá usa fuso de Brasília (America/Sao_Paulo - UTC-3)
       // NÃO fazer cálculo manual, apenas usar o timezone diretamente
       // O toLocaleString já faz a conversão correta automaticamente
@@ -2633,15 +2634,15 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     let message = `🛒 *Nova Venda Lançada*\n\n`;
     message += `*Colaboradora:* ${colaboradoraName}\n`;
     message += `*Loja:* ${storeData.name}\n`;
-    
+
     // ✅ Adicionar nome do cliente
     if (orderData.cliente_nome) {
       message += `*Cliente:* ${orderData.cliente_nome}\n`;
     }
-    
+
     message += `*Valor:* ${valorFormatado}\n`;
     message += `*Quantidade de Peças:* ${qtdPecas}\n`;
-    
+
     // ✅ Formatar formas de pagamento (listar todas com valores)
     console.log(`[SyncBackground] 📝 [WHATSAPP] ========== FORMATANDO FORMAS DE PAGAMENTO ==========`);
     console.log(`[SyncBackground] 📝 [WHATSAPP] pedidoCompleto existe: ${!!pedidoCompleto}`);
@@ -2649,10 +2650,10 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     console.log(`[SyncBackground] 📝 [WHATSAPP] pedidoCompleto.parcelas é array: ${Array.isArray(pedidoCompleto?.parcelas)}`);
     console.log(`[SyncBackground] 📝 [WHATSAPP] pedidoCompleto.parcelas.length: ${pedidoCompleto?.parcelas?.length || 0}`);
     console.log(`[SyncBackground] 📝 [WHATSAPP] orderData.forma_pagamento: ${orderData.forma_pagamento}`);
-    
+
     // ✅ Tentar buscar parcelas do pedido completo OU do pedido original
     let parcelasParaProcessar = null;
-    
+
     if (pedidoCompleto?.parcelas && Array.isArray(pedidoCompleto.parcelas) && pedidoCompleto.parcelas.length > 0) {
       parcelasParaProcessar = pedidoCompleto.parcelas;
       console.log(`[SyncBackground] 📝 [WHATSAPP] ✅ Usando parcelas do pedidoCompleto: ${parcelasParaProcessar.length}`);
@@ -2660,32 +2661,32 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
       parcelasParaProcessar = pedidoCompleto.pagamento.parcelas;
       console.log(`[SyncBackground] 📝 [WHATSAPP] ✅ Usando parcelas do pedidoCompleto.pagamento: ${parcelasParaProcessar.length}`);
     }
-    
+
     if (parcelasParaProcessar && parcelasParaProcessar.length > 0) {
       console.log(`[SyncBackground] 📝 [WHATSAPP] ✅ Processando ${parcelasParaProcessar.length} parcelas para formatar formas de pagamento`);
       console.log(`[SyncBackground] 📝 [WHATSAPP] Estrutura da primeira parcela:`, JSON.stringify(parcelasParaProcessar[0], null, 2));
-      
+
       // ✅ Agrupar parcelas por forma de pagamento
       const formasPagamentoMap = new Map();
-      
+
       parcelasParaProcessar.forEach((parcela, index) => {
         // Tentar pegar forma de pagamento da parcela (pode estar em diferentes campos)
-        const formaPagamento = parcela.formaPagamento?.nome || 
-                               parcela.formaPagamento ||
-                               parcela.meioPagamento?.nome ||
-                               parcela.meioPagamento ||
-                               orderData.forma_pagamento || 
-                               'Não informado';
+        const formaPagamento = parcela.formaPagamento?.nome ||
+          parcela.formaPagamento ||
+          parcela.meioPagamento?.nome ||
+          parcela.meioPagamento ||
+          orderData.forma_pagamento ||
+          'Não informado';
         const valorParcela = parseFloat(parcela.valor || parcela.valorParcela || 0);
-        
+
         // ✅ IGNORAR VALE TROCA: Não incluir nas formas de pagamento exibidas (usar função auxiliar global)
         if (isValeTroca(formaPagamento)) {
           console.log(`[SyncBackground] 📝 [WHATSAPP] ⏭️  Parcela ${index + 1}: Vale Troca ignorado (R$ ${valorParcela.toFixed(2)})`);
           return; // Pular esta parcela (não incluir na lista de formas de pagamento)
         }
-        
+
         console.log(`[SyncBackground] 📝 [WHATSAPP] Parcela ${index + 1}: ${formaPagamento} - R$ ${valorParcela.toFixed(2)}`);
-        
+
         if (!formasPagamentoMap.has(formaPagamento)) {
           formasPagamentoMap.set(formaPagamento, {
             nome: formaPagamento,
@@ -2693,19 +2694,19 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
             numParcelas: 0
           });
         }
-        
+
         const forma = formasPagamentoMap.get(formaPagamento);
         forma.valorTotal += valorParcela;
         forma.numParcelas += 1;
       });
-      
+
       // ✅ Formatar todas as formas de pagamento
       const formasFormatadas = Array.from(formasPagamentoMap.values()).map((forma) => {
         const valorFormatado = new Intl.NumberFormat('pt-BR', {
           style: 'currency',
           currency: 'BRL',
         }).format(forma.valorTotal);
-        
+
         // Se tiver mais de uma parcela, mostrar quantidade
         if (forma.numParcelas > 1) {
           return `${forma.nome}: ${valorFormatado} (${forma.numParcelas}x)`;
@@ -2713,9 +2714,9 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
           return `${forma.nome}: ${valorFormatado}`;
         }
       });
-      
+
       console.log(`[SyncBackground] 📝 [WHATSAPP] Formas de pagamento formatadas: ${formasFormatadas.length} forma(s)`);
-      
+
       if (formasFormatadas.length > 0) {
         // Se tiver apenas uma forma, mostrar em linha única
         if (formasFormatadas.length === 1) {
@@ -2736,10 +2737,10 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
       // Fallback: se não tiver parcelas, usar forma_pagamento simples
       if (orderData.forma_pagamento) {
         // ✅ Se for "Múltipla" ou "MULTIPLA", tentar buscar das parcelas mesmo assim
-        if (orderData.forma_pagamento.toLowerCase().includes('múltipl') || 
-            orderData.forma_pagamento.toLowerCase().includes('multipl')) {
+        if (orderData.forma_pagamento.toLowerCase().includes('múltipl') ||
+          orderData.forma_pagamento.toLowerCase().includes('multipl')) {
           console.log(`[SyncBackground] 📝 [WHATSAPP] ⚠️ Forma de pagamento é "Múltipla", tentando buscar das parcelas mesmo sem pedidoCompleto`);
-          
+
           // Tentar buscar parcelas de outra fonte se disponível
           // Por enquanto, vamos mostrar "Múltipla" mas com log para investigar
           message += `*Formas de Pagamento:* ${orderData.forma_pagamento}\n`;
@@ -2749,9 +2750,9 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
         }
       }
     }
-    
+
     message += `*Data:* ${dataFormatada}\n`;
-    
+
     // ✅ Usar total do dia COM a venda atual incluída
     if (totalDiaComVendaAtual > 0) {
       const totalDiaFormatado = new Intl.NumberFormat('pt-BR', {
@@ -2760,7 +2761,7 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
       }).format(totalDiaComVendaAtual);
       message += `*Total Vendido (Hoje):* ${totalDiaFormatado}\n`;
     }
-    
+
     // ✅ Usar total do mês COM a venda atual incluída
     if (totalMesComVendaAtual > 0) {
       const totalMesFormatado = new Intl.NumberFormat('pt-BR', {
@@ -2769,11 +2770,11 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
       }).format(totalMesComVendaAtual);
       message += `*Total Mês:* ${totalMesFormatado}\n`;
     }
-    
+
     if (observacoes && observacoes.trim()) {
       message += `\n*Peças Vendidas:*\n${observacoes.trim()}\n`;
     }
-    
+
     message += `\nSistema EleveaOne 📊`;
 
     // ✅ LOG FINAL DA MENSAGEM COMPLETA
@@ -2813,7 +2814,7 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
 
           // ✅ MESMO TRATAMENTO DE RESPOSTA DO ENVIO MANUAL
           const data = await response.json();
-          
+
           if (response.ok && data.success) {
             console.log(`[SyncBackground] ✅ WhatsApp enviado com sucesso para ${phone}`);
           } else {
