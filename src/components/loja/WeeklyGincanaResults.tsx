@@ -1,0 +1,435 @@
+import React, { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Trophy, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { format, startOfWeek, endOfWeek, getWeek, getYear, addWeeks } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
+
+interface WeekResult {
+    colaboradora_id: string;
+    colaboradora_name: string;
+    meta_valor: number;
+    super_meta_valor: number;
+    realizado: number;
+    bateu_meta: boolean;
+    bateu_super_meta: boolean;
+    percentual: number;
+}
+
+interface WeeklyGincanaResultsProps {
+    storeId: string;
+    colaboradoraId?: string; // Se fornecido, mostra apenas resultado da colaboradora
+    showAllResults?: boolean; // Se true, mostra todos os resultados; se false, apenas da colaboradora
+}
+
+function getCurrentWeekRef(): string {
+    const hoje = new Date();
+    const monday = startOfWeek(hoje, { weekStartsOn: 1 });
+    const year = getYear(monday);
+    const week = getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
+    return `${String(week).padStart(2, '0')}${year}`;
+}
+
+function getWeekRange(weekRef: string): { start: Date; end: Date } {
+    let week: number, year: number;
+    
+    if (!weekRef || weekRef.length !== 6) {
+        throw new Error(`Formato de semana_referencia inválido: ${weekRef}`);
+    }
+    
+    const firstTwo = parseInt(weekRef.substring(0, 2));
+    const firstFour = parseInt(weekRef.substring(0, 4));
+    
+    if (firstTwo === 20 && firstFour >= 2000 && firstFour <= 2099) {
+        year = firstFour;
+        week = parseInt(weekRef.substring(4, 6));
+    } else if (firstTwo >= 1 && firstTwo <= 53) {
+        week = firstTwo;
+        year = parseInt(weekRef.substring(2, 6));
+    } else {
+        throw new Error(`Formato de semana_referencia inválido: ${weekRef}`);
+    }
+    
+    const jan1 = new Date(year, 0, 1);
+    const firstMonday = startOfWeek(jan1, { weekStartsOn: 1 });
+    const weekStart = addWeeks(firstMonday, week - 1);
+    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+    
+    return { start: weekStart, end: weekEnd };
+}
+
+export default function WeeklyGincanaResults({ 
+    storeId, 
+    colaboradoraId, 
+    showAllResults = true 
+}: WeeklyGincanaResultsProps) {
+    const [weeklyGoals, setWeeklyGoals] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [resultsDialogOpen, setResultsDialogOpen] = useState(false);
+    const [selectedWeekForResults, setSelectedWeekForResults] = useState<string>("");
+    const [weekResults, setWeekResults] = useState<WeekResult[]>([]);
+    const [loadingResults, setLoadingResults] = useState(false);
+
+    useEffect(() => {
+        fetchWeeklyGoals();
+    }, [storeId]);
+
+    const fetchWeeklyGoals = async () => {
+        if (!storeId) return;
+        
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .schema("sistemaretiradas")
+                .from("goals")
+                .select(`*, stores (name), profiles (name)`)
+                .eq("tipo", "SEMANAL")
+                .eq("store_id", storeId)
+                .order("created_at", { ascending: false })
+                .limit(100);
+
+            if (error) throw error;
+            
+            if (data) {
+                // Agrupar por semana_referencia
+                const grouped = data.reduce((acc: any, goal: any) => {
+                    const weekKey = goal.semana_referencia;
+                    if (!acc[weekKey]) {
+                        acc[weekKey] = [];
+                    }
+                    acc[weekKey].push(goal);
+                    return acc;
+                }, {});
+
+                // Converter para array e ordenar
+                const weeks = Object.entries(grouped).map(([weekRef, goals]: [string, any]) => ({
+                    semana_referencia: weekRef,
+                    goals: goals,
+                    store: goals[0]?.stores
+                }));
+
+                // Ordenar por data (mais recentes primeiro)
+                weeks.sort((a, b) => {
+                    try {
+                        const rangeA = getWeekRange(a.semana_referencia);
+                        const rangeB = getWeekRange(b.semana_referencia);
+                        return rangeB.start.getTime() - rangeA.start.getTime();
+                    } catch {
+                        return 0;
+                    }
+                });
+
+                setWeeklyGoals(weeks);
+            }
+        } catch (err: any) {
+            console.error("Erro ao buscar gincanas:", err);
+            toast.error("Erro ao carregar gincanas semanais");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchWeekResults = async (weekRef: string) => {
+        setLoadingResults(true);
+        try {
+            const weekRange = getWeekRange(weekRef);
+            const hoje = new Date();
+            const isPastWeek = weekRange.end < hoje;
+            
+            if (!isPastWeek) {
+                toast.info("Esta semana ainda não terminou. Os resultados estarão disponíveis após o término da semana.");
+                setLoadingResults(false);
+                return;
+            }
+            
+            // Buscar todas as metas da gincana desta semana e loja
+            let query = supabase
+                .schema("sistemaretiradas")
+                .from("goals")
+                .select("*, profiles (name)")
+                .eq("store_id", storeId)
+                .eq("semana_referencia", weekRef)
+                .eq("tipo", "SEMANAL")
+                .not("colaboradora_id", "is", null);
+
+            // Se colaboradoraId fornecido e showAllResults false, filtrar apenas essa colaboradora
+            if (colaboradoraId && !showAllResults) {
+                query = query.eq("colaboradora_id", colaboradoraId);
+            }
+
+            const { data: goals, error: goalsError } = await query;
+            
+            if (goalsError) throw goalsError;
+            if (!goals || goals.length === 0) {
+                toast.info("Nenhuma meta encontrada para esta gincana.");
+                setLoadingResults(false);
+                return;
+            }
+            
+            // Buscar vendas de cada colaboradora na semana
+            const results = await Promise.all(
+                goals.map(async (goal: any) => {
+                    const { data: sales, error: salesError } = await supabase
+                        .schema("sistemaretiradas")
+                        .from("sales")
+                        .select("valor")
+                        .eq("colaboradora_id", goal.colaboradora_id)
+                        .eq("store_id", storeId)
+                        .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
+                        .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+            
+                    if (salesError) {
+                        console.error(`Erro ao buscar vendas para colaboradora ${goal.colaboradora_id}:`, salesError);
+                        return null;
+                    }
+                    
+                    const realizado = sales?.reduce((sum, s) => sum + parseFloat(s.valor || '0'), 0) || 0;
+                    const meta_valor = parseFloat(goal.meta_valor || 0);
+                    const super_meta_valor = parseFloat(goal.super_meta_valor || 0);
+                    const bateu_meta = realizado >= meta_valor;
+                    const bateu_super_meta = realizado >= super_meta_valor;
+                    const percentual = meta_valor > 0 ? (realizado / meta_valor) * 100 : 0;
+                    
+                    return {
+                        colaboradora_id: goal.colaboradora_id,
+                        colaboradora_name: goal.profiles?.name || "Colaboradora desconhecida",
+                        meta_valor,
+                        super_meta_valor,
+                        realizado,
+                        bateu_meta,
+                        bateu_super_meta,
+                        percentual
+                    };
+                })
+            );
+            
+            // Filtrar resultados nulos
+            const validResults = results.filter(r => r !== null) as WeekResult[];
+            setWeekResults(validResults);
+        } catch (err: any) {
+            console.error("Erro ao buscar resultados:", err);
+            toast.error("Erro ao carregar resultados da gincana");
+        } finally {
+            setLoadingResults(false);
+        }
+    };
+
+    const handleViewResults = (weekRef: string) => {
+        setSelectedWeekForResults(weekRef);
+        setResultsDialogOpen(true);
+        fetchWeekResults(weekRef);
+    };
+
+    if (loading) {
+        return <div className="text-center py-4 text-muted-foreground">Carregando gincanas...</div>;
+    }
+
+    if (weeklyGoals.length === 0) {
+        return null; // Não exibir nada se não houver gincanas
+    }
+
+    return (
+        <>
+            <Card className="border-2 border-blue-200 shadow-lg">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100/50 pb-4">
+                    <CardTitle className="flex items-center gap-2 text-blue-700">
+                        <Trophy className="h-6 w-6" />
+                        Gincanas Semanais
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {weeklyGoals.map((weekGroup) => {
+                            try {
+                                const weekRange = getWeekRange(weekGroup.semana_referencia);
+                                const hoje = new Date();
+                                const isPastWeek = weekRange.end < hoje;
+                                const isCurrentWeek = weekGroup.semana_referencia === getCurrentWeekRef();
+                                
+                                // Se showAllResults false e colaboradoraId fornecido, mostrar apenas se a colaboradora tem meta nesta semana
+                                if (!showAllResults && colaboradoraId) {
+                                    const hasColabGoal = weekGroup.goals.some((g: any) => g.colaboradora_id === colaboradoraId);
+                                    if (!hasColabGoal) return null;
+                                }
+
+                                const uniqueColabs = new Set(weekGroup.goals.map((g: any) => g.colaboradora_id).filter((id: any) => id != null));
+                                const colabsCount = uniqueColabs.size;
+                                const totalMeta = weekGroup.goals.reduce((sum: number, g: any) => sum + (g.meta_valor || 0), 0);
+                                const totalSuper = weekGroup.goals.reduce((sum: number, g: any) => sum + (g.super_meta_valor || 0), 0);
+
+                                return (
+                                    <Card 
+                                        key={weekGroup.semana_referencia}
+                                        className={`relative overflow-hidden shadow-md hover:shadow-lg transition-shadow ${
+                                            isCurrentWeek ? 'border-2 border-primary' : isPastWeek ? 'border-2 border-muted' : ''
+                                        }`}
+                                    >
+                                        <CardHeader className="pb-2 bg-gradient-to-r from-primary/10 to-purple-500/10">
+                                            <CardTitle className="flex justify-between items-center text-lg">
+                                                <span>{format(weekRange.start, "dd/MM", { locale: ptBR })} - {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}</span>
+                                                <div className="flex gap-2">
+                                                    {isCurrentWeek && (
+                                                        <span className="text-xs font-normal bg-primary text-primary-foreground px-2 py-1 rounded">
+                                                            Semana Atual
+                                                        </span>
+                                                    )}
+                                                    {isPastWeek && !isCurrentWeek && (
+                                                        <span className="text-xs font-normal bg-muted text-muted-foreground px-2 py-1 rounded">
+                                                            Finalizada
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="pt-4 space-y-3">
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between">
+                                                    <span className="text-sm text-muted-foreground">Total ({colabsCount} colaboradora{colabsCount > 1 ? 's' : ''}):</span>
+                                                    <span className="font-bold text-primary">
+                                                        R$ {totalMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    </span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-sm text-muted-foreground">Super Meta Total:</span>
+                                                    <span className="font-bold text-purple-600">
+                                                        R$ {totalSuper.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {isPastWeek && (
+                                                <Button
+                                                    variant="default"
+                                                    size="sm"
+                                                    className="w-full"
+                                                    onClick={() => handleViewResults(weekGroup.semana_referencia)}
+                                                >
+                                                    <Trophy className="h-4 w-4 mr-2" />
+                                                    Ver Resultados
+                                                </Button>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                );
+                            } catch (err) {
+                                console.error(`Erro ao processar semana ${weekGroup.semana_referencia}:`, err);
+                                return null;
+                            }
+                        })}
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Dialog de Resultados */}
+            <Dialog open={resultsDialogOpen} onOpenChange={setResultsDialogOpen}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-base sm:text-lg flex items-center gap-2">
+                            <Trophy className="h-5 w-5 text-yellow-500" />
+                            Resultados da Gincana Semanal
+                        </DialogTitle>
+                        {selectedWeekForResults && (() => {
+                            try {
+                                const weekRange = getWeekRange(selectedWeekForResults);
+                                return (
+                                    <p className="text-sm text-muted-foreground">
+                                        {format(weekRange.start, "dd/MM", { locale: ptBR })} - {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
+                                    </p>
+                                );
+                            } catch {
+                                return null;
+                            }
+                        })()}
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        {loadingResults ? (
+                            <div className="text-center py-8">
+                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mx-auto" />
+                                <p className="text-sm text-muted-foreground mt-2">Carregando resultados...</p>
+                            </div>
+                        ) : weekResults.length === 0 ? (
+                            <div className="text-center py-8 text-muted-foreground">
+                                <p>Nenhum resultado encontrado para esta gincana.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {weekResults
+                                    .sort((a, b) => b.realizado - a.realizado)
+                                    .map((result, index) => (
+                                        <Card 
+                                            key={result.colaboradora_id} 
+                                            className={`border-2 ${
+                                                result.bateu_super_meta 
+                                                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/20' 
+                                                    : result.bateu_meta 
+                                                        ? 'border-green-500 bg-green-50 dark:bg-green-950/20' 
+                                                        : 'border-red-200 bg-red-50 dark:bg-red-950/20'
+                                            }`}
+                                        >
+                                            <CardContent className="p-4">
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <span className="text-lg font-bold text-muted-foreground">#{index + 1}</span>
+                                                            <h3 className="font-semibold text-base">{result.colaboradora_name}</h3>
+                                                            {result.bateu_super_meta ? (
+                                                                <Badge variant="default" className="bg-purple-600">
+                                                                    <Trophy className="h-3 w-3 mr-1" />
+                                                                    Super Meta
+                                                                </Badge>
+                                                            ) : result.bateu_meta ? (
+                                                                <Badge variant="default" className="bg-green-600">
+                                                                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                                                                    Meta
+                                                                </Badge>
+                                                            ) : (
+                                                                <Badge variant="destructive">
+                                                                    <XCircle className="h-3 w-3 mr-1" />
+                                                                    Não Bateu
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-4 mt-3">
+                                                            <div>
+                                                                <p className="text-xs text-muted-foreground">Meta</p>
+                                                                <p className="font-semibold text-sm">R$ {result.meta_valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs text-muted-foreground">Super Meta</p>
+                                                                <p className="font-semibold text-sm">R$ {result.super_meta_valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs text-muted-foreground">Realizado</p>
+                                                                <p className={`font-bold text-base ${
+                                                                    result.bateu_super_meta ? 'text-purple-600' : 
+                                                                    result.bateu_meta ? 'text-green-600' : 'text-red-600'
+                                                                }`}>
+                                                                    R$ {result.realizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                </p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs text-muted-foreground">% da Meta</p>
+                                                                <p className={`font-semibold text-sm ${
+                                                                    result.percentual >= 100 ? 'text-green-600' : 'text-red-600'
+                                                                }`}>
+                                                                    {result.percentual.toFixed(1)}%
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
+}
+

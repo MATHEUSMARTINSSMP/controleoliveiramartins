@@ -28,6 +28,7 @@ import { createPostSaleFromSale } from "@/lib/crm-helpers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CashbackLojaView from "@/components/loja/CashbackLojaView";
 import CRMLojaView from "@/components/loja/CRMLojaView";
+import WeeklyGincanaResults from "@/components/loja/WeeklyGincanaResults";
 
 interface Sale {
     id: string;
@@ -3079,6 +3080,11 @@ export default function LojaDashboard() {
                         {/* Bônus Semanal Individual por Colaboradora */}
                         {storeId && colaboradoras.length > 0 && (
                             <WeeklyBonusProgress storeId={storeId} colaboradoras={colaboradoras.map(c => ({ id: c.id, name: c.name }))} />
+                        )}
+
+                        {/* Gincanas Semanais - Histórico de Resultados */}
+                        {storeId && (
+                            <WeeklyGincanaResults storeId={storeId} showAllResults={true} />
                         )}
 
                         {/* Galeria de Troféus */}
