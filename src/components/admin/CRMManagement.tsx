@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Plus, Trash2, Edit, Loader2, Phone, Mail, Calendar, Clock, Gift, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 interface CRMTask {
   id: string;
@@ -102,6 +102,13 @@ export const CRMManagement = () => {
     fetchAllData();
   }, []);
 
+  useEffect(() => {
+    // Recarregar dados quando o filtro de loja mudar
+    if (!loading) {
+      fetchAllData();
+    }
+  }, [selectedStore]);
+
   const fetchAllData = async () => {
     try {
       setLoading(true);
@@ -118,22 +125,40 @@ export const CRMManagement = () => {
 
       // Buscar contatos
       try {
-        const { data: contactsData } = await supabase
+        const query = supabase
           .schema('sistemaretiradas')
           .from('crm_contacts')
-          .select('*')
+          .select('*, stores(name)')
           .order('nome');
 
-        if (contactsData) setContacts(contactsData);
+        // Aplicar filtro de loja se selecionado
+        if (selectedStore !== 'all') {
+          query.eq('store_id', selectedStore);
+        }
+
+        const { data: contactsData } = await query;
+
+        if (contactsData) {
+          setContacts(contactsData.map((c: any) => ({
+            ...c,
+            storeName: c.stores?.name
+          })));
+        }
       } catch (e) {
         console.log('Tabela crm_contacts não existe ainda');
       }
 
-      // Simular dados de tarefas, aniversariantes, etc. (virão do banco depois)
-      setTasks(generateSampleTasks());
-      setBirthdays(generateSampleBirthdays());
-      setPostSales(generateSamplePostSales());
-      setCommitments(generateSampleCommitments());
+      // Buscar tarefas
+      await fetchTasks();
+
+      // Buscar aniversariantes
+      await fetchBirthdays();
+
+      // Buscar pós-vendas
+      await fetchPostSales();
+
+      // Buscar compromissos
+      await fetchCommitments();
     } catch (error) {
       console.error('Erro ao buscar dados:', error);
       toast.error('Erro ao carregar dados CRM');
@@ -142,75 +167,270 @@ export const CRMManagement = () => {
     }
   };
 
-  const generateSampleTasks = (): CRMTask[] => [
-    {
-      id: '1',
-      title: 'Ligar para João Silva',
-      cliente: 'João Silva',
-      dueDate: '14:00',
-      priority: 'ALTA',
-      status: 'PENDENTE',
-      storeName: 'Loja Principal',
-    },
-    {
-      id: '2',
-      title: 'Enviar proposta para cliente X',
-      cliente: 'Cliente X',
-      dueDate: '10:30',
-      priority: 'MÉDIA',
-      status: 'PENDENTE',
-      storeName: 'Loja Centro',
-    },
-    {
-      id: '3',
-      title: 'Acompanhar entrega de pedido',
-      cliente: 'Ana Costa',
-      dueDate: '16:00',
-      priority: 'BAIXA',
-      status: 'CONCLUÍDA',
-      storeName: 'Loja Sul',
-    },
-  ];
+  const fetchTasks = async () => {
+    try {
+      const query = supabase
+        .schema('sistemaretiradas')
+        .from('crm_tasks')
+        .select('*, stores(name), crm_contacts(nome)')
+        .order('due_date', { ascending: true });
 
-  const generateSampleBirthdays = (): Birthday[] => [
-    {
-      id: '1',
-      cliente: 'Maria Santos',
-      phone: '11999999999',
-      defaultMessage: 'Feliz Aniversário! Aproveite nosso cupom HAPPY20 com 20% OFF em sua próxima compra!',
-      storeName: 'Loja Centro',
-    },
-    {
-      id: '2',
-      cliente: 'Pedro Oliveira',
-      phone: '11988888888',
-      defaultMessage: 'Parabéns! Temos um presente especial para você. Visite-nos para saber mais!',
-      storeName: 'Loja Principal',
-    },
-  ];
+      // Aplicar filtro de loja se selecionado
+      if (selectedStore !== 'all') {
+        query.eq('store_id', selectedStore);
+      }
 
-  const generateSamplePostSales = (): PostSale[] => [
-    {
-      id: '1',
-      cliente: 'Carla Silva',
-      saleDate: '2025-11-28',
-      scheduledFollowUp: '2025-12-05',
-      details: 'Compra de vestido preto. Cliente quer ajustes.',
-      status: 'AGENDADA',
-      storeName: 'Loja Principal',
-    },
-  ];
+      const { data, error } = await query;
 
-  const generateSampleCommitments = (): CRMCommitment[] => [
-    {
-      id: '1',
-      cliente: 'Lucas Martins',
-      type: 'FOLLOW_UP',
-      scheduledDate: '2025-12-02T10:00',
-      notes: 'Verificar satisfação com compra anterior',
-      storeName: 'Loja Centro',
-    },
-  ];
+      if (error) throw error;
+
+      if (data) {
+        setTasks(data.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          cliente: t.cliente_nome || t.crm_contacts?.nome || 'Cliente não identificado',
+          dueDate: t.due_date ? format(new Date(t.due_date), 'HH:mm') : '',
+          priority: t.priority || 'MÉDIA',
+          status: t.status || 'PENDENTE',
+          storeName: t.stores?.name
+        })));
+      }
+    } catch (error) {
+      console.error('Erro ao buscar tarefas:', error);
+    }
+  };
+
+  const fetchBirthdays = async () => {
+    try {
+      // Buscar aniversariantes de hoje de crm_contacts
+      const hoje = new Date();
+      const mesAtual = hoje.getMonth() + 1;
+      const diaAtual = hoje.getDate();
+
+      const birthdaysList: Birthday[] = [];
+
+      // Buscar de crm_contacts
+      try {
+        const query = supabase
+          .schema('sistemaretiradas')
+          .from('crm_contacts')
+          .select('*, stores(name)')
+          .not('data_nascimento', 'is', null);
+
+        // Aplicar filtro de loja se selecionado
+        if (selectedStore !== 'all') {
+          query.eq('store_id', selectedStore);
+        }
+
+        const { data, error } = await query;
+
+        if (!error && data) {
+          // Filtrar aniversariantes de hoje
+          const aniversariantesHoje = data.filter((contact: any) => {
+            if (!contact.data_nascimento) return false;
+            const dataNasc = new Date(contact.data_nascimento);
+            return dataNasc.getMonth() + 1 === mesAtual && dataNasc.getDate() === diaAtual;
+          });
+
+          birthdaysList.push(...aniversariantesHoje.map((b: any) => ({
+            id: b.id,
+            cliente: b.nome,
+            phone: b.telefone || '',
+            defaultMessage: `Feliz Aniversário, ${b.nome.split(' ')[0]}! 🎉 Aproveite nosso cupom especial HAPPY20 com 20% OFF em sua próxima compra!`,
+            storeName: b.stores?.name
+          })));
+        }
+      } catch (e) {
+        console.log('Erro ao buscar aniversariantes de crm_contacts:', e);
+      }
+
+      // Também buscar de tiny_contacts se disponível
+      try {
+        const query = supabase
+          .schema('sistemaretiradas')
+          .from('tiny_contacts')
+          .select('*, stores(name)')
+          .not('data_nascimento', 'is', null);
+
+        // Aplicar filtro de loja se selecionado
+        if (selectedStore !== 'all') {
+          query.eq('store_id', selectedStore);
+        }
+
+        const { data: tinyContacts, error: tinyError } = await query;
+
+        if (!tinyError && tinyContacts) {
+          const tinyBirthdays = tinyContacts.filter((contact: any) => {
+            if (!contact.data_nascimento) return false;
+            const dataNasc = new Date(contact.data_nascimento);
+            return dataNasc.getMonth() + 1 === mesAtual && dataNasc.getDate() === diaAtual;
+          });
+
+          birthdaysList.push(...tinyBirthdays.map((b: any) => ({
+            id: `tiny_${b.id}`,
+            cliente: b.nome,
+            phone: b.telefone || '',
+            defaultMessage: `Feliz Aniversário, ${b.nome.split(' ')[0]}! 🎉 Aproveite nosso cupom especial HAPPY20 com 20% OFF em sua próxima compra!`,
+            storeName: b.stores?.name
+          })));
+        }
+      } catch (e) {
+        // Tabela pode não existir ou não ter dados
+        console.log('Não foi possível buscar aniversariantes de tiny_contacts');
+      }
+
+      setBirthdays(birthdaysList);
+    } catch (error) {
+      console.error('Erro ao buscar aniversariantes:', error);
+    }
+  };
+
+  const fetchPostSales = async () => {
+    try {
+      const query = supabase
+        .schema('sistemaretiradas')
+        .from('crm_post_sales')
+        .select('*, stores(name)')
+        .order('scheduled_follow_up', { ascending: true });
+
+      // Aplicar filtro de loja se selecionado
+      if (selectedStore !== 'all') {
+        query.eq('store_id', selectedStore);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      if (data) {
+        setPostSales(data.map((ps: any) => ({
+          id: ps.id,
+          cliente: ps.cliente_nome || 'Cliente não identificado',
+          saleDate: ps.sale_date,
+          scheduledFollowUp: ps.scheduled_follow_up,
+          details: ps.details || '',
+          status: ps.status || 'AGENDADA',
+          storeName: ps.stores?.name
+        })));
+      }
+    } catch (error) {
+      console.error('Erro ao buscar pós-vendas:', error);
+    }
+  };
+
+  const fetchCommitments = async () => {
+    try {
+      const query = supabase
+        .schema('sistemaretiradas')
+        .from('crm_commitments')
+        .select('*, stores(name), crm_contacts(nome)')
+        .order('scheduled_date', { ascending: true });
+
+      // Aplicar filtro de loja se selecionado
+      if (selectedStore !== 'all') {
+        query.eq('store_id', selectedStore);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      if (data) {
+        setCommitments(data.map((c: any) => ({
+          id: c.id,
+          cliente: c.cliente_nome || c.crm_contacts?.nome || 'Cliente não identificado',
+          type: c.type || 'OUTRO',
+          scheduledDate: c.scheduled_date,
+          notes: c.notes || '',
+          storeName: c.stores?.name
+        })));
+      }
+    } catch (error) {
+      console.error('Erro ao buscar compromissos:', error);
+    }
+  };
+
+  const handleSaveTask = async () => {
+    if (!taskForm.title || !taskForm.cliente) {
+      toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const taskData: any = {
+        title: taskForm.title,
+        cliente_nome: taskForm.cliente,
+        due_date: taskForm.dueDate,
+        priority: taskForm.priority,
+        status: 'PENDENTE'
+      };
+
+      // Aplicar filtro de loja se selecionado
+      if (selectedStore !== 'all') {
+        taskData.store_id = selectedStore;
+      }
+
+      const { error } = await supabase
+        .schema('sistemaretiradas')
+        .from('crm_tasks')
+        .insert([taskData]);
+
+      if (error) throw error;
+
+      toast.success('Tarefa adicionada!');
+      setTaskDialogOpen(false);
+      setTaskForm({ title: '', cliente: '', dueDate: '', priority: 'MÉDIA' });
+      fetchTasks();
+    } catch (error: any) {
+      console.error('Erro ao salvar tarefa:', error);
+      toast.error('Erro ao salvar tarefa');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCompleteTask = async (taskId: string) => {
+    try {
+      const { error } = await supabase
+        .schema('sistemaretiradas')
+        .from('crm_tasks')
+        .update({ 
+          status: 'CONCLUÍDA',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      toast.success('Tarefa concluída!');
+      fetchTasks();
+    } catch (error: any) {
+      console.error('Erro ao concluir tarefa:', error);
+      toast.error('Erro ao concluir tarefa');
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!confirm('Deletar esta tarefa?')) return;
+
+    try {
+      const { error } = await supabase
+        .schema('sistemaretiradas')
+        .from('crm_tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      toast.success('Tarefa deletada!');
+      fetchTasks();
+    } catch (error: any) {
+      console.error('Erro ao deletar tarefa:', error);
+      toast.error('Erro ao deletar tarefa');
+    }
+  };
 
   const handleSaveContact = async () => {
     if (!formData.nome) {
@@ -473,7 +693,10 @@ export const CRMManagement = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <Button onClick={() => toast.info('Tarefa seria adicionada')} className="w-full">Adicionar</Button>
+                    <Button onClick={handleSaveTask} disabled={saving} className="w-full">
+                      {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Adicionar
+                    </Button>
                   </div>
                 </DialogContent>
               </Dialog>
@@ -490,9 +713,27 @@ export const CRMManagement = () => {
                       <p className="font-medium text-sm">{task.title}</p>
                       <p className="text-xs text-muted-foreground">{task.cliente} • {task.storeName} • {task.dueDate}</p>
                     </div>
-                    <Badge variant={task.priority === 'ALTA' ? 'destructive' : task.priority === 'MÉDIA' ? 'default' : 'secondary'}>
-                      {task.priority}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={task.priority === 'ALTA' ? 'destructive' : task.priority === 'MÉDIA' ? 'default' : 'secondary'}>
+                        {task.priority}
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCompleteTask(task.id)}
+                        className="h-7"
+                      >
+                        <CheckCircle2 className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteTask(task.id)}
+                        className="h-7"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
