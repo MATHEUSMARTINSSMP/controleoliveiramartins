@@ -896,7 +896,10 @@ export default function BonusManagement() {
 
         // Determinar categoria baseado nos campos existentes
         let categoria = "LEGADO";
-        if ((bonus as any).condicao_tipo) {
+        // Para gincana semanal, usar BASICA para mostrar métrica e período
+        if ((bonus as any).condicao_meta_tipo === "GINCANA_SEMANAL" || (bonus as any).condicao_meta_tipo === "SUPER_GINCANA_SEMANAL") {
+            categoria = "BASICA";
+        } else if ((bonus as any).condicao_tipo) {
             categoria = "BASICA";
         } else if ((bonus as any).condicao_meta_tipo) {
             categoria = "AVANCADA";

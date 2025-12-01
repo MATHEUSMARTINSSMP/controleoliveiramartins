@@ -635,11 +635,16 @@ const MetasManagementContent = () => {
                 valor_condicao: null,
                 ativo: true,
                 store_id: storeId,
-                condicao_tipo: "META", // Condição baseada em meta (todas que atingirem ganham)
-                condicao_ranking: null, // Todas que atingirem ganham (não é ranking)
+                // Campos obrigatórios para exibição correta no formulário
+                // Métrica: FATURAMENTO (obrigatório para gincana semanal)
+                condicao_tipo: "FATURAMENTO",
+                // Ranking: null (todas que atingirem ganham, não é ranking, mas campo deve estar preenchido)
+                condicao_ranking: null,
+                // Identificador de gincana semanal
                 condicao_meta_tipo: "GINCANA_SEMANAL",
                 condicao_escopo: "INDIVIDUAL",
                 condicao_faturamento: null,
+                // Período de referência (obrigatório)
                 periodo_tipo: "SEMANAL",
                 periodo_data_inicio: format(weekRange.start, "yyyy-MM-dd"),
                 periodo_data_fim: format(weekRange.end, "yyyy-MM-dd"),
@@ -675,6 +680,7 @@ const MetasManagementContent = () => {
                 ...bonusGincanaPayload,
                 nome: `🏆 Super Gincana Semanal ${storeName} - ${weekStartStr} a ${weekEndStr}`,
                 descricao: `Super gincana semanal de ${storeName}. Atingir 100% da super meta de faturamento da gincana semanal para ganhar o prêmio.`,
+                condicao_tipo: "FATURAMENTO", // Métrica: FATURAMENTO (obrigatório)
                 condicao_meta_tipo: "SUPER_GINCANA_SEMANAL",
                 valor_bonus: valorBonusFinal,
                 descricao_premio: isPremioFisicoCheckpointFinal ? premioCheckpointFinal : null,
