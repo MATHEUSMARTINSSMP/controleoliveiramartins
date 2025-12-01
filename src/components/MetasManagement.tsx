@@ -182,6 +182,30 @@ const MetasManagementContent = () => {
         }
     }, [activeTab]);
 
+    // ✅ Recalcular pesos automaticamente quando o mês ou loja mudar (apenas para novas distribuições)
+    useEffect(() => {
+        // Apenas gerar pesos automaticamente se:
+        // 1. Loja estiver selecionada
+        // 2. Mês estiver no formato correto (YYYYMM)
+        // 3. NÃO estiver editando uma meta existente (para preservar pesos salvos durante edição)
+        // 4. Dialog estiver aberto (para evitar gerar quando não está no formulário)
+        if (selectedStore && mesReferencia && mesReferencia.length === 6 && dialogOpen && !editingGoal) {
+            const year = parseInt(mesReferencia.substring(0, 4));
+            const monthStr = mesReferencia.substring(4, 6);
+            const month = parseInt(monthStr) - 1;
+            
+            // Validar formato do mês
+            if (year >= 2000 && year <= 2100 && month >= 0 && month <= 11) {
+                // Pequeno delay para evitar múltiplas chamadas rápidas
+                const timeoutId = setTimeout(() => {
+                    generateWeights();
+                }, 100);
+                
+                return () => clearTimeout(timeoutId);
+            }
+        }
+    }, [mesReferencia, selectedStore, dialogOpen]);
+
     const fetchGoals = async () => {
         try {
             const { data, error } = await supabase
@@ -605,6 +629,7 @@ const MetasManagementContent = () => {
 
             toast.success("Metas criadas com sucesso!");
             setDialogOpen(false);
+            setEditingGoal(null); // Limpar estado de edição
             fetchGoals();
         } catch (error: any) {
             toast.error("Erro ao salvar metas: " + error.message);
@@ -627,6 +652,8 @@ const MetasManagementContent = () => {
         // Complete weights for all days in month (fix missing days like day 31)
         const completedWeights = completeWeightsForMonth(storeGoal.daily_weights || {}, month);
         setDailyWeights(completedWeights);
+        // Marcar que estamos editando para não sobrescrever os pesos
+        setEditingGoal(storeGoal);
 
         // 4. Map individual goals to colabGoals format
         // Load collaborators for the store, then merge with existing goals values
@@ -1447,7 +1474,10 @@ const MetasManagementContent = () => {
                         })()}
 
                         <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4">
-                            <Button variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
+                            <Button variant="outline" onClick={() => {
+                                setDialogOpen(false);
+                                setEditingGoal(null); // Limpar estado de edição ao cancelar
+                            }} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
                                 Cancelar
                             </Button>
                             <Button onClick={handleSave} disabled={!validateTotal()} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
