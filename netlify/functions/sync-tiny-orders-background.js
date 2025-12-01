@@ -393,6 +393,7 @@ exports.handler = async (event, context) => {
                 ordenar: 'numeroPedido|DESC',
                 pagina: currentPage,
                 limite: 20, // ✅ Limite fixo de 20 pedidos totais
+                // ✅ NÃO ENVIAR dataInicial e dataFinal para evitar erro 400
               },
             }),
           });
