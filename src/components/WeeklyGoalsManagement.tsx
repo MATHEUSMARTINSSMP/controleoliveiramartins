@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Calendar, ArrowLeft, Save, Calculator, UserCheck, CheckCircle2, Trash2, Trophy, XCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, getWeek, getYear } from "date-fns";
+import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, getWeek, getYear, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
@@ -400,18 +400,70 @@ const WeeklyGoalsManagement = () => {
         }
     }, [selectedStore, selectedWeek]);
 
+    // Função para calcular meta semanal usando pesos diários
+    const calculateWeeklyGoalFromMonthly = (
+        monthlyGoal: number, 
+        dailyWeights: Record<string, number>, 
+        weekRange: { start: Date; end: Date }
+    ): number => {
+        // Obter todos os dias da semana (segunda a domingo)
+        const weekDays = eachDayOfInterval({ start: weekRange.start, end: weekRange.end });
+        
+        // Se não houver daily_weights, dividir igualmente pelos dias do mês
+        if (Object.keys(dailyWeights).length === 0) {
+            const daysInMonth = new Date(weekRange.start.getFullYear(), weekRange.start.getMonth() + 1, 0).getDate();
+            const dailyGoal = monthlyGoal / daysInMonth;
+            return dailyGoal * 7; // 7 dias da semana
+        }
+        
+        // IMPORTANTE: Os daily_weights somam 100% do mês inteiro
+        // Precisamos calcular a soma dos pesos dos dias da semana
+        let somaPesosSemana = 0;
+        
+        weekDays.forEach(day => {
+            const dayKey = format(day, 'yyyy-MM-dd');
+            const dayWeight = dailyWeights[dayKey] || 0;
+            somaPesosSemana += dayWeight;
+        });
+        
+        // Calcular meta semanal: (meta_mensal * soma_pesos_semana) / 100
+        const totalWeeklyGoal = (monthlyGoal * somaPesosSemana) / 100;
+        
+        return totalWeeklyGoal;
+    };
+
     // Recalcular sugestões quando colaboradoras ativas mudarem
     useEffect(() => {
         if (selectedStore && selectedWeek && monthlyGoal) {
             const activeCount = colaboradorasAtivas.filter(c => c.active).length;
-            if (activeCount > 0) {
-                const weeklyMeta = monthlyGoal.meta_valor / 4.33 / activeCount;
-                const weeklySuperMeta = monthlyGoal.super_meta_valor / 4.33 / activeCount;
-                setSuggestedWeeklyMeta(parseFloat(weeklyMeta.toFixed(2)));
-                setSuggestedWeeklySuperMeta(parseFloat(weeklySuperMeta.toFixed(2)));
+            if (activeCount > 0 && selectedWeek) {
+                try {
+                    // Calcular usando pesos diários
+                    const weekRange = getWeekRange(selectedWeek);
+                    const weeklyMeta = calculateWeeklyGoalFromMonthly(
+                        monthlyGoal.meta_valor, 
+                        monthlyGoal.daily_weights || {}, 
+                        weekRange
+                    ) / activeCount;
+                    const weeklySuperMeta = calculateWeeklyGoalFromMonthly(
+                        monthlyGoal.super_meta_valor, 
+                        monthlyGoal.daily_weights || {}, 
+                        weekRange
+                    ) / activeCount;
+                    
+                    setSuggestedWeeklyMeta(parseFloat(weeklyMeta.toFixed(2)));
+                    setSuggestedWeeklySuperMeta(parseFloat(weeklySuperMeta.toFixed(2)));
+                } catch (err) {
+                    console.error("Erro ao calcular sugestões semanais:", err);
+                    // Fallback: dividir igualmente
+                    const weeklyMeta = monthlyGoal.meta_valor / 4.33 / activeCount;
+                    const weeklySuperMeta = monthlyGoal.super_meta_valor / 4.33 / activeCount;
+                    setSuggestedWeeklyMeta(parseFloat(weeklyMeta.toFixed(2)));
+                    setSuggestedWeeklySuperMeta(parseFloat(weeklySuperMeta.toFixed(2)));
+                }
             }
         }
-    }, [colaboradorasAtivas]);
+    }, [colaboradorasAtivas, selectedWeek, monthlyGoal]);
 
     const loadSuggestions = async (forceLoadColabs = false) => {
         if (!selectedStore) return;
@@ -425,11 +477,11 @@ const WeeklyGoalsManagement = () => {
                     const weekRange = getWeekRange(selectedWeek);
                     const monthRef = format(weekRange.start, "yyyyMM");
                     
-                    // Get monthly goal for the store
+                    // Get monthly goal for the store (incluindo daily_weights)
                     const { data: monthlyStoreGoal } = await supabase
                         .schema("sistemaretiradas")
                         .from("goals")
-                        .select("meta_valor, super_meta_valor")
+                        .select("meta_valor, super_meta_valor, daily_weights")
                         .eq("store_id", selectedStore)
                         .eq("tipo", "MENSAL")
                         .eq("mes_referencia", monthRef)
@@ -441,21 +493,45 @@ const WeeklyGoalsManagement = () => {
                         
                         // Get active collaborators for the store
                         const activeColabs = colaboradoras.filter(c => c.store_id === selectedStore);
-                        
-                        // Calculate weekly suggestions based on total store monthly goal
-                        // We'll recalculate when colaboradorasAtivas changes
                         const colabsAtivasCount = activeColabs.length;
                         
-                        // Calculate weekly suggestions: monthly / 4.33 / number of active collaborators (will be recalculated when user selects)
-                        const weeklyMeta = colabsAtivasCount > 0 
-                            ? monthlyStoreGoal.meta_valor / 4.33 / colabsAtivasCount
-                            : monthlyStoreGoal.meta_valor / 4.33;
-                        const weeklySuperMeta = colabsAtivasCount > 0
-                            ? monthlyStoreGoal.super_meta_valor / 4.33 / colabsAtivasCount
-                            : monthlyStoreGoal.super_meta_valor / 4.33;
+                        // ✅ Calcular usando pesos diários (daily_weights)
+                        try {
+                            const weekRange = getWeekRange(selectedWeek);
+                            const weeklyMetaTotal = calculateWeeklyGoalFromMonthly(
+                                monthlyStoreGoal.meta_valor, 
+                                monthlyStoreGoal.daily_weights || {}, 
+                                weekRange
+                            );
+                            const weeklySuperMetaTotal = calculateWeeklyGoalFromMonthly(
+                                monthlyStoreGoal.super_meta_valor, 
+                                monthlyStoreGoal.daily_weights || {}, 
+                                weekRange
+                            );
+                            
+                            // Dividir pelo número de colaboradoras ativas
+                            const weeklyMeta = colabsAtivasCount > 0 
+                                ? weeklyMetaTotal / colabsAtivasCount
+                                : weeklyMetaTotal;
+                            const weeklySuperMeta = colabsAtivasCount > 0
+                                ? weeklySuperMetaTotal / colabsAtivasCount
+                                : weeklySuperMetaTotal;
 
-                        setSuggestedWeeklyMeta(parseFloat(weeklyMeta.toFixed(2)));
-                        setSuggestedWeeklySuperMeta(parseFloat(weeklySuperMeta.toFixed(2)));
+                            setSuggestedWeeklyMeta(parseFloat(weeklyMeta.toFixed(2)));
+                            setSuggestedWeeklySuperMeta(parseFloat(weeklySuperMeta.toFixed(2)));
+                        } catch (err) {
+                            console.error("Erro ao calcular sugestões com pesos:", err);
+                            // Fallback: dividir igualmente por 4.33
+                            const weeklyMeta = colabsAtivasCount > 0 
+                                ? monthlyStoreGoal.meta_valor / 4.33 / colabsAtivasCount
+                                : monthlyStoreGoal.meta_valor / 4.33;
+                            const weeklySuperMeta = colabsAtivasCount > 0
+                                ? monthlyStoreGoal.super_meta_valor / 4.33 / colabsAtivasCount
+                                : monthlyStoreGoal.super_meta_valor / 4.33;
+
+                            setSuggestedWeeklyMeta(parseFloat(weeklyMeta.toFixed(2)));
+                            setSuggestedWeeklySuperMeta(parseFloat(weeklySuperMeta.toFixed(2)));
+                        }
                     } else {
                         setMonthlyGoal(null);
                         setSuggestedWeeklyMeta(0);
