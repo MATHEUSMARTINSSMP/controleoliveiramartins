@@ -228,15 +228,6 @@ const AdminDashboard = () => {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => navigate("/admin/metas-semanais")}
-                className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
-                size="sm"
-              >
-                <span className="hidden sm:inline">Gincanas Semanais</span>
-                <span className="sm:hidden">Semanais</span>
-              </Button>
-              <Button
-                variant="outline"
                 onClick={() => navigate("/admin/colaboradores")}
                 className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
                 size="sm"

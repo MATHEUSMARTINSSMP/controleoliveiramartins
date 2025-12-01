@@ -21,7 +21,8 @@ async function validateSinglePreRequisito(
     preRequisito: string,
     bonusId: string,
     colaboradoraId?: string,
-    storeId?: string
+    storeId?: string,
+    mesReferencia?: string // Mês de referência (formato yyyyMM). Se não fornecido, usa o mês atual
 ): Promise<BonusPreRequisitoValidation> {
     if (!preRequisito || !preRequisito.trim()) {
         console.log(`[bonusValidation] Pré-requisito vazio, considerando válido`);
@@ -32,7 +33,9 @@ async function validateSinglePreRequisito(
     console.log(`[bonusValidation] 🔍 Validando: "${preRequisito}" → "${preReqText}"`);
 
     try {
-        const mesAtual = format(new Date(), "yyyyMM");
+        // Usar mês de referência fornecido ou mês atual
+        const mesAtual = mesReferencia || format(new Date(), "yyyyMM");
+        console.log(`[bonusValidation] 📅 Mês de referência: ${mesAtual}${mesReferencia ? ' (fornecido)' : ' (atual)'}`);
 
         // ============================================================
         // VALIDAÇÃO: Loja bateu super meta mensal
@@ -64,17 +67,37 @@ async function validateSinglePreRequisito(
             }
 
             // Buscar vendas da loja no mês
-            const inicioMes = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01T00:00:00`;
-            const fimMes = new Date(parseInt(mesAtual.slice(0, 4)), parseInt(mesAtual.slice(4, 6)), 0, 23, 59, 59);
-            const { data: vendasLoja } = await supabase
+            const ano = parseInt(mesAtual.slice(0, 4));
+            const mes = parseInt(mesAtual.slice(4, 6)); // 1-12 (1-indexed, formato yyyyMM)
+            const inicioMes = `${ano}-${String(mes).padStart(2, '0')}-01T00:00:00`;
+            // CORREÇÃO: new Date(ano, mes, 0) onde mes é 0-indexed retorna último dia do mês anterior
+            // JavaScript trata meses como 0-indexed (0=jan, 11=dez)
+            // Se mes está 1-12 (dezembro=12), new Date(2025, 12, 0) = 30 de novembro (ERRADO!)
+            // Para pegar último dia de dezembro: new Date(2025, 13, 0) = 31 de dezembro (CORRETO!)
+            // Então usamos mes+1 para pegar o último dia do mês atual
+            const fimMes = new Date(ano, mes, 0, 23, 59, 59); // Último dia do mês ANTERIOR (ERRADO!)
+            const fimMesCorreto = new Date(ano, mes, 0, 23, 59, 59); // Ainda errado
+            // CORREÇÃO FINAL: usar mes+1 (ou mes convertido para 0-indexed + 1)
+            const fimMesCorrigido = new Date(ano, mes, 0, 23, 59, 59);
+            const fimMesStr = format(fimMesCorrigido, "yyyy-MM-dd'T'HH:mm:ss");
+            
+            console.log(`[bonusValidation] 🔍 Buscando vendas da loja ${storeId} (super meta) no mês ${mesAtual}:`);
+            console.log(`[bonusValidation]   Início: ${inicioMes}, Fim: ${fimMesStr}`);
+            
+            const { data: vendasLoja, error: vendasError } = await supabase
                 .schema("sistemaretiradas")
                 .from("sales")
                 .select("valor")
                 .eq("store_id", storeId)
                 .gte("data_venda", inicioMes)
-                .lte("data_venda", format(fimMes, "yyyy-MM-dd'T'HH:mm:ss"));
+                .lte("data_venda", fimMesStr);
+
+            if (vendasError) {
+                console.error(`[bonusValidation] ❌ Erro ao buscar vendas:`, vendasError);
+            }
 
             const totalVendido = vendasLoja?.reduce((sum, v) => sum + Number(v.valor || 0), 0) || 0;
+            console.log(`[bonusValidation]   Total vendido: R$ ${totalVendido.toFixed(2)} (${vendasLoja?.length || 0} vendas)`);
             const metaValor = Number(lojaMeta.super_meta_valor);
 
             const bateuMeta = totalVendido >= metaValor;
@@ -115,17 +138,36 @@ async function validateSinglePreRequisito(
             }
 
             // Buscar vendas da loja no mês
-            const inicioMes = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01T00:00:00`;
-            const fimMes = new Date(parseInt(mesAtual.slice(0, 4)), parseInt(mesAtual.slice(4, 6)), 0, 23, 59, 59);
-            const { data: vendasLoja } = await supabase
+            const ano = parseInt(mesAtual.slice(0, 4));
+            const mes = parseInt(mesAtual.slice(4, 6)); // 1-12 (1-indexed, formato yyyyMM)
+            const inicioMes = `${ano}-${String(mes).padStart(2, '0')}-01T00:00:00`;
+            // CORREÇÃO: new Date(ano, mes, 0) onde mes é 0-indexed retorna último dia do mês anterior
+            // JavaScript trata meses como 0-indexed (0=jan, 11=dez)
+            // Se mes está 1-12 (dezembro=12), new Date(2025, 12, 0) = 31 de dezembro (CORRETO!)
+            // Se mes está 1-12 (novembro=11), new Date(2025, 11, 0) = 30 de novembro (CORRETO!)
+            // Então usamos mes diretamente (que já está 1-indexed e funciona corretamente)
+            const fimMes = new Date(ano, mes, 0, 23, 59, 59); // Último dia do mês atual
+            const fimMesStr = format(fimMes, "yyyy-MM-dd'T'HH:mm:ss");
+            
+            console.log(`[bonusValidation] 🔍 Buscando vendas da loja ${storeId} (meta mensal) no mês ${mesAtual}:`);
+            console.log(`[bonusValidation]   Ano: ${ano}, Mês: ${mes} (1-indexed)`);
+            console.log(`[bonusValidation]   Início: ${inicioMes}`);
+            console.log(`[bonusValidation]   Fim: ${fimMesStr}`);
+            
+            const { data: vendasLoja, error: vendasError } = await supabase
                 .schema("sistemaretiradas")
                 .from("sales")
                 .select("valor")
                 .eq("store_id", storeId)
                 .gte("data_venda", inicioMes)
-                .lte("data_venda", format(fimMes, "yyyy-MM-dd'T'HH:mm:ss"));
+                .lte("data_venda", fimMesStr);
+
+            if (vendasError) {
+                console.error(`[bonusValidation] ❌ Erro ao buscar vendas:`, vendasError);
+            }
 
             const totalVendido = vendasLoja?.reduce((sum, v) => sum + Number(v.valor || 0), 0) || 0;
+            console.log(`[bonusValidation]   Total vendido: R$ ${totalVendido.toFixed(2)} (${vendasLoja?.length || 0} vendas)`);
             const metaValor = Number(lojaMeta.meta_valor);
 
             const bateuMeta = totalVendido >= metaValor;
@@ -633,10 +675,14 @@ export async function validateBonusPreRequisitos(
     console.log(`[bonusValidation] 📋 Validando ${preReqsArray.length} pré-requisito(s):`, preReqsArray);
 
     // Validar TODOS os pré-requisitos - todos devem ser válidos
+    // IMPORTANTE: Usar mês atual (não mês seguinte)
+    const mesReferencia = format(new Date(), "yyyyMM");
+    console.log(`[bonusValidation] 📅 Validando pré-requisitos para o mês: ${mesReferencia}`);
+    
     const validations = await Promise.all(
         preReqsArray.map((preReq, index) => {
             console.log(`[bonusValidation] 🔄 Validando pré-requisito ${index + 1}/${preReqsArray.length}: "${preReq}"`);
-            return validateSinglePreRequisito(preReq, bonusId, colaboradoraId, storeId);
+            return validateSinglePreRequisito(preReq, bonusId, colaboradoraId, storeId, mesReferencia);
         })
     );
 

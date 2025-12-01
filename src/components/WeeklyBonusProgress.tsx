@@ -123,24 +123,46 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
             const mesAtual = format(hoje, 'yyyyMM');
             const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
 
-            // Buscar bônus semanais
+            // Buscar bônus semanais (tanto tipo_condicao quanto condicao_meta_tipo)
             const { data: bonusesData } = await supabase
                 .schema("sistemaretiradas")
                 .from("bonuses")
-                .select("tipo_condicao, valor_bonus")
+                .select("id, tipo_condicao, condicao_meta_tipo, valor_bonus, periodo_semana, pre_requisitos")
                 .eq("ativo", true)
-                .or(`store_id.is.null,store_id.eq.${storeId}`)
-                .in("tipo_condicao", ["META_SEMANAL", "SUPER_META_SEMANAL"]);
+                .or(`store_id.is.null,store_id.eq.${storeId}`);
+            
+            // Filtrar bônus semanais (tipo_condicao ou condicao_meta_tipo)
+            const weeklyBonuses = bonusesData?.filter((b: any) => 
+                (b.tipo_condicao === "META_SEMANAL" || b.tipo_condicao === "SUPER_META_SEMANAL") ||
+                (b.condicao_meta_tipo === "GINCANA_SEMANAL" || b.condicao_meta_tipo === "SUPER_GINCANA_SEMANAL")
+            ) || [];
 
             let metaBonus = null;
             let superMetaBonus = null;
+            let metaBonusId: string | null = null;
+            let superMetaBonusId: string | null = null;
+            let metaBonusPreRequisitos: any = null;
+            let superMetaBonusPreRequisitos: any = null;
 
-            if (bonusesData) {
-                const metaBonusData = bonusesData.find((b: any) => b.tipo_condicao === 'META_SEMANAL');
-                const superMetaBonusData = bonusesData.find((b: any) => b.tipo_condicao === 'SUPER_META_SEMANAL');
+            if (weeklyBonuses.length > 0) {
+                // Buscar bônus de gincana semanal para a semana atual (prioridade)
+                const gincanaMetaBonus = weeklyBonuses.find((b: any) => 
+                    b.condicao_meta_tipo === 'GINCANA_SEMANAL' && b.periodo_semana === currentWeek
+                );
+                const gincanaSuperMetaBonus = weeklyBonuses.find((b: any) => 
+                    b.condicao_meta_tipo === 'SUPER_GINCANA_SEMANAL' && b.periodo_semana === currentWeek
+                );
+                
+                // Fallback para bônus antigos (tipo_condicao)
+                const metaBonusData = gincanaMetaBonus || weeklyBonuses.find((b: any) => b.tipo_condicao === 'META_SEMANAL');
+                const superMetaBonusData = gincanaSuperMetaBonus || weeklyBonuses.find((b: any) => b.tipo_condicao === 'SUPER_META_SEMANAL');
                 
                 metaBonus = metaBonusData?.valor_bonus ? parseFloat(metaBonusData.valor_bonus) : null;
                 superMetaBonus = superMetaBonusData?.valor_bonus ? parseFloat(superMetaBonusData.valor_bonus) : null;
+                metaBonusId = metaBonusData?.id || null;
+                superMetaBonusId = superMetaBonusData?.id || null;
+                metaBonusPreRequisitos = metaBonusData?.pre_requisitos || null;
+                superMetaBonusPreRequisitos = superMetaBonusData?.pre_requisitos || null;
             }
 
             setWeeklyBonuses({ meta_bonus: metaBonus, super_meta_bonus: superMetaBonus });

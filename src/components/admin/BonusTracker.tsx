@@ -219,12 +219,40 @@ export function BonusTracker() {
                                 console.log(`[BonusTracker]   - Total peças: ${qtdPecas}`);
                             }
                             
-                            const metaValor = metaData?.meta_valor || 0;
+                            // ✅ IMPORTANTE: Se for bônus de gincana semanal, buscar meta da gincana (tipo SEMANAL)
+                            // Caso contrário, usar meta mensal individual (obrigatória)
+                            let metaValor = metaData?.meta_valor || 0;
+                            
+                            if ((bonus as any).condicao_meta_tipo === "GINCANA_SEMANAL" || (bonus as any).condicao_meta_tipo === "SUPER_GINCANA_SEMANAL") {
+                                // Buscar meta da gincana semanal
+                                const periodoSemana = (bonus as any).periodo_semana;
+                                if (periodoSemana) {
+                                    const { data: gincanaMeta } = await supabase
+                                        .schema("sistemaretiradas")
+                                        .from("goals")
+                                        .select((bonus as any).condicao_meta_tipo === "SUPER_GINCANA_SEMANAL" ? "super_meta_valor" : "meta_valor")
+                                        .eq("colaboradora_id", colabId)
+                                        .eq("store_id", colab.profiles?.store_id)
+                                        .eq("semana_referencia", periodoSemana)
+                                        .eq("tipo", "SEMANAL")
+                                        .maybeSingle();
+                                    
+                                    if (gincanaMeta) {
+                                        metaValor = (bonus as any).condicao_meta_tipo === "SUPER_GINCANA_SEMANAL" 
+                                            ? parseFloat(gincanaMeta.super_meta_valor || 0)
+                                            : parseFloat(gincanaMeta.meta_valor || 0);
+                                    }
+                                }
+                            }
+                            
                             const progress = metaValor > 0 ? (totalVendido / metaValor) * 100 : 0;
 
                             // Verificar se atingiu a condição do bônus
                             let achieved = false;
                             if (bonus.tipo_condicao === "PERCENTUAL_META" && bonus.meta_minima_percentual) {
+                                achieved = progress >= bonus.meta_minima_percentual;
+                            } else if ((bonus as any).condicao_tipo === "META" && bonus.meta_minima_percentual) {
+                                // Para bônus com condicao_tipo = "META" (incluindo gincanas semanais)
                                 achieved = progress >= bonus.meta_minima_percentual;
                             }
 

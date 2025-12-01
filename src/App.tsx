@@ -19,7 +19,6 @@ import LojaDashboard from "./pages/LojaDashboard";
 import MetasManagement from "./components/MetasManagement";
 import BonusManagement from "./components/BonusManagement";
 import BenchmarksManagement from "./pages/BenchmarksManagement";
-import WeeklyGoalsManagement from "./components/WeeklyGoalsManagement";
 import ERPIntegrationsConfig from "./pages/ERPIntegrationsConfig";
 import ERPConfig from "./pages/dev/ERPConfig";
 import DevLogin from "./pages/dev/DevLogin";
@@ -59,7 +58,6 @@ const App = () => (
             <Route path="/admin/relatorios" element={<Relatorios />} />
             <Route path="/admin/colaboradores" element={<Colaboradores />} />
             <Route path="/admin/metas" element={<MetasManagement />} />
-            <Route path="/admin/metas-semanais" element={<WeeklyGoalsManagement />} />
             <Route path="/admin/bonus" element={<BonusManagement />} />
             <Route path="/admin/benchmarks" element={<BenchmarksManagement />} />
             <Route path="/admin/erp-integrations" element={<ERPIntegrationsConfig />} />

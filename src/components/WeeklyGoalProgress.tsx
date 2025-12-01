@@ -187,21 +187,30 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
 
             // Fetch weekly bonuses for the store
             const { data: bonusesData } = await supabase
+                .schema("sistemaretiradas")
                 .from("bonuses")
-                .select("tipo_condicao, valor_bonus")
+                .select("condicao_meta_tipo, valor_bonus, valor_bonus_texto, descricao_premio, periodo_semana")
                 .eq("ativo", true)
                 .or(`store_id.is.null,store_id.eq.${storeId}`)
-                .in("tipo_condicao", ["META_SEMANAL", "SUPER_META_SEMANAL"]);
+                .or(`condicao_meta_tipo.eq.GINCANA_SEMANAL,condicao_meta_tipo.eq.SUPER_GINCANA_SEMANAL`);
 
             let metaBonus = null;
             let superMetaBonus = null;
 
             if (bonusesData) {
-                const metaBonusData = bonusesData.find((b: any) => b.tipo_condicao === 'META_SEMANAL');
-                const superMetaBonusData = bonusesData.find((b: any) => b.tipo_condicao === 'SUPER_META_SEMANAL');
+                // Buscar bônus da semana atual
+                const metaBonusData = bonusesData.find((b: any) => 
+                    b.condicao_meta_tipo === 'GINCANA_SEMANAL' && 
+                    (b.periodo_semana === currentWeek || !b.periodo_semana)
+                );
+                const superMetaBonusData = bonusesData.find((b: any) => 
+                    b.condicao_meta_tipo === 'SUPER_GINCANA_SEMANAL' && 
+                    (b.periodo_semana === currentWeek || !b.periodo_semana)
+                );
                 
-                metaBonus = metaBonusData?.valor_bonus ? parseFloat(metaBonusData.valor_bonus) : null;
-                superMetaBonus = superMetaBonusData?.valor_bonus ? parseFloat(superMetaBonusData.valor_bonus) : null;
+                // Priorizar valor_bonus_texto (prêmio físico) ou valor_bonus (dinheiro) ou descricao_premio
+                metaBonus = metaBonusData?.valor_bonus_texto || metaBonusData?.descricao_premio || (metaBonusData?.valor_bonus ? parseFloat(metaBonusData.valor_bonus) : null);
+                superMetaBonus = superMetaBonusData?.valor_bonus_texto || superMetaBonusData?.descricao_premio || (superMetaBonusData?.valor_bonus ? parseFloat(superMetaBonusData.valor_bonus) : null);
             }
 
             setWeeklyBonuses({ meta_bonus: metaBonus, super_meta_bonus: superMetaBonus });
@@ -212,6 +221,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
             if (colaboradoraId) {
                 // Buscar meta individual mensal
                 const { data: goalData } = await supabase
+                    .schema("sistemaretiradas")
                     .from("goals")
                     .select("*, stores (name)")
                     .eq("store_id", storeId)
@@ -227,6 +237,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
             } else if (storeId) {
                 // Buscar meta mensal da loja
                 const { data: goalData } = await supabase
+                    .schema("sistemaretiradas")
                     .from("goals")
                     .select("*, stores (name)")
                     .eq("store_id", storeId)
@@ -297,6 +308,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                         
                         // Buscar vendas da semana anterior
                         const { data: salesSemanaAnterior } = await supabase
+                            .schema("sistemaretiradas")
                             .from("sales")
                             .select("valor")
                             .eq("colaboradora_id", colaboradoraId)
@@ -364,6 +376,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
             let weeklyBonusGoal: any = null;
             if (colaboradoraId) {
                 const { data: goalData } = await supabase
+                    .schema("sistemaretiradas")
                     .from("goals")
                     .select("*")
                     .eq("store_id", storeId)
@@ -376,6 +389,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
             } else if (storeId) {
                 // Para loja, buscar a primeira gincana semanal (se existir)
                 const { data: goalsData } = await supabase
+                    .schema("sistemaretiradas")
                     .from("goals")
                     .select("*")
                     .eq("store_id", storeId)
@@ -392,10 +406,12 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
             // Fetch sales for the week (incluindo colaboradoras desativadas até a data de desativação)
             const salesQuery = colaboradoraId
                 ? supabase
+                    .schema("sistemaretiradas")
                     .from("sales")
                     .select("valor, data_venda, colaboradora_id")
                     .eq("colaboradora_id", colaboradoraId)
                 : supabase
+                    .schema("sistemaretiradas")
                     .from("sales")
                     .select("valor, data_venda, colaboradora_id")
                     .eq("store_id", storeId);
@@ -408,6 +424,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
             let deactivationMap = new Map<string, string | null>();
             if (!colaboradoraId && storeId) {
                 const { data: colaboradorasInfo } = await supabase
+                    .schema("sistemaretiradas")
                     .from("profiles")
                     .select("id, active, updated_at")
                     .eq("role", "COLABORADORA")

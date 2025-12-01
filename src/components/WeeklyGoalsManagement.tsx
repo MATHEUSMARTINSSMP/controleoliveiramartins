@@ -401,46 +401,66 @@ const WeeklyGoalsManagement = () => {
     }, [selectedStore, selectedWeek]);
 
     // Função para calcular meta semanal usando pesos diários
+    // IMPORTANTE: Esta função considera apenas os dias do mês especificado
+    // Se a semana cruzar meses, cada mês deve ser calculado separadamente
     const calculateWeeklyGoalFromMonthly = (
         monthlyGoal: number, 
         dailyWeights: Record<string, number>, 
-        weekRange: { start: Date; end: Date }
+        weekRange: { start: Date; end: Date },
+        targetMonth?: { year: number; month: number } // Mês alvo para filtrar dias
     ): number => {
         console.log('[calculateWeeklyGoalFromMonthly] 📊 Iniciando cálculo:');
         console.log('[calculateWeeklyGoalFromMonthly] Meta mensal:', monthlyGoal);
         console.log('[calculateWeeklyGoalFromMonthly] Daily weights:', dailyWeights);
         console.log('[calculateWeeklyGoalFromMonthly] Week range:', weekRange);
+        console.log('[calculateWeeklyGoalFromMonthly] Target month:', targetMonth);
         
         // Obter todos os dias da semana (segunda a domingo)
         const weekDays = eachDayOfInterval({ start: weekRange.start, end: weekRange.end });
-        console.log('[calculateWeeklyGoalFromMonthly] Dias da semana:', weekDays.map(d => format(d, 'yyyy-MM-dd')));
+        console.log('[calculateWeeklyGoalFromMonthly] Dias da semana (todos):', weekDays.map(d => format(d, 'yyyy-MM-dd')));
+        
+        // Filtrar apenas os dias do mês alvo (se especificado)
+        const filteredWeekDays = targetMonth 
+            ? weekDays.filter(day => day.getFullYear() === targetMonth.year && day.getMonth() === targetMonth.month)
+            : weekDays;
+        
+        console.log('[calculateWeeklyGoalFromMonthly] Dias da semana (filtrados):', filteredWeekDays.map(d => format(d, 'yyyy-MM-dd')));
         
         // Se não houver daily_weights, dividir igualmente pelos dias do mês
         if (!dailyWeights || Object.keys(dailyWeights).length === 0) {
             console.warn('[calculateWeeklyGoalFromMonthly] ⚠️ Nenhum daily_weight encontrado, usando divisão proporcional');
-            const daysInMonth = new Date(weekRange.start.getFullYear(), weekRange.start.getMonth() + 1, 0).getDate();
+            const targetDate = targetMonth 
+                ? new Date(targetMonth.year, targetMonth.month, 1)
+                : weekRange.start;
+            const daysInMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0).getDate();
             const dailyGoal = monthlyGoal / daysInMonth;
-            const weeklyGoal = dailyGoal * 7; // 7 dias da semana
-            console.log('[calculateWeeklyGoalFromMonthly] Cálculo proporcional: dias no mês =', daysInMonth, ', meta semanal =', weeklyGoal);
+            const weeklyGoal = dailyGoal * filteredWeekDays.length; // Usar apenas dias do mês na semana
+            console.log('[calculateWeeklyGoalFromMonthly] Cálculo proporcional: dias no mês =', daysInMonth, ', dias na semana =', filteredWeekDays.length, ', meta semanal =', weeklyGoal);
             return weeklyGoal;
         }
         
         // IMPORTANTE: Os daily_weights somam 100% do mês inteiro
-        // Precisamos calcular a soma dos pesos dos dias da semana
+        // Precisamos calcular a soma dos pesos dos dias da semana (apenas do mês alvo)
         let somaPesosSemana = 0;
         const pesosDetalhados: string[] = [];
+        const diasSemPeso: string[] = [];
         
-        weekDays.forEach(day => {
+        filteredWeekDays.forEach(day => {
             const dayKey = format(day, 'yyyy-MM-dd');
             const dayWeight = dailyWeights[dayKey] || 0;
             somaPesosSemana += dayWeight;
             if (dayWeight > 0) {
                 pesosDetalhados.push(`${dayKey}: ${dayWeight}%`);
+            } else {
+                diasSemPeso.push(dayKey);
             }
         });
         
         console.log('[calculateWeeklyGoalFromMonthly] Soma dos pesos da semana:', somaPesosSemana + '%');
         console.log('[calculateWeeklyGoalFromMonthly] Pesos encontrados:', pesosDetalhados);
+        if (diasSemPeso.length > 0) {
+            console.warn('[calculateWeeklyGoalFromMonthly] ⚠️ Dias sem peso encontrados:', diasSemPeso);
+        }
         
         // Calcular meta semanal: (meta_mensal * soma_pesos_semana) / 100
         const totalWeeklyGoal = (monthlyGoal * somaPesosSemana) / 100;
@@ -508,18 +528,46 @@ const WeeklyGoalsManagement = () => {
                 try {
                     // Get month from week
                     const weekRange = getWeekRange(selectedWeek);
-                    const monthRef = format(weekRange.start, "yyyyMM");
                     
-                    // Get monthly goal for the store (incluindo daily_weights)
+                    // Verificar se a semana cruza meses
+                    const startMonth = { year: weekRange.start.getFullYear(), month: weekRange.start.getMonth() };
+                    const endMonth = { year: weekRange.end.getFullYear(), month: weekRange.end.getMonth() };
+                    const semanaCruzaMeses = startMonth.year !== endMonth.year || startMonth.month !== endMonth.month;
+                    
+                    console.log('[loadSuggestions] Semana cruza meses?', semanaCruzaMeses);
+                    console.log('[loadSuggestions] Mês início:', startMonth);
+                    console.log('[loadSuggestions] Mês fim:', endMonth);
+                    
+                    // Buscar metas mensais de ambos os meses se a semana cruzar
+                    const monthRefStart = format(weekRange.start, "yyyyMM");
+                    const monthRefEnd = semanaCruzaMeses ? format(weekRange.end, "yyyyMM") : monthRefStart;
+                    
+                    // Buscar meta do mês principal (onde a semana começa)
                     const { data: monthlyStoreGoal, error: goalError } = await supabase
                         .schema("sistemaretiradas")
                         .from("goals")
                         .select("meta_valor, super_meta_valor, daily_weights")
                         .eq("store_id", selectedStore)
                         .eq("tipo", "MENSAL")
-                        .eq("mes_referencia", monthRef)
+                        .eq("mes_referencia", monthRefStart)
                         .is("colaboradora_id", null)
                         .single();
+                    
+                    // Se a semana cruzar meses, buscar também a meta do segundo mês
+                    let monthlyStoreGoalEnd: any = null;
+                    if (semanaCruzaMeses && monthRefEnd !== monthRefStart) {
+                        const { data: goalEnd } = await supabase
+                            .schema("sistemaretiradas")
+                            .from("goals")
+                            .select("meta_valor, super_meta_valor, daily_weights")
+                            .eq("store_id", selectedStore)
+                            .eq("tipo", "MENSAL")
+                            .eq("mes_referencia", monthRefEnd)
+                            .is("colaboradora_id", null)
+                            .single();
+                        monthlyStoreGoalEnd = goalEnd?.data || null;
+                        console.log('[loadSuggestions] Meta do segundo mês encontrada:', monthlyStoreGoalEnd);
+                    }
 
                     if (goalError) {
                         console.error('[loadSuggestions] ❌ Erro ao buscar meta mensal:', goalError);
@@ -571,16 +619,74 @@ const WeeklyGoalsManagement = () => {
                             // Usar daily_weights já parseado
                             const dailyWeights = parsedDailyWeights;
                             
-                            const weeklyMetaTotal = calculateWeeklyGoalFromMonthly(
-                                monthlyStoreGoal.meta_valor, 
-                                dailyWeights, 
-                                weekRange
-                            );
-                            const weeklySuperMetaTotal = calculateWeeklyGoalFromMonthly(
-                                monthlyStoreGoal.super_meta_valor, 
-                                dailyWeights, 
-                                weekRange
-                            );
+                            let weeklyMetaTotal = 0;
+                            let weeklySuperMetaTotal = 0;
+                            
+                            if (semanaCruzaMeses && monthlyStoreGoalEnd) {
+                                // Semana cruza meses: calcular para cada mês separadamente
+                                console.log('[loadSuggestions] ⚠️ Semana cruza meses, calculando para cada mês separadamente');
+                                
+                                // Parsear daily_weights do segundo mês
+                                let parsedDailyWeightsEnd: Record<string, number> = {};
+                                if (monthlyStoreGoalEnd.daily_weights) {
+                                    if (typeof monthlyStoreGoalEnd.daily_weights === 'string') {
+                                        try {
+                                            parsedDailyWeightsEnd = JSON.parse(monthlyStoreGoalEnd.daily_weights);
+                                        } catch (e) {
+                                            console.error('[loadSuggestions] ❌ Erro ao parsear daily_weights do segundo mês:', e);
+                                        }
+                                    } else if (typeof monthlyStoreGoalEnd.daily_weights === 'object') {
+                                        parsedDailyWeightsEnd = monthlyStoreGoalEnd.daily_weights as Record<string, number>;
+                                    }
+                                }
+                                
+                                // Calcular para o primeiro mês
+                                const metaMes1 = calculateWeeklyGoalFromMonthly(
+                                    monthlyStoreGoal.meta_valor, 
+                                    dailyWeights, 
+                                    weekRange,
+                                    startMonth
+                                );
+                                const superMetaMes1 = calculateWeeklyGoalFromMonthly(
+                                    monthlyStoreGoal.super_meta_valor, 
+                                    dailyWeights, 
+                                    weekRange,
+                                    startMonth
+                                );
+                                
+                                // Calcular para o segundo mês
+                                const metaMes2 = calculateWeeklyGoalFromMonthly(
+                                    monthlyStoreGoalEnd.meta_valor, 
+                                    parsedDailyWeightsEnd, 
+                                    weekRange,
+                                    endMonth
+                                );
+                                const superMetaMes2 = calculateWeeklyGoalFromMonthly(
+                                    monthlyStoreGoalEnd.super_meta_valor, 
+                                    parsedDailyWeightsEnd, 
+                                    weekRange,
+                                    endMonth
+                                );
+                                
+                                weeklyMetaTotal = metaMes1 + metaMes2;
+                                weeklySuperMetaTotal = superMetaMes1 + superMetaMes2;
+                                
+                                console.log('[loadSuggestions] Meta mês 1:', metaMes1, 'Meta mês 2:', metaMes2, 'Total:', weeklyMetaTotal);
+                            } else {
+                                // Semana está em um único mês
+                                weeklyMetaTotal = calculateWeeklyGoalFromMonthly(
+                                    monthlyStoreGoal.meta_valor, 
+                                    dailyWeights, 
+                                    weekRange,
+                                    startMonth
+                                );
+                                weeklySuperMetaTotal = calculateWeeklyGoalFromMonthly(
+                                    monthlyStoreGoal.super_meta_valor, 
+                                    dailyWeights, 
+                                    weekRange,
+                                    startMonth
+                                );
+                            }
                             
                             console.log('[loadSuggestions] Meta semanal total (antes de dividir):', weeklyMetaTotal);
                             console.log('[loadSuggestions] Super meta semanal total (antes de dividir):', weeklySuperMetaTotal);
@@ -1028,6 +1134,118 @@ const WeeklyGoalsManagement = () => {
         })));
     };
 
+    // Função para criar bônus automaticamente quando uma gincana semanal é criada
+    const createBonusForWeeklyGincana = async (storeId: string, semanaReferencia: string) => {
+        try {
+            // Verificar se já existe um bônus para esta gincana semanal
+            const weekRange = getWeekRange(semanaReferencia);
+            const weekStartStr = format(weekRange.start, "dd/MM/yyyy");
+            const weekEndStr = format(weekRange.end, "dd/MM/yyyy");
+            
+            // Buscar loja para pegar o nome
+            const { data: store } = await supabase
+                .schema("sistemaretiradas")
+                .from("stores")
+                .select("name")
+                .eq("id", storeId)
+                .single();
+            
+            const storeName = store?.name || "Loja";
+            
+            // Verificar se já existe bônus para esta semana/loja com condicao_meta_tipo GINCANA_SEMANAL
+            const { data: existingBonus } = await supabase
+                .schema("sistemaretiradas")
+                .from("bonuses")
+                .select("id")
+                .eq("store_id", storeId)
+                .eq("periodo_semana", semanaReferencia)
+                .eq("condicao_meta_tipo", "GINCANA_SEMANAL")
+                .maybeSingle();
+            
+            if (existingBonus) {
+                console.log(`[createBonusForWeeklyGincana] ✅ Bônus já existe para gincana semanal ${semanaReferencia}`);
+                return;
+            }
+            
+            // Criar bônus para gincana semanal (meta)
+            const bonusGincanaPayload: any = {
+                nome: `🎯 Gincana Semanal - ${weekStartStr} a ${weekEndStr}`,
+                descricao: `Bônus automático para a gincana semanal de ${storeName}. Atingir 100% da meta da gincana semanal.`,
+                tipo: "VALOR_FIXO",
+                tipo_condicao: null, // Não usar META_SEMANAL (isso é para meta obrigatória)
+                meta_minima_percentual: 100,
+                vendas_minimas: null,
+                valor_bonus: 0, // Valor padrão, pode ser editado depois
+                descricao_premio: null,
+                valor_bonus_texto: null,
+                valor_bonus_1: null,
+                valor_bonus_2: null,
+                valor_bonus_3: null,
+                valor_bonus_texto_1: null,
+                valor_bonus_texto_2: null,
+                valor_bonus_texto_3: null,
+                valor_condicao: null,
+                ativo: true,
+                store_id: storeId,
+                condicao_tipo: "META",
+                condicao_ranking: null,
+                condicao_meta_tipo: "GINCANA_SEMANAL", // Etiqueta para identificar como gincana semanal (não meta obrigatória)
+                condicao_escopo: "INDIVIDUAL",
+                condicao_faturamento: null,
+                periodo_tipo: "SEMANAL",
+                periodo_data_inicio: format(weekRange.start, "yyyy-MM-dd"),
+                periodo_data_fim: format(weekRange.end, "yyyy-MM-dd"),
+                periodo_mes: null,
+                periodo_semana: semanaReferencia,
+                pre_requisitos: JSON.stringify(["Loja bateu meta mensal"]), // Pré-requisito padrão
+                enviar_notificacao_gincana: true, // Habilitar notificações automáticas
+            };
+            
+            const { data: bonusGincana, error: errorGincana } = await supabase
+                .schema("sistemaretiradas")
+                .from("bonuses")
+                .insert([bonusGincanaPayload])
+                .select()
+                .single();
+            
+            if (errorGincana) {
+                console.error(`[createBonusForWeeklyGincana] ❌ Erro ao criar bônus de gincana:`, errorGincana);
+                // Não bloquear o fluxo se falhar
+            } else {
+                console.log(`[createBonusForWeeklyGincana] ✅ Bônus de gincana criado:`, bonusGincana.id);
+            }
+            
+            // Criar bônus para super gincana semanal
+            const bonusSuperGincanaPayload = {
+                ...bonusGincanaPayload,
+                nome: `🏆 Super Gincana Semanal - ${weekStartStr} a ${weekEndStr}`,
+                descricao: `Bônus automático para a super gincana semanal de ${storeName}. Atingir 100% da super meta da gincana semanal.`,
+                condicao_meta_tipo: "SUPER_GINCANA_SEMANAL", // Etiqueta para identificar como super gincana semanal
+            };
+            
+            const { data: bonusSuperGincana, error: errorSuperGincana } = await supabase
+                .schema("sistemaretiradas")
+                .from("bonuses")
+                .insert([bonusSuperGincanaPayload])
+                .select()
+                .single();
+            
+            if (errorSuperGincana) {
+                console.error(`[createBonusForWeeklyGincana] ❌ Erro ao criar bônus de super gincana:`, errorSuperGincana);
+                // Não bloquear o fluxo se falhar
+            } else {
+                console.log(`[createBonusForWeeklyGincana] ✅ Bônus de super gincana criado:`, bonusSuperGincana.id);
+            }
+            
+            if (!errorGincana && !errorSuperGincana) {
+                console.log(`[createBonusForWeeklyGincana] ✅ Bônus criados automaticamente para gincana semanal ${semanaReferencia}`);
+            }
+        } catch (err) {
+            console.error(`[createBonusForWeeklyGincana] ❌ Erro ao criar bônus:`, err);
+            // Não bloquear o fluxo principal se falhar
+        }
+    };
+
     const handleSaveWeeklyGoals = async (colabsWithGoals: { id: string; meta: number; superMeta: number }[]) => {
         // Validações iniciais
         if (!selectedStore || !selectedWeek || colabsWithGoals.length === 0) {
@@ -1233,6 +1451,9 @@ const WeeklyGoalsManagement = () => {
                     const successCount = individualResults.length;
                     toast.success(`Gincanas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${successCount} colaboradora(s)!`);
                     
+                    // Criar bônus automaticamente para a gincana semanal
+                    await createBonusForWeeklyGincana(selectedStore, selectedWeek);
+                    
                     // Enviar notificações WhatsApp
                     await sendGincanaNotifications(selectedStore, selectedWeek, colabsWithGoals, successCount);
                 } else {
@@ -1242,6 +1463,9 @@ const WeeklyGoalsManagement = () => {
                 // Sucesso no batch insert!
                 const successCount = insertData?.length || uniqueColabsList.length;
                 toast.success(`Gincanas semanais ${editingGoal ? 'atualizadas' : 'criadas'} para ${successCount} colaboradora(s)!`);
+                
+                // Criar bônus automaticamente para a gincana semanal
+                await createBonusForWeeklyGincana(selectedStore, selectedWeek);
                 
                 // Enviar notificações WhatsApp
                 await sendGincanaNotifications(selectedStore, selectedWeek, colabsWithGoals, successCount);
