@@ -506,7 +506,7 @@ const MetasManagementContent = () => {
         })));
     };
 
-    const createBonusForWeeklyGincana = async (storeId: string, semanaReferencia: string) => {
+    const createBonusForWeeklyGincana = async (storeId: string, semanaReferencia: string, selectedColabIds: string[]) => {
         try {
             const weekRange = getWeekRange(semanaReferencia);
             const weekStartStr = format(weekRange.start, "dd/MM/yyyy");
@@ -520,6 +520,9 @@ const MetasManagementContent = () => {
                 .single();
             
             const storeName = store?.name || "Loja";
+            
+            // Usar as colaboradoras selecionadas passadas como parâmetro
+            const activeColabIds = selectedColabIds;
             
             const { data: existingBonus } = await supabase
                 .schema("sistemaretiradas")
@@ -546,6 +549,25 @@ const MetasManagementContent = () => {
                     })
                     .eq("id", existingBonus.id);
                 
+                // Atualizar colaboradoras vinculadas
+                await supabase
+                    .schema("sistemaretiradas")
+                    .from("bonus_collaborators")
+                    .delete()
+                    .eq("bonus_id", existingBonus.id);
+                
+                if (activeColabIds.length > 0) {
+                    const collaboratorsPayload = activeColabIds.map(colabId => ({
+                        bonus_id: existingBonus.id,
+                        colaboradora_id: colabId,
+                        active: true
+                    }));
+                    await supabase
+                        .schema("sistemaretiradas")
+                        .from("bonus_collaborators")
+                        .insert(collaboratorsPayload);
+                }
+                
                 const { data: existingSuperBonus } = await supabase
                     .schema("sistemaretiradas")
                     .from("bonuses")
@@ -565,6 +587,25 @@ const MetasManagementContent = () => {
                             descricao_premio: isPremioFisicoCheckpointFinal ? premioCheckpointFinal : null
                         })
                         .eq("id", existingSuperBonus.id);
+                    
+                    // Atualizar colaboradoras vinculadas
+                    await supabase
+                        .schema("sistemaretiradas")
+                        .from("bonus_collaborators")
+                        .delete()
+                        .eq("bonus_id", existingSuperBonus.id);
+                    
+                    if (activeColabIds.length > 0) {
+                        const collaboratorsPayload = activeColabIds.map(colabId => ({
+                            bonus_id: existingSuperBonus.id,
+                            colaboradora_id: colabId,
+                            active: true
+                        }));
+                        await supabase
+                            .schema("sistemaretiradas")
+                            .from("bonus_collaborators")
+                            .insert(collaboratorsPayload);
+                    }
                 }
                 
                 return;
@@ -576,8 +617,8 @@ const MetasManagementContent = () => {
             const valorBonusTextoFinal = isPremioFisicoCheckpointFinal ? premioCheckpointFinal : null;
             
             const bonusGincanaPayload: any = {
-                nome: `🎯 Gincana Semanal - ${weekStartStr} a ${weekEndStr}`,
-                descricao: `Bônus automático para a gincana semanal de ${storeName}. Atingir 100% da meta da gincana semanal.`,
+                nome: `🎯 Gincana Semanal ${storeName} - ${weekStartStr} a ${weekEndStr}`,
+                descricao: `Gincana semanal de ${storeName}. Atingir 100% da meta de faturamento da gincana semanal para ganhar o prêmio.`,
                 tipo: "VALOR_FIXO",
                 tipo_condicao: null,
                 meta_minima_percentual: 100,
@@ -594,8 +635,8 @@ const MetasManagementContent = () => {
                 valor_condicao: null,
                 ativo: true,
                 store_id: storeId,
-                condicao_tipo: "META",
-                condicao_ranking: null,
+                condicao_tipo: "META", // Condição baseada em meta (todas que atingirem ganham)
+                condicao_ranking: null, // Todas que atingirem ganham (não é ranking)
                 condicao_meta_tipo: "GINCANA_SEMANAL",
                 condicao_escopo: "INDIVIDUAL",
                 condicao_faturamento: null,
@@ -617,12 +658,23 @@ const MetasManagementContent = () => {
             
             if (errorGincana) {
                 console.error(`[createBonusForWeeklyGincana] Erro ao criar bônus de gincana:`, errorGincana);
+            } else if (bonusGincana && activeColabIds.length > 0) {
+                // Vincular colaboradoras ativas ao bônus
+                const collaboratorsPayload = activeColabIds.map(colabId => ({
+                    bonus_id: bonusGincana.id,
+                    colaboradora_id: colabId,
+                    active: true
+                }));
+                await supabase
+                    .schema("sistemaretiradas")
+                    .from("bonus_collaborators")
+                    .insert(collaboratorsPayload);
             }
             
             const bonusSuperGincanaPayload = {
                 ...bonusGincanaPayload,
-                nome: `🏆 Super Gincana Semanal - ${weekStartStr} a ${weekEndStr}`,
-                descricao: `Bônus automático para a super gincana semanal de ${storeName}. Atingir 100% da super meta da gincana semanal.`,
+                nome: `🏆 Super Gincana Semanal ${storeName} - ${weekStartStr} a ${weekEndStr}`,
+                descricao: `Super gincana semanal de ${storeName}. Atingir 100% da super meta de faturamento da gincana semanal para ganhar o prêmio.`,
                 condicao_meta_tipo: "SUPER_GINCANA_SEMANAL",
                 valor_bonus: valorBonusFinal,
                 descricao_premio: isPremioFisicoCheckpointFinal ? premioCheckpointFinal : null,
@@ -638,6 +690,17 @@ const MetasManagementContent = () => {
             
             if (errorSuperGincana) {
                 console.error(`[createBonusForWeeklyGincana] Erro ao criar bônus de super gincana:`, errorSuperGincana);
+            } else if (bonusSuperGincana && activeColabIds.length > 0) {
+                // Vincular colaboradoras ativas ao bônus
+                const collaboratorsPayload = activeColabIds.map(colabId => ({
+                    bonus_id: bonusSuperGincana.id,
+                    colaboradora_id: colabId,
+                    active: true
+                }));
+                await supabase
+                    .schema("sistemaretiradas")
+                    .from("bonus_collaborators")
+                    .insert(collaboratorsPayload);
             }
         } catch (err) {
             console.error(`[createBonusForWeeklyGincana] Erro ao criar bônus:`, err);
@@ -786,7 +849,9 @@ const MetasManagementContent = () => {
 
             if (insertError) throw insertError;
 
-            await createBonusForWeeklyGincana(selectedStore, selectedWeek);
+            // Extrair IDs das colaboradoras que têm metas definidas (são as selecionadas)
+            const selectedColabIds = colabsWithGoals.map(c => c.id);
+            await createBonusForWeeklyGincana(selectedStore, selectedWeek, selectedColabIds);
 
             toast.success("Gincana semanal salva com sucesso!");
             setWeeklyDialogOpen(false);
@@ -844,7 +909,9 @@ const MetasManagementContent = () => {
 
             if (insertError) throw insertError;
 
-            await createBonusForWeeklyGincana(selectedStore, selectedWeek);
+            // Extrair IDs das colaboradoras que têm metas definidas (são as selecionadas)
+            const selectedColabIds = colabsWithGoals.map(c => c.id);
+            await createBonusForWeeklyGincana(selectedStore, selectedWeek, selectedColabIds);
 
             toast.success("Gincana semanal criada com sucesso!");
             setWeeklyDialogOpen(false);
