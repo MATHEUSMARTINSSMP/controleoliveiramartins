@@ -160,44 +160,73 @@ BEGIN
         );
       ELSE
         -- ✅ CRIAR NOVA VENDA COM PROTEÇÃO CONTRA DUPLICATAS
-        -- Usar INSERT ... ON CONFLICT para garantir que não haverá duplicatas mesmo em execuções simultâneas
+        -- Usar INSERT com EXCEPTION para tratar unique_violation (race conditions)
         -- O índice único idx_sales_tiny_order_id_unique garante que cada pedido gere apenas uma venda
-        -- IMPORTANTE: Para índices parciais, precisamos usar o nome do índice explicitamente
-        INSERT INTO sistemaretiradas.sales (
-          tiny_order_id,
-          colaboradora_id,
-          store_id,
-          valor,
-          qtd_pecas,
-          data_venda,
-          observacoes,
-          lancado_por_id
-        ) VALUES (
-          v_pedido.tiny_order_id,
-          v_pedido.colaboradora_id,
-          v_pedido.store_id,
-          v_pedido.valor_total, -- ✅ O valor_total já está correto (vale troca descontado no tiny_orders)
-          v_qtd_pecas,
-          v_pedido.data_pedido,
-          v_observacoes,
-          NULL -- Vendas do ERP não têm lancado_por_id
-        )
-        ON CONFLICT ON CONSTRAINT idx_sales_tiny_order_id_unique
-        DO UPDATE SET
-          colaboradora_id = EXCLUDED.colaboradora_id,
-          store_id = EXCLUDED.store_id,
-          valor = EXCLUDED.valor,
-          qtd_pecas = EXCLUDED.qtd_pecas,
-          data_venda = EXCLUDED.data_venda,
-          observacoes = EXCLUDED.observacoes,
-          updated_at = NOW()
-        RETURNING id INTO v_sale_id;
-        
-        -- ✅ ON CONFLICT garante que não haverá duplicatas
-        -- Se chegou aqui, a venda foi criada (ou atualizada pelo ON CONFLICT)
-        -- Como o LEFT JOIN já filtra vendas existentes, contamos como criada
-        -- O ON CONFLICT é apenas uma proteção adicional contra race conditions
-        v_vendas_criadas := v_vendas_criadas + 1;
+        -- IMPORTANTE: Índices parciais não funcionam bem com ON CONFLICT, então usamos EXCEPTION
+        BEGIN
+          INSERT INTO sistemaretiradas.sales (
+            tiny_order_id,
+            colaboradora_id,
+            store_id,
+            valor,
+            qtd_pecas,
+            data_venda,
+            observacoes,
+            lancado_por_id
+          ) VALUES (
+            v_pedido.tiny_order_id,
+            v_pedido.colaboradora_id,
+            v_pedido.store_id,
+            v_pedido.valor_total, -- ✅ O valor_total já está correto (vale troca descontado no tiny_orders)
+            v_qtd_pecas,
+            v_pedido.data_pedido,
+            v_observacoes,
+            NULL -- Vendas do ERP não têm lancado_por_id
+          )
+          RETURNING id INTO v_sale_id;
+          
+          -- ✅ Inserção bem-sucedida
+          v_vendas_criadas := v_vendas_criadas + 1;
+          
+          v_detalhes := v_detalhes || jsonb_build_object(
+            'tipo', 'criada',
+            'tiny_order_id', v_pedido.tiny_order_id,
+            'sale_id', v_sale_id,
+            'numero_pedido', v_pedido.numero_pedido,
+            'valor', v_pedido.valor_total,
+            'qtd_pecas', v_qtd_pecas
+          );
+        EXCEPTION
+          WHEN unique_violation THEN
+            -- Se já existe (race condition), buscar e atualizar
+            SELECT id INTO v_sale_id
+            FROM sistemaretiradas.sales
+            WHERE tiny_order_id = v_pedido.tiny_order_id;
+            
+            IF v_sale_id IS NOT NULL THEN
+              UPDATE sistemaretiradas.sales
+              SET
+                colaboradora_id = v_pedido.colaboradora_id,
+                store_id = v_pedido.store_id,
+                valor = v_pedido.valor_total,
+                qtd_pecas = v_qtd_pecas,
+                data_venda = v_pedido.data_pedido,
+                observacoes = v_observacoes,
+                updated_at = NOW()
+              WHERE id = v_sale_id;
+              
+              v_vendas_atualizadas := v_vendas_atualizadas + 1;
+              
+              v_detalhes := v_detalhes || jsonb_build_object(
+                'tipo', 'atualizada_apos_conflito',
+                'tiny_order_id', v_pedido.tiny_order_id,
+                'sale_id', v_sale_id,
+                'numero_pedido', v_pedido.numero_pedido,
+                'valor', v_pedido.valor_total,
+                'qtd_pecas', v_qtd_pecas
+              );
+            END IF;
+        END;
         
         v_detalhes := v_detalhes || jsonb_build_object(
           'tipo', 'criada',
