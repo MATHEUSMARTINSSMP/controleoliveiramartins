@@ -147,10 +147,28 @@ export const CRMManagement = () => {
       id: '1',
       title: 'Ligar para João Silva',
       cliente: 'João Silva',
-      dueDate: format(new Date(), 'HH:mm'),
+      dueDate: '14:00',
       priority: 'ALTA',
       status: 'PENDENTE',
       storeName: 'Loja Principal',
+    },
+    {
+      id: '2',
+      title: 'Enviar proposta para cliente X',
+      cliente: 'Cliente X',
+      dueDate: '10:30',
+      priority: 'MÉDIA',
+      status: 'PENDENTE',
+      storeName: 'Loja Centro',
+    },
+    {
+      id: '3',
+      title: 'Acompanhar entrega de pedido',
+      cliente: 'Ana Costa',
+      dueDate: '16:00',
+      priority: 'BAIXA',
+      status: 'CONCLUÍDA',
+      storeName: 'Loja Sul',
     },
   ];
 
@@ -159,14 +177,40 @@ export const CRMManagement = () => {
       id: '1',
       cliente: 'Maria Santos',
       phone: '11999999999',
-      defaultMessage: 'Feliz Aniversário! Aproveite nosso cupom HAPPY20 com 20% OFF',
+      defaultMessage: 'Feliz Aniversário! Aproveite nosso cupom HAPPY20 com 20% OFF em sua próxima compra!',
       storeName: 'Loja Centro',
+    },
+    {
+      id: '2',
+      cliente: 'Pedro Oliveira',
+      phone: '11988888888',
+      defaultMessage: 'Parabéns! Temos um presente especial para você. Visite-nos para saber mais!',
+      storeName: 'Loja Principal',
     },
   ];
 
-  const generateSamplePostSales = (): PostSale[] => [];
+  const generateSamplePostSales = (): PostSale[] => [
+    {
+      id: '1',
+      cliente: 'Carla Silva',
+      saleDate: '2025-11-28',
+      scheduledFollowUp: '2025-12-05',
+      details: 'Compra de vestido preto. Cliente quer ajustes.',
+      status: 'AGENDADA',
+      storeName: 'Loja Principal',
+    },
+  ];
 
-  const generateSampleCommitments = (): CRMCommitment[] => [];
+  const generateSampleCommitments = (): CRMCommitment[] => [
+    {
+      id: '1',
+      cliente: 'Lucas Martins',
+      type: 'FOLLOW_UP',
+      scheduledDate: '2025-12-02T10:00',
+      notes: 'Verificar satisfação com compra anterior',
+      storeName: 'Loja Centro',
+    },
+  ];
 
   const handleSaveContact = async () => {
     if (!formData.nome) {
@@ -334,15 +378,17 @@ export const CRMManagement = () => {
         </CardContent>
       </Card>
 
-      {/* Abas */}
-      <div className="flex gap-2 flex-wrap">
-        {(['tasks', 'birthdays', 'postsales', 'commitments', 'contacts'] as const).map(tab => (
-          <Button
-            key={tab}
-            variant={activeTab === tab ? 'default' : 'outline'}
-            onClick={() => setActiveTab(tab)}
-            className="text-xs sm:text-sm"
-          >
+      {/* Abas - Bem Visível */}
+      <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-accent/5">
+        <CardContent className="pt-4">
+          <div className="flex gap-2 flex-wrap">
+            {(['tasks', 'birthdays', 'postsales', 'commitments', 'contacts'] as const).map(tab => (
+              <Button
+                key={tab}
+                variant={activeTab === tab ? 'default' : 'outline'}
+                onClick={() => setActiveTab(tab)}
+                className="text-xs sm:text-sm font-semibold shadow-sm"
+              >
             {tab === 'tasks' && <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />}
             {tab === 'birthdays' && <Gift className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />}
             {tab === 'postsales' && <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />}
@@ -362,9 +408,11 @@ export const CRMManagement = () => {
               {tab === 'commitments' && 'Comp.'}
               {tab === 'contacts' && 'Contatos'}
             </span>
-          </Button>
-        ))}
-      </div>
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* TAREFAS */}
       {activeTab === 'tasks' && (
@@ -621,20 +669,80 @@ export const CRMManagement = () => {
       )}
 
       {/* PÓS-VENDAS e COMPROMISSOS (placeholders) */}
+      {/* PÓS-VENDAS */}
       {activeTab === 'postsales' && (
         <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            <CheckCircle2 className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            Pós-vendas será preenchida automaticamente após registrar vendas no sistema
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5" />
+              Pós-Vendas Agendadas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {postSales.length === 0 ? (
+              <p className="text-center text-muted-foreground py-4">Nenhuma pós-venda registrada</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Cliente</TableHead>
+                      <TableHead className="text-xs hidden sm:table-cell">Loja</TableHead>
+                      <TableHead className="text-xs hidden md:table-cell">Venda</TableHead>
+                      <TableHead className="text-xs">Follow-up</TableHead>
+                      <TableHead className="text-xs text-right">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {postSales.map(ps => (
+                      <TableRow key={ps.id}>
+                        <TableCell className="text-xs font-medium">{ps.cliente}</TableCell>
+                        <TableCell className="text-xs hidden sm:table-cell text-muted-foreground">{ps.storeName}</TableCell>
+                        <TableCell className="text-xs hidden md:table-cell text-muted-foreground">{format(new Date(ps.saleDate), 'dd/MM')}</TableCell>
+                        <TableCell className="text-xs">{format(new Date(ps.scheduledFollowUp), 'dd/MM')}</TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant={ps.status === 'AGENDADA' ? 'default' : 'secondary'} className="text-xs">
+                            {ps.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
+      {/* COMPROMISSOS */}
       {activeTab === 'commitments' && (
         <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            Gerenciamento de compromissos (em desenvolvimento)
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Compromissos de CRM
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {commitments.length === 0 ? (
+              <p className="text-center text-muted-foreground py-4">Nenhum compromisso agendado</p>
+            ) : (
+              <div className="space-y-3">
+                {commitments.map(comp => (
+                  <div key={comp.id} className="p-3 bg-muted/50 rounded-lg border flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{comp.cliente}</p>
+                      <p className="text-xs text-muted-foreground">{comp.storeName} • {comp.type}</p>
+                      <p className="text-xs mt-1">{comp.notes}</p>
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {format(new Date(comp.scheduledDate), 'dd/MM HH:mm')}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
