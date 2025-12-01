@@ -697,10 +697,10 @@ const ColaboradoraDashboard = () => {
             <ColaboradoraCommercial />
             {profile && (
               <>
-                <Achievements 
-                  colaboradoraId={profile.id} 
-                  storeId={profile.store_id || getStoreIdFromProfile(profile) || ''} 
-                />
+              <Achievements 
+                colaboradoraId={profile.id} 
+                storeId={profile.store_id || getStoreIdFromProfile(profile) || ''} 
+              />
                 <WeeklyGincanaResults 
                   storeId={profile.store_id || getStoreIdFromProfile(profile) || ''}
                   colaboradoraId={profile.id}

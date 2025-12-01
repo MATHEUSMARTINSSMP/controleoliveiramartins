@@ -71,22 +71,22 @@ async function verificarNovaVenda(
     let checkResponse;
     try {
       checkResponse = await fetch(checkUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        store_id: storeId,
+        endpoint: '/pedidos',
+        params: {
+          // ✅ SEM situacao - buscar todos e filtrar depois
+          limit: 10, // Buscar 10 para garantir que encontramos um válido
+          ordenar: 'numeroPedido|DESC', // Último pedido primeiro
         },
-        body: JSON.stringify({
-          store_id: storeId,
-          endpoint: '/pedidos',
-          params: {
-            // ✅ SEM situacao - buscar todos e filtrar depois
-            limit: 10, // Buscar 10 para garantir que encontramos um válido
-            ordenar: 'numeroPedido|DESC', // Último pedido primeiro
-          },
-          method: 'GET',
-        }),
+        method: 'GET',
+      }),
         signal: controller.signal,
-      });
+    });
       clearTimeout(timeoutId);
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
@@ -512,24 +512,24 @@ serve(async (req) => {
         // ✅ Para incremental_1min: Verificar se há nova venda antes de sincronizar
         if (tipoSync === 'incremental_1min') {
           try {
-            const { temNovaVenda, ultimoNumeroConhecido } = await verificarNovaVenda(supabase, storeId, netlifyUrl);
+          const { temNovaVenda, ultimoNumeroConhecido } = await verificarNovaVenda(supabase, storeId, netlifyUrl);
 
-            if (!temNovaVenda) {
-              console.log(`[SyncTinyOrders] ⏭️ Sem nova venda detectada para loja ${storeName}. Pulando sincronização.`);
-              results.push({
-                store_id: storeId,
-                store_name: storeName,
-                success: true,
-                synced: 0,
-                updated: 0,
-                errors: 0,
-                message: 'Sem nova venda detectada. Sincronização não necessária.',
-              });
-              continue; // Pular para próxima loja
-            }
+          if (!temNovaVenda) {
+            console.log(`[SyncTinyOrders] ⏭️ Sem nova venda detectada para loja ${storeName}. Pulando sincronização.`);
+            results.push({
+              store_id: storeId,
+              store_name: storeName,
+              success: true,
+              synced: 0,
+              updated: 0,
+              errors: 0,
+              message: 'Sem nova venda detectada. Sincronização não necessária.',
+            });
+            continue; // Pular para próxima loja
+          }
 
-            console.log(`[SyncTinyOrders] ✅ Nova venda detectada para loja ${storeName}! Último conhecido: ${ultimoNumeroConhecido || 'nenhum'}.`);
-            syncParams.ultimo_numero_conhecido = ultimoNumeroConhecido;
+          console.log(`[SyncTinyOrders] ✅ Nova venda detectada para loja ${storeName}! Último conhecido: ${ultimoNumeroConhecido || 'nenhum'}.`);
+          syncParams.ultimo_numero_conhecido = ultimoNumeroConhecido;
           } catch (pollingError: any) {
             // Se o polling falhar, continuar com a sincronização por segurança
             console.error(`[SyncTinyOrders] ⚠️ Erro no polling inteligente para loja ${storeName}:`, pollingError?.message || pollingError);
@@ -614,18 +614,18 @@ serve(async (req) => {
     for (const result of results) {
       try {
         const { error: logError } = await supabase
-          .schema('sistemaretiradas')
-          .from('erp_sync_logs')
-          .insert({
-            store_id: result.store_id,
-            sistema_erp: 'TINY',
+        .schema('sistemaretiradas')
+        .from('erp_sync_logs')
+        .insert({
+          store_id: result.store_id,
+          sistema_erp: 'TINY',
             tipo_sync: tipoSync || 'PEDIDOS_AUTO',
-            status: result.success ? 'SUCCESS' : 'ERROR',
-            registros_sincronizados: result.synced,
-            registros_atualizados: result.updated,
-            registros_com_erro: result.errors,
-            error_message: result.success ? null : result.message,
-            sync_at: new Date().toISOString(),
+          status: result.success ? 'SUCCESS' : 'ERROR',
+          registros_sincronizados: result.synced,
+          registros_atualizados: result.updated,
+          registros_com_erro: result.errors,
+          error_message: result.success ? null : result.message,
+          sync_at: new Date().toISOString(),
           });
 
         if (logError) {

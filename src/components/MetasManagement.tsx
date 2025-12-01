@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash, UserCheck, Calendar, Check, Store, Calculator, Save, ClipboardList, Edit, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Plus, Pencil, Trash, UserCheck, Calendar, Check, Store, Calculator, Save, ClipboardList, Edit, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { format, getDaysInMonth, setDate, isWeekend, getDay, startOfWeek, endOfWeek, getWeek, getYear, addWeeks, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -130,6 +130,7 @@ const MetasManagementContent = () => {
     const [premioCheckpointFinal, setPremioCheckpointFinal] = useState<string>(""); // Prêmio para checkpoint final (super meta)
     const [isPremioFisicoCheckpoint1, setIsPremioFisicoCheckpoint1] = useState<boolean>(false);
     const [isPremioFisicoCheckpointFinal, setIsPremioFisicoCheckpointFinal] = useState<boolean>(false);
+    const [savingWeeklyGoal, setSavingWeeklyGoal] = useState(false);
 
     function getCurrentWeekRef(): string {
         const hoje = new Date();
@@ -670,7 +671,138 @@ const MetasManagementContent = () => {
         }
     };
 
+    const prepareWeeklyGoalsData = (): { id: string; meta: number; superMeta: number }[] => {
+        const activeColabs = colaboradorasAtivas.filter(c => c.active);
+        
+        if (activeColabs.length === 0) {
+            return [];
+        }
+
+        // Se está personalizando e tem metas individuais definidas, usar elas
+        if (customizingGoals && customMetasIndividuais.length > 0) {
+            return activeColabs.map(colab => {
+                const customMeta = customMetasIndividuais.find(cm => cm.id === colab.id);
+                if (customMeta && (customMeta.meta > 0 || customMeta.superMeta > 0)) {
+                    return {
+                        id: colab.id,
+                        meta: customMeta.meta,
+                        superMeta: customMeta.superMeta
+                    };
+                }
+                // Se não tem meta individual, usar valores iguais se existirem
+                if (customMetaEqual && customSuperMetaEqual) {
+                    return {
+                        id: colab.id,
+                        meta: parseFloat(customMetaEqual) || 0,
+                        superMeta: parseFloat(customSuperMetaEqual) || 0
+                    };
+                }
+                // Fallback para sugestões
+                return {
+                    id: colab.id,
+                    meta: suggestedWeeklyMeta || 0,
+                    superMeta: suggestedWeeklySuperMeta || 0
+                };
+            }).filter(c => c.meta > 0 || c.superMeta > 0);
+        }
+
+        // Se está personalizando mas não tem individuais, usar valores iguais
+        if (customizingGoals && customMetaEqual && customSuperMetaEqual) {
+            const metaValue = parseFloat(customMetaEqual) || 0;
+            const superMetaValue = parseFloat(customSuperMetaEqual) || 0;
+            if (metaValue > 0 || superMetaValue > 0) {
+                return activeColabs.map(colab => ({
+                    id: colab.id,
+                    meta: metaValue,
+                    superMeta: superMetaValue
+                }));
+            }
+        }
+
+        // Senão, usar sugestões
+        if (suggestedWeeklyMeta > 0 || suggestedWeeklySuperMeta > 0) {
+            return activeColabs.map(colab => ({
+                id: colab.id,
+                meta: suggestedWeeklyMeta,
+                superMeta: suggestedWeeklySuperMeta
+            }));
+        }
+
+        return [];
+    };
+
+    const handleSaveWeeklyGoal = async () => {
+        if (!selectedStore || !selectedWeek) {
+            toast.error("Selecione uma loja e uma semana");
+            return;
+        }
+
+        const activeColabs = colaboradorasAtivas.filter(c => c.active);
+        if (activeColabs.length === 0) {
+            toast.error("Selecione pelo menos uma colaboradora para receber a gincana semanal");
+            return;
+        }
+
+        const colabsWithGoals = prepareWeeklyGoalsData();
+        
+        if (colabsWithGoals.length === 0) {
+            toast.error("Defina as metas para as colaboradoras. Use as sugestões ou personalize as metas.");
+            return;
+        }
+
+        if (selectedWeek.length !== 6 || !/^\d{6}$/.test(selectedWeek)) {
+            toast.error("Formato de semana inválido");
+            return;
+        }
+
+        setSavingWeeklyGoal(true);
+
+        try {
+            const payloads = colabsWithGoals.map(colab => ({
+                store_id: selectedStore,
+                semana_referencia: selectedWeek,
+                tipo: "SEMANAL",
+                meta_valor: colab.meta,
+                super_meta_valor: colab.superMeta,
+                colaboradora_id: colab.id,
+                ativo: true,
+                mes_referencia: null,
+            }));
+
+            const { error: deleteError } = await supabase
+                .schema("sistemaretiradas")
+                .from("goals")
+                .delete()
+                .eq("store_id", selectedStore)
+                .eq("semana_referencia", selectedWeek)
+                .eq("tipo", "SEMANAL");
+
+            if (deleteError) throw deleteError;
+
+            const { error: insertError } = await supabase
+                .schema("sistemaretiradas")
+                .from("goals")
+                .insert(payloads);
+
+            if (insertError) throw insertError;
+
+            await createBonusForWeeklyGincana(selectedStore, selectedWeek);
+
+            toast.success("Gincana semanal salva com sucesso!");
+            setWeeklyDialogOpen(false);
+            resetWeeklyForm();
+            fetchWeeklyGoals();
+        } catch (err: any) {
+            console.error("Error saving weekly goals:", err);
+            toast.error(err.message || "Erro ao salvar gincana semanal");
+        } finally {
+            setSavingWeeklyGoal(false);
+        }
+    };
+
     const handleSaveWeeklyGoals = async (colabsWithGoals: { id: string; meta: number; superMeta: number }[]) => {
+        // Função mantida para compatibilidade, mas não deve ser usada diretamente
+        // Use handleSaveWeeklyGoal() que prepara os dados automaticamente
         if (!selectedStore || !selectedWeek || colabsWithGoals.length === 0) {
             toast.error("Preencha todos os campos obrigatórios");
             return;
@@ -680,6 +812,8 @@ const MetasManagementContent = () => {
             toast.error("Formato de semana inválido");
             return;
         }
+
+        setSavingWeeklyGoal(true);
 
         try {
             const payloads = colabsWithGoals.map(colab => ({
@@ -719,6 +853,8 @@ const MetasManagementContent = () => {
         } catch (err: any) {
             console.error("Error saving weekly goals:", err);
             toast.error(err.message || "Erro ao salvar gincana semanal");
+        } finally {
+            setSavingWeeklyGoal(false);
         }
     };
 
@@ -1809,79 +1945,110 @@ const MetasManagementContent = () => {
 
                 {/* Semanal Tab */}
                 <TabsContent value="semanal" className="space-y-6 mt-6">
-                    {/* Weekly Goals List - Estrutura simples melhorada */}
-                    <div className="space-y-4">
+                    {/* Weekly Goals List - Agrupado por Loja */}
+                    <div className="space-y-6">
                         {Object.entries(
                             weeklyGoals.reduce((acc, goal) => {
-                                const key = `${goal.store_id}-${goal.semana_referencia}`;
-                                if (!acc[key]) {
-                                    acc[key] = {
+                                const storeId = goal.store_id || 'unknown';
+                                if (!acc[storeId]) {
+                                    acc[storeId] = {
                                         store: goal.stores,
-                                        semana_referencia: goal.semana_referencia,
+                                        semanas: {} as Record<string, any>
+                                    };
+                                }
+                                
+                                const semanaRef = goal.semana_referencia || '';
+                                if (!acc[storeId].semanas[semanaRef]) {
+                                    acc[storeId].semanas[semanaRef] = {
+                                        semana_referencia: semanaRef,
                                         goals: []
                                     };
                                 }
-                                acc[key].goals.push(goal);
+                                acc[storeId].semanas[semanaRef].goals.push(goal);
                                 return acc;
                             }, {} as Record<string, any>)
                         )
                         .sort(([_, a]: [string, any], [__, b]: [string, any]) => {
-                            // Ordenar por semana (mais recentes primeiro)
-                            try {
-                                const rangeA = getWeekRange(a.semana_referencia || "");
-                                const rangeB = getWeekRange(b.semana_referencia || "");
-                                return rangeB.start.getTime() - rangeA.start.getTime();
-                            } catch {
-                                return 0;
-                            }
+                            // Ordenar lojas alfabeticamente
+                            const nameA = a.store?.name || '';
+                            const nameB = b.store?.name || '';
+                            return nameA.localeCompare(nameB);
                         })
-                        .map(([key, group]: [string, any]) => {
-                            let weekRange;
-                            try {
-                                weekRange = getWeekRange(group.semana_referencia || "");
-                            } catch (err: any) {
-                                weekRange = { start: new Date(), end: new Date() };
-                            }
-                            const isCurrentWeek = group.semana_referencia === getCurrentWeekRef();
-                            const totalMeta = group.goals.reduce((sum: number, g: any) => sum + g.meta_valor, 0);
-                            const totalSuper = group.goals.reduce((sum: number, g: any) => sum + g.super_meta_valor, 0);
-                            const colabsCount = new Set(group.goals.map((g: any) => g.colaboradora_id).filter((id: any) => id != null)).size;
-
+                        .map(([storeId, storeGroup]: [string, any]) => {
+                            // Ordenar semanas dentro da loja (mais recentes primeiro)
+                            const semanasOrdenadas = Object.entries(storeGroup.semanas)
+                                .sort(([_, a]: [string, any], [__, b]: [string, any]) => {
+                                    try {
+                                        const rangeA = getWeekRange(a.semana_referencia || "");
+                                        const rangeB = getWeekRange(b.semana_referencia || "");
+                                        return rangeB.start.getTime() - rangeA.start.getTime();
+                                    } catch {
+                                        return 0;
+                                    }
+                                });
+                            
                             return (
-                                <Card
-                                    key={key}
-                                    className={`overflow-hidden shadow-md hover:shadow-lg transition-all border-l-4 ${
-                                        isCurrentWeek 
-                                            ? 'border-l-primary bg-gradient-to-r from-primary/5 to-transparent' 
-                                            : 'border-l-purple-500 bg-gradient-to-r from-purple-500/5 to-transparent'
-                                    }`}
-                                >
-                                    <div className="p-4 sm:p-6 bg-gradient-to-r from-primary/10 to-purple-500/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b">
-                                        <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                                            <StoreLogo storeId={group.goals[0]?.store_id} className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" />
-                                            <div className="min-w-0 flex-1">
-                                                <h3 className="font-bold text-base sm:text-lg truncate">{group.store?.name || 'Loja Desconhecida'}</h3>
-                                                <p className="text-xs sm:text-sm text-muted-foreground">
-                                                    {format(weekRange.start, "dd/MM", { locale: ptBR })} a {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
-                                                </p>
-                                            </div>
-                                            {isCurrentWeek && (
-                                                <Badge className="bg-primary text-primary-foreground text-xs">Semana Atual</Badge>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto">
-                                            <div className="text-left sm:text-right flex-1 sm:flex-initial">
-                                                <p className="text-xs text-muted-foreground">Total ({colabsCount} colaboradora{colabsCount > 1 ? 's' : ''})</p>
-                                                <p className="font-bold text-sm sm:text-lg text-primary">R$ {totalMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                                <p className="text-xs text-purple-600 font-medium">Super: R$ {totalSuper.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                            </div>
-                                            <Button variant="outline" size="sm" onClick={() => handleEditWeekly(group.goals[0])} className="flex-shrink-0">
-                                                <Edit className="h-4 w-4 mr-1 sm:mr-2" />
-                                                <span className="hidden sm:inline">Editar</span>
-                                            </Button>
-                                        </div>
+                                <div key={storeId} className="space-y-4">
+                                    {/* Cabeçalho da Loja */}
+                                    <div className="flex items-center gap-3 pb-2 border-b-2 border-primary/30">
+                                        <StoreLogo storeId={storeId} className="w-8 h-8 sm:w-10 sm:h-10 object-contain flex-shrink-0" />
+                                        <h2 className="text-lg sm:text-xl font-bold text-primary">{storeGroup.store?.name || 'Loja Desconhecida'}</h2>
                                     </div>
-                                </Card>
+                                    
+                                    {/* Semanas da Loja */}
+                                    <div className="space-y-3 pl-4 sm:pl-6">
+                                        {semanasOrdenadas.map(([semanaKey, group]: [string, any]) => {
+                                            let weekRange;
+                                            try {
+                                                weekRange = getWeekRange(group.semana_referencia || "");
+                                            } catch (err: any) {
+                                                weekRange = { start: new Date(), end: new Date() };
+                                            }
+                                            const isCurrentWeek = group.semana_referencia === getCurrentWeekRef();
+                                            const totalMeta = group.goals.reduce((sum: number, g: any) => sum + g.meta_valor, 0);
+                                            const totalSuper = group.goals.reduce((sum: number, g: any) => sum + g.super_meta_valor, 0);
+                                            const colabsCount = new Set(group.goals.map((g: any) => g.colaboradora_id).filter((id: any) => id != null)).size;
+
+                                            return (
+                                                <Card
+                                                    key={semanaKey}
+                                                    className={`overflow-hidden shadow-md hover:shadow-lg transition-all border-l-4 ${
+                                                        isCurrentWeek 
+                                                            ? 'border-l-primary bg-gradient-to-r from-primary/5 to-transparent' 
+                                                            : 'border-l-purple-500 bg-gradient-to-r from-purple-500/5 to-transparent'
+                                                    }`}
+                                                >
+                                                    <div className="p-4 sm:p-6 bg-gradient-to-r from-primary/10 to-purple-500/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b">
+                                                        <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                                                            <div className="min-w-0 flex-1">
+                                                                <h3 className="font-bold text-base sm:text-lg truncate">
+                                                                    {format(weekRange.start, "dd/MM", { locale: ptBR })} a {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
+                                                                </h3>
+                                                                <p className="text-xs sm:text-sm text-muted-foreground">
+                                                                    Semana {group.semana_referencia?.substring(0, 2)}/{group.semana_referencia?.substring(2, 6)}
+                                                                </p>
+                                                            </div>
+                                                            {isCurrentWeek && (
+                                                                <Badge className="bg-primary text-primary-foreground text-xs">Semana Atual</Badge>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto">
+                                                            <div className="text-left sm:text-right flex-1 sm:flex-initial">
+                                                                <p className="text-xs text-muted-foreground">Total ({colabsCount} colaboradora{colabsCount > 1 ? 's' : ''})</p>
+                                                                <p className="font-bold text-sm sm:text-lg text-primary">R$ {totalMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                                <p className="text-xs text-purple-600 font-medium">Super: R$ {totalSuper.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                            </div>
+                                                            <Button variant="outline" size="sm" onClick={() => handleEditWeekly(group.goals[0])} className="flex-shrink-0">
+                                                                <Edit className="h-4 w-4 mr-1 sm:mr-2" />
+                                                                <span className="hidden sm:inline">Editar</span>
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </Card>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             );
                         })}
                         {weeklyGoals.length === 0 && (
@@ -2380,15 +2547,6 @@ const MetasManagementContent = () => {
 
                                 <div className="space-y-2">
                                     <Button
-                                        onClick={applySuggestions}
-                                        className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 text-xs sm:text-sm"
-                                        size="sm"
-                                        disabled={colaboradorasAtivas.filter(c => c.active).length === 0 || loadingSuggestions}
-                                    >
-                                        <CheckCircle2 className="mr-2 h-4 w-4" />
-                                        Aplicar Sugestão para {colaboradorasAtivas.filter(c => c.active).length} Colaboradora{colaboradorasAtivas.filter(c => c.active).length !== 1 ? 's' : ''} Ativa{colaboradorasAtivas.filter(c => c.active).length !== 1 ? 's' : ''}
-                                    </Button>
-                                    <Button
                                         onClick={handleStartCustomizing}
                                         variant="outline"
                                         className="w-full text-xs sm:text-sm border-2"
@@ -2396,8 +2554,11 @@ const MetasManagementContent = () => {
                                         disabled={colaboradorasAtivas.filter(c => c.active).length === 0 || loadingSuggestions}
                                     >
                                         <Calculator className="mr-2 h-4 w-4" />
-                                        Personalizar Meta
+                                        Personalizar Metas
                                     </Button>
+                                    <p className="text-xs text-muted-foreground text-center">
+                                        💡 As sugestões serão aplicadas automaticamente ao salvar. Clique em "Personalizar Metas" se quiser ajustar valores individuais.
+                                    </p>
                                 </div>
                             </div>
                         )}
@@ -2447,14 +2608,9 @@ const MetasManagementContent = () => {
                                                 />
                                             </div>
                                         </div>
-                                        <Button
-                                            onClick={handleApplyEqualMeta}
-                                            className="w-full text-xs sm:text-sm"
-                                            size="sm"
-                                            disabled={!customMetaEqual || !customSuperMetaEqual}
-                                        >
-                                            Aplicar Meta Igual para {colaboradorasAtivas.filter(c => c.active).length} Colaboradora{colaboradorasAtivas.filter(c => c.active).length !== 1 ? 's' : ''}
-                                        </Button>
+                                        <p className="text-xs text-muted-foreground text-center">
+                                            💡 Os valores serão aplicados automaticamente ao salvar a gincana.
+                                        </p>
                                     </CardContent>
                                 </Card>
 
@@ -2514,14 +2670,9 @@ const MetasManagementContent = () => {
                                                     })}
                                             </div>
                                         </ScrollArea>
-                                        <Button
-                                            onClick={handleApplyIndividualMetas}
-                                            className="w-full text-xs sm:text-sm"
-                                            size="sm"
-                                            variant="default"
-                                        >
-                                            Aplicar Metas Individuais
-                                        </Button>
+                                        <p className="text-xs text-muted-foreground text-center">
+                                            💡 As metas individuais serão aplicadas automaticamente ao salvar a gincana.
+                                        </p>
                                     </CardContent>
                                 </Card>
                             </div>
@@ -2627,23 +2778,46 @@ const MetasManagementContent = () => {
                                     onClick={handleDeleteWeeklyGoals}
                                     className="w-full sm:w-auto text-xs sm:text-sm"
                                     size="sm"
+                                    disabled={savingWeeklyGoal}
                                 >
                                     <Trash className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                                     Excluir Gincana Semanal
                                 </Button>
                             )}
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => {
-                                    setWeeklyDialogOpen(false);
-                                    resetWeeklyForm();
-                                }}
-                                className="w-full sm:w-auto ml-auto text-xs sm:text-sm"
-                                size="sm"
-                            >
-                                Cancelar
-                            </Button>
+                            <div className="flex gap-2 ml-auto">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                        setWeeklyDialogOpen(false);
+                                        resetWeeklyForm();
+                                    }}
+                                    className="w-full sm:w-auto text-xs sm:text-sm"
+                                    size="sm"
+                                    disabled={savingWeeklyGoal}
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={handleSaveWeeklyGoal}
+                                    className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-xs sm:text-sm"
+                                    size="sm"
+                                    disabled={savingWeeklyGoal || colaboradorasAtivas.filter(c => c.active).length === 0}
+                                >
+                                    {savingWeeklyGoal ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Salvando...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                                            Salvar Gincana Semanal
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </DialogContent>
