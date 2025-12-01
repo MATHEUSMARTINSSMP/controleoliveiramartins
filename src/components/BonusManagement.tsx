@@ -928,7 +928,7 @@ export default function BonusManagement() {
             store_id: bonus.store_id || "TODAS",
             categoria_condicao: categoria,
             condicao_tipo: (bonus as any).condicao_tipo || "",
-            condicao_ranking: (bonus as any).condicao_ranking?.toString() || "",
+            condicao_ranking: (bonus as any).condicao_ranking === "TODAS" ? "TODAS" : ((bonus as any).condicao_ranking?.toString() || ""),
             condicao_meta_tipo: (bonus as any).condicao_meta_tipo || "",
             condicao_escopo: (bonus as any).condicao_escopo || "",
             condicao_faturamento: (bonus as any).condicao_faturamento?.toString() || "",
