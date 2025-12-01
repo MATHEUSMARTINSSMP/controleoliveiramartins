@@ -12,8 +12,7 @@ SELECT
     jrd.return_message,
     jrd.start_time,
     jrd.end_time,
-    EXTRACT(EPOCH FROM (jrd.end_time - jrd.start_time))::NUMERIC(10,3) AS duracao_segundos,
-    jrd.status_message
+    EXTRACT(EPOCH FROM (jrd.end_time - jrd.start_time))::NUMERIC(10,3) AS duracao_segundos
 FROM cron.job j
 JOIN cron.job_run_details jrd ON j.jobid = jrd.jobid
 WHERE j.jobname = 'sync-incremental-1min'
@@ -21,20 +20,21 @@ ORDER BY jrd.start_time DESC
 LIMIT 10;
 
 -- 2. Verificar logs de sincronização salvos no banco (tabela erp_sync_logs)
--- Nota: Esta tabela pode ter um nome diferente, verifique o nome correto
 SELECT 
-    store_id,
+    erp_sync_logs.store_id,
     stores.name AS loja,
-    tipo_sync,
-    registros_sincronizados,
-    registros_com_erro,
-    sucesso,
-    created_at AS data_execucao,
-    EXTRACT(EPOCH FROM (NOW() - created_at))::NUMEGER / 60 AS minutos_atras
+    erp_sync_logs.tipo_sync,
+    erp_sync_logs.status,
+    erp_sync_logs.registros_sincronizados,
+    erp_sync_logs.registros_atualizados,
+    erp_sync_logs.registros_com_erro,
+    erp_sync_logs.error_message,
+    erp_sync_logs.sync_at AS data_execucao,
+    EXTRACT(EPOCH FROM (NOW() - erp_sync_logs.sync_at))::NUMERIC(10,2) / 60 AS minutos_atras
 FROM sistemaretiradas.erp_sync_logs
 JOIN sistemaretiradas.stores ON stores.id = erp_sync_logs.store_id
-WHERE created_at >= NOW() - INTERVAL '24 hours'
-ORDER BY created_at DESC
+WHERE erp_sync_logs.sync_at >= NOW() - INTERVAL '24 hours'
+ORDER BY erp_sync_logs.sync_at DESC
 LIMIT 20;
 
 -- 3. Verificar última venda sincronizada de cada loja
@@ -60,6 +60,9 @@ FROM sistemaretiradas.tiny_orders
 WHERE created_at >= NOW() - INTERVAL '2 hours';
 
 -- 5. Verificar integrações ativas configuradas
+-- Nota: Esta query pode falhar se a tabela erp_configs não existir
+-- Comente as linhas abaixo se houver erro
+/*
 SELECT 
     erp_configs.store_id,
     stores.name AS loja,
@@ -71,6 +74,7 @@ FROM sistemaretiradas.erp_configs
 JOIN sistemaretiradas.stores ON stores.id = erp_configs.store_id
 WHERE erp_configs.sincronizacao_ativa = true
 ORDER BY stores.name;
+*/
 
 -- 6. Verificar se há pedidos sendo criados na tabela sales a partir de tiny_orders
 SELECT 
@@ -84,14 +88,14 @@ WHERE s.tiny_order_id IS NOT NULL
 -- 7. Verificar se o pooling inteligente está detectando novas vendas
 -- Comparar último pedido no banco vs data atual
 SELECT 
-    store_id,
+    tiny_orders.store_id,
     stores.name AS loja,
-    MAX(numero_pedido) AS ultimo_numero_pedido,
-    MAX(data_pedido) AS ultima_data_pedido,
-    MAX(updated_at) AS ultima_atualizacao,
-    EXTRACT(EPOCH FROM (NOW() - MAX(updated_at)))::INTEGER / 60 AS minutos_sem_atualizacao
+    MAX(tiny_orders.numero_pedido) AS ultimo_numero_pedido,
+    MAX(tiny_orders.data_pedido) AS ultima_data_pedido,
+    MAX(tiny_orders.updated_at) AS ultima_atualizacao,
+    EXTRACT(EPOCH FROM (NOW() - MAX(tiny_orders.updated_at)))::INTEGER / 60 AS minutos_sem_atualizacao
 FROM sistemaretiradas.tiny_orders
 JOIN sistemaretiradas.stores ON stores.id = tiny_orders.store_id
-GROUP BY store_id, stores.name
+GROUP BY tiny_orders.store_id, stores.name
 ORDER BY stores.name;
 
