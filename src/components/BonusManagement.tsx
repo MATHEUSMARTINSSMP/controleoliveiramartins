@@ -955,6 +955,155 @@ export default function BonusManagement() {
         setDialogOpen(true);
     };
 
+    const handleDelete = async (bonus: Bonus) => {
+        // Verificar se é uma gincana semanal
+        const isGincanaSemanal = (bonus as any).condicao_meta_tipo === 'GINCANA_SEMANAL' || 
+                                 (bonus as any).condicao_meta_tipo === 'SUPER_GINCANA_SEMANAL';
+        
+        if (isGincanaSemanal) {
+            const confirmar = window.confirm(
+                `Tem certeza que deseja excluir esta gincana semanal?\n\n` +
+                `Isso irá excluir:\n` +
+                `- O bônus da gincana\n` +
+                `- Todas as metas semanais relacionadas\n` +
+                `- Todos os vínculos com colaboradoras\n\n` +
+                `Esta ação não pode ser desfeita.`
+            );
+            
+            if (!confirmar) {
+                return;
+            }
+            
+            try {
+                const bonusData = bonus as any;
+                const storeId = bonusData.store_id;
+                const semanaReferencia = bonusData.periodo_semana;
+                
+                // 1. Deletar metas semanais relacionadas (goals)
+                if (storeId && semanaReferencia) {
+                    const { error: goalsError } = await supabase
+                        .schema("sistemaretiradas")
+                        .from("goals")
+                        .delete()
+                        .eq("store_id", storeId)
+                        .eq("semana_referencia", semanaReferencia)
+                        .eq("tipo", "SEMANAL");
+                    
+                    if (goalsError) {
+                        console.error("Erro ao deletar metas semanais:", goalsError);
+                        toast.error("Erro ao deletar metas semanais relacionadas");
+                    }
+                }
+                
+                // 2. Se for GINCANA_SEMANAL, também deletar SUPER_GINCANA_SEMANAL se existir (e vice-versa)
+                if (storeId && semanaReferencia) {
+                    const outroTipo = (bonus as any).condicao_meta_tipo === 'GINCANA_SEMANAL' 
+                        ? 'SUPER_GINCANA_SEMANAL' 
+                        : 'GINCANA_SEMANAL';
+                    
+                    const { data: outroBonus } = await supabase
+                        .schema("sistemaretiradas")
+                        .from("bonuses")
+                        .select("id")
+                        .eq("store_id", storeId)
+                        .eq("periodo_semana", semanaReferencia)
+                        .eq("condicao_meta_tipo", outroTipo)
+                        .maybeSingle();
+                    
+                    if (outroBonus) {
+                        // Deletar vínculos do outro bônus
+                        await supabase
+                            .schema("sistemaretiradas")
+                            .from("bonus_collaborators")
+                            .delete()
+                            .eq("bonus_id", outroBonus.id);
+                        
+                        // Deletar o outro bônus
+                        await supabase
+                            .schema("sistemaretiradas")
+                            .from("bonuses")
+                            .delete()
+                            .eq("id", outroBonus.id);
+                    }
+                }
+                
+                // 3. Deletar vínculos com colaboradoras do bônus atual
+                const { error: colabError } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("bonus_collaborators")
+                    .delete()
+                    .eq("bonus_id", bonus.id);
+                
+                if (colabError) {
+                    console.error("Erro ao deletar vínculos:", colabError);
+                    toast.error("Erro ao deletar vínculos com colaboradoras");
+                }
+                
+                // 4. Deletar o bônus
+                const { error: bonusError } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("bonuses")
+                    .delete()
+                    .eq("id", bonus.id);
+                
+                if (bonusError) {
+                    console.error("Erro ao deletar bônus:", bonusError);
+                    toast.error("Erro ao deletar bônus");
+                    return;
+                }
+                
+                toast.success("Gincana semanal excluída com sucesso!");
+                fetchBonuses();
+            } catch (error: any) {
+                console.error("Erro ao deletar gincana semanal:", error);
+                toast.error(`Erro ao deletar: ${error.message || "Erro desconhecido"}`);
+            }
+        } else {
+            // Para outros tipos de bônus, apenas deletar o bônus e vínculos
+            const confirmar = window.confirm(
+                `Tem certeza que deseja excluir este bônus?\n\n` +
+                `Esta ação não pode ser desfeita.`
+            );
+            
+            if (!confirmar) {
+                return;
+            }
+            
+            try {
+                // 1. Deletar vínculos com colaboradoras
+                const { error: colabError } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("bonus_collaborators")
+                    .delete()
+                    .eq("bonus_id", bonus.id);
+                
+                if (colabError) {
+                    console.error("Erro ao deletar vínculos:", colabError);
+                    toast.error("Erro ao deletar vínculos com colaboradoras");
+                }
+                
+                // 2. Deletar o bônus
+                const { error: bonusError } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("bonuses")
+                    .delete()
+                    .eq("id", bonus.id);
+                
+                if (bonusError) {
+                    console.error("Erro ao deletar bônus:", bonusError);
+                    toast.error("Erro ao deletar bônus");
+                    return;
+                }
+                
+                toast.success("Bônus excluído com sucesso!");
+                fetchBonuses();
+            } catch (error: any) {
+                console.error("Erro ao deletar bônus:", error);
+                toast.error(`Erro ao deletar: ${error.message || "Erro desconhecido"}`);
+            }
+        }
+    };
+
     const handleToggleActive = async (id: string, currentStatus: boolean) => {
         // Se está desativando o bônus (fechando), validar pré-requisitos de todas as colaboradoras
         if (currentStatus) {
@@ -1213,16 +1362,23 @@ export default function BonusManagement() {
                                 </p>
                                 )}
                             </CardContent>
-                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-center justify-center bg-black/20 transition-opacity rounded-lg">
-                                <Button size="sm" variant="outline" onClick={() => handleEdit(bonus)} className="mr-2">
+                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-center justify-center bg-black/20 transition-opacity rounded-lg gap-2">
+                                <Button size="sm" variant="outline" onClick={() => handleEdit(bonus)}>
                                     <Edit className="h-4 w-4" />
                                 </Button>
                                 <Button
                                     size="sm"
-                                    variant={bonus.ativo ? "destructive" : "default"}
+                                    variant="default"
                                     onClick={() => handleToggleActive(bonus.id, bonus.ativo)}
                                 >
-                                    {bonus.ativo ? <Trash2 className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                                    {bonus.ativo ? <Check className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => handleDelete(bonus)}
+                                >
+                                    <Trash2 className="h-4 w-4" />
                                 </Button>
                             </div>
                         </Card>
