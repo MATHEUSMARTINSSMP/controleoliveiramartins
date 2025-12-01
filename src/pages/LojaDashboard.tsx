@@ -365,6 +365,11 @@ export default function LojaDashboard() {
     };
 
     const fetchGoalsWithStoreId = async (currentStoreId: string) => {
+        console.log('[LojaDashboard] 🏪 fetchGoalsWithStoreId CHAMADO');
+        console.log('[LojaDashboard]   Store ID recebido:', currentStoreId);
+        console.log('[LojaDashboard]   Tipo:', typeof currentStoreId);
+        console.log('[LojaDashboard]   Vazio?', !currentStoreId);
+
         if (!currentStoreId) {
             console.error('[LojaDashboard] ❌ fetchGoalsWithStoreId chamado sem storeId');
             return;
