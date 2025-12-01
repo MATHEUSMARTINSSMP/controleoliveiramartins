@@ -2,23 +2,23 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
 const DEFAULT_SCHEMA_NAME = 'sistemaretiradas';
 
-// Validate environment variables
+// Validate environment variables (warn but don't crash for landing page)
+export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
+
 if (!SUPABASE_URL) {
-  console.error('❌ VITE_SUPABASE_URL não está configurado!');
-  throw new Error('VITE_SUPABASE_URL is required');
+  console.warn('⚠️ VITE_SUPABASE_URL não está configurado! Algumas funcionalidades podem não funcionar.');
 }
 
 if (!SUPABASE_PUBLISHABLE_KEY) {
-  console.error('❌ VITE_SUPABASE_PUBLISHABLE_KEY não está configurado!');
-  throw new Error('VITE_SUPABASE_PUBLISHABLE_KEY is required');
+  console.warn('⚠️ VITE_SUPABASE_PUBLISHABLE_KEY não está configurado! Algumas funcionalidades podem não funcionar.');
 }
 
 // Create client with schema configured in db.schema option
