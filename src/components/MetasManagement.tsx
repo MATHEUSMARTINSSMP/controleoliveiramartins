@@ -126,15 +126,15 @@ const MetasManagementContent = () => {
     function getWeekRange(weekRef: string): { start: Date; end: Date } {
         // Suporta ambos os formatos: WWYYYY (novo) e YYYYWW (antigo - para migração)
         let week: number, year: number;
-        
+
         if (!weekRef || weekRef.length !== 6) {
             throw new Error(`Formato de semana_referencia inválido: ${weekRef} (deve ter 6 caracteres)`);
         }
-        
+
         // Verificar se é formato antigo (YYYYWW) ou novo (WWYYYY)
         const firstTwo = parseInt(weekRef.substring(0, 2));
         const firstFour = parseInt(weekRef.substring(0, 4));
-        
+
         // Se começa com 20xx (2000-2099), é formato antigo YYYYWW
         if (firstTwo === 20 && firstFour >= 2000 && firstFour <= 2099) {
             // Formato antigo YYYYWW
@@ -147,26 +147,26 @@ const MetasManagementContent = () => {
         } else {
             throw new Error(`Formato de semana_referencia inválido: ${weekRef} (não é YYYYWW nem WWYYYY)`);
         }
-        
+
         // Validar valores
         if (isNaN(week) || isNaN(year)) {
             throw new Error(`Formato de semana_referencia inválido: ${weekRef} (valores não numéricos)`);
         }
-        
+
         if (week < 1 || week > 53) {
             throw new Error(`Formato de semana_referencia inválido: ${weekRef} (semana ${week} fora do range 1-53)`);
         }
-        
+
         if (year < 2000 || year > 2100) {
             throw new Error(`Formato de semana_referencia inválido: ${weekRef} (ano ${year} fora do range 2000-2100)`);
         }
-        
+
         // Get first Monday of the year
         const jan1 = new Date(year, 0, 1);
         const firstMonday = startOfWeek(jan1, { weekStartsOn: 1 });
         const weekStart = addWeeks(firstMonday, week - 1);
         const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-        
+
         return { start: weekStart, end: weekEnd };
     }
 
@@ -193,14 +193,14 @@ const MetasManagementContent = () => {
             const year = parseInt(mesReferencia.substring(0, 4));
             const monthStr = mesReferencia.substring(4, 6);
             const month = parseInt(monthStr) - 1;
-            
+
             // Validar formato do mês
             if (year >= 2000 && year <= 2100 && month >= 0 && month <= 11) {
                 // Pequeno delay para evitar múltiplas chamadas rápidas
                 const timeoutId = setTimeout(() => {
                     generateWeights();
                 }, 100);
-                
+
                 return () => clearTimeout(timeoutId);
             }
         }
@@ -228,7 +228,7 @@ const MetasManagementContent = () => {
         // Suporta ambos os formatos para migração
         const parseWeekRef = (ref: string): { year: number; week: number } => {
             if (ref.length !== 6) return { year: 0, week: 0 };
-            
+
             const firstTwo = parseInt(ref.substring(0, 2));
             if (firstTwo > 50) {
                 // Formato antigo YYYYWW
@@ -244,10 +244,10 @@ const MetasManagementContent = () => {
                 };
             }
         };
-        
+
         const aParsed = parseWeekRef(a);
         const bParsed = parseWeekRef(b);
-        
+
         // Ordenar por ano primeiro, depois por semana
         if (aParsed.year !== bParsed.year) {
             return bParsed.year - aParsed.year; // Mais recente primeiro
@@ -267,7 +267,7 @@ const MetasManagementContent = () => {
             if (error) throw error;
             if (data) {
                 // Ordenar no frontend para garantir ordenação correta com novo formato
-                const sorted = [...data].sort((a: any, b: any) => 
+                const sorted = [...data].sort((a: any, b: any) =>
                     sortWeekRef(a.semana_referencia || "", b.semana_referencia || "")
                 );
                 setWeeklyGoals(sorted as any);
@@ -303,7 +303,7 @@ const MetasManagementContent = () => {
         const month = parseInt(monthRef.substring(4, 6)) - 1;
         const daysInMonth = getDaysInMonth(new Date(year, month));
         const completed: Record<string, number> = { ...existingWeights };
-        
+
         // Add missing days with weight 0
         for (let day = 1; day <= daysInMonth; day++) {
             const date = new Date(year, month, day);
@@ -312,7 +312,7 @@ const MetasManagementContent = () => {
                 completed[dateStr] = 0;
             }
         }
-        
+
         return completed;
     };
 
@@ -442,9 +442,9 @@ const MetasManagementContent = () => {
                 return { ...c, meta: 0, superMeta: 0 };
             }
             return {
-            ...c,
-            meta: parseFloat(individualMeta.toFixed(2)),
-            superMeta: parseFloat(individualSuperMeta.toFixed(2))
+                ...c,
+                meta: parseFloat(individualMeta.toFixed(2)),
+                superMeta: parseFloat(individualSuperMeta.toFixed(2))
             };
         }));
     };
@@ -528,8 +528,8 @@ const MetasManagementContent = () => {
                     .from("goals")
                     .update(storePayload)
                     .eq("id", existingStoreGoal.id)
-                .select()
-                .single();
+                    .select()
+                    .single();
                 if (error) {
                     console.error("Erro ao atualizar meta da loja:", error);
                     throw error;
@@ -554,21 +554,21 @@ const MetasManagementContent = () => {
             const individualPayloads = colabGoals
                 .filter(c => c.recebeMeta) // Filtrar apenas as que recebem meta
                 .map(c => ({
-                tipo: "INDIVIDUAL",
-                mes_referencia: mesReferencia,
-                store_id: selectedStore,
-                colaboradora_id: c.id,
-                meta_valor: c.meta,
-                super_meta_valor: c.superMeta,
-                ativo: true,
-                daily_weights: dailyWeights // Inherit weights
-            }));
+                    tipo: "INDIVIDUAL",
+                    mes_referencia: mesReferencia,
+                    store_id: selectedStore,
+                    colaboradora_id: c.id,
+                    meta_valor: c.meta,
+                    super_meta_valor: c.superMeta,
+                    ativo: true,
+                    daily_weights: dailyWeights // Inherit weights
+                }));
 
             // Para metas individuais, fazer UPDATE ou INSERT individualmente
             for (const payload of individualPayloads) {
                 const { data: existingGoal } = await supabase
                     .schema("sistemaretiradas")
-                .from("goals")
+                    .from("goals")
                     .select("id")
                     .eq("store_id", payload.store_id)
                     .eq("mes_referencia", payload.mes_referencia)
@@ -637,9 +637,13 @@ const MetasManagementContent = () => {
     };
 
     const handleEdit = (storeId: string, month: string) => {
-        // 1. Find Store Goal
+        if (!storeId) {
+            toast.error("ID da loja não encontrado");
+            return;
+        }
+
+        // 1. Find Store Goal (pode não existir se ainda não foi criada)
         const storeGoal = goals.find(g => g.store_id === storeId && g.mes_referencia === month && g.tipo === 'MENSAL');
-        if (!storeGoal) return;
 
         // 2. Find Individual Goals
         const individualGoals = goals.filter(g => g.store_id === storeId && g.mes_referencia === month && g.tipo === 'INDIVIDUAL');
@@ -647,13 +651,31 @@ const MetasManagementContent = () => {
         // 3. Populate State
         setSelectedStore(storeId);
         setMesReferencia(month);
-        setMetaLoja(storeGoal.meta_valor.toString());
-        setSuperMetaLoja(storeGoal.super_meta_valor.toString());
-        // Complete weights for all days in month (fix missing days like day 31)
-        const completedWeights = completeWeightsForMonth(storeGoal.daily_weights || {}, month);
-        setDailyWeights(completedWeights);
-        // Marcar que estamos editando para não sobrescrever os pesos
-        setEditingGoal(storeGoal);
+
+        if (storeGoal) {
+            // Editando meta existente
+            setMetaLoja(storeGoal.meta_valor.toString());
+            setSuperMetaLoja(storeGoal.super_meta_valor.toString());
+            // Complete weights for all days in month (fix missing days like day 31)
+            const completedWeights = completeWeightsForMonth(storeGoal.daily_weights || {}, month);
+            setDailyWeights(completedWeights);
+            // Marcar que estamos editando para não sobrescrever os pesos
+            setEditingGoal(storeGoal);
+        } else {
+            // Criando nova meta (não existe meta MENSAL ainda)
+            setMetaLoja("");
+            setSuperMetaLoja("");
+            setDailyWeights({});
+            setEditingGoal(null);
+
+            // Se há metas individuais, calcular total para sugerir
+            if (individualGoals.length > 0) {
+                const totalMeta = individualGoals.reduce((sum, g) => sum + g.meta_valor, 0);
+                const totalSuper = individualGoals.reduce((sum, g) => sum + g.super_meta_valor, 0);
+                setMetaLoja(totalMeta.toString());
+                setSuperMetaLoja(totalSuper.toString());
+            }
+        }
 
         // 4. Map individual goals to colabGoals format
         // Load collaborators for the store, then merge with existing goals values
@@ -726,7 +748,7 @@ const MetasManagementContent = () => {
         try {
             // Get active collaborators for the store
             const activeColabs = colaboradoras.filter(c => c.store_id === selectedStore);
-            
+
             if (activeColabs.length === 0) {
                 toast.error("Nenhuma colaboradora ativa encontrada nesta loja");
                 return;
@@ -735,7 +757,7 @@ const MetasManagementContent = () => {
             // Get month from week
             const weekRange = getWeekRange(selectedWeek);
             const monthRef = format(weekRange.start, "yyyyMM");
-            
+
             // Get monthly individual goals
             const { data: monthlyGoals } = await supabase
                 .schema("sistemaretiradas")
@@ -770,14 +792,14 @@ const MetasManagementContent = () => {
                 });
 
                 setWeeklyColabGoals(colabGoalsData);
-                
+
                 // Calculate total
                 const totalMeta = colabGoalsData.reduce((sum, c) => sum + c.meta, 0);
                 const totalSuper = colabGoalsData.reduce((sum, c) => sum + c.superMeta, 0);
-                
+
                 setWeeklyMetaValor(totalMeta.toFixed(2));
                 setWeeklySuperMetaValor(totalSuper.toFixed(2));
-                
+
                 toast.success(`Metas sugeridas para ${activeColabs.length} colaboradora(s) baseadas nas metas mensais`);
             } else {
                 toast.warning("Metas mensais individuais não encontradas. Defina manualmente.");
@@ -911,7 +933,7 @@ const MetasManagementContent = () => {
 
             const totalMeta = colabGoalsData.reduce((sum, c) => sum + c.meta, 0);
             const totalSuper = colabGoalsData.reduce((sum, c) => sum + c.superMeta, 0);
-            
+
             setWeeklyMetaValor(totalMeta.toFixed(2));
             setWeeklySuperMetaValor(totalSuper.toFixed(2));
         } else {
@@ -949,7 +971,7 @@ const MetasManagementContent = () => {
             const week = getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
             const weekRef = `${year}${String(week).padStart(2, '0')}`;
             const weekRange = getWeekRange(weekRef);
-            
+
             options.push({
                 value: weekRef,
                 label: `${format(weekRange.start, "dd/MM", { locale: ptBR })} - ${format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })} (Semana ${week})`
@@ -975,7 +997,7 @@ const MetasManagementContent = () => {
                         <Plus className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                         <span className="hidden sm:inline">Nova Distribuição Mensal</span>
                         <span className="sm:hidden">Nova Mensal</span>
-                </Button>
+                    </Button>
                 ) : (
                     <Button onClick={() => { resetWeeklyForm(); setWeeklyDialogOpen(true); }} className="bg-primary hover:bg-primary/90 text-xs sm:text-sm w-full sm:w-auto" size="sm">
                         <Plus className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
@@ -1000,16 +1022,16 @@ const MetasManagementContent = () => {
 
                 {/* Mensal Tab */}
                 <TabsContent value="mensal" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
-            {/* Filters */}
+                    {/* Filters */}
                     <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 bg-card p-3 sm:p-4 rounded-lg border shadow-sm">
                         <div className="w-full sm:w-48">
                             <Label className="text-xs sm:text-sm">Filtrar por Loja</Label>
-                    <Select value={storeFilter} onValueChange={setStoreFilter}>
+                            <Select value={storeFilter} onValueChange={setStoreFilter}>
                                 <SelectTrigger className="text-xs sm:text-sm">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="ALL">Todas</SelectItem>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ALL">Todas</SelectItem>
                                     {stores.map(s => (
                                         <SelectItem key={s.id} value={s.id}>
                                             <div className="flex items-center gap-2">
@@ -1018,94 +1040,94 @@ const MetasManagementContent = () => {
                                             </div>
                                         </SelectItem>
                                     ))}
-                        </SelectContent>
-                    </Select>
-                </div>
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <div className="w-full sm:w-48">
                             <Label className="text-xs sm:text-sm">Mês</Label>
-                            <Input 
-                                value={monthFilter} 
-                                onChange={e => setMonthFilter(e.target.value)} 
+                            <Input
+                                value={monthFilter}
+                                onChange={e => setMonthFilter(e.target.value)}
                                 placeholder="YYYYMM"
                                 className="text-xs sm:text-sm"
                             />
-                </div>
-            </div>
-
-            {/* Goals List */}
-            <div className="space-y-6">
-                {Object.entries(
-                    goals
-                        .filter(g => storeFilter === 'ALL' || g.store_id === storeFilter)
-                        .filter(g => g.mes_referencia.includes(monthFilter))
-                        .reduce((acc, goal) => {
-                            const key = `${goal.store_id}-${goal.mes_referencia}`;
-                            if (!acc[key]) acc[key] = { store: goal.stores, month: goal.mes_referencia, storeGoal: null, individuals: [] };
-
-                            if (goal.tipo === 'MENSAL') acc[key].storeGoal = goal;
-                            else if (goal.tipo === 'INDIVIDUAL') acc[key].individuals.push(goal);
-
-                            return acc;
-                        }, {} as Record<string, any>)
-                ).map(([key, group]: [string, any]) => (
-                    <Card key={key} className="overflow-hidden border-l-4 border-l-primary">
-                        <div className="p-3 sm:p-4 bg-muted/30 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 border-b">
-                            <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
-                                <StoreLogo storeId={group.storeGoal?.store_id || group.individuals[0]?.store_id} className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" />
-                                <div className="min-w-0 flex-1">
-                                    <h3 className="font-bold text-base sm:text-lg truncate">{group.store?.name || 'Loja Desconhecida'}</h3>
-                                    <p className="text-xs sm:text-sm text-muted-foreground">Referência: {group.month}</p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-3 sm:gap-6 w-full sm:w-auto">
-                                <div className="text-right flex-1 sm:flex-initial">
-                                    <p className="text-xs text-muted-foreground hidden sm:block">Meta da Loja</p>
-                                    <p className="font-bold text-sm sm:text-lg">R$ {group.storeGoal?.meta_valor?.toLocaleString('pt-BR') || '0,00'}</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Button variant="outline" size="sm" onClick={() => handleEdit(group.storeGoal?.store_id, group.month)} className="flex-shrink-0 text-xs sm:text-sm">
-                                        <Edit className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-                                        <span className="hidden sm:inline">Editar</span>
-                                    </Button>
-                                    <Button 
-                                        variant="destructive" 
-                                        size="sm" 
-                                        onClick={() => handleDelete(group.storeGoal?.store_id || group.individuals[0]?.store_id, group.month)} 
-                                        className="flex-shrink-0 text-xs sm:text-sm"
-                                    >
-                                        <Trash className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-                                        <span className="hidden sm:inline">Excluir</span>
-                                </Button>
-                                </div>
-                            </div>
                         </div>
+                    </div>
 
-                        <div className="p-3 sm:p-4 bg-card">
-                            <h4 className="text-[10px] sm:text-xs font-semibold mb-3 text-muted-foreground flex items-center gap-2 uppercase tracking-wider">
-                                <UserCheck className="h-3 w-3 sm:h-4 sm:w-4" />
-                                Metas Individuais
-                            </h4>
-                            <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                                {group.individuals.map((ind: any) => (
-                                    <div key={ind.id} className="flex justify-between items-center p-2 sm:p-3 rounded-lg border bg-background hover:bg-muted/20 transition-colors">
-                                        <span className="font-medium text-xs sm:text-sm truncate flex-1 min-w-0 mr-2">{ind.profiles?.name}</span>
-                                        <div className="text-right flex-shrink-0">
-                                            <div className="font-bold text-xs sm:text-sm">R$ {ind.meta_valor.toLocaleString('pt-BR')}</div>
-                                            <div className="text-[10px] sm:text-xs text-purple-600 font-medium">Super: R$ {ind.super_meta_valor.toLocaleString('pt-BR')}</div>
+                    {/* Goals List */}
+                    <div className="space-y-6">
+                        {Object.entries(
+                            goals
+                                .filter(g => storeFilter === 'ALL' || g.store_id === storeFilter)
+                                .filter(g => g.mes_referencia.includes(monthFilter))
+                                .reduce((acc, goal) => {
+                                    const key = `${goal.store_id}-${goal.mes_referencia}`;
+                                    if (!acc[key]) acc[key] = { store: goal.stores, month: goal.mes_referencia, storeGoal: null, individuals: [] };
+
+                                    if (goal.tipo === 'MENSAL') acc[key].storeGoal = goal;
+                                    else if (goal.tipo === 'INDIVIDUAL') acc[key].individuals.push(goal);
+
+                                    return acc;
+                                }, {} as Record<string, any>)
+                        ).map(([key, group]: [string, any]) => (
+                            <Card key={key} className="overflow-hidden border-l-4 border-l-primary">
+                                <div className="p-3 sm:p-4 bg-muted/30 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 border-b">
+                                    <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+                                        <StoreLogo storeId={group.storeGoal?.store_id || group.individuals[0]?.store_id} className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" />
+                                        <div className="min-w-0 flex-1">
+                                            <h3 className="font-bold text-base sm:text-lg truncate">{group.store?.name || 'Loja Desconhecida'}</h3>
+                                            <p className="text-xs sm:text-sm text-muted-foreground">Referência: {group.month}</p>
                                         </div>
                                     </div>
-                                ))}
-                                {group.individuals.length === 0 && (
-                                    <div className="col-span-full text-center py-4 text-muted-foreground text-sm italic">
-                                        Nenhuma meta individual definida.
+
+                                    <div className="flex items-center gap-3 sm:gap-6 w-full sm:w-auto">
+                                        <div className="text-right flex-1 sm:flex-initial">
+                                            <p className="text-xs text-muted-foreground hidden sm:block">Meta da Loja</p>
+                                            <p className="font-bold text-sm sm:text-lg">R$ {group.storeGoal?.meta_valor?.toLocaleString('pt-BR') || '0,00'}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Button variant="outline" size="sm" onClick={() => handleEdit(group.storeGoal?.store_id || group.individuals[0]?.store_id, group.month)} className="flex-shrink-0 text-xs sm:text-sm">
+                                                <Edit className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                                                <span className="hidden sm:inline">Editar</span>
+                                            </Button>
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={() => handleDelete(group.storeGoal?.store_id || group.individuals[0]?.store_id, group.month)}
+                                                className="flex-shrink-0 text-xs sm:text-sm"
+                                            >
+                                                <Trash className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                                                <span className="hidden sm:inline">Excluir</span>
+                                            </Button>
+                                        </div>
                                     </div>
-                                )}
-                            </div>
-                        </div>
-                    </Card>
-                ))}
-            </div>
+                                </div>
+
+                                <div className="p-3 sm:p-4 bg-card">
+                                    <h4 className="text-[10px] sm:text-xs font-semibold mb-3 text-muted-foreground flex items-center gap-2 uppercase tracking-wider">
+                                        <UserCheck className="h-3 w-3 sm:h-4 sm:w-4" />
+                                        Metas Individuais
+                                    </h4>
+                                    <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                                        {group.individuals.map((ind: any) => (
+                                            <div key={ind.id} className="flex justify-between items-center p-2 sm:p-3 rounded-lg border bg-background hover:bg-muted/20 transition-colors">
+                                                <span className="font-medium text-xs sm:text-sm truncate flex-1 min-w-0 mr-2">{ind.profiles?.name}</span>
+                                                <div className="text-right flex-shrink-0">
+                                                    <div className="font-bold text-xs sm:text-sm">R$ {ind.meta_valor.toLocaleString('pt-BR')}</div>
+                                                    <div className="text-[10px] sm:text-xs text-purple-600 font-medium">Super: R$ {ind.super_meta_valor.toLocaleString('pt-BR')}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {group.individuals.length === 0 && (
+                                            <div className="col-span-full text-center py-4 text-muted-foreground text-sm italic">
+                                                Nenhuma meta individual definida.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </Card>
+                        ))}
+                    </div>
                 </TabsContent>
 
                 {/* Semanal Tab */}
@@ -1138,13 +1160,12 @@ const MetasManagementContent = () => {
                             const isCurrentWeek = group.semana_referencia === getCurrentWeekRef();
                             const totalMeta = group.goals.reduce((sum: number, g: any) => sum + g.meta_valor, 0);
                             const totalSuper = group.goals.reduce((sum: number, g: any) => sum + g.super_meta_valor, 0);
-                            
+
                             return (
-                                <Card 
-                                    key={key} 
-                                    className={`overflow-hidden shadow-md hover:shadow-lg transition-shadow ${
-                                        isCurrentWeek ? 'border-2 border-primary' : ''
-                                    }`}
+                                <Card
+                                    key={key}
+                                    className={`overflow-hidden shadow-md hover:shadow-lg transition-shadow ${isCurrentWeek ? 'border-2 border-primary' : ''
+                                        }`}
                                 >
                                     <div className="p-3 sm:p-4 bg-gradient-to-r from-primary/10 to-purple-500/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b">
                                         <div className="flex items-center gap-2 sm:gap-4 flex-1">
@@ -1375,13 +1396,13 @@ const MetasManagementContent = () => {
                                             const year = parseInt(mesReferencia.substring(0, 4));
                                             const month = parseInt(mesReferencia.substring(4, 6)) - 1;
                                             const daysInMonth = getDaysInMonth(new Date(year, month));
-                                            
+
                                             // Get first day of week for the month (0 = Sunday, 1 = Monday, etc)
                                             const firstDayOfMonth = new Date(year, month, 1);
                                             const firstDayOfWeek = getDay(firstDayOfMonth);
-                                            
+
                                             const days: Array<{ date: string; dayNum: number; weight: number }> = [];
-                                            
+
                                             // Add empty cells for days before the first day of month
                                             for (let i = 0; i < firstDayOfWeek; i++) {
                                                 days.push({
@@ -1390,7 +1411,7 @@ const MetasManagementContent = () => {
                                                     weight: 0
                                                 });
                                             }
-                                            
+
                                             // Generate all days of the month
                                             for (let day = 1; day <= daysInMonth; day++) {
                                                 const date = new Date(year, month, day);
@@ -1401,12 +1422,12 @@ const MetasManagementContent = () => {
                                                     weight: dailyWeights[dateStr] || 0
                                                 });
                                             }
-                                            
+
                                             return days.map(({ date, dayNum, weight }) => {
                                                 if (dayNum === 0) {
                                                     return <div key={date} className="p-3" />; // Empty cell
                                                 }
-                                                
+
                                                 const metaValue = parseFloat(metaLoja || "0");
                                                 const superMetaValue = parseFloat(superMetaLoja || "0");
                                                 const dailyMeta = (metaValue * weight) / 100;
@@ -1510,7 +1531,7 @@ const MetasManagementContent = () => {
                                             <div className="flex items-center gap-2">
                                                 <StoreLogo storeId={store.id} className="w-4 h-4 object-contain flex-shrink-0" />
                                                 <span>{store.name}</span>
-        </div>
+                                            </div>
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -1541,7 +1562,7 @@ const MetasManagementContent = () => {
                                 </SelectContent>
                             </Select>
                         </div>
-                        
+
                         {selectedStore && (
                             <Button
                                 type="button"
@@ -1627,7 +1648,7 @@ const MetasManagementContent = () => {
 
                         <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
                             <p className="text-sm text-blue-900 dark:text-blue-100">
-                                💡 <strong>Dica:</strong> As gincanas semanais são calculadas por colaboradora. Use o botão "Sugerir" para calcular automaticamente 
+                                💡 <strong>Dica:</strong> As gincanas semanais são calculadas por colaboradora. Use o botão "Sugerir" para calcular automaticamente
                                 baseadas nas metas mensais individuais (mensal ÷ 4.33). Você pode editar livremente.
                             </p>
                         </div>
