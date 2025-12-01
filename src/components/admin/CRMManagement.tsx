@@ -78,6 +78,13 @@ export const CRMManagement = () => {
   const [selectedStore, setSelectedStore] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'tasks' | 'birthdays' | 'postsales' | 'commitments' | 'contacts'>('tasks');
+  
+  // Filtros avançados
+  const [taskStatusFilter, setTaskStatusFilter] = useState<'all' | 'PENDENTE' | 'CONCLUÍDA'>('all');
+  const [taskPriorityFilter, setTaskPriorityFilter] = useState<'all' | 'ALTA' | 'MÉDIA' | 'BAIXA'>('all');
+  const [postSaleStatusFilter, setPostSaleStatusFilter] = useState<'all' | 'AGENDADA' | 'CONCLUÍDA' | 'CANCELADA'>('all');
+  const [commitmentStatusFilter, setCommitmentStatusFilter] = useState<'all' | 'AGENDADO' | 'CONCLUÍDO' | 'CANCELADO' | 'FALTANDO'>('all');
+  const [dateRangeFilter, setDateRangeFilter] = useState<{ start: string; end: string }>({ start: '', end: '' });
 
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
@@ -527,16 +534,59 @@ export const CRMManagement = () => {
     return `https://wa.me/${phone}?text=${encoded}`;
   };
 
-  const filteredTasks = tasks.filter(t =>
-    (selectedStore === 'all' || t.storeName?.includes(selectedStore)) &&
-    (t.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.title.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredTasks = tasks.filter(t => {
+    // Filtro de loja
+    if (selectedStore !== 'all' && t.storeName !== selectedStore) return false;
+    
+    // Filtro de busca
+    const matchesSearch = !searchTerm || 
+      t.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.title.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!matchesSearch) return false;
+    
+    // Filtro de status
+    if (taskStatusFilter !== 'all' && t.status !== taskStatusFilter) return false;
+    
+    // Filtro de prioridade
+    if (taskPriorityFilter !== 'all' && t.priority !== taskPriorityFilter) return false;
+    
+    // Filtro de data (se aplicável)
+    if (dateRangeFilter.start || dateRangeFilter.end) {
+      const taskDate = new Date(t.dueDate);
+      if (dateRangeFilter.start && taskDate < new Date(dateRangeFilter.start)) return false;
+      if (dateRangeFilter.end && taskDate > new Date(dateRangeFilter.end)) return false;
+    }
+    
+    return true;
+  });
 
-  const filteredBirthdays = birthdays.filter(b =>
-    (selectedStore === 'all' || b.storeName?.includes(selectedStore)) &&
-    b.cliente.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredBirthdays = birthdays.filter(b => {
+    if (selectedStore !== 'all' && b.storeName !== selectedStore) return false;
+    return !searchTerm || b.cliente.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  const filteredPostSales = postSales.filter(ps => {
+    if (selectedStore !== 'all' && ps.storeName !== selectedStore) return false;
+    if (!searchTerm || ps.cliente.toLowerCase().includes(searchTerm.toLowerCase())) {
+      if (postSaleStatusFilter !== 'all' && ps.status !== postSaleStatusFilter) return false;
+      return true;
+    }
+    return false;
+  });
+
+  const filteredCommitments = commitments.filter(c => {
+    if (selectedStore !== 'all' && c.storeName !== selectedStore) return false;
+    if (!searchTerm || c.cliente.toLowerCase().includes(searchTerm.toLowerCase())) {
+      if (commitmentStatusFilter !== 'all' && c.status !== commitmentStatusFilter) return false;
+      if (dateRangeFilter.start || dateRangeFilter.end) {
+        const commitmentDate = new Date(c.scheduledDate);
+        if (dateRangeFilter.start && commitmentDate < new Date(dateRangeFilter.start)) return false;
+        if (dateRangeFilter.end && commitmentDate > new Date(dateRangeFilter.end)) return false;
+      }
+      return true;
+    }
+    return false;
+  });
 
   const filteredContacts = contacts.filter(c =>
     c.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -703,11 +753,13 @@ export const CRMManagement = () => {
             </div>
           </CardHeader>
           <CardContent>
-            {pendingTasks.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">Nenhuma tarefa pendente</p>
+            {filteredTasks.length === 0 ? (
+              <p className="text-center text-muted-foreground py-4">
+                {tasks.length === 0 ? 'Nenhuma tarefa' : 'Nenhuma tarefa encontrada com os filtros aplicados'}
+              </p>
             ) : (
               <div className="space-y-2">
-                {pendingTasks.map(task => (
+                {filteredTasks.map(task => (
                   <div key={task.id} className="flex items-start justify-between p-3 bg-muted/50 rounded-lg border">
                     <div className="flex-1">
                       <p className="font-medium text-sm">{task.title}</p>
@@ -753,7 +805,9 @@ export const CRMManagement = () => {
           </CardHeader>
           <CardContent>
             {filteredBirthdays.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">Nenhum aniversariante</p>
+              <p className="text-center text-muted-foreground py-4">
+                {birthdays.length === 0 ? 'Nenhum aniversariante' : 'Nenhum aniversariante encontrado com os filtros aplicados'}
+              </p>
             ) : (
               <div className="space-y-4">
                 {filteredBirthdays.map(b => (
@@ -920,8 +974,10 @@ export const CRMManagement = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {postSales.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">Nenhuma pós-venda registrada</p>
+            {filteredPostSales.length === 0 ? (
+              <p className="text-center text-muted-foreground py-4">
+                {postSales.length === 0 ? 'Nenhuma pós-venda registrada' : 'Nenhuma pós-venda encontrada com os filtros aplicados'}
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -935,7 +991,7 @@ export const CRMManagement = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {postSales.map(ps => (
+                    {filteredPostSales.map(ps => (
                       <TableRow key={ps.id}>
                         <TableCell className="text-xs font-medium">{ps.cliente}</TableCell>
                         <TableCell className="text-xs hidden sm:table-cell text-muted-foreground">{ps.storeName}</TableCell>
@@ -966,11 +1022,13 @@ export const CRMManagement = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {commitments.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">Nenhum compromisso agendado</p>
+            {filteredCommitments.length === 0 ? (
+              <p className="text-center text-muted-foreground py-4">
+                {commitments.length === 0 ? 'Nenhum compromisso agendado' : 'Nenhum compromisso encontrado com os filtros aplicados'}
+              </p>
             ) : (
               <div className="space-y-3">
-                {commitments.map(comp => (
+                {filteredCommitments.map(comp => (
                   <div key={comp.id} className="p-3 bg-muted/50 rounded-lg border flex justify-between items-start">
                     <div className="flex-1">
                       <p className="font-medium text-sm">{comp.cliente}</p>
