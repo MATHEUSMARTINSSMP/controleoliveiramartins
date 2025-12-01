@@ -128,32 +128,33 @@ export default function LojaDashboard() {
         }
     }, [profile, authLoading, navigate]);
 
-    // Verificar se cashback está ativo para a loja
+    // Verificar se cashback e CRM estão ativos para a loja
     useEffect(() => {
-        const checkCashbackStatus = async () => {
+        const checkModuleStatus = async () => {
             if (!storeId) return;
 
             try {
                 const { data, error } = await supabase
                     .schema('sistemaretiradas')
                     .from('stores')
-                    .select('cashback_ativo')
+                    .select('cashback_ativo, crm_ativo')
                     .eq('id', storeId)
                     .single();
 
                 if (error) {
-                    console.error('Erro ao verificar cashback:', error);
+                    console.error('Erro ao verificar módulos:', error);
                     return;
                 }
 
                 setCashbackAtivo(data?.cashback_ativo || false);
+                setCrmAtivo(data?.crm_ativo || false);
             } catch (error) {
-                console.error('Erro ao verificar status do cashback:', error);
+                console.error('Erro ao verificar status dos módulos:', error);
             }
         };
 
         if (storeId) {
-            checkCashbackStatus();
+            checkModuleStatus();
         }
     }, [storeId]);
 
@@ -2517,19 +2518,23 @@ export default function LojaDashboard() {
                     </div>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
-                    {/* Abas de Navegação - Metas e Cashback */}
-                    {cashbackAtivo && (
+                    {/* Abas de Navegação - Metas, Cashback e CRM */}
+                    {(cashbackAtivo || crmAtivo) && (
                         <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm')} className="w-full sm:w-auto">
-                            <TabsList className="grid w-full sm:w-auto grid-cols-3 bg-muted/50">
+                            <TabsList className={`grid w-full sm:w-auto bg-muted/50 ${cashbackAtivo && crmAtivo ? 'grid-cols-3' : 'grid-cols-2'}`}>
                                 <TabsTrigger value="metas" className="rounded-lg text-xs sm:text-sm">
                                     Metas
                                 </TabsTrigger>
-                                <TabsTrigger value="cashback" className="rounded-lg text-xs sm:text-sm">
-                                    Cashback
-                                </TabsTrigger>
-                                <TabsTrigger value="crm" className="rounded-lg text-xs sm:text-sm">
-                                    CRM
-                                </TabsTrigger>
+                                {cashbackAtivo && (
+                                    <TabsTrigger value="cashback" className="rounded-lg text-xs sm:text-sm">
+                                        Cashback
+                                    </TabsTrigger>
+                                )}
+                                {crmAtivo && (
+                                    <TabsTrigger value="crm" className="rounded-lg text-xs sm:text-sm">
+                                        CRM
+                                    </TabsTrigger>
+                                )}
                             </TabsList>
                         </Tabs>
                     )}
@@ -2537,7 +2542,7 @@ export default function LojaDashboard() {
             </div>
 
             {/* Conteúdo Principal com Abas */}
-            {cashbackAtivo ? (
+            {(cashbackAtivo || crmAtivo) ? (
                 <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm')} className="space-y-4">
                     <TabsContent value="metas" className="space-y-4 sm:space-y-6">
                         {/* Todo o conteúdo atual do dashboard de metas */}
@@ -3594,7 +3599,7 @@ export default function LojaDashboard() {
                         <CashbackLojaView storeId={storeId} />
                     </TabsContent>
                     <TabsContent value="crm" className="space-y-4 sm:space-y-6">
-                        <CRMLojaView />
+                        <CRMLojaView storeId={storeId} />
                     </TabsContent>
                 </Tabs>
             ) : (
