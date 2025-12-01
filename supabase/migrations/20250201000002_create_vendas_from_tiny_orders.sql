@@ -181,7 +181,8 @@ BEGIN
           v_observacoes,
           NULL -- Vendas do ERP não têm lancado_por_id
         )
-        ON CONFLICT ON CONSTRAINT sales_tiny_order_id_unique
+        ON CONFLICT (tiny_order_id) 
+        WHERE tiny_order_id IS NOT NULL
         DO UPDATE SET
           colaboradora_id = EXCLUDED.colaboradora_id,
           store_id = EXCLUDED.store_id,
