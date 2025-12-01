@@ -1,5 +1,5 @@
 -- ============================================================================
--- MIGRATION: Adicionar Multi-Tenancy ao Sistema de Cashback
+-- MIGRATION: Adicionar Multi-Tenancy ao Sistema de Cashback (CORRIGIDA)
 -- Data: 2025-02-01
 -- Descrição: Adiciona store_id e colaboradora_id às tabelas de cashback
 --            e atualiza funções para garantir isolamento total de dados
@@ -39,14 +39,26 @@ COMMENT ON COLUMN sistemaretiradas.cashback_transactions.colaboradora_id IS 'Col
 -- 3. POPULAR store_id e colaboradora_id EXISTENTES
 -- ============================================================================
 
--- Atualizar cashback_balance com base em tiny_contacts
+-- Atualizar cashback_balance com base em tiny_contacts (apenas store_id)
 UPDATE sistemaretiradas.cashback_balance cb
 SET 
-    store_id = tc.store_id,
-    colaboradora_id = tc.colaboradora_id
+    store_id = tc.store_id
 FROM sistemaretiradas.tiny_contacts tc
 WHERE cb.cliente_id = tc.id
-  AND (cb.store_id IS NULL OR cb.colaboradora_id IS NULL);
+  AND cb.store_id IS NULL;
+
+-- Tentar buscar colaboradora_id do último pedido do cliente em tiny_orders
+UPDATE sistemaretiradas.cashback_balance cb
+SET 
+    colaboradora_id = (
+        SELECT tor.colaboradora_id
+        FROM sistemaretiradas.tiny_orders tor
+        WHERE tor.cliente_id = cb.cliente_id
+          AND tor.colaboradora_id IS NOT NULL
+        ORDER BY tor.data_pedido DESC
+        LIMIT 1
+    )
+WHERE cb.colaboradora_id IS NULL;
 
 -- Atualizar cashback_transactions com base em tiny_orders
 UPDATE sistemaretiradas.cashback_transactions ct
