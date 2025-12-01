@@ -946,21 +946,21 @@ exports.handler = async (event, context) => {
           if (result.erros > 0) {
             console.warn(`[SyncBackground] ⚠️ Alguns pedidos tiveram erro ao criar venda. Verifique os detalhes.`);
             if (result.detalhes) {
-              const erros = result.detalhes.filter((d: any) => d.tipo === 'erro');
+              const erros = result.detalhes.filter((d) => d.tipo === 'erro');
               console.warn(`[SyncBackground] ⚠️ Erros detalhados:`, JSON.stringify(erros, null, 2));
             }
           }
           
           // ✅ LOG DETALHADO: Mostrar todas as vendas criadas/atualizadas
           if (result.detalhes && Array.isArray(result.detalhes)) {
-            const criadas = result.detalhes.filter((d: any) => d.tipo === 'criada');
-            const atualizadas = result.detalhes.filter((d: any) => d.tipo === 'atualizada');
+            const criadas = result.detalhes.filter((d) => d.tipo === 'criada');
+            const atualizadas = result.detalhes.filter((d) => d.tipo === 'atualizada');
             
             if (criadas.length > 0) {
-              console.log(`[SyncBackground] 📝 Vendas criadas (${criadas.length}):`, criadas.map((d: any) => `Pedido #${d.numero_pedido} -> Sale ID: ${d.sale_id}`).join(', '));
+              console.log(`[SyncBackground] 📝 Vendas criadas (${criadas.length}):`, criadas.map((d) => `Pedido #${d.numero_pedido} -> Sale ID: ${d.sale_id}`).join(', '));
             }
             if (atualizadas.length > 0) {
-              console.log(`[SyncBackground] 🔄 Vendas atualizadas (${atualizadas.length}):`, atualizadas.map((d: any) => `Pedido #${d.numero_pedido} -> Sale ID: ${d.sale_id}`).join(', '));
+              console.log(`[SyncBackground] 🔄 Vendas atualizadas (${atualizadas.length}):`, atualizadas.map((d) => `Pedido #${d.numero_pedido} -> Sale ID: ${d.sale_id}`).join(', '));
             }
           }
         } else {
