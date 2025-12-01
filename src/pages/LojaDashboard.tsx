@@ -382,10 +382,32 @@ export default function LojaDashboard() {
 
         // VERIFICAR SESSÃO DO USUÁRIO
         const { data: sessionData } = await supabase.auth.getSession();
+        const currentUserId = sessionData?.session?.user?.id;
         console.log('[LojaDashboard] 🔐 Sessão do usuário:');
-        console.log('[LojaDashboard]   User ID:', sessionData?.session?.user?.id || 'NÃO AUTENTICADO');
+        console.log('[LojaDashboard]   User ID:', currentUserId || 'NÃO AUTENTICADO');
         console.log('[LojaDashboard]   Email:', sessionData?.session?.user?.email || 'N/A');
         console.log('[LojaDashboard]   Role:', sessionData?.session?.user?.role || 'N/A');
+
+        // VERIFICAR SE O USUÁRIO É O ADMIN DA LOJA
+        const { data: storeData } = await supabase
+            .schema('sistemaretiradas')
+            .from('stores')
+            .select('admin_id, name')
+            .eq('id', currentStoreId)
+            .single();
+
+        if (storeData) {
+            console.log('[LojaDashboard] 🏪 Dados da loja:');
+            console.log('[LojaDashboard]   Nome:', storeData.name);
+            console.log('[LojaDashboard]   Admin ID:', storeData.admin_id);
+            console.log('[LojaDashboard]   🔍 User ID === Admin ID?', currentUserId === storeData.admin_id);
+
+            if (currentUserId !== storeData.admin_id) {
+                console.error('[LojaDashboard] 🚨 PROBLEMA ENCONTRADO!');
+                console.error('[LojaDashboard]   O usuário logado NÃO é o admin desta loja!');
+                console.error('[LojaDashboard]   Por isso o RLS está bloqueando as metas!');
+            }
+        }
 
         console.log('[LojaDashboard] 📡 Buscando meta mensal da loja...');
         console.log('[LojaDashboard]   storeId:', currentStoreId);
