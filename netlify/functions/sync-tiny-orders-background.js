@@ -347,14 +347,23 @@ exports.handler = async (event, context) => {
       // Usuário solicitou MAX 20 pedidos NO TOTAL. Então 1 página de 20 é suficiente.
       const LIMIT_PAGINAS_INCREMENTAL = 1;
 
-      // ✅ DATA DE HOJE (DD/MM/YYYY) - Restrição rigorosa solicitada pelo usuário
+      // ✅ CORREÇÃO: Buscar pedidos dos últimos 7 dias (não apenas hoje)
+      // Isso garante que pedidos do final do mês anterior ou início do novo mês sejam capturados
       const hoje = new Date();
-      const dia = String(hoje.getDate()).padStart(2, '0');
-      const mes = String(hoje.getMonth() + 1).padStart(2, '0');
-      const ano = hoje.getFullYear();
-      const dataHoje = `${dia}/${mes}/${ano}`; // Formato DD/MM/YYYY exigido pela API Tiny
+      const seteDiasAtras = new Date();
+      seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
+      
+      const diaInicio = String(seteDiasAtras.getDate()).padStart(2, '0');
+      const mesInicio = String(seteDiasAtras.getMonth() + 1).padStart(2, '0');
+      const anoInicio = seteDiasAtras.getFullYear();
+      const dataInicio = `${diaInicio}/${mesInicio}/${anoInicio}`; // Formato DD/MM/YYYY
+      
+      const diaFim = String(hoje.getDate()).padStart(2, '0');
+      const mesFim = String(hoje.getMonth() + 1).padStart(2, '0');
+      const anoFim = hoje.getFullYear();
+      const dataFim = `${diaFim}/${mesFim}/${anoFim}`; // Formato DD/MM/YYYY
 
-      console.log(`[SyncBackground] 🎯 MODO INCREMENTAL OTIMIZADO: Buscando pedidos de HOJE (${dataHoje}) em ordem DECRESCENTE`);
+      console.log(`[SyncBackground] 🎯 MODO INCREMENTAL OTIMIZADO: Buscando pedidos dos últimos 7 dias (${dataInicio} até ${dataFim}) em ordem DECRESCENTE`);
       console.log(`[SyncBackground] 🛡️ FREIO DE SEGURANÇA ATIVO: Limite máximo de ${LIMIT_PAGINAS_INCREMENTAL} página(s) e 20 pedidos totais.`);
 
       // ✅ MODO INCREMENTAL OTIMIZADO: 
@@ -379,10 +388,10 @@ exports.handler = async (event, context) => {
               endpoint: '/pedidos',
               method: 'GET',
               params: {
-                // ✅ ESTRATÉGIA SEGURA: Remover filtro de data para evitar erro 400 da API
-                // Confiamos na ordenação DESC + Limite 20 para pegar apenas os pedidos recentes (de hoje)
-                // dataInicial: dataHoje, // REMOVIDO para evitar erro de validação
-                // dataFinal: dataHoje,   // REMOVIDO para evitar erro de validação
+                // ✅ CORREÇÃO: Usar filtro de data dos últimos 7 dias para capturar mudança de mês
+                // Formato: DD/MM/YYYY (exigido pela API Tiny)
+                dataInicial: dataInicio,
+                dataFinal: dataFim,
 
                 // ✅ ORDEM DECRESCENTE: Mais recentes primeiro.
                 ordenar: 'numeroPedido|DESC',
