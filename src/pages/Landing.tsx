@@ -73,7 +73,7 @@ export default function Landing() {
       icon: <Target className="h-6 w-6" />,
       title: "Metas Dinâmicas",
       description: "Metas semanais, diárias, mensais com pesos customizados e gincanas que motivam.",
-      image: heroImage
+      image: abstractWaves
     },
     {
       icon: <Trophy className="h-6 w-6" />,
@@ -97,13 +97,13 @@ export default function Landing() {
       icon: <ShoppingCart className="h-6 w-6" />,
       title: "Acompanhamento de Compras",
       description: "Rastreie todas as compras das colaboradoras com histórico completo e análises.",
-      image: teamCelebration
+      image: devicesMockup
     },
     {
       icon: <DollarSign className="h-6 w-6" />,
       title: "Controle de Adiantamento",
       description: "Sistema completo para controle de adiantamentos de salário com notificações automáticas.",
-      image: mobileWhatsapp
+      image: aiNetwork
     },
     {
       icon: <MessageSquare className="h-6 w-6" />,
@@ -115,7 +115,7 @@ export default function Landing() {
       icon: <Analytics className="h-6 w-6" />,
       title: "Inteligência de Produtos",
       description: "Relatórios completos: peças mais vendidas, cores, marcas e tamanhos por consultora.",
-      image: dashboardImage
+      image: heroImage
     },
     {
       icon: <Users2 className="h-6 w-6" />,
@@ -127,13 +127,13 @@ export default function Landing() {
       icon: <FileText className="h-6 w-6" />,
       title: "Lançamento Manual de Vendas",
       description: "Registre vendas manualmente quando o ERP ainda não estiver integrado.",
-      image: dataVisualization
+      image: abstractWaves
     },
     {
       icon: <Users className="h-6 w-6" />,
       title: "Multi-Tenancy",
       description: "Gerencie múltiplas lojas com isolamento total de dados e permissões granulares.",
-      image: teamCelebration
+      image: devicesMockup
     }
   ];
 
@@ -291,8 +291,7 @@ export default function Landing() {
               </Button>
               <Button 
                 size="lg" 
-                variant="outline" 
-                className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8 py-2.5 sm:py-3 h-auto min-h-[44px] border-violet-500/50 hover:bg-violet-500/15 text-white font-semibold"
+                className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8 py-2.5 sm:py-3 h-auto min-h-[44px] bg-violet-500/30 hover:bg-violet-500/40 text-white font-bold border border-violet-500/50"
                 onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
                 data-testid="button-see-features"
               >
@@ -465,12 +464,12 @@ export default function Landing() {
                       <span className="text-sm text-slate-100 block mt-1">{plan.period}</span>
                     </div>
                     <Button 
-                      className={`w-full mb-6 min-h-[44px] text-sm sm:text-base ${
+                      className={`w-full mb-6 min-h-[44px] text-sm sm:text-base font-bold text-white ${
                         plan.popular 
                           ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700' 
-                          : ''
+                          : 'bg-violet-500/30 hover:bg-violet-500/40 border border-violet-500/50'
                       }`}
-                      variant={plan.popular ? 'default' : 'outline'}
+                      variant={plan.popular ? 'default' : 'default'}
                       onClick={() => navigate('/')}
                       data-testid={`button-select-plan-${i}`}
                     >
