@@ -312,13 +312,14 @@ export default function LojaDashboard() {
         // FIX: Usar fuso horário local para evitar problema de UTC
         const [year, month, day] = today.split('-').map(Number);
         const hoje = new Date(year, month - 1, day); // Mês é 0-indexed
-        const daysRemaining = daysInMonth - hoje.getDate() + 1; // +1 para incluir hoje
+        const diaAtual = hoje.getDate();
+        const diasFuturos = daysInMonth - diaAtual; // Dias APÓS hoje (não inclui hoje)
 
         console.log('[calculateDynamicDailyGoal]   hoje (local):', hoje);
-        console.log('[calculateDynamicDailyGoal]   hoje.getDate():', hoje.getDate());
-        console.log('[calculateDynamicDailyGoal]   daysRemaining:', daysRemaining);
+        console.log('[calculateDynamicDailyGoal]   diaAtual:', diaAtual);
+        console.log('[calculateDynamicDailyGoal]   diasFuturos (após hoje):', diasFuturos);
 
-        // 1. META BASE (PISO): Meta do dia pelo peso configurado
+        // 1. META BASE: Meta do dia pelo peso configurado (SEMPRE garantida)
         let metaBase = metaMensal / daysInMonth; // Default: proporcional
         if (dailyWeights && Object.keys(dailyWeights).length > 0) {
             const hojePeso = dailyWeights[today] || 0;
@@ -328,17 +329,35 @@ export default function LojaDashboard() {
                 metaBase = (metaMensal * hojePeso) / 100;
             }
         }
-        console.log('[calculateDynamicDailyGoal]   metaBase (piso garantido):', metaBase);
+        console.log('[calculateDynamicDailyGoal]   metaBase (peso do dia):', metaBase);
 
-        // 2. META ADICIONAL: Distribuir o que ficou pendente pelos dias restantes
-        const faltaParaMeta = Math.max(0, metaMensal - vendidoMes);
-        const metaAdicional = daysRemaining > 0 ? faltaParaMeta / daysRemaining : 0;
+        // 2. CALCULAR META ESPERADA ATÉ ONTEM (dias anteriores)
+        let metaEsperadaAteOntem = 0;
+        if (dailyWeights && Object.keys(dailyWeights).length > 0) {
+            // Somar pesos de todos os dias até ontem
+            for (let d = 1; d < diaAtual; d++) {
+                const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const peso = dailyWeights[dateStr] || 0;
+                metaEsperadaAteOntem += (metaMensal * peso) / 100;
+            }
+        } else {
+            // Sem pesos: proporcional
+            metaEsperadaAteOntem = (metaMensal / daysInMonth) * (diaAtual - 1);
+        }
+        console.log('[calculateDynamicDailyGoal]   metaEsperadaAteOntem:', metaEsperadaAteOntem);
 
-        console.log('[calculateDynamicDailyGoal]   faltaParaMeta:', faltaParaMeta);
-        console.log('[calculateDynamicDailyGoal]   metaAdicional (pendente distribuído):', metaAdicional);
+        // 3. PENDENTE DOS DIAS ANTERIORES (pode ser negativo se estiver na frente)
+        const pendenteAteOntem = metaEsperadaAteOntem - vendidoMes;
+        console.log('[calculateDynamicDailyGoal]   pendenteAteOntem:', pendenteAteOntem);
 
-        // 3. META FINAL: Base + Adicional (sempre >= base)
-        // IMPORTANTE: Somamos as duas, garantindo que nunca seja menor que a meta base
+        // 4. DISTRIBUIR PENDENTE PELOS DIAS FUTUROS (não inclui hoje)
+        let metaAdicional = 0;
+        if (pendenteAteOntem > 0 && diasFuturos > 0) {
+            metaAdicional = pendenteAteOntem / diasFuturos;
+        }
+        console.log('[calculateDynamicDailyGoal]   metaAdicional (pendente ÷ dias futuros):', metaAdicional);
+
+        // 5. META FINAL: Base + Adicional
         const metaFinal = metaBase + metaAdicional;
         console.log('[calculateDynamicDailyGoal]   ✅ Meta final (base + adicional):', metaFinal);
 
