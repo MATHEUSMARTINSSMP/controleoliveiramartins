@@ -292,12 +292,12 @@ export default function Landing() {
               <Button 
                 size="lg" 
                 variant="outline" 
-                className="w-full sm:w-auto text-lg sm:text-xl px-6 sm:px-10 py-3 sm:py-4 h-auto min-h-[48px] border-violet-500/50 hover:bg-violet-500/20 font-semibold"
+                className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8 py-2.5 sm:py-3 h-auto min-h-[44px] border-violet-500/50 hover:bg-violet-500/15 text-white font-semibold"
                 onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
                 data-testid="button-see-features"
               >
                 Ver Recursos
-                <ChevronRight className="ml-2 h-6 w-6" />
+                <ChevronRight className="ml-2 h-5 w-5" />
               </Button>
             </div>
 
@@ -458,11 +458,11 @@ export default function Landing() {
                 )}
                 <GlassCard className={`h-full flex flex-col p-4 sm:p-6 ${plan.popular ? 'border-violet-500/50 bg-violet-500/20' : ''}`}>
                   <div className="flex-1">
-                    <h3 className="text-2xl sm:text-3xl font-bold mb-3">{plan.name}</h3>
-                    <p className="text-sm sm:text-base text-slate-200 mb-6 sm:mb-8">{plan.description}</p>
-                    <div className="mb-8 sm:mb-10">
-                      <span className="text-4xl sm:text-5xl font-bold">{plan.price}</span>
-                      <span className="text-sm sm:text-base text-slate-200 block mt-1">{plan.period}</span>
+                    <h3 className="text-xl sm:text-2xl font-bold mb-2 text-white">{plan.name}</h3>
+                    <p className="text-sm text-slate-100 mb-6">{plan.description}</p>
+                    <div className="mb-8">
+                      <span className="text-3xl sm:text-4xl font-bold text-white">{plan.price}</span>
+                      <span className="text-sm text-slate-100 block mt-1">{plan.period}</span>
                     </div>
                     <Button 
                       className={`w-full mb-6 min-h-[44px] text-sm sm:text-base ${
@@ -477,15 +477,15 @@ export default function Landing() {
                       Começar Agora
                     </Button>
                   </div>
-                  <ul className="space-y-3 sm:space-y-4">
+                  <ul className="space-y-2 sm:space-y-3">
                     {plan.features.map((feature, j) => (
-                      <li key={j} className="flex items-start gap-3 text-sm sm:text-base">
-                        <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                      <li key={j} className="flex items-start gap-2.5 text-xs sm:text-sm">
+                        <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
                           plan.popular ? 'bg-violet-500/30' : 'bg-slate-800'
                         }`}>
-                          <Check className={`h-3.5 w-3.5 ${plan.popular ? 'text-violet-300' : 'text-slate-300'}`} />
+                          <Check className={`h-3 w-3 ${plan.popular ? 'text-violet-300' : 'text-slate-300'}`} />
                         </div>
-                        <span className="text-slate-100">{feature}</span>
+                        <span className="text-slate-50">{feature}</span>
                       </li>
                     ))}
                   </ul>
