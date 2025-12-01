@@ -1,7 +1,9 @@
 -- Criar tabela para armazenar templates de mensagens personalizadas do CRM por loja
+-- IMPORTANTE: Cada loja (store_id) terá seu próprio template personalizado
+-- A constraint UNIQUE(store_id) garante que cada loja tenha apenas um template
 CREATE TABLE IF NOT EXISTS sistemaretiradas.crm_message_templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    store_id UUID NOT NULL REFERENCES sistemaretiradas.stores(id) ON DELETE CASCADE,
+    store_id UUID NOT NULL REFERENCES sistemaretiradas.stores(id) ON DELETE CASCADE, -- Vinculado à loja específica
     
     -- Templates de mensagens
     birthday_message TEXT DEFAULT 'Oi {nome}! Feliz Aniversário! 🎉 Aproveite nosso cupom HAPPY20 com 20% OFF em sua próxima compra!',
