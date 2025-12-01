@@ -754,34 +754,22 @@ export default function LojaDashboard() {
                     const goal: any = goalsMap.get(colabId);
                     let metaDiaria = 0;
                     if (goal) {
-                        // Para o dia de hoje, usar cálculo dinâmico. Para dias passados, usar meta fixa.
-                        if (day === todayStr) {
-                            // Calcular vendas do mês até ontem para este colaborador
-                            const vendasMesAteOntem = salesData
-                                ?.filter((s: any) => {
-                                    const saleDay = s.data_venda ? s.data_venda.split('T')[0] : null;
-                                    return s.colaboradora_id === colabId && saleDay && saleDay < todayStr;
-                                })
-                                .reduce((sum: number, s: any) => sum + Number(s.valor || 0), 0) || 0;
+                        // Calcular vendas do mês até ONTEM para este colaborador
+                        const vendasMesAteOntem = salesData
+                            ?.filter((s: any) => {
+                                const saleDay = s.data_venda ? s.data_venda.split('T')[0] : null;
+                                return s.colaboradora_id === colabId && saleDay && saleDay < day;
+                            })
+                            .reduce((sum: number, s: any) => sum + Number(s.valor || 0), 0) || 0;
 
-                            const dailyWeights = goal.daily_weights || {};
-                            metaDiaria = calculateDynamicDailyGoal(
-                                Number(goal.meta_valor),
-                                vendasMesAteOntem,
-                                todayStr,
-                                Object.keys(dailyWeights).length > 0 ? dailyWeights : null,
-                                daysInMonth
-                            );
-                        } else {
-                            // Para dias passados, usar meta fixa (daily_weights ou proporcional)
-                            const dailyWeights = goal.daily_weights || {};
-                            if (Object.keys(dailyWeights).length > 0) {
-                                const dayWeight = dailyWeights[day] || 0;
-                                metaDiaria = (Number(goal.meta_valor) * dayWeight) / 100;
-                            } else {
-                                metaDiaria = Number(goal.meta_valor) / daysInMonth;
-                            }
-                        }
+                        const dailyWeights = goal.daily_weights || {};
+                        metaDiaria = calculateDynamicDailyGoal(
+                            Number(goal.meta_valor),
+                            vendasMesAteOntem,
+                            day,
+                            Object.keys(dailyWeights).length > 0 ? dailyWeights : null,
+                            daysInMonth
+                        );
                     }
 
                     monthlyData[colabId].dailySales[day] = {
@@ -831,26 +819,21 @@ export default function LojaDashboard() {
                     const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
                     if (dayStr <= todayStr) {
                         if (!data.dailySales[dayStr]) {
-                            let metaDiaria = 0;
+                            // Calcular vendas até ONTEM (antes deste dia) para esta colaboradora
+                            const vendasAteOntem = salesData
+                                ?.filter((s: any) => {
+                                    const saleDay = s.data_venda ? s.data_venda.split('T')[0] : null;
+                                    return s.colaboradora_id === colab.id && saleDay && saleDay < dayStr;
+                                })
+                                .reduce((sum: number, s: any) => sum + Number(s.valor || 0), 0) || 0;
 
-                            // Para o dia de hoje, usar cálculo dinâmico. Para dias passados, usar meta fixa.
-                            if (dayStr === todayStr) {
-                                metaDiaria = calculateDynamicDailyGoal(
-                                    Number(goal.meta_valor),
-                                    vendasMesColab,
-                                    todayStr,
-                                    Object.keys(dailyWeights).length > 0 ? dailyWeights : null,
-                                    daysInMonth
-                                );
-                            } else {
-                                // Para dias passados, usar meta fixa (daily_weights ou proporcional)
-                                if (Object.keys(dailyWeights).length > 0) {
-                                    const dayWeight = dailyWeights[dayStr] || 0;
-                                    metaDiaria = (Number(goal.meta_valor) * dayWeight) / 100;
-                                } else {
-                                    metaDiaria = Number(goal.meta_valor) / daysInMonth;
-                                }
-                            }
+                            const metaDiaria = calculateDynamicDailyGoal(
+                                Number(goal.meta_valor),
+                                vendasAteOntem,
+                                dayStr,
+                                Object.keys(dailyWeights).length > 0 ? dailyWeights : null,
+                                daysInMonth
+                            );
 
                             data.dailySales[dayStr] = {
                                 valor: 0,
