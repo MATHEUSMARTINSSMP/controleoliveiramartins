@@ -65,11 +65,17 @@ SELECT
     'Verifique os logs da função sync-tiny-orders-background na Netlify para ver se criar_vendas_de_tiny_orders foi chamada' as instrucao;
 
 -- 4. TESTAR A FUNÇÃO MANUALMENTE (apenas para ver o resultado, não força criação)
--- ⚠️ DESCOMENTE PARA EXECUTAR:
--- SELECT * FROM sistemaretiradas.criar_vendas_de_tiny_orders(
---     (SELECT store_id FROM sistemaretiradas.tiny_orders WHERE numero_pedido = '1419' LIMIT 1),
---     NULL
--- );
+-- Esta query executa a função e mostra o resultado
+SELECT 
+    '4. RESULTADO DA FUNÇÃO' as verificacao,
+    result.vendas_criadas,
+    result.vendas_atualizadas,
+    result.erros,
+    result.detalhes
+FROM sistemaretiradas.criar_vendas_de_tiny_orders(
+    (SELECT store_id FROM sistemaretiradas.tiny_orders WHERE numero_pedido = '1419' LIMIT 1),
+    NULL
+) as result;
 
 -- 5. VERIFICAR SE HÁ PROBLEMA COM TIMING (pedido criado muito recentemente)
 SELECT 
