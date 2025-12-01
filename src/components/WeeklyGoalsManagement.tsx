@@ -669,6 +669,7 @@ const WeeklyGoalsManagement = () => {
 
         try {
             const { error } = await supabase
+                .schema("sistemaretiradas")
                 .from("goals")
                 .delete()
                 .eq("store_id", selectedStore)
@@ -941,6 +942,7 @@ const WeeklyGoalsManagement = () => {
             for (const payload of payloads) {
                 // Deletar meta específica desta colaboradora/semana/loja
                 const { error: deleteError } = await supabase
+                    .schema("sistemaretiradas")
                     .from("goals")
                     .delete()
                     .eq("store_id", payload.store_id)
@@ -960,6 +962,7 @@ const WeeklyGoalsManagement = () => {
             // Verificar se ainda existem metas antes de inserir (extra safety)
             const colaboradoraIds = payloads.map(p => p.colaboradora_id).filter(Boolean);
             const { data: remainingGoals } = await supabase
+                .schema("sistemaretiradas")
                 .from("goals")
                 .select("id, colaboradora_id")
                 .eq("store_id", selectedStore)
@@ -971,6 +974,7 @@ const WeeklyGoalsManagement = () => {
                 console.warn(`${remainingGoals.length} meta(s) ainda existe(m) após DELETE individual, deletando em massa...`);
                 // Tentar deletar em massa como fallback
                 const { error: deleteMassError } = await supabase
+                    .schema("sistemaretiradas")
                     .from("goals")
                     .delete()
                     .eq("store_id", selectedStore)
@@ -988,6 +992,7 @@ const WeeklyGoalsManagement = () => {
 
             // Inserir as novas metas em batch
             const { data: insertData, error: insertError } = await supabase
+                .schema("sistemaretiradas")
                 .from("goals")
                 .insert(payloads)
                 .select();
@@ -1005,6 +1010,7 @@ const WeeklyGoalsManagement = () => {
                     for (const payload of payloads) {
                         // Deletar novamente antes de inserir (extra segurança)
                         await supabase
+                            .schema("sistemaretiradas")
                             .from("goals")
                             .delete()
                             .eq("store_id", payload.store_id)
@@ -1016,6 +1022,7 @@ const WeeklyGoalsManagement = () => {
                         
                         // Inserir individual
                         const { data: singleData, error: singleError } = await supabase
+                            .schema("sistemaretiradas")
                             .from("goals")
                             .insert(payload)
                             .select()
