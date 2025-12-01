@@ -25,13 +25,19 @@ import {
   Activity,
   Layers,
   RefreshCw,
-  ChevronDown
+  ChevronDown,
+  ShoppingCart,
+  Zap as Analytics,
+  Users2,
+  FileText,
+  Briefcase
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { GlassCard } from '@/components/GlassCard';
 import { AnimatedCounter } from '@/components/AnimatedCounter';
 import { FloatingParticles } from '@/components/FloatingParticles';
 import { GradientText } from '@/components/GradientText';
+import { MouseTrackingBackground } from '@/components/MouseTrackingBackground';
 
 import heroImage from "@assets/generated_images/futuristic_tech_dashboard_hero.png";
 import abstractWaves from "@assets/generated_images/abstract_tech_gradient_waves.png";
@@ -65,7 +71,7 @@ export default function Landing() {
     {
       icon: <Target className="h-6 w-6" />,
       title: "Metas Dinâmicas",
-      description: "Sistema inteligente que recalcula metas automaticamente baseado no desempenho real.",
+      description: "Metas semanais, diárias, mensais com pesos customizados e gincanas que motivam.",
       image: heroImage
     },
     {
@@ -77,13 +83,49 @@ export default function Landing() {
     {
       icon: <Gift className="h-6 w-6" />,
       title: "Cashback Automático",
-      description: "Cashback automático com notificações WhatsApp e controle completo de saldos.",
+      description: "Sistema completo de cashback com notificações WhatsApp e controle de saldos.",
       image: mobileWhatsapp
     },
     {
       icon: <RefreshCw className="h-6 w-6" />,
       title: "Integração Tiny ERP",
       description: "Sincronização automática com Tiny ERP para pedidos e contatos em tempo real.",
+      image: dataVisualization
+    },
+    {
+      icon: <ShoppingCart className="h-6 w-6" />,
+      title: "Acompanhamento de Compras",
+      description: "Rastreie todas as compras das colaboradoras com histórico completo e análises.",
+      image: teamCelebration
+    },
+    {
+      icon: <DollarSign className="h-6 w-6" />,
+      title: "Controle de Adiantamento",
+      description: "Sistema completo para controle de adiantamentos de salário com notificações automáticas.",
+      image: mobileWhatsapp
+    },
+    {
+      icon: <MessageSquare className="h-6 w-6" />,
+      title: "WhatsApp Notifications",
+      description: "Notifique clientes sobre novas vendas, parabenize colaboradoras e comunique pedidos.",
+      image: dataFlow
+    },
+    {
+      icon: <Analytics className="h-6 w-6" />,
+      title: "Inteligência de Produtos",
+      description: "Relatórios completos: peças mais vendidas, cores, marcas e tamanhos por consultora.",
+      image: dashboardImage
+    },
+    {
+      icon: <Users2 className="h-6 w-6" />,
+      title: "Sistema de CRM",
+      description: "Saiba o que falar e quando falar com seu cliente. Histórico completo de interações.",
+      image: teamCelebration
+    },
+    {
+      icon: <FileText className="h-6 w-6" />,
+      title: "Lançamento Manual de Vendas",
+      description: "Registre vendas manualmente quando o ERP ainda não estiver integrado.",
       image: dataVisualization
     },
     {
@@ -131,11 +173,11 @@ export default function Landing() {
   const painPoints = [
     {
       problem: "Minhas vendedoras não batem meta",
-      solution: "Metas Inteligentes e Gamificação mantêm sua equipe engajada"
+      solution: "Metas Dinâmicas e Gamificação mantêm sua equipe engajada e motivada"
     },
     {
       problem: "O cliente compra uma vez e some",
-      solution: "Cashback Automático via WhatsApp garante recompra"
+      solution: "Cashback Automático via WhatsApp garante recompra e fidelização"
     },
     {
       problem: "Perco tempo com planilhas",
@@ -143,21 +185,24 @@ export default function Landing() {
     },
     {
       problem: "Não sei se estou lucrando",
-      solution: "Dashboards em tempo real mostram saúde financeira"
+      solution: "Dashboards em tempo real mostram saúde financeira completa"
     },
     {
-      problem: "Equipe desmotivada",
-      solution: "Troféus, rankings e reconhecimento aumentam motivação"
+      problem: "Equipe desmotivada e desorganizada",
+      solution: "CRM completo + gincanas + troféus + reconhecimento aumentam motivação"
     },
     {
       problem: "Gestão de múltiplas lojas é caótica",
-      solution: "Multi-tenancy com isolamento total de dados"
+      solution: "Multi-tenancy com isolamento total de dados e permissões granulares"
     }
   ];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100 overflow-x-hidden">
-      {/* Animated Background */}
+      {/* Mouse Tracking Background */}
+      <MouseTrackingBackground />
+
+      {/* Animated Floating Particles */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <FloatingParticles />
         <div className="absolute top-0 right-0 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl animate-pulse" />
@@ -172,7 +217,7 @@ export default function Landing() {
               <Sparkles className="h-5 w-5 text-white" />
             </div>
             <span className="font-bold text-xl">
-              <GradientText>Controle OM</GradientText>
+              <GradientText>EleveaOne</GradientText>
             </span>
           </div>
           <div className="hidden md:flex items-center gap-8">
@@ -214,7 +259,7 @@ export default function Landing() {
             </h1>
             
             <p className="text-lg sm:text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
-              Cashback automático, metas dinâmicas, gamificação e integração com Tiny ERP. 
+              Cashback automático, metas dinâmicas, gamificação, inteligência de produtos, CRM completo e integração com Tiny ERP. 
               Tudo em uma plataforma moderna para varejo.
             </p>
             
@@ -324,35 +369,35 @@ export default function Landing() {
             </h2>
           </div>
 
-          {/* Interactive Features */}
-          <div className="max-w-5xl mx-auto">
-            <div className="grid lg:grid-cols-2 gap-8 items-center">
-              <div className="space-y-3">
-                {features.map((feature, i) => (
-                  <GlassCard
-                    key={i}
-                    onClick={() => setActiveFeature(i)}
-                    className={`cursor-pointer transition-all ${activeFeature === i ? 'border-violet-500/50 bg-violet-500/20' : ''}`}
-                    data-testid={`feature-button-${i}`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="text-violet-400 mt-1">{feature.icon}</div>
-                      <div>
-                        <h3 className="font-semibold text-slate-100">{feature.title}</h3>
-                        <p className="text-sm text-slate-400">{feature.description}</p>
-                      </div>
+          {/* Interactive Features Grid */}
+          <div className="max-w-7xl mx-auto">
+            <div className="grid lg:grid-cols-3 gap-4 mb-8">
+              {features.map((feature, i) => (
+                <GlassCard
+                  key={i}
+                  onClick={() => setActiveFeature(i)}
+                  className={`cursor-pointer transition-all p-4 ${activeFeature === i ? 'border-violet-500/50 bg-violet-500/20' : ''}`}
+                  data-testid={`feature-button-${i}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="text-violet-400 mt-1">{feature.icon}</div>
+                    <div className="text-left">
+                      <h3 className="font-semibold text-slate-100 text-sm">{feature.title}</h3>
+                      <p className="text-xs text-slate-400 mt-1">{feature.description}</p>
                     </div>
-                  </GlassCard>
-                ))}
-              </div>
-              <div className="relative">
-                <div className="rounded-2xl overflow-hidden border border-violet-500/20 shadow-2xl">
-                  <img 
-                    src={features[activeFeature].image} 
-                    alt={features[activeFeature].title}
-                    className="w-full h-auto transition-all duration-500"
-                  />
-                </div>
+                  </div>
+                </GlassCard>
+              ))}
+            </div>
+
+            {/* Large Feature Display */}
+            <div className="relative">
+              <div className="rounded-2xl overflow-hidden border border-violet-500/20 shadow-2xl h-96">
+                <img 
+                  src={features[activeFeature].image} 
+                  alt={features[activeFeature].title}
+                  className="w-full h-full object-cover transition-all duration-500"
+                />
               </div>
             </div>
           </div>
@@ -441,7 +486,7 @@ export default function Landing() {
                 Pronto para revolucionar suas vendas?
               </h2>
               <p className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
-                Junte-se a centenas de lojas que já transformaram sua gestão comercial
+                Junte-se a centenas de lojas que já transformaram sua gestão comercial com EleveaOne
               </p>
               <Button 
                 size="lg" 
@@ -466,11 +511,11 @@ export default function Landing() {
                 <Sparkles className="h-5 w-5 text-white" />
               </div>
               <span className="font-bold text-xl">
-                <GradientText>Controle OM</GradientText>
+                <GradientText>EleveaOne</GradientText>
               </span>
             </div>
             <p className="text-sm text-slate-400">
-              2024 Controle Oliveira Martins. Todos os direitos reservados.
+              2024 EleveaOne. Todos os direitos reservados.
             </p>
             <div className="flex items-center gap-6">
               <a href="#" className="text-sm text-slate-400 hover:text-slate-100 transition-colors">Termos</a>
