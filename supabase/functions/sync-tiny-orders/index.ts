@@ -263,8 +263,10 @@ serve(async (req) => {
           ...syncBody,
           data_inicio: hardSync ? (body.data_inicio || '2010-01-01') : body.data_inicio,
           incremental: body.incremental !== undefined ? body.incremental : !hardSync,
-          limit: hardSync ? 200 : (body.limit || 100), // Hard sync usa 200 por página
-          max_pages: hardSync ? (body.max_pages || 99999) : (body.max_pages || 50),
+          // ✅ Para sync incremental (não-hard): máximo 20 pedidos
+          // ✅ Para hard sync: usar valores maiores
+          limit: hardSync ? 200 : (body.limit || 20), // Incremental: 20, Hard sync: 200
+          max_pages: hardSync ? (body.max_pages || 99999) : (body.max_pages || 1), // Incremental: 1 página, Hard sync: ilimitado
           hard_sync: hardSync,
         };
       } else if (syncType === 'CONTACTS') {
@@ -376,13 +378,14 @@ serve(async (req) => {
     switch (tipoSync) {
       case 'incremental_1min':
         // A cada 1 minuto: Apenas vendas NOVAS (incremental otimizado)
+        // ✅ IMPORTANTE: Buscar no máximo 20 pedidos (limit: 20, max_pages: 1)
         // ✅ IMPORTANTE: Para cada loja, buscar último número conhecido ANTES de definir syncParams
         // Isso será feito no loop abaixo para cada loja individualmente
         syncParams = {
           modo_incremental_otimizado: true,
           apenas_novas_vendas: true,
-          limit: 100,
-          max_pages: 10,
+          limit: 20, // ✅ Máximo 20 pedidos por página
+          max_pages: 1, // ✅ Apenas 1 página = máximo 20 pedidos
         };
         break;
         
