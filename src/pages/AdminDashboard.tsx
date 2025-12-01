@@ -20,6 +20,7 @@ import { WhatsAppNotificationConfig } from "@/components/admin/WhatsAppNotificat
 import { GoalsTracking } from "@/components/admin/GoalsTracking";
 import { CashbackStoreConfig } from "@/components/admin/CashbackStoreConfig";
 import { CRMStoreConfig } from "@/components/admin/CRMStoreConfig";
+import { ModulesStoreConfig } from "@/components/admin/ModulesStoreConfig";
 import { CRMManagement } from "@/components/admin/CRMManagement";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -341,11 +342,8 @@ const AdminDashboard = () => {
           <TabsContent value="configuracoes" className="animate-in fade-in-50 duration-500 space-y-4 sm:space-y-6">
             <WhatsAppNotificationConfig />
             
-            {/* Configuração de Cashback por Loja */}
-            <CashbackStoreConfig />
-
-            {/* Configuração de CRM por Loja */}
-            <CRMStoreConfig />
+            {/* Configuração Unificada de Módulos por Loja */}
+            <ModulesStoreConfig />
             
             {/* Integrações ERP */}
             <Card className="border-primary/20">
