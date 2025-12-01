@@ -388,12 +388,8 @@ exports.handler = async (event, context) => {
               endpoint: '/pedidos',
               method: 'GET',
               params: {
-                // ✅ CORREÇÃO: Usar filtro de data dos últimos 7 dias para capturar mudança de mês
-                // Formato: DD/MM/YYYY (exigido pela API Tiny)
-                dataInicial: dataInicio,
-                dataFinal: dataFim,
-
-                // ✅ ORDEM DECRESCENTE: Mais recentes primeiro.
+                // ✅ MODO OTIMIZADO: Não enviar filtro de data, buscar apenas por número de pedido
+                // A API Tiny aceita buscar sem data quando usamos ordenação por número
                 ordenar: 'numeroPedido|DESC',
                 pagina: currentPage,
                 limite: 20, // ✅ Limite fixo de 20 pedidos totais
@@ -401,7 +397,7 @@ exports.handler = async (event, context) => {
             }),
           });
 
-          console.log(`[SyncBackground] 📡 [OTIMIZADO] Chamando API Tiny - Página ${currentPage}, Ordem: DESC, Limite: 20 (Sem filtro de data para evitar erro 400)`);
+          console.log(`[SyncBackground] 📡 [OTIMIZADO] Chamando API Tiny - Página ${currentPage}, Ordem: DESC, Limite: 20 (Sem filtro de data)`);
 
           if (!response.ok) {
             const errorText = await response.text();
