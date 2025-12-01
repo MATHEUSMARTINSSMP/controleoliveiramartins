@@ -375,6 +375,13 @@ export default function LojaDashboard() {
         const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
         const today = format(hoje, 'yyyy-MM-dd');
 
+        // VERIFICAR SESSÃO DO USUÁRIO
+        const { data: sessionData } = await supabase.auth.getSession();
+        console.log('[LojaDashboard] 🔐 Sessão do usuário:');
+        console.log('[LojaDashboard]   User ID:', sessionData?.session?.user?.id || 'NÃO AUTENTICADO');
+        console.log('[LojaDashboard]   Email:', sessionData?.session?.user?.email || 'N/A');
+        console.log('[LojaDashboard]   Role:', sessionData?.session?.user?.role || 'N/A');
+
         console.log('[LojaDashboard] 📡 Buscando meta mensal da loja...');
         console.log('[LojaDashboard]   storeId:', currentStoreId);
         console.log('[LojaDashboard]   mes_referencia:', mesAtual);
