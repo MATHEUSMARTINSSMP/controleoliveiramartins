@@ -248,6 +248,7 @@ const WeeklyGoalsManagement = () => {
         try {
             // ✅ BUSCAR TODAS AS GINCANAS SEM FILTRO DE DATA (passadas e futuras)
             const { data, error } = await supabase
+                .schema("sistemaretiradas")
                 .from("goals")
                 .select(`*, stores (name), profiles (name)`)
                 .eq("tipo", "SEMANAL")
@@ -290,6 +291,7 @@ const WeeklyGoalsManagement = () => {
             
             // Buscar todas as metas da gincana desta semana e loja
             const { data: goals, error: goalsError } = await supabase
+                .schema("sistemaretiradas")
                 .from("goals")
                 .select("*, profiles (name)")
                 .eq("store_id", storeId)
@@ -304,16 +306,17 @@ const WeeklyGoalsManagement = () => {
                 return;
             }
             
-            // Buscar vendas de cada colaboradora na semana
-            const results = await Promise.all(
-                goals.map(async (goal: any) => {
-                    const { data: sales, error: salesError } = await supabase
-                        .from("sales")
-                        .select("valor")
-                        .eq("colaboradora_id", goal.colaboradora_id)
-                        .eq("store_id", storeId)
-                        .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
-                        .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+                    // Buscar vendas de cada colaboradora na semana
+                    const results = await Promise.all(
+                        goals.map(async (goal: any) => {
+                            const { data: sales, error: salesError } = await supabase
+                                .schema("sistemaretiradas")
+                                .from("sales")
+                                .select("valor")
+                                .eq("colaboradora_id", goal.colaboradora_id)
+                                .eq("store_id", storeId)
+                                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
+                                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
                     
                     if (salesError) {
                         console.error(`Erro ao buscar vendas para colaboradora ${goal.colaboradora_id}:`, salesError);
