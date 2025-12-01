@@ -39,14 +39,15 @@ async function verificarNovaVenda(
   try {
     console.log(`[SyncTiny] 🔍 Verificando se há nova venda para loja ${storeId}...`);
 
-    // 1. Buscar último pedido no banco
+    // 1. Buscar último pedido no banco (ordenar por número E data para pegar o mais recente)
     const { data: ultimoPedidoBanco } = await supabase
       .schema('sistemaretiradas')
       .from('tiny_orders')
-      .select('numero_pedido, data_pedido')
+      .select('numero_pedido, data_pedido, updated_at')
       .eq('store_id', storeId)
       .not('numero_pedido', 'is', null)
       .order('numero_pedido', { ascending: false })
+      .order('data_pedido', { ascending: false })
       .limit(1)
       .single();
 
@@ -119,9 +120,25 @@ async function verificarNovaVenda(
     // Comparar números de pedido
     const numeroAPI = parseInt(String(ultimoPedidoAPI.numeroPedido || ultimoPedidoAPI.numero_pedido || 0));
 
+    // ✅ CORREÇÃO: Comparar também por data para detectar atualizações de pedidos antigos
+    const dataPedidoAPI = ultimoPedidoAPI?.data || ultimoPedidoAPI?.dataCriacao || ultimoPedidoAPI?.dataPedido;
+    const dataPedidoBanco = ultimoPedidoBanco?.data_pedido;
+    
+    // Se o número é maior, definitivamente há nova venda
     if (numeroAPI > ultimoNumeroConhecido) {
       console.log(`[SyncTiny] ✅ NOVA VENDA DETECTADA! API: ${numeroAPI} > Banco: ${ultimoNumeroConhecido}`);
       return { temNovaVenda: true, ultimoNumeroConhecido };
+    }
+    
+    // ✅ NOVO: Se o número é igual mas a data é mais recente, pode ter sido atualizado
+    if (numeroAPI === ultimoNumeroConhecido && dataPedidoAPI && dataPedidoBanco) {
+      const dataAPI = new Date(dataPedidoAPI);
+      const dataBanco = new Date(dataPedidoBanco);
+      // Se a data da API é mais recente (mais de 1 minuto), sincronizar para pegar atualizações
+      if (dataAPI.getTime() > dataBanco.getTime() + 60000) {
+        console.log(`[SyncTiny] ✅ PEDIDO ATUALIZADO DETECTADO! Número: ${numeroAPI}, Data API: ${dataPedidoAPI} > Data Banco: ${dataPedidoBanco}`);
+        return { temNovaVenda: true, ultimoNumeroConhecido };
+      }
     }
 
     console.log(`[SyncTiny] ℹ️ Sem mudanças. Último pedido: ${ultimoNumeroConhecido}`);
