@@ -913,16 +913,19 @@ exports.handler = async (event, context) => {
     console.log(`[SyncBackground] ✅ Sincronização concluída: ${synced} novos, ${updated} atualizados, ${errors} erros`);
 
     // ✅ NOVA FUNCIONALIDADE: Criar vendas automaticamente a partir dos pedidos sincronizados
+    // ⚠️ IMPORTANTE: Sempre executar, mesmo se não houver novos pedidos (pode haver pedidos antigos sem venda)
     // ⚠️ IMPORTANTE: Aguardar um pouco para garantir que todas as transações foram commitadas
     console.log(`[SyncBackground] ⏳ Aguardando 2 segundos para garantir que todas as transações foram commitadas...`);
     await new Promise(resolve => setTimeout(resolve, 2000));
     
     console.log(`[SyncBackground] 🔄 Criando vendas automaticamente a partir dos pedidos do Tiny...`);
     console.log(`[SyncBackground] 📋 Parâmetros: store_id=${storeId || 'NULL'}, data_inicio=NULL`);
+    console.log(`[SyncBackground] 📋 Nota: Processando TODOS os pedidos sem venda (não apenas os novos sincronizados)`);
     
     try {
       // ✅ IMPORTANTE: Processar TODOS os pedidos sem venda, não apenas os da sincronização atual
       // Isso garante que pedidos que não foram processados anteriormente sejam criados
+      // ✅ CRÍTICO: Sempre chamar, mesmo se synced = 0 (pode haver pedidos antigos sem venda)
       const { data: vendasResult, error: vendasError } = await supabase
         .schema('sistemaretiradas')
         .rpc('criar_vendas_de_tiny_orders', {
@@ -961,12 +964,16 @@ exports.handler = async (event, context) => {
             }
           }
         } else {
-          console.warn(`[SyncBackground] ⚠️ Função retornou resultado vazio ou nulo. Verifique se há pedidos sem venda.`);
+          console.warn(`[SyncBackground] ⚠️ Função retornou resultado vazio ou nulo.`);
+          console.warn(`[SyncBackground] ⚠️ Isso pode significar que não há pedidos sem venda OU que a função não está retornando dados corretamente.`);
+          console.warn(`[SyncBackground] ⚠️ Verifique os logs do banco de dados para mais detalhes.`);
         }
       }
     } catch (vendasException) {
       console.error(`[SyncBackground] ❌ Exceção ao criar vendas (não bloqueia sincronização):`, vendasException);
       console.error(`[SyncBackground] ❌ Stack trace:`, vendasException.stack);
+      console.error(`[SyncBackground] ❌ Tipo do erro:`, typeof vendasException);
+      console.error(`[SyncBackground] ❌ Mensagem:`, vendasException.message);
       // Não falhar a sincronização se a criação de vendas falhar
     }
 

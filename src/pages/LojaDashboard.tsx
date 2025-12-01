@@ -1428,6 +1428,12 @@ export default function LojaDashboard() {
         const startOfDay = `${filterDateToUse}T00:00:00`;
         const endOfDay = `${filterDateToUse}T23:59:59`;
 
+        console.log('[LojaDashboard] 📡 Buscando vendas...');
+        console.log('[LojaDashboard]   storeId:', currentStoreId);
+        console.log('[LojaDashboard]   filterDate:', filterDateToUse);
+        console.log('[LojaDashboard]   startOfDay:', startOfDay);
+        console.log('[LojaDashboard]   endOfDay:', endOfDay);
+
         const { data, error } = await supabase
             .schema("sistemaretiradas")
             .from('sales')
@@ -1439,6 +1445,13 @@ export default function LojaDashboard() {
             .gte('data_venda', startOfDay)
             .lte('data_venda', endOfDay)
             .order('data_venda', { ascending: false });
+
+        console.log('[LojaDashboard] 📊 Resultado da busca:');
+        console.log('[LojaDashboard]   Total de vendas encontradas:', data?.length || 0);
+        console.log('[LojaDashboard]   Vendas com tiny_order_id:', data?.filter((s: any) => s.tiny_order_id).length || 0);
+        if (error) {
+            console.error('[LojaDashboard] ❌ Erro:', error);
+        }
 
         if (error) {
             console.error('[LojaDashboard] Erro ao carregar vendas:', error);
