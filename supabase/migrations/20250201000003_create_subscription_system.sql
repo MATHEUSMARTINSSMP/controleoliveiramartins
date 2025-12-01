@@ -197,7 +197,7 @@ COMMENT ON FUNCTION sistemaretiradas.can_create_colaboradora IS 'Verifica se adm
 -- 8. INSERIR PLANOS
 -- ============================================================================
 
--- STARTER: R$ 249/mês - 1 loja, 5 colaboradoras TOTAL
+-- STARTER: R$ 249/mês - 1 loja, 5 colaboradoras TOTAL, SEM ERP
 INSERT INTO sistemaretiradas.subscription_plans (
     name, display_name, description,
     max_stores, max_colaboradoras_total,
@@ -206,12 +206,13 @@ INSERT INTO sistemaretiradas.subscription_plans (
 ) VALUES (
     'STARTER', 'Starter', 'Ideal para começar. 1 loja, 5 colaboradoras.',
     1, 5, -- 1 loja, 5 colaboradoras TOTAL
-    true, true, true,
+    true, false, true, -- SEM ERP
     24900, 249000, -- R$ 249/mês, R$ 2.490/ano
     1
 ) ON CONFLICT (name) DO UPDATE SET
     max_stores = 1,
     max_colaboradoras_total = 5,
+    erp_integration_enabled = false,
     price_monthly = 24900,
     price_yearly = 249000;
 
