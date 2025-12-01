@@ -318,32 +318,31 @@ export default function LojaDashboard() {
         console.log('[calculateDynamicDailyGoal]   hoje.getDate():', hoje.getDate());
         console.log('[calculateDynamicDailyGoal]   daysRemaining:', daysRemaining);
 
-        // Meta fixa (baseada em daily_weights ou proporcional)
-        let metaFixa = metaMensal / daysInMonth;
-        console.log('[calculateDynamicDailyGoal]   metaFixa inicial (proporcional):', metaFixa);
-
+        // 1. META BASE (PISO): Meta do dia pelo peso configurado
+        let metaBase = metaMensal / daysInMonth; // Default: proporcional
         if (dailyWeights && Object.keys(dailyWeights).length > 0) {
             const hojePeso = dailyWeights[today] || 0;
             console.log('[calculateDynamicDailyGoal]   hojePeso para', today, ':', hojePeso);
 
             if (hojePeso > 0) {
-                metaFixa = (metaMensal * hojePeso) / 100;
-                console.log('[calculateDynamicDailyGoal]   metaFixa com peso:', metaFixa);
+                metaBase = (metaMensal * hojePeso) / 100;
             }
         }
+        console.log('[calculateDynamicDailyGoal]   metaBase (piso garantido):', metaBase);
 
-        // Meta dinâmica: (o que falta) / dias restantes
+        // 2. META ADICIONAL: Distribuir o que ficou pendente pelos dias restantes
         const faltaParaMeta = Math.max(0, metaMensal - vendidoMes);
-        const metaDinamica = daysRemaining > 0 ? faltaParaMeta / daysRemaining : 0;
+        const metaAdicional = daysRemaining > 0 ? faltaParaMeta / daysRemaining : 0;
 
         console.log('[calculateDynamicDailyGoal]   faltaParaMeta:', faltaParaMeta);
-        console.log('[calculateDynamicDailyGoal]   metaDinamica:', metaDinamica);
+        console.log('[calculateDynamicDailyGoal]   metaAdicional (pendente distribuído):', metaAdicional);
 
-        // A meta diária é o maior entre a meta dinâmica e a meta fixa (piso)
-        const resultado = Math.max(metaDinamica, metaFixa);
-        console.log('[calculateDynamicDailyGoal]   ✅ Resultado final:', resultado);
+        // 3. META FINAL: Base + Adicional (sempre >= base)
+        // IMPORTANTE: Somamos as duas, garantindo que nunca seja menor que a meta base
+        const metaFinal = metaBase + metaAdicional;
+        console.log('[calculateDynamicDailyGoal]   ✅ Meta final (base + adicional):', metaFinal);
 
-        return resultado;
+        return metaFinal;
     };
 
     const fetchGoalsWithStoreId = async (currentStoreId: string) => {
