@@ -55,13 +55,13 @@ export default function CRMLojaView() {
 
   const handleAddTask = () => {
     if (!newTask.title || !newTask.cliente) return;
-    setTasks([...tasks, { id: Date.now().toString(), ...newTask, status: "PENDENTE" }]);
+    setTasks([...tasks, { id: Date.now().toString(), ...newTask, status: "PENDENTE", priority: newTask.priority as "ALTA" | "MÉDIA" | "BAIXA" }]);
     setNewTask({ title: "", cliente: "", dueDate: "", priority: "MÉDIA" });
   };
 
   const handleAddCommitment = () => {
     if (!newCommitment.cliente) return;
-    setCommitments([...commitments, { id: Date.now().toString(), ...newCommitment }]);
+    setCommitments([...commitments, { id: Date.now().toString(), ...newCommitment, type: newCommitment.type as "AJUSTE" | "FOLLOW_UP" | "VENDA" | "OUTRO" }]);
     setNewCommitment({ cliente: "", type: "FOLLOW_UP", scheduledDate: "", notes: "" });
   };
 
