@@ -26,6 +26,7 @@ import { sendWhatsAppMessage, formatVendaMessage } from "@/lib/whatsapp";
 import { checkAndCreateMonthlyTrophies, checkAndCreateWeeklyTrophies } from "@/lib/trophies";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CashbackLojaView from "@/components/loja/CashbackLojaView";
+import CRMLojaView from "@/components/loja/CRMLojaView";
 
 interface Sale {
     id: string;
@@ -58,7 +59,7 @@ export default function LojaDashboard() {
     const [storeName, setStoreName] = useState<string | null>(null);
     const [salesDateFilter, setSalesDateFilter] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [cashbackAtivo, setCashbackAtivo] = useState<boolean>(false);
-    const [activeView, setActiveView] = useState<'metas' | 'cashback'>('metas');
+    const [activeView, setActiveView] = useState<'metas' | 'cashback' | 'crm'>('metas');
 
     interface FormaPagamento {
         tipo: 'CREDITO' | 'DEBITO' | 'DINHEIRO' | 'PIX' | 'BOLETO';
@@ -2492,13 +2493,16 @@ export default function LojaDashboard() {
                 <div className="flex gap-2 w-full sm:w-auto">
                     {/* Abas de Navegação - Metas e Cashback */}
                     {cashbackAtivo && (
-                        <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback')} className="w-full sm:w-auto">
-                            <TabsList className="grid w-full sm:w-auto grid-cols-2 bg-muted/50">
+                        <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm')} className="w-full sm:w-auto">
+                            <TabsList className="grid w-full sm:w-auto grid-cols-3 bg-muted/50">
                                 <TabsTrigger value="metas" className="rounded-lg text-xs sm:text-sm">
                                     Metas
                                 </TabsTrigger>
                                 <TabsTrigger value="cashback" className="rounded-lg text-xs sm:text-sm">
                                     Cashback
+                                </TabsTrigger>
+                                <TabsTrigger value="crm" className="rounded-lg text-xs sm:text-sm">
+                                    CRM
                                 </TabsTrigger>
                             </TabsList>
                         </Tabs>
@@ -2508,7 +2512,7 @@ export default function LojaDashboard() {
 
             {/* Conteúdo Principal com Abas */}
             {cashbackAtivo ? (
-                <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback')} className="space-y-4">
+                <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm')} className="space-y-4">
                     <TabsContent value="metas" className="space-y-4 sm:space-y-6">
                         {/* Todo o conteúdo atual do dashboard de metas */}
                         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -3562,6 +3566,9 @@ export default function LojaDashboard() {
 
                     <TabsContent value="cashback" className="space-y-4 sm:space-y-6">
                         <CashbackLojaView storeId={storeId} />
+                    </TabsContent>
+                    <TabsContent value="crm" className="space-y-4 sm:space-y-6">
+                        <CRMLojaView />
                     </TabsContent>
                 </Tabs>
             ) : (
