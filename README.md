@@ -1,12 +1,87 @@
-# 🚀 Controle Oliveira Martins - O Sistema Definitivo para Varejo de Moda
+# 🚀 Controle Oliveira Martins - Sistema de Gestão para Varejo
 
-> **Transforme sua loja em uma máquina de vendas com automação, fidelização e gestão inteligente.**
-
-Bem-vindo ao **Controle Oliveira Martins**, a plataforma SaaS (Software as a Service) projetada especificamente para revolucionar a gestão de lojas de varejo de moda. Não somos apenas um sistema; somos o parceiro estratégico que faltava para escalar o seu negócio.
+Bem-vindo ao repositório oficial do **Controle Oliveira Martins**. Este documento está dividido em duas partes:
+1.  **Documentação Técnica:** Para desenvolvedores e arquitetos de sistema.
+2.  **Apresentação Comercial:** Para lojistas e parceiros de negócios.
 
 ---
 
-## 💎 Por Que Escolher o Controle Oliveira Martins?
+# 🛠️ Documentação Técnica
+
+## 1. Visão Geral da Arquitetura
+O sistema é uma aplicação **SaaS Multi-Tenant** construída sobre uma arquitetura moderna e serverless, garantindo escalabilidade infinita e baixo custo de manutenção.
+
+*   **Frontend:** Single Page Application (SPA) em **React** com **Vite**, estilizada com **TailwindCSS** e componentes **ShadcnUI**.
+*   **Backend:** **Supabase** (Backend-as-a-Service) fornecendo Banco de Dados PostgreSQL, Autenticação e Realtime.
+*   **Serverless Functions:** **Netlify Functions** (Node.js) para lógica de negócios complexa, integrações e webhooks.
+*   **Edge Functions:** **Supabase Edge Functions** (Deno) para operações de baixa latência.
+
+## 2. Estrutura do Repositório
+```bash
+├── src/                  # Código fonte do Frontend (React)
+│   ├── components/       # Componentes reutilizáveis (UI, Forms, Charts)
+│   ├── pages/            # Páginas da aplicação (Rotas)
+│   ├── hooks/            # Custom Hooks (useAuth, useToast)
+│   └── lib/              # Utilitários e cliente Supabase
+├── supabase/             # Configurações do Supabase
+│   ├── migrations/       # Migrations SQL (Schema, RLS, Functions)
+│   └── functions/        # Edge Functions (Deno)
+├── netlify/              # Serverless Functions (Node.js)
+│   └── functions/        # API Endpoints e Background Jobs
+└── public/               # Assets estáticos
+```
+
+## 3. Banco de Dados e Schema (`sistemaretiradas`)
+O banco de dados PostgreSQL é o coração do sistema, organizado no schema `sistemaretiradas`.
+
+### Tabelas Principais
+*   `stores`: Tabela raiz de tenants. Cada loja é um registro aqui.
+*   `profiles`: Usuários do sistema (Admins, Gerentes, Vendedoras), vinculados à `auth.users`.
+*   `sales`: Registro de vendas, vinculadas a `store_id` e `colaboradora_id`.
+*   `goals`: Metas de vendas (individuais e da loja).
+*   `cashback_settings`: Configurações de fidelidade por loja.
+*   `cashback_balance`: Saldo atual de cashback dos clientes finais.
+*   `cashback_transactions`: Histórico de geração e resgate de cashback.
+*   `tiny_orders` / `tiny_contacts`: Espelhos de dados sincronizados do ERP para performance.
+
+### Segurança (RLS)
+Utilizamos **Row Level Security (RLS)** para garantir isolamento total.
+*   Todas as tabelas possuem `store_id`.
+*   Policies garantem que `auth.uid()` só acesse linhas onde `store_id` corresponde ao perfil do usuário.
+
+## 4. Funções Serverless e Automações
+
+### Netlify Functions (Node.js)
+Estas funções rodam na infraestrutura da Netlify e lidam com integrações e lógica pesada.
+
+| Função | Tipo | Descrição |
+| :--- | :--- | :--- |
+| `cashback-redeem` | API | Processa o resgate de cashback, valida saldo e cria transação. |
+| `create-colaboradora` | API | Cria novos usuários no Supabase Auth e Profiles, validando limites do plano. |
+| `sync-tiny-orders` | Webhook | Recebe notificações de novos pedidos do Tiny ERP em tempo real. |
+| `sync-tiny-contacts-background` | Background | Sincronização em massa de contatos do ERP (processamento assíncrono). |
+| `process-cashback-whatsapp-queue` | Cron/API | Processa a fila de mensagens de WhatsApp pendentes. |
+| `erp-api-proxy` | API | Gateway seguro para chamadas ao ERP, protegendo as credenciais. |
+| `tiny-oauth-callback` | System | Callback de autenticação OAuth para conectar novas lojas ao Tiny ERP. |
+
+### Automações (Cron Jobs)
+*   **Expiração de Cashback:** Roda diariamente para invalidar saldos vencidos.
+*   **Verificação de Metas:** Roda diariamente para calcular progresso e enviar notificações.
+
+## 5. Integrações Externas
+*   **Tiny ERP (API v3):** Sincronização bidirecional de pedidos, produtos e clientes.
+*   **Bling (API v3):** Estrutura pronta para integração.
+*   **WhatsApp API:** Integração para envio de notificações transacionais (Cashback, Metas).
+
+---
+
+# 💎 Apresentação Comercial
+
+> **Transforme sua loja em uma máquina de vendas com automação, fidelização e gestão inteligente.**
+
+O **Controle Oliveira Martins** é a plataforma definitiva para o varejo de moda. Resolvemos as dores operacionais para que você foque no crescimento.
+
+## � Por Que Escolher o Controle Oliveira Martins?
 
 Você, lojista, sabe que o varejo é dinâmico. Clientes exigentes, estoque complexo, equipe para gerenciar... É fácil se perder no operacional e esquecer do estratégico.
 
@@ -15,8 +90,6 @@ Nós resolvemos as dores que tiram o seu sono:
 *   **"O cliente compra uma vez e some"** -> O **Cashback Automatizado via WhatsApp** garante que ele volte, criando um ciclo vicioso de recompra.
 *   **"Perco muito tempo com planilhas"** -> Integração total com **Tiny ERP e Bling**, automatizando 100% da entrada de dados.
 *   **"Não sei se estou lucrando"** -> Dashboards em tempo real mostram a saúde financeira da sua loja na palma da mão.
-
----
 
 ## 🔥 Funcionalidades que Geram Lucro
 
@@ -46,8 +119,6 @@ Seus dados são sagrados.
 *   **Isolamento Total:** Cada loja vê apenas seus próprios dados.
 *   **Controle de Acesso:** Níveis de permissão para Admin, Gerente e Vendedora.
 
----
-
 ## 🚀 Planos Comerciais
 
 Escolha o plano ideal para o tamanho do seu sonho.
@@ -61,32 +132,6 @@ Escolha o plano ideal para o tamanho do seu sonho.
 | **Suporte** | Email | WhatsApp | Prioritário 24/7 |
 
 > **Oferta Especial de Lançamento:** Assine o plano anual e ganhe **2 meses grátis**!
-
----
-
-## 🛠️ Documentação Técnica (Para Desenvolvedores)
-
-### Stack Tecnológica
-*   **Frontend:** React, Vite, TailwindCSS, ShadcnUI.
-*   **Backend:** Supabase (PostgreSQL, Auth, Edge Functions), Netlify Functions (Node.js).
-*   **Integrações:** Tiny ERP API v3, Bling API v3, WhatsApp API (WPPConnect/Twilio).
-
-### Arquitetura Multi-Tenancy
-O sistema utiliza **Row Level Security (RLS)** do PostgreSQL para garantir isolamento absoluto de dados.
-*   Cada tabela possui colunas `store_id` obrigatórias.
-*   Policies do Supabase garantem que um usuário só acesse dados vinculados ao seu `store_id`.
-
-### Automações (Webhooks & Cron)
-*   `sync-tiny-orders`: Webhook que recebe pedidos do ERP em tempo real.
-*   `process-cashback-queue`: Cron job que processa e envia mensagens de cashback.
-*   `check-goals`: Verifica atingimento de metas diariamente.
-
-### Instalação e Deploy
-1.  Clone o repositório.
-2.  `npm install`
-3.  Configure as variáveis de ambiente no `.env` (Supabase URL, Keys).
-4.  `npm run dev` para rodar localmente.
-5.  Deploy automático via Netlify ao fazer push na `main`.
 
 ---
 
