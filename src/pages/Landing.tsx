@@ -257,32 +257,32 @@ export default function Landing() {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
+      {/* Hero Section - Mobile First */}
+      <section className="relative pt-24 pb-12 sm:pt-32 sm:pb-16 md:min-h-screen md:flex md:items-center md:justify-center md:pt-16 overflow-hidden">
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-5xl mx-auto text-center">
-            <Badge className="mb-6 px-4 py-2 bg-violet-500/10 text-violet-400 border-violet-500/20" variant="outline">
+            <Badge className="mb-4 sm:mb-6 px-3 py-1.5 sm:px-4 sm:py-2 bg-violet-500/10 text-violet-400 border-violet-500/20 text-xs sm:text-sm" variant="outline">
               <Sparkles className="h-3 w-3 mr-2" />
               Plataforma Definitiva para Varejo
             </Badge>
             
-            <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold mb-6 leading-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold mb-4 sm:mb-6 leading-tight">
               Transforme sua loja em
               <br />
-              <GradientText className="text-5xl sm:text-6xl md:text-7xl">
+              <GradientText className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl">
                 máquina de vendas
               </GradientText>
             </h1>
             
-            <p className="text-lg sm:text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg md:text-xl text-slate-200 mb-6 sm:mb-8 max-w-2xl mx-auto leading-relaxed">
               Cashback automático, metas dinâmicas, gamificação, inteligência de produtos, CRM completo e integração com Tiny ERP. 
               Tudo em uma plataforma moderna para varejo.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+            <div className="flex flex-col gap-3 sm:gap-4 justify-center mb-8 sm:mb-12">
               <Button 
                 size="lg" 
-                className="text-lg px-8 py-6 h-auto bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 shadow-lg shadow-violet-500/25"
+                className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8 py-2.5 sm:py-3 h-auto min-h-[44px] bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 shadow-lg shadow-violet-500/25"
                 onClick={() => navigate('/')}
                 data-testid="button-start-free"
               >
@@ -292,7 +292,7 @@ export default function Landing() {
               <Button 
                 size="lg" 
                 variant="outline" 
-                className="text-lg px-8 py-6 h-auto border-violet-500/30 hover:bg-violet-500/10"
+                className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8 py-2.5 sm:py-3 h-auto min-h-[44px] border-violet-500/30 hover:bg-violet-500/10"
                 onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
                 data-testid="button-see-features"
               >
@@ -301,31 +301,31 @@ export default function Landing() {
               </Button>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto mb-16">
+            {/* Stats Grid - Mobile First */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 max-w-3xl mx-auto mb-8 sm:mb-16">
               {stats.map((stat, i) => (
-                <GlassCard key={i} className="text-center" data-testid={`stat-${i}`}>
-                  <div className="flex items-center justify-center gap-2 text-violet-400 mb-2">
-                    {stat.icon}
-                    <span className="text-2xl font-bold">
+                <GlassCard key={i} className="text-center p-3 sm:p-4 min-h-[80px] sm:min-h-[100px] flex flex-col justify-center" data-testid={`stat-${i}`}>
+                  <div className="flex items-center justify-center gap-1.5 text-violet-300 mb-1 sm:mb-2">
+                    <span className="h-4 w-4 sm:h-5 sm:w-5">{stat.icon}</span>
+                    <span className="text-lg sm:text-2xl font-bold">
                       <AnimatedCounter end={stat.value} suffix="%" />
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400">{stat.label}</p>
+                  <p className="text-xs sm:text-xs text-slate-300">{stat.label}</p>
                 </GlassCard>
               ))}
             </div>
 
             {/* CTA Scroll */}
-            <div className="animate-bounce">
+            <div className="animate-bounce hidden sm:block">
               <ChevronDown className="h-6 w-6 mx-auto text-violet-400" />
             </div>
           </div>
           
-          {/* Hero Image */}
-          <div className="mt-16 relative max-w-4xl mx-auto">
+          {/* Hero Image - Mobile First */}
+          <div className="mt-8 sm:mt-12 md:mt-16 relative max-w-4xl mx-auto">
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent z-10 pointer-events-none" />
-            <div className="rounded-2xl overflow-hidden border border-violet-500/20 shadow-2xl shadow-violet-500/10 transform hover:scale-105 transition-transform duration-500">
+            <div className="rounded-lg sm:rounded-2xl overflow-hidden border border-violet-500/20 shadow-2xl shadow-violet-500/10 transform hover:scale-105 transition-transform duration-500 max-h-60 sm:max-h-96">
               <img 
                 src={heroImage} 
                 alt="Dashboard Preview" 
@@ -350,9 +350,9 @@ export default function Landing() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-6xl mx-auto">
             {painPoints.map((point, i) => (
-              <GlassCard key={i} className="hover:scale-105" data-testid={`pain-point-${i}`}>
+              <GlassCard key={i} className="hover:scale-105 p-4 sm:p-6" data-testid={`pain-point-${i}`}>
                 <div className="flex items-start gap-3 mb-3">
                   <div className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0 mt-1">
                     <span className="text-red-400 font-bold text-xs">✕</span>
@@ -385,30 +385,31 @@ export default function Landing() {
             </h2>
           </div>
 
-          {/* Interactive Features Grid */}
+          {/* Interactive Features Grid - Mobile Stack */}
           <div className="max-w-7xl mx-auto">
-            <div className="grid lg:grid-cols-3 gap-4 mb-8">
+            {/* Mobile - Vertical Stack, Desktop - Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-8">
               {features.map((feature, i) => (
                 <GlassCard
                   key={i}
                   onClick={() => setActiveFeature(i)}
-                  className={`cursor-pointer transition-all p-4 ${activeFeature === i ? 'border-violet-500/50 bg-violet-500/20' : ''}`}
+                  className={`cursor-pointer transition-all p-3 sm:p-4 min-h-[100px] sm:min-h-auto flex flex-col justify-start ${activeFeature === i ? 'border-violet-500/50 bg-violet-500/20' : ''}`}
                   data-testid={`feature-button-${i}`}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="text-violet-400 mt-1">{feature.icon}</div>
-                    <div className="text-left">
-                      <h3 className="font-semibold text-slate-100 text-sm">{feature.title}</h3>
-                      <p className="text-xs text-slate-400 mt-1">{feature.description}</p>
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className="text-violet-300 mt-1 flex-shrink-0 h-5 w-5 sm:h-6 sm:w-6">{feature.icon}</div>
+                    <div className="text-left min-w-0">
+                      <h3 className="font-semibold text-slate-100 text-xs sm:text-sm leading-snug">{feature.title}</h3>
+                      <p className="text-xs text-slate-300 mt-1 leading-snug">{feature.description}</p>
                     </div>
                   </div>
                 </GlassCard>
               ))}
             </div>
 
-            {/* Large Feature Display */}
+            {/* Large Feature Display - Mobile Responsive */}
             <div className="relative">
-              <div className="rounded-2xl overflow-hidden border border-violet-500/20 shadow-2xl h-96">
+              <div className="rounded-lg sm:rounded-2xl overflow-hidden border border-violet-500/20 shadow-2xl shadow-violet-500/10 h-48 sm:h-72 md:h-96">
                 <img 
                   src={features[activeFeature].image} 
                   alt={features[activeFeature].title}
@@ -435,34 +436,34 @@ export default function Landing() {
             </h2>
           </div>
 
-          {/* Main Plans */}
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto mb-16">
+          {/* Main Plans - Mobile Stack */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 max-w-5xl mx-auto mb-16">
             {plans.map((plan, i) => (
               <div
                 key={i}
                 className={`relative group transition-all duration-300 ${
-                  plan.popular ? 'lg:scale-105' : ''
+                  plan.popular ? 'md:scale-105' : ''
                 }`}
                 data-testid={`plan-${i}`}
               >
                 {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
-                    <Badge className="px-4 py-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white border-0">
+                  <div className="absolute -top-3 sm:-top-4 left-1/2 -translate-x-1/2 z-10">
+                    <Badge className="px-3 sm:px-4 py-1 text-xs sm:text-sm bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white border-0">
                       <Star className="h-3 w-3 mr-1" />
                       Mais Popular
                     </Badge>
                   </div>
                 )}
-                <GlassCard className={`h-full flex flex-col ${plan.popular ? 'border-violet-500/50 bg-violet-500/20' : ''}`}>
+                <GlassCard className={`h-full flex flex-col p-4 sm:p-6 ${plan.popular ? 'border-violet-500/50 bg-violet-500/20' : ''}`}>
                   <div className="flex-1">
-                    <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
-                    <p className="text-sm text-slate-400 mb-6">{plan.description}</p>
-                    <div className="mb-8">
-                      <span className="text-4xl font-bold">{plan.price}</span>
-                      <span className="text-slate-400">{plan.period}</span>
+                    <h3 className="text-xl sm:text-2xl font-bold mb-2">{plan.name}</h3>
+                    <p className="text-xs sm:text-sm text-slate-300 mb-4 sm:mb-6">{plan.description}</p>
+                    <div className="mb-6 sm:mb-8">
+                      <span className="text-3xl sm:text-4xl font-bold">{plan.price}</span>
+                      <span className="text-xs sm:text-sm text-slate-300">{plan.period}</span>
                     </div>
                     <Button 
-                      className={`w-full mb-6 ${
+                      className={`w-full mb-6 min-h-[44px] text-sm sm:text-base ${
                         plan.popular 
                           ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700' 
                           : ''
@@ -474,15 +475,15 @@ export default function Landing() {
                       Começar Agora
                     </Button>
                   </div>
-                  <ul className="space-y-3">
+                  <ul className="space-y-2 sm:space-y-3">
                     {plan.features.map((feature, j) => (
-                      <li key={j} className="flex items-center gap-3 text-sm">
-                        <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+                      <li key={j} className="flex items-start gap-2.5 text-xs sm:text-sm">
+                        <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
                           plan.popular ? 'bg-violet-500/30' : 'bg-slate-800'
                         }`}>
-                          <Check className={`h-3 w-3 ${plan.popular ? 'text-violet-400' : 'text-slate-400'}`} />
+                          <Check className={`h-3 w-3 ${plan.popular ? 'text-violet-300' : 'text-slate-300'}`} />
                         </div>
-                        <span className="text-slate-300">{feature}</span>
+                        <span className="text-slate-200">{feature}</span>
                       </li>
                     ))}
                   </ul>
@@ -492,22 +493,22 @@ export default function Landing() {
           </div>
 
           {/* Add-ons */}
-          <div className="border-t border-violet-500/20 pt-16 mt-16">
-            <div className="text-center mb-12">
-              <h3 className="text-3xl font-bold mb-2">
+          <div className="border-t border-violet-500/20 pt-12 sm:pt-16 mt-12 sm:mt-16">
+            <div className="text-center mb-8 sm:mb-12">
+              <h3 className="text-2xl sm:text-3xl font-bold mb-2">
                 Precisa de mais?
               </h3>
-              <p className="text-slate-300">Adicione recursos conforme sua loja cresce</p>
+              <p className="text-sm sm:text-base text-slate-300">Adicione recursos conforme sua loja cresce</p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-8 max-w-2xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 max-w-2xl mx-auto">
               {addOns.map((addon, i) => (
-                <GlassCard key={i} className="text-center p-6" data-testid={`addon-${i}`}>
-                  <h4 className="text-xl font-bold mb-2">{addon.name}</h4>
-                  <p className="text-sm text-slate-400 mb-4">{addon.description}</p>
+                <GlassCard key={i} className="text-center p-4 sm:p-6 min-h-[120px] flex flex-col justify-center" data-testid={`addon-${i}`}>
+                  <h4 className="text-lg sm:text-xl font-bold mb-2">{addon.name}</h4>
+                  <p className="text-xs sm:text-sm text-slate-300 mb-3 sm:mb-4">{addon.description}</p>
                   <div>
-                    <span className="text-3xl font-bold">{addon.price}</span>
-                    <span className="text-slate-400">{addon.period}</span>
+                    <span className="text-2xl sm:text-3xl font-bold">{addon.price}</span>
+                    <span className="text-xs sm:text-sm text-slate-300">{addon.period}</span>
                   </div>
                 </GlassCard>
               ))}
