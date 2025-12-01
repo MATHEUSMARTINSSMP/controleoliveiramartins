@@ -65,6 +65,46 @@ BEGIN
     ORDER BY o.data_pedido ASC, o.created_at ASC
   LOOP
     BEGIN
+      -- ✅ VALIDAÇÕES EXPLÍCITAS: Verificar se todos os dados necessários estão presentes
+      IF v_pedido.colaboradora_id IS NULL THEN
+        RAISE WARNING 'Pedido % (número: %) não tem colaboradora_id. Pulando criação de venda.', 
+          v_pedido.tiny_order_id, v_pedido.numero_pedido;
+        v_erros := v_erros + 1;
+        v_detalhes := v_detalhes || jsonb_build_object(
+          'tipo', 'erro',
+          'tiny_order_id', v_pedido.tiny_order_id,
+          'numero_pedido', v_pedido.numero_pedido,
+          'erro', 'colaboradora_id é NULL'
+        );
+        CONTINUE; -- Pular para próximo pedido
+      END IF;
+      
+      IF v_pedido.store_id IS NULL THEN
+        RAISE WARNING 'Pedido % (número: %) não tem store_id. Pulando criação de venda.', 
+          v_pedido.tiny_order_id, v_pedido.numero_pedido;
+        v_erros := v_erros + 1;
+        v_detalhes := v_detalhes || jsonb_build_object(
+          'tipo', 'erro',
+          'tiny_order_id', v_pedido.tiny_order_id,
+          'numero_pedido', v_pedido.numero_pedido,
+          'erro', 'store_id é NULL'
+        );
+        CONTINUE; -- Pular para próximo pedido
+      END IF;
+      
+      IF v_pedido.valor_total IS NULL OR v_pedido.valor_total <= 0 THEN
+        RAISE WARNING 'Pedido % (número: %) tem valor_total inválido (%). Pulando criação de venda.', 
+          v_pedido.tiny_order_id, v_pedido.numero_pedido, v_pedido.valor_total;
+        v_erros := v_erros + 1;
+        v_detalhes := v_detalhes || jsonb_build_object(
+          'tipo', 'erro',
+          'tiny_order_id', v_pedido.tiny_order_id,
+          'numero_pedido', v_pedido.numero_pedido,
+          'erro', 'valor_total é NULL ou <= 0'
+        );
+        CONTINUE; -- Pular para próximo pedido
+      END IF;
+      
       -- Calcular quantidade de peças a partir dos itens
       v_qtd_pecas := 0;
       
@@ -171,18 +211,28 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN
       v_erros := v_erros + 1;
       
-      -- Adicionar erro ao detalhes
+      -- Adicionar erro ao detalhes com informações completas para debug
       v_erro_detalhes := jsonb_build_object(
         'tipo', 'erro',
         'tiny_order_id', v_pedido.tiny_order_id,
         'numero_pedido', v_pedido.numero_pedido,
-        'erro', SQLERRM
+        'store_id', v_pedido.store_id,
+        'colaboradora_id', v_pedido.colaboradora_id,
+        'valor_total', v_pedido.valor_total,
+        'erro', SQLERRM,
+        'erro_detalhado', SQLSTATE || ': ' || SQLERRM
       );
       
       v_detalhes := v_detalhes || v_erro_detalhes;
       
       -- Log do erro (não interrompe o processamento)
-      RAISE WARNING 'Erro ao processar pedido %: %', v_pedido.tiny_order_id, SQLERRM;
+      RAISE WARNING 'Erro ao processar pedido % (número: %, store: %, colaboradora: %, valor: %): %', 
+        v_pedido.tiny_order_id, 
+        v_pedido.numero_pedido,
+        v_pedido.store_id,
+        v_pedido.colaboradora_id,
+        v_pedido.valor_total,
+        SQLERRM;
     END;
   END LOOP;
   

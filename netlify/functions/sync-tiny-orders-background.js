@@ -913,15 +913,21 @@ exports.handler = async (event, context) => {
     console.log(`[SyncBackground] ✅ Sincronização concluída: ${synced} novos, ${updated} atualizados, ${errors} erros`);
 
     // ✅ NOVA FUNCIONALIDADE: Criar vendas automaticamente a partir dos pedidos sincronizados
+    // ⚠️ IMPORTANTE: Aguardar um pouco para garantir que todas as transações foram commitadas
+    console.log(`[SyncBackground] ⏳ Aguardando 2 segundos para garantir que todas as transações foram commitadas...`);
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
     console.log(`[SyncBackground] 🔄 Criando vendas automaticamente a partir dos pedidos do Tiny...`);
     console.log(`[SyncBackground] 📋 Parâmetros: store_id=${storeId || 'NULL'}, data_inicio=NULL`);
     
     try {
+      // ✅ IMPORTANTE: Processar TODOS os pedidos sem venda, não apenas os da sincronização atual
+      // Isso garante que pedidos que não foram processados anteriormente sejam criados
       const { data: vendasResult, error: vendasError } = await supabase
         .schema('sistemaretiradas')
         .rpc('criar_vendas_de_tiny_orders', {
-          p_store_id: storeId || null,
-          p_data_inicio: null // Processar todos os pedidos (ou usar data_inicio se fornecido)
+          p_store_id: storeId || null, // Se fornecido, processa apenas esta loja
+          p_data_inicio: null // Processar TODOS os pedidos (garante que nada seja perdido)
         });
 
       if (vendasError) {

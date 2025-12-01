@@ -430,9 +430,9 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant={task.priority === "ALTA" ? "destructive" : task.priority === "MÉDIA" ? "default" : "secondary"}>
-                      {task.priority}
-                    </Badge>
+                  <Badge variant={task.priority === "ALTA" ? "destructive" : task.priority === "MÉDIA" ? "default" : "secondary"}>
+                    {task.priority}
+                  </Badge>
                     <Button
                       size="sm"
                       variant="ghost"
@@ -465,46 +465,46 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
               {birthdays.map((birthday) => {
                 const message = getBirthdayMessage(birthday.nome);
                 return (
-                  <div key={birthday.id} className="p-4 bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-950/30 dark:to-rose-950/30 rounded-lg border border-pink-200 dark:border-pink-800">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
+                <div key={birthday.id} className="p-4 bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-950/30 dark:to-rose-950/30 rounded-lg border border-pink-200 dark:border-pink-800">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
                         <p className="font-bold text-sm">{birthday.nome}</p>
                         {birthday.telefone && (
                           <p className="text-xs text-muted-foreground">{birthday.telefone}</p>
                         )}
-                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs">Mensagem Padrão:</Label>
-                      <Textarea
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Mensagem Padrão:</Label>
+                    <Textarea
                         value={message}
-                        readOnly
-                        className="text-xs h-20"
-                      />
+                      readOnly
+                      className="text-xs h-20"
+                    />
                       {birthday.telefone && (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
                             onClick={() => {
                               navigator.clipboard.writeText(message);
                               toast.success('Mensagem copiada!');
                             }}
-                            className="flex-1"
-                          >
-                            <MessageSquare className="h-4 w-4 mr-2" />
-                            Copiar Msg
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="flex-1"
-                            asChild
-                          >
+                        className="flex-1"
+                      >
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Copiar Msg
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        asChild
+                      >
                             <a href={whatsappLink(birthday.telefone, message)} target="_blank" rel="noreferrer">
-                              <MessageSquare className="h-4 w-4 mr-2" />
-                              Enviar WA
-                            </a>
-                          </Button>
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Enviar WA
+                        </a>
+                      </Button>
                         </div>
                       )}
                     </div>
@@ -639,7 +639,7 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
                       {comp.type} • {format(parseISO(comp.scheduled_date), "dd/MM/yyyy HH:mm")}
                     </p>
                     {comp.notes && (
-                      <p className="text-xs text-muted-foreground mt-1">{comp.notes}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{comp.notes}</p>
                     )}
                   </div>
                 </div>
