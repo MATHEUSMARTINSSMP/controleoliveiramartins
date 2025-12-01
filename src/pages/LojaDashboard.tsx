@@ -309,9 +309,12 @@ export default function LojaDashboard() {
         console.log('[calculateDynamicDailyGoal]   daysInMonth:', daysInMonth);
 
         // Calcular dias restantes do mês (incluindo o dia de hoje)
-        const hoje = new Date(today);
+        // FIX: Usar fuso horário local para evitar problema de UTC
+        const [year, month, day] = today.split('-').map(Number);
+        const hoje = new Date(year, month - 1, day); // Mês é 0-indexed
         const daysRemaining = daysInMonth - hoje.getDate() + 1; // +1 para incluir hoje
 
+        console.log('[calculateDynamicDailyGoal]   hoje (local):', hoje);
         console.log('[calculateDynamicDailyGoal]   hoje.getDate():', hoje.getDate());
         console.log('[calculateDynamicDailyGoal]   daysRemaining:', daysRemaining);
 
