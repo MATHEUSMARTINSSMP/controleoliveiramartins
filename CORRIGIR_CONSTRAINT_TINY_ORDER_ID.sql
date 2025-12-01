@@ -17,7 +17,8 @@ WHERE schemaname = 'sistemaretiradas'
 DROP INDEX IF EXISTS sistemaretiradas.idx_sales_tiny_order_id_unique;
 
 -- 3. CRIAR ÍNDICE ÚNICO PARCIAL (necessário para ON CONFLICT funcionar)
--- PostgreSQL permite ON CONFLICT com índices únicos parciais usando o nome do índice
+-- PostgreSQL permite ON CONFLICT com índices únicos parciais
+-- O WHERE já está no índice, então ON CONFLICT (tiny_order_id) funciona automaticamente
 CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_tiny_order_id_unique 
 ON sistemaretiradas.sales(tiny_order_id) 
 WHERE tiny_order_id IS NOT NULL;
