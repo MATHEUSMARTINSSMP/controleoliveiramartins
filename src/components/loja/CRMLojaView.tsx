@@ -105,7 +105,10 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
   };
 
   const fetchTasks = async () => {
-    if (!storeId) return;
+    if (!storeId) {
+      console.warn('[CRMLojaView] fetchTasks chamado sem storeId');
+      return;
+    }
 
     try {
       const todayStart = startOfDay(new Date()).toISOString();
@@ -120,11 +123,19 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
         .lte('due_date', todayEnd)
         .order('due_date', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[CRMLojaView] Erro ao buscar tarefas:', error);
+        // Não mostrar toast para erros de busca (pode ser apenas que não há dados)
+        if (error.code !== 'PGRST116') {
+          console.warn('[CRMLojaView] Erro ao buscar tarefas (não crítico):', error.message);
+        }
+        setTasks([]);
+        return;
+      }
       setTasks(data || []);
     } catch (error: any) {
-      console.error('Erro ao buscar tarefas:', error);
-      toast.error('Erro ao buscar tarefas');
+      console.error('[CRMLojaView] Erro inesperado ao buscar tarefas:', error);
+      setTasks([]);
     }
   };
 
@@ -239,91 +250,183 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
   };
 
   const handleAddTask = async () => {
-    if (!newTask.title || !newTask.cliente_nome || !newTask.dueDate || !storeId) {
-      toast.error('Preencha todos os campos obrigatórios');
+    // Validações
+    if (!storeId) {
+      toast.error('Erro: Loja não identificada');
+      return;
+    }
+
+    if (!newTask.title || newTask.title.trim().length === 0) {
+      toast.error('O título da tarefa é obrigatório');
+      return;
+    }
+
+    if (!newTask.cliente_nome || newTask.cliente_nome.trim().length === 0) {
+      toast.error('O nome do cliente é obrigatório');
+      return;
+    }
+
+    if (!newTask.dueDate) {
+      toast.error('A data/hora da tarefa é obrigatória');
+      return;
+    }
+
+    // Validar se a data não é no passado
+    const dueDate = new Date(newTask.dueDate);
+    if (isNaN(dueDate.getTime())) {
+      toast.error('Data/hora inválida');
       return;
     }
 
     try {
       setSaving(true);
-      const { error } = await supabase
+      const { error, data } = await supabase
         .schema('sistemaretiradas')
         .from('crm_tasks')
         .insert([{
           store_id: storeId,
           colaboradora_id: profile?.id || null,
-          cliente_nome: newTask.cliente_nome,
-          title: newTask.title,
+          cliente_nome: newTask.cliente_nome.trim(),
+          title: newTask.title.trim(),
           due_date: newTask.dueDate,
           priority: newTask.priority,
           status: 'PENDENTE'
-        }]);
+        }])
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[CRMLojaView] Erro ao adicionar tarefa:', error);
+        if (error.code === '23505') {
+          toast.error('Esta tarefa já existe');
+        } else if (error.code === '23503') {
+          toast.error('Erro: Loja ou colaboradora inválida');
+        } else {
+          toast.error(`Erro ao adicionar tarefa: ${error.message || 'Erro desconhecido'}`);
+        }
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        toast.error('Erro: Tarefa não foi criada');
+        return;
+      }
 
       toast.success('Tarefa adicionada com sucesso!');
       setTaskDialogOpen(false);
       setNewTask({ title: "", cliente_nome: "", dueDate: "", priority: "MÉDIA" });
-      fetchTasks();
+      await fetchTasks();
     } catch (error: any) {
-      console.error('Erro ao adicionar tarefa:', error);
-      toast.error('Erro ao adicionar tarefa');
+      console.error('[CRMLojaView] Erro inesperado ao adicionar tarefa:', error);
+      toast.error(`Erro inesperado: ${error.message || 'Tente novamente'}`);
     } finally {
       setSaving(false);
     }
   };
 
   const handleCompleteTask = async (taskId: string) => {
+    if (!taskId) {
+      toast.error('Erro: ID da tarefa não identificado');
+      return;
+    }
+
     try {
-      const { error } = await supabase
+      const { error, data } = await supabase
         .schema('sistemaretiradas')
         .from('crm_tasks')
         .update({ 
           status: 'CONCLUÍDA',
           completed_at: new Date().toISOString()
         })
-        .eq('id', taskId);
+        .eq('id', taskId)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[CRMLojaView] Erro ao concluir tarefa:', error);
+        if (error.code === 'PGRST116') {
+          toast.error('Tarefa não encontrada');
+        } else {
+          toast.error(`Erro ao concluir tarefa: ${error.message || 'Erro desconhecido'}`);
+        }
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        toast.error('Tarefa não encontrada');
+        return;
+      }
 
       toast.success('Tarefa concluída!');
-      fetchTasks();
+      await fetchTasks();
     } catch (error: any) {
-      console.error('Erro ao concluir tarefa:', error);
-      toast.error('Erro ao concluir tarefa');
+      console.error('[CRMLojaView] Erro inesperado ao concluir tarefa:', error);
+      toast.error(`Erro inesperado: ${error.message || 'Tente novamente'}`);
     }
   };
 
   const handleAddCommitment = async () => {
-    if (!newCommitment.cliente_nome || !newCommitment.scheduledDate || !storeId) {
-      toast.error('Preencha todos os campos obrigatórios');
+    // Validações
+    if (!storeId) {
+      toast.error('Erro: Loja não identificada');
+      return;
+    }
+
+    if (!newCommitment.cliente_nome || newCommitment.cliente_nome.trim().length === 0) {
+      toast.error('O nome do cliente é obrigatório');
+      return;
+    }
+
+    if (!newCommitment.scheduledDate) {
+      toast.error('A data/hora do compromisso é obrigatória');
+      return;
+    }
+
+    // Validar se a data não é no passado
+    const scheduledDate = new Date(newCommitment.scheduledDate);
+    if (isNaN(scheduledDate.getTime())) {
+      toast.error('Data/hora inválida');
       return;
     }
 
     try {
       setSaving(true);
-      const { error } = await supabase
+      const { error, data } = await supabase
         .schema('sistemaretiradas')
         .from('crm_commitments')
         .insert([{
           store_id: storeId,
           colaboradora_id: profile?.id || null,
-          cliente_nome: newCommitment.cliente_nome,
+          cliente_nome: newCommitment.cliente_nome.trim(),
           type: newCommitment.type,
           scheduled_date: newCommitment.scheduledDate,
-          notes: newCommitment.notes || null,
+          notes: newCommitment.notes?.trim() || null,
           status: 'AGENDADO'
-        }]);
+        }])
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[CRMLojaView] Erro ao agendar compromisso:', error);
+        if (error.code === '23505') {
+          toast.error('Este compromisso já existe');
+        } else if (error.code === '23503') {
+          toast.error('Erro: Loja ou colaboradora inválida');
+        } else {
+          toast.error(`Erro ao agendar compromisso: ${error.message || 'Erro desconhecido'}`);
+        }
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        toast.error('Erro: Compromisso não foi criado');
+        return;
+      }
 
       toast.success('Compromisso agendado com sucesso!');
       setCommitmentDialogOpen(false);
       setNewCommitment({ cliente_nome: "", type: "FOLLOW_UP", scheduledDate: "", notes: "" });
-      fetchCommitments();
+      await fetchCommitments();
     } catch (error: any) {
-      console.error('Erro ao agendar compromisso:', error);
-      toast.error('Erro ao agendar compromisso');
+      console.error('[CRMLojaView] Erro inesperado ao agendar compromisso:', error);
+      toast.error(`Erro inesperado: ${error.message || 'Tente novamente'}`);
     } finally {
       setSaving(false);
     }
