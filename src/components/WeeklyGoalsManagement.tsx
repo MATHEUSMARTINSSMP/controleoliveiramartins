@@ -1325,6 +1325,113 @@ const WeeklyGoalsManagement = () => {
                 )}
             </div>
 
+            {/* Dialog de Resultados da Gincana */}
+            <Dialog open={resultsDialogOpen} onOpenChange={setResultsDialogOpen}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-base sm:text-lg flex items-center gap-2">
+                            <Trophy className="h-5 w-5 text-yellow-500" />
+                            Resultados da Gincana Semanal
+                        </DialogTitle>
+                        {selectedWeekForResults && (() => {
+                            try {
+                                const weekRange = getWeekRange(selectedWeekForResults);
+                                return (
+                                    <p className="text-sm text-muted-foreground">
+                                        {format(weekRange.start, "dd/MM", { locale: ptBR })} - {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
+                                    </p>
+                                );
+                            } catch {
+                                return null;
+                            }
+                        })()}
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        {loadingResults ? (
+                            <div className="text-center py-8">
+                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mx-auto" />
+                                <p className="text-sm text-muted-foreground mt-2">Carregando resultados...</p>
+                            </div>
+                        ) : weekResults.length === 0 ? (
+                            <div className="text-center py-8 text-muted-foreground">
+                                <p>Nenhum resultado encontrado para esta gincana.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {weekResults
+                                    .sort((a, b) => b.realizado - a.realizado) // Ordenar por realizado (maior primeiro)
+                                    .map((result, index) => (
+                                        <Card 
+                                            key={result.colaboradora_id} 
+                                            className={`border-2 ${
+                                                result.bateu_super_meta 
+                                                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/20' 
+                                                    : result.bateu_meta 
+                                                        ? 'border-green-500 bg-green-50 dark:bg-green-950/20' 
+                                                        : 'border-red-200 bg-red-50 dark:bg-red-950/20'
+                                            }`}
+                                        >
+                                            <CardContent className="p-4">
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <span className="text-lg font-bold text-muted-foreground">#{index + 1}</span>
+                                                            <h3 className="font-semibold text-base">{result.colaboradora_name}</h3>
+                                                            {result.bateu_super_meta ? (
+                                                                <Badge variant="default" className="bg-purple-600">
+                                                                    <Trophy className="h-3 w-3 mr-1" />
+                                                                    Super Meta
+                                                                </Badge>
+                                                            ) : result.bateu_meta ? (
+                                                                <Badge variant="default" className="bg-green-600">
+                                                                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                                                                    Meta
+                                                                </Badge>
+                                                            ) : (
+                                                                <Badge variant="destructive">
+                                                                    <XCircle className="h-3 w-3 mr-1" />
+                                                                    Não Bateu
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-4 mt-3">
+                                                            <div>
+                                                                <p className="text-xs text-muted-foreground">Meta</p>
+                                                                <p className="font-semibold text-sm">R$ {result.meta_valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs text-muted-foreground">Super Meta</p>
+                                                                <p className="font-semibold text-sm">R$ {result.super_meta_valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs text-muted-foreground">Realizado</p>
+                                                                <p className={`font-bold text-base ${
+                                                                    result.bateu_super_meta ? 'text-purple-600' : 
+                                                                    result.bateu_meta ? 'text-green-600' : 'text-red-600'
+                                                                }`}>
+                                                                    R$ {result.realizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                </p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs text-muted-foreground">% da Meta</p>
+                                                                <p className={`font-semibold text-sm ${
+                                                                    result.percentual >= 100 ? 'text-green-600' : 'text-red-600'
+                                                                }`}>
+                                                                    {result.percentual.toFixed(1)}%
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
             {/* Dialog */}
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto">
