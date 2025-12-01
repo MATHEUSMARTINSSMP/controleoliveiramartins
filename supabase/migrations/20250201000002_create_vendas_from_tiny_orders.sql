@@ -161,7 +161,7 @@ BEGIN
       ELSE
         -- ✅ CRIAR NOVA VENDA COM PROTEÇÃO CONTRA DUPLICATAS
         -- Usar INSERT ... ON CONFLICT para garantir que não haverá duplicatas mesmo em execuções simultâneas
-        -- O índice único idx_sales_tiny_order_id_unique garante que cada pedido gere apenas uma venda
+        -- A constraint UNIQUE sales_tiny_order_id_unique garante que cada pedido gere apenas uma venda
         INSERT INTO sistemaretiradas.sales (
           tiny_order_id,
           colaboradora_id,
@@ -181,7 +181,7 @@ BEGIN
           v_observacoes,
           NULL -- Vendas do ERP não têm lancado_por_id
         )
-        ON CONFLICT (tiny_order_id)
+        ON CONFLICT ON CONSTRAINT sales_tiny_order_id_unique
         DO UPDATE SET
           colaboradora_id = EXCLUDED.colaboradora_id,
           store_id = EXCLUDED.store_id,

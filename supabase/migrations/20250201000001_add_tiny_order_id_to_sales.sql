@@ -13,9 +13,14 @@ CREATE INDEX IF NOT EXISTS idx_sales_tiny_order_id
 ON sistemaretiradas.sales(tiny_order_id) 
 WHERE tiny_order_id IS NOT NULL;
 
--- 3. Criar índice único para evitar duplicatas (um pedido = uma venda)
-CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_tiny_order_id_unique 
-ON sistemaretiradas.sales(tiny_order_id) 
+-- 3. Criar constraint UNIQUE para evitar duplicatas (um pedido = uma venda)
+-- ✅ IMPORTANTE: Usar CONSTRAINT ao invés de INDEX para ON CONFLICT funcionar
+ALTER TABLE sistemaretiradas.sales
+DROP CONSTRAINT IF EXISTS sales_tiny_order_id_unique;
+
+ALTER TABLE sistemaretiradas.sales
+ADD CONSTRAINT sales_tiny_order_id_unique 
+UNIQUE (tiny_order_id)
 WHERE tiny_order_id IS NOT NULL;
 
 -- Comentários
@@ -25,7 +30,7 @@ COMMENT ON COLUMN sistemaretiradas.sales.tiny_order_id IS
 COMMENT ON INDEX sistemaretiradas.idx_sales_tiny_order_id IS 
 'Índice para busca rápida de vendas por pedido do Tiny ERP.';
 
-COMMENT ON INDEX sistemaretiradas.idx_sales_tiny_order_id_unique IS 
+COMMENT ON CONSTRAINT sistemaretiradas.sales_tiny_order_id_unique ON sistemaretiradas.sales IS 
 'Garante que cada pedido do Tiny ERP gere apenas uma venda (evita duplicatas).';
 
 -- ============================================================================
