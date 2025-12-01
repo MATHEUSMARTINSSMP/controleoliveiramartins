@@ -570,22 +570,34 @@ serve(async (req) => {
     console.log(`  - Total atualizados: ${totalUpdated}`)
     console.log(`  - Erros: ${totalErrors}`)
 
-    // 4. Salvar log da sincronização
+    // 4. Salvar log da sincronização (não deve quebrar a sincronização se falhar)
     for (const result of results) {
-      await supabase
-        .schema('sistemaretiradas')
-        .from('erp_sync_logs')
-        .insert({
-          store_id: result.store_id,
-          sistema_erp: 'TINY',
-          tipo_sync: tipoSync || 'PEDIDOS_AUTO', // ✅ Usar tipo de sincronização correto
-          status: result.success ? 'SUCCESS' : 'ERROR',
-          registros_sincronizados: result.synced,
-          registros_atualizados: result.updated,
-          registros_com_erro: result.errors,
-          error_message: result.success ? null : result.message,
-          sync_at: new Date().toISOString(),
-        })
+      try {
+        const { error: logError } = await supabase
+          .schema('sistemaretiradas')
+          .from('erp_sync_logs')
+          .insert({
+            store_id: result.store_id,
+            sistema_erp: 'TINY',
+            tipo_sync: tipoSync || 'PEDIDOS_AUTO',
+            status: result.success ? 'SUCCESS' : 'ERROR',
+            registros_sincronizados: result.synced,
+            registros_atualizados: result.updated,
+            registros_com_erro: result.errors,
+            error_message: result.success ? null : result.message,
+            sync_at: new Date().toISOString(),
+          });
+
+        if (logError) {
+          console.warn(`[SyncTinyOrders] ⚠️ Erro ao salvar log para loja ${result.store_name}:`, logError);
+          // Não lançar erro - apenas logar o aviso
+        } else {
+          console.log(`[SyncTinyOrders] ✅ Log salvo para loja ${result.store_name}`);
+        }
+      } catch (logErr: any) {
+        console.warn(`[SyncTinyOrders] ⚠️ Exceção ao salvar log para loja ${result.store_name}:`, logErr.message);
+        // Não lançar erro - apenas logar o aviso
+      }
     }
 
     return new Response(
