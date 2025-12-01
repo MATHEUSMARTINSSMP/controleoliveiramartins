@@ -367,7 +367,7 @@ exports.handler = async (event, context) => {
       console.log(`[SyncBackground] 🛡️ FREIO DE SEGURANÇA ATIVO: Limite máximo de ${LIMIT_PAGINAS_INCREMENTAL} página(s) e 20 pedidos totais.`);
 
       // ✅ MODO INCREMENTAL OTIMIZADO: 
-      // 1. Apenas data de HOJE (dataInicio = dataHoje AND dataFim = dataHoje)
+      // 1. Busca pedidos dos últimos 7 dias (para capturar mudança de mês)
       // 2. Ordem DECRESCENTE (DESC) para pegar os mais recentes primeiro
       // 3. Para assim que encontrar um pedido <= ultimoNumeroConhecido
       while (hasMore && currentPage <= maxPages && !encontrouUltimoConhecido) {
