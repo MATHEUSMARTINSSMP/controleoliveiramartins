@@ -4,7 +4,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, KeyRound, Bell, DollarSign, Settings, ExternalLink, BarChart, FileText, TrendingUp, Package } from "lucide-react";
+import { LogOut, KeyRound, Bell, DollarSign, Settings, ExternalLink, BarChart, FileText, TrendingUp, Package, Brain, Gift } from "lucide-react";
+import ERPDashboard from "@/pages/erp/ERPDashboard";
+import CategoryReports from "@/pages/erp/CategoryReports";
+import ProductSalesIntelligence from "@/pages/erp/ProductSalesIntelligence";
+import CustomerIntelligence from "@/pages/erp/CustomerIntelligence";
+import CashbackManagement from "@/pages/erp/CashbackManagement";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -156,15 +161,19 @@ const AdminDashboard = () => {
       </header>
 
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
-        <Tabs defaultValue="comercial" className="space-y-4 sm:space-y-6">
-          <TabsList className="grid w-full grid-cols-3 max-w-[600px] bg-muted/50 p-1 rounded-xl">
-            <TabsTrigger value="comercial" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              <span className="hidden sm:inline">Comercial & Metas</span>
-              <span className="sm:hidden">Comercial</span>
+        <Tabs defaultValue="gestao-metas" className="space-y-4 sm:space-y-6">
+          <TabsList className="grid w-full grid-cols-4 max-w-4xl bg-muted/50 p-1 rounded-xl">
+            <TabsTrigger value="gestao-metas" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <span className="hidden sm:inline">Gestão de Metas</span>
+              <span className="sm:hidden">Metas</span>
             </TabsTrigger>
-            <TabsTrigger value="financeiro" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              <span className="hidden sm:inline">Financeiro & RH</span>
-              <span className="sm:hidden">Financeiro</span>
+            <TabsTrigger value="gestao-pessoas" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <span className="hidden sm:inline">Gestão de Pessoas</span>
+              <span className="sm:hidden">Pessoas</span>
+            </TabsTrigger>
+            <TabsTrigger value="gestao-sistemas" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <span className="hidden sm:inline">Gestão de Sistemas</span>
+              <span className="sm:hidden">Sistemas</span>
             </TabsTrigger>
             <TabsTrigger value="configuracoes" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <span className="hidden sm:inline">Configurações</span>
@@ -172,7 +181,7 @@ const AdminDashboard = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="comercial" className="space-y-4 sm:space-y-6 animate-in fade-in-50 duration-500">
+          <TabsContent value="gestao-metas" className="space-y-4 sm:space-y-6 animate-in fade-in-50 duration-500">
             {/* Botões de Ação Rápida Comercial */}
             <div className="flex flex-wrap gap-2 sm:gap-4">
               <Button
@@ -239,8 +248,84 @@ const AdminDashboard = () => {
             <GoalsTracking />
           </TabsContent>
 
-          <TabsContent value="financeiro" className="animate-in fade-in-50 duration-500">
+          <TabsContent value="gestao-pessoas" className="animate-in fade-in-50 duration-500 space-y-4 sm:space-y-6">
+            {/* Botões de Ação Rápida - Gestão de Pessoas */}
+            <div className="flex flex-wrap gap-2 sm:gap-4">
+              <Button
+                onClick={() => navigate("/admin/colaboradores")}
+                className="bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-md text-xs sm:text-sm flex-1 sm:flex-initial"
+                size="sm"
+              >
+                <span className="hidden sm:inline">Colaboradoras & Lojas</span>
+                <span className="sm:hidden">Perfis</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/admin/adiantamentos")}
+                className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
+                size="sm"
+              >
+                <span className="hidden sm:inline">Adiantamentos</span>
+                <span className="sm:hidden">Adiant.</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/admin/lancamentos")}
+                className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
+                size="sm"
+              >
+                <span className="hidden sm:inline">Lançamentos</span>
+                <span className="sm:hidden">Lanç.</span>
+              </Button>
+            </div>
             <FinancialDashboard />
+          </TabsContent>
+          
+          <TabsContent value="gestao-sistemas" className="animate-in fade-in-50 duration-500 space-y-4 sm:space-y-6">
+            <Tabs defaultValue="dashboard" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-5 max-w-5xl bg-muted/50 p-1 rounded-xl">
+                <TabsTrigger value="dashboard" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <Package className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Dashboard</span>
+                </TabsTrigger>
+                <TabsTrigger value="categorias" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <BarChart className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Relatórios</span>
+                </TabsTrigger>
+                <TabsTrigger value="produtos" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Produtos</span>
+                </TabsTrigger>
+                <TabsTrigger value="clientes" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <Brain className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Clientes</span>
+                </TabsTrigger>
+                <TabsTrigger value="cashback" className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <Gift className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Cashback</span>
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="dashboard" className="space-y-4">
+                <ERPDashboard />
+              </TabsContent>
+              
+              <TabsContent value="categorias" className="space-y-4">
+                <CategoryReports />
+              </TabsContent>
+              
+              <TabsContent value="produtos" className="space-y-4">
+                <ProductSalesIntelligence />
+              </TabsContent>
+              
+              <TabsContent value="clientes" className="space-y-4">
+                <CustomerIntelligence />
+              </TabsContent>
+              
+              <TabsContent value="cashback" className="space-y-4">
+                <CashbackManagement />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="configuracoes" className="animate-in fade-in-50 duration-500 space-y-4 sm:space-y-6">
