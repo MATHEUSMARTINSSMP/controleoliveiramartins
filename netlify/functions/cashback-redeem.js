@@ -36,16 +36,16 @@ exports.handler = async (event, context) => {
     }
 
     try {
-        const { cliente_id, valor_pedido, valor_cashback_usado } = JSON.parse(event.body);
+        const { cliente_id, valor_pedido, valor_cashback_usado, store_id, colaboradora_id } = JSON.parse(event.body);
 
         // Validações básicas
-        if (!cliente_id || !valor_pedido || !valor_cashback_usado) {
+        if (!cliente_id || !valor_pedido || !valor_cashback_usado || !store_id || !colaboradora_id) {
             return {
                 statusCode: 400,
                 headers,
                 body: JSON.stringify({
                     success: false,
-                    error: 'Parâmetros obrigatórios: cliente_id, valor_pedido, valor_cashback_usado',
+                    error: 'Parâmetros obrigatórios: cliente_id, valor_pedido, valor_cashback_usado, store_id, colaboradora_id',
                 }),
             };
         }
@@ -88,7 +88,7 @@ exports.handler = async (event, context) => {
         }
 
         // Buscar configurações de cashback para validar limite de uso
-        const { data: settings } = await supabase.rpc('get_cashback_settings', { p_store_id: null });
+        const { data: settings } = await supabase.rpc('get_cashback_settings', { p_store_id: store_id });
 
         const percentual_uso_maximo = settings?.percentual_uso_maximo || 30;
         const valor_maximo_permitido = (valor_pedido * percentual_uso_maximo) / 100;
@@ -111,6 +111,8 @@ exports.handler = async (event, context) => {
             .from('cashback_transactions')
             .insert({
                 cliente_id,
+                store_id,
+                colaboradora_id,
                 transaction_type: 'REDEEMED',
                 amount: valor_cashback_usado,
                 description: `Cashback resgatado em pedido de R$ ${valor_pedido.toFixed(2)}`,
