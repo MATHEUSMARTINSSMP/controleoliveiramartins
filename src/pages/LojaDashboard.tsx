@@ -981,17 +981,38 @@ export default function LojaDashboard() {
     const fetchMetricsWithStoreId = async (currentStoreId: string) => {
         if (!currentStoreId) return;
 
-        const mesAtual = format(new Date(), 'yyyyMM');
-
+        // ✅ CORREÇÃO: Buscar benchmarks da tabela store_benchmarks (não store_metrics)
+        // Benchmarks não têm mes_referencia, são configurações fixas por loja
         const { data, error } = await supabase
-            .from('store_metrics')
+            .schema('sistemaretiradas')
+            .from('store_benchmarks')
             .select('*')
             .eq('store_id', currentStoreId)
-            .eq('mes_referencia', mesAtual)
-            .single();
+            .maybeSingle();
 
         if (!error && data) {
-            setMetrics(data);
+            // Mapear os campos do benchmark para o formato esperado pelo dashboard
+            setMetrics({
+                meta_ticket_medio: data.ideal_ticket_medio || 0,
+                meta_pa: data.ideal_pa || 0,
+                meta_preco_medio_peca: data.ideal_preco_medio || 0,
+            });
+        } else if (error) {
+            console.error('[LojaDashboard] Erro ao buscar benchmarks:', error);
+            // Se não encontrar benchmark, usar valores padrão ou null
+            setMetrics({
+                meta_ticket_medio: 0,
+                meta_pa: 0,
+                meta_preco_medio_peca: 0,
+            });
+        } else {
+            // Nenhum benchmark encontrado para esta loja
+            console.warn('[LojaDashboard] ⚠️ Nenhum benchmark encontrado para a loja. Configure em Gerenciar Benchmarks.');
+            setMetrics({
+                meta_ticket_medio: 0,
+                meta_pa: 0,
+                meta_preco_medio_peca: 0,
+            });
         }
     };
 
