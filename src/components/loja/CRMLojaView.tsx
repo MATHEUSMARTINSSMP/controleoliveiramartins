@@ -11,8 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MessageSquare, Plus, Calendar, Gift, Phone, Clock, Loader2, CheckCircle2 } from "lucide-react";
-import { format, startOfDay, endOfDay, isToday, parseISO } from "date-fns";
+import { format, startOfDay, endOfDay, isToday, parseISO, differenceInMinutes, differenceInHours, isPast, isFuture } from "date-fns";
 import { toast } from "sonner";
+import { AlertCircle, Bell } from "lucide-react";
 
 interface CRMTask {
   id: string;
@@ -524,29 +525,48 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
         <CardContent>
           {pendingTasks.length > 0 ? (
             <div className="space-y-2">
-              {pendingTasks.map((task) => (
-                <div key={task.id} className="flex items-start justify-between p-3 bg-muted/50 rounded-lg border">
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">{task.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {task.cliente_nome} • {format(parseISO(task.due_date), "dd/MM/yyyy HH:mm")}
-                    </p>
+              {pendingTasks.map((task) => {
+                const urgency = getTaskUrgency(task.due_date);
+                return (
+                  <div 
+                    key={task.id} 
+                    className={`flex items-start justify-between p-3 rounded-lg border ${
+                      urgency.level === 'overdue' ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800' :
+                      urgency.level === 'urgent' ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800' :
+                      urgency.level === 'soon' ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800' :
+                      'bg-muted/50'
+                    }`}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-medium text-sm">{task.title}</p>
+                        {urgency.label && (
+                          <Badge variant={urgency.level === 'overdue' ? 'destructive' : 'secondary'} className="text-xs">
+                            {urgency.level === 'overdue' && <AlertCircle className="h-3 w-3 mr-1" />}
+                            {urgency.label}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {task.cliente_nome} • {format(parseISO(task.due_date), "dd/MM/yyyy HH:mm")}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={task.priority === "ALTA" ? "destructive" : task.priority === "MÉDIA" ? "default" : "secondary"}>
+                        {task.priority}
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleCompleteTask(task.id)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                  <Badge variant={task.priority === "ALTA" ? "destructive" : task.priority === "MÉDIA" ? "default" : "secondary"}>
-                    {task.priority}
-                  </Badge>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleCompleteTask(task.id)}
-                      className="h-8 w-8 p-0"
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-center text-sm text-muted-foreground py-4">Nenhuma tarefa pendente hoje</p>
@@ -734,19 +754,38 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
         <CardContent>
           {commitments.length > 0 ? (
             <div className="space-y-2">
-              {commitments.map((comp) => (
-                <div key={comp.id} className="flex items-start justify-between p-3 bg-muted/50 rounded-lg border">
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">{comp.cliente_nome}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {comp.type} • {format(parseISO(comp.scheduled_date), "dd/MM/yyyy HH:mm")}
-                    </p>
-                    {comp.notes && (
-                    <p className="text-xs text-muted-foreground mt-1">{comp.notes}</p>
-                    )}
+              {commitments.map((comp) => {
+                const urgency = getCommitmentUrgency(comp.scheduled_date);
+                return (
+                  <div 
+                    key={comp.id} 
+                    className={`flex items-start justify-between p-3 rounded-lg border ${
+                      urgency.level === 'overdue' ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800' :
+                      urgency.level === 'urgent' ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800' :
+                      urgency.level === 'soon' ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800' :
+                      'bg-muted/50'
+                    }`}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-medium text-sm">{comp.cliente_nome}</p>
+                        {urgency.label && (
+                          <Badge variant={urgency.level === 'overdue' ? 'destructive' : 'secondary'} className="text-xs">
+                            {urgency.level === 'overdue' && <AlertCircle className="h-3 w-3 mr-1" />}
+                            {urgency.label}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {comp.type} • {format(parseISO(comp.scheduled_date), "dd/MM/yyyy HH:mm")}
+                      </p>
+                      {comp.notes && (
+                        <p className="text-xs text-muted-foreground mt-1">{comp.notes}</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-center text-sm text-muted-foreground py-4">Nenhum compromisso agendado para hoje</p>
