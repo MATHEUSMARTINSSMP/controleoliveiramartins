@@ -914,6 +914,8 @@ exports.handler = async (event, context) => {
 
     // ✅ NOVA FUNCIONALIDADE: Criar vendas automaticamente a partir dos pedidos sincronizados
     console.log(`[SyncBackground] 🔄 Criando vendas automaticamente a partir dos pedidos do Tiny...`);
+    console.log(`[SyncBackground] 📋 Parâmetros: store_id=${storeId || 'NULL'}, data_inicio=NULL`);
+    
     try {
       const { data: vendasResult, error: vendasError } = await supabase
         .schema('sistemaretiradas')
@@ -924,16 +926,41 @@ exports.handler = async (event, context) => {
 
       if (vendasError) {
         console.error(`[SyncBackground] ❌ Erro ao criar vendas:`, vendasError);
-      } else if (vendasResult && vendasResult.length > 0) {
-        const result = vendasResult[0];
-        console.log(`[SyncBackground] ✅ Vendas criadas: ${result.vendas_criadas} novas, ${result.vendas_atualizadas} atualizadas, ${result.erros} erros`);
+        console.error(`[SyncBackground] ❌ Detalhes do erro:`, JSON.stringify(vendasError, null, 2));
+      } else {
+        console.log(`[SyncBackground] 📊 Resultado da função criar_vendas_de_tiny_orders:`, JSON.stringify(vendasResult, null, 2));
+        
+        if (vendasResult && vendasResult.length > 0) {
+          const result = vendasResult[0];
+          console.log(`[SyncBackground] ✅ Vendas criadas: ${result.vendas_criadas || 0} novas, ${result.vendas_atualizadas || 0} atualizadas, ${result.erros || 0} erros`);
 
-        if (result.erros > 0) {
-          console.warn(`[SyncBackground] ⚠️ Alguns pedidos tiveram erro ao criar venda. Verifique os detalhes.`);
+          if (result.erros > 0) {
+            console.warn(`[SyncBackground] ⚠️ Alguns pedidos tiveram erro ao criar venda. Verifique os detalhes.`);
+            if (result.detalhes) {
+              const erros = result.detalhes.filter((d: any) => d.tipo === 'erro');
+              console.warn(`[SyncBackground] ⚠️ Erros detalhados:`, JSON.stringify(erros, null, 2));
+            }
+          }
+          
+          // ✅ LOG DETALHADO: Mostrar todas as vendas criadas/atualizadas
+          if (result.detalhes && Array.isArray(result.detalhes)) {
+            const criadas = result.detalhes.filter((d: any) => d.tipo === 'criada');
+            const atualizadas = result.detalhes.filter((d: any) => d.tipo === 'atualizada');
+            
+            if (criadas.length > 0) {
+              console.log(`[SyncBackground] 📝 Vendas criadas (${criadas.length}):`, criadas.map((d: any) => `Pedido #${d.numero_pedido} -> Sale ID: ${d.sale_id}`).join(', '));
+            }
+            if (atualizadas.length > 0) {
+              console.log(`[SyncBackground] 🔄 Vendas atualizadas (${atualizadas.length}):`, atualizadas.map((d: any) => `Pedido #${d.numero_pedido} -> Sale ID: ${d.sale_id}`).join(', '));
+            }
+          }
+        } else {
+          console.warn(`[SyncBackground] ⚠️ Função retornou resultado vazio ou nulo. Verifique se há pedidos sem venda.`);
         }
       }
     } catch (vendasException) {
       console.error(`[SyncBackground] ❌ Exceção ao criar vendas (não bloqueia sincronização):`, vendasException);
+      console.error(`[SyncBackground] ❌ Stack trace:`, vendasException.stack);
       // Não falhar a sincronização se a criação de vendas falhar
     }
 
