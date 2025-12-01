@@ -229,7 +229,7 @@ export default function Landing() {
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-slate-800/40 bg-slate-950/80 backdrop-blur-xl">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 relative z-10">
-            <img src="/elevea2.png" alt="EleveaOne" className="h-8 w-8" />
+            <img src="/elevea2.png" alt="EleveaOne" className="h-16 w-16" />
             <span className="font-bold text-xl text-slate-100">
               EleveaOne
             </span>
@@ -547,7 +547,7 @@ export default function Landing() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2">
-              <img src="/elevea2.png" alt="EleveaOne" className="h-8 w-8" />
+              <img src="/elevea2.png" alt="EleveaOne" className="h-16 w-16" />
               <span className="font-bold text-xl text-slate-100">
                 EleveaOne
               </span>
