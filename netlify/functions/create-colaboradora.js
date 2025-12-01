@@ -43,6 +43,35 @@ exports.handler = async (event, context) => {
       };
     }
 
+    // STEP 0: Check commercial limits (Plan Limits)
+    console.log('[create-colaboradora] Step 0: Checking plan limits...');
+    const { data: canCreate, error: limitError } = await supabaseAdmin
+      .schema('sistemaretiradas')
+      .rpc('can_create_colaboradora');
+
+    if (limitError) {
+      console.error('[create-colaboradora] ❌ Error checking limits:', limitError);
+      // Fail safe: if we can't check limits, we should probably block or log heavily.
+      // For now, let's block to be safe commercially.
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          error: 'Erro ao verificar limites do plano. Tente novamente.'
+        }),
+      };
+    }
+
+    if (canCreate === false) {
+      console.warn('[create-colaboradora] 🚫 Limit reached for colaboradoras');
+      return {
+        statusCode: 403,
+        body: JSON.stringify({
+          error: 'Limite de colaboradoras atingido para o seu plano. Faça upgrade para adicionar mais.'
+        }),
+      };
+    }
+    console.log('[create-colaboradora] ✅ Plan limits OK');
+
     // STEP 1: Try to create auth.user first
     console.log('[create-colaboradora] Step 1: Creating auth.user...');
 
@@ -143,7 +172,7 @@ exports.handler = async (event, context) => {
     let finalStoreId = store_id;
     if (!finalStoreId && store_default) {
       console.log('[create-colaboradora] store_id não fornecido, buscando automaticamente pelo store_default:', store_default);
-      
+
       // Normalizar nome para busca flexível
       const normalizeName = (name) => {
         return name
@@ -152,23 +181,23 @@ exports.handler = async (event, context) => {
           .replace(/\s+/g, ' ')
           .trim();
       };
-      
+
       const { data: storesData, error: storesError } = await supabaseAdmin
         .schema('sistemaretiradas')
         .from('stores')
         .select('id, name')
         .eq('active', true);
-      
+
       if (!storesError && storesData && storesData.length > 0) {
         const normalizedStoreName = normalizeName(store_default);
         const matchingStore = storesData.find(s => {
           const normalizedStore = normalizeName(s.name);
-          return normalizedStore === normalizedStoreName || 
-                 s.name === store_default ||
-                 normalizedStore.includes(normalizedStoreName) ||
-                 normalizedStoreName.includes(normalizedStore);
+          return normalizedStore === normalizedStoreName ||
+            s.name === store_default ||
+            normalizedStore.includes(normalizedStoreName) ||
+            normalizedStoreName.includes(normalizedStore);
         });
-        
+
         if (matchingStore) {
           finalStoreId = matchingStore.id;
           console.log('[create-colaboradora] ✅ store_id encontrado automaticamente:', finalStoreId, 'para loja:', matchingStore.name);
