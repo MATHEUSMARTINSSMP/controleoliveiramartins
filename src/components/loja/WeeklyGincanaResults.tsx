@@ -39,14 +39,14 @@ function getCurrentWeekRef(): string {
 
 function getWeekRange(weekRef: string): { start: Date; end: Date } {
     let week: number, year: number;
-    
+
     if (!weekRef || weekRef.length !== 6) {
         throw new Error(`Formato de semana_referencia inválido: ${weekRef}`);
     }
-    
+
     const firstTwo = parseInt(weekRef.substring(0, 2));
     const firstFour = parseInt(weekRef.substring(0, 4));
-    
+
     if (firstTwo === 20 && firstFour >= 2000 && firstFour <= 2099) {
         year = firstFour;
         week = parseInt(weekRef.substring(4, 6));
@@ -56,19 +56,19 @@ function getWeekRange(weekRef: string): { start: Date; end: Date } {
     } else {
         throw new Error(`Formato de semana_referencia inválido: ${weekRef}`);
     }
-    
+
     const jan1 = new Date(year, 0, 1);
     const firstMonday = startOfWeek(jan1, { weekStartsOn: 1 });
     const weekStart = addWeeks(firstMonday, week - 1);
     const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-    
+
     return { start: weekStart, end: weekEnd };
 }
 
-export default function WeeklyGincanaResults({ 
-    storeId, 
-    colaboradoraId, 
-    showAllResults = true 
+export default function WeeklyGincanaResults({
+    storeId,
+    colaboradoraId,
+    showAllResults = true
 }: WeeklyGincanaResultsProps) {
     const [weeklyGoals, setWeeklyGoals] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -86,7 +86,7 @@ export default function WeeklyGincanaResults({
 
     const fetchWeeklyGoals = async () => {
         if (!storeId) return;
-        
+
         setLoading(true);
         try {
             const { data, error } = await supabase
@@ -99,7 +99,7 @@ export default function WeeklyGincanaResults({
                 .limit(100);
 
             if (error) throw error;
-            
+
             if (data) {
                 // Agrupar por semana_referencia
                 const grouped = data.reduce((acc: any, goal: any) => {
@@ -143,21 +143,21 @@ export default function WeeklyGincanaResults({
         if (useMap) {
             setLoadingResultsMap(prev => new Map(prev).set(weekRef, true));
         }
-        
+
         try {
             const weekRange = getWeekRange(weekRef);
             const hoje = new Date();
             const isPastWeek = weekRange.end < hoje;
-            
+
             // ✅ MUDANÇA: Não retornar cedo para semanas atuais - queremos mostrar resultados também
             // Remover a verificação que impedia buscar resultados da semana atual
-            
+
             // ✅ NOVA LÓGICA: Buscar TODAS as colaboradoras que venderam na semana
             // 1. Primeiro, buscar todas as vendas da semana da loja
             let vendasQuery = supabase
                 .schema("sistemaretiradas")
                 .from("sales")
-                .select("colaboradora_id, valor, profiles (name)")
+                .select("colaboradora_id, valor, profiles!sales_colaboradora_id_fkey (name)")
                 .eq("store_id", storeId)
                 .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
                 .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
@@ -168,7 +168,7 @@ export default function WeeklyGincanaResults({
             }
 
             const { data: vendas, error: vendasError } = await vendasQuery;
-            
+
             if (vendasError) throw vendasError;
             if (!vendas || vendas.length === 0) {
                 if (useMap) {
@@ -180,17 +180,17 @@ export default function WeeklyGincanaResults({
                 }
                 return;
             }
-            
+
             // 2. Agrupar vendas por colaboradora e calcular total realizado
             const vendasPorColaboradora = new Map<string, { realizado: number; nome: string }>();
-            
+
             vendas.forEach((venda: any) => {
                 const colabId = venda.colaboradora_id;
                 if (!colabId) return;
-                
+
                 const valor = parseFloat(venda.valor || '0');
                 const nome = venda.profiles?.name || "Colaboradora desconhecida";
-                
+
                 if (vendasPorColaboradora.has(colabId)) {
                     const atual = vendasPorColaboradora.get(colabId)!;
                     atual.realizado += valor;
@@ -198,10 +198,10 @@ export default function WeeklyGincanaResults({
                     vendasPorColaboradora.set(colabId, { realizado: valor, nome });
                 }
             });
-            
+
             // 3. Buscar metas da gincana para as colaboradoras que venderam
             const colabIdsArray = Array.from(vendasPorColaboradora.keys());
-            
+
             let metasQuery = supabase
                 .schema("sistemaretiradas")
                 .from("goals")
@@ -212,7 +212,7 @@ export default function WeeklyGincanaResults({
                 .in("colaboradora_id", colabIdsArray);
 
             const { data: goals, error: goalsError } = await metasQuery;
-            
+
             // Criar mapa de metas por colaboradora
             const metasMap = new Map<string, any>();
             if (goals && !goalsError) {
@@ -220,7 +220,7 @@ export default function WeeklyGincanaResults({
                     metasMap.set(goal.colaboradora_id, goal);
                 });
             }
-            
+
             // 4. Construir resultados incluindo TODAS as colaboradoras que venderam
             const results: WeekResult[] = Array.from(vendasPorColaboradora.entries()).map(([colabId, dados]) => {
                 const goal = metasMap.get(colabId);
@@ -230,7 +230,7 @@ export default function WeeklyGincanaResults({
                 const bateu_meta = meta_valor > 0 && realizado >= meta_valor;
                 const bateu_super_meta = super_meta_valor > 0 && realizado >= super_meta_valor;
                 const percentual = meta_valor > 0 ? (realizado / meta_valor) * 100 : 0;
-                
+
                 return {
                     colaboradora_id: colabId,
                     colaboradora_name: dados.nome,
@@ -242,9 +242,9 @@ export default function WeeklyGincanaResults({
                     percentual
                 };
             });
-            
+
             const validResults = results;
-            
+
             if (useMap) {
                 setWeekResultsMap(prev => new Map(prev).set(weekRef, validResults));
                 setLoadingResultsMap(prev => {
@@ -264,7 +264,7 @@ export default function WeeklyGincanaResults({
             }
         }
     };
-    
+
     const toggleWeekExpanded = (weekRef: string) => {
         setExpandedWeeks(prev => {
             const newSet = new Set(prev);
@@ -285,26 +285,26 @@ export default function WeeklyGincanaResults({
         setSelectedWeekForResults(weekRef);
         setResultsDialogOpen(true);
         setLoadingResults(true);
-        
+
         // Buscar resultados
         try {
             const weekRange = getWeekRange(weekRef);
             const hoje = new Date();
             const isPastWeek = weekRange.end < hoje;
-            
+
             if (!isPastWeek) {
                 toast.info("Esta semana ainda não terminou. Os resultados estarão disponíveis após o término da semana.");
                 setLoadingResults(false);
                 setResultsDialogOpen(false);
                 return;
             }
-            
+
             // ✅ NOVA LÓGICA: Buscar TODAS as colaboradoras que venderam na semana (igual fetchWeekResults)
             // 1. Buscar todas as vendas da semana da loja
             let vendasQuery = supabase
                 .schema("sistemaretiradas")
                 .from("sales")
-                .select("colaboradora_id, valor, profiles (name)")
+                .select("colaboradora_id, valor, profiles!sales_colaboradora_id_fkey (name)")
                 .eq("store_id", storeId)
                 .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
                 .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
@@ -314,24 +314,24 @@ export default function WeeklyGincanaResults({
             }
 
             const { data: vendas, error: vendasError } = await vendasQuery;
-            
+
             if (vendasError) throw vendasError;
             if (!vendas || vendas.length === 0) {
                 toast.info("Nenhuma venda encontrada para esta semana.");
                 setLoadingResults(false);
                 return;
             }
-            
+
             // 2. Agrupar vendas por colaboradora e calcular total realizado
             const vendasPorColaboradora = new Map<string, { realizado: number; nome: string }>();
-            
+
             vendas.forEach((venda: any) => {
                 const colabId = venda.colaboradora_id;
                 if (!colabId) return;
-                
+
                 const valor = parseFloat(venda.valor || '0');
                 const nome = venda.profiles?.name || "Colaboradora desconhecida";
-                
+
                 if (vendasPorColaboradora.has(colabId)) {
                     const atual = vendasPorColaboradora.get(colabId)!;
                     atual.realizado += valor;
@@ -339,10 +339,10 @@ export default function WeeklyGincanaResults({
                     vendasPorColaboradora.set(colabId, { realizado: valor, nome });
                 }
             });
-            
+
             // 3. Buscar metas da gincana para as colaboradoras que venderam
             const colabIdsArray = Array.from(vendasPorColaboradora.keys());
-            
+
             let metasQuery = supabase
                 .schema("sistemaretiradas")
                 .from("goals")
@@ -353,7 +353,7 @@ export default function WeeklyGincanaResults({
                 .in("colaboradora_id", colabIdsArray);
 
             const { data: goals, error: goalsError } = await metasQuery;
-            
+
             // Criar mapa de metas por colaboradora
             const metasMap = new Map<string, any>();
             if (goals && !goalsError) {
@@ -361,7 +361,7 @@ export default function WeeklyGincanaResults({
                     metasMap.set(goal.colaboradora_id, goal);
                 });
             }
-            
+
             // 4. Construir resultados incluindo TODAS as colaboradoras que venderam
             const validResults: WeekResult[] = Array.from(vendasPorColaboradora.entries()).map(([colabId, dados]) => {
                 const goal = metasMap.get(colabId);
@@ -371,7 +371,7 @@ export default function WeeklyGincanaResults({
                 const bateu_meta = meta_valor > 0 && realizado >= meta_valor;
                 const bateu_super_meta = super_meta_valor > 0 && realizado >= super_meta_valor;
                 const percentual = meta_valor > 0 ? (realizado / meta_valor) * 100 : 0;
-                
+
                 return {
                     colaboradora_id: colabId,
                     colaboradora_name: dados.nome,
@@ -383,7 +383,7 @@ export default function WeeklyGincanaResults({
                     percentual
                 };
             });
-            
+
             setWeekResults(validResults);
         } catch (err: any) {
             console.error("Erro ao buscar resultados:", err);
@@ -419,7 +419,7 @@ export default function WeeklyGincanaResults({
                                 const hoje = new Date();
                                 const isPastWeek = weekRange.end < hoje;
                                 const isCurrentWeek = weekGroup.semana_referencia === getCurrentWeekRef();
-                                
+
                                 // Se showAllResults false e colaboradoraId fornecido, mostrar apenas se a colaboradora tem meta nesta semana
                                 if (!showAllResults && colaboradoraId) {
                                     const hasColabGoal = weekGroup.goals.some((g: any) => g.colaboradora_id === colaboradoraId);
@@ -428,10 +428,10 @@ export default function WeeklyGincanaResults({
 
                                 const uniqueColabs = new Set(weekGroup.goals.map((g: any) => g.colaboradora_id).filter((id: any) => id != null));
                                 const colabsCount = uniqueColabs.size;
-                                
+
                                 // ✅ MUDANÇA: Buscar resultados da semana (realizado por colaboradora)
                                 const weekResults = weekResultsMap.get(weekGroup.semana_referencia) || [];
-                                
+
                                 // Se é semana atual ou futura e ainda não temos resultados, buscar
                                 if ((isCurrentWeek || !isPastWeek) && weekResults.length === 0 && !loadingResultsMap.get(weekGroup.semana_referencia)) {
                                     // Buscar resultados para a semana atual também
@@ -439,11 +439,10 @@ export default function WeeklyGincanaResults({
                                 }
 
                                 return (
-                                    <Card 
+                                    <Card
                                         key={weekGroup.semana_referencia}
-                                        className={`relative overflow-hidden shadow-md hover:shadow-lg transition-shadow ${
-                                            isCurrentWeek ? 'border-2 border-primary' : isPastWeek ? 'border-2 border-muted' : ''
-                                        }`}
+                                        className={`relative overflow-hidden shadow-md hover:shadow-lg transition-shadow ${isCurrentWeek ? 'border-2 border-primary' : isPastWeek ? 'border-2 border-muted' : ''
+                                            }`}
                                     >
                                         <CardHeader className="pb-2 bg-gradient-to-r from-primary/10 to-purple-500/10">
                                             <CardTitle className="flex justify-between items-center text-lg">
@@ -476,10 +475,9 @@ export default function WeeklyGincanaResults({
                                                             <div key={result.colaboradora_id} className="border rounded-lg p-3 space-y-1">
                                                                 <div className="flex justify-between items-center">
                                                                     <span className="text-sm font-semibold">{result.colaboradora_name}</span>
-                                                                    <span className={`text-sm font-bold ${
-                                                                        result.bateu_super_meta ? 'text-purple-600' : 
-                                                                        result.bateu_meta ? 'text-green-600' : 'text-muted-foreground'
-                                                                    }`}>
+                                                                    <span className={`text-sm font-bold ${result.bateu_super_meta ? 'text-purple-600' :
+                                                                            result.bateu_meta ? 'text-green-600' : 'text-muted-foreground'
+                                                                        }`}>
                                                                         {formatCurrency(result.realizado)}
                                                                     </span>
                                                                 </div>
@@ -571,15 +569,14 @@ export default function WeeklyGincanaResults({
                                 {weekResults
                                     .sort((a, b) => b.realizado - a.realizado)
                                     .map((result, index) => (
-                                        <Card 
-                                            key={result.colaboradora_id} 
-                                            className={`border-2 ${
-                                                result.bateu_super_meta 
-                                                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/20' 
-                                                    : result.bateu_meta 
-                                                        ? 'border-green-500 bg-green-50 dark:bg-green-950/20' 
+                                        <Card
+                                            key={result.colaboradora_id}
+                                            className={`border-2 ${result.bateu_super_meta
+                                                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/20'
+                                                    : result.bateu_meta
+                                                        ? 'border-green-500 bg-green-50 dark:bg-green-950/20'
                                                         : 'border-red-200 bg-red-50 dark:bg-red-950/20'
-                                            }`}
+                                                }`}
                                         >
                                             <CardContent className="p-4">
                                                 <div className="flex items-start justify-between">
@@ -615,18 +612,16 @@ export default function WeeklyGincanaResults({
                                                             </div>
                                                             <div>
                                                                 <p className="text-xs text-muted-foreground">Realizado</p>
-                                                                <p className={`font-bold text-base ${
-                                                                    result.bateu_super_meta ? 'text-purple-600' : 
-                                                                    result.bateu_meta ? 'text-green-600' : 'text-red-600'
-                                                                }`}>
+                                                                <p className={`font-bold text-base ${result.bateu_super_meta ? 'text-purple-600' :
+                                                                        result.bateu_meta ? 'text-green-600' : 'text-red-600'
+                                                                    }`}>
                                                                     R$ {result.realizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                                 </p>
                                                             </div>
                                                             <div>
                                                                 <p className="text-xs text-muted-foreground">% da Meta</p>
-                                                                <p className={`font-semibold text-sm ${
-                                                                    result.percentual >= 100 ? 'text-green-600' : 'text-red-600'
-                                                                }`}>
+                                                                <p className={`font-semibold text-sm ${result.percentual >= 100 ? 'text-green-600' : 'text-red-600'
+                                                                    }`}>
                                                                     {result.percentual.toFixed(1)}%
                                                                 </p>
                                                             </div>
