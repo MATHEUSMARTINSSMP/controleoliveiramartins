@@ -463,16 +463,27 @@ export default function WeeklyGincanaResults({
                                 return (
                                     <Card
                                         key={weekGroup.semana_referencia}
-                                        className={`relative overflow-hidden shadow-md hover:shadow-lg transition-shadow ${isCurrentWeek ? 'border-2 border-primary' : isPastWeek ? 'border-2 border-muted' : ''
-                                            }`}
+                                        className={`relative overflow-hidden transition-all ${
+                                            isCurrentWeek 
+                                                ? 'border-4 border-primary shadow-2xl bg-gradient-to-br from-primary/20 via-primary/10 to-purple-500/10 scale-105 z-10' 
+                                                : isPastWeek 
+                                                    ? 'border-2 border-muted shadow-md hover:shadow-lg' 
+                                                    : 'border-2 border-border shadow-md hover:shadow-lg'
+                                        }`}
                                     >
-                                        <CardHeader className="pb-2 bg-gradient-to-r from-primary/10 to-purple-500/10">
-                                            <CardTitle className="flex justify-between items-center text-lg">
-                                                <span>{format(weekRange.start, "dd/MM", { locale: ptBR })} - {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}</span>
+                                        <CardHeader className={`pb-2 ${
+                                            isCurrentWeek 
+                                                ? 'bg-gradient-to-r from-primary/30 via-primary/20 to-purple-500/20' 
+                                                : 'bg-gradient-to-r from-primary/10 to-purple-500/10'
+                                        }`}>
+                                            <CardTitle className={`flex justify-between items-center ${isCurrentWeek ? 'text-lg font-bold' : 'text-lg'}`}>
+                                                <span className={isCurrentWeek ? 'text-primary font-bold' : ''}>
+                                                    {format(weekRange.start, "dd/MM", { locale: ptBR })} - {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
+                                                </span>
                                                 <div className="flex gap-2">
                                                     {isCurrentWeek && (
-                                                        <span className="text-xs font-normal bg-primary text-primary-foreground px-2 py-1 rounded">
-                                                            Semana Atual
+                                                        <span className="text-xs font-bold bg-primary text-primary-foreground px-3 py-1.5 rounded-full shadow-lg animate-pulse">
+                                                            ⭐ Semana Atual
                                                         </span>
                                                     )}
                                                     {isPastWeek && !isCurrentWeek && (
@@ -489,17 +500,23 @@ export default function WeeklyGincanaResults({
                                                     Carregando resultados...
                                                 </div>
                                             ) : weekResults.length > 0 ? (
-                                                // ✅ MUDANÇA: Mostrar total por colaboradora
+                                                // ✅ SEMPRE mostrar valores por colaboradora
                                                 <div className="space-y-3">
                                                     {weekResults
                                                         .sort((a, b) => b.realizado - a.realizado)
                                                         .map((result) => (
-                                                            <div key={result.colaboradora_id} className="border rounded-lg p-3 space-y-1">
+                                                            <div 
+                                                                key={result.colaboradora_id} 
+                                                                className={`border rounded-lg p-3 space-y-1 ${
+                                                                    isCurrentWeek ? 'bg-background/80 border-primary/30' : 'bg-muted/30'
+                                                                }`}
+                                                            >
                                                                 <div className="flex justify-between items-center">
                                                                     <span className="text-sm font-semibold">{result.colaboradora_name}</span>
-                                                                    <span className={`text-sm font-bold ${result.bateu_super_meta ? 'text-purple-600' :
-                                                                            result.bateu_meta ? 'text-green-600' : 'text-muted-foreground'
-                                                                        }`}>
+                                                                    <span className={`text-sm font-bold ${
+                                                                        result.bateu_super_meta ? 'text-purple-600' :
+                                                                        result.bateu_meta ? 'text-green-600' : 'text-muted-foreground'
+                                                                    }`}>
                                                                         {formatCurrency(result.realizado)}
                                                                     </span>
                                                                 </div>
@@ -516,20 +533,34 @@ export default function WeeklyGincanaResults({
                                                         ))}
                                                 </div>
                                             ) : (
-                                                // Fallback: mostrar total da loja se não houver resultados ainda
-                                                <div className="space-y-2">
-                                                    <div className="flex justify-between">
-                                                        <span className="text-sm text-muted-foreground">Total ({colabsCount} colaboradora{colabsCount > 1 ? 's' : ''}):</span>
-                                                        <span className="font-bold text-primary">
-                                                            {formatCurrency(weekGroup.goals.reduce((sum: number, g: any) => sum + (g.meta_valor || 0), 0))}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-sm text-muted-foreground">Super Meta Total:</span>
-                                                        <span className="font-bold text-purple-600">
-                                                            {formatCurrency(weekGroup.goals.reduce((sum: number, g: any) => sum + (g.super_meta_valor || 0), 0))}
-                                                        </span>
-                                                    </div>
+                                                // Se não houver resultados ainda, mostrar metas por colaboradora
+                                                <div className="space-y-3">
+                                                    {weekGroup.goals
+                                                        .filter((g: any) => g.colaboradora_id)
+                                                        .map((goal: any) => (
+                                                            <div 
+                                                                key={goal.id} 
+                                                                className={`border rounded-lg p-3 space-y-1 ${
+                                                                    isCurrentWeek ? 'bg-background/80 border-primary/30' : 'bg-muted/30'
+                                                                }`}
+                                                            >
+                                                                <div className="flex justify-between items-center">
+                                                                    <span className="text-sm font-semibold">{goal.profiles?.name || 'Colaboradora'}</span>
+                                                                    <span className="text-sm font-bold text-muted-foreground">
+                                                                        R$ 0,00
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex justify-between text-xs text-muted-foreground">
+                                                                    <span>Meta: {formatCurrency(goal.meta_valor || 0)}</span>
+                                                                    <span>0%</span>
+                                                                </div>
+                                                                {goal.super_meta_valor > 0 && (
+                                                                    <div className="text-xs text-muted-foreground">
+                                                                        Super: {formatCurrency(goal.super_meta_valor)}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
                                                 </div>
                                             )}
                                             {isPastWeek && (
