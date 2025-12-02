@@ -299,8 +299,7 @@ BEGIN
         )
         ON CONFLICT (admin_id) DO UPDATE SET
             plan_id = v_enterprise_plan_id,
-            status = 'ACTIVE',
-            updated_at = NOW();
+            status = 'ACTIVE';
         
         -- Buscar subscription_id
         SELECT id INTO v_subscription_id
