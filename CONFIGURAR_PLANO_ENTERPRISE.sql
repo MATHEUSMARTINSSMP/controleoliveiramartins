@@ -303,12 +303,107 @@ SELECT
     10 as colaboradoras_extras_grais,
     80 + 10 as colaboradoras_total;
 
--- 12. Testar função can_create_colaboradora
+-- 12. Configurar admin específico com plano Enterprise
+-- Substitua 'matheusmartinss@icloud.com' pelo email do admin que deve ter Enterprise
+DO $$
+DECLARE
+    v_admin_id UUID;
+    v_enterprise_plan_id UUID;
+    v_subscription_id UUID;
+    v_extra_stores_addon_id UUID;
+    v_extra_colaboradoras_addon_id UUID;
+BEGIN
+    -- Buscar admin pelo email
+    SELECT id INTO v_admin_id
+    FROM auth.users
+    WHERE email = 'matheusmartinss@icloud.com'
+    LIMIT 1;
+    
+    -- Buscar ID do plano Enterprise
+    SELECT id INTO v_enterprise_plan_id
+    FROM sistemaretiradas.subscription_plans
+    WHERE name = 'ENTERPRISE'
+    LIMIT 1;
+    
+    -- Buscar IDs dos addons grátis
+    SELECT id INTO v_extra_stores_addon_id
+    FROM sistemaretiradas.subscription_addons
+    WHERE name = 'ENTERPRISE_EXTRA_STORES_3'
+    LIMIT 1;
+    
+    SELECT id INTO v_extra_colaboradoras_addon_id
+    FROM sistemaretiradas.subscription_addons
+    WHERE name = 'ENTERPRISE_EXTRA_COLABORADORAS_10'
+    LIMIT 1;
+    
+    IF v_admin_id IS NOT NULL AND v_enterprise_plan_id IS NOT NULL THEN
+        -- Criar ou atualizar assinatura Enterprise
+        INSERT INTO sistemaretiradas.admin_subscriptions (
+            admin_id, plan_id, status, billing_cycle
+        ) VALUES (
+            v_admin_id, v_enterprise_plan_id, 'ACTIVE', 'MONTHLY'
+        )
+        ON CONFLICT (admin_id) DO UPDATE SET
+            plan_id = v_enterprise_plan_id,
+            status = 'ACTIVE',
+            updated_at = NOW();
+        
+        -- Buscar subscription_id
+        SELECT id INTO v_subscription_id
+        FROM sistemaretiradas.admin_subscriptions
+        WHERE admin_id = v_admin_id;
+        
+        -- Adicionar addons grátis
+        IF v_subscription_id IS NOT NULL AND v_extra_stores_addon_id IS NOT NULL AND v_extra_colaboradoras_addon_id IS NOT NULL THEN
+            -- +3 lojas extras
+            INSERT INTO sistemaretiradas.admin_subscription_addons (
+                subscription_id, addon_id, quantity, is_active
+            ) VALUES (
+                v_subscription_id, v_extra_stores_addon_id, 1, true
+            ) ON CONFLICT (subscription_id, addon_id) DO UPDATE SET
+                is_active = true,
+                quantity = 1;
+            
+            -- +10 colaboradoras extras
+            INSERT INTO sistemaretiradas.admin_subscription_addons (
+                subscription_id, addon_id, quantity, is_active
+            ) VALUES (
+                v_subscription_id, v_extra_colaboradoras_addon_id, 1, true
+            ) ON CONFLICT (subscription_id, addon_id) DO UPDATE SET
+                is_active = true,
+                quantity = 1;
+        END IF;
+        
+        RAISE NOTICE '✅ Admin configurado com plano Enterprise: matheusmartinss@icloud.com';
+    ELSE
+        RAISE NOTICE '⚠️ Admin não encontrado ou plano Enterprise não existe';
+    END IF;
+END $$;
+
+-- 13. Verificar configuração do admin
+SELECT 
+    u.email,
+    sp.display_name as plano,
+    sp.max_stores as lojas_base,
+    sp.max_colaboradoras_total as colaboradoras_base,
+    COALESCE(SUM(CASE WHEN a.addon_type = 'STORE' THEN a.adds_stores * asa.quantity ELSE 0 END), 0) as lojas_extras,
+    COALESCE(SUM(CASE WHEN a.addon_type = 'COLABORADORAS' THEN a.adds_colaboradoras * asa.quantity ELSE 0 END), 0) as colaboradoras_extras,
+    (sp.max_stores + COALESCE(SUM(CASE WHEN a.addon_type = 'STORE' THEN a.adds_stores * asa.quantity ELSE 0 END), 0)) as lojas_total,
+    (sp.max_colaboradoras_total + COALESCE(SUM(CASE WHEN a.addon_type = 'COLABORADORAS' THEN a.adds_colaboradoras * asa.quantity ELSE 0 END), 0)) as colaboradoras_total
+FROM auth.users u
+JOIN sistemaretiradas.admin_subscriptions asub ON asub.admin_id = u.id
+JOIN sistemaretiradas.subscription_plans sp ON sp.id = asub.plan_id
+LEFT JOIN sistemaretiradas.admin_subscription_addons asa ON asa.subscription_id = asub.id AND asa.is_active = true
+LEFT JOIN sistemaretiradas.subscription_addons a ON a.id = asa.addon_id
+WHERE u.email = 'matheusmartinss@icloud.com'
+GROUP BY u.email, sp.display_name, sp.max_stores, sp.max_colaboradoras_total;
+
+-- 14. Testar função can_create_colaboradora (versão sem parâmetro)
 SELECT 
     sistemaretiradas.can_create_colaboradora() as pode_criar_colaboradora,
     CASE 
         WHEN sistemaretiradas.can_create_colaboradora() = true 
-        THEN '✅ SEM LIMITES (ENTERPRISE)'
-        ELSE '❌ COM LIMITES'
+        THEN '✅ FUNÇÃO OK'
+        ELSE '❌ ERRO NA FUNÇÃO'
     END as resultado;
 
