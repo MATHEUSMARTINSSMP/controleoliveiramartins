@@ -79,6 +79,7 @@ export default function WeeklyGincanaResults({
     const [selectedWeekForResults, setSelectedWeekForResults] = useState<string>("");
     const [weekResults, setWeekResults] = useState<WeekResult[]>([]);
     const [loadingResults, setLoadingResults] = useState(false);
+    const [fetchingWeeks, setFetchingWeeks] = useState<Set<string>>(new Set()); // Controlar quais semanas estão sendo buscadas
 
     useEffect(() => {
         fetchWeeklyGoals();
@@ -140,6 +141,15 @@ export default function WeeklyGincanaResults({
     };
 
     const fetchWeekResults = async (weekRef: string, useMap = true) => {
+        // ✅ PREVENIR CHAMADAS DUPLICADAS: Verificar se já está buscando esta semana
+        if (fetchingWeeks.has(weekRef)) {
+            console.log(`[WeeklyGincanaResults] Já está buscando resultados para semana ${weekRef}, ignorando...`);
+            return;
+        }
+
+        // Marcar como sendo buscada
+        setFetchingWeeks(prev => new Set(prev).add(weekRef));
+
         if (useMap) {
             setLoadingResultsMap(prev => new Map(prev).set(weekRef, true));
         }
@@ -431,9 +441,12 @@ export default function WeeklyGincanaResults({
 
                                 // ✅ MUDANÇA: Buscar resultados da semana (realizado por colaboradora)
                                 const weekResults = weekResultsMap.get(weekGroup.semana_referencia) || [];
+                                const isLoadingWeek = loadingResultsMap.get(weekGroup.semana_referencia) || false;
+                                const isFetchingWeek = fetchingWeeks.has(weekGroup.semana_referencia);
 
                                 // Se é semana atual ou futura e ainda não temos resultados, buscar
-                                if ((isCurrentWeek || !isPastWeek) && weekResults.length === 0 && !loadingResultsMap.get(weekGroup.semana_referencia)) {
+                                // ✅ CORREÇÃO: Verificar também se não está sendo buscada para evitar loop infinito
+                                if ((isCurrentWeek || !isPastWeek) && weekResults.length === 0 && !isLoadingWeek && !isFetchingWeek) {
                                     // Buscar resultados para a semana atual também
                                     fetchWeekResults(weekGroup.semana_referencia, true);
                                 }
