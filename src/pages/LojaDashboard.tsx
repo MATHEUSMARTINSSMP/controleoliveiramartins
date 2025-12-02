@@ -29,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CashbackLojaView from "@/components/loja/CashbackLojaView";
 import CRMLojaView from "@/components/loja/CRMLojaView";
 import WeeklyGincanaResults from "@/components/loja/WeeklyGincanaResults";
+import PostSaleSchedulerDialog from "@/components/loja/PostSaleSchedulerDialog";
 
 interface Sale {
     id: string;
@@ -1737,27 +1738,24 @@ export default function LojaDashboard() {
                 observacoes: formData.observacoes || null,
             };
 
-            // ✅ CRIAR PÓS-VENDA AUTOMATICAMENTE (se CRM estiver ativo)
-            if (insertedSale?.id) {
-                // Executar em background para não bloquear a UI
-                createPostSaleFromSale(
-                    insertedSale.id,
-                    storeId,
-                    formData.colaboradora_id,
-                    null, // Nome do cliente não disponível em vendas manuais
-                    formData.data_venda,
-                    7 // Follow-up em 7 dias
-                ).catch(err => {
-                    console.error('[LojaDashboard] Erro ao criar pós-venda automática:', err);
-                });
-            }
-
             // Salvar formas de pagamento antes de resetar
             const formasPagamentoData = [...formasPagamento];
 
             toast.success('Venda lançada com sucesso!');
             setDialogOpen(false);
-            resetForm(); // Resetar form após salvar os dados
+            
+            // ✅ ABRIR DIALOG DE AGENDAMENTO DE PÓS-VENDA (se CRM estiver ativo)
+            if (insertedSale?.id && crmAtivo) {
+                setLastSaleData({
+                    saleId: insertedSale.id,
+                    colaboradoraId: formData.colaboradora_id,
+                    saleDate: formData.data_venda,
+                    saleObservations: observacoesFinal || null
+                });
+                setPostSaleDialogOpen(true);
+            } else {
+                resetForm(); // Resetar form apenas se não abrir o dialog
+            }
 
             // PRIORIDADE 2: Enviar WhatsApp em background (não bloqueia UI)
             // Buscar dados para enviar WhatsApp para os administradores
@@ -1918,7 +1916,7 @@ export default function LojaDashboard() {
                             totalDia = totalDia + valorVendaAtual;
 
                             // ✅ CORREÇÃO: Recalcular total do mês também, SEMPRE incluindo a venda recém-salva
-                            const hoje = new Date();
+                            // Reutilizar a variável 'hoje' já declarada acima
                             const mesAtualISO = hoje.toISOString().slice(0, 7); // Formato: yyyy-MM
                             const primeiroDiaMes = `${mesAtualISO}-01T00:00:00`;
                             const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
@@ -4711,6 +4709,32 @@ export default function LojaDashboard() {
                         </Card>
                     )}
                 </div>
+            )}
+
+            {/* Dialog de Agendamento de Pós-Venda */}
+            {lastSaleData && storeId && (
+                <PostSaleSchedulerDialog
+                    open={postSaleDialogOpen}
+                    onOpenChange={(open) => {
+                        setPostSaleDialogOpen(open);
+                        if (!open) {
+                            // Quando fechar, resetar form e dados
+                            resetForm();
+                            setLastSaleData(null);
+                        }
+                    }}
+                    saleId={lastSaleData.saleId}
+                    storeId={storeId}
+                    colaboradoraId={lastSaleData.colaboradoraId}
+                    saleDate={lastSaleData.saleDate}
+                    saleObservations={lastSaleData.saleObservations}
+                    onSuccess={() => {
+                        // Recarregar dados após sucesso
+                        if (storeId) {
+                            fetchSalesWithStoreId(storeId, salesDateFilter);
+                        }
+                    }}
+                />
             )}
         </div>
     );
