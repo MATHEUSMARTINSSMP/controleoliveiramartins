@@ -179,56 +179,9 @@ BEGIN
     END LOOP;
 END $$;
 
--- 7. Criar função helper para verificar limites (usa get_admin_limits que já considera addons)
-CREATE OR REPLACE FUNCTION sistemaretiradas.check_plan_limits(
-    p_limit_type TEXT -- 'stores', 'colaboradoras_per_store', 'colaboradoras_total'
-)
-RETURNS BOOLEAN
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    v_plan_config sistemaretiradas.plan_config%ROWTYPE;
-    v_limit INTEGER;
-BEGIN
-    -- Buscar configuração do plano
-    SELECT * INTO v_plan_config
-    FROM sistemaretiradas.plan_config
-    WHERE plan_type = 'ENTERPRISE'
-    LIMIT 1;
-    
-    -- Se não encontrar configuração, assumir Enterprise (sem limites)
-    IF NOT FOUND THEN
-        RETURN true;
-    END IF;
-    
-    -- Se for Enterprise, sempre permitir
-    IF v_plan_config.plan_type = 'ENTERPRISE' THEN
-        RETURN true;
-    END IF;
-    
-    -- Para outros planos, verificar limites específicos
-    CASE p_limit_type
-        WHEN 'stores' THEN
-            v_limit := v_plan_config.max_stores;
-        WHEN 'colaboradoras_per_store' THEN
-            v_limit := v_plan_config.max_colaboradoras_per_store;
-        WHEN 'colaboradoras_total' THEN
-            v_limit := v_plan_config.max_colaboradoras_total;
-        ELSE
-            RETURN true; -- Tipo desconhecido, permitir por segurança
-    END CASE;
-    
-    -- Se limite for NULL, significa sem limite
-    IF v_limit IS NULL THEN
-        RETURN true;
-    END IF;
-    
-    -- Aqui você pode adicionar lógica para contar e comparar com o limite
-    -- Por enquanto, sempre retorna true para Enterprise
-    RETURN true;
-END;
-$$;
+-- 7. Remover função check_plan_limits se existir (não é mais necessária)
+-- A função get_admin_limits já existe e faz o trabalho corretamente
+DROP FUNCTION IF EXISTS sistemaretiradas.check_plan_limits(TEXT);
 
 -- 8. Verificar se as funções foram criadas corretamente
 SELECT 
@@ -255,15 +208,16 @@ SELECT
         ELSE '❌ NÃO CRIADA'
     END as status;
 
+-- Verificar se subscription_plans existe (sistema principal)
 SELECT 
-    'plan_config' as tabela,
+    'subscription_plans' as tabela,
     CASE 
         WHEN EXISTS (
             SELECT 1 FROM information_schema.tables
             WHERE table_schema = 'sistemaretiradas'
-            AND table_name = 'plan_config'
-        ) THEN '✅ CRIADA'
-        ELSE '❌ NÃO CRIADA'
+            AND table_name = 'subscription_plans'
+        ) THEN '✅ EXISTE'
+        ELSE '❌ NÃO EXISTE'
     END as status;
 
 -- 9. Verificar configuração atual do plano Enterprise
