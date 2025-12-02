@@ -182,6 +182,8 @@ export default function WeeklyGincanaResults({
             if (vendasError) throw vendasError;
             if (!vendas || vendas.length === 0) {
                 if (useMap) {
+                    // ✅ Salvar array vazio para evitar novas buscas desnecessárias
+                    setWeekResultsMap(prev => new Map(prev).set(weekRef, []));
                     setLoadingResultsMap(prev => {
                         const newMap = new Map(prev);
                         newMap.delete(weekRef);
