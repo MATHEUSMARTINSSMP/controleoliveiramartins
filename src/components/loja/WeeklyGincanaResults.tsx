@@ -152,25 +152,25 @@ export default function WeeklyGincanaResults({
             // ✅ MUDANÇA: Não retornar cedo para semanas atuais - queremos mostrar resultados também
             // Remover a verificação que impedia buscar resultados da semana atual
             
-            // Buscar todas as metas da gincana desta semana e loja
-            let query = supabase
+            // ✅ NOVA LÓGICA: Buscar TODAS as colaboradoras que venderam na semana
+            // 1. Primeiro, buscar todas as vendas da semana da loja
+            let vendasQuery = supabase
                 .schema("sistemaretiradas")
-                .from("goals")
-                .select("*, profiles (name)")
+                .from("sales")
+                .select("colaboradora_id, valor, profiles (name)")
                 .eq("store_id", storeId)
-                .eq("semana_referencia", weekRef)
-                .eq("tipo", "SEMANAL")
-                .not("colaboradora_id", "is", null);
+                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
+                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
 
             // Se colaboradoraId fornecido e showAllResults false, filtrar apenas essa colaboradora
             if (colaboradoraId && !showAllResults) {
-                query = query.eq("colaboradora_id", colaboradoraId);
+                vendasQuery = vendasQuery.eq("colaboradora_id", colaboradoraId);
             }
 
-            const { data: goals, error: goalsError } = await query;
+            const { data: vendas, error: vendasError } = await vendasQuery;
             
-            if (goalsError) throw goalsError;
-            if (!goals || goals.length === 0) {
+            if (vendasError) throw vendasError;
+            if (!vendas || vendas.length === 0) {
                 if (useMap) {
                     setLoadingResultsMap(prev => {
                         const newMap = new Map(prev);
@@ -181,45 +181,69 @@ export default function WeeklyGincanaResults({
                 return;
             }
             
-            // Buscar vendas de cada colaboradora na semana
-            const results = await Promise.all(
-                goals.map(async (goal: any) => {
-                    const { data: sales, error: salesError } = await supabase
-                        .schema("sistemaretiradas")
-                        .from("sales")
-                        .select("valor")
-                        .eq("colaboradora_id", goal.colaboradora_id)
-                        .eq("store_id", storeId)
-                        .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
-                        .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+            // 2. Agrupar vendas por colaboradora e calcular total realizado
+            const vendasPorColaboradora = new Map<string, { realizado: number; nome: string }>();
             
-                    if (salesError) {
-                        console.error(`Erro ao buscar vendas para colaboradora ${goal.colaboradora_id}:`, salesError);
-                        return null;
-                    }
-                    
-                    const realizado = sales?.reduce((sum, s) => sum + parseFloat(s.valor || '0'), 0) || 0;
-                    const meta_valor = parseFloat(goal.meta_valor || 0);
-                    const super_meta_valor = parseFloat(goal.super_meta_valor || 0);
-                    const bateu_meta = realizado >= meta_valor;
-                    const bateu_super_meta = realizado >= super_meta_valor;
-                    const percentual = meta_valor > 0 ? (realizado / meta_valor) * 100 : 0;
-                    
-                    return {
-                        colaboradora_id: goal.colaboradora_id,
-                        colaboradora_name: goal.profiles?.name || "Colaboradora desconhecida",
-                        meta_valor,
-                        super_meta_valor,
-                        realizado,
-                        bateu_meta,
-                        bateu_super_meta,
-                        percentual
-                    };
-                })
-            );
+            vendas.forEach((venda: any) => {
+                const colabId = venda.colaboradora_id;
+                if (!colabId) return;
+                
+                const valor = parseFloat(venda.valor || '0');
+                const nome = venda.profiles?.name || "Colaboradora desconhecida";
+                
+                if (vendasPorColaboradora.has(colabId)) {
+                    const atual = vendasPorColaboradora.get(colabId)!;
+                    atual.realizado += valor;
+                } else {
+                    vendasPorColaboradora.set(colabId, { realizado: valor, nome });
+                }
+            });
             
-            // Filtrar resultados nulos
-            const validResults = results.filter(r => r !== null) as WeekResult[];
+            // 3. Buscar metas da gincana para as colaboradoras que venderam
+            const colabIdsArray = Array.from(vendasPorColaboradora.keys());
+            
+            let metasQuery = supabase
+                .schema("sistemaretiradas")
+                .from("goals")
+                .select("*, profiles (name)")
+                .eq("store_id", storeId)
+                .eq("semana_referencia", weekRef)
+                .eq("tipo", "SEMANAL")
+                .in("colaboradora_id", colabIdsArray);
+
+            const { data: goals, error: goalsError } = await metasQuery;
+            
+            // Criar mapa de metas por colaboradora
+            const metasMap = new Map<string, any>();
+            if (goals && !goalsError) {
+                goals.forEach((goal: any) => {
+                    metasMap.set(goal.colaboradora_id, goal);
+                });
+            }
+            
+            // 4. Construir resultados incluindo TODAS as colaboradoras que venderam
+            const results: WeekResult[] = Array.from(vendasPorColaboradora.entries()).map(([colabId, dados]) => {
+                const goal = metasMap.get(colabId);
+                const meta_valor = goal ? parseFloat(goal.meta_valor || 0) : 0;
+                const super_meta_valor = goal ? parseFloat(goal.super_meta_valor || 0) : 0;
+                const realizado = dados.realizado;
+                const bateu_meta = meta_valor > 0 && realizado >= meta_valor;
+                const bateu_super_meta = super_meta_valor > 0 && realizado >= super_meta_valor;
+                const percentual = meta_valor > 0 ? (realizado / meta_valor) * 100 : 0;
+                
+                return {
+                    colaboradora_id: colabId,
+                    colaboradora_name: dados.nome,
+                    meta_valor,
+                    super_meta_valor,
+                    realizado,
+                    bateu_meta,
+                    bateu_super_meta,
+                    percentual
+                };
+            });
+            
+            const validResults = results;
             
             if (useMap) {
                 setWeekResultsMap(prev => new Map(prev).set(weekRef, validResults));
@@ -275,67 +299,91 @@ export default function WeeklyGincanaResults({
                 return;
             }
             
-            // Buscar todas as metas da gincana desta semana e loja
-            let query = supabase
+            // ✅ NOVA LÓGICA: Buscar TODAS as colaboradoras que venderam na semana (igual fetchWeekResults)
+            // 1. Buscar todas as vendas da semana da loja
+            let vendasQuery = supabase
+                .schema("sistemaretiradas")
+                .from("sales")
+                .select("colaboradora_id, valor, profiles (name)")
+                .eq("store_id", storeId)
+                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
+                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+
+            if (colaboradoraId && !showAllResults) {
+                vendasQuery = vendasQuery.eq("colaboradora_id", colaboradoraId);
+            }
+
+            const { data: vendas, error: vendasError } = await vendasQuery;
+            
+            if (vendasError) throw vendasError;
+            if (!vendas || vendas.length === 0) {
+                toast.info("Nenhuma venda encontrada para esta semana.");
+                setLoadingResults(false);
+                return;
+            }
+            
+            // 2. Agrupar vendas por colaboradora e calcular total realizado
+            const vendasPorColaboradora = new Map<string, { realizado: number; nome: string }>();
+            
+            vendas.forEach((venda: any) => {
+                const colabId = venda.colaboradora_id;
+                if (!colabId) return;
+                
+                const valor = parseFloat(venda.valor || '0');
+                const nome = venda.profiles?.name || "Colaboradora desconhecida";
+                
+                if (vendasPorColaboradora.has(colabId)) {
+                    const atual = vendasPorColaboradora.get(colabId)!;
+                    atual.realizado += valor;
+                } else {
+                    vendasPorColaboradora.set(colabId, { realizado: valor, nome });
+                }
+            });
+            
+            // 3. Buscar metas da gincana para as colaboradoras que venderam
+            const colabIdsArray = Array.from(vendasPorColaboradora.keys());
+            
+            let metasQuery = supabase
                 .schema("sistemaretiradas")
                 .from("goals")
                 .select("*, profiles (name)")
                 .eq("store_id", storeId)
                 .eq("semana_referencia", weekRef)
                 .eq("tipo", "SEMANAL")
-                .not("colaboradora_id", "is", null);
+                .in("colaboradora_id", colabIdsArray);
 
-            if (colaboradoraId && !showAllResults) {
-                query = query.eq("colaboradora_id", colaboradoraId);
-            }
-
-            const { data: goals, error: goalsError } = await query;
+            const { data: goals, error: goalsError } = await metasQuery;
             
-            if (goalsError) throw goalsError;
-            if (!goals || goals.length === 0) {
-                toast.info("Nenhuma meta encontrada para esta gincana.");
-                setLoadingResults(false);
-                return;
+            // Criar mapa de metas por colaboradora
+            const metasMap = new Map<string, any>();
+            if (goals && !goalsError) {
+                goals.forEach((goal: any) => {
+                    metasMap.set(goal.colaboradora_id, goal);
+                });
             }
             
-            // Buscar vendas de cada colaboradora na semana
-            const results = await Promise.all(
-                goals.map(async (goal: any) => {
-                    const { data: sales, error: salesError } = await supabase
-                        .schema("sistemaretiradas")
-                        .from("sales")
-                        .select("valor")
-                        .eq("colaboradora_id", goal.colaboradora_id)
-                        .eq("store_id", storeId)
-                        .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
-                        .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+            // 4. Construir resultados incluindo TODAS as colaboradoras que venderam
+            const validResults: WeekResult[] = Array.from(vendasPorColaboradora.entries()).map(([colabId, dados]) => {
+                const goal = metasMap.get(colabId);
+                const meta_valor = goal ? parseFloat(goal.meta_valor || 0) : 0;
+                const super_meta_valor = goal ? parseFloat(goal.super_meta_valor || 0) : 0;
+                const realizado = dados.realizado;
+                const bateu_meta = meta_valor > 0 && realizado >= meta_valor;
+                const bateu_super_meta = super_meta_valor > 0 && realizado >= super_meta_valor;
+                const percentual = meta_valor > 0 ? (realizado / meta_valor) * 100 : 0;
+                
+                return {
+                    colaboradora_id: colabId,
+                    colaboradora_name: dados.nome,
+                    meta_valor,
+                    super_meta_valor,
+                    realizado,
+                    bateu_meta,
+                    bateu_super_meta,
+                    percentual
+                };
+            });
             
-                    if (salesError) {
-                        console.error(`Erro ao buscar vendas para colaboradora ${goal.colaboradora_id}:`, salesError);
-                        return null;
-                    }
-                    
-                    const realizado = sales?.reduce((sum, s) => sum + parseFloat(s.valor || '0'), 0) || 0;
-                    const meta_valor = parseFloat(goal.meta_valor || 0);
-                    const super_meta_valor = parseFloat(goal.super_meta_valor || 0);
-                    const bateu_meta = realizado >= meta_valor;
-                    const bateu_super_meta = realizado >= super_meta_valor;
-                    const percentual = meta_valor > 0 ? (realizado / meta_valor) * 100 : 0;
-                    
-                    return {
-                        colaboradora_id: goal.colaboradora_id,
-                        colaboradora_name: goal.profiles?.name || "Colaboradora desconhecida",
-                        meta_valor,
-                        super_meta_valor,
-                        realizado,
-                        bateu_meta,
-                        bateu_super_meta,
-                        percentual
-                    };
-                })
-            );
-            
-            const validResults = results.filter(r => r !== null) as WeekResult[];
             setWeekResults(validResults);
         } catch (err: any) {
             console.error("Erro ao buscar resultados:", err);

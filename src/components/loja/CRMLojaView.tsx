@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageSquare, Plus, Calendar, Gift, Phone, Clock, Loader2, CheckCircle2 } from "lucide-react";
+import { MessageSquare, Plus, Calendar, Gift, Phone, Clock, Loader2, CheckCircle2, Edit, XCircle } from "lucide-react";
 import { format, startOfDay, endOfDay, isToday, parseISO, differenceInMinutes, differenceInHours, isPast, isFuture } from "date-fns";
 import { toast } from "sonner";
 import { AlertCircle, Bell } from "lucide-react";
@@ -20,9 +20,17 @@ interface CRMTask {
   title: string;
   cliente_nome: string | null;
   cliente_id: string | null;
+  cliente_whatsapp: string | null;
   due_date: string;
   priority: "ALTA" | "MÉDIA" | "BAIXA";
   status: "PENDENTE" | "CONCLUÍDA" | "CANCELADA";
+  quem_fez: string | null;
+  como_foi_contato: "WHATSAPP" | "TELEFONE" | "EMAIL" | "PRESENCIAL" | "OUTRO" | null;
+  cliente_respondeu: boolean | null;
+  observacoes_contato: string | null;
+  colaboradora_id: string | null;
+  atribuido_para: string | null;
+  sale_id: string | null;
 }
 
 interface Birthday {
@@ -64,7 +72,10 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
   const [commitments, setCommitments] = useState<CRMCommitment[]>([]);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [commitmentDialogOpen, setCommitmentDialogOpen] = useState(false);
+  const [taskEditDialogOpen, setTaskEditDialogOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<CRMTask | null>(null);
   const [saving, setSaving] = useState(false);
+  const [colaboradoras, setColaboradoras] = useState<Array<{id: string; name: string}>>([]);
 
   const [newTask, setNewTask] = useState({ 
     title: "", 
@@ -115,13 +126,14 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
       const todayStart = startOfDay(new Date()).toISOString();
       const todayEnd = endOfDay(new Date()).toISOString();
 
+      // ✅ Buscar tarefas do dia E tarefas atrasadas (status PENDENTE)
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('crm_tasks')
         .select('*')
         .eq('store_id', storeId)
-        .gte('due_date', todayStart)
-        .lte('due_date', todayEnd)
+        .eq('status', 'PENDENTE')
+        .lte('due_date', todayEnd) // Tarefas até o final de hoje (inclui atrasadas)
         .order('due_date', { ascending: true });
 
       if (error) {
@@ -291,7 +303,8 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
           title: newTask.title.trim(),
           due_date: newTask.dueDate,
           priority: newTask.priority,
-          status: 'PENDENTE'
+          status: 'PENDENTE',
+          atribuido_para: 'TODOS' // Tarefas normais (não vendas) são atribuídas para "TODOS"
         }])
         .select();
 
@@ -444,6 +457,115 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
     return `Oi ${firstName}! Feliz Aniversário! 🎉 Aproveite nosso cupom HAPPY20 com 20% OFF em sua próxima compra!`;
   };
 
+  const getTaskUrgency = (dueDate: string) => {
+    const due = parseISO(dueDate);
+    const now = new Date();
+    const diffMinutes = differenceInMinutes(due, now);
+    const diffHours = differenceInHours(due, now);
+
+    if (isPast(due) && !isToday(due)) {
+      return { level: 'overdue', label: 'Atrasada' };
+    }
+    if (diffHours < 1) {
+      return { level: 'urgent', label: 'Urgente' };
+    }
+    if (diffHours < 3) {
+      return { level: 'soon', label: 'Em breve' };
+    }
+    return { level: 'normal', label: null };
+  };
+
+  // Componente TaskCard
+  const TaskCard = ({ task, onEdit, onComplete, colaboradoras }: {
+    task: CRMTask;
+    onEdit: () => void;
+    onComplete: () => void;
+    colaboradoras: Array<{id: string; name: string}>;
+  }) => {
+    const urgency = getTaskUrgency(task.due_date);
+    const quemFezNome = colaboradoras.find(c => c.id === task.quem_fez)?.name || "Não definido";
+    
+    return (
+      <div 
+        className={`flex items-start justify-between p-3 rounded-lg border ${
+          urgency.level === 'overdue' ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800' :
+          urgency.level === 'urgent' ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800' :
+          urgency.level === 'soon' ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800' :
+          'bg-muted/50'
+        }`}
+      >
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <p className="font-medium text-sm">{task.title}</p>
+            {urgency.label && (
+              <Badge variant={urgency.level === 'overdue' ? 'destructive' : 'secondary'} className="text-xs">
+                {urgency.level === 'overdue' && <AlertCircle className="h-3 w-3 mr-1" />}
+                {urgency.label}
+              </Badge>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mb-1">
+            {task.cliente_nome} • {format(parseISO(task.due_date), "dd/MM/yyyy HH:mm")}
+          </p>
+          {task.cliente_whatsapp && (
+            <p className="text-xs text-muted-foreground mb-1">
+              📱 {task.cliente_whatsapp}
+            </p>
+          )}
+          {/* Mostrar status do contato se já foi feito */}
+          {task.quem_fez && (
+            <div className="text-xs text-muted-foreground space-y-0.5 mt-1">
+              <p>✅ Feita por: {quemFezNome}</p>
+              {task.como_foi_contato && (
+                <p>📞 Contato: {task.como_foi_contato}</p>
+              )}
+              {task.cliente_respondeu !== null && (
+                <p>{task.cliente_respondeu ? '✅ Cliente respondeu' : '❌ Cliente não respondeu'}</p>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant={task.priority === "ALTA" ? "destructive" : task.priority === "MÉDIA" ? "default" : "secondary"}>
+            {task.priority}
+          </Badge>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onEdit}
+            className="h-8 w-8 p-0"
+            title="Editar tarefa"
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onComplete}
+            className="h-8 w-8 p-0"
+            title="Marcar como concluída"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  // Separar tarefas atrasadas das tarefas do dia
+  const hoje = new Date();
+  const hojeStart = startOfDay(hoje);
+  
+  const tarefasAtrasadas = tasks.filter(t => {
+    const dueDate = parseISO(t.due_date);
+    return dueDate < hojeStart;
+  });
+  
+  const tarefasDoDia = tasks.filter(t => {
+    const dueDate = parseISO(t.due_date);
+    return dueDate >= hojeStart && dueDate <= endOfDay(hoje);
+  });
+  
   const pendingTasks = tasks.filter(t => t.status === "PENDENTE");
 
   if (loading) {
@@ -523,54 +645,46 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
           </div>
         </CardHeader>
         <CardContent>
-          {pendingTasks.length > 0 ? (
-            <div className="space-y-2">
-              {pendingTasks.map((task) => {
-                const urgency = getTaskUrgency(task.due_date);
-                return (
-                  <div 
-                    key={task.id} 
-                    className={`flex items-start justify-between p-3 rounded-lg border ${
-                      urgency.level === 'overdue' ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800' :
-                      urgency.level === 'urgent' ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800' :
-                      urgency.level === 'soon' ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800' :
-                      'bg-muted/50'
-                    }`}
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-medium text-sm">{task.title}</p>
-                        {urgency.label && (
-                          <Badge variant={urgency.level === 'overdue' ? 'destructive' : 'secondary'} className="text-xs">
-                            {urgency.level === 'overdue' && <AlertCircle className="h-3 w-3 mr-1" />}
-                            {urgency.label}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {task.cliente_nome} • {format(parseISO(task.due_date), "dd/MM/yyyy HH:mm")}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={task.priority === "ALTA" ? "destructive" : task.priority === "MÉDIA" ? "default" : "secondary"}>
-                        {task.priority}
-                      </Badge>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleCompleteTask(task.id)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
+          {/* TAREFAS ATRASADAS */}
+          {tarefasAtrasadas.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-3 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                Tarefas Atrasadas ({tarefasAtrasadas.length})
+              </h3>
+              <div className="space-y-2">
+                {tarefasAtrasadas.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    onEdit={() => handleOpenTaskEdit(task)}
+                    onComplete={() => handleCompleteTask(task.id)}
+                    colaboradoras={colaboradoras}
+                  />
+                ))}
+              </div>
             </div>
-          ) : (
-            <p className="text-center text-sm text-muted-foreground py-4">Nenhuma tarefa pendente hoje</p>
           )}
+
+          {/* TAREFAS DO DIA */}
+          {tarefasDoDia.length > 0 ? (
+            <div className="space-y-2">
+              {tarefasAtrasadas.length > 0 && (
+                <h3 className="text-sm font-semibold mb-3">Tarefas de Hoje ({tarefasDoDia.length})</h3>
+              )}
+              {tarefasDoDia.map((task) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  onEdit={() => handleOpenTaskEdit(task)}
+                  onComplete={() => handleCompleteTask(task.id)}
+                  colaboradoras={colaboradoras}
+                />
+              ))}
+            </div>
+          ) : tarefasAtrasadas.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-4">Nenhuma tarefa pendente hoje</p>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -792,6 +906,169 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog de Edição de Tarefa */}
+      <Dialog open={taskEditDialogOpen} onOpenChange={setTaskEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Tarefa</DialogTitle>
+          </DialogHeader>
+          {selectedTask && (
+            <TaskEditForm
+              task={selectedTask}
+              colaboradoras={colaboradoras}
+              onSave={(updates) => handleUpdateTask(selectedTask.id, updates)}
+              onClose={() => {
+                setTaskEditDialogOpen(false);
+                setSelectedTask(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// Componente de Formulário de Edição de Tarefa
+function TaskEditForm({ 
+  task, 
+  colaboradoras, 
+  onSave, 
+  onClose 
+}: { 
+  task: CRMTask; 
+  colaboradoras: Array<{id: string; name: string}>;
+  onSave: (updates: any) => void;
+  onClose: () => void;
+}) {
+  const [status, setStatus] = useState<"CONCLUÍDA" | "PENDENTE">(task.status as "CONCLUÍDA" | "PENDENTE");
+  const [quemFez, setQuemFez] = useState<string>(task.quem_fez || "");
+  const [comoContato, setComoContato] = useState<string>(task.como_foi_contato || "");
+  const [clienteRespondeu, setClienteRespondeu] = useState<string>(
+    task.cliente_respondeu === null ? "" : task.cliente_respondeu ? "sim" : "nao"
+  );
+  const [observacoes, setObservacoes] = useState<string>(task.observacoes_contato || "");
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async () => {
+    setSaving(true);
+    try {
+      const updates: any = {
+        status,
+        quem_fez: quemFez || null,
+        como_foi_contato: comoContato || null,
+        cliente_respondeu: clienteRespondeu === "" ? null : clienteRespondeu === "sim",
+        observacoes_contato: observacoes.trim() || null
+      };
+
+      onSave(updates);
+    } catch (error) {
+      console.error("Erro ao salvar:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4 py-4">
+      {/* Status: Feita / Não Feita */}
+      <div className="space-y-2">
+        <Label>Status</Label>
+        <Select value={status} onValueChange={(v) => setStatus(v as "CONCLUÍDA" | "PENDENTE")}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="PENDENTE">Não Feita</SelectItem>
+            <SelectItem value="CONCLUÍDA">Feita</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Quem Fez */}
+      <div className="space-y-2">
+        <Label>Quem Fez</Label>
+        <Select value={quemFez} onValueChange={setQuemFez}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione quem fez" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Não definido</SelectItem>
+            {colaboradoras.map((colab) => (
+              <SelectItem key={colab.id} value={colab.id}>
+                {colab.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Como Foi o Contato */}
+      <div className="space-y-2">
+        <Label>Como Foi o Contato</Label>
+        <Select value={comoContato} onValueChange={setComoContato}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione o tipo de contato" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Não definido</SelectItem>
+            <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
+            <SelectItem value="TELEFONE">Telefone</SelectItem>
+            <SelectItem value="EMAIL">Email</SelectItem>
+            <SelectItem value="PRESENCIAL">Presencial</SelectItem>
+            <SelectItem value="OUTRO">Outro</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Cliente Respondeu */}
+      <div className="space-y-2">
+        <Label>Cliente Respondeu?</Label>
+        <Select value={clienteRespondeu} onValueChange={setClienteRespondeu}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Não contatado ainda</SelectItem>
+            <SelectItem value="sim">Sim</SelectItem>
+            <SelectItem value="nao">Não</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Observações do Contato */}
+      <div className="space-y-2">
+        <Label>Observações do Contato</Label>
+        <Textarea
+          value={observacoes}
+          onChange={(e) => setObservacoes(e.target.value)}
+          placeholder="Observações sobre o contato realizado..."
+          rows={4}
+        />
+      </div>
+
+      {/* Informações da Tarefa (somente leitura) */}
+      <div className="space-y-2">
+        <Label>Informações da Tarefa</Label>
+        <div className="p-3 bg-muted rounded-md text-sm space-y-1">
+          <p><strong>Cliente:</strong> {task.cliente_nome}</p>
+          <p><strong>Data/Hora:</strong> {format(parseISO(task.due_date), "dd/MM/yyyy HH:mm")}</p>
+          {task.cliente_whatsapp && (
+            <p><strong>WhatsApp:</strong> {task.cliente_whatsapp}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Botões */}
+      <div className="flex justify-end gap-2 pt-4">
+        <Button variant="outline" onClick={onClose} disabled={saving}>
+          Cancelar
+        </Button>
+        <Button onClick={handleSubmit} disabled={saving}>
+          {saving ? "Salvando..." : "Salvar"}
+        </Button>
+      </div>
     </div>
   );
 }
