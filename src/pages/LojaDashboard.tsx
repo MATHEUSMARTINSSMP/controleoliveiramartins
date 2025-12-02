@@ -1745,15 +1745,28 @@ export default function LojaDashboard() {
             setDialogOpen(false);
             
             // ✅ ABRIR DIALOG DE AGENDAMENTO DE PÓS-VENDA (se CRM estiver ativo)
+            console.log('[LojaDashboard] Verificando se deve abrir dialog de pós-venda:', {
+                hasSaleId: !!insertedSale?.id,
+                crmAtivo,
+                insertedSaleId: insertedSale?.id
+            });
+            
             if (insertedSale?.id && crmAtivo) {
+                console.log('[LojaDashboard] ✅ Abrindo dialog de pós-venda');
                 setLastSaleData({
                     saleId: insertedSale.id,
                     colaboradoraId: formData.colaboradora_id,
                     saleDate: formData.data_venda,
                     saleObservations: observacoesFinal || null
                 });
-                setPostSaleDialogOpen(true);
+                // Usar setTimeout para garantir que o estado seja atualizado antes de abrir o dialog
+                setTimeout(() => {
+                    setPostSaleDialogOpen(true);
+                }, 100);
             } else {
+                console.log('[LojaDashboard] ❌ Não abrindo dialog:', {
+                    reason: !insertedSale?.id ? 'Sem saleId' : 'CRM não está ativo'
+                });
                 resetForm(); // Resetar form apenas se não abrir o dialog
             }
 
@@ -4733,6 +4746,8 @@ export default function LojaDashboard() {
                         if (storeId) {
                             fetchSalesWithStoreId(storeId, salesDateFilter);
                         }
+                        resetForm();
+                        setLastSaleData(null);
                     }}
                 />
             )}

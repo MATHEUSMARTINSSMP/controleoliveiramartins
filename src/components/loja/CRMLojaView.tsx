@@ -78,8 +78,11 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
   const [colaboradoras, setColaboradoras] = useState<Array<{id: string; name: string}>>([]);
 
   const [newTask, setNewTask] = useState({ 
+    categoria: "PERSONALIZADA" as "ANIVERSARIO" | "POS_VENDA" | "PERSONALIZADA",
     title: "", 
     cliente_nome: "", 
+    cliente_whatsapp: "",
+    consultora_id: "TODOS",
     dueDate: "", 
     priority: "MÉDIA" as "ALTA" | "MÉDIA" | "BAIXA" 
   });
@@ -293,18 +296,23 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
 
     try {
       setSaving(true);
+      // Determinar atribuido_para baseado na consultora selecionada
+      const atribuidoPara = newTask.consultora_id === 'TODOS' ? 'TODOS' : newTask.consultora_id;
+
       const { error, data } = await supabase
         .schema('sistemaretiradas')
         .from('crm_tasks')
         .insert([{
           store_id: storeId,
-          colaboradora_id: profile?.id || null,
+          colaboradora_id: newTask.consultora_id !== 'TODOS' ? newTask.consultora_id : null,
           cliente_nome: newTask.cliente_nome.trim(),
+          cliente_whatsapp: newTask.cliente_whatsapp.trim() || null,
           title: newTask.title.trim(),
+          description: `Categoria: ${newTask.categoria === 'ANIVERSARIO' ? 'Aniversário' : newTask.categoria === 'POS_VENDA' ? 'Pós-Venda' : 'Personalizada'}`,
           due_date: newTask.dueDate,
           priority: newTask.priority,
           status: 'PENDENTE',
-          atribuido_para: 'TODOS' // Tarefas normais (não vendas) são atribuídas para "TODOS"
+          atribuido_para: atribuidoPara
         }])
         .select();
 
@@ -327,7 +335,15 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
 
       toast.success('Tarefa adicionada com sucesso!');
       setTaskDialogOpen(false);
-      setNewTask({ title: "", cliente_nome: "", dueDate: "", priority: "MÉDIA" });
+      setNewTask({ 
+        categoria: "PERSONALIZADA",
+        title: "", 
+        cliente_nome: "", 
+        cliente_whatsapp: "",
+        consultora_id: "TODOS",
+        dueDate: "", 
+        priority: "MÉDIA" 
+      });
       await fetchTasks();
     } catch (error: any) {
       console.error('[CRMLojaView] Erro inesperado ao adicionar tarefa:', error);
@@ -598,30 +614,91 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
                   <DialogTitle>Adicionar Tarefa</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
+                  {/* Categoria */}
                   <div>
-                    <Label>Descrição *</Label>
-                    <Input
-                      placeholder="Ex: Ligar para Maria Silva"
+                    <Label>Categoria *</Label>
+                    <Select 
+                      value={newTask.categoria} 
+                      onValueChange={(v) => setNewTask({ ...newTask, categoria: v as any })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ANIVERSARIO">Aniversário</SelectItem>
+                        <SelectItem value="POS_VENDA">Pós-Venda</SelectItem>
+                        <SelectItem value="PERSONALIZADA">Personalizada</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Tarefa (Descrição) */}
+                  <div>
+                    <Label>Tarefa (Descrição) *</Label>
+                    <Textarea
+                      placeholder="Ex: Ligar para Maria Silva, enviar mensagem de aniversário, etc."
                       value={newTask.title}
                       onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                      rows={3}
                     />
                   </div>
+
+                  {/* Cliente */}
                   <div>
-                    <Label>Cliente/Colaboradora *</Label>
+                    <Label>Cliente *</Label>
                     <Input
-                      placeholder="Nome"
+                      placeholder="Nome do cliente"
                       value={newTask.cliente_nome}
                       onChange={(e) => setNewTask({ ...newTask, cliente_nome: e.target.value })}
                     />
                   </div>
+
+                  {/* WhatsApp */}
                   <div>
-                    <Label>Data/Hora *</Label>
+                    <Label>WhatsApp</Label>
                     <Input
-                      type="datetime-local"
-                      value={newTask.dueDate}
-                      onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
+                      placeholder="(00) 00000-0000"
+                      value={newTask.cliente_whatsapp}
+                      onChange={(e) => setNewTask({ ...newTask, cliente_whatsapp: e.target.value })}
                     />
                   </div>
+
+                  {/* Consultora */}
+                  <div>
+                    <Label>Consultora *</Label>
+                    <Select 
+                      value={newTask.consultora_id} 
+                      onValueChange={(v) => setNewTask({ ...newTask, consultora_id: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="TODOS">Todas</SelectItem>
+                        {colaboradoras.map((colab) => (
+                          <SelectItem key={colab.id} value={colab.id}>
+                            {colab.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Data */}
+                  <div>
+                    <Label>Data *</Label>
+                    <Input
+                      type="date"
+                      value={newTask.dueDate ? newTask.dueDate.split('T')[0] : ''}
+                      onChange={(e) => {
+                        // Converter para formato datetime-local (adicionar hora padrão 09:00)
+                        const dateValue = e.target.value;
+                        setNewTask({ ...newTask, dueDate: dateValue ? `${dateValue}T09:00:00` : '' });
+                      }}
+                    />
+                  </div>
+
+                  {/* Prioridade */}
                   <div>
                     <Label>Prioridade</Label>
                     <Select value={newTask.priority} onValueChange={(v) => setNewTask({ ...newTask, priority: v as any })}>
@@ -635,6 +712,7 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
                       </SelectContent>
                     </Select>
                   </div>
+
                   <Button onClick={handleAddTask} disabled={saving} className="w-full">
                     {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                     Adicionar Tarefa
