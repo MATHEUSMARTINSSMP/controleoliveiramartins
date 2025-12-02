@@ -497,13 +497,27 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
             }
 
             // Status baseado na projeção da semana
+            // ✅ CORREÇÃO: No início da semana (dias 1-2), priorizar status até hoje
+            // Se já batemos a meta diária, não mostrar como "Atrasado" mesmo que a projeção esteja baixa
             let status: 'on-track' | 'ahead' | 'behind' = 'on-track';
             if (metaSemanalObrigatoria > 0) {
-                const expectedByWeekEnd = projected;
-                if (expectedByWeekEnd >= metaSemanalObrigatoria * 1.1) {
+                // Se estamos no primeiro ou segundo dia e já batemos a meta diária, não considerar atrasado
+                if (daysElapsed <= 2 && statusByToday === 'ahead') {
+                    // Se já está à frente no dia, considerar à frente na semana também
                     status = 'ahead';
-                } else if (expectedByWeekEnd < metaSemanalObrigatoria * 0.9) {
-                    status = 'behind';
+                } else {
+                    const expectedByWeekEnd = projected;
+                    if (expectedByWeekEnd >= metaSemanalObrigatoria * 1.1) {
+                        status = 'ahead';
+                    } else if (expectedByWeekEnd < metaSemanalObrigatoria * 0.9) {
+                        // Só considerar atrasado se não estiver no início da semana OU se estiver realmente atrás
+                        if (daysElapsed <= 2 && statusByToday !== 'behind') {
+                            // No início da semana, se não está atrás no dia, não marcar como atrasado na projeção
+                            status = 'on-track';
+                        } else {
+                            status = 'behind';
+                        }
+                    }
                 }
             }
 
