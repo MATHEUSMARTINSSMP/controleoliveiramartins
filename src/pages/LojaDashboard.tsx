@@ -105,6 +105,15 @@ export default function LojaDashboard() {
         totalMes: number;
     }[]>([]);
 
+    // Estados para o diálogo de pós-venda (CRM)
+    const [postSaleDialogOpen, setPostSaleDialogOpen] = useState(false);
+    const [lastSaleData, setLastSaleData] = useState<{
+        saleId: string;
+        colaboradoraId: string;
+        saleDate: string;
+        saleObservations?: string;
+    } | null>(null);
+
     // Refs para prevenir múltiplas chamadas
     const isIdentifyingStoreRef = useRef(false);
     const isFetchingDataRef = useRef(false);
@@ -1743,14 +1752,14 @@ export default function LojaDashboard() {
 
             toast.success('Venda lançada com sucesso!');
             setDialogOpen(false);
-            
+
             // ✅ ABRIR DIALOG DE AGENDAMENTO DE PÓS-VENDA (se CRM estiver ativo)
             console.log('[LojaDashboard] Verificando se deve abrir dialog de pós-venda:', {
                 hasSaleId: !!insertedSale?.id,
                 crmAtivo,
                 insertedSaleId: insertedSale?.id
             });
-            
+
             if (insertedSale?.id && crmAtivo) {
                 console.log('[LojaDashboard] ✅ Abrindo dialog de pós-venda');
                 setLastSaleData({
@@ -1934,7 +1943,7 @@ export default function LojaDashboard() {
                             const primeiroDiaMes = `${mesAtualISO}-01T00:00:00`;
                             const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
                             const ultimoDiaMesISO = format(ultimoDiaMes, 'yyyy-MM-dd');
-                            
+
                             const { data: vendasMes, error: vendasMesError } = await supabase
                                 .schema('sistemaretiradas')
                                 .from('sales')
@@ -1948,7 +1957,7 @@ export default function LojaDashboard() {
                             if (!vendasMesError && vendasMes) {
                                 // Filtrar duplicatas se necessário (comparing values might miss edge cases, but query should be fresh)
                                 totalMesAtualizado = vendasMes.reduce((sum: number, v: any) => sum + parseFloat(v.valor || 0), 0);
-                                
+
                                 // ✅ Se o total do mês for menor que o total do dia, significa que a query pode não ter incluído todas as vendas
                                 // Neste caso, usar o total do dia como base mínima (já que todas as vendas do dia são do mês)
                                 if (totalMesAtualizado < totalDia) {
@@ -1959,7 +1968,7 @@ export default function LojaDashboard() {
                                 // Se houver erro, usar o maior entre monthlyRealizado + venda atual OU total do dia
                                 totalMesAtualizado = Math.max((monthlyRealizado || 0) + valorVendaAtual, totalDia);
                             }
-                            
+
                             // ✅ Se a venda atual não estiver incluída ainda, adicionar
                             // (mas só se o total do mês for menor que o necessário)
                             // Como já usamos totalDia como base mínima, não precisamos adicionar novamente
