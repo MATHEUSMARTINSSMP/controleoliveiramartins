@@ -1418,7 +1418,15 @@ export default function LojaDashboard() {
                         // ✅ NOVO: Se for INSERT e vier do ERP (tiny_order_id não null) e CRM estiver ativo, abrir dialog
                         if (payload.eventType === 'INSERT' && payload.new) {
                             const newSale = payload.new as any;
-                            if (newSale.tiny_order_id && crmAtivo) {
+                            // Buscar status do CRM dinamicamente para evitar stale closure
+                            const { data: storeData } = await supabase
+                                .schema("sistemaretiradas")
+                                .from('stores')
+                                .select('crm_ativo')
+                                .eq('id', storeId)
+                                .single();
+                            
+                            if (newSale.tiny_order_id && storeData?.crm_ativo) {
                                 console.log('[LojaDashboard] 🎯 Venda do ERP detectada! Abrindo dialog de pós-venda...');
                                 
                                 // Aguardar um pouco para garantir que a venda foi completamente salva
