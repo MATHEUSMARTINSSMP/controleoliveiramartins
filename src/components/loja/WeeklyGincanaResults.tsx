@@ -85,6 +85,36 @@ export default function WeeklyGincanaResults({
         fetchWeeklyGoals();
     }, [storeId]);
 
+    // ✅ Buscar resultados das semanas atuais/futuras apenas uma vez quando weeklyGoals mudar
+    useEffect(() => {
+        if (weeklyGoals.length === 0) return;
+
+        const hoje = new Date();
+        const currentWeekRef = getCurrentWeekRef();
+
+        weeklyGoals.forEach((weekGroup) => {
+            try {
+                const weekRange = getWeekRange(weekGroup.semana_referencia);
+                const isPastWeek = weekRange.end < hoje;
+                const isCurrentWeek = weekGroup.semana_referencia === currentWeekRef;
+                
+                // Buscar apenas semanas atuais ou futuras que ainda não foram buscadas
+                if ((isCurrentWeek || !isPastWeek)) {
+                    const hasWeekResults = weekResultsMap.has(weekGroup.semana_referencia);
+                    const isLoadingWeek = loadingResultsMap.get(weekGroup.semana_referencia) || false;
+                    const isFetchingWeek = fetchingWeeks.has(weekGroup.semana_referencia);
+
+                    if (!hasWeekResults && !isLoadingWeek && !isFetchingWeek) {
+                        fetchWeekResults(weekGroup.semana_referencia, true);
+                    }
+                }
+            } catch (err) {
+                console.error(`Erro ao processar semana ${weekGroup.semana_referencia}:`, err);
+            }
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [weeklyGoals.length]); // Apenas quando o número de semanas mudar
+
     const fetchWeeklyGoals = async () => {
         if (!storeId) return;
 
@@ -449,16 +479,8 @@ export default function WeeklyGincanaResults({
                                 const colabsCount = uniqueColabs.size;
 
                                 // ✅ MUDANÇA: Buscar resultados da semana (realizado por colaboradora)
-                                const weekResults = weekResultsMap.get(weekGroup.semana_referencia) || [];
-                                const isLoadingWeek = loadingResultsMap.get(weekGroup.semana_referencia) || false;
-                                const isFetchingWeek = fetchingWeeks.has(weekGroup.semana_referencia);
-
-                                // Se é semana atual ou futura e ainda não temos resultados, buscar
-                                // ✅ CORREÇÃO: Verificar também se não está sendo buscada para evitar loop infinito
-                                if ((isCurrentWeek || !isPastWeek) && weekResults.length === 0 && !isLoadingWeek && !isFetchingWeek) {
-                                    // Buscar resultados para a semana atual também
-                                    fetchWeekResults(weekGroup.semana_referencia, true);
-                                }
+                                const weekResults = weekResultsMap.get(weekGroup.semana_referencia);
+                                // ✅ REMOVIDO: A busca agora é feita no useEffect, não durante o render
 
                                 return (
                                     <Card
@@ -499,7 +521,7 @@ export default function WeeklyGincanaResults({
                                                 <div className="text-center py-4 text-muted-foreground text-sm">
                                                     Carregando resultados...
                                                 </div>
-                                            ) : weekResults.length > 0 ? (
+                                            ) : weekResults && weekResults.length > 0 ? (
                                                 // ✅ SEMPRE mostrar valores por colaboradora
                                                 <div className="space-y-3">
                                                     {weekResults
