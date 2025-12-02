@@ -1918,25 +1918,40 @@ export default function LojaDashboard() {
                             totalDia = totalDia + valorVendaAtual;
 
                             // ✅ CORREÇÃO: Recalcular total do mês também, SEMPRE incluindo a venda recém-salva
-                            const mesAtual = new Date().toISOString().slice(0, 7).replace('-', '');
+                            const hoje = new Date();
+                            const mesAtualISO = hoje.toISOString().slice(0, 7); // Formato: yyyy-MM
+                            const primeiroDiaMes = `${mesAtualISO}-01T00:00:00`;
+                            const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+                            const ultimoDiaMesISO = format(ultimoDiaMes, 'yyyy-MM-dd');
+                            
                             const { data: vendasMes, error: vendasMesError } = await supabase
                                 .schema('sistemaretiradas')
                                 .from('sales')
                                 .select('valor')
                                 .eq('store_id', storeId)
-                                .gte('data_venda', `${mesAtual}-01T00:00:00`)
-                                .lte('data_venda', `${mesAtual}-31T23:59:59`);
+                                .gte('data_venda', primeiroDiaMes)
+                                .lte('data_venda', `${ultimoDiaMesISO}T23:59:59`);
 
-                            // ✅ IMPORTANTE: Calcular total do mês e ADICIONAR a venda atual sempre
+                            // ✅ IMPORTANTE: Calcular total do mês incluindo todas as vendas
                             let totalMesAtualizado = 0;
                             if (!vendasMesError && vendasMes) {
+                                // Filtrar duplicatas se necessário (comparing values might miss edge cases, but query should be fresh)
                                 totalMesAtualizado = vendasMes.reduce((sum: number, v: any) => sum + parseFloat(v.valor || 0), 0);
+                                
+                                // ✅ Se o total do mês for menor que o total do dia, significa que a query pode não ter incluído todas as vendas
+                                // Neste caso, usar o total do dia como base mínima (já que todas as vendas do dia são do mês)
+                                if (totalMesAtualizado < totalDia) {
+                                    console.warn('📱 [4/4] ⚠️ Total do mês menor que total do dia! Usando total do dia como base.');
+                                    totalMesAtualizado = totalDia;
+                                }
                             } else {
-                                // Se houver erro, usar monthlyRealizado como base
-                                totalMesAtualizado = monthlyRealizado || 0;
+                                // Se houver erro, usar o maior entre monthlyRealizado + venda atual OU total do dia
+                                totalMesAtualizado = Math.max((monthlyRealizado || 0) + valorVendaAtual, totalDia);
                             }
-                            // ✅ SEMPRE adicionar a venda atual ao total do mês (pode não estar na query ainda)
-                            totalMesAtualizado = totalMesAtualizado + valorVendaAtual;
+                            
+                            // ✅ Se a venda atual não estiver incluída ainda, adicionar
+                            // (mas só se o total do mês for menor que o necessário)
+                            // Como já usamos totalDia como base mínima, não precisamos adicionar novamente
 
                             console.log('📱 [4/4] Total do dia ANTES da venda atual:', (totalDia - valorVendaAtual).toFixed(2));
                             console.log('📱 [4/4] Valor da venda atual:', valorVendaAtual.toFixed(2));

@@ -482,9 +482,20 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                 }
             }
 
-            // Projeção para o final da semana (baseada na média diária até agora)
-            const dailyAverage = daysElapsed > 0 ? realizado / daysElapsed : 0;
-            const projected = dailyAverage * 7;
+            // ✅ NOVA LÓGICA: Projeção baseada na proporção entre realizado e esperado até hoje
+            // Se vendeu o dobro do esperado até hoje, a projeção dobra
+            // Se vendeu 120% do esperado, a projeção aumenta 20%
+            let projected = 0;
+            if (projectedByToday > 0 && metaSemanalObrigatoria > 0) {
+                // Calcular proporção: quanto vendeu vs quanto deveria ter vendido
+                const proporcao = realizado / projectedByToday;
+                // Aplicar proporção à meta semanal: se vendeu 2x o esperado, vai vender 2x a meta
+                projected = metaSemanalObrigatoria * proporcao;
+            } else {
+                // Fallback: usar média diária se não houver projectedByToday
+                const dailyAverage = daysElapsed > 0 ? realizado / daysElapsed : 0;
+                projected = dailyAverage * 7;
+            }
 
             // Status baseado no que deveria ter vendido até hoje
             let statusByToday: 'on-track' | 'ahead' | 'behind' = 'on-track';

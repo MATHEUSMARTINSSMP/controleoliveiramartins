@@ -149,16 +149,8 @@ export default function WeeklyGincanaResults({
             const hoje = new Date();
             const isPastWeek = weekRange.end < hoje;
             
-            if (!isPastWeek) {
-                if (useMap) {
-                    setLoadingResultsMap(prev => {
-                        const newMap = new Map(prev);
-                        newMap.delete(weekRef);
-                        return newMap;
-                    });
-                }
-                return;
-            }
+            // ✅ MUDANÇA: Não retornar cedo para semanas atuais - queremos mostrar resultados também
+            // Remover a verificação que impedia buscar resultados da semana atual
             
             // Buscar todas as metas da gincana desta semana e loja
             let query = supabase
@@ -388,8 +380,15 @@ export default function WeeklyGincanaResults({
 
                                 const uniqueColabs = new Set(weekGroup.goals.map((g: any) => g.colaboradora_id).filter((id: any) => id != null));
                                 const colabsCount = uniqueColabs.size;
-                                const totalMeta = weekGroup.goals.reduce((sum: number, g: any) => sum + (g.meta_valor || 0), 0);
-                                const totalSuper = weekGroup.goals.reduce((sum: number, g: any) => sum + (g.super_meta_valor || 0), 0);
+                                
+                                // ✅ MUDANÇA: Buscar resultados da semana (realizado por colaboradora)
+                                const weekResults = weekResultsMap.get(weekGroup.semana_referencia) || [];
+                                
+                                // Se é semana atual ou futura e ainda não temos resultados, buscar
+                                if ((isCurrentWeek || !isPastWeek) && weekResults.length === 0 && !loadingResultsMap.get(weekGroup.semana_referencia)) {
+                                    // Buscar resultados para a semana atual também
+                                    fetchWeekResults(weekGroup.semana_referencia, true);
+                                }
 
                                 return (
                                     <Card 
@@ -416,20 +415,55 @@ export default function WeeklyGincanaResults({
                                             </CardTitle>
                                         </CardHeader>
                                         <CardContent className="pt-4 space-y-3">
-                                            <div className="space-y-2">
-                                                <div className="flex justify-between">
-                                                    <span className="text-sm text-muted-foreground">Total ({colabsCount} colaboradora{colabsCount > 1 ? 's' : ''}):</span>
-                                                    <span className="font-bold text-primary">
-                                                        R$ {totalMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                    </span>
+                                            {loadingResultsMap.get(weekGroup.semana_referencia) ? (
+                                                <div className="text-center py-4 text-muted-foreground text-sm">
+                                                    Carregando resultados...
                                                 </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-sm text-muted-foreground">Super Meta Total:</span>
-                                                    <span className="font-bold text-purple-600">
-                                                        R$ {totalSuper.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                    </span>
+                                            ) : weekResults.length > 0 ? (
+                                                // ✅ MUDANÇA: Mostrar total por colaboradora
+                                                <div className="space-y-3">
+                                                    {weekResults
+                                                        .sort((a, b) => b.realizado - a.realizado)
+                                                        .map((result) => (
+                                                            <div key={result.colaboradora_id} className="border rounded-lg p-3 space-y-1">
+                                                                <div className="flex justify-between items-center">
+                                                                    <span className="text-sm font-semibold">{result.colaboradora_name}</span>
+                                                                    <span className={`text-sm font-bold ${
+                                                                        result.bateu_super_meta ? 'text-purple-600' : 
+                                                                        result.bateu_meta ? 'text-green-600' : 'text-muted-foreground'
+                                                                    }`}>
+                                                                        {formatCurrency(result.realizado)}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex justify-between text-xs text-muted-foreground">
+                                                                    <span>Meta: {formatCurrency(result.meta_valor)}</span>
+                                                                    <span>{result.percentual.toFixed(0)}%</span>
+                                                                </div>
+                                                                {result.super_meta_valor > 0 && (
+                                                                    <div className="text-xs text-muted-foreground">
+                                                                        Super: {formatCurrency(result.super_meta_valor)}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
                                                 </div>
-                                            </div>
+                                            ) : (
+                                                // Fallback: mostrar total da loja se não houver resultados ainda
+                                                <div className="space-y-2">
+                                                    <div className="flex justify-between">
+                                                        <span className="text-sm text-muted-foreground">Total ({colabsCount} colaboradora{colabsCount > 1 ? 's' : ''}):</span>
+                                                        <span className="font-bold text-primary">
+                                                            {formatCurrency(weekGroup.goals.reduce((sum: number, g: any) => sum + (g.meta_valor || 0), 0))}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-sm text-muted-foreground">Super Meta Total:</span>
+                                                        <span className="font-bold text-purple-600">
+                                                            {formatCurrency(weekGroup.goals.reduce((sum: number, g: any) => sum + (g.super_meta_valor || 0), 0))}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
                                             {isPastWeek && (
                                                 <Button
                                                     variant="default"
