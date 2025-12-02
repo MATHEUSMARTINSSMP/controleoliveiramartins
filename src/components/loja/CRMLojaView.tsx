@@ -21,6 +21,7 @@ interface CRMTask {
   cliente_nome: string | null;
   cliente_id: string | null;
   cliente_whatsapp: string | null;
+  informacoes_cliente: string | null; // ✅ Nova: informações adicionais (ocasião, ajuste, etc.)
   due_date: string;
   priority: "ALTA" | "MÉDIA" | "BAIXA";
   status: "PENDENTE" | "CONCLUÍDA" | "CANCELADA";
@@ -528,6 +529,29 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
               📱 {task.cliente_whatsapp}
             </p>
           )}
+          {/* ✅ Mostrar informações adicionais (ocasião, ajuste, etc.) */}
+          {task.informacoes_cliente && (() => {
+            try {
+              const info = JSON.parse(task.informacoes_cliente);
+              return (
+                <div className="text-xs text-muted-foreground mb-1 space-y-0.5">
+                  {info.ocasiao && (
+                    <p>🎉 Ocasião: {info.ocasiao}</p>
+                  )}
+                  {info.ajuste && (
+                    <p>✂️ Ajuste: {info.ajuste}</p>
+                  )}
+                </div>
+              );
+            } catch {
+              // Se não for JSON, exibir como texto simples
+              return (
+                <p className="text-xs text-muted-foreground mb-1">
+                  ℹ️ {task.informacoes_cliente}
+                </p>
+              );
+            }
+          })()}
           {/* Mostrar status do contato se já foi feito */}
           {task.quem_fez && (
             <div className="text-xs text-muted-foreground space-y-0.5 mt-1">
