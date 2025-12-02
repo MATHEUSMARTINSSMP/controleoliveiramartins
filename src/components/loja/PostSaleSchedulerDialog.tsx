@@ -5,11 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -36,20 +33,58 @@ export default function PostSaleSchedulerDialog({
 }: PostSaleSchedulerDialogProps) {
   const [clienteNome, setClienteNome] = useState("");
   const [clienteWhatsapp, setClienteWhatsapp] = useState("");
-  const [informacoesCliente, setInformacoesCliente] = useState("");
-  const [followUpDate, setFollowUpDate] = useState<Date | undefined>(() => {
-    // Padrão: 7 dias após a venda
+  const [observacoes, setObservacoes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [checkingExisting, setCheckingExisting] = useState(false);
+
+  // Calcular data do pós-venda (7 dias após a venda) - fixa, não editável
+  const followUpDate = (() => {
     const saleDateObj = new Date(saleDate);
     return addDays(saleDateObj, 7);
-  });
-  const [saving, setSaving] = useState(false);
+  })();
 
-  // Buscar informações do cliente da venda (se vier do ERP)
+  // Buscar informações do cliente da venda e verificar se já existe pós-venda
   useEffect(() => {
     if (open && saleId) {
       fetchSaleInfo();
+      checkExistingPostSale();
     }
   }, [open, saleId]);
+
+  const checkExistingPostSale = async () => {
+    setCheckingExisting(true);
+    try {
+      // Verificar se já existe pós-venda para esta venda
+      const { data: existingPostSale, error } = await supabase
+        .schema("sistemaretiradas")
+        .from("crm_post_sales")
+        .select("id, cliente_nome, cliente_whatsapp, observacoes_venda")
+        .eq("sale_id", saleId)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error("Erro ao verificar pós-venda existente:", error);
+      }
+
+      if (existingPostSale) {
+        // Se já existe, preencher os campos com os dados existentes
+        if (existingPostSale.cliente_nome) {
+          setClienteNome(existingPostSale.cliente_nome);
+        }
+        if (existingPostSale.cliente_whatsapp) {
+          setClienteWhatsapp(existingPostSale.cliente_whatsapp);
+        }
+        if (existingPostSale.observacoes_venda) {
+          setObservacoes(existingPostSale.observacoes_venda);
+        }
+        toast.info("Já existe um pós-venda agendado para esta venda. Você pode atualizar os dados.");
+      }
+    } catch (error) {
+      console.error("Erro ao verificar pós-venda existente:", error);
+    } finally {
+      setCheckingExisting(false);
+    }
+  };
 
   const fetchSaleInfo = async () => {
     try {
@@ -71,6 +106,7 @@ export default function PostSaleSchedulerDialog({
           .single();
 
         if (tinyOrder) {
+          // Só preencher se ainda não foi preenchido (não sobrescrever dados existentes)
           if (tinyOrder.cliente_nome && !clienteNome) {
             setClienteNome(tinyOrder.cliente_nome);
           }
@@ -87,11 +123,6 @@ export default function PostSaleSchedulerDialog({
   };
 
   const handleSave = async () => {
-    if (!followUpDate) {
-      toast.error("Selecione uma data para o pós-venda");
-      return;
-    }
-
     if (!clienteNome.trim()) {
       toast.error("Informe o nome do cliente");
       return;
@@ -100,57 +131,95 @@ export default function PostSaleSchedulerDialog({
     setSaving(true);
 
     try {
-      // Criar pós-venda na tabela crm_post_sales
-      const { error: postSaleError } = await supabase
+      // Verificar se já existe pós-venda para esta venda
+      const { data: existingPostSale } = await supabase
         .schema("sistemaretiradas")
         .from("crm_post_sales")
-        .insert({
-          store_id: storeId,
-          sale_id: saleId,
-          colaboradora_id: colaboradoraId,
-          cliente_nome: clienteNome.trim(),
-          cliente_whatsapp: clienteWhatsapp.trim() || null,
-          informacoes_cliente: informacoesCliente.trim() || null,
-          observacoes_venda: saleObservations || null,
-          sale_date: saleDate.split("T")[0], // Apenas a data
-          scheduled_follow_up: format(followUpDate, "yyyy-MM-dd"),
-          details: `Pós-venda agendada para ${format(followUpDate, "dd/MM/yyyy")}`,
-          status: "AGENDADA"
-        });
+        .select("id")
+        .eq("sale_id", saleId)
+        .maybeSingle();
 
-      if (postSaleError) throw postSaleError;
+      let postSaleId: string | null = null;
 
-      // Criar tarefa na tabela crm_tasks
-      const { error: taskError } = await supabase
+      if (existingPostSale) {
+        // Atualizar pós-venda existente
+        const { error: updateError } = await supabase
+          .schema("sistemaretiradas")
+          .from("crm_post_sales")
+          .update({
+            cliente_nome: clienteNome.trim(),
+            cliente_whatsapp: clienteWhatsapp.trim() || null,
+            observacoes_venda: observacoes.trim() || null,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", existingPostSale.id)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+        postSaleId = existingPostSale.id;
+      } else {
+        // Criar novo pós-venda
+        const { data: newPostSale, error: insertError } = await supabase
+          .schema("sistemaretiradas")
+          .from("crm_post_sales")
+          .insert({
+            store_id: storeId,
+            sale_id: saleId, // ✅ ID da venda capturado automaticamente
+            colaboradora_id: colaboradoraId,
+            cliente_nome: clienteNome.trim(),
+            cliente_whatsapp: clienteWhatsapp.trim() || null,
+            observacoes_venda: observacoes.trim() || null,
+            sale_date: saleDate.split("T")[0], // Apenas a data
+            scheduled_follow_up: format(followUpDate, "yyyy-MM-dd"), // 7 dias após a venda (fixo)
+            details: `Pós-venda agendada para ${format(followUpDate, "dd/MM/yyyy")}`,
+            status: "AGENDADA"
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        postSaleId = newPostSale.id;
+      }
+
+      // Verificar se já existe tarefa para esta venda
+      const { data: existingTask } = await supabase
         .schema("sistemaretiradas")
         .from("crm_tasks")
-        .insert({
-          store_id: storeId,
-          sale_id: saleId,
-          colaboradora_id: colaboradoraId, // Colaboradora que fez a venda
-          cliente_nome: clienteNome.trim(),
-          cliente_whatsapp: clienteWhatsapp.trim() || null,
-          informacoes_cliente: informacoesCliente.trim() || null,
-          title: `Pós-venda: ${clienteNome.trim()}`,
-          description: `Pós-venda agendada para venda realizada em ${format(new Date(saleDate), "dd/MM/yyyy")}`,
-          due_date: format(followUpDate, "yyyy-MM-dd") + "T09:00:00", // 9h da manhã
-          priority: "MÉDIA",
-          status: "PENDENTE",
-          atribuido_para: colaboradoraId // Atribuído para a colaboradora que fez a venda
-        });
+        .select("id")
+        .eq("sale_id", saleId)
+        .maybeSingle();
 
-      if (taskError) throw taskError;
+      if (!existingTask) {
+        // Criar tarefa na tabela crm_tasks apenas se não existir
+        const { error: taskError } = await supabase
+          .schema("sistemaretiradas")
+          .from("crm_tasks")
+          .insert({
+            store_id: storeId,
+            sale_id: saleId, // ✅ ID da venda capturado automaticamente
+            colaboradora_id: colaboradoraId, // Colaboradora que fez a venda
+            cliente_nome: clienteNome.trim(),
+            cliente_whatsapp: clienteWhatsapp.trim() || null,
+            title: `Pós-venda: ${clienteNome.trim()}`,
+            description: `Categoria: Pós-Venda - Agendada para venda realizada em ${format(new Date(saleDate), "dd/MM/yyyy")}`,
+            due_date: format(followUpDate, "yyyy-MM-dd") + "T09:00:00", // 9h da manhã
+            priority: "MÉDIA",
+            status: "PENDENTE",
+            atribuido_para: colaboradoraId // Atribuído para a colaboradora que fez a venda
+          });
 
-      toast.success("Pós-venda agendada com sucesso!");
+        if (taskError) throw taskError;
+      }
+
+      toast.success(existingPostSale ? "Pós-venda atualizado com sucesso!" : "Pós-venda agendado com sucesso!");
       onSuccess?.();
       onOpenChange(false);
       
       // Resetar formulário
       setClienteNome("");
       setClienteWhatsapp("");
-      setInformacoesCliente("");
-      const saleDateObj = new Date(saleDate);
-      setFollowUpDate(addDays(saleDateObj, 7));
+      setObservacoes("");
     } catch (error: any) {
       console.error("Erro ao agendar pós-venda:", error);
       toast.error(error.message || "Erro ao agendar pós-venda");
@@ -197,68 +266,40 @@ export default function PostSaleSchedulerDialog({
             />
           </div>
 
-          {/* Data do Pós-Venda */}
+          {/* Data do Pós-Venda (somente leitura - fixa: 7 dias após a venda) */}
           <div className="space-y-2">
-            <Label>
-              Data do Pós-Venda <span className="text-red-500">*</span>
-            </Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !followUpDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {followUpDate ? (
-                    format(followUpDate, "dd/MM/yyyy", { locale: ptBR })
-                  ) : (
-                    <span>Selecione uma data</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={followUpDate}
-                  onSelect={setFollowUpDate}
-                  disabled={(date) => date < new Date()}
-                  initialFocus
-                  locale={ptBR}
-                />
-              </PopoverContent>
-            </Popover>
+            <Label>Data do Pós-Venda</Label>
+            <div className="p-3 bg-muted rounded-md text-sm">
+              {format(followUpDate, "dd/MM/yyyy", { locale: ptBR })} (7 dias após a venda)
+            </div>
             <p className="text-xs text-muted-foreground">
-              Padrão: 7 dias após a venda ({format(addDays(new Date(saleDate), 7), "dd/MM/yyyy")})
+              A data do pós-venda é automaticamente definida para 7 dias após a venda.
             </p>
           </div>
 
-          {/* Informações do Cliente */}
+          {/* Observações */}
           <div className="space-y-2">
-            <Label htmlFor="informacoesCliente">Informações do Cliente</Label>
+            <Label htmlFor="observacoes">Observações</Label>
             <Textarea
-              id="informacoesCliente"
-              value={informacoesCliente}
-              onChange={(e) => setInformacoesCliente(e.target.value)}
-              placeholder="Ex: Ocasiao que vai usar, viagem que vai fazer, evento que vai participar, etc."
+              id="observacoes"
+              value={observacoes}
+              onChange={(e) => setObservacoes(e.target.value)}
+              placeholder="Observações sobre o pós-venda..."
               rows={4}
             />
-            <p className="text-xs text-muted-foreground">
-              Informações adicionais que ajudarão no pós-venda (ocasião, viagem, evento, etc.)
-            </p>
           </div>
 
-          {/* Observações da Venda (somente leitura) */}
-          {saleObservations && (
-            <div className="space-y-2">
-              <Label>Observações da Venda</Label>
-              <div className="p-3 bg-muted rounded-md text-sm">
-                {saleObservations}
-              </div>
+          {/* Informações da Venda (somente leitura) */}
+          <div className="space-y-2">
+            <Label>Informações da Venda</Label>
+            <div className="p-3 bg-muted rounded-md text-sm space-y-1">
+              <p><strong>ID da Venda:</strong> {saleId}</p>
+              <p><strong>Data da Venda:</strong> {format(new Date(saleDate), "dd/MM/yyyy", { locale: ptBR })}</p>
+              {saleObservations && (
+                <p><strong>Observações da Venda:</strong> {saleObservations}</p>
+              )}
             </div>
-          )}
+          </div>
 
           {/* Botões */}
           <div className="flex justify-end gap-2 pt-4">
@@ -271,9 +312,9 @@ export default function PostSaleSchedulerDialog({
             </Button>
             <Button
               onClick={handleSave}
-              disabled={saving || !followUpDate || !clienteNome.trim()}
+              disabled={saving || checkingExisting || !clienteNome.trim()}
             >
-              {saving ? "Salvando..." : "Agendar Pós-Venda"}
+              {saving ? "Salvando..." : checkingExisting ? "Verificando..." : "Salvar Pós-Venda"}
             </Button>
           </div>
         </div>
