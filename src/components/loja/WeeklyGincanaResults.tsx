@@ -272,6 +272,13 @@ export default function WeeklyGincanaResults({
                     return newMap;
                 });
             }
+        } finally {
+            // ✅ IMPORTANTE: Sempre remover da lista de semanas sendo buscadas, mesmo em caso de erro
+            setFetchingWeeks(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(weekRef);
+                return newSet;
+            });
         }
     };
 
