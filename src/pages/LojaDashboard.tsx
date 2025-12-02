@@ -2396,6 +2396,7 @@ export default function LojaDashboard() {
             }
 
             const { error } = await supabase
+                .schema("sistemaretiradas")
                 .from('collaborator_off_days')
                 .insert([{
                     colaboradora_id: selectedColabForOffDay,
