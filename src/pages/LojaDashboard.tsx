@@ -1408,12 +1408,31 @@ export default function LojaDashboard() {
                     table: 'sales',
                     filter: `store_id=eq.${storeId}`,
                 },
-                (payload) => {
+                async (payload) => {
                     console.log('[LojaDashboard] 📡 Mudança detectada na tabela sales:', payload.eventType);
 
                     // Se for uma inserção ou atualização, recarregar vendas
                     if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
                         console.log('[LojaDashboard] 🔄 Recarregando vendas devido a mudança real-time...');
+
+                        // ✅ NOVO: Se for INSERT e vier do ERP (tiny_order_id não null) e CRM estiver ativo, abrir dialog
+                        if (payload.eventType === 'INSERT' && payload.new) {
+                            const newSale = payload.new as any;
+                            if (newSale.tiny_order_id && crmAtivo) {
+                                console.log('[LojaDashboard] 🎯 Venda do ERP detectada! Abrindo dialog de pós-venda...');
+                                
+                                // Aguardar um pouco para garantir que a venda foi completamente salva
+                                setTimeout(() => {
+                                    setLastSaleData({
+                                        saleId: newSale.id,
+                                        colaboradoraId: newSale.colaboradora_id,
+                                        saleDate: newSale.data_venda,
+                                        saleObservations: newSale.observacoes || null
+                                    });
+                                    setPostSaleDialogOpen(true);
+                                }, 1000);
+                            }
+                        }
 
                         // Pequeno delay para garantir que a mudança foi persistida
                         setTimeout(() => {

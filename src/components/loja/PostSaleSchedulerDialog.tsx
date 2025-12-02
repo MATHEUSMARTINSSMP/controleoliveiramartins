@@ -34,6 +34,8 @@ export default function PostSaleSchedulerDialog({
   const [clienteNome, setClienteNome] = useState("");
   const [clienteWhatsapp, setClienteWhatsapp] = useState("");
   const [observacoes, setObservacoes] = useState("");
+  const [ocasiao, setOcasiao] = useState(""); // Nova informação: ocasião
+  const [ajuste, setAjuste] = useState(""); // Nova informação: ajuste
   const [saving, setSaving] = useState(false);
   const [checkingExisting, setCheckingExisting] = useState(false);
 
@@ -76,6 +78,25 @@ export default function PostSaleSchedulerDialog({
         }
         if (existingPostSale.observacoes_venda) {
           setObservacoes(existingPostSale.observacoes_venda);
+        }
+        // Parsear informacoes_cliente se for JSON
+        if (existingPostSale.informacoes_cliente) {
+          try {
+            const info = JSON.parse(existingPostSale.informacoes_cliente);
+            if (info.ocasiao) setOcasiao(info.ocasiao);
+            if (info.ajuste) setAjuste(info.ajuste);
+          } catch {
+            // Se não for JSON, tratar como texto simples
+            const info = existingPostSale.informacoes_cliente;
+            if (info.includes("Ocasião:")) {
+              const ocasiaoMatch = info.match(/Ocasião:\s*(.+?)(?:\n|$)/);
+              if (ocasiaoMatch) setOcasiao(ocasiaoMatch[1]);
+            }
+            if (info.includes("Ajuste:")) {
+              const ajusteMatch = info.match(/Ajuste:\s*(.+?)(?:\n|$)/);
+              if (ajusteMatch) setAjuste(ajusteMatch[1]);
+            }
+          }
         }
         toast.info("Já existe um pós-venda agendado para esta venda. Você pode atualizar os dados.");
       }
@@ -141,6 +162,14 @@ export default function PostSaleSchedulerDialog({
 
       let postSaleId: string | null = null;
 
+      // Preparar informacoes_cliente como JSON
+      const informacoesCliente: any = {};
+      if (ocasiao.trim()) informacoesCliente.ocasiao = ocasiao.trim();
+      if (ajuste.trim()) informacoesCliente.ajuste = ajuste.trim();
+      const informacoesClienteStr = Object.keys(informacoesCliente).length > 0 
+        ? JSON.stringify(informacoesCliente) 
+        : null;
+
       if (existingPostSale) {
         // Atualizar pós-venda existente
         const { error: updateError } = await supabase
@@ -150,6 +179,7 @@ export default function PostSaleSchedulerDialog({
             cliente_nome: clienteNome.trim(),
             cliente_whatsapp: clienteWhatsapp.trim() || null,
             observacoes_venda: observacoes.trim() || null,
+            informacoes_cliente: informacoesClienteStr,
             updated_at: new Date().toISOString()
           })
           .eq("id", existingPostSale.id)
@@ -170,6 +200,7 @@ export default function PostSaleSchedulerDialog({
             cliente_nome: clienteNome.trim(),
             cliente_whatsapp: clienteWhatsapp.trim() || null,
             observacoes_venda: observacoes.trim() || null,
+            informacoes_cliente: informacoesClienteStr,
             sale_date: saleDate.split("T")[0], // Apenas a data
             scheduled_follow_up: format(followUpDate, "yyyy-MM-dd"), // 7 dias após a venda (fixo)
             details: `Pós-venda agendada para ${format(followUpDate, "dd/MM/yyyy")}`,
@@ -201,6 +232,7 @@ export default function PostSaleSchedulerDialog({
             colaboradora_id: colaboradoraId, // Colaboradora que fez a venda
             cliente_nome: clienteNome.trim(),
             cliente_whatsapp: clienteWhatsapp.trim() || null,
+            informacoes_cliente: informacoesClienteStr, // ✅ Incluir informações adicionais
             title: `Pós-venda: ${clienteNome.trim()}`,
             description: `Categoria: Pós-Venda - Agendada para venda realizada em ${format(new Date(saleDate), "dd/MM/yyyy")}`,
             due_date: format(followUpDate, "yyyy-MM-dd") + "T09:00:00", // 9h da manhã
@@ -220,6 +252,8 @@ export default function PostSaleSchedulerDialog({
       setClienteNome("");
       setClienteWhatsapp("");
       setObservacoes("");
+      setOcasiao("");
+      setAjuste("");
     } catch (error: any) {
       console.error("Erro ao agendar pós-venda:", error);
       toast.error(error.message || "Erro ao agendar pós-venda");
@@ -277,9 +311,42 @@ export default function PostSaleSchedulerDialog({
             </p>
           </div>
 
+          {/* Informações Adicionais */}
+          <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <Label className="text-sm font-semibold text-blue-900">
+              Informações Adicionais para Contato
+            </Label>
+            <p className="text-xs text-muted-foreground mb-3">
+              Adicione aqui informações que serão úteis quando for entrar em contato com o cliente
+            </p>
+            
+            {/* Ocasião */}
+            <div className="space-y-2">
+              <Label htmlFor="ocasiao" className="text-sm">Ocasião</Label>
+              <Input
+                id="ocasiao"
+                value={ocasiao}
+                onChange={(e) => setOcasiao(e.target.value)}
+                placeholder="Ex: Aniversário, Casamento, Viagem, etc."
+              />
+            </div>
+
+            {/* Ajuste */}
+            <div className="space-y-2">
+              <Label htmlFor="ajuste" className="text-sm">Ajuste / Observações Especiais</Label>
+              <Textarea
+                id="ajuste"
+                value={ajuste}
+                onChange={(e) => setAjuste(e.target.value)}
+                placeholder="Ex: Precisa ajustar tamanho, trocar cor, etc."
+                rows={3}
+              />
+            </div>
+          </div>
+
           {/* Observações */}
           <div className="space-y-2">
-            <Label htmlFor="observacoes">Observações</Label>
+            <Label htmlFor="observacoes">Observações Gerais</Label>
             <Textarea
               id="observacoes"
               value={observacoes}
