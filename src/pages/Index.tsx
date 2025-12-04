@@ -1,87 +1,49 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { ShoppingBag } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Sparkles } from "lucide-react";
 
 const Index = () => {
   const { profile, loading, user } = useAuth();
   const navigate = useNavigate();
-  const redirectAttempted = useRef(false);
 
   useEffect(() => {
-    // Prevent multiple redirects - if already redirected, don't run again
-    if (redirectAttempted.current) {
-      return;
-    }
+    if (loading) return;
 
-    // Don't do anything while still loading auth
-    if (loading) {
-      return;
-    }
-
-    console.log("[Index] Effect triggered - loading:", loading, "profile:", profile, "user:", user);
-
-    // If no user session, redirect to login immediately
     if (!user) {
-      console.log("[Index] No session found, redirecting to /");
-      redirectAttempted.current = true;
       navigate("/", { replace: true });
       return;
     }
 
-    // If user has session but no profile yet
-    if (!profile) {
-      console.log("[Index] User has session but no profile yet, waiting...");
-
-      // Force redirect to login if profile takes too long (5s)
-      // This handles cases where profile fetch failed silently or returned null
-      const profileTimeout = setTimeout(() => {
-        if (!redirectAttempted.current && !profile) {
-          console.log("[Index] Still no profile after timeout, redirecting to login to retry");
-          redirectAttempted.current = true;
-          navigate("/", { replace: true });
-        }
-      }, 5000);
-
-      return () => clearTimeout(profileTimeout);
-    }
-
-    // Profile loaded, redirect based on role (only once)
-    if (!redirectAttempted.current && profile) {
-      console.log("[Index] Profile loaded, redirecting based on role:", profile.role);
-      redirectAttempted.current = true;
-
-      if (profile.role === "LOJA") {
-        navigate("/loja", { replace: true });
-      } else if (profile.role === "ADMIN") {
-        navigate("/admin", { replace: true });
-      } else {
-        navigate("/me", { replace: true });
-      }
+    if (profile) {
+      const targetPath = profile.role === "LOJA" 
+        ? "/loja" 
+        : profile.role === "ADMIN" 
+          ? "/admin" 
+          : "/me";
+      
+      navigate(targetPath, { replace: true });
     }
   }, [profile, loading, user, navigate]);
 
-  // Reset redirect flag only when user is explicitly null (not during loading)
-  useEffect(() => {
-    if (!loading && user === null && !profile) {
-      redirectAttempted.current = false;
-    }
-  }, [user, loading, profile]);
-
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10">
-      <div className="text-center">
-        <div className="mb-6 flex justify-center">
-          <img src="/elevea.png" alt="EleveaOne" className="h-16 w-auto animate-pulse max-w-[200px]" />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <div className="text-center space-y-6">
+        <div className="relative">
+          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-violet-500 to-purple-600 flex items-center justify-center animate-pulse">
+            <Sparkles className="w-10 h-10 text-white" />
+          </div>
+          <div className="absolute inset-0 w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-violet-500 to-purple-600 animate-ping opacity-20" />
         </div>
-        <div className="inline-block p-6 rounded-full bg-gradient-to-br from-primary to-accent mb-6 animate-pulse">
-          <ShoppingBag className="w-16 h-16 text-primary-foreground" />
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold text-white">Carregando...</h2>
+          <p className="text-slate-400">Preparando seu painel</p>
         </div>
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-2">
-          Dashboard de Gestão
-        </h1>
-        <p className="text-muted-foreground">Carregando...</p>
+        <div className="flex justify-center gap-1">
+          <div className="w-2 h-2 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+          <div className="w-2 h-2 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+          <div className="w-2 h-2 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+        </div>
       </div>
     </div>
   );
