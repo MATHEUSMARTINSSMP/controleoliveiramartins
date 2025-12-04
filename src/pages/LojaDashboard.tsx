@@ -18,13 +18,13 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
 import { format, startOfWeek, getWeek, getYear } from "date-fns";
-import WeeklyGoalProgress from "@/components/WeeklyGoalProgress";
-import WeeklyBonusProgress from "@/components/WeeklyBonusProgress";
 import { StoreLogo } from "@/lib/storeLogo";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import WeeklyGincanaResults from "@/components/loja/WeeklyGincanaResults";
-import PostSaleSchedulerDialog from "@/components/loja/PostSaleSchedulerDialog";
 
+const WeeklyGoalProgress = lazy(() => import("@/components/WeeklyGoalProgress"));
+const WeeklyBonusProgress = lazy(() => import("@/components/WeeklyBonusProgress"));
+const WeeklyGincanaResults = lazy(() => import("@/components/loja/WeeklyGincanaResults"));
+const PostSaleSchedulerDialog = lazy(() => import("@/components/loja/PostSaleSchedulerDialog"));
 const TrophiesGallery = lazy(() => import("@/components/loja/TrophiesGallery").then(m => ({ default: m.TrophiesGallery })));
 const CashbackLojaView = lazy(() => import("@/components/loja/CashbackLojaView"));
 const CRMLojaView = lazy(() => import("@/components/loja/CRMLojaView"));
@@ -3119,17 +3119,23 @@ export default function LojaDashboard() {
 
                         {/* Meta Semanal Gamificada */}
                         {storeId && (
-                            <WeeklyGoalProgress storeId={storeId} showDetails={true} />
+                            <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                <WeeklyGoalProgress storeId={storeId} showDetails={true} />
+                            </Suspense>
                         )}
 
                         {/* Bônus Semanal Individual por Colaboradora */}
                         {storeId && colaboradoras.length > 0 && (
-                            <WeeklyBonusProgress storeId={storeId} colaboradoras={colaboradoras.map(c => ({ id: c.id, name: c.name }))} />
+                            <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                <WeeklyBonusProgress storeId={storeId} colaboradoras={colaboradoras.map(c => ({ id: c.id, name: c.name }))} />
+                            </Suspense>
                         )}
 
                         {/* Gincanas Semanais - Histórico de Resultados */}
                         {storeId && (
-                            <WeeklyGincanaResults storeId={storeId} showAllResults={true} />
+                            <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                <WeeklyGincanaResults storeId={storeId} showAllResults={true} />
+                            </Suspense>
                         )}
 
                         {/* Galeria de Troféus */}
@@ -4184,12 +4190,16 @@ export default function LojaDashboard() {
 
                     {/* Meta Semanal Gamificada */}
                     {storeId && (
-                        <WeeklyGoalProgress storeId={storeId} showDetails={true} />
+                        <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                            <WeeklyGoalProgress storeId={storeId} showDetails={true} />
+                        </Suspense>
                     )}
 
                     {/* Bônus Semanal Individual por Colaboradora */}
                     {storeId && colaboradoras.length > 0 && (
-                        <WeeklyBonusProgress storeId={storeId} colaboradoras={colaboradoras.map(c => ({ id: c.id, name: c.name }))} />
+                        <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                            <WeeklyBonusProgress storeId={storeId} colaboradoras={colaboradoras.map(c => ({ id: c.id, name: c.name }))} />
+                        </Suspense>
                     )}
 
                     {/* Galeria de Troféus */}
@@ -4753,30 +4763,30 @@ export default function LojaDashboard() {
 
             {/* Dialog de Agendamento de Pós-Venda */}
             {lastSaleData && storeId && (
-                <PostSaleSchedulerDialog
-                    open={postSaleDialogOpen}
-                    onOpenChange={(open) => {
-                        setPostSaleDialogOpen(open);
-                        if (!open) {
-                            // Quando fechar, resetar form e dados
+                <Suspense fallback={null}>
+                    <PostSaleSchedulerDialog
+                        open={postSaleDialogOpen}
+                        onOpenChange={(open) => {
+                            setPostSaleDialogOpen(open);
+                            if (!open) {
+                                resetForm();
+                                setLastSaleData(null);
+                            }
+                        }}
+                        saleId={lastSaleData.saleId}
+                        storeId={storeId}
+                        colaboradoraId={lastSaleData.colaboradoraId}
+                        saleDate={lastSaleData.saleDate}
+                        saleObservations={lastSaleData.saleObservations}
+                        onSuccess={() => {
+                            if (storeId) {
+                                fetchSalesWithStoreId(storeId, salesDateFilter);
+                            }
                             resetForm();
                             setLastSaleData(null);
-                        }
-                    }}
-                    saleId={lastSaleData.saleId}
-                    storeId={storeId}
-                    colaboradoraId={lastSaleData.colaboradoraId}
-                    saleDate={lastSaleData.saleDate}
-                    saleObservations={lastSaleData.saleObservations}
-                    onSuccess={() => {
-                        // Recarregar dados após sucesso
-                        if (storeId) {
-                            fetchSalesWithStoreId(storeId, salesDateFilter);
-                        }
-                        resetForm();
-                        setLastSaleData(null);
-                    }}
-                />
+                        }}
+                    />
+                </Suspense>
             )}
         </div>
     );
