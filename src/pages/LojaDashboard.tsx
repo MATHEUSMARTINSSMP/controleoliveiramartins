@@ -393,8 +393,8 @@ export default function LojaDashboard() {
         console.log('[LojaDashboard]   tipo: MENSAL');
         console.log('[LojaDashboard]   colaboradora_id: null (IS NULL)');
 
-        // Tentar buscar com schema explícito primeiro
-        let { data, error } = await supabase
+        // Buscar meta mensal da loja
+        const { data, error } = await supabase
             .schema("sistemaretiradas")
             .from('goals')
             .select('*')
@@ -403,21 +403,6 @@ export default function LojaDashboard() {
             .eq('tipo', 'MENSAL')
             .is('colaboradora_id', null)
             .maybeSingle();
-
-        // Se não encontrar com schema explícito, tentar sem schema
-        if (!data && !error) {
-            console.log('[LojaDashboard] ⚠️ Não encontrou com schema explícito, tentando sem schema...');
-            const result = await supabase
-                .from('goals')
-                .select('*')
-                .eq('store_id', currentStoreId)
-                .eq('mes_referencia', mesAtual)
-                .eq('tipo', 'MENSAL')
-                .is('colaboradora_id', null)
-                .maybeSingle();
-            data = result.data;
-            error = result.error;
-        }
 
         if (error) {
             console.error('[LojaDashboard] ❌ Erro ao buscar meta mensal:', error);
@@ -576,6 +561,7 @@ export default function LojaDashboard() {
 
         const startDate = format(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
         const { data, error } = await supabase
+            .schema("sistemaretiradas")
             .from('sales')
             .select('data_venda, valor, qtd_pecas')
             .eq('store_id', currentStoreId)
@@ -1068,6 +1054,7 @@ export default function LojaDashboard() {
 
         // Buscar vendas do dia por colaboradora
         const { data: salesToday, error: salesTodayError } = await supabase
+            .schema("sistemaretiradas")
             .from('sales')
             .select('colaboradora_id, valor, qtd_pecas')
             .eq('store_id', currentStoreId)
@@ -1075,6 +1062,7 @@ export default function LojaDashboard() {
 
         // Buscar vendas do mês por colaboradora
         const { data: salesMonth, error: salesMonthError } = await supabase
+            .schema("sistemaretiradas")
             .from('sales')
             .select('colaboradora_id, valor, qtd_pecas')
             .eq('store_id', currentStoreId)
@@ -1100,24 +1088,6 @@ export default function LojaDashboard() {
         console.log('[LojaDashboard]   Total encontrado:', goalsData?.length || 0);
         if (goalsError) {
             console.error('[LojaDashboard]   Erro:', goalsError);
-        }
-
-        // Se não encontrar com schema explícito, tentar sem schema
-        if ((!goalsData || goalsData.length === 0) && !goalsError) {
-            console.log('[LojaDashboard] ⚠️ Não encontrou com schema explícito, tentando sem schema...');
-            const result = await supabase
-                .from('goals')
-                .select('colaboradora_id, meta_valor, super_meta_valor, daily_weights')
-                .eq('store_id', currentStoreId)
-                .eq('mes_referencia', mesAtual)
-                .eq('tipo', 'INDIVIDUAL')
-                .not('colaboradora_id', 'is', null);
-            goalsData = result.data;
-            goalsError = result.error;
-            console.log('[LojaDashboard] 📊 Resultado sem schema:', goalsData?.length || 0);
-            if (goalsError) {
-                console.error('[LojaDashboard]   Erro sem schema:', goalsError);
-            }
         }
 
         if (salesTodayError) {
@@ -1295,6 +1265,7 @@ export default function LojaDashboard() {
         const today = format(new Date(), 'yyyy-MM-dd');
 
         const { data: salesData, error } = await supabase
+            .schema("sistemaretiradas")
             .from('sales')
             .select(`
                 colaboradora_id,
@@ -1342,6 +1313,7 @@ export default function LojaDashboard() {
         const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
 
         const { data: salesData, error } = await supabase
+            .schema("sistemaretiradas")
             .from('sales')
             .select(`
                 colaboradora_id,
