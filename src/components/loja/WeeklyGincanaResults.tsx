@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Trophy, ChevronDown, ChevronUp } from "lucide-react";
@@ -9,6 +8,37 @@ import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
 import { formatCurrency } from "@/lib/utils";
+
+const getSupabaseClient = async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    return supabase;
+};
+
+const getWeekNumber = (date: Date): number => {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+};
+
+const getCurrentWeekRef = () => {
+    const hoje = new Date();
+    const year = hoje.getFullYear();
+    const week = getWeekNumber(hoje);
+    return `${week}${year}`;
+};
+
+const getWeekRange = (weekRef: string) => {
+    const week = parseInt(weekRef.substring(0, 2));
+    const year = parseInt(weekRef.substring(2));
+    const jan4 = new Date(year, 0, 4);
+    const jan4Day = jan4.getDay() || 7;
+    const weekStart = new Date(year, 0, 4 + (week - 1) * 7 - jan4Day + 1);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    return { start: weekStart, end: weekEnd };
+};
 
 interface WeekResult {
     colaboradora_id: string;
@@ -81,35 +111,10 @@ export default function WeeklyGincanaResults({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [weeklyGoals.length]); // Apenas quando o número de semanas mudar
 
-    const getCurrentWeekRef = () => {
-        const hoje = new Date();
-        const year = hoje.getFullYear();
-        const week = getWeekNumber(hoje);
-        return `${week}${year}`;
-    };
-
-    const getWeekNumber = (date: Date): number => {
-        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-        const dayNum = d.getUTCDay() || 7;
-        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-        return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-    };
-
-    const getWeekRange = (weekRef: string) => {
-        const week = parseInt(weekRef.substring(0, 2));
-        const year = parseInt(weekRef.substring(2));
-        const jan4 = new Date(year, 0, 4);
-        const jan4Day = jan4.getDay() || 7;
-        const weekStart = new Date(year, 0, 4 + (week - 1) * 7 - jan4Day + 1);
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 6);
-        return { start: weekStart, end: weekEnd };
-    };
-
     const fetchWeeklyGoals = async () => {
         setLoading(true);
         try {
+            const supabase = await getSupabaseClient();
             let query = supabase
                 .schema("sistemaretiradas")
                 .from("goals")
@@ -174,6 +179,7 @@ export default function WeeklyGincanaResults({
         }
 
         try {
+            const supabase = await getSupabaseClient();
             const weekRange = getWeekRange(weekRef);
 
             // 1. Buscar todas as vendas da semana para a loja
