@@ -492,6 +492,58 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
     return { level: 'normal', label: null };
   };
 
+  const getCommitmentUrgency = (scheduledDate: string) => {
+    const scheduled = parseISO(scheduledDate);
+    const now = new Date();
+    const diffHours = differenceInHours(scheduled, now);
+
+    if (isPast(scheduled) && !isToday(scheduled)) {
+      return { level: 'overdue', label: 'Atrasado' };
+    }
+    if (diffHours < 1) {
+      return { level: 'urgent', label: 'Urgente' };
+    }
+    if (diffHours < 3) {
+      return { level: 'soon', label: 'Em breve' };
+    }
+    return { level: 'normal', label: null };
+  };
+
+  const handleOpenTaskEdit = (task: CRMTask) => {
+    setSelectedTask(task);
+    setTaskEditDialogOpen(true);
+  };
+
+  const handleUpdateTask = async (taskId: string, updates: any) => {
+    if (!storeId) return;
+
+    try {
+      setSaving(true);
+      const { error } = await supabase
+        .schema('sistemaretiradas')
+        .from('crm_tasks')
+        .update(updates)
+        .eq('id', taskId)
+        .eq('store_id', storeId);
+
+      if (error) {
+        console.error('[CRMLojaView] Erro ao atualizar tarefa:', error);
+        toast.error('Erro ao atualizar tarefa');
+        return;
+      }
+
+      toast.success('Tarefa atualizada com sucesso!');
+      setTaskEditDialogOpen(false);
+      setSelectedTask(null);
+      await fetchTasks();
+    } catch (error: any) {
+      console.error('[CRMLojaView] Erro inesperado ao atualizar tarefa:', error);
+      toast.error('Erro ao atualizar tarefa');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Componente TaskCard
   const TaskCard = ({ task, onEdit, onComplete, colaboradoras }: {
     task: CRMTask;

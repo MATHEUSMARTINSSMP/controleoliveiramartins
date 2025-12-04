@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -3321,8 +3321,8 @@ export default function LojaDashboard() {
                                                     const isErpSale = !!sale.tiny_order_id;
 
                                                     return (
-                                                        <>
-                                                            <TableRow key={sale.id}>
+                                                        <Fragment key={sale.id}>
+                                                            <TableRow>
                                                                 <TableCell className="text-xs sm:text-sm">
                                                                     <div className="flex items-center gap-1">
                                                                         {isErpSale && (
@@ -3408,7 +3408,7 @@ export default function LojaDashboard() {
                                                                     </TableCell>
                                                                 </TableRow>
                                                             )}
-                                                        </>
+                                                        </Fragment>
                                                     );
                                                 })
                                             )}
@@ -4375,8 +4375,8 @@ export default function LojaDashboard() {
                                                 const isErpSale = !!sale.tiny_order_id;
 
                                                 return (
-                                                    <>
-                                                        <TableRow key={sale.id}>
+                                                    <Fragment key={sale.id}>
+                                                        <TableRow>
                                                             <TableCell className="text-xs sm:text-sm">
                                                                 <div className="flex items-center gap-1">
                                                                     {isErpSale && (
@@ -4462,7 +4462,7 @@ export default function LojaDashboard() {
                                                                 </TableCell>
                                                             </TableRow>
                                                         )}
-                                                    </>
+                                                    </Fragment>
                                                 );
                                             })
                                         )}
