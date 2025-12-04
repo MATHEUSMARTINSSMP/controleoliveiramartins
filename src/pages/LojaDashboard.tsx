@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award, Download, FileSpreadsheet, FileText, Database, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award, Download, FileSpreadsheet, FileText, Database, ChevronDown, ChevronRight } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -25,11 +25,10 @@ import { StoreLogo } from "@/lib/storeLogo";
 import { sendWhatsAppMessage, formatVendaMessage } from "@/lib/whatsapp";
 import { checkAndCreateMonthlyTrophies, checkAndCreateWeeklyTrophies } from "@/lib/trophies";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import CashbackLojaView from "@/components/loja/CashbackLojaView";
+import CRMLojaView from "@/components/loja/CRMLojaView";
 import WeeklyGincanaResults from "@/components/loja/WeeklyGincanaResults";
 import PostSaleSchedulerDialog from "@/components/loja/PostSaleSchedulerDialog";
-
-const CashbackLojaView = lazy(() => import("@/components/loja/CashbackLojaView"));
-const CRMLojaView = lazy(() => import("@/components/loja/CRMLojaView"));
 
 interface Sale {
     id: string;
@@ -3689,14 +3688,10 @@ export default function LojaDashboard() {
                     </TabsContent>
 
                     <TabsContent value="cashback" className="space-y-4 sm:space-y-6">
-                        <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
-                            <CashbackLojaView storeId={storeId} />
-                        </Suspense>
+                        <CashbackLojaView storeId={storeId} />
                     </TabsContent>
                     <TabsContent value="crm" className="space-y-4 sm:space-y-6">
-                        <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
-                            <CRMLojaView storeId={storeId} />
-                        </Suspense>
+                        <CRMLojaView storeId={storeId} />
                     </TabsContent>
                 </Tabs>
             ) : (
