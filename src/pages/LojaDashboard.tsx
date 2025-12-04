@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useRef, Fragment, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award, Download, FileSpreadsheet, FileText, Database, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award, Download, FileSpreadsheet, FileText, Database, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -22,13 +22,12 @@ import WeeklyGoalProgress from "@/components/WeeklyGoalProgress";
 import WeeklyBonusProgress from "@/components/WeeklyBonusProgress";
 import { TrophiesGallery } from "@/components/loja/TrophiesGallery";
 import { StoreLogo } from "@/lib/storeLogo";
-import { sendWhatsAppMessage, formatVendaMessage } from "@/lib/whatsapp";
-import { checkAndCreateMonthlyTrophies, checkAndCreateWeeklyTrophies } from "@/lib/trophies";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import CashbackLojaView from "@/components/loja/CashbackLojaView";
-import CRMLojaView from "@/components/loja/CRMLojaView";
 import WeeklyGincanaResults from "@/components/loja/WeeklyGincanaResults";
 import PostSaleSchedulerDialog from "@/components/loja/PostSaleSchedulerDialog";
+
+const CashbackLojaView = lazy(() => import("@/components/loja/CashbackLojaView"));
+const CRMLojaView = lazy(() => import("@/components/loja/CRMLojaView"));
 
 interface Sale {
     id: string;
@@ -1978,6 +1977,7 @@ export default function LojaDashboard() {
                             console.log('📱 [4/4] Total do mês COM venda atual:', totalMesAtualizado.toFixed(2));
 
                             console.log('📱 [4/4] Formatando mensagem...');
+                            const { formatVendaMessage, sendWhatsAppMessage } = await import('@/lib/whatsapp');
                             const message = formatVendaMessage({
                                 colaboradoraName,
                                 valor: parseFloat(vendaData.valor),
@@ -1986,14 +1986,13 @@ export default function LojaDashboard() {
                                 dataVenda: vendaData.data_venda,
                                 observacoes: vendaData.observacoes || null,
                                 totalDia: totalDia,
-                                totalMes: totalMesAtualizado || undefined, // ✅ Usar total atualizado
+                                totalMes: totalMesAtualizado || undefined,
                                 formasPagamento: formasPagamentoData,
                             });
 
                             console.log('📱 [4/4] Mensagem formatada:', message);
                             console.log(`📱 [4/4] Enviando WhatsApp para ${adminPhones.length} destinatário(s)...`);
 
-                            // Enviar para todos os números em paralelo (não bloqueia)
                             Promise.all(
                                 adminPhones.map(phone =>
                                     sendWhatsAppMessage({
@@ -2007,7 +2006,6 @@ export default function LojaDashboard() {
                                         }
                                     }).catch(err => {
                                         console.error(`❌ Erro ao enviar WhatsApp para ${phone}:`, err);
-                                        // Não mostrar erro ao usuário, apenas log
                                     })
                                 )
                             ).then(() => {
@@ -2035,7 +2033,7 @@ export default function LojaDashboard() {
                                 .eq('store_id', storeId); // PARABENS deve ser específico da loja
 
                             if (parabensRecipients && parabensRecipients.length > 0) {
-                                const { formatParabensMessage } = await import('@/lib/whatsapp');
+                                const { formatParabensMessage, sendWhatsAppMessage: sendWA } = await import('@/lib/whatsapp');
 
                                 const parabensMessage = formatParabensMessage({
                                     colaboradoraName,
@@ -2043,11 +2041,10 @@ export default function LojaDashboard() {
                                     storeName: storeNameFromDb || storeName || undefined,
                                 });
 
-                                // Enviar para todos os destinatários de PARABENS
                                 Promise.all(
                                     parabensRecipients.map((recipient: any) => {
                                         const cleanedPhone = recipient.phone.replace(/\D/g, '');
-                                        return sendWhatsAppMessage({
+                                        return sendWA({
                                             phone: cleanedPhone,
                                             message: parabensMessage,
                                         }).catch(err => {
@@ -2088,10 +2085,17 @@ export default function LojaDashboard() {
                 const semanaRef = `${String(week).padStart(2, '0')}${year}`;
 
                 // Verificar troféus mensais e semanais em background (não bloquear UI)
-                Promise.all([
-                    checkAndCreateMonthlyTrophies(vendaData.colaboradora_id, storeId),
-                    checkAndCreateWeeklyTrophies(vendaData.colaboradora_id, storeId, semanaRef)
-                ]).catch(err => console.error('Erro ao verificar troféus:', err));
+                (async () => {
+                    try {
+                        const { checkAndCreateMonthlyTrophies, checkAndCreateWeeklyTrophies } = await import('@/lib/trophies');
+                        await Promise.all([
+                            checkAndCreateMonthlyTrophies(vendaData.colaboradora_id, storeId),
+                            checkAndCreateWeeklyTrophies(vendaData.colaboradora_id, storeId, semanaRef)
+                        ]);
+                    } catch (err) {
+                        console.error('Erro ao verificar troféus:', err);
+                    }
+                })();
             }
 
             // Atualizar todos os dados automaticamente
@@ -2268,10 +2272,17 @@ export default function LojaDashboard() {
                 const semanaRef = `${String(week).padStart(2, '0')}${year}`;
 
                 // Verificar troféus mensais e semanais em background (não bloquear UI)
-                Promise.all([
-                    checkAndCreateMonthlyTrophies(formData.colaboradora_id, storeId),
-                    checkAndCreateWeeklyTrophies(formData.colaboradora_id, storeId, semanaRef)
-                ]).catch(err => console.error('Erro ao verificar troféus:', err));
+                (async () => {
+                    try {
+                        const { checkAndCreateMonthlyTrophies, checkAndCreateWeeklyTrophies } = await import('@/lib/trophies');
+                        await Promise.all([
+                            checkAndCreateMonthlyTrophies(formData.colaboradora_id, storeId),
+                            checkAndCreateWeeklyTrophies(formData.colaboradora_id, storeId, semanaRef)
+                        ]);
+                    } catch (err) {
+                        console.error('Erro ao verificar troféus:', err);
+                    }
+                })();
             }
 
             // Atualizar todos os dados automaticamente
@@ -3688,10 +3699,14 @@ export default function LojaDashboard() {
                     </TabsContent>
 
                     <TabsContent value="cashback" className="space-y-4 sm:space-y-6">
-                        <CashbackLojaView storeId={storeId} />
+                        <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                            <CashbackLojaView storeId={storeId} />
+                        </Suspense>
                     </TabsContent>
                     <TabsContent value="crm" className="space-y-4 sm:space-y-6">
-                        <CRMLojaView storeId={storeId} />
+                        <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                            <CRMLojaView storeId={storeId} />
+                        </Suspense>
                     </TabsContent>
                 </Tabs>
             ) : (

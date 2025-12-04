@@ -1,0 +1,37 @@
+19:51:00.142
+ReferenceError: can't access lexical declaration 'E' before initialization
+    <anonymous> https://eleveaone.com.br/assets/index-CxWt8fXu.js:890
+    BM https://eleveaone.com.br/assets/index-CxWt8fXu.js:38
+    useState https://eleveaone.com.br/assets/index-CxWt8fXu.js:9
+    cO https://eleveaone.com.br/assets/index-CxWt8fXu.js:890
+    ZT https://eleveaone.com.br/assets/index-CxWt8fXu.js:38
+    S9 https://eleveaone.com.br/assets/index-CxWt8fXu.js:40
+    _9 https://eleveaone.com.br/assets/index-CxWt8fXu.js:40
+    fre https://eleveaone.com.br/assets/index-CxWt8fXu.js:40
+    A_ https://eleveaone.com.br/assets/index-CxWt8fXu.js:40
+    DA https://eleveaone.com.br/assets/index-CxWt8fXu.js:40
+    y9 https://eleveaone.com.br/assets/index-CxWt8fXu.js:40
+    j https://eleveaone.com.br/assets/index-CxWt8fXu.js:25
+    O https://eleveaone.com.br/assets/index-CxWt8fXu.js:25
+    EventHandlerNonNull* https://eleveaone.com.br/assets/index-CxWt8fXu.js:25
+    <anonymous> https://eleveaone.com.br/assets/index-CxWt8fXu.js:25
+index-CxWt8fXu.js:40:161
+19:51:00.143
+Uncaught ReferenceError: can't access lexical declaration 'E' before initialization
+    <anonymous> https://eleveaone.com.br/assets/index-CxWt8fXu.js:890
+    BM https://eleveaone.com.br/assets/index-CxWt8fXu.js:38
+    useState https://eleveaone.com.br/assets/index-CxWt8fXu.js:9
+    cO https://eleveaone.com.br/assets/index-CxWt8fXu.js:890
+    ZT https://eleveaone.com.br/assets/index-CxWt8fXu.js:38
+    S9 https://eleveaone.com.br/assets/index-CxWt8fXu.js:40
+    _9 https://eleveaone.com.br/assets/index-CxWt8fXu.js:40
+    fre https://eleveaone.com.br/assets/index-CxWt8fXu.js:40
+    A_ https://eleveaone.com.br/assets/index-CxWt8fXu.js:40
+    DA https://eleveaone.com.br/assets/index-CxWt8fXu.js:40
+    y9 https://eleveaone.com.br/assets/index-CxWt8fXu.js:40
+    j https://eleveaone.com.br/assets/index-CxWt8fXu.js:25
+    O https://eleveaone.com.br/assets/index-CxWt8fXu.js:25
+    EventHandlerNonNull* https://eleveaone.com.br/assets/index-CxWt8fXu.js:25
+    <anonymous> https://eleveaone.com.br/assets/index-CxWt8fXu.js:25
+index-CxWt8fXu.js:890:113279
+19:51:00.143 [LojaDashboard] 🛑 Removendo subscription real-time... index-CxWt8fXu.js:1003:1448
