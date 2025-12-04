@@ -47,8 +47,8 @@ function normalizePhone(phoneNumber: string): string {
 ```typescript
 // Mesma lógica do send-whatsapp-message.js
 async function sendWhatsAppMessage(phone: string, message: string) {
-  // Webhook: https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send
-  // Auth: x-app-key: #mmP220411
+  // Webhook: process.env.WHATSAPP_WEBHOOK_URL
+  // Auth: x-app-key: process.env.N8N_WEBHOOK_AUTH
   // Payload: { siteSlug, customerId, phoneNumber, message }
 }
 ```

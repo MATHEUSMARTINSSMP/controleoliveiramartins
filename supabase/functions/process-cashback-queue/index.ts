@@ -155,11 +155,11 @@ async function sendWhatsAppMessage(phone: string, message: string): Promise<{ su
       return { success: false, error: `Telefone normalizado inválido: ${normalizedPhone}`, skipped: true }
     }
     
-    // Credenciais do webhook (mesmas do send-whatsapp-message.js)
-    const webhookUrl = 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send'
-    const webhookAuth = '#mmP220411'
-    const siteSlug = 'elevea'
-    const customerId = 'mathmartins@gmail.com'
+    // Credenciais do webhook via variáveis de ambiente
+    const webhookUrl = Deno.env.get('WHATSAPP_WEBHOOK_URL') || 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send'
+    const webhookAuth = Deno.env.get('N8N_WEBHOOK_AUTH') || ''
+    const siteSlug = Deno.env.get('WHATSAPP_SITE_SLUG') || 'elevea'
+    const customerId = Deno.env.get('N8N_CUSTOMER_ID') || ''
 
     // Escapar mensagem como string JSON (mesma lógica do send-whatsapp-message.js)
     const messageEscaped = JSON.stringify(message)

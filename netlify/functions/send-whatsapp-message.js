@@ -7,14 +7,14 @@ const corsHeaders = {
  * Envia mensagem WhatsApp via Webhook n8n Elevea
  * 
  * Variáveis de ambiente necessárias no Netlify:
- * - WHATSAPP_WEBHOOK_URL: URL do webhook (padrão: https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send)
- * - WHATSAPP_WEBHOOK_AUTH: Token de autenticação do webhook (padrão: #mmP220411)
+ * - WHATSAPP_WEBHOOK_URL: URL do webhook
+ * - N8N_WEBHOOK_AUTH: Token de autenticação do webhook
  * - WHATSAPP_SITE_SLUG: Slug do site (padrão: elevea)
- * - WHATSAPP_CUSTOMER_ID: ID do cliente (opcional, pode ser email)
+ * - N8N_CUSTOMER_ID: ID do cliente (email)
  * 
  * Configuração:
- * - Webhook URL: https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send
- * - Auth Header: x-app-key: #mmP220411
+ * - Webhook URL: Configure via variável de ambiente
+ * - Auth Header: x-app-key (via N8N_WEBHOOK_AUTH)
  * - Formato: { siteSlug, customerId, phone_number, message }
  */
 exports.handler = async (event, context) => {
@@ -121,11 +121,11 @@ exports.handler = async (event, context) => {
     };
 
     const normalizedPhone = normalizePhone(phone);
-    // Usando EXATAMENTE as mesmas credenciais do teste que funcionou
-    const webhookUrl = 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send';
-    const webhookAuth = '#mmP220411';
-    const siteSlug = 'elevea';
-    const customerId = 'mathmartins@gmail.com';
+    // Credenciais via variáveis de ambiente
+    const webhookUrl = process.env.WHATSAPP_WEBHOOK_URL || 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send';
+    const webhookAuth = process.env.N8N_WEBHOOK_AUTH;
+    const siteSlug = process.env.WHATSAPP_SITE_SLUG || 'elevea';
+    const customerId = process.env.N8N_CUSTOMER_ID;
 
     console.log('📱 Enviando mensagem WhatsApp via Webhook n8n para:', normalizedPhone);
     console.log('📱 Webhook URL:', webhookUrl);

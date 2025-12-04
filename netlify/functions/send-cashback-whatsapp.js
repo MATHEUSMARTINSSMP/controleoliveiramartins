@@ -292,10 +292,10 @@ exports.handler = async (event, context) => {
     console.log('[SendCashbackWhatsApp] Mensagem:', message.substring(0, 100) + '...');
 
     // 8. Enviar WhatsApp via webhook n8n
-    const webhookUrl = 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send';
-    const webhookAuth = '#mmP220411';
-    const siteSlug = 'elevea';
-    const customerId = 'mathmartins@gmail.com';
+    const webhookUrl = process.env.WHATSAPP_WEBHOOK_URL || 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send';
+    const webhookAuth = process.env.N8N_WEBHOOK_AUTH;
+    const siteSlug = process.env.WHATSAPP_SITE_SLUG || 'elevea';
+    const customerId = process.env.N8N_CUSTOMER_ID;
 
     const messageEscaped = JSON.stringify(message);
     const messageSafe = messageEscaped.slice(1, -1);
