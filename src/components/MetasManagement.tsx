@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,11 +16,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StoreLogo } from "@/lib/storeLogo";
-import { sendWhatsAppMessage, formatGincanaMessage } from "@/lib/whatsapp";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
 import { Trophy, Medal, ChevronDown, ChevronUp, XCircle } from "lucide-react";
-import WeeklyGincanaResults from "@/components/loja/WeeklyGincanaResults";
+
+const WeeklyGincanaResults = lazy(() => import("@/components/loja/WeeklyGincanaResults"));
+
+const loadWhatsAppFunctions = async () => {
+  const { sendWhatsAppMessage, formatGincanaMessage } = await import("@/lib/whatsapp");
+  return { sendWhatsAppMessage, formatGincanaMessage };
+};
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
@@ -768,22 +773,24 @@ const MetasManagementContent = () => {
                             telefone = '55' + telefone;
                         }
                         
-                        // Formatar mensagem consolidada
-                        const message = formatGincanaMessage({
-                            colaboradoraName: colab.name,
-                            storeName: storeName,
-                            semanaReferencia: semanaReferencia,
-                            metaValor: metaData.meta,
-                            superMetaValor: metaData.superMeta,
-                            dataInicio: weekStartStr,
-                            dataFim: weekEndStr,
-                            premioCheckpoint1: premioCheckpoint1Str,
-                            premioCheckpointFinal: premioCheckpointFinalStr
-                        });
-                        
                         // Enviar mensagem em background (não bloqueia)
                         (async () => {
                             try {
+                                const { sendWhatsAppMessage, formatGincanaMessage } = await loadWhatsAppFunctions();
+                                
+                                // Formatar mensagem consolidada
+                                const message = formatGincanaMessage({
+                                    colaboradoraName: colab.name,
+                                    storeName: storeName,
+                                    semanaReferencia: semanaReferencia,
+                                    metaValor: metaData.meta,
+                                    superMetaValor: metaData.superMeta,
+                                    dataInicio: weekStartStr,
+                                    dataFim: weekEndStr,
+                                    premioCheckpoint1: premioCheckpoint1Str,
+                                    premioCheckpointFinal: premioCheckpointFinalStr
+                                });
+                                
                                 console.log(`[createBonusForWeeklyGincana] 📱 Enviando WhatsApp consolidado para ${colab.name} (${telefone})...`);
                                 const result = await sendWhatsAppMessage({
                                     phone: telefone,
@@ -2104,10 +2111,12 @@ const MetasManagementContent = () => {
                                             <StoreLogo storeId={store.id} className="w-8 h-8 sm:w-10 sm:h-10 object-contain flex-shrink-0" />
                                             <h2 className="text-lg sm:text-xl font-bold text-primary">{store.name}</h2>
                                         </div>
-                                        <WeeklyGincanaResults 
-                                            storeId={store.id} 
-                                            showAllResults={true}
-                                        />
+                                        <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                            <WeeklyGincanaResults 
+                                                storeId={store.id} 
+                                                showAllResults={true}
+                                            />
+                                        </Suspense>
                                     </div>
                                 );
                             })}

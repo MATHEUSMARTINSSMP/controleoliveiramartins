@@ -1,15 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useGoalCalculation } from "@/hooks/useGoalCalculation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Target, TrendingUp, TrendingDown, CheckCircle2, AlertCircle, Zap, Calendar, Gift } from "lucide-react";
+import { Target, TrendingUp, TrendingDown, CheckCircle2, AlertCircle, Zap, Calendar, Gift, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import WeeklyGoalProgress from "@/components/WeeklyGoalProgress";
-import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, getWeek, getYear } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+const WeeklyGoalProgress = lazy(() => import("@/components/WeeklyGoalProgress"));
+
+const getSupabaseClient = async () => {
+  const { supabase } = await import("@/integrations/supabase/client");
+  return supabase;
+};
 
 export const ColaboradoraCommercial = () => {
   const { profile } = useAuth();
@@ -35,6 +40,7 @@ export const ColaboradoraCommercial = () => {
       }
 
       try {
+        const supabase = await getSupabaseClient();
         const currentWeek = getCurrentWeekRef();
         const { data: goalData } = await supabase
           .from("goals")
@@ -303,11 +309,13 @@ export const ColaboradoraCommercial = () => {
 
       {/* 5. Meta Semanal */}
       <div className="mt-6">
-        <WeeklyGoalProgress 
-          colaboradoraId={profile?.id} 
-          storeId={profile?.store_id} 
-          showDetails={true} 
-        />
+        <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+          <WeeklyGoalProgress 
+            colaboradoraId={profile?.id} 
+            storeId={profile?.store_id} 
+            showDetails={true} 
+          />
+        </Suspense>
       </div>
 
       {/* 6. Meta Mensal */}

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,9 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ColaboradoraCommercial } from "@/components/colaboradora/ColaboradoraCommercial";
 import { Achievements } from "@/components/colaboradora/Achievements";
-import WeeklyGincanaResults from "@/components/loja/WeeklyGincanaResults";
+
+const ColaboradoraCommercial = lazy(() => import("@/components/colaboradora/ColaboradoraCommercial").then(m => ({ default: m.ColaboradoraCommercial })));
+const WeeklyGincanaResults = lazy(() => import("@/components/loja/WeeklyGincanaResults"));
 import {
   DollarSign,
   Calendar,
@@ -26,7 +27,8 @@ import {
   KeyRound,
   Filter,
   X,
-  Trash2
+  Trash2,
+  Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
@@ -694,18 +696,22 @@ const ColaboradoraDashboard = () => {
 
           {/* ABA METAS */}
           <TabsContent value="metas" className="space-y-4">
-            <ColaboradoraCommercial />
+            <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+              <ColaboradoraCommercial />
+            </Suspense>
             {profile && (
               <>
-              <Achievements 
-                colaboradoraId={profile.id} 
-                storeId={profile.store_id || getStoreIdFromProfile(profile) || ''} 
-              />
-                <WeeklyGincanaResults 
-                  storeId={profile.store_id || getStoreIdFromProfile(profile) || ''}
-                  colaboradoraId={profile.id}
-                  showAllResults={false}
+                <Achievements 
+                  colaboradoraId={profile.id} 
+                  storeId={profile.store_id || getStoreIdFromProfile(profile) || ''} 
                 />
+                <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                  <WeeklyGincanaResults 
+                    storeId={profile.store_id || getStoreIdFromProfile(profile) || ''}
+                    colaboradoraId={profile.id}
+                    showAllResults={false}
+                  />
+                </Suspense>
               </>
             )}
           </TabsContent>
