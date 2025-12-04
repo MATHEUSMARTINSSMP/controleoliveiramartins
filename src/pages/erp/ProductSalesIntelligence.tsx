@@ -17,6 +17,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { formatCurrency } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -1009,13 +1010,6 @@ export default function ProductSalesIntelligence() {
 
     return result.sort((a, b) => b.periodo_30 - a.periodo_30);
   }, [rawSales]);
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
 
   const totalGeral = filteredAndAggregated.reduce((sum, a) => sum + a.total_vendas, 0);
   const totalQuantidade = filteredAndAggregated.reduce((sum, a) => sum + a.quantidade_vendida, 0);
