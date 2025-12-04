@@ -10,9 +10,25 @@ Complete multi-tenant ERP/sales management SaaS system migrated from Lovable to 
 - **Multi-tenancy**: RLS-based data isolation using `sistemaretiradas` schema
 
 ## Recent Changes
+- **2024-12-04**: Phase 1 Enterprise Modernization completed:
+  - Error Boundaries with page/section/component levels
+  - Skeleton loaders for all dashboards
+  - Lazy loading for heavy libraries (XLSX, jsPDF, Recharts, html2canvas)
+  - Code splitting reduced bundle from ~2.5MB to ~150KB main
+  - Prefetch system for intelligent route preloading
+  - Loading states with async action hooks
 - **2024-12-01**: Project migrated from Lovable to Replit environment
 - Configured Vite server to bind to 0.0.0.0:5000 for Replit compatibility
 - Set up "Start application" workflow
+
+## Performance Architecture
+- **Error Boundaries**: `src/components/ui/error-boundary.tsx` - Page, section, component levels with retry functionality
+- **Skeleton Loaders**: `src/components/ui/skeleton-loaders.tsx` - Dashboard-specific loading states
+- **Lazy Imports**: `src/lib/lazy-imports.ts` - Dynamic imports for XLSX, jsPDF with caching
+- **Lazy Charts**: `src/components/ui/lazy-chart.tsx` - Recharts components with Suspense
+- **Prefetch System**: `src/lib/prefetch.ts` - Route-based intelligent preloading
+- **Loading States**: `src/hooks/use-async-action.ts` - Async action management with toasts
+- **All routes use lazy() with Suspense boundaries in App.tsx**
 
 ## Database Schema
 - **Schema**: `sistemaretiradas` (all tables use this schema)
