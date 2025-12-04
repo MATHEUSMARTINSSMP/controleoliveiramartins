@@ -32,6 +32,7 @@ export function BonusHistory() {
         try {
             // Buscar todos os bônus (ativos e inativos)
             const { data: bonusesData, error: bonusesError } = await supabase
+                .schema("sistemaretiradas")
                 .from("bonuses")
                 .select("*")
                 .order("created_at", { ascending: false })
@@ -52,11 +53,12 @@ export function BonusHistory() {
                     // Aqui seria ideal ter uma tabela de "bonus_achievements" para registrar quando alguém conquistou
                     // Por enquanto, vamos buscar as colaboradoras vinculadas
                     const { data: colabData } = await supabase
+                        .schema("sistemaretiradas")
                         .from("bonus_collaborators")
                         .select(`
               colaboradora_id,
               created_at,
-              profiles!inner(id, name)
+              profiles!bonus_collaborators_colaboradora_id_fkey(id, name)
             `)
                         .eq("bonus_id", bonus.id)
                         .eq("active", true);

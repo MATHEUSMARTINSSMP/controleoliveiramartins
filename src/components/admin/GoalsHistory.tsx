@@ -41,6 +41,7 @@ export function GoalsHistory() {
         try {
             // Buscar meses únicos que têm metas cadastradas
             const { data, error } = await supabase
+                .schema("sistemaretiradas")
                 .from("goals")
                 .select("mes_referencia")
                 .eq("tipo", "MENSAL")
@@ -71,6 +72,7 @@ export function GoalsHistory() {
 
             // Buscar meta mensal
             const { data: metaData, error: metaError } = await supabase
+                .schema("sistemaretiradas")
                 .from("goals")
                 .select("meta_valor, store_id")
                 .eq("mes_referencia", mesRef)
@@ -93,8 +95,9 @@ export function GoalsHistory() {
             ).getDate()}`;
 
             const { data: salesData, error: salesError } = await supabase
+                .schema("sistemaretiradas")
                 .from("sales")
-                .select("valor, colaboradora_id, profiles!inner(name)")
+                .select("valor, colaboradora_id, profiles!sales_colaboradora_id_fkey(name)")
                 .eq("store_id", metaData.store_id)
                 .gte("data_venda", `${startOfMonth}T00:00:00`)
                 .lte("data_venda", `${endOfMonth}T23:59:59`);
@@ -107,8 +110,9 @@ export function GoalsHistory() {
 
             // Buscar metas individuais
             const { data: metasIndividuais } = await supabase
+                .schema("sistemaretiradas")
                 .from("goals")
-                .select("colaboradora_id, meta_valor, profiles!inner(name)")
+                .select("colaboradora_id, meta_valor, profiles!goals_colaboradora_id_fkey(name)")
                 .eq("mes_referencia", mesRef)
                 .eq("tipo", "INDIVIDUAL")
                 .not("colaboradora_id", "is", null);
