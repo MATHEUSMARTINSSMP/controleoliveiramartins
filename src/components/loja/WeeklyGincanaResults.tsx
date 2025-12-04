@@ -186,7 +186,7 @@ export default function WeeklyGincanaResults({
             const { data: allSales, error: allSalesError } = await supabase
                 .schema("sistemaretiradas")
                 .from("sales")
-                .select("valor, colaboradora_id, profiles(name)")
+                .select("valor, colaboradora_id, profiles!sales_colaboradora_id_fkey(name)")
                 .eq("store_id", storeId)
                 .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
                 .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
