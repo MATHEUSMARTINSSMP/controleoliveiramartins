@@ -20,12 +20,12 @@ import { toast } from "sonner";
 import { format, startOfWeek, getWeek, getYear } from "date-fns";
 import WeeklyGoalProgress from "@/components/WeeklyGoalProgress";
 import WeeklyBonusProgress from "@/components/WeeklyBonusProgress";
-import { TrophiesGallery } from "@/components/loja/TrophiesGallery";
 import { StoreLogo } from "@/lib/storeLogo";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import WeeklyGincanaResults from "@/components/loja/WeeklyGincanaResults";
 import PostSaleSchedulerDialog from "@/components/loja/PostSaleSchedulerDialog";
 
+const TrophiesGallery = lazy(() => import("@/components/loja/TrophiesGallery").then(m => ({ default: m.TrophiesGallery })));
 const CashbackLojaView = lazy(() => import("@/components/loja/CashbackLojaView"));
 const CRMLojaView = lazy(() => import("@/components/loja/CRMLojaView"));
 
@@ -3134,7 +3134,9 @@ export default function LojaDashboard() {
 
                         {/* Galeria de Troféus */}
                         {storeId && (
-                            <TrophiesGallery storeId={storeId} limit={50} />
+                            <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                <TrophiesGallery storeId={storeId} limit={50} />
+                            </Suspense>
                         )}
 
                         {/* Tabela de Performance do Dia */}
@@ -4192,7 +4194,9 @@ export default function LojaDashboard() {
 
                     {/* Galeria de Troféus */}
                     {storeId && (
-                        <TrophiesGallery storeId={storeId} limit={50} />
+                        <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                            <TrophiesGallery storeId={storeId} limit={50} />
+                        </Suspense>
                     )}
 
                     {/* Tabela de Performance do Dia */}
