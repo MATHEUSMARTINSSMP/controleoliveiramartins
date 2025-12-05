@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { getERPAuthorizationUrl, testERPConnection } from "@/lib/erpIntegrations";
 import { syncTinyOrders, syncTinyContacts } from "@/lib/erp/syncTiny";
 import { WebhookConfig } from "@/components/dev/WebhookConfig";
+import { UazapiConfig } from "@/components/dev/UazapiConfig";
 
 interface Store {
   id: string;
@@ -1026,6 +1027,9 @@ const ERPConfig = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* UazAPI Config Section */}
+        <UazapiConfig />
 
         {/* Webhook Config Section */}
         <WebhookConfig />
