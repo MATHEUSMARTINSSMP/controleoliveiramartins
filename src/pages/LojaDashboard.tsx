@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, Fragment, lazy, Suspense, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,6 +24,21 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { motion } from "framer-motion";
 import { AnimatedOrbs } from "@/components/ui/animated-orbs";
 import { LoadingButton } from "@/components/ui/loading-button";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+    useStoreSettings,
+    useStoreSales,
+    useStoreColaboradoras,
+    useStoreGoals,
+    useStoreMetrics,
+    useStoreMonthlyProgress,
+    useStore7DayHistory,
+    useStoreColaboradorasPerformance,
+    useStoreRankingTop3,
+    useStoreMonthlyRanking,
+    useCreateSale,
+    useDeleteSale,
+} from "@/hooks/queries";
 
 const WeeklyGoalProgress = lazy(() => import("@/components/WeeklyGoalProgress"));
 const WeeklyBonusProgress = lazy(() => import("@/components/WeeklyBonusProgress"));
@@ -122,6 +137,114 @@ export default function LojaDashboard() {
     const isIdentifyingStoreRef = useRef(false);
     const isFetchingDataRef = useRef(false);
     const lastFetchedStoreIdRef = useRef<string | null>(null);
+
+    // ============= HOOKS REACT-QUERY (SUBSTITUINDO FUNÇÕES LEGADAS) =============
+    const queryClient = useQueryClient();
+
+    // Hook para configurações da loja (cashback_ativo, crm_ativo)
+    const { data: storeSettings } = useStoreSettings(storeId);
+
+    // Hook para vendas do dia
+    const { data: salesData = [], isLoading: salesLoading, refetch: refetchSales } = useStoreSales(storeId, salesDateFilter);
+
+    // Hook para colaboradoras da loja
+    const { data: colaboradorasData = [], isLoading: colaboradorasLoading } = useStoreColaboradoras(storeId, storeName);
+
+    // Hook para metas da loja
+    const { data: goalsData, isLoading: goalsLoading } = useStoreGoals(storeId);
+
+    // Hook para métricas do dia
+    const { data: metricsData, isLoading: metricsLoading } = useStoreMetrics(storeId);
+
+    // Hook para progresso mensal
+    const { data: monthlyProgressData } = useStoreMonthlyProgress(storeId, goalsData?.meta_valor || 0);
+
+    // Hook para histórico 7 dias
+    const { data: history7DaysData = [] } = useStore7DayHistory(storeId);
+
+    // Hook para ranking Top 3
+    const { data: rankingTop3Data = [] } = useStoreRankingTop3(storeId);
+
+    // Hook para ranking mensal
+    const { data: rankingMonthlyData = [] } = useStoreMonthlyRanking(storeId);
+
+    // Hook para performance das colaboradoras
+    const { data: colaboradorasPerformanceData = [] } = useStoreColaboradorasPerformance(
+        storeId,
+        colaboradorasData
+    );
+
+    // Sincronizar dados dos hooks com estados legados (para compatibilidade temporária)
+    useEffect(() => {
+        if (storeSettings) {
+            setCashbackAtivo(storeSettings.cashback_ativo || false);
+            setCrmAtivo(storeSettings.crm_ativo || false);
+        }
+    }, [storeSettings]);
+
+    useEffect(() => {
+        if (salesData) {
+            setSales(salesData as Sale[]);
+        }
+    }, [salesData]);
+
+    useEffect(() => {
+        if (colaboradorasData) {
+            setColaboradoras(colaboradorasData as Colaboradora[]);
+        }
+    }, [colaboradorasData]);
+
+    useEffect(() => {
+        if (goalsData) {
+            setGoals(goalsData);
+        }
+    }, [goalsData]);
+
+    useEffect(() => {
+        if (metricsData) {
+            setMetrics(metricsData);
+        }
+    }, [metricsData]);
+
+    useEffect(() => {
+        if (monthlyProgressData) {
+            setMonthlyRealizado(monthlyProgressData.realizado);
+            setMonthlyProgress(monthlyProgressData.percentual);
+        }
+    }, [monthlyProgressData]);
+
+    useEffect(() => {
+        if (history7DaysData) {
+            setHistory7Days(history7DaysData);
+        }
+    }, [history7DaysData]);
+
+    useEffect(() => {
+        if (rankingTop3Data) {
+            setRankingTop3(rankingTop3Data.map(r => ({
+                colaboradora_id: r.colaboradoraId,
+                colaboradora_name: r.colaboradoraName,
+                total: r.total
+            })));
+        }
+    }, [rankingTop3Data]);
+
+    useEffect(() => {
+        if (rankingMonthlyData) {
+            setRankingMonthly(rankingMonthlyData.map(r => ({
+                colaboradora_id: r.colaboradoraId,
+                colaboradora_name: r.colaboradoraName,
+                total: r.total
+            })));
+        }
+    }, [rankingMonthlyData]);
+
+    useEffect(() => {
+        if (colaboradorasPerformanceData) {
+            setColaboradorasPerformance(colaboradorasPerformanceData);
+        }
+    }, [colaboradorasPerformanceData]);
+    // ============= FIM DOS HOOKS REACT-QUERY =============
 
     useEffect(() => {
         if (authLoading) {
@@ -1358,10 +1481,10 @@ export default function LojaDashboard() {
                                 .select('crm_ativo')
                                 .eq('id', storeId)
                                 .single();
-                            
+
                             if (newSale.tiny_order_id && storeData?.crm_ativo) {
                                 console.log('[LojaDashboard] 🎯 Venda do ERP detectada! Abrindo dialog de pós-venda...');
-                                
+
                                 // Aguardar um pouco para garantir que a venda foi completamente salva
                                 setTimeout(() => {
                                     setLastSaleData({
@@ -2563,7 +2686,7 @@ export default function LojaDashboard() {
     if (loading) {
         return (
             <div className="page-container flex items-center justify-center">
-                <motion.div 
+                <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     className="text-center space-y-4 relative z-10"
@@ -2619,2147 +2742,2147 @@ export default function LojaDashboard() {
             </header>
 
             <main className="container mx-auto px-4 sm:px-6 py-6">
-            <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-6"
-            >
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="space-y-6"
+                >
 
-            {/* Conteúdo Principal com Abas */}
-            {(cashbackAtivo || crmAtivo) ? (
-                <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm')} className="space-y-4">
-                    <TabsContent value="metas" className="space-y-4 sm:space-y-6">
-                        {/* Todo o conteúdo atual do dashboard de metas */}
-                        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                            <DialogTrigger asChild>
-                                <Button onClick={resetForm} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
-                                    <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                                    Nova Venda
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>{editingSaleId ? 'Editar' : 'Lançar Nova'} Venda</DialogTitle>
-                                </DialogHeader>
-                                <form onSubmit={editingSaleId ? handleUpdate : handleSubmit} className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="colaboradora">Vendedora *</Label>
-                                        <Select
-                                            value={formData.colaboradora_id}
-                                            onValueChange={(value) => setFormData({ ...formData, colaboradora_id: value })}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Selecione a vendedora" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {colaboradoras.map((colab) => (
-                                                    <SelectItem key={colab.id} value={colab.id}>
-                                                        {colab.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    {/* Off‑Day Dialog */}
-                                    <Dialog open={offDayDialog} onOpenChange={(open) => setOffDayDialog(open)}>
-                                        <DialogContent>
-                                            <DialogHeader>
-                                                <DialogTitle>Marcar Folga</DialogTitle>
-                                            </DialogHeader>
-                                            <div className="space-y-4 pt-4">
-                                                <Label htmlFor="offDayDate">Data da Folga</Label>
-                                                <Input
-                                                    id="offDayDate"
-                                                    type="date"
-                                                    value={offDayDate}
-                                                    onChange={(e) => setOffDayDate(e.target.value)}
-                                                />
-                                                <div className="flex justify-end gap-2 pt-4">
-                                                    <Button variant="outline" onClick={() => setOffDayDialog(false)}>
-                                                        Cancelar
-                                                    </Button>
-                                                    <Button onClick={handleMarkOffDay}>Confirmar</Button>
-                                                </div>
-                                            </div>
-                                        </DialogContent>
-                                    </Dialog>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="valor">Valor Total (R$) *</Label>
-                                            <Input
-                                                id="valor"
-                                                type="number"
-                                                step="0.01"
-                                                value={formData.valor}
-                                                onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
-                                                placeholder="0,00"
-                                                required
-                                            />
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor="qtd_pecas">Qtd Peças *</Label>
-                                            <Input
-                                                id="qtd_pecas"
-                                                type="number"
-                                                value={formData.qtd_pecas}
-                                                onChange={(e) => setFormData({ ...formData, qtd_pecas: e.target.value })}
-                                                placeholder="0"
-                                                required
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="p-3 bg-muted rounded-lg">
-                                        <p className="text-sm font-medium">
-                                            💡 Preço Médio por Peça: <span className="text-primary">R$ {precoMedioPeca}</span>
-                                        </p>
-                                    </div>
-
-                                    {/* Formas de Pagamento */}
-                                    <div className="space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <Label>Formas de Pagamento *</Label>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => {
-                                                    setFormasPagamento([...formasPagamento, {
-                                                        tipo: 'DINHEIRO',
-                                                        valor: 0,
-                                                    }]);
-                                                }}
-                                                className="h-7 text-xs"
-                                            >
-                                                <Plus className="h-3 w-3 mr-1" />
-                                                Adicionar
-                                            </Button>
-                                        </div>
-                                        <div className="space-y-2">
-                                            {formasPagamento.map((forma, index) => {
-                                                const totalFormas = formasPagamento.reduce((sum, f) => sum + (f.valor || 0), 0);
-                                                const valorTotal = parseFloat(formData.valor) || 0;
-                                                const diferenca = valorTotal - totalFormas;
-
-                                                return (
-                                                    <div key={index} className="flex gap-2 items-end p-3 border rounded-lg">
-                                                        <div className="flex-1 space-y-2">
-                                                            <div>
-                                                                <Label className="text-xs">Tipo</Label>
-                                                                <Select
-                                                                    value={forma.tipo}
-                                                                    onValueChange={(value: 'CREDITO' | 'DEBITO' | 'DINHEIRO' | 'PIX' | 'BOLETO') => {
-                                                                        const novas = [...formasPagamento];
-                                                                        novas[index].tipo = value;
-                                                                        novas[index].parcelas = value === 'CREDITO' ? (novas[index].parcelas || 1) : undefined;
-                                                                        setFormasPagamento(novas);
-                                                                    }}
-                                                                >
-                                                                    <SelectTrigger className="h-9">
-                                                                        <SelectValue />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent>
-                                                                        <SelectItem value="CREDITO">Crédito</SelectItem>
-                                                                        <SelectItem value="DEBITO">Débito</SelectItem>
-                                                                        <SelectItem value="DINHEIRO">Dinheiro</SelectItem>
-                                                                        <SelectItem value="PIX">Pix</SelectItem>
-                                                                        <SelectItem value="BOLETO">Boleto</SelectItem>
-                                                                    </SelectContent>
-                                                                </Select>
-                                                            </div>
-                                                            {forma.tipo === 'CREDITO' && (
-                                                                <div>
-                                                                    <Label className="text-xs">Parcelas (máx. 6x)</Label>
-                                                                    <Input
-                                                                        type="number"
-                                                                        min="1"
-                                                                        max="6"
-                                                                        value={forma.parcelas || 1}
-                                                                        onChange={(e) => {
-                                                                            const parcelas = Math.min(6, Math.max(1, parseInt(e.target.value) || 1));
-                                                                            const novas = [...formasPagamento];
-                                                                            novas[index].parcelas = parcelas;
-                                                                            setFormasPagamento(novas);
-                                                                        }}
-                                                                        className="h-9"
-                                                                    />
-                                                                </div>
-                                                            )}
-                                                            <div>
-                                                                <Label className="text-xs">Valor (R$)</Label>
-                                                                <Input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    value={forma.valor || ''}
-                                                                    onChange={(e) => {
-                                                                        const novas = [...formasPagamento];
-                                                                        novas[index].valor = parseFloat(e.target.value) || 0;
-                                                                        setFormasPagamento(novas);
-                                                                    }}
-                                                                    placeholder="0,00"
-                                                                    className="h-9"
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                        {formasPagamento.length > 1 && (
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => {
-                                                                    setFormasPagamento(formasPagamento.filter((_, i) => i !== index));
-                                                                }}
-                                                                className="h-9 w-9 p-0 text-status-behind"
-                                                            >
-                                                                <X className="h-4 w-4" />
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                        {(() => {
-                                            const totalFormas = formasPagamento.reduce((sum, f) => sum + (f.valor || 0), 0);
-                                            const valorTotal = parseFloat(formData.valor) || 0;
-                                            const diferenca = valorTotal - totalFormas;
-
-                                            if (valorTotal > 0 && Math.abs(diferenca) > 0.01) {
-                                                return (
-                                                    <div className={`p-2 rounded text-sm flex items-center gap-2 ${diferenca > 0 ? 'bg-status-ontrack/10 text-status-ontrack border border-status-ontrack/30' : 'bg-status-behind/10 text-status-behind border border-status-behind/30'}`}>
-                                                        <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                                                        <span>
-                                                            {diferenca > 0
-                                                                ? `Faltam R$ ${diferenca.toFixed(2)} para completar o valor total`
-                                                                : `Valor excede o total em R$ ${Math.abs(diferenca).toFixed(2)}`
-                                                            }
-                                                        </span>
-                                                    </div>
-                                                );
-                                            }
-                                            return null;
-                                        })()}
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="data_venda">Data/Hora</Label>
-                                        <Input
-                                            id="data_venda"
-                                            type="datetime-local"
-                                            value={formData.data_venda}
-                                            onChange={(e) => setFormData({ ...formData, data_venda: e.target.value })}
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="observacoes">Observações</Label>
-                                        <Textarea
-                                            id="observacoes"
-                                            value={formData.observacoes}
-                                            onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-                                            onKeyDown={(e) => {
-                                                // Prevenir submit do formulário ao pressionar Enter
-                                                // O textarea já adiciona nova linha automaticamente
-                                                if (e.key === 'Enter' && e.ctrlKey) {
-                                                    // Ctrl+Enter = enviar formulário
-                                                    return;
-                                                }
-                                                if (e.key === 'Enter') {
-                                                    // Enter sozinho = apenas nova linha (não enviar)
-                                                    e.stopPropagation();
-                                                }
-                                            }}
-                                            placeholder="Observações opcionais (pressione Enter para nova linha, Ctrl+Enter para enviar)"
-                                            rows={4}
-                                            className="resize-y"
-                                        />
-                                    </div>
-
-                                    <div className="flex gap-2">
-                                        <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="flex-1" disabled={submitting}>
-                                            Cancelar
+                    {/* Conteúdo Principal com Abas */}
+                    {(cashbackAtivo || crmAtivo) ? (
+                        <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm')} className="space-y-4">
+                            <TabsContent value="metas" className="space-y-4 sm:space-y-6">
+                                {/* Todo o conteúdo atual do dashboard de metas */}
+                                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button onClick={resetForm} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
+                                            <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                                            Nova Venda
                                         </Button>
-                                        <LoadingButton 
-                                            type="submit" 
-                                            className="flex-1"
-                                            isLoading={submitting}
-                                            isSuccess={submitSuccess}
-                                            loadingText="Enviando..."
-                                            successText="Venda Lancada!"
-                                        >
-                                            Lancar Venda
-                                        </LoadingButton>
-                                    </div>
-                                </form>
-                            </DialogContent>
-                        </Dialog>
-                        <Button
-                            variant="outline"
-                            onClick={handleSignOut}
-                            className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
-                            size="sm"
-                        >
-                            <LogOut className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                            Sair
-                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>{editingSaleId ? 'Editar' : 'Lançar Nova'} Venda</DialogTitle>
+                                        </DialogHeader>
+                                        <form onSubmit={editingSaleId ? handleUpdate : handleSubmit} className="space-y-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="colaboradora">Vendedora *</Label>
+                                                <Select
+                                                    value={formData.colaboradora_id}
+                                                    onValueChange={(value) => setFormData({ ...formData, colaboradora_id: value })}
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Selecione a vendedora" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {colaboradoras.map((colab) => (
+                                                            <SelectItem key={colab.id} value={colab.id}>
+                                                                {colab.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
 
-                        {/* KPI Cards - Metas e Métricas */}
-                        {/* Primeiros 3 Cards Centralizados */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto mb-6 sm:mb-8">
-                            {/* Meta Mensal */}
-                            <Card className="flex flex-col h-full">
-                                <CardHeader className="pb-4 p-5 sm:p-8 text-center border-b">
-                                    <CardTitle className="text-base sm:text-lg font-semibold text-muted-foreground">Meta Mensal</CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
-                                    {goals ? (
-                                        <div className="space-y-4 w-full">
-                                            <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {goals.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                            <p className="text-sm sm:text-base text-muted-foreground">
-                                                Realizado: R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                            </p>
+                                            {/* Off‑Day Dialog */}
+                                            <Dialog open={offDayDialog} onOpenChange={(open) => setOffDayDialog(open)}>
+                                                <DialogContent>
+                                                    <DialogHeader>
+                                                        <DialogTitle>Marcar Folga</DialogTitle>
+                                                    </DialogHeader>
+                                                    <div className="space-y-4 pt-4">
+                                                        <Label htmlFor="offDayDate">Data da Folga</Label>
+                                                        <Input
+                                                            id="offDayDate"
+                                                            type="date"
+                                                            value={offDayDate}
+                                                            onChange={(e) => setOffDayDate(e.target.value)}
+                                                        />
+                                                        <div className="flex justify-end gap-2 pt-4">
+                                                            <Button variant="outline" onClick={() => setOffDayDialog(false)}>
+                                                                Cancelar
+                                                            </Button>
+                                                            <Button onClick={handleMarkOffDay}>Confirmar</Button>
+                                                        </div>
+                                                    </div>
+                                                </DialogContent>
+                                            </Dialog>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="valor">Valor Total (R$) *</Label>
+                                                    <Input
+                                                        id="valor"
+                                                        type="number"
+                                                        step="0.01"
+                                                        value={formData.valor}
+                                                        onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
+                                                        placeholder="0,00"
+                                                        required
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="qtd_pecas">Qtd Peças *</Label>
+                                                    <Input
+                                                        id="qtd_pecas"
+                                                        type="number"
+                                                        value={formData.qtd_pecas}
+                                                        onChange={(e) => setFormData({ ...formData, qtd_pecas: e.target.value })}
+                                                        placeholder="0"
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="p-3 bg-muted rounded-lg">
+                                                <p className="text-sm font-medium">
+                                                    💡 Preço Médio por Peça: <span className="text-primary">R$ {precoMedioPeca}</span>
+                                                </p>
+                                            </div>
+
+                                            {/* Formas de Pagamento */}
                                             <div className="space-y-3">
-                                                <div className="flex items-center gap-4 justify-between">
-                                                    <Progress value={Math.min(monthlyProgress, 100)} className="h-4 flex-1" />
-                                                    <span className="text-base font-semibold text-primary whitespace-nowrap min-w-[50px] text-right">
-                                                        {monthlyProgress.toFixed(0)}%
-                                                    </span>
+                                                <div className="flex items-center justify-between">
+                                                    <Label>Formas de Pagamento *</Label>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setFormasPagamento([...formasPagamento, {
+                                                                tipo: 'DINHEIRO',
+                                                                valor: 0,
+                                                            }]);
+                                                        }}
+                                                        className="h-7 text-xs"
+                                                    >
+                                                        <Plus className="h-3 w-3 mr-1" />
+                                                        Adicionar
+                                                    </Button>
                                                 </div>
-                                                {goals.super_meta_valor && (
-                                                    <p className="text-sm sm:text-base text-muted-foreground flex items-center justify-center gap-1.5">
-                                                        <Trophy className="h-4 w-4" />
-                                                        <span>Super Meta: R$ {goals.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            <p className="text-2xl sm:text-3xl font-bold text-muted-foreground">N/A</p>
-                                            <p className="text-sm sm:text-base text-status-behind">
-                                                Meta não encontrada
-                                            </p>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
+                                                <div className="space-y-2">
+                                                    {formasPagamento.map((forma, index) => {
+                                                        const totalFormas = formasPagamento.reduce((sum, f) => sum + (f.valor || 0), 0);
+                                                        const valorTotal = parseFloat(formData.valor) || 0;
+                                                        const diferenca = valorTotal - totalFormas;
 
-                            {/* Meta Diária */}
-                            <Card className="flex flex-col h-full">
-                                <CardHeader className="pb-4 p-5 sm:p-8 text-center border-b">
-                                    <CardTitle className="text-base sm:text-lg font-semibold text-muted-foreground">Meta Diária (Hoje)</CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
-                                    {goals ? (
-                                        <div className="space-y-4 w-full">
-                                            <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {dailyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                            <div className="flex items-center gap-4 justify-between">
-                                                <Progress value={Math.min(dailyProgress, 100)} className="h-4 flex-1" />
-                                                <span className="text-base font-semibold text-primary whitespace-nowrap min-w-[50px] text-right">
-                                                    {dailyProgress.toFixed(0)}%
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            <p className="text-2xl sm:text-3xl font-bold text-muted-foreground">N/A</p>
-                                            <p className="text-sm sm:text-base text-muted-foreground">
-                                                Aguardando meta mensal
-                                            </p>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-
-                            {/* Faturamento Hoje */}
-                            <Card className="flex flex-col h-full">
-                                <CardHeader className="pb-4 p-5 sm:p-8 text-center border-b">
-                                    <CardTitle className="text-base sm:text-lg font-semibold text-muted-foreground">Faturamento Hoje</CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
-                                    <div className="space-y-3 w-full">
-                                        <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {sales.reduce((sum, s) => sum + s.valor, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                        <p className="text-sm sm:text-base text-muted-foreground">{sales.length} {sales.length === 1 ? 'venda' : 'vendas'}</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        {/* Cards Adicionais - Ticket Médio, PA, Preço Médio */}
-                        {metrics && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-5xl mx-auto">
-                                {/* Ticket Médio */}
-                                <Card className="flex flex-col h-full">
-                                    <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
-                                        <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Ticket Médio</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
-                                        <div className="space-y-3 w-full">
-                                            <p className="text-xl sm:text-3xl font-bold text-primary">R$ {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.valor, 0) / sales.length).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</p>
-                                            <div className="space-y-1">
-                                                <div className="flex items-center gap-3 justify-between">
-                                                    <Progress
-                                                        value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.length) / metrics.meta_ticket_medio) * 100, 100) : 0}
-                                                        className="h-3 flex-1"
-                                                    />
-                                                </div>
-                                                <p className="text-xs sm:text-sm text-muted-foreground">
-                                                    Meta: R$ {metrics.meta_ticket_medio?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                {/* PA (Peças por Atendimento) */}
-                                <Card className="flex flex-col h-full">
-                                    <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
-                                        <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">PA (Peças/Venda)</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
-                                        <div className="space-y-3 w-full">
-                                            <p className="text-xl sm:text-3xl font-bold text-primary">{sales.length > 0 ? (sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length).toFixed(1) : '0,0'}</p>
-                                            <div className="space-y-1">
-                                                <div className="flex items-center gap-3 justify-between">
-                                                    <Progress
-                                                        value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length) / metrics.meta_pa) * 100, 100) : 0}
-                                                        className="h-3 flex-1"
-                                                    />
-                                                </div>
-                                                <p className="text-xs sm:text-sm text-muted-foreground">
-                                                    Meta: {metrics.meta_pa?.toFixed(1)}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                {/* Preço Médio por Peça */}
-                                <Card className="flex flex-col h-full">
-                                    <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
-                                        <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Preço Médio por Peça</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
-                                        <div className="space-y-3 w-full">
-                                            <p className="text-xl sm:text-3xl font-bold text-primary">
-                                                R$ {sales.length > 0 ?
-                                                    (sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) :
-                                                    '0,00'}
-                                            </p>
-                                            <div className="space-y-1">
-                                                <div className="flex items-center gap-3 justify-between">
-                                                    <Progress
-                                                        value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)) / metrics.meta_preco_medio_peca) * 100, 100) : 0}
-                                                        className="h-3 flex-1"
-                                                    />
-                                                </div>
-                                                <p className="text-xs sm:text-sm text-muted-foreground">
-                                                    Meta: R$ {metrics.meta_preco_medio_peca?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        )}
-
-                        {/* Planejamento do Dia - Cards por Vendedora */}
-                        {colaboradorasPerformance.length > 0 && (
-                            <div className="w-full max-w-6xl mx-auto">
-                                <h2 className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8 text-center">Planejamento do Dia</h2>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 justify-items-center">
-                                    {colaboradorasPerformance.map((perf) => (
-                                        <Card key={perf.id} className="flex flex-col w-full max-w-[380px] h-[280px]">
-                                            <CardHeader className="pb-4 p-5 sm:p-6 text-center border-b">
-                                                <CardTitle className="text-lg font-semibold leading-snug min-h-[3.5rem]">{perf.name}</CardTitle>
-                                            </CardHeader>
-                                            <CardContent className="p-5 sm:p-6 pt-5 sm:pt-6 flex-1 flex flex-col justify-center space-y-3">
-                                                {/* Meta do Dia */}
-                                                <div className="space-y-2.5">
-                                                    <div className="flex items-center justify-between text-base">
-                                                        <span className="text-muted-foreground">Meta do Dia</span>
-                                                        <span className="font-semibold">R$ {perf.metaDiaria > 0 ? perf.metaDiaria.toFixed(2) : '0.00'}</span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between text-base">
-                                                        <span className="text-muted-foreground">Vendido:</span>
-                                                        <span className="font-bold text-primary">R$ {perf.vendido.toFixed(2)}</span>
-                                                    </div>
-                                                    {perf.metaDiaria > 0 && (
-                                                        <div className="flex items-center justify-between text-base">
-                                                            <span className="text-muted-foreground">Falta:</span>
-                                                            <span className={`font-semibold ${perf.vendido >= perf.metaDiaria ? 'text-status-ahead' : 'text-status-ontrack'}`}>
-                                                                R$ {Math.max(0, perf.metaDiaria - perf.vendido).toFixed(2)}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                    {/* Progresso */}
-                                                    <div className="space-y-1.5 pt-2">
-                                                        <div className="flex items-center gap-3">
-                                                            <Progress
-                                                                value={Math.min(perf.percentual, 100)}
-                                                                className="h-3 flex-1"
-                                                            />
-                                                            <span className="text-base font-semibold whitespace-nowrap min-w-[50px] text-right">
-                                                                {perf.percentual.toFixed(0)}%
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Meta Semanal Gamificada */}
-                        {storeId && (
-                            <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-                                <WeeklyGoalProgress storeId={storeId} showDetails={true} />
-                            </Suspense>
-                        )}
-
-                        {/* Bônus Semanal Individual por Colaboradora */}
-                        {storeId && colaboradoras.length > 0 && (
-                            <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-                                <WeeklyBonusProgress storeId={storeId} colaboradoras={colaboradoras.map(c => ({ id: c.id, name: c.name }))} />
-                            </Suspense>
-                        )}
-
-                        {/* Gincanas Semanais - Histórico de Resultados */}
-                        {storeId && (
-                            <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-                                <WeeklyGincanaResults storeId={storeId} showAllResults={true} />
-                            </Suspense>
-                        )}
-
-                        {/* Galeria de Troféus */}
-                        {storeId && (
-                            <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-                                <TrophiesGallery storeId={storeId} limit={50} />
-                            </Suspense>
-                        )}
-
-                        {/* Tabela de Performance do Dia */}
-                        {colaboradorasPerformance.length > 0 ? (
-                            <Card>
-                                <CardHeader className="p-3 sm:p-6">
-                                    <CardTitle className="text-base sm:text-lg">Performance do Dia</CardTitle>
-                                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">Desempenho diário e mensal de cada colaboradora</p>
-                                </CardHeader>
-                                <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                                    <div className="overflow-x-auto">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead className="text-xs sm:text-sm">Vendedora</TableHead>
-                                                    <TableHead className="text-xs sm:text-sm">Vendido Hoje</TableHead>
-                                                    <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Meta Dia</TableHead>
-                                                    <TableHead className="text-xs sm:text-sm">% Dia</TableHead>
-                                                    <TableHead className="text-xs sm:text-sm hidden md:table-cell">Ticket Médio</TableHead>
-                                                    <TableHead className="text-xs sm:text-sm hidden lg:table-cell">PA</TableHead>
-                                                    <TableHead className="text-xs sm:text-sm">Vendas</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {colaboradorasPerformance.map((perf) => (
-                                                    <TableRow key={perf.id}>
-                                                        <TableCell className="font-medium text-xs sm:text-sm break-words">{perf.name}</TableCell>
-                                                        <TableCell className="text-xs sm:text-sm font-medium">
-                                                            R$ {perf.vendido.toFixed(2)}
-                                                            {perf.vendidoMes > 0 && (
-                                                                <div className="text-[10px] text-muted-foreground mt-0.5">
-                                                                    Mês: R$ {perf.vendidoMes.toFixed(2)}
-                                                                </div>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="text-xs sm:text-sm hidden sm:table-cell">
-                                                            R$ {perf.metaDiaria > 0 ? perf.metaDiaria.toFixed(2) : '0.00'}
-                                                            {perf.meta > 0 && (
-                                                                <div className="text-[10px] text-muted-foreground mt-0.5">
-                                                                    Mensal: R$ {perf.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                                </div>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="text-xs sm:text-sm">
-                                                            {perf.meta > 0 ? (
-                                                                <>
-                                                                    <span className={
-                                                                        perf.percentual >= 120 ? 'text-status-ahead font-bold' :
-                                                                            perf.percentual >= 100 ? 'text-status-ahead font-bold' :
-                                                                                perf.percentual >= 90 ? 'text-status-ontrack' :
-                                                                                    'text-status-behind'
-                                                                    }>
-                                                                        {perf.percentual.toFixed(0)}%
-                                                                        {perf.percentual >= 120 && <Trophy className="h-4 w-4 inline ml-1" />}
-                                                                    </span>
-                                                                    <div className="text-[10px] text-muted-foreground mt-0.5">
-                                                                        Mês: {perf.percentualMensal.toFixed(0)}%
+                                                        return (
+                                                            <div key={index} className="flex gap-2 items-end p-3 border rounded-lg">
+                                                                <div className="flex-1 space-y-2">
+                                                                    <div>
+                                                                        <Label className="text-xs">Tipo</Label>
+                                                                        <Select
+                                                                            value={forma.tipo}
+                                                                            onValueChange={(value: 'CREDITO' | 'DEBITO' | 'DINHEIRO' | 'PIX' | 'BOLETO') => {
+                                                                                const novas = [...formasPagamento];
+                                                                                novas[index].tipo = value;
+                                                                                novas[index].parcelas = value === 'CREDITO' ? (novas[index].parcelas || 1) : undefined;
+                                                                                setFormasPagamento(novas);
+                                                                            }}
+                                                                        >
+                                                                            <SelectTrigger className="h-9">
+                                                                                <SelectValue />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                <SelectItem value="CREDITO">Crédito</SelectItem>
+                                                                                <SelectItem value="DEBITO">Débito</SelectItem>
+                                                                                <SelectItem value="DINHEIRO">Dinheiro</SelectItem>
+                                                                                <SelectItem value="PIX">Pix</SelectItem>
+                                                                                <SelectItem value="BOLETO">Boleto</SelectItem>
+                                                                            </SelectContent>
+                                                                        </Select>
                                                                     </div>
-                                                                    {perf.faltaMensal > 0 && (
-                                                                        <div className="text-[10px] text-status-ontrack mt-0.5">
-                                                                            Falta: R$ {perf.faltaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                    {forma.tipo === 'CREDITO' && (
+                                                                        <div>
+                                                                            <Label className="text-xs">Parcelas (máx. 6x)</Label>
+                                                                            <Input
+                                                                                type="number"
+                                                                                min="1"
+                                                                                max="6"
+                                                                                value={forma.parcelas || 1}
+                                                                                onChange={(e) => {
+                                                                                    const parcelas = Math.min(6, Math.max(1, parseInt(e.target.value) || 1));
+                                                                                    const novas = [...formasPagamento];
+                                                                                    novas[index].parcelas = parcelas;
+                                                                                    setFormasPagamento(novas);
+                                                                                }}
+                                                                                className="h-9"
+                                                                            />
                                                                         </div>
                                                                     )}
-                                                                </>
-                                                            ) : (
-                                                                <span className="text-muted-foreground">Sem meta</span>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {perf.ticketMedio.toFixed(2)}</TableCell>
-                                                        <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
-                                                            {perf.qtdVendas > 0 ? (perf.qtdPecas / perf.qtdVendas).toFixed(1) : '0.0'}
-                                                        </TableCell>
-                                                        <TableCell className="text-xs sm:text-sm">
-                                                            {perf.qtdVendas}
-                                                            {perf.qtdVendasMes > 0 && (
-                                                                <div className="text-[10px] text-muted-foreground mt-0.5">
-                                                                    Mês: {perf.qtdVendasMes}
+                                                                    <div>
+                                                                        <Label className="text-xs">Valor (R$)</Label>
+                                                                        <Input
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            value={forma.valor || ''}
+                                                                            onChange={(e) => {
+                                                                                const novas = [...formasPagamento];
+                                                                                novas[index].valor = parseFloat(e.target.value) || 0;
+                                                                                setFormasPagamento(novas);
+                                                                            }}
+                                                                            placeholder="0,00"
+                                                                            className="h-9"
+                                                                        />
+                                                                    </div>
                                                                 </div>
-                                                            )}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ) : colaboradoras.length > 0 && (
-                            <Card>
-                                <CardContent className="p-6 text-center">
-                                    <p className="text-sm text-muted-foreground">
-                                        Nenhuma meta individual encontrada para as colaboradoras desta loja no mês atual.
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        )}
+                                                                {formasPagamento.length > 1 && (
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        onClick={() => {
+                                                                            setFormasPagamento(formasPagamento.filter((_, i) => i !== index));
+                                                                        }}
+                                                                        className="h-9 w-9 p-0 text-status-behind"
+                                                                    >
+                                                                        <X className="h-4 w-4" />
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                                {(() => {
+                                                    const totalFormas = formasPagamento.reduce((sum, f) => sum + (f.valor || 0), 0);
+                                                    const valorTotal = parseFloat(formData.valor) || 0;
+                                                    const diferenca = valorTotal - totalFormas;
 
-                        {/* Vendas */}
-                        <Card>
-                            <CardHeader className="p-3 sm:p-6">
-                                <div className="flex flex-col gap-3">
-                                    <div className="flex items-center justify-between">
-                                        <CardTitle className="text-base sm:text-lg">
-                                            Vendas
-                                        </CardTitle>
-                                    </div>
-                                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
-                                        <div className="flex items-center gap-2 w-full sm:w-auto">
-                                            <Label htmlFor="sales-date-filter" className="text-xs sm:text-sm whitespace-nowrap">
-                                                Filtrar por data:
-                                            </Label>
-                                            <Input
-                                                id="sales-date-filter"
-                                                type="date"
-                                                value={salesDateFilter}
-                                                onChange={(e) => setSalesDateFilter(e.target.value)}
-                                                className="flex-1 sm:flex-initial sm:w-auto text-xs sm:text-sm"
-                                                max={format(new Date(), 'yyyy-MM-dd')}
-                                            />
-                                        </div>
-                                        {salesDateFilter !== format(new Date(), 'yyyy-MM-dd') && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setSalesDateFilter(format(new Date(), 'yyyy-MM-dd'))}
-                                                className="text-xs whitespace-nowrap w-full sm:w-auto"
-                                            >
-                                                Voltar para Hoje
-                                            </Button>
-                                        )}
-                                        {salesDateFilter === format(new Date(), 'yyyy-MM-dd') && (
-                                            <span className="text-xs text-muted-foreground">
-                                                Mostrando vendas de hoje
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                                <div className="overflow-x-auto">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead className="text-xs sm:text-sm">Horário</TableHead>
-                                                <TableHead className="text-xs sm:text-sm">Vendedora</TableHead>
-                                                <TableHead className="text-xs sm:text-sm">Valor</TableHead>
-                                                <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Peças</TableHead>
-                                                <TableHead className="text-xs sm:text-sm hidden md:table-cell">Valor/Venda</TableHead>
-                                                <TableHead className="text-xs sm:text-sm">Ações</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {sales.length === 0 ? (
-                                                <TableRow>
-                                                    <TableCell colSpan={6} className="text-center text-muted-foreground text-xs sm:text-sm py-6">
-                                                        {salesDateFilter === format(new Date(), 'yyyy-MM-dd')
-                                                            ? 'Nenhuma venda lançada hoje'
-                                                            : `Nenhuma venda encontrada para ${format(new Date(salesDateFilter), 'dd/MM/yyyy')}`
+                                                    if (valorTotal > 0 && Math.abs(diferenca) > 0.01) {
+                                                        return (
+                                                            <div className={`p-2 rounded text-sm flex items-center gap-2 ${diferenca > 0 ? 'bg-status-ontrack/10 text-status-ontrack border border-status-ontrack/30' : 'bg-status-behind/10 text-status-behind border border-status-behind/30'}`}>
+                                                                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                                                                <span>
+                                                                    {diferenca > 0
+                                                                        ? `Faltam R$ ${diferenca.toFixed(2)} para completar o valor total`
+                                                                        : `Valor excede o total em R$ ${Math.abs(diferenca).toFixed(2)}`
+                                                                    }
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return null;
+                                                })()}
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="data_venda">Data/Hora</Label>
+                                                <Input
+                                                    id="data_venda"
+                                                    type="datetime-local"
+                                                    value={formData.data_venda}
+                                                    onChange={(e) => setFormData({ ...formData, data_venda: e.target.value })}
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="observacoes">Observações</Label>
+                                                <Textarea
+                                                    id="observacoes"
+                                                    value={formData.observacoes}
+                                                    onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
+                                                    onKeyDown={(e) => {
+                                                        // Prevenir submit do formulário ao pressionar Enter
+                                                        // O textarea já adiciona nova linha automaticamente
+                                                        if (e.key === 'Enter' && e.ctrlKey) {
+                                                            // Ctrl+Enter = enviar formulário
+                                                            return;
                                                         }
-                                                    </TableCell>
-                                                </TableRow>
-                                            ) : (
-                                                sales.map((sale) => {
-                                                    const isExpanded = expandedSales.has(sale.id);
-                                                    const details = erpSaleDetails[sale.id];
-                                                    const isErpSale = !!sale.tiny_order_id;
-
-                                                    return (
-                                                        <Fragment key={sale.id}>
-                                                            <TableRow>
-                                                                <TableCell className="text-xs sm:text-sm">
-                                                                    <div className="flex items-center gap-1">
-                                                                        {isErpSale && (
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="sm"
-                                                                                className="h-6 w-6 p-0 -ml-1"
-                                                                                onClick={() => toggleSaleExpansion(sale.id, sale.tiny_order_id)}
-                                                                            >
-                                                                                {isExpanded ? (
-                                                                                    <ChevronDown className="h-3 w-3" />
-                                                                                ) : (
-                                                                                    <ChevronRight className="h-3 w-3" />
-                                                                                )}
-                                                                            </Button>
-                                                                        )}
-                                                                        <span>
-                                                                            {salesDateFilter === format(new Date(), 'yyyy-MM-dd')
-                                                                                ? format(new Date(sale.data_venda), 'HH:mm')
-                                                                                : format(new Date(sale.data_venda), 'dd/MM/yyyy HH:mm')
-                                                                            }
-                                                                        </span>
-                                                                    </div>
-                                                                </TableCell>
-                                                                <TableCell className="text-xs sm:text-sm font-medium break-words">
-                                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                                        <span>{sale.colaboradora?.name || 'Colaboradora não encontrada'}</span>
-                                                                        {isErpSale && (
-                                                                            <Badge variant="outline" className="text-xs flex items-center gap-1">
-                                                                                <Database className="h-3 w-3" />
-                                                                                via ERP
-                                                                            </Badge>
-                                                                        )}
-                                                                    </div>
-                                                                </TableCell>
-                                                                <TableCell className="text-xs sm:text-sm font-medium">R$ {sale.valor.toFixed(2)}</TableCell>
-                                                                <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{sale.qtd_pecas}</TableCell>
-                                                                <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {sale.valor.toFixed(2)}</TableCell>
-                                                                <TableCell>
-                                                                    <div className="flex gap-1 sm:gap-2">
-                                                                        <Button variant="ghost" size="sm" onClick={() => handleEdit(sale)} className="h-8 w-8 p-0">
-                                                                            <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
-                                                                        </Button>
-                                                                        <Button variant="ghost" size="sm" className="text-status-behind h-8 w-8 p-0" onClick={() => handleDelete(sale.id)}>
-                                                                            <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                                                                        </Button>
-                                                                    </div>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                            {isErpSale && isExpanded && (
-                                                                <TableRow key={`${sale.id}-details`}>
-                                                                    <TableCell colSpan={6} className="bg-muted/50">
-                                                                        <div className="space-y-2 py-2">
-                                                                            {details ? (
-                                                                                <>
-                                                                                    {details.cliente_nome && (
-                                                                                        <div className="text-xs">
-                                                                                            <span className="font-medium">Cliente:</span> {details.cliente_nome}
-                                                                                        </div>
-                                                                                    )}
-                                                                                    {details.forma_pagamento && (
-                                                                                        <div className="text-xs">
-                                                                                            <span className="font-medium">Forma de Pagamento:</span> {details.forma_pagamento}
-                                                                                        </div>
-                                                                                    )}
-                                                                                    {details.itens && Array.isArray(details.itens) && details.itens.length > 0 && (
-                                                                                        <div className="text-xs">
-                                                                                            <span className="font-medium">Peças:</span>
-                                                                                            <ul className="list-disc list-inside mt-1 space-y-1">
-                                                                                                {details.itens.map((item: any, idx: number) => (
-                                                                                                    <li key={idx}>
-                                                                                                        {item.quantidade || 1}x {item.descricao || item.nome || item.produto?.descricao || 'Produto sem descrição'}
-                                                                                                    </li>
-                                                                                                ))}
-                                                                                            </ul>
-                                                                                        </div>
-                                                                                    )}
-                                                                                </>
-                                                                            ) : (
-                                                                                <div className="text-xs text-muted-foreground">Carregando detalhes...</div>
-                                                                            )}
-                                                                        </div>
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            )}
-                                                        </Fragment>
-                                                    );
-                                                })
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Ranking Mensal com Pódio (Ouro e Prata) */}
-                        {rankingMonthly.length > 0 && (
-                            <Card>
-                                <CardHeader className="pb-2 p-3 sm:p-6">
-                                    <CardTitle className="flex items-center gap-2 text-sm sm:text-lg">
-                                        <Award className="h-4 w-4 sm:h-5 sm:w-5" />
-                                        <span>Podio Mensal</span>
-                                    </CardTitle>
-                                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">Ranking acumulado do mes - Top 2</p>
-                                </CardHeader>
-                                <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                                    <div className="space-y-3 sm:space-y-4">
-                                        {rankingMonthly.slice(0, 2).map((item, index) => {
-                                            const perf = colaboradorasPerformance.find(p => p.id === item.colaboradora_id);
-                                            const isOuro = index === 0;
-                                            const isPrata = index === 1;
-
-                                            return (
-                                                <div
-                                                    key={item.colaboradora_id}
-                                                    className={`
-                                            relative flex items-center justify-between p-3 sm:p-4 rounded-md border
-                                            ${isOuro
-                                                            ? 'bg-muted/50 border-foreground/20'
-                                                            : isPrata
-                                                                ? 'bg-muted/30 border-border'
-                                                                : 'bg-background/50 border-border/50'
+                                                        if (e.key === 'Enter') {
+                                                            // Enter sozinho = apenas nova linha (não enviar)
+                                                            e.stopPropagation();
                                                         }
-                                        `}
+                                                    }}
+                                                    placeholder="Observações opcionais (pressione Enter para nova linha, Ctrl+Enter para enviar)"
+                                                    rows={4}
+                                                    className="resize-y"
+                                                />
+                                            </div>
+
+                                            <div className="flex gap-2">
+                                                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="flex-1" disabled={submitting}>
+                                                    Cancelar
+                                                </Button>
+                                                <LoadingButton
+                                                    type="submit"
+                                                    className="flex-1"
+                                                    isLoading={submitting}
+                                                    isSuccess={submitSuccess}
+                                                    loadingText="Enviando..."
+                                                    successText="Venda Lancada!"
                                                 >
-                                                    <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                                                        <div className={`
-                                                w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0
-                                                ${isOuro
-                                                                ? 'bg-foreground text-background'
-                                                                : isPrata
-                                                                    ? 'bg-muted-foreground/30 text-foreground'
-                                                                    : 'bg-muted text-muted-foreground'
-                                                            }
-                                            `}>
-                                                            {index + 1}
+                                                    Lancar Venda
+                                                </LoadingButton>
+                                            </div>
+                                        </form>
+                                    </DialogContent>
+                                </Dialog>
+                                <Button
+                                    variant="outline"
+                                    onClick={handleSignOut}
+                                    className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
+                                    size="sm"
+                                >
+                                    <LogOut className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                                    Sair
+                                </Button>
+
+                                {/* KPI Cards - Metas e Métricas */}
+                                {/* Primeiros 3 Cards Centralizados */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto mb-6 sm:mb-8">
+                                    {/* Meta Mensal */}
+                                    <Card className="flex flex-col h-full">
+                                        <CardHeader className="pb-4 p-5 sm:p-8 text-center border-b">
+                                            <CardTitle className="text-base sm:text-lg font-semibold text-muted-foreground">Meta Mensal</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
+                                            {goals ? (
+                                                <div className="space-y-4 w-full">
+                                                    <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {goals.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                    <p className="text-sm sm:text-base text-muted-foreground">
+                                                        Realizado: R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    </p>
+                                                    <div className="space-y-3">
+                                                        <div className="flex items-center gap-4 justify-between">
+                                                            <Progress value={Math.min(monthlyProgress, 100)} className="h-4 flex-1" />
+                                                            <span className="text-base font-semibold text-primary whitespace-nowrap min-w-[50px] text-right">
+                                                                {monthlyProgress.toFixed(0)}%
+                                                            </span>
                                                         </div>
-                                                        <div className="min-w-0 flex-1">
-                                                            <span className="font-semibold text-sm sm:text-base break-words block">{item.name}</span>
-                                                            {perf && (
-                                                                <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 space-y-0.5">
-                                                                    <div className="flex gap-2">
-                                                                        <span>Ticket: R$ {perf.ticketMedio.toFixed(2)}</span>
-                                                                        <span>PA: {(perf.qtdPecas / Math.max(perf.qtdVendasMes, 1)).toFixed(1)}</span>
-                                                                    </div>
-                                                                    <div>Vendas: {item.qtdVendas}</div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right flex-shrink-0 ml-2">
-                                                        <p className="font-bold text-lg sm:text-xl">
-                                                            R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                        </p>
-                                                        {perf && perf.percentualMensal > 0 && (
-                                                            <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-                                                                {perf.percentualMensal.toFixed(0)}% da meta
+                                                        {goals.super_meta_valor && (
+                                                            <p className="text-sm sm:text-base text-muted-foreground flex items-center justify-center gap-1.5">
+                                                                <Trophy className="h-4 w-4" />
+                                                                <span>Super Meta: R$ {goals.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                                             </p>
                                                         )}
                                                     </div>
                                                 </div>
-                                            );
-                                        })}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    <p className="text-2xl sm:text-3xl font-bold text-muted-foreground">N/A</p>
+                                                    <p className="text-sm sm:text-base text-status-behind">
+                                                        Meta não encontrada
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
 
-                        {/* Histórico 7 Dias */}
-                        {history7Days.length > 0 && (
-                            <Card>
-                                <CardHeader className="p-3 sm:p-6">
-                                    <CardTitle className="text-base sm:text-lg">Histórico de Vendas (Últimos 7 Dias)</CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                                    <div className="overflow-x-auto">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead className="text-xs sm:text-sm">Data</TableHead>
-                                                    <TableHead className="text-xs sm:text-sm">Vendas</TableHead>
-                                                    <TableHead className="text-xs sm:text-sm">Peças</TableHead>
-                                                    <TableHead className="text-xs sm:text-sm hidden md:table-cell">PA</TableHead>
-                                                    <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Ticket Médio</TableHead>
-                                                    <TableHead className="text-xs sm:text-sm">Total</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {history7Days.map((day) => (
-                                                    <TableRow key={day.day}>
-                                                        <TableCell className="text-xs sm:text-sm">{format(new Date(day.day + 'T00:00:00'), 'dd/MM/yyyy')}</TableCell>
-                                                        <TableCell className="text-xs sm:text-sm">{day.qtdVendas}</TableCell>
-                                                        <TableCell className="text-xs sm:text-sm">{day.qtdPecas}</TableCell>
-                                                        <TableCell className="text-xs sm:text-sm hidden md:table-cell">
-                                                            {day.qtdVendas > 0 ? (day.qtdPecas / day.qtdVendas).toFixed(1) : '0.0'}
-                                                        </TableCell>
-                                                        <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
-                                                            R$ {day.ticketMedio ? day.ticketMedio.toFixed(2) : (day.qtdVendas > 0 ? (day.total / day.qtdVendas).toFixed(2) : '0.00')}
-                                                        </TableCell>
-                                                        <TableCell className="text-xs sm:text-sm font-medium">R$ {day.total.toFixed(2)}</TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
+                                    {/* Meta Diária */}
+                                    <Card className="flex flex-col h-full">
+                                        <CardHeader className="pb-4 p-5 sm:p-8 text-center border-b">
+                                            <CardTitle className="text-base sm:text-lg font-semibold text-muted-foreground">Meta Diária (Hoje)</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
+                                            {goals ? (
+                                                <div className="space-y-4 w-full">
+                                                    <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {dailyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                    <div className="flex items-center gap-4 justify-between">
+                                                        <Progress value={Math.min(dailyProgress, 100)} className="h-4 flex-1" />
+                                                        <span className="text-base font-semibold text-primary whitespace-nowrap min-w-[50px] text-right">
+                                                            {dailyProgress.toFixed(0)}%
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    <p className="text-2xl sm:text-3xl font-bold text-muted-foreground">N/A</p>
+                                                    <p className="text-sm sm:text-base text-muted-foreground">
+                                                        Aguardando meta mensal
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
 
-                        {/* Tabela Mensal por Colaboradora/Dia */}
-                        {(colaboradoras.length > 0 || monthlyDataByDay.length > 0) && (
-                            <Card>
-                                <CardHeader className="p-3 sm:p-6">
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                        <div>
-                                            <CardTitle className="text-base sm:text-lg">Performance Mensal por Dia</CardTitle>
-                                            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Vendas diárias de cada colaboradora no mês atual</p>
-                                        </div>
-                                        {monthlyDataByDay.length > 0 && (
-                                            <div className="flex gap-2">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={handleExportXLS}
-                                                    className="text-xs sm:text-sm"
-                                                >
-                                                    <FileSpreadsheet className="h-4 w-4 mr-2" />
-                                                    Exportar XLS
-                                                </Button>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={handleExportPDF}
-                                                    className="text-xs sm:text-sm"
-                                                >
-                                                    <FileText className="h-4 w-4 mr-2" />
-                                                    Exportar PDF
-                                                </Button>
+                                    {/* Faturamento Hoje */}
+                                    <Card className="flex flex-col h-full">
+                                        <CardHeader className="pb-4 p-5 sm:p-8 text-center border-b">
+                                            <CardTitle className="text-base sm:text-lg font-semibold text-muted-foreground">Faturamento Hoje</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
+                                            <div className="space-y-3 w-full">
+                                                <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {sales.reduce((sum, s) => sum + s.valor, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                <p className="text-sm sm:text-base text-muted-foreground">{sales.length} {sales.length === 1 ? 'venda' : 'vendas'}</p>
                                             </div>
-                                        )}
+                                        </CardContent>
+                                    </Card>
+                                </div>
+
+                                {/* Cards Adicionais - Ticket Médio, PA, Preço Médio */}
+                                {metrics && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-5xl mx-auto">
+                                        {/* Ticket Médio */}
+                                        <Card className="flex flex-col h-full">
+                                            <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
+                                                <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Ticket Médio</CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
+                                                <div className="space-y-3 w-full">
+                                                    <p className="text-xl sm:text-3xl font-bold text-primary">R$ {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.valor, 0) / sales.length).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</p>
+                                                    <div className="space-y-1">
+                                                        <div className="flex items-center gap-3 justify-between">
+                                                            <Progress
+                                                                value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.length) / metrics.meta_ticket_medio) * 100, 100) : 0}
+                                                                className="h-3 flex-1"
+                                                            />
+                                                        </div>
+                                                        <p className="text-xs sm:text-sm text-muted-foreground">
+                                                            Meta: R$ {metrics.meta_ticket_medio?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+
+                                        {/* PA (Peças por Atendimento) */}
+                                        <Card className="flex flex-col h-full">
+                                            <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
+                                                <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">PA (Peças/Venda)</CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
+                                                <div className="space-y-3 w-full">
+                                                    <p className="text-xl sm:text-3xl font-bold text-primary">{sales.length > 0 ? (sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length).toFixed(1) : '0,0'}</p>
+                                                    <div className="space-y-1">
+                                                        <div className="flex items-center gap-3 justify-between">
+                                                            <Progress
+                                                                value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length) / metrics.meta_pa) * 100, 100) : 0}
+                                                                className="h-3 flex-1"
+                                                            />
+                                                        </div>
+                                                        <p className="text-xs sm:text-sm text-muted-foreground">
+                                                            Meta: {metrics.meta_pa?.toFixed(1)}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+
+                                        {/* Preço Médio por Peça */}
+                                        <Card className="flex flex-col h-full">
+                                            <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
+                                                <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Preço Médio por Peça</CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
+                                                <div className="space-y-3 w-full">
+                                                    <p className="text-xl sm:text-3xl font-bold text-primary">
+                                                        R$ {sales.length > 0 ?
+                                                            (sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) :
+                                                            '0,00'}
+                                                    </p>
+                                                    <div className="space-y-1">
+                                                        <div className="flex items-center gap-3 justify-between">
+                                                            <Progress
+                                                                value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)) / metrics.meta_preco_medio_peca) * 100, 100) : 0}
+                                                                className="h-3 flex-1"
+                                                            />
+                                                        </div>
+                                                        <p className="text-xs sm:text-sm text-muted-foreground">
+                                                            Meta: R$ {metrics.meta_preco_medio_peca?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
                                     </div>
-                                </CardHeader>
-                                <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                                    {monthlyDataByDay.length > 0 ? (
+                                )}
+
+                                {/* Planejamento do Dia - Cards por Vendedora */}
+                                {colaboradorasPerformance.length > 0 && (
+                                    <div className="w-full max-w-6xl mx-auto">
+                                        <h2 className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8 text-center">Planejamento do Dia</h2>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 justify-items-center">
+                                            {colaboradorasPerformance.map((perf) => (
+                                                <Card key={perf.id} className="flex flex-col w-full max-w-[380px] h-[280px]">
+                                                    <CardHeader className="pb-4 p-5 sm:p-6 text-center border-b">
+                                                        <CardTitle className="text-lg font-semibold leading-snug min-h-[3.5rem]">{perf.name}</CardTitle>
+                                                    </CardHeader>
+                                                    <CardContent className="p-5 sm:p-6 pt-5 sm:pt-6 flex-1 flex flex-col justify-center space-y-3">
+                                                        {/* Meta do Dia */}
+                                                        <div className="space-y-2.5">
+                                                            <div className="flex items-center justify-between text-base">
+                                                                <span className="text-muted-foreground">Meta do Dia</span>
+                                                                <span className="font-semibold">R$ {perf.metaDiaria > 0 ? perf.metaDiaria.toFixed(2) : '0.00'}</span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between text-base">
+                                                                <span className="text-muted-foreground">Vendido:</span>
+                                                                <span className="font-bold text-primary">R$ {perf.vendido.toFixed(2)}</span>
+                                                            </div>
+                                                            {perf.metaDiaria > 0 && (
+                                                                <div className="flex items-center justify-between text-base">
+                                                                    <span className="text-muted-foreground">Falta:</span>
+                                                                    <span className={`font-semibold ${perf.vendido >= perf.metaDiaria ? 'text-status-ahead' : 'text-status-ontrack'}`}>
+                                                                        R$ {Math.max(0, perf.metaDiaria - perf.vendido).toFixed(2)}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                            {/* Progresso */}
+                                                            <div className="space-y-1.5 pt-2">
+                                                                <div className="flex items-center gap-3">
+                                                                    <Progress
+                                                                        value={Math.min(perf.percentual, 100)}
+                                                                        className="h-3 flex-1"
+                                                                    />
+                                                                    <span className="text-base font-semibold whitespace-nowrap min-w-[50px] text-right">
+                                                                        {perf.percentual.toFixed(0)}%
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Meta Semanal Gamificada */}
+                                {storeId && (
+                                    <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                        <WeeklyGoalProgress storeId={storeId} showDetails={true} />
+                                    </Suspense>
+                                )}
+
+                                {/* Bônus Semanal Individual por Colaboradora */}
+                                {storeId && colaboradoras.length > 0 && (
+                                    <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                        <WeeklyBonusProgress storeId={storeId} colaboradoras={colaboradoras.map(c => ({ id: c.id, name: c.name }))} />
+                                    </Suspense>
+                                )}
+
+                                {/* Gincanas Semanais - Histórico de Resultados */}
+                                {storeId && (
+                                    <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                        <WeeklyGincanaResults storeId={storeId} showAllResults={true} />
+                                    </Suspense>
+                                )}
+
+                                {/* Galeria de Troféus */}
+                                {storeId && (
+                                    <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                        <TrophiesGallery storeId={storeId} limit={50} />
+                                    </Suspense>
+                                )}
+
+                                {/* Tabela de Performance do Dia */}
+                                {colaboradorasPerformance.length > 0 ? (
+                                    <Card>
+                                        <CardHeader className="p-3 sm:p-6">
+                                            <CardTitle className="text-base sm:text-lg">Performance do Dia</CardTitle>
+                                            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Desempenho diário e mensal de cada colaboradora</p>
+                                        </CardHeader>
+                                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                                            <div className="overflow-x-auto">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead className="text-xs sm:text-sm">Vendedora</TableHead>
+                                                            <TableHead className="text-xs sm:text-sm">Vendido Hoje</TableHead>
+                                                            <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Meta Dia</TableHead>
+                                                            <TableHead className="text-xs sm:text-sm">% Dia</TableHead>
+                                                            <TableHead className="text-xs sm:text-sm hidden md:table-cell">Ticket Médio</TableHead>
+                                                            <TableHead className="text-xs sm:text-sm hidden lg:table-cell">PA</TableHead>
+                                                            <TableHead className="text-xs sm:text-sm">Vendas</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {colaboradorasPerformance.map((perf) => (
+                                                            <TableRow key={perf.id}>
+                                                                <TableCell className="font-medium text-xs sm:text-sm break-words">{perf.name}</TableCell>
+                                                                <TableCell className="text-xs sm:text-sm font-medium">
+                                                                    R$ {perf.vendido.toFixed(2)}
+                                                                    {perf.vendidoMes > 0 && (
+                                                                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                                            Mês: R$ {perf.vendidoMes.toFixed(2)}
+                                                                        </div>
+                                                                    )}
+                                                                </TableCell>
+                                                                <TableCell className="text-xs sm:text-sm hidden sm:table-cell">
+                                                                    R$ {perf.metaDiaria > 0 ? perf.metaDiaria.toFixed(2) : '0.00'}
+                                                                    {perf.meta > 0 && (
+                                                                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                                            Mensal: R$ {perf.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                        </div>
+                                                                    )}
+                                                                </TableCell>
+                                                                <TableCell className="text-xs sm:text-sm">
+                                                                    {perf.meta > 0 ? (
+                                                                        <>
+                                                                            <span className={
+                                                                                perf.percentual >= 120 ? 'text-status-ahead font-bold' :
+                                                                                    perf.percentual >= 100 ? 'text-status-ahead font-bold' :
+                                                                                        perf.percentual >= 90 ? 'text-status-ontrack' :
+                                                                                            'text-status-behind'
+                                                                            }>
+                                                                                {perf.percentual.toFixed(0)}%
+                                                                                {perf.percentual >= 120 && <Trophy className="h-4 w-4 inline ml-1" />}
+                                                                            </span>
+                                                                            <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                                                Mês: {perf.percentualMensal.toFixed(0)}%
+                                                                            </div>
+                                                                            {perf.faltaMensal > 0 && (
+                                                                                <div className="text-[10px] text-status-ontrack mt-0.5">
+                                                                                    Falta: R$ {perf.faltaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                                </div>
+                                                                            )}
+                                                                        </>
+                                                                    ) : (
+                                                                        <span className="text-muted-foreground">Sem meta</span>
+                                                                    )}
+                                                                </TableCell>
+                                                                <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {perf.ticketMedio.toFixed(2)}</TableCell>
+                                                                <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
+                                                                    {perf.qtdVendas > 0 ? (perf.qtdPecas / perf.qtdVendas).toFixed(1) : '0.0'}
+                                                                </TableCell>
+                                                                <TableCell className="text-xs sm:text-sm">
+                                                                    {perf.qtdVendas}
+                                                                    {perf.qtdVendasMes > 0 && (
+                                                                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                                            Mês: {perf.qtdVendasMes}
+                                                                        </div>
+                                                                    )}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ) : colaboradoras.length > 0 && (
+                                    <Card>
+                                        <CardContent className="p-6 text-center">
+                                            <p className="text-sm text-muted-foreground">
+                                                Nenhuma meta individual encontrada para as colaboradoras desta loja no mês atual.
+                                            </p>
+                                        </CardContent>
+                                    </Card>
+                                )}
+
+                                {/* Vendas */}
+                                <Card>
+                                    <CardHeader className="p-3 sm:p-6">
+                                        <div className="flex flex-col gap-3">
+                                            <div className="flex items-center justify-between">
+                                                <CardTitle className="text-base sm:text-lg">
+                                                    Vendas
+                                                </CardTitle>
+                                            </div>
+                                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
+                                                <div className="flex items-center gap-2 w-full sm:w-auto">
+                                                    <Label htmlFor="sales-date-filter" className="text-xs sm:text-sm whitespace-nowrap">
+                                                        Filtrar por data:
+                                                    </Label>
+                                                    <Input
+                                                        id="sales-date-filter"
+                                                        type="date"
+                                                        value={salesDateFilter}
+                                                        onChange={(e) => setSalesDateFilter(e.target.value)}
+                                                        className="flex-1 sm:flex-initial sm:w-auto text-xs sm:text-sm"
+                                                        max={format(new Date(), 'yyyy-MM-dd')}
+                                                    />
+                                                </div>
+                                                {salesDateFilter !== format(new Date(), 'yyyy-MM-dd') && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => setSalesDateFilter(format(new Date(), 'yyyy-MM-dd'))}
+                                                        className="text-xs whitespace-nowrap w-full sm:w-auto"
+                                                    >
+                                                        Voltar para Hoje
+                                                    </Button>
+                                                )}
+                                                {salesDateFilter === format(new Date(), 'yyyy-MM-dd') && (
+                                                    <span className="text-xs text-muted-foreground">
+                                                        Mostrando vendas de hoje
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                                         <div className="overflow-x-auto">
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
-                                                        <TableHead className="text-xs sm:text-sm sticky left-0 bg-background z-10 font-bold min-w-[140px]">Vendedora</TableHead>
-                                                        {(() => {
-                                                            const hoje = new Date();
-                                                            const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
-                                                            const todayStr = format(hoje, 'yyyy-MM-dd');
-                                                            const days: string[] = [];
-                                                            for (let day = 1; day <= daysInMonth; day++) {
-                                                                const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
-                                                                if (dayStr <= todayStr) {
-                                                                    days.push(dayStr);
-                                                                }
-                                                            }
-                                                            return days.map(dayStr => (
-                                                                <TableHead key={dayStr} className="text-xs text-center min-w-[60px]">
-                                                                    {format(new Date(dayStr + 'T00:00:00'), 'dd/MM')}
-                                                                </TableHead>
-                                                            ));
-                                                        })()}
-                                                        <TableHead className="text-xs sm:text-sm sticky right-0 bg-background z-10 font-bold text-primary min-w-[120px]">Total</TableHead>
+                                                        <TableHead className="text-xs sm:text-sm">Horário</TableHead>
+                                                        <TableHead className="text-xs sm:text-sm">Vendedora</TableHead>
+                                                        <TableHead className="text-xs sm:text-sm">Valor</TableHead>
+                                                        <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Peças</TableHead>
+                                                        <TableHead className="text-xs sm:text-sm hidden md:table-cell">Valor/Venda</TableHead>
+                                                        <TableHead className="text-xs sm:text-sm">Ações</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {monthlyDataByDay
-                                                        .sort((a, b) => b.totalMes - a.totalMes)
-                                                        .map((data) => {
-                                                            const hoje = new Date();
-                                                            const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
-                                                            const todayStr = format(hoje, 'yyyy-MM-dd');
-                                                            const days: string[] = [];
-                                                            for (let day = 1; day <= daysInMonth; day++) {
-                                                                const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
-                                                                if (dayStr <= todayStr) {
-                                                                    days.push(dayStr);
+                                                    {sales.length === 0 ? (
+                                                        <TableRow>
+                                                            <TableCell colSpan={6} className="text-center text-muted-foreground text-xs sm:text-sm py-6">
+                                                                {salesDateFilter === format(new Date(), 'yyyy-MM-dd')
+                                                                    ? 'Nenhuma venda lançada hoje'
+                                                                    : `Nenhuma venda encontrada para ${format(new Date(salesDateFilter), 'dd/MM/yyyy')}`
                                                                 }
-                                                            }
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ) : (
+                                                        sales.map((sale) => {
+                                                            const isExpanded = expandedSales.has(sale.id);
+                                                            const details = erpSaleDetails[sale.id];
+                                                            const isErpSale = !!sale.tiny_order_id;
 
                                                             return (
-                                                                <TableRow key={data.colaboradoraId}>
-                                                                    <TableCell className="text-xs sm:text-sm font-medium sticky left-0 bg-background z-10 min-w-[140px]">
-                                                                        {data.colaboradoraName}
-                                                                    </TableCell>
-                                                                    {days.map(dayStr => {
-                                                                        const dayData = data.dailySales[dayStr] || { valor: 0, metaDiaria: 0 };
-                                                                        const bateuMeta = dayData.metaDiaria > 0 && dayData.valor >= dayData.metaDiaria;
-
-                                                                        return (
-                                                                            <TableCell
-                                                                                key={dayStr}
-                                                                                className={`
-                                                                        text-xs text-center font-medium
-                                                                        ${bateuMeta
-                                                                                        ? 'bg-status-ahead/20 dark:bg-status-ahead/10 text-foreground'
-                                                                                        : dayData.valor > 0
-                                                                                            ? 'text-foreground'
-                                                                                            : 'text-muted-foreground'
-                                                                                    }
-                                                                    `}
-                                                                                title={dayData.metaDiaria > 0 ? `Meta: R$ ${dayData.metaDiaria.toFixed(2)}` : ''}
-                                                                            >
-                                                                                {dayData.valor > 0 ? (
-                                                                                    <span className="font-semibold">
-                                                                                        R$ {dayData.valor.toFixed(0)}
-                                                                                        {bateuMeta && ' ✓'}
-                                                                                    </span>
-                                                                                ) : (
-                                                                                    <span className="text-muted-foreground">-</span>
+                                                                <Fragment key={sale.id}>
+                                                                    <TableRow>
+                                                                        <TableCell className="text-xs sm:text-sm">
+                                                                            <div className="flex items-center gap-1">
+                                                                                {isErpSale && (
+                                                                                    <Button
+                                                                                        variant="ghost"
+                                                                                        size="sm"
+                                                                                        className="h-6 w-6 p-0 -ml-1"
+                                                                                        onClick={() => toggleSaleExpansion(sale.id, sale.tiny_order_id)}
+                                                                                    >
+                                                                                        {isExpanded ? (
+                                                                                            <ChevronDown className="h-3 w-3" />
+                                                                                        ) : (
+                                                                                            <ChevronRight className="h-3 w-3" />
+                                                                                        )}
+                                                                                    </Button>
                                                                                 )}
+                                                                                <span>
+                                                                                    {salesDateFilter === format(new Date(), 'yyyy-MM-dd')
+                                                                                        ? format(new Date(sale.data_venda), 'HH:mm')
+                                                                                        : format(new Date(sale.data_venda), 'dd/MM/yyyy HH:mm')
+                                                                                    }
+                                                                                </span>
+                                                                            </div>
+                                                                        </TableCell>
+                                                                        <TableCell className="text-xs sm:text-sm font-medium break-words">
+                                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                                <span>{sale.colaboradora?.name || 'Colaboradora não encontrada'}</span>
+                                                                                {isErpSale && (
+                                                                                    <Badge variant="outline" className="text-xs flex items-center gap-1">
+                                                                                        <Database className="h-3 w-3" />
+                                                                                        via ERP
+                                                                                    </Badge>
+                                                                                )}
+                                                                            </div>
+                                                                        </TableCell>
+                                                                        <TableCell className="text-xs sm:text-sm font-medium">R$ {sale.valor.toFixed(2)}</TableCell>
+                                                                        <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{sale.qtd_pecas}</TableCell>
+                                                                        <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {sale.valor.toFixed(2)}</TableCell>
+                                                                        <TableCell>
+                                                                            <div className="flex gap-1 sm:gap-2">
+                                                                                <Button variant="ghost" size="sm" onClick={() => handleEdit(sale)} className="h-8 w-8 p-0">
+                                                                                    <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
+                                                                                </Button>
+                                                                                <Button variant="ghost" size="sm" className="text-status-behind h-8 w-8 p-0" onClick={() => handleDelete(sale.id)}>
+                                                                                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                                                                                </Button>
+                                                                            </div>
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                    {isErpSale && isExpanded && (
+                                                                        <TableRow key={`${sale.id}-details`}>
+                                                                            <TableCell colSpan={6} className="bg-muted/50">
+                                                                                <div className="space-y-2 py-2">
+                                                                                    {details ? (
+                                                                                        <>
+                                                                                            {details.cliente_nome && (
+                                                                                                <div className="text-xs">
+                                                                                                    <span className="font-medium">Cliente:</span> {details.cliente_nome}
+                                                                                                </div>
+                                                                                            )}
+                                                                                            {details.forma_pagamento && (
+                                                                                                <div className="text-xs">
+                                                                                                    <span className="font-medium">Forma de Pagamento:</span> {details.forma_pagamento}
+                                                                                                </div>
+                                                                                            )}
+                                                                                            {details.itens && Array.isArray(details.itens) && details.itens.length > 0 && (
+                                                                                                <div className="text-xs">
+                                                                                                    <span className="font-medium">Peças:</span>
+                                                                                                    <ul className="list-disc list-inside mt-1 space-y-1">
+                                                                                                        {details.itens.map((item: any, idx: number) => (
+                                                                                                            <li key={idx}>
+                                                                                                                {item.quantidade || 1}x {item.descricao || item.nome || item.produto?.descricao || 'Produto sem descrição'}
+                                                                                                            </li>
+                                                                                                        ))}
+                                                                                                    </ul>
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </>
+                                                                                    ) : (
+                                                                                        <div className="text-xs text-muted-foreground">Carregando detalhes...</div>
+                                                                                    )}
+                                                                                </div>
                                                                             </TableCell>
-                                                                        );
-                                                                    })}
-                                                                    <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-background z-10 min-w-[120px] text-right">
-                                                                        R$ {data.totalMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            );
-                                                        })}
-                                                    {/* Linha de Total da Loja */}
-                                                    <TableRow className="bg-primary/5 font-bold border-t-2 border-primary">
-                                                        <TableCell className="text-xs sm:text-sm font-bold sticky left-0 bg-primary/5 z-10 min-w-[140px]">
-                                                            TOTAL DA LOJA
-                                                        </TableCell>
-                                                        {(() => {
-                                                            const hoje = new Date();
-                                                            const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
-                                                            const todayStr = format(hoje, 'yyyy-MM-dd');
-                                                            const days: string[] = [];
-                                                            for (let day = 1; day <= daysInMonth; day++) {
-                                                                const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
-                                                                if (dayStr <= todayStr) {
-                                                                    days.push(dayStr);
-                                                                }
-                                                            }
-
-                                                            // Calcular total por dia
-                                                            // IMPORTANTE: Para total geral, usar monthlyRealizado que já inclui vendas de colaboradoras desativadas
-                                                            const totalPorDia: Record<string, number> = {};
-
-                                                            days.forEach(dayStr => {
-                                                                const totalDia = monthlyDataByDay.reduce((sum, data) => {
-                                                                    const dayData = data.dailySales[dayStr] || { valor: 0 };
-                                                                    return sum + dayData.valor;
-                                                                }, 0);
-                                                                totalPorDia[dayStr] = totalDia;
-                                                            });
-
-                                                            return days.map(dayStr => (
-                                                                <TableCell
-                                                                    key={dayStr}
-                                                                    className="text-xs text-center font-bold text-primary"
-                                                                >
-                                                                    {totalPorDia[dayStr] > 0 ? (
-                                                                        `R$ ${totalPorDia[dayStr].toFixed(0)}`
-                                                                    ) : (
-                                                                        <span className="text-muted-foreground">-</span>
+                                                                        </TableRow>
                                                                     )}
-                                                                </TableCell>
-                                                            ));
-                                                        })()}
-                                                        <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-primary/5 z-10 min-w-[120px] text-right">
-                                                            {/* Usar monthlyRealizado que já inclui vendas de colaboradoras desativadas até a data de desativação */}
-                                                            R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                        </TableCell>
-                                                    </TableRow>
+                                                                </Fragment>
+                                                            );
+                                                        })
+                                                    )}
                                                 </TableBody>
                                             </Table>
                                         </div>
-                                    ) : (
-                                        <div className="text-center py-6">
-                                            <p className="text-sm text-muted-foreground">
-                                                Carregando dados mensais...
-                                            </p>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        )}
-                    </TabsContent>
+                                    </CardContent>
+                                </Card>
 
-                    <TabsContent value="cashback" className="space-y-4 sm:space-y-6">
-                        <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-                            <CashbackLojaView storeId={storeId} />
-                        </Suspense>
-                    </TabsContent>
-                    <TabsContent value="crm" className="space-y-4 sm:space-y-6">
-                        <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-                            <CRMLojaView storeId={storeId} />
-                        </Suspense>
-                    </TabsContent>
-                </Tabs>
-            ) : (
-                // Se cashback não estiver ativo, mostrar apenas o conteúdo de metas (sem abas)
-                // Renderizar o mesmo conteúdo que está no TabsContent acima
-                <div className="space-y-4 sm:space-y-6">
-                    {/* Conteúdo de Metas - Mesmo que está no TabsContent acima */}
-                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button onClick={resetForm} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
-                                <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                                Nova Venda
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>{editingSaleId ? 'Editar' : 'Lançar Nova'} Venda</DialogTitle>
-                            </DialogHeader>
-                            <form onSubmit={editingSaleId ? handleUpdate : handleSubmit} className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="colaboradora">Vendedora *</Label>
-                                    <Select
-                                        value={formData.colaboradora_id}
-                                        onValueChange={(value) => setFormData({ ...formData, colaboradora_id: value })}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Selecione a vendedora" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {colaboradoras.map((colab) => (
-                                                <SelectItem key={colab.id} value={colab.id}>
-                                                    {colab.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                {/* Off‑Day Dialog */}
-                                <Dialog open={offDayDialog} onOpenChange={(open) => setOffDayDialog(open)}>
-                                    <DialogContent>
-                                        <DialogHeader>
-                                            <DialogTitle>Marcar Folga</DialogTitle>
-                                        </DialogHeader>
-                                        <div className="space-y-4 pt-4">
-                                            <Label htmlFor="offDayDate">Data da Folga</Label>
-                                            <Input
-                                                id="offDayDate"
-                                                type="date"
-                                                value={offDayDate}
-                                                onChange={(e) => setOffDayDate(e.target.value)}
-                                            />
-                                            <div className="flex justify-end gap-2 pt-4">
-                                                <Button variant="outline" onClick={() => setOffDayDialog(false)}>
-                                                    Cancelar
-                                                </Button>
-                                                <Button onClick={handleMarkOffDay}>Confirmar</Button>
-                                            </div>
-                                        </div>
-                                    </DialogContent>
-                                </Dialog>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="valor">Valor Total (R$) *</Label>
-                                        <Input
-                                            id="valor"
-                                            type="number"
-                                            step="0.01"
-                                            value={formData.valor}
-                                            onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
-                                            placeholder="0,00"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="qtd_pecas">Qtd Peças *</Label>
-                                        <Input
-                                            id="qtd_pecas"
-                                            type="number"
-                                            value={formData.qtd_pecas}
-                                            onChange={(e) => setFormData({ ...formData, qtd_pecas: e.target.value })}
-                                            placeholder="0"
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="p-3 bg-muted rounded-lg">
-                                    <p className="text-sm font-medium">
-                                        💡 Preço Médio por Peça: <span className="text-primary">R$ {precoMedioPeca}</span>
-                                    </p>
-                                </div>
-
-                                {/* Formas de Pagamento */}
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <Label>Formas de Pagamento *</Label>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                                setFormasPagamento([...formasPagamento, {
-                                                    tipo: 'DINHEIRO',
-                                                    valor: 0,
-                                                }]);
-                                            }}
-                                            className="h-7 text-xs"
-                                        >
-                                            <Plus className="h-3 w-3 mr-1" />
-                                            Adicionar
-                                        </Button>
-                                    </div>
-                                    <div className="space-y-2">
-                                        {formasPagamento.map((forma, index) => {
-                                            const totalFormas = formasPagamento.reduce((sum, f) => sum + (f.valor || 0), 0);
-                                            const valorTotal = parseFloat(formData.valor) || 0;
-                                            const diferenca = valorTotal - totalFormas;
-
-                                            return (
-                                                <div key={index} className="flex gap-2 items-end p-3 border rounded-lg">
-                                                    <div className="flex-1 space-y-2">
-                                                        <div>
-                                                            <Label className="text-xs">Tipo</Label>
-                                                            <Select
-                                                                value={forma.tipo}
-                                                                onValueChange={(value: 'CREDITO' | 'DEBITO' | 'DINHEIRO' | 'PIX' | 'BOLETO') => {
-                                                                    const novas = [...formasPagamento];
-                                                                    novas[index].tipo = value;
-                                                                    novas[index].parcelas = value === 'CREDITO' ? (novas[index].parcelas || 1) : undefined;
-                                                                    setFormasPagamento(novas);
-                                                                }}
-                                                            >
-                                                                <SelectTrigger className="h-9">
-                                                                    <SelectValue />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    <SelectItem value="CREDITO">Crédito</SelectItem>
-                                                                    <SelectItem value="DEBITO">Débito</SelectItem>
-                                                                    <SelectItem value="DINHEIRO">Dinheiro</SelectItem>
-                                                                    <SelectItem value="PIX">Pix</SelectItem>
-                                                                    <SelectItem value="BOLETO">Boleto</SelectItem>
-                                                                </SelectContent>
-                                                            </Select>
-                                                        </div>
-                                                        {forma.tipo === 'CREDITO' && (
-                                                            <div>
-                                                                <Label className="text-xs">Parcelas (máx. 6x)</Label>
-                                                                <Input
-                                                                    type="number"
-                                                                    min="1"
-                                                                    max="6"
-                                                                    value={forma.parcelas || 1}
-                                                                    onChange={(e) => {
-                                                                        const parcelas = Math.min(6, Math.max(1, parseInt(e.target.value) || 1));
-                                                                        const novas = [...formasPagamento];
-                                                                        novas[index].parcelas = parcelas;
-                                                                        setFormasPagamento(novas);
-                                                                    }}
-                                                                    className="h-9"
-                                                                />
-                                                            </div>
-                                                        )}
-                                                        <div>
-                                                            <Label className="text-xs">Valor (R$)</Label>
-                                                            <Input
-                                                                type="number"
-                                                                step="0.01"
-                                                                value={forma.valor || ''}
-                                                                onChange={(e) => {
-                                                                    const novas = [...formasPagamento];
-                                                                    novas[index].valor = parseFloat(e.target.value) || 0;
-                                                                    setFormasPagamento(novas);
-                                                                }}
-                                                                placeholder="0,00"
-                                                                className="h-9"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    {formasPagamento.length > 1 && (
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => {
-                                                                setFormasPagamento(formasPagamento.filter((_, i) => i !== index));
-                                                            }}
-                                                            className="h-9 w-9 p-0 text-status-behind"
-                                                        >
-                                                            <X className="h-4 w-4" />
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                    {(() => {
-                                        const totalFormas = formasPagamento.reduce((sum, f) => sum + (f.valor || 0), 0);
-                                        const valorTotal = parseFloat(formData.valor) || 0;
-                                        const diferenca = valorTotal - totalFormas;
-
-                                        if (valorTotal > 0 && Math.abs(diferenca) > 0.01) {
-                                            return (
-                                                <div className={`p-2 rounded text-sm flex items-center gap-2 ${diferenca > 0 ? 'bg-status-ontrack/10 text-status-ontrack border border-status-ontrack/30' : 'bg-status-behind/10 text-status-behind border border-status-behind/30'}`}>
-                                                    <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                                                    <span>
-                                                        {diferenca > 0
-                                                            ? `Faltam R$ ${diferenca.toFixed(2)} para completar o valor total`
-                                                            : `Valor excede o total em R$ ${Math.abs(diferenca).toFixed(2)}`
-                                                        }
-                                                    </span>
-                                                </div>
-                                            );
-                                        }
-                                        return null;
-                                    })()}
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="data_venda">Data/Hora</Label>
-                                    <Input
-                                        id="data_venda"
-                                        type="datetime-local"
-                                        value={formData.data_venda}
-                                        onChange={(e) => setFormData({ ...formData, data_venda: e.target.value })}
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="observacoes">Observações</Label>
-                                    <Textarea
-                                        id="observacoes"
-                                        value={formData.observacoes}
-                                        onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && e.ctrlKey) {
-                                                return;
-                                            }
-                                            if (e.key === 'Enter') {
-                                                e.stopPropagation();
-                                            }
-                                        }}
-                                        placeholder="Observações opcionais (pressione Enter para nova linha, Ctrl+Enter para enviar)"
-                                        rows={4}
-                                        className="resize-y"
-                                    />
-                                </div>
-
-                                <div className="flex gap-2">
-                                    <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="flex-1" disabled={submitting}>
-                                        Cancelar
-                                    </Button>
-                                    <LoadingButton 
-                                        type="submit" 
-                                        className="flex-1"
-                                        isLoading={submitting}
-                                        isSuccess={submitSuccess}
-                                        loadingText="Enviando..."
-                                        successText="Venda Lancada!"
-                                    >
-                                        Lancar Venda
-                                    </LoadingButton>
-                                </div>
-                            </form>
-                        </DialogContent>
-                    </Dialog>
-                    <Button
-                        variant="outline"
-                        onClick={handleSignOut}
-                        className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
-                        size="sm"
-                    >
-                        <LogOut className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                        Sair
-                    </Button>
-
-                    {/* KPI Cards - Metas e Métricas */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto mb-6 sm:mb-8">
-                        {/* Meta Mensal */}
-                        <Card className="flex flex-col h-full">
-                            <CardHeader className="pb-4 p-5 sm:p-8 text-center border-b">
-                                <CardTitle className="text-base sm:text-lg font-semibold text-muted-foreground">Meta Mensal</CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
-                                {goals ? (
-                                    <div className="space-y-4 w-full">
-                                        <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {goals.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                        <p className="text-sm sm:text-base text-muted-foreground">
-                                            Realizado: R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                        </p>
-                                        <div className="space-y-3">
-                                            <div className="flex items-center gap-4 justify-between">
-                                                <Progress value={Math.min(monthlyProgress, 100)} className="h-4 flex-1" />
-                                                <span className="text-base font-semibold text-primary whitespace-nowrap min-w-[50px] text-right">
-                                                    {monthlyProgress.toFixed(0)}%
-                                                </span>
-                                            </div>
-                                            {goals.super_meta_valor && (
-                                                <p className="text-sm sm:text-base text-muted-foreground flex items-center justify-center gap-1.5">
-                                                    <Trophy className="h-4 w-4" />
-                                                    <span>Super Meta: R$ {goals.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        <p className="text-2xl sm:text-3xl font-bold text-muted-foreground">N/A</p>
-                                        <p className="text-sm sm:text-base text-status-behind">
-                                            Meta não encontrada
-                                        </p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        {/* Meta Diária */}
-                        <Card className="flex flex-col h-full">
-                            <CardHeader className="pb-4 p-5 sm:p-8 text-center border-b">
-                                <CardTitle className="text-base sm:text-lg font-semibold text-muted-foreground">Meta Diária (Hoje)</CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
-                                {goals ? (
-                                    <div className="space-y-4 w-full">
-                                        <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {dailyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                        <div className="flex items-center gap-4 justify-between">
-                                            <Progress value={Math.min(dailyProgress, 100)} className="h-4 flex-1" />
-                                            <span className="text-base font-semibold text-primary whitespace-nowrap min-w-[50px] text-right">
-                                                {dailyProgress.toFixed(0)}%
-                                            </span>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        <p className="text-2xl sm:text-3xl font-bold text-muted-foreground">N/A</p>
-                                        <p className="text-sm sm:text-base text-muted-foreground">
-                                            Aguardando meta mensal
-                                        </p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        {/* Faturamento Hoje */}
-                        <Card className="flex flex-col h-full">
-                            <CardHeader className="pb-4 p-5 sm:p-8 text-center border-b">
-                                <CardTitle className="text-base sm:text-lg font-semibold text-muted-foreground">Faturamento Hoje</CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
-                                <div className="space-y-3 w-full">
-                                    <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {sales.reduce((sum, s) => sum + s.valor, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                    <p className="text-sm sm:text-base text-muted-foreground">{sales.length} {sales.length === 1 ? 'venda' : 'vendas'}</p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Cards Adicionais - Ticket Médio, PA, Preço Médio */}
-                    {metrics && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-5xl mx-auto">
-                            {/* Ticket Médio */}
-                            <Card className="flex flex-col h-full">
-                                <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
-                                    <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Ticket Médio</CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
-                                    <div className="space-y-3 w-full">
-                                        <p className="text-xl sm:text-3xl font-bold text-primary">R$ {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.valor, 0) / sales.length).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</p>
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-3 justify-between">
-                                                <Progress
-                                                    value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.length) / metrics.meta_ticket_medio) * 100, 100) : 0}
-                                                    className="h-3 flex-1"
-                                                />
-                                            </div>
-                                            <p className="text-xs sm:text-sm text-muted-foreground">
-                                                Meta: R$ {metrics.meta_ticket_medio?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* PA (Peças por Atendimento) */}
-                            <Card className="flex flex-col h-full">
-                                <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
-                                    <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">PA (Peças/Venda)</CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
-                                    <div className="space-y-3 w-full">
-                                        <p className="text-xl sm:text-3xl font-bold text-primary">{sales.length > 0 ? (sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length).toFixed(1) : '0,0'}</p>
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-3 justify-between">
-                                                <Progress
-                                                    value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length) / metrics.meta_pa) * 100, 100) : 0}
-                                                    className="h-3 flex-1"
-                                                />
-                                            </div>
-                                            <p className="text-xs sm:text-sm text-muted-foreground">
-                                                Meta: {metrics.meta_pa?.toFixed(1)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Preço Médio por Peça */}
-                            <Card className="flex flex-col h-full">
-                                <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
-                                    <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Preço Médio por Peça</CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
-                                    <div className="space-y-3 w-full">
-                                        <p className="text-xl sm:text-3xl font-bold text-primary">
-                                            R$ {sales.length > 0 ?
-                                                (sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) :
-                                                '0,00'}
-                                        </p>
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-3 justify-between">
-                                                <Progress
-                                                    value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)) / metrics.meta_preco_medio_peca) * 100, 100) : 0}
-                                                    className="h-3 flex-1"
-                                                />
-                                            </div>
-                                            <p className="text-xs sm:text-sm text-muted-foreground">
-                                                Meta: R$ {metrics.meta_preco_medio_peca?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    )}
-
-                    {/* Planejamento do Dia - Cards por Vendedora */}
-                    {colaboradorasPerformance.length > 0 && (
-                        <div className="w-full max-w-6xl mx-auto">
-                            <h2 className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8 text-center">Planejamento do Dia</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 justify-items-center">
-                                {colaboradorasPerformance.map((perf) => (
-                                    <Card key={perf.id} className="flex flex-col w-full max-w-[380px] h-[280px]">
-                                        <CardHeader className="pb-4 p-5 sm:p-6 text-center border-b">
-                                            <CardTitle className="text-lg font-semibold leading-snug min-h-[3.5rem]">{perf.name}</CardTitle>
+                                {/* Ranking Mensal com Pódio (Ouro e Prata) */}
+                                {rankingMonthly.length > 0 && (
+                                    <Card>
+                                        <CardHeader className="pb-2 p-3 sm:p-6">
+                                            <CardTitle className="flex items-center gap-2 text-sm sm:text-lg">
+                                                <Award className="h-4 w-4 sm:h-5 sm:w-5" />
+                                                <span>Podio Mensal</span>
+                                            </CardTitle>
+                                            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Ranking acumulado do mes - Top 2</p>
                                         </CardHeader>
-                                        <CardContent className="p-5 sm:p-6 pt-5 sm:pt-6 flex-1 flex flex-col justify-center space-y-3">
-                                            <div className="space-y-2.5">
-                                                <div className="flex items-center justify-between text-base">
-                                                    <span className="text-muted-foreground">Meta do Dia</span>
-                                                    <span className="font-semibold">R$ {perf.metaDiaria > 0 ? perf.metaDiaria.toFixed(2) : '0.00'}</span>
-                                                </div>
-                                                <div className="flex items-center justify-between text-base">
-                                                    <span className="text-muted-foreground">Vendido:</span>
-                                                    <span className="font-bold text-primary">R$ {perf.vendido.toFixed(2)}</span>
-                                                </div>
-                                                {perf.metaDiaria > 0 && (
-                                                    <div className="flex items-center justify-between text-base">
-                                                        <span className="text-muted-foreground">Falta:</span>
-                                                        <span className={`font-semibold ${perf.vendido >= perf.metaDiaria ? 'text-status-ahead' : 'text-status-ontrack'}`}>
-                                                            R$ {Math.max(0, perf.metaDiaria - perf.vendido).toFixed(2)}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                <div className="space-y-1.5 pt-2">
-                                                    <div className="flex items-center gap-3">
-                                                        <Progress
-                                                            value={Math.min(perf.percentual, 100)}
-                                                            className="h-3 flex-1"
-                                                        />
-                                                        <span className="text-base font-semibold whitespace-nowrap min-w-[50px] text-right">
-                                                            {perf.percentual.toFixed(0)}%
-                                                        </span>
-                                                    </div>
-                                                </div>
+                                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                                            <div className="space-y-3 sm:space-y-4">
+                                                {rankingMonthly.slice(0, 2).map((item, index) => {
+                                                    const perf = colaboradorasPerformance.find(p => p.id === item.colaboradora_id);
+                                                    const isOuro = index === 0;
+                                                    const isPrata = index === 1;
+
+                                                    return (
+                                                        <div
+                                                            key={item.colaboradora_id}
+                                                            className={`
+                                            relative flex items-center justify-between p-3 sm:p-4 rounded-md border
+                                            ${isOuro
+                                                                    ? 'bg-muted/50 border-foreground/20'
+                                                                    : isPrata
+                                                                        ? 'bg-muted/30 border-border'
+                                                                        : 'bg-background/50 border-border/50'
+                                                                }
+                                        `}
+                                                        >
+                                                            <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                                                                <div className={`
+                                                w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0
+                                                ${isOuro
+                                                                        ? 'bg-foreground text-background'
+                                                                        : isPrata
+                                                                            ? 'bg-muted-foreground/30 text-foreground'
+                                                                            : 'bg-muted text-muted-foreground'
+                                                                    }
+                                            `}>
+                                                                    {index + 1}
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <span className="font-semibold text-sm sm:text-base break-words block">{item.name}</span>
+                                                                    {perf && (
+                                                                        <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 space-y-0.5">
+                                                                            <div className="flex gap-2">
+                                                                                <span>Ticket: R$ {perf.ticketMedio.toFixed(2)}</span>
+                                                                                <span>PA: {(perf.qtdPecas / Math.max(perf.qtdVendasMes, 1)).toFixed(1)}</span>
+                                                                            </div>
+                                                                            <div>Vendas: {item.qtdVendas}</div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right flex-shrink-0 ml-2">
+                                                                <p className="font-bold text-lg sm:text-xl">
+                                                                    R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                </p>
+                                                                {perf && perf.percentualMensal > 0 && (
+                                                                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                                                                        {perf.percentualMensal.toFixed(0)}% da meta
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </CardContent>
                                     </Card>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                                )}
 
-                    {/* Meta Semanal Gamificada */}
-                    {storeId && (
-                        <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-                            <WeeklyGoalProgress storeId={storeId} showDetails={true} />
-                        </Suspense>
-                    )}
-
-                    {/* Bônus Semanal Individual por Colaboradora */}
-                    {storeId && colaboradoras.length > 0 && (
-                        <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-                            <WeeklyBonusProgress storeId={storeId} colaboradoras={colaboradoras.map(c => ({ id: c.id, name: c.name }))} />
-                        </Suspense>
-                    )}
-
-                    {/* Galeria de Troféus */}
-                    {storeId && (
-                        <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-                            <TrophiesGallery storeId={storeId} limit={50} />
-                        </Suspense>
-                    )}
-
-                    {/* Tabela de Performance do Dia */}
-                    {colaboradorasPerformance.length > 0 ? (
-                        <Card>
-                            <CardHeader className="p-3 sm:p-6">
-                                <CardTitle className="text-base sm:text-lg">Performance do Dia</CardTitle>
-                                <p className="text-xs sm:text-sm text-muted-foreground mt-1">Desempenho diário e mensal de cada colaboradora</p>
-                            </CardHeader>
-                            <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                                <div className="overflow-x-auto">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead className="text-xs sm:text-sm">Vendedora</TableHead>
-                                                <TableHead className="text-xs sm:text-sm">Vendido Hoje</TableHead>
-                                                <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Meta Dia</TableHead>
-                                                <TableHead className="text-xs sm:text-sm">% Dia</TableHead>
-                                                <TableHead className="text-xs sm:text-sm hidden md:table-cell">Ticket Médio</TableHead>
-                                                <TableHead className="text-xs sm:text-sm hidden lg:table-cell">PA</TableHead>
-                                                <TableHead className="text-xs sm:text-sm">Vendas</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {colaboradorasPerformance.map((perf) => (
-                                                <TableRow key={perf.id}>
-                                                    <TableCell className="font-medium text-xs sm:text-sm break-words">{perf.name}</TableCell>
-                                                    <TableCell className="text-xs sm:text-sm font-medium">
-                                                        R$ {perf.vendido.toFixed(2)}
-                                                        {perf.vendidoMes > 0 && (
-                                                            <div className="text-[10px] text-muted-foreground mt-0.5">
-                                                                Mês: R$ {perf.vendidoMes.toFixed(2)}
-                                                            </div>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-xs sm:text-sm hidden sm:table-cell">
-                                                        R$ {perf.metaDiaria > 0 ? perf.metaDiaria.toFixed(2) : '0.00'}
-                                                        {perf.meta > 0 && (
-                                                            <div className="text-[10px] text-muted-foreground mt-0.5">
-                                                                Mensal: R$ {perf.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                            </div>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-xs sm:text-sm">
-                                                        {perf.meta > 0 ? (
-                                                            <>
-                                                                <span className={
-                                                                    perf.percentual >= 120 ? 'text-status-ahead font-bold' :
-                                                                        perf.percentual >= 100 ? 'text-status-ahead font-bold' :
-                                                                            perf.percentual >= 90 ? 'text-status-ontrack' :
-                                                                                'text-status-behind'
-                                                                }>
-                                                                    {perf.percentual.toFixed(0)}%
-                                                                </span>
-                                                                <div className="text-[10px] text-muted-foreground mt-0.5">
-                                                                    Mês: {perf.percentualMensal.toFixed(0)}%
-                                                                </div>
-                                                                {perf.faltaMensal > 0 && (
-                                                                    <div className="text-[10px] text-status-ontrack mt-0.5">
-                                                                        Falta: R$ {perf.faltaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                                    </div>
-                                                                )}
-                                                            </>
-                                                        ) : (
-                                                            <span className="text-muted-foreground">Sem meta</span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {perf.ticketMedio.toFixed(2)}</TableCell>
-                                                    <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
-                                                        {perf.qtdVendas > 0 ? (perf.qtdPecas / perf.qtdVendas).toFixed(1) : '0.0'}
-                                                    </TableCell>
-                                                    <TableCell className="text-xs sm:text-sm">
-                                                        {perf.qtdVendas}
-                                                        {perf.qtdVendasMes > 0 && (
-                                                            <div className="text-[10px] text-muted-foreground mt-0.5">
-                                                                Mês: {perf.qtdVendasMes}
-                                                            </div>
-                                                        )}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ) : colaboradoras.length > 0 && (
-                        <Card>
-                            <CardContent className="p-6 text-center">
-                                <p className="text-sm text-muted-foreground">
-                                    Nenhuma meta individual encontrada para as colaboradoras desta loja no mês atual.
-                                </p>
-                            </CardContent>
-                        </Card>
-                    )}
-
-                    {/* Vendas */}
-                    <Card>
-                        <CardHeader className="p-3 sm:p-6">
-                            <div className="flex flex-col gap-3">
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="text-base sm:text-lg">
-                                        Vendas
-                                    </CardTitle>
-                                </div>
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
-                                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                                        <Label htmlFor="sales-date-filter" className="text-xs sm:text-sm whitespace-nowrap">
-                                            Filtrar por data:
-                                        </Label>
-                                        <Input
-                                            id="sales-date-filter"
-                                            type="date"
-                                            value={salesDateFilter}
-                                            onChange={(e) => setSalesDateFilter(e.target.value)}
-                                            className="flex-1 sm:flex-initial sm:w-auto text-xs sm:text-sm"
-                                            max={format(new Date(), 'yyyy-MM-dd')}
-                                        />
-                                    </div>
-                                    {salesDateFilter !== format(new Date(), 'yyyy-MM-dd') && (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setSalesDateFilter(format(new Date(), 'yyyy-MM-dd'))}
-                                            className="text-xs whitespace-nowrap w-full sm:w-auto"
-                                        >
-                                            Voltar para Hoje
-                                        </Button>
-                                    )}
-                                    {salesDateFilter === format(new Date(), 'yyyy-MM-dd') && (
-                                        <span className="text-xs text-muted-foreground">
-                                            Mostrando vendas de hoje
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                            <div className="overflow-x-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="text-xs sm:text-sm">Horário</TableHead>
-                                            <TableHead className="text-xs sm:text-sm">Vendedora</TableHead>
-                                            <TableHead className="text-xs sm:text-sm">Valor</TableHead>
-                                            <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Peças</TableHead>
-                                            <TableHead className="text-xs sm:text-sm hidden md:table-cell">Valor/Venda</TableHead>
-                                            <TableHead className="text-xs sm:text-sm">Ações</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {sales.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={6} className="text-center text-muted-foreground text-xs sm:text-sm py-6">
-                                                    {salesDateFilter === format(new Date(), 'yyyy-MM-dd')
-                                                        ? 'Nenhuma venda lançada hoje'
-                                                        : `Nenhuma venda encontrada para ${format(new Date(salesDateFilter), 'dd/MM/yyyy')}`
-                                                    }
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            sales.map((sale) => {
-                                                const isExpanded = expandedSales.has(sale.id);
-                                                const details = erpSaleDetails[sale.id];
-                                                const isErpSale = !!sale.tiny_order_id;
-
-                                                return (
-                                                    <Fragment key={sale.id}>
+                                {/* Histórico 7 Dias */}
+                                {history7Days.length > 0 && (
+                                    <Card>
+                                        <CardHeader className="p-3 sm:p-6">
+                                            <CardTitle className="text-base sm:text-lg">Histórico de Vendas (Últimos 7 Dias)</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                                            <div className="overflow-x-auto">
+                                                <Table>
+                                                    <TableHeader>
                                                         <TableRow>
-                                                            <TableCell className="text-xs sm:text-sm">
-                                                                <div className="flex items-center gap-1">
-                                                                    {isErpSale && (
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            className="h-6 w-6 p-0 -ml-1"
-                                                                            onClick={() => toggleSaleExpansion(sale.id, sale.tiny_order_id)}
-                                                                        >
-                                                                            {isExpanded ? (
-                                                                                <ChevronDown className="h-3 w-3" />
-                                                                            ) : (
-                                                                                <ChevronRight className="h-3 w-3" />
-                                                                            )}
-                                                                        </Button>
-                                                                    )}
-                                                                    <span>
-                                                                        {salesDateFilter === format(new Date(), 'yyyy-MM-dd')
-                                                                            ? format(new Date(sale.data_venda), 'HH:mm')
-                                                                            : format(new Date(sale.data_venda), 'dd/MM/yyyy HH:mm')
-                                                                        }
-                                                                    </span>
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell className="text-xs sm:text-sm font-medium break-words">
-                                                                <div className="flex items-center gap-2 flex-wrap">
-                                                                    <span>{sale.colaboradora?.name || 'Colaboradora não encontrada'}</span>
-                                                                    {isErpSale && (
-                                                                        <Badge variant="outline" className="text-xs flex items-center gap-1">
-                                                                            <Database className="h-3 w-3" />
-                                                                            via ERP
-                                                                        </Badge>
-                                                                    )}
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell className="text-xs sm:text-sm font-medium">R$ {sale.valor.toFixed(2)}</TableCell>
-                                                            <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{sale.qtd_pecas}</TableCell>
-                                                            <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {sale.valor.toFixed(2)}</TableCell>
-                                                            <TableCell>
-                                                                <div className="flex gap-1 sm:gap-2">
-                                                                    <Button variant="ghost" size="sm" onClick={() => handleEdit(sale)} className="h-8 w-8 p-0">
-                                                                        <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
-                                                                    </Button>
-                                                                    <Button variant="ghost" size="sm" className="text-status-behind h-8 w-8 p-0" onClick={() => handleDelete(sale.id)}>
-                                                                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                                                                    </Button>
-                                                                </div>
-                                                            </TableCell>
+                                                            <TableHead className="text-xs sm:text-sm">Data</TableHead>
+                                                            <TableHead className="text-xs sm:text-sm">Vendas</TableHead>
+                                                            <TableHead className="text-xs sm:text-sm">Peças</TableHead>
+                                                            <TableHead className="text-xs sm:text-sm hidden md:table-cell">PA</TableHead>
+                                                            <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Ticket Médio</TableHead>
+                                                            <TableHead className="text-xs sm:text-sm">Total</TableHead>
                                                         </TableRow>
-                                                        {isErpSale && isExpanded && (
-                                                            <TableRow key={`${sale.id}-details`}>
-                                                                <TableCell colSpan={6} className="bg-muted/50">
-                                                                    <div className="space-y-2 py-2">
-                                                                        {details ? (
-                                                                            <>
-                                                                                {details.cliente_nome && (
-                                                                                    <div className="text-xs">
-                                                                                        <span className="font-medium">Cliente:</span> {details.cliente_nome}
-                                                                                    </div>
-                                                                                )}
-                                                                                {details.forma_pagamento && (
-                                                                                    <div className="text-xs">
-                                                                                        <span className="font-medium">Forma de Pagamento:</span> {details.forma_pagamento}
-                                                                                    </div>
-                                                                                )}
-                                                                                {details.itens && Array.isArray(details.itens) && details.itens.length > 0 && (
-                                                                                    <div className="text-xs">
-                                                                                        <span className="font-medium">Peças:</span>
-                                                                                        <ul className="list-disc list-inside mt-1 space-y-1">
-                                                                                            {details.itens.map((item: any, idx: number) => (
-                                                                                                <li key={idx}>
-                                                                                                    {item.quantidade || 1}x {item.descricao || item.nome || item.produto?.descricao || 'Produto sem descrição'}
-                                                                                                </li>
-                                                                                            ))}
-                                                                                        </ul>
-                                                                                    </div>
-                                                                                )}
-                                                                            </>
-                                                                        ) : (
-                                                                            <div className="text-xs text-muted-foreground">Carregando detalhes...</div>
-                                                                        )}
-                                                                    </div>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {history7Days.map((day) => (
+                                                            <TableRow key={day.day}>
+                                                                <TableCell className="text-xs sm:text-sm">{format(new Date(day.day + 'T00:00:00'), 'dd/MM/yyyy')}</TableCell>
+                                                                <TableCell className="text-xs sm:text-sm">{day.qtdVendas}</TableCell>
+                                                                <TableCell className="text-xs sm:text-sm">{day.qtdPecas}</TableCell>
+                                                                <TableCell className="text-xs sm:text-sm hidden md:table-cell">
+                                                                    {day.qtdVendas > 0 ? (day.qtdPecas / day.qtdVendas).toFixed(1) : '0.0'}
                                                                 </TableCell>
+                                                                <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
+                                                                    R$ {day.ticketMedio ? day.ticketMedio.toFixed(2) : (day.qtdVendas > 0 ? (day.total / day.qtdVendas).toFixed(2) : '0.00')}
+                                                                </TableCell>
+                                                                <TableCell className="text-xs sm:text-sm font-medium">R$ {day.total.toFixed(2)}</TableCell>
                                                             </TableRow>
-                                                        )}
-                                                    </Fragment>
-                                                );
-                                            })
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Ranking Mensal com Pódio (Ouro e Prata) */}
-                    {rankingMonthly.length > 0 && (
-                        <Card>
-                            <CardHeader className="pb-2 p-3 sm:p-6">
-                                <CardTitle className="flex items-center gap-2 text-sm sm:text-lg">
-                                    <Award className="h-4 w-4 sm:h-5 sm:w-5" />
-                                    <span>Podio Mensal</span>
-                                </CardTitle>
-                                <p className="text-xs sm:text-sm text-muted-foreground mt-1">Ranking acumulado do mes - Top 2</p>
-                            </CardHeader>
-                            <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                                <div className="space-y-3 sm:space-y-4">
-                                    {rankingMonthly.slice(0, 2).map((item, index) => {
-                                        const perf = colaboradorasPerformance.find(p => p.id === item.colaboradora_id);
-                                        const isOuro = index === 0;
-                                        const isPrata = index === 1;
-
-                                        return (
-                                            <div
-                                                key={item.colaboradora_id}
-                                                className={`
-                                                relative flex items-center justify-between p-3 sm:p-4 rounded-md border
-                                                ${isOuro
-                                                        ? 'bg-muted/50 border-foreground/20'
-                                                        : isPrata
-                                                            ? 'bg-muted/30 border-border'
-                                                            : 'bg-background/50 border-border/50'
-                                                    }
-                                            `}
-                                            >
-                                                <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                                                    <div className={`
-                                                    w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0
-                                                    ${isOuro
-                                                            ? 'bg-foreground text-background'
-                                                            : isPrata
-                                                                ? 'bg-muted-foreground/30 text-foreground'
-                                                                : 'bg-muted text-muted-foreground'
-                                                        }
-                                                `}>
-                                                        {index + 1}
-                                                    </div>
-                                                    <div className="min-w-0 flex-1">
-                                                        <span className="font-semibold text-sm sm:text-base break-words block">{item.name}</span>
-                                                        {perf && (
-                                                            <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 space-y-0.5">
-                                                                <div className="flex gap-2">
-                                                                    <span>Ticket: R$ {perf.ticketMedio.toFixed(2)}</span>
-                                                                    <span>PA: {(perf.qtdPecas / Math.max(perf.qtdVendasMes, 1)).toFixed(1)}</span>
-                                                                </div>
-                                                                <div>Vendas: {item.qtdVendas}</div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <div className="text-right flex-shrink-0 ml-2">
-                                                    <p className="font-bold text-lg sm:text-xl">
-                                                        R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                    </p>
-                                                    {perf && perf.percentualMensal > 0 && (
-                                                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-                                                            {perf.percentualMensal.toFixed(0)}% da meta
-                                                        </p>
-                                                    )}
-                                                </div>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
                                             </div>
-                                        );
-                                    })}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
+                                        </CardContent>
+                                    </Card>
+                                )}
 
-                    {/* Histórico 7 Dias */}
-                    {history7Days.length > 0 && (
-                        <Card>
-                            <CardHeader className="p-3 sm:p-6">
-                                <CardTitle className="text-base sm:text-lg">Histórico de Vendas (Últimos 7 Dias)</CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                                <div className="overflow-x-auto">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead className="text-xs sm:text-sm">Data</TableHead>
-                                                <TableHead className="text-xs sm:text-sm">Vendas</TableHead>
-                                                <TableHead className="text-xs sm:text-sm">Peças</TableHead>
-                                                <TableHead className="text-xs sm:text-sm hidden md:table-cell">PA</TableHead>
-                                                <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Ticket Médio</TableHead>
-                                                <TableHead className="text-xs sm:text-sm">Total</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {history7Days.map((day) => (
-                                                <TableRow key={day.day}>
-                                                    <TableCell className="text-xs sm:text-sm">{format(new Date(day.day + 'T00:00:00'), 'dd/MM/yyyy')}</TableCell>
-                                                    <TableCell className="text-xs sm:text-sm">{day.qtdVendas}</TableCell>
-                                                    <TableCell className="text-xs sm:text-sm">{day.qtdPecas}</TableCell>
-                                                    <TableCell className="text-xs sm:text-sm hidden md:table-cell">
-                                                        {day.qtdVendas > 0 ? (day.qtdPecas / day.qtdVendas).toFixed(1) : '0.0'}
-                                                    </TableCell>
-                                                    <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
-                                                        R$ {day.ticketMedio ? day.ticketMedio.toFixed(2) : (day.qtdVendas > 0 ? (day.total / day.qtdVendas).toFixed(2) : '0.00')}
-                                                    </TableCell>
-                                                    <TableCell className="text-xs sm:text-sm font-medium">R$ {day.total.toFixed(2)}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
-
-                    {/* Tabela Mensal por Colaboradora/Dia */}
-                    {(colaboradoras.length > 0 || monthlyDataByDay.length > 0) && (
-                        <Card>
-                            <CardHeader className="p-3 sm:p-6">
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                    <div>
-                                        <CardTitle className="text-base sm:text-lg">Performance Mensal por Dia</CardTitle>
-                                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">Vendas diárias de cada colaboradora no mês atual</p>
-                                    </div>
-                                    {monthlyDataByDay.length > 0 && (
-                                        <div className="flex gap-2">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={handleExportXLS}
-                                                className="text-xs sm:text-sm"
-                                            >
-                                                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                                                Exportar XLS
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={handleExportPDF}
-                                                className="text-xs sm:text-sm"
-                                            >
-                                                <FileText className="h-4 w-4 mr-2" />
-                                                Exportar PDF
-                                            </Button>
-                                        </div>
-                                    )}
-                                </div>
-                            </CardHeader>
-                            <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                                {monthlyDataByDay.length > 0 ? (
-                                    <div className="overflow-x-auto">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead className="text-xs sm:text-sm sticky left-0 bg-background z-10 font-bold min-w-[140px]">Vendedora</TableHead>
-                                                    {(() => {
-                                                        const hoje = new Date();
-                                                        const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
-                                                        const todayStr = format(hoje, 'yyyy-MM-dd');
-                                                        const days: string[] = [];
-                                                        for (let day = 1; day <= daysInMonth; day++) {
-                                                            const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
-                                                            if (dayStr <= todayStr) {
-                                                                days.push(dayStr);
-                                                            }
-                                                        }
-                                                        return days.map(dayStr => (
-                                                            <TableHead key={dayStr} className="text-xs text-center min-w-[60px]">
-                                                                {format(new Date(dayStr + 'T00:00:00'), 'dd/MM')}
-                                                            </TableHead>
-                                                        ));
-                                                    })()}
-                                                    <TableHead className="text-xs sm:text-sm sticky right-0 bg-background z-10 font-bold text-primary min-w-[120px]">Total</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {monthlyDataByDay
-                                                    .sort((a, b) => b.totalMes - a.totalMes)
-                                                    .map((data) => {
-                                                        const hoje = new Date();
-                                                        const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
-                                                        const todayStr = format(hoje, 'yyyy-MM-dd');
-                                                        const days: string[] = [];
-                                                        for (let day = 1; day <= daysInMonth; day++) {
-                                                            const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
-                                                            if (dayStr <= todayStr) {
-                                                                days.push(dayStr);
-                                                            }
-                                                        }
-
-                                                        return (
-                                                            <TableRow key={data.colaboradoraId}>
-                                                                <TableCell className="text-xs sm:text-sm font-medium sticky left-0 bg-background z-10 min-w-[140px]">
-                                                                    {data.colaboradoraName}
-                                                                </TableCell>
-                                                                {days.map(dayStr => {
-                                                                    const dayData = data.dailySales[dayStr] || { valor: 0, metaDiaria: 0 };
-                                                                    const bateuMeta = dayData.metaDiaria > 0 && dayData.valor >= dayData.metaDiaria;
+                                {/* Tabela Mensal por Colaboradora/Dia */}
+                                {(colaboradoras.length > 0 || monthlyDataByDay.length > 0) && (
+                                    <Card>
+                                        <CardHeader className="p-3 sm:p-6">
+                                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                                <div>
+                                                    <CardTitle className="text-base sm:text-lg">Performance Mensal por Dia</CardTitle>
+                                                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">Vendas diárias de cada colaboradora no mês atual</p>
+                                                </div>
+                                                {monthlyDataByDay.length > 0 && (
+                                                    <div className="flex gap-2">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={handleExportXLS}
+                                                            className="text-xs sm:text-sm"
+                                                        >
+                                                            <FileSpreadsheet className="h-4 w-4 mr-2" />
+                                                            Exportar XLS
+                                                        </Button>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={handleExportPDF}
+                                                            className="text-xs sm:text-sm"
+                                                        >
+                                                            <FileText className="h-4 w-4 mr-2" />
+                                                            Exportar PDF
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                                            {monthlyDataByDay.length > 0 ? (
+                                                <div className="overflow-x-auto">
+                                                    <Table>
+                                                        <TableHeader>
+                                                            <TableRow>
+                                                                <TableHead className="text-xs sm:text-sm sticky left-0 bg-background z-10 font-bold min-w-[140px]">Vendedora</TableHead>
+                                                                {(() => {
+                                                                    const hoje = new Date();
+                                                                    const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+                                                                    const todayStr = format(hoje, 'yyyy-MM-dd');
+                                                                    const days: string[] = [];
+                                                                    for (let day = 1; day <= daysInMonth; day++) {
+                                                                        const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
+                                                                        if (dayStr <= todayStr) {
+                                                                            days.push(dayStr);
+                                                                        }
+                                                                    }
+                                                                    return days.map(dayStr => (
+                                                                        <TableHead key={dayStr} className="text-xs text-center min-w-[60px]">
+                                                                            {format(new Date(dayStr + 'T00:00:00'), 'dd/MM')}
+                                                                        </TableHead>
+                                                                    ));
+                                                                })()}
+                                                                <TableHead className="text-xs sm:text-sm sticky right-0 bg-background z-10 font-bold text-primary min-w-[120px]">Total</TableHead>
+                                                            </TableRow>
+                                                        </TableHeader>
+                                                        <TableBody>
+                                                            {monthlyDataByDay
+                                                                .sort((a, b) => b.totalMes - a.totalMes)
+                                                                .map((data) => {
+                                                                    const hoje = new Date();
+                                                                    const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+                                                                    const todayStr = format(hoje, 'yyyy-MM-dd');
+                                                                    const days: string[] = [];
+                                                                    for (let day = 1; day <= daysInMonth; day++) {
+                                                                        const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
+                                                                        if (dayStr <= todayStr) {
+                                                                            days.push(dayStr);
+                                                                        }
+                                                                    }
 
                                                                     return (
+                                                                        <TableRow key={data.colaboradoraId}>
+                                                                            <TableCell className="text-xs sm:text-sm font-medium sticky left-0 bg-background z-10 min-w-[140px]">
+                                                                                {data.colaboradoraName}
+                                                                            </TableCell>
+                                                                            {days.map(dayStr => {
+                                                                                const dayData = data.dailySales[dayStr] || { valor: 0, metaDiaria: 0 };
+                                                                                const bateuMeta = dayData.metaDiaria > 0 && dayData.valor >= dayData.metaDiaria;
+
+                                                                                return (
+                                                                                    <TableCell
+                                                                                        key={dayStr}
+                                                                                        className={`
+                                                                        text-xs text-center font-medium
+                                                                        ${bateuMeta
+                                                                                                ? 'bg-status-ahead/20 dark:bg-status-ahead/10 text-foreground'
+                                                                                                : dayData.valor > 0
+                                                                                                    ? 'text-foreground'
+                                                                                                    : 'text-muted-foreground'
+                                                                                            }
+                                                                    `}
+                                                                                        title={dayData.metaDiaria > 0 ? `Meta: R$ ${dayData.metaDiaria.toFixed(2)}` : ''}
+                                                                                    >
+                                                                                        {dayData.valor > 0 ? (
+                                                                                            <span className="font-semibold">
+                                                                                                R$ {dayData.valor.toFixed(0)}
+                                                                                                {bateuMeta && ' ✓'}
+                                                                                            </span>
+                                                                                        ) : (
+                                                                                            <span className="text-muted-foreground">-</span>
+                                                                                        )}
+                                                                                    </TableCell>
+                                                                                );
+                                                                            })}
+                                                                            <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-background z-10 min-w-[120px] text-right">
+                                                                                R$ {data.totalMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                            </TableCell>
+                                                                        </TableRow>
+                                                                    );
+                                                                })}
+                                                            {/* Linha de Total da Loja */}
+                                                            <TableRow className="bg-primary/5 font-bold border-t-2 border-primary">
+                                                                <TableCell className="text-xs sm:text-sm font-bold sticky left-0 bg-primary/5 z-10 min-w-[140px]">
+                                                                    TOTAL DA LOJA
+                                                                </TableCell>
+                                                                {(() => {
+                                                                    const hoje = new Date();
+                                                                    const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+                                                                    const todayStr = format(hoje, 'yyyy-MM-dd');
+                                                                    const days: string[] = [];
+                                                                    for (let day = 1; day <= daysInMonth; day++) {
+                                                                        const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
+                                                                        if (dayStr <= todayStr) {
+                                                                            days.push(dayStr);
+                                                                        }
+                                                                    }
+
+                                                                    // Calcular total por dia
+                                                                    // IMPORTANTE: Para total geral, usar monthlyRealizado que já inclui vendas de colaboradoras desativadas
+                                                                    const totalPorDia: Record<string, number> = {};
+
+                                                                    days.forEach(dayStr => {
+                                                                        const totalDia = monthlyDataByDay.reduce((sum, data) => {
+                                                                            const dayData = data.dailySales[dayStr] || { valor: 0 };
+                                                                            return sum + dayData.valor;
+                                                                        }, 0);
+                                                                        totalPorDia[dayStr] = totalDia;
+                                                                    });
+
+                                                                    return days.map(dayStr => (
                                                                         <TableCell
                                                                             key={dayStr}
-                                                                            className={`
-                                                                            text-xs text-center font-medium
-                                                                            ${bateuMeta
-                                                                                    ? 'bg-status-ahead/20 dark:bg-status-ahead/10 text-foreground'
-                                                                                    : dayData.valor > 0
-                                                                                        ? 'text-foreground'
-                                                                                        : 'text-muted-foreground'
-                                                                                }
-                                                                        `}
-                                                                            title={dayData.metaDiaria > 0 ? `Meta: R$ ${dayData.metaDiaria.toFixed(2)}` : ''}
+                                                                            className="text-xs text-center font-bold text-primary"
                                                                         >
-                                                                            {dayData.valor > 0 ? (
-                                                                                <span className="font-semibold">
-                                                                                    R$ {dayData.valor.toFixed(0)}
-                                                                                    {bateuMeta && ' ✓'}
-                                                                                </span>
+                                                                            {totalPorDia[dayStr] > 0 ? (
+                                                                                `R$ ${totalPorDia[dayStr].toFixed(0)}`
                                                                             ) : (
                                                                                 <span className="text-muted-foreground">-</span>
                                                                             )}
                                                                         </TableCell>
-                                                                    );
-                                                                })}
-                                                                <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-background z-10 min-w-[120px] text-right">
-                                                                    R$ {data.totalMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                    ));
+                                                                })()}
+                                                                <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-primary/5 z-10 min-w-[120px] text-right">
+                                                                    {/* Usar monthlyRealizado que já inclui vendas de colaboradoras desativadas até a data de desativação */}
+                                                                    R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                                 </TableCell>
                                                             </TableRow>
-                                                        );
-                                                    })}
-                                                {/* Linha de Total da Loja */}
-                                                <TableRow className="bg-primary/5 font-bold border-t-2 border-primary">
-                                                    <TableCell className="text-xs sm:text-sm font-bold sticky left-0 bg-primary/5 z-10 min-w-[140px]">
-                                                        TOTAL DA LOJA
-                                                    </TableCell>
-                                                    {(() => {
-                                                        const hoje = new Date();
-                                                        const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
-                                                        const todayStr = format(hoje, 'yyyy-MM-dd');
-                                                        const days: string[] = [];
-                                                        for (let day = 1; day <= daysInMonth; day++) {
-                                                            const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
-                                                            if (dayStr <= todayStr) {
-                                                                days.push(dayStr);
-                                                            }
-                                                        }
+                                                        </TableBody>
+                                                    </Table>
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-6">
+                                                    <p className="text-sm text-muted-foreground">
+                                                        Carregando dados mensais...
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                )}
+                            </TabsContent>
 
-                                                        const totalPorDia: Record<string, number> = {};
+                            <TabsContent value="cashback" className="space-y-4 sm:space-y-6">
+                                <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                    <CashbackLojaView storeId={storeId} />
+                                </Suspense>
+                            </TabsContent>
+                            <TabsContent value="crm" className="space-y-4 sm:space-y-6">
+                                <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                    <CRMLojaView storeId={storeId} />
+                                </Suspense>
+                            </TabsContent>
+                        </Tabs>
+                    ) : (
+                        // Se cashback não estiver ativo, mostrar apenas o conteúdo de metas (sem abas)
+                        // Renderizar o mesmo conteúdo que está no TabsContent acima
+                        <div className="space-y-4 sm:space-y-6">
+                            {/* Conteúdo de Metas - Mesmo que está no TabsContent acima */}
+                            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button onClick={resetForm} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
+                                        <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                                        Nova Venda
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>{editingSaleId ? 'Editar' : 'Lançar Nova'} Venda</DialogTitle>
+                                    </DialogHeader>
+                                    <form onSubmit={editingSaleId ? handleUpdate : handleSubmit} className="space-y-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="colaboradora">Vendedora *</Label>
+                                            <Select
+                                                value={formData.colaboradora_id}
+                                                onValueChange={(value) => setFormData({ ...formData, colaboradora_id: value })}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Selecione a vendedora" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {colaboradoras.map((colab) => (
+                                                        <SelectItem key={colab.id} value={colab.id}>
+                                                            {colab.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
 
-                                                        days.forEach(dayStr => {
-                                                            const totalDia = monthlyDataByDay.reduce((sum, data) => {
-                                                                const dayData = data.dailySales[dayStr] || { valor: 0 };
-                                                                return sum + dayData.valor;
-                                                            }, 0);
-                                                            totalPorDia[dayStr] = totalDia;
-                                                        });
+                                        {/* Off‑Day Dialog */}
+                                        <Dialog open={offDayDialog} onOpenChange={(open) => setOffDayDialog(open)}>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>Marcar Folga</DialogTitle>
+                                                </DialogHeader>
+                                                <div className="space-y-4 pt-4">
+                                                    <Label htmlFor="offDayDate">Data da Folga</Label>
+                                                    <Input
+                                                        id="offDayDate"
+                                                        type="date"
+                                                        value={offDayDate}
+                                                        onChange={(e) => setOffDayDate(e.target.value)}
+                                                    />
+                                                    <div className="flex justify-end gap-2 pt-4">
+                                                        <Button variant="outline" onClick={() => setOffDayDialog(false)}>
+                                                            Cancelar
+                                                        </Button>
+                                                        <Button onClick={handleMarkOffDay}>Confirmar</Button>
+                                                    </div>
+                                                </div>
+                                            </DialogContent>
+                                        </Dialog>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="valor">Valor Total (R$) *</Label>
+                                                <Input
+                                                    id="valor"
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={formData.valor}
+                                                    onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
+                                                    placeholder="0,00"
+                                                    required
+                                                />
+                                            </div>
 
-                                                        return days.map(dayStr => (
-                                                            <TableCell
-                                                                key={dayStr}
-                                                                className="text-xs text-center font-bold text-primary"
-                                                            >
-                                                                {totalPorDia[dayStr] > 0 ? (
-                                                                    `R$ ${totalPorDia[dayStr].toFixed(0)}`
-                                                                ) : (
-                                                                    <span className="text-muted-foreground">-</span>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="qtd_pecas">Qtd Peças *</Label>
+                                                <Input
+                                                    id="qtd_pecas"
+                                                    type="number"
+                                                    value={formData.qtd_pecas}
+                                                    onChange={(e) => setFormData({ ...formData, qtd_pecas: e.target.value })}
+                                                    placeholder="0"
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="p-3 bg-muted rounded-lg">
+                                            <p className="text-sm font-medium">
+                                                💡 Preço Médio por Peça: <span className="text-primary">R$ {precoMedioPeca}</span>
+                                            </p>
+                                        </div>
+
+                                        {/* Formas de Pagamento */}
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <Label>Formas de Pagamento *</Label>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setFormasPagamento([...formasPagamento, {
+                                                            tipo: 'DINHEIRO',
+                                                            valor: 0,
+                                                        }]);
+                                                    }}
+                                                    className="h-7 text-xs"
+                                                >
+                                                    <Plus className="h-3 w-3 mr-1" />
+                                                    Adicionar
+                                                </Button>
+                                            </div>
+                                            <div className="space-y-2">
+                                                {formasPagamento.map((forma, index) => {
+                                                    const totalFormas = formasPagamento.reduce((sum, f) => sum + (f.valor || 0), 0);
+                                                    const valorTotal = parseFloat(formData.valor) || 0;
+                                                    const diferenca = valorTotal - totalFormas;
+
+                                                    return (
+                                                        <div key={index} className="flex gap-2 items-end p-3 border rounded-lg">
+                                                            <div className="flex-1 space-y-2">
+                                                                <div>
+                                                                    <Label className="text-xs">Tipo</Label>
+                                                                    <Select
+                                                                        value={forma.tipo}
+                                                                        onValueChange={(value: 'CREDITO' | 'DEBITO' | 'DINHEIRO' | 'PIX' | 'BOLETO') => {
+                                                                            const novas = [...formasPagamento];
+                                                                            novas[index].tipo = value;
+                                                                            novas[index].parcelas = value === 'CREDITO' ? (novas[index].parcelas || 1) : undefined;
+                                                                            setFormasPagamento(novas);
+                                                                        }}
+                                                                    >
+                                                                        <SelectTrigger className="h-9">
+                                                                            <SelectValue />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            <SelectItem value="CREDITO">Crédito</SelectItem>
+                                                                            <SelectItem value="DEBITO">Débito</SelectItem>
+                                                                            <SelectItem value="DINHEIRO">Dinheiro</SelectItem>
+                                                                            <SelectItem value="PIX">Pix</SelectItem>
+                                                                            <SelectItem value="BOLETO">Boleto</SelectItem>
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
+                                                                {forma.tipo === 'CREDITO' && (
+                                                                    <div>
+                                                                        <Label className="text-xs">Parcelas (máx. 6x)</Label>
+                                                                        <Input
+                                                                            type="number"
+                                                                            min="1"
+                                                                            max="6"
+                                                                            value={forma.parcelas || 1}
+                                                                            onChange={(e) => {
+                                                                                const parcelas = Math.min(6, Math.max(1, parseInt(e.target.value) || 1));
+                                                                                const novas = [...formasPagamento];
+                                                                                novas[index].parcelas = parcelas;
+                                                                                setFormasPagamento(novas);
+                                                                            }}
+                                                                            className="h-9"
+                                                                        />
+                                                                    </div>
+                                                                )}
+                                                                <div>
+                                                                    <Label className="text-xs">Valor (R$)</Label>
+                                                                    <Input
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        value={forma.valor || ''}
+                                                                        onChange={(e) => {
+                                                                            const novas = [...formasPagamento];
+                                                                            novas[index].valor = parseFloat(e.target.value) || 0;
+                                                                            setFormasPagamento(novas);
+                                                                        }}
+                                                                        placeholder="0,00"
+                                                                        className="h-9"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            {formasPagamento.length > 1 && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        setFormasPagamento(formasPagamento.filter((_, i) => i !== index));
+                                                                    }}
+                                                                    className="h-9 w-9 p-0 text-status-behind"
+                                                                >
+                                                                    <X className="h-4 w-4" />
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            {(() => {
+                                                const totalFormas = formasPagamento.reduce((sum, f) => sum + (f.valor || 0), 0);
+                                                const valorTotal = parseFloat(formData.valor) || 0;
+                                                const diferenca = valorTotal - totalFormas;
+
+                                                if (valorTotal > 0 && Math.abs(diferenca) > 0.01) {
+                                                    return (
+                                                        <div className={`p-2 rounded text-sm flex items-center gap-2 ${diferenca > 0 ? 'bg-status-ontrack/10 text-status-ontrack border border-status-ontrack/30' : 'bg-status-behind/10 text-status-behind border border-status-behind/30'}`}>
+                                                            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                                                            <span>
+                                                                {diferenca > 0
+                                                                    ? `Faltam R$ ${diferenca.toFixed(2)} para completar o valor total`
+                                                                    : `Valor excede o total em R$ ${Math.abs(diferenca).toFixed(2)}`
+                                                                }
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="data_venda">Data/Hora</Label>
+                                            <Input
+                                                id="data_venda"
+                                                type="datetime-local"
+                                                value={formData.data_venda}
+                                                onChange={(e) => setFormData({ ...formData, data_venda: e.target.value })}
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="observacoes">Observações</Label>
+                                            <Textarea
+                                                id="observacoes"
+                                                value={formData.observacoes}
+                                                onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && e.ctrlKey) {
+                                                        return;
+                                                    }
+                                                    if (e.key === 'Enter') {
+                                                        e.stopPropagation();
+                                                    }
+                                                }}
+                                                placeholder="Observações opcionais (pressione Enter para nova linha, Ctrl+Enter para enviar)"
+                                                rows={4}
+                                                className="resize-y"
+                                            />
+                                        </div>
+
+                                        <div className="flex gap-2">
+                                            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="flex-1" disabled={submitting}>
+                                                Cancelar
+                                            </Button>
+                                            <LoadingButton
+                                                type="submit"
+                                                className="flex-1"
+                                                isLoading={submitting}
+                                                isSuccess={submitSuccess}
+                                                loadingText="Enviando..."
+                                                successText="Venda Lancada!"
+                                            >
+                                                Lancar Venda
+                                            </LoadingButton>
+                                        </div>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
+                            <Button
+                                variant="outline"
+                                onClick={handleSignOut}
+                                className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
+                                size="sm"
+                            >
+                                <LogOut className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                                Sair
+                            </Button>
+
+                            {/* KPI Cards - Metas e Métricas */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto mb-6 sm:mb-8">
+                                {/* Meta Mensal */}
+                                <Card className="flex flex-col h-full">
+                                    <CardHeader className="pb-4 p-5 sm:p-8 text-center border-b">
+                                        <CardTitle className="text-base sm:text-lg font-semibold text-muted-foreground">Meta Mensal</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
+                                        {goals ? (
+                                            <div className="space-y-4 w-full">
+                                                <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {goals.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                <p className="text-sm sm:text-base text-muted-foreground">
+                                                    Realizado: R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                </p>
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center gap-4 justify-between">
+                                                        <Progress value={Math.min(monthlyProgress, 100)} className="h-4 flex-1" />
+                                                        <span className="text-base font-semibold text-primary whitespace-nowrap min-w-[50px] text-right">
+                                                            {monthlyProgress.toFixed(0)}%
+                                                        </span>
+                                                    </div>
+                                                    {goals.super_meta_valor && (
+                                                        <p className="text-sm sm:text-base text-muted-foreground flex items-center justify-center gap-1.5">
+                                                            <Trophy className="h-4 w-4" />
+                                                            <span>Super Meta: R$ {goals.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                <p className="text-2xl sm:text-3xl font-bold text-muted-foreground">N/A</p>
+                                                <p className="text-sm sm:text-base text-status-behind">
+                                                    Meta não encontrada
+                                                </p>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+
+                                {/* Meta Diária */}
+                                <Card className="flex flex-col h-full">
+                                    <CardHeader className="pb-4 p-5 sm:p-8 text-center border-b">
+                                        <CardTitle className="text-base sm:text-lg font-semibold text-muted-foreground">Meta Diária (Hoje)</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
+                                        {goals ? (
+                                            <div className="space-y-4 w-full">
+                                                <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {dailyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                <div className="flex items-center gap-4 justify-between">
+                                                    <Progress value={Math.min(dailyProgress, 100)} className="h-4 flex-1" />
+                                                    <span className="text-base font-semibold text-primary whitespace-nowrap min-w-[50px] text-right">
+                                                        {dailyProgress.toFixed(0)}%
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                <p className="text-2xl sm:text-3xl font-bold text-muted-foreground">N/A</p>
+                                                <p className="text-sm sm:text-base text-muted-foreground">
+                                                    Aguardando meta mensal
+                                                </p>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+
+                                {/* Faturamento Hoje */}
+                                <Card className="flex flex-col h-full">
+                                    <CardHeader className="pb-4 p-5 sm:p-8 text-center border-b">
+                                        <CardTitle className="text-base sm:text-lg font-semibold text-muted-foreground">Faturamento Hoje</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
+                                        <div className="space-y-3 w-full">
+                                            <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {sales.reduce((sum, s) => sum + s.valor, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                            <p className="text-sm sm:text-base text-muted-foreground">{sales.length} {sales.length === 1 ? 'venda' : 'vendas'}</p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {/* Cards Adicionais - Ticket Médio, PA, Preço Médio */}
+                            {metrics && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-5xl mx-auto">
+                                    {/* Ticket Médio */}
+                                    <Card className="flex flex-col h-full">
+                                        <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
+                                            <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Ticket Médio</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
+                                            <div className="space-y-3 w-full">
+                                                <p className="text-xl sm:text-3xl font-bold text-primary">R$ {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.valor, 0) / sales.length).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</p>
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center gap-3 justify-between">
+                                                        <Progress
+                                                            value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.length) / metrics.meta_ticket_medio) * 100, 100) : 0}
+                                                            className="h-3 flex-1"
+                                                        />
+                                                    </div>
+                                                    <p className="text-xs sm:text-sm text-muted-foreground">
+                                                        Meta: R$ {metrics.meta_ticket_medio?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* PA (Peças por Atendimento) */}
+                                    <Card className="flex flex-col h-full">
+                                        <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
+                                            <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">PA (Peças/Venda)</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
+                                            <div className="space-y-3 w-full">
+                                                <p className="text-xl sm:text-3xl font-bold text-primary">{sales.length > 0 ? (sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length).toFixed(1) : '0,0'}</p>
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center gap-3 justify-between">
+                                                        <Progress
+                                                            value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.qtd_pecas, 0) / sales.length) / metrics.meta_pa) * 100, 100) : 0}
+                                                            className="h-3 flex-1"
+                                                        />
+                                                    </div>
+                                                    <p className="text-xs sm:text-sm text-muted-foreground">
+                                                        Meta: {metrics.meta_pa?.toFixed(1)}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Preço Médio por Peça */}
+                                    <Card className="flex flex-col h-full">
+                                        <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">
+                                            <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Preço Médio por Peça</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
+                                            <div className="space-y-3 w-full">
+                                                <p className="text-xl sm:text-3xl font-bold text-primary">
+                                                    R$ {sales.length > 0 ?
+                                                        (sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) :
+                                                        '0,00'}
+                                                </p>
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center gap-3 justify-between">
+                                                        <Progress
+                                                            value={sales.length > 0 ? Math.min(((sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)) / metrics.meta_preco_medio_peca) * 100, 100) : 0}
+                                                            className="h-3 flex-1"
+                                                        />
+                                                    </div>
+                                                    <p className="text-xs sm:text-sm text-muted-foreground">
+                                                        Meta: R$ {metrics.meta_preco_medio_peca?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            )}
+
+                            {/* Planejamento do Dia - Cards por Vendedora */}
+                            {colaboradorasPerformance.length > 0 && (
+                                <div className="w-full max-w-6xl mx-auto">
+                                    <h2 className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8 text-center">Planejamento do Dia</h2>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 justify-items-center">
+                                        {colaboradorasPerformance.map((perf) => (
+                                            <Card key={perf.id} className="flex flex-col w-full max-w-[380px] h-[280px]">
+                                                <CardHeader className="pb-4 p-5 sm:p-6 text-center border-b">
+                                                    <CardTitle className="text-lg font-semibold leading-snug min-h-[3.5rem]">{perf.name}</CardTitle>
+                                                </CardHeader>
+                                                <CardContent className="p-5 sm:p-6 pt-5 sm:pt-6 flex-1 flex flex-col justify-center space-y-3">
+                                                    <div className="space-y-2.5">
+                                                        <div className="flex items-center justify-between text-base">
+                                                            <span className="text-muted-foreground">Meta do Dia</span>
+                                                            <span className="font-semibold">R$ {perf.metaDiaria > 0 ? perf.metaDiaria.toFixed(2) : '0.00'}</span>
+                                                        </div>
+                                                        <div className="flex items-center justify-between text-base">
+                                                            <span className="text-muted-foreground">Vendido:</span>
+                                                            <span className="font-bold text-primary">R$ {perf.vendido.toFixed(2)}</span>
+                                                        </div>
+                                                        {perf.metaDiaria > 0 && (
+                                                            <div className="flex items-center justify-between text-base">
+                                                                <span className="text-muted-foreground">Falta:</span>
+                                                                <span className={`font-semibold ${perf.vendido >= perf.metaDiaria ? 'text-status-ahead' : 'text-status-ontrack'}`}>
+                                                                    R$ {Math.max(0, perf.metaDiaria - perf.vendido).toFixed(2)}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        <div className="space-y-1.5 pt-2">
+                                                            <div className="flex items-center gap-3">
+                                                                <Progress
+                                                                    value={Math.min(perf.percentual, 100)}
+                                                                    className="h-3 flex-1"
+                                                                />
+                                                                <span className="text-base font-semibold whitespace-nowrap min-w-[50px] text-right">
+                                                                    {perf.percentual.toFixed(0)}%
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Meta Semanal Gamificada */}
+                            {storeId && (
+                                <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                    <WeeklyGoalProgress storeId={storeId} showDetails={true} />
+                                </Suspense>
+                            )}
+
+                            {/* Bônus Semanal Individual por Colaboradora */}
+                            {storeId && colaboradoras.length > 0 && (
+                                <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                    <WeeklyBonusProgress storeId={storeId} colaboradoras={colaboradoras.map(c => ({ id: c.id, name: c.name }))} />
+                                </Suspense>
+                            )}
+
+                            {/* Galeria de Troféus */}
+                            {storeId && (
+                                <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                    <TrophiesGallery storeId={storeId} limit={50} />
+                                </Suspense>
+                            )}
+
+                            {/* Tabela de Performance do Dia */}
+                            {colaboradorasPerformance.length > 0 ? (
+                                <Card>
+                                    <CardHeader className="p-3 sm:p-6">
+                                        <CardTitle className="text-base sm:text-lg">Performance do Dia</CardTitle>
+                                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">Desempenho diário e mensal de cada colaboradora</p>
+                                    </CardHeader>
+                                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                                        <div className="overflow-x-auto">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead className="text-xs sm:text-sm">Vendedora</TableHead>
+                                                        <TableHead className="text-xs sm:text-sm">Vendido Hoje</TableHead>
+                                                        <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Meta Dia</TableHead>
+                                                        <TableHead className="text-xs sm:text-sm">% Dia</TableHead>
+                                                        <TableHead className="text-xs sm:text-sm hidden md:table-cell">Ticket Médio</TableHead>
+                                                        <TableHead className="text-xs sm:text-sm hidden lg:table-cell">PA</TableHead>
+                                                        <TableHead className="text-xs sm:text-sm">Vendas</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {colaboradorasPerformance.map((perf) => (
+                                                        <TableRow key={perf.id}>
+                                                            <TableCell className="font-medium text-xs sm:text-sm break-words">{perf.name}</TableCell>
+                                                            <TableCell className="text-xs sm:text-sm font-medium">
+                                                                R$ {perf.vendido.toFixed(2)}
+                                                                {perf.vendidoMes > 0 && (
+                                                                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                                        Mês: R$ {perf.vendidoMes.toFixed(2)}
+                                                                    </div>
                                                                 )}
                                                             </TableCell>
-                                                        ));
-                                                    })()}
-                                                    <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-primary/5 z-10 min-w-[120px] text-right">
-                                                        R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                    </TableCell>
+                                                            <TableCell className="text-xs sm:text-sm hidden sm:table-cell">
+                                                                R$ {perf.metaDiaria > 0 ? perf.metaDiaria.toFixed(2) : '0.00'}
+                                                                {perf.meta > 0 && (
+                                                                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                                        Mensal: R$ {perf.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                    </div>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell className="text-xs sm:text-sm">
+                                                                {perf.meta > 0 ? (
+                                                                    <>
+                                                                        <span className={
+                                                                            perf.percentual >= 120 ? 'text-status-ahead font-bold' :
+                                                                                perf.percentual >= 100 ? 'text-status-ahead font-bold' :
+                                                                                    perf.percentual >= 90 ? 'text-status-ontrack' :
+                                                                                        'text-status-behind'
+                                                                        }>
+                                                                            {perf.percentual.toFixed(0)}%
+                                                                        </span>
+                                                                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                                            Mês: {perf.percentualMensal.toFixed(0)}%
+                                                                        </div>
+                                                                        {perf.faltaMensal > 0 && (
+                                                                            <div className="text-[10px] text-status-ontrack mt-0.5">
+                                                                                Falta: R$ {perf.faltaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                            </div>
+                                                                        )}
+                                                                    </>
+                                                                ) : (
+                                                                    <span className="text-muted-foreground">Sem meta</span>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {perf.ticketMedio.toFixed(2)}</TableCell>
+                                                            <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
+                                                                {perf.qtdVendas > 0 ? (perf.qtdPecas / perf.qtdVendas).toFixed(1) : '0.0'}
+                                                            </TableCell>
+                                                            <TableCell className="text-xs sm:text-sm">
+                                                                {perf.qtdVendas}
+                                                                {perf.qtdVendasMes > 0 && (
+                                                                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                                        Mês: {perf.qtdVendasMes}
+                                                                    </div>
+                                                                )}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ) : colaboradoras.length > 0 && (
+                                <Card>
+                                    <CardContent className="p-6 text-center">
+                                        <p className="text-sm text-muted-foreground">
+                                            Nenhuma meta individual encontrada para as colaboradoras desta loja no mês atual.
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Vendas */}
+                            <Card>
+                                <CardHeader className="p-3 sm:p-6">
+                                    <div className="flex flex-col gap-3">
+                                        <div className="flex items-center justify-between">
+                                            <CardTitle className="text-base sm:text-lg">
+                                                Vendas
+                                            </CardTitle>
+                                        </div>
+                                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
+                                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                                <Label htmlFor="sales-date-filter" className="text-xs sm:text-sm whitespace-nowrap">
+                                                    Filtrar por data:
+                                                </Label>
+                                                <Input
+                                                    id="sales-date-filter"
+                                                    type="date"
+                                                    value={salesDateFilter}
+                                                    onChange={(e) => setSalesDateFilter(e.target.value)}
+                                                    className="flex-1 sm:flex-initial sm:w-auto text-xs sm:text-sm"
+                                                    max={format(new Date(), 'yyyy-MM-dd')}
+                                                />
+                                            </div>
+                                            {salesDateFilter !== format(new Date(), 'yyyy-MM-dd') && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setSalesDateFilter(format(new Date(), 'yyyy-MM-dd'))}
+                                                    className="text-xs whitespace-nowrap w-full sm:w-auto"
+                                                >
+                                                    Voltar para Hoje
+                                                </Button>
+                                            )}
+                                            {salesDateFilter === format(new Date(), 'yyyy-MM-dd') && (
+                                                <span className="text-xs text-muted-foreground">
+                                                    Mostrando vendas de hoje
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead className="text-xs sm:text-sm">Horário</TableHead>
+                                                    <TableHead className="text-xs sm:text-sm">Vendedora</TableHead>
+                                                    <TableHead className="text-xs sm:text-sm">Valor</TableHead>
+                                                    <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Peças</TableHead>
+                                                    <TableHead className="text-xs sm:text-sm hidden md:table-cell">Valor/Venda</TableHead>
+                                                    <TableHead className="text-xs sm:text-sm">Ações</TableHead>
                                                 </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {sales.length === 0 ? (
+                                                    <TableRow>
+                                                        <TableCell colSpan={6} className="text-center text-muted-foreground text-xs sm:text-sm py-6">
+                                                            {salesDateFilter === format(new Date(), 'yyyy-MM-dd')
+                                                                ? 'Nenhuma venda lançada hoje'
+                                                                : `Nenhuma venda encontrada para ${format(new Date(salesDateFilter), 'dd/MM/yyyy')}`
+                                                            }
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ) : (
+                                                    sales.map((sale) => {
+                                                        const isExpanded = expandedSales.has(sale.id);
+                                                        const details = erpSaleDetails[sale.id];
+                                                        const isErpSale = !!sale.tiny_order_id;
+
+                                                        return (
+                                                            <Fragment key={sale.id}>
+                                                                <TableRow>
+                                                                    <TableCell className="text-xs sm:text-sm">
+                                                                        <div className="flex items-center gap-1">
+                                                                            {isErpSale && (
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    className="h-6 w-6 p-0 -ml-1"
+                                                                                    onClick={() => toggleSaleExpansion(sale.id, sale.tiny_order_id)}
+                                                                                >
+                                                                                    {isExpanded ? (
+                                                                                        <ChevronDown className="h-3 w-3" />
+                                                                                    ) : (
+                                                                                        <ChevronRight className="h-3 w-3" />
+                                                                                    )}
+                                                                                </Button>
+                                                                            )}
+                                                                            <span>
+                                                                                {salesDateFilter === format(new Date(), 'yyyy-MM-dd')
+                                                                                    ? format(new Date(sale.data_venda), 'HH:mm')
+                                                                                    : format(new Date(sale.data_venda), 'dd/MM/yyyy HH:mm')
+                                                                                }
+                                                                            </span>
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-xs sm:text-sm font-medium break-words">
+                                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                                            <span>{sale.colaboradora?.name || 'Colaboradora não encontrada'}</span>
+                                                                            {isErpSale && (
+                                                                                <Badge variant="outline" className="text-xs flex items-center gap-1">
+                                                                                    <Database className="h-3 w-3" />
+                                                                                    via ERP
+                                                                                </Badge>
+                                                                            )}
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-xs sm:text-sm font-medium">R$ {sale.valor.toFixed(2)}</TableCell>
+                                                                    <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{sale.qtd_pecas}</TableCell>
+                                                                    <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {sale.valor.toFixed(2)}</TableCell>
+                                                                    <TableCell>
+                                                                        <div className="flex gap-1 sm:gap-2">
+                                                                            <Button variant="ghost" size="sm" onClick={() => handleEdit(sale)} className="h-8 w-8 p-0">
+                                                                                <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
+                                                                            </Button>
+                                                                            <Button variant="ghost" size="sm" className="text-status-behind h-8 w-8 p-0" onClick={() => handleDelete(sale.id)}>
+                                                                                <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                                                                            </Button>
+                                                                        </div>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                                {isErpSale && isExpanded && (
+                                                                    <TableRow key={`${sale.id}-details`}>
+                                                                        <TableCell colSpan={6} className="bg-muted/50">
+                                                                            <div className="space-y-2 py-2">
+                                                                                {details ? (
+                                                                                    <>
+                                                                                        {details.cliente_nome && (
+                                                                                            <div className="text-xs">
+                                                                                                <span className="font-medium">Cliente:</span> {details.cliente_nome}
+                                                                                            </div>
+                                                                                        )}
+                                                                                        {details.forma_pagamento && (
+                                                                                            <div className="text-xs">
+                                                                                                <span className="font-medium">Forma de Pagamento:</span> {details.forma_pagamento}
+                                                                                            </div>
+                                                                                        )}
+                                                                                        {details.itens && Array.isArray(details.itens) && details.itens.length > 0 && (
+                                                                                            <div className="text-xs">
+                                                                                                <span className="font-medium">Peças:</span>
+                                                                                                <ul className="list-disc list-inside mt-1 space-y-1">
+                                                                                                    {details.itens.map((item: any, idx: number) => (
+                                                                                                        <li key={idx}>
+                                                                                                            {item.quantidade || 1}x {item.descricao || item.nome || item.produto?.descricao || 'Produto sem descrição'}
+                                                                                                        </li>
+                                                                                                    ))}
+                                                                                                </ul>
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </>
+                                                                                ) : (
+                                                                                    <div className="text-xs text-muted-foreground">Carregando detalhes...</div>
+                                                                                )}
+                                                                            </div>
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                )}
+                                                            </Fragment>
+                                                        );
+                                                    })
+                                                )}
                                             </TableBody>
                                         </Table>
                                     </div>
-                                ) : (
-                                    <div className="text-center py-6">
-                                        <p className="text-sm text-muted-foreground">
-                                            Carregando dados mensais...
-                                        </p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
+
+                            {/* Ranking Mensal com Pódio (Ouro e Prata) */}
+                            {rankingMonthly.length > 0 && (
+                                <Card>
+                                    <CardHeader className="pb-2 p-3 sm:p-6">
+                                        <CardTitle className="flex items-center gap-2 text-sm sm:text-lg">
+                                            <Award className="h-4 w-4 sm:h-5 sm:w-5" />
+                                            <span>Podio Mensal</span>
+                                        </CardTitle>
+                                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">Ranking acumulado do mes - Top 2</p>
+                                    </CardHeader>
+                                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                                        <div className="space-y-3 sm:space-y-4">
+                                            {rankingMonthly.slice(0, 2).map((item, index) => {
+                                                const perf = colaboradorasPerformance.find(p => p.id === item.colaboradora_id);
+                                                const isOuro = index === 0;
+                                                const isPrata = index === 1;
+
+                                                return (
+                                                    <div
+                                                        key={item.colaboradora_id}
+                                                        className={`
+                                                relative flex items-center justify-between p-3 sm:p-4 rounded-md border
+                                                ${isOuro
+                                                                ? 'bg-muted/50 border-foreground/20'
+                                                                : isPrata
+                                                                    ? 'bg-muted/30 border-border'
+                                                                    : 'bg-background/50 border-border/50'
+                                                            }
+                                            `}
+                                                    >
+                                                        <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                                                            <div className={`
+                                                    w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0
+                                                    ${isOuro
+                                                                    ? 'bg-foreground text-background'
+                                                                    : isPrata
+                                                                        ? 'bg-muted-foreground/30 text-foreground'
+                                                                        : 'bg-muted text-muted-foreground'
+                                                                }
+                                                `}>
+                                                                {index + 1}
+                                                            </div>
+                                                            <div className="min-w-0 flex-1">
+                                                                <span className="font-semibold text-sm sm:text-base break-words block">{item.name}</span>
+                                                                {perf && (
+                                                                    <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 space-y-0.5">
+                                                                        <div className="flex gap-2">
+                                                                            <span>Ticket: R$ {perf.ticketMedio.toFixed(2)}</span>
+                                                                            <span>PA: {(perf.qtdPecas / Math.max(perf.qtdVendasMes, 1)).toFixed(1)}</span>
+                                                                        </div>
+                                                                        <div>Vendas: {item.qtdVendas}</div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right flex-shrink-0 ml-2">
+                                                            <p className="font-bold text-lg sm:text-xl">
+                                                                R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                            </p>
+                                                            {perf && perf.percentualMensal > 0 && (
+                                                                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                                                                    {perf.percentualMensal.toFixed(0)}% da meta
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Histórico 7 Dias */}
+                            {history7Days.length > 0 && (
+                                <Card>
+                                    <CardHeader className="p-3 sm:p-6">
+                                        <CardTitle className="text-base sm:text-lg">Histórico de Vendas (Últimos 7 Dias)</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                                        <div className="overflow-x-auto">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead className="text-xs sm:text-sm">Data</TableHead>
+                                                        <TableHead className="text-xs sm:text-sm">Vendas</TableHead>
+                                                        <TableHead className="text-xs sm:text-sm">Peças</TableHead>
+                                                        <TableHead className="text-xs sm:text-sm hidden md:table-cell">PA</TableHead>
+                                                        <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Ticket Médio</TableHead>
+                                                        <TableHead className="text-xs sm:text-sm">Total</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {history7Days.map((day) => (
+                                                        <TableRow key={day.day}>
+                                                            <TableCell className="text-xs sm:text-sm">{format(new Date(day.day + 'T00:00:00'), 'dd/MM/yyyy')}</TableCell>
+                                                            <TableCell className="text-xs sm:text-sm">{day.qtdVendas}</TableCell>
+                                                            <TableCell className="text-xs sm:text-sm">{day.qtdPecas}</TableCell>
+                                                            <TableCell className="text-xs sm:text-sm hidden md:table-cell">
+                                                                {day.qtdVendas > 0 ? (day.qtdPecas / day.qtdVendas).toFixed(1) : '0.0'}
+                                                            </TableCell>
+                                                            <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
+                                                                R$ {day.ticketMedio ? day.ticketMedio.toFixed(2) : (day.qtdVendas > 0 ? (day.total / day.qtdVendas).toFixed(2) : '0.00')}
+                                                            </TableCell>
+                                                            <TableCell className="text-xs sm:text-sm font-medium">R$ {day.total.toFixed(2)}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Tabela Mensal por Colaboradora/Dia */}
+                            {(colaboradoras.length > 0 || monthlyDataByDay.length > 0) && (
+                                <Card>
+                                    <CardHeader className="p-3 sm:p-6">
+                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                            <div>
+                                                <CardTitle className="text-base sm:text-lg">Performance Mensal por Dia</CardTitle>
+                                                <p className="text-xs sm:text-sm text-muted-foreground mt-1">Vendas diárias de cada colaboradora no mês atual</p>
+                                            </div>
+                                            {monthlyDataByDay.length > 0 && (
+                                                <div className="flex gap-2">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={handleExportXLS}
+                                                        className="text-xs sm:text-sm"
+                                                    >
+                                                        <FileSpreadsheet className="h-4 w-4 mr-2" />
+                                                        Exportar XLS
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={handleExportPDF}
+                                                        className="text-xs sm:text-sm"
+                                                    >
+                                                        <FileText className="h-4 w-4 mr-2" />
+                                                        Exportar PDF
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                                        {monthlyDataByDay.length > 0 ? (
+                                            <div className="overflow-x-auto">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead className="text-xs sm:text-sm sticky left-0 bg-background z-10 font-bold min-w-[140px]">Vendedora</TableHead>
+                                                            {(() => {
+                                                                const hoje = new Date();
+                                                                const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+                                                                const todayStr = format(hoje, 'yyyy-MM-dd');
+                                                                const days: string[] = [];
+                                                                for (let day = 1; day <= daysInMonth; day++) {
+                                                                    const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
+                                                                    if (dayStr <= todayStr) {
+                                                                        days.push(dayStr);
+                                                                    }
+                                                                }
+                                                                return days.map(dayStr => (
+                                                                    <TableHead key={dayStr} className="text-xs text-center min-w-[60px]">
+                                                                        {format(new Date(dayStr + 'T00:00:00'), 'dd/MM')}
+                                                                    </TableHead>
+                                                                ));
+                                                            })()}
+                                                            <TableHead className="text-xs sm:text-sm sticky right-0 bg-background z-10 font-bold text-primary min-w-[120px]">Total</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {monthlyDataByDay
+                                                            .sort((a, b) => b.totalMes - a.totalMes)
+                                                            .map((data) => {
+                                                                const hoje = new Date();
+                                                                const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+                                                                const todayStr = format(hoje, 'yyyy-MM-dd');
+                                                                const days: string[] = [];
+                                                                for (let day = 1; day <= daysInMonth; day++) {
+                                                                    const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
+                                                                    if (dayStr <= todayStr) {
+                                                                        days.push(dayStr);
+                                                                    }
+                                                                }
+
+                                                                return (
+                                                                    <TableRow key={data.colaboradoraId}>
+                                                                        <TableCell className="text-xs sm:text-sm font-medium sticky left-0 bg-background z-10 min-w-[140px]">
+                                                                            {data.colaboradoraName}
+                                                                        </TableCell>
+                                                                        {days.map(dayStr => {
+                                                                            const dayData = data.dailySales[dayStr] || { valor: 0, metaDiaria: 0 };
+                                                                            const bateuMeta = dayData.metaDiaria > 0 && dayData.valor >= dayData.metaDiaria;
+
+                                                                            return (
+                                                                                <TableCell
+                                                                                    key={dayStr}
+                                                                                    className={`
+                                                                            text-xs text-center font-medium
+                                                                            ${bateuMeta
+                                                                                            ? 'bg-status-ahead/20 dark:bg-status-ahead/10 text-foreground'
+                                                                                            : dayData.valor > 0
+                                                                                                ? 'text-foreground'
+                                                                                                : 'text-muted-foreground'
+                                                                                        }
+                                                                        `}
+                                                                                    title={dayData.metaDiaria > 0 ? `Meta: R$ ${dayData.metaDiaria.toFixed(2)}` : ''}
+                                                                                >
+                                                                                    {dayData.valor > 0 ? (
+                                                                                        <span className="font-semibold">
+                                                                                            R$ {dayData.valor.toFixed(0)}
+                                                                                            {bateuMeta && ' ✓'}
+                                                                                        </span>
+                                                                                    ) : (
+                                                                                        <span className="text-muted-foreground">-</span>
+                                                                                    )}
+                                                                                </TableCell>
+                                                                            );
+                                                                        })}
+                                                                        <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-background z-10 min-w-[120px] text-right">
+                                                                            R$ {data.totalMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                );
+                                                            })}
+                                                        {/* Linha de Total da Loja */}
+                                                        <TableRow className="bg-primary/5 font-bold border-t-2 border-primary">
+                                                            <TableCell className="text-xs sm:text-sm font-bold sticky left-0 bg-primary/5 z-10 min-w-[140px]">
+                                                                TOTAL DA LOJA
+                                                            </TableCell>
+                                                            {(() => {
+                                                                const hoje = new Date();
+                                                                const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+                                                                const todayStr = format(hoje, 'yyyy-MM-dd');
+                                                                const days: string[] = [];
+                                                                for (let day = 1; day <= daysInMonth; day++) {
+                                                                    const dayStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), day), 'yyyy-MM-dd');
+                                                                    if (dayStr <= todayStr) {
+                                                                        days.push(dayStr);
+                                                                    }
+                                                                }
+
+                                                                const totalPorDia: Record<string, number> = {};
+
+                                                                days.forEach(dayStr => {
+                                                                    const totalDia = monthlyDataByDay.reduce((sum, data) => {
+                                                                        const dayData = data.dailySales[dayStr] || { valor: 0 };
+                                                                        return sum + dayData.valor;
+                                                                    }, 0);
+                                                                    totalPorDia[dayStr] = totalDia;
+                                                                });
+
+                                                                return days.map(dayStr => (
+                                                                    <TableCell
+                                                                        key={dayStr}
+                                                                        className="text-xs text-center font-bold text-primary"
+                                                                    >
+                                                                        {totalPorDia[dayStr] > 0 ? (
+                                                                            `R$ ${totalPorDia[dayStr].toFixed(0)}`
+                                                                        ) : (
+                                                                            <span className="text-muted-foreground">-</span>
+                                                                        )}
+                                                                    </TableCell>
+                                                                ));
+                                                            })()}
+                                                            <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-primary/5 z-10 min-w-[120px] text-right">
+                                                                R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-6">
+                                                <p className="text-sm text-muted-foreground">
+                                                    Carregando dados mensais...
+                                                </p>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </div>
                     )}
-                </div>
-            )}
-            </motion.div>
+                </motion.div>
             </main>
 
             {lastSaleData && storeId && (

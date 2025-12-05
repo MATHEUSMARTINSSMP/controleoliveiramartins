@@ -46,10 +46,10 @@ export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit
       const week = getWeek(monday, { weekStartsOn: 1, firstWeekContainsDate: 1 });
       const year = getYear(monday);
       const semanaRef = `${String(week).padStart(2, '0')}${year}`;
-      
+
       console.log(`🏆 [TrophiesGallery] Verificando troféus para semana ${semanaRef}...`);
       await checkAndCreateWeeklyTrophiesForAllColaboradoras(storeId, semanaRef);
-      
+
       // Buscar troféus da loja com informações da colaboradora
       const { data: trophiesData, error } = await supabase
         .schema("sistemaretiradas")
@@ -69,7 +69,7 @@ export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit
       }
 
       console.log(`🏆 [TrophiesGallery] Total de troféus retornados do banco: ${trophiesData?.length || 0}`);
-      console.log(`🏆 [TrophiesGallery] Troféus por tipo:`, 
+      console.log(`🏆 [TrophiesGallery] Troféus por tipo:`,
         trophiesData?.reduce((acc: any, t: any) => {
           acc[t.tipo] = (acc[t.tipo] || 0) + 1;
           return acc;
@@ -91,7 +91,7 @@ export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit
       }));
 
       console.log(`🏆 [TrophiesGallery] Troféus convertidos: ${trophiesList.length}`);
-      console.log(`🏆 [TrophiesGallery] Colaboradoras únicas:`, 
+      console.log(`🏆 [TrophiesGallery] Colaboradoras únicas:`,
         new Set(trophiesList.map(t => t.colaboradora_id)).size
       );
 
@@ -101,34 +101,34 @@ export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit
         if (trophy.tipo.includes('SUPER')) {
           return true;
         }
-        
+
         // Se é uma meta normal, verificar se existe super meta para a mesma colaboradora e referência
         const hasSuperMeta = trophiesList.some(t => {
           // Verificar se é super meta do mesmo tipo (mensal ou semanal)
-          const isSameType = 
+          const isSameType =
             (trophy.tipo === 'META_MENSAL' && t.tipo === 'SUPER_META_MENSAL') ||
             (trophy.tipo === 'META_SEMANAL' && t.tipo === 'SUPER_META_SEMANAL');
-          
+
           // Verificar se é da mesma colaboradora
           const isSameColaboradora = t.colaboradora_id === trophy.colaboradora_id;
-          
+
           // Verificar se é da mesma referência
-          const isSameReference = 
+          const isSameReference =
             (trophy.mes_referencia && t.mes_referencia === trophy.mes_referencia) ||
             (trophy.semana_referencia && t.semana_referencia === trophy.semana_referencia);
-          
+
           return isSameType && isSameColaboradora && isSameReference;
         });
-        
+
         // Se existe super meta, não mostrar a meta normal
         return !hasSuperMeta;
       });
 
       console.log(`🏆 [TrophiesGallery] Troféus após filtro: ${filteredTrophies.length}`);
-      console.log(`🏆 [TrophiesGallery] Colaboradoras únicas após filtro:`, 
+      console.log(`🏆 [TrophiesGallery] Colaboradoras únicas após filtro:`,
         new Set(filteredTrophies.map(t => t.colaboradora_id)).size
       );
-      console.log(`🏆 [TrophiesGallery] Detalhes dos troféus filtrados:`, 
+      console.log(`🏆 [TrophiesGallery] Detalhes dos troféus filtrados:`,
         filteredTrophies.map(t => ({
           colaboradora: t.colaboradora_name,
           tipo: t.tipo,
@@ -177,13 +177,13 @@ export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit
   const getTrophyColor = (tipo: TrophyData['tipo']): string => {
     switch (tipo) {
       case 'META_MENSAL':
-        return 'border-green-500 bg-green-50';
+        return 'border-green-500 bg-green-50 dark:bg-green-900/20';
       case 'SUPER_META_MENSAL':
-        return 'border-purple-500 bg-purple-50';
+        return 'border-purple-500 bg-purple-50 dark:bg-purple-900/20';
       case 'META_SEMANAL':
-        return 'border-blue-500 bg-blue-50';
+        return 'border-blue-500 bg-blue-50 dark:bg-blue-900/20';
       case 'SUPER_META_SEMANAL':
-        return 'border-orange-500 bg-orange-50';
+        return 'border-orange-500 bg-orange-50 dark:bg-orange-900/20';
     }
   };
 
@@ -261,36 +261,36 @@ export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit
       <CardContent className="pt-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {trophies.map((trophy) => (
-            <Card 
-              key={trophy.id} 
+            <Card
+              key={trophy.id}
               className={`relative overflow-hidden border-2 transition-all hover:shadow-lg hover:scale-105 ${getTrophyColor(trophy.tipo)}`}
             >
               {/* Decoração de fundo */}
               <div className="absolute top-0 right-0 w-24 h-24 opacity-10">
                 {getTrophyIcon(trophy.tipo)}
               </div>
-              
+
               <CardContent className="pt-6 relative z-10">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-2">
                     {getTrophyIcon(trophy.tipo)}
                   </div>
-                  <Badge 
+                  <Badge
                     variant={trophy.tipo.includes('SUPER') ? 'default' : 'secondary'}
                     className="text-xs"
                   >
                     {format(new Date(trophy.data_conquista), "MMM/yyyy", { locale: ptBR })}
                   </Badge>
                 </div>
-                
+
                 <h3 className="font-bold text-base mb-1">
                   {getTrophyLabel(trophy)}
                 </h3>
-                
+
                 <p className="text-sm font-semibold text-primary mb-4">
                   {trophy.colaboradora_name}
                 </p>
-                
+
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Meta:</span>

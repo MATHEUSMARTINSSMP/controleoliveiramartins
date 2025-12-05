@@ -51,9 +51,9 @@ export function useStore(storeId: string | null | undefined) {
   });
 }
 
-export function useStoreSettings(storeId: string | null | undefined) {
+export function useStoreTinySettings(storeId: string | null | undefined) {
   return useQuery({
-    queryKey: [QUERY_KEYS.stores, 'settings', storeId],
+    queryKey: [QUERY_KEYS.stores, 'tiny-settings', storeId],
     queryFn: async () => {
       if (!storeId) return null;
 
