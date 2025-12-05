@@ -123,7 +123,7 @@ exports.handler = async (event, context) => {
       if (configData && configData.value) {
         webhookUrl = configData.value;
       } else {
-        webhookUrl = 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/auth';
+        webhookUrl = 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/auth/connect';
       }
     }
 

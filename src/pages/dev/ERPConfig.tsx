@@ -116,9 +116,19 @@ const ERPConfig = () => {
         .select("id, name, sistema_erp, active")
         .order("name");
 
-      if (storesError) throw storesError;
+      if (storesError) {
+        console.error("Erro ao buscar lojas:", storesError);
+        console.error("Detalhes do erro:", {
+          code: storesError.code,
+          message: storesError.message,
+          details: storesError.details,
+          hint: storesError.hint,
+        });
+        throw storesError;
+      }
 
       const allStoresData = storesData || [];
+      console.log(`[ERPConfig] Lojas carregadas: ${allStoresData.length}`);
       setAllStores(allStoresData);
       setStores(allStoresData); // Inicialmente todas as lojas
       
