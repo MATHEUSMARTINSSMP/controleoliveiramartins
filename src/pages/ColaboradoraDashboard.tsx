@@ -217,11 +217,11 @@ const ColaboradoraDashboard = () => {
 
   if (loading || !profile || kpisLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="page-container flex items-center justify-center">
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="text-center space-y-4"
+          className="text-center space-y-4 relative z-10"
         >
           <div className="w-12 h-12 mx-auto border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
           <p className="text-sm text-muted-foreground">Carregando...</p>
@@ -231,8 +231,8 @@ const ColaboradoraDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
+    <div className="page-container">
+      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b relative">
         <div className="container mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <StoreLogo 
