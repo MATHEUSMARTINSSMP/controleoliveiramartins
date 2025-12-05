@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Loader2, Gift, MessageSquare, Package, Info } from 'lucide-react';
+import { Loader2, Gift, MessageSquare, Package, Info, Heart, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 
@@ -13,15 +13,17 @@ interface Store {
   name: string;
   cashback_ativo: boolean;
   crm_ativo: boolean;
+  wishlist_ativo: boolean;
+  ponto_ativo: boolean;
   active: boolean;
 }
 
 interface ModuleInfo {
-  id: 'cashback' | 'crm' | 'erp';
+  id: 'cashback' | 'crm' | 'erp' | 'wishlist' | 'ponto';
   name: string;
   description: string;
   icon: React.ReactNode;
-  field: 'cashback_ativo' | 'crm_ativo';
+  field: 'cashback_ativo' | 'crm_ativo' | 'wishlist_ativo' | 'ponto_ativo';
   color: string;
 }
 
@@ -41,6 +43,22 @@ const modules: ModuleInfo[] = [
     icon: <MessageSquare className="h-5 w-5" />,
     field: 'crm_ativo',
     color: 'text-blue-600 dark:text-blue-400'
+  },
+  {
+    id: 'wishlist',
+    name: 'Wishlist',
+    description: 'Sistema de lista de desejos que permite registrar produtos ou itens que clientes desejam comprar no futuro. Facilita o acompanhamento e comunicação com clientes.',
+    icon: <Heart className="h-5 w-5" />,
+    field: 'wishlist_ativo',
+    color: 'text-red-600 dark:text-red-400'
+  },
+  {
+    id: 'ponto',
+    name: 'Controle de Ponto',
+    description: 'Sistema de controle de ponto e jornada de trabalho. Permite registrar entrada, saída e intervalos das colaboradoras, além de gerenciar banco de horas.',
+    icon: <Clock className="h-5 w-5" />,
+    field: 'ponto_ativo',
+    color: 'text-orange-600 dark:text-orange-400'
   },
   {
     id: 'erp',
@@ -68,7 +86,7 @@ export const ModulesStoreConfig = () => {
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, name, cashback_ativo, crm_ativo, active')
+        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, active')
         .eq('active', true)
         .order('name');
 
@@ -148,7 +166,7 @@ export const ModulesStoreConfig = () => {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Informações dos Módulos */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
           {modules.map(module => (
             <div
               key={module.id}
@@ -252,22 +270,34 @@ export const ModulesStoreConfig = () => {
 
                 {/* Resumo Rápido (quando colapsado) */}
                 {expandedStore !== store.id && (
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Gift className="h-3 w-3" />
-                      <span className={store.cashback_ativo ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}>
+                      <span className={store.cashback_ativo ? 'text-success' : 'text-muted-foreground'}>
                         Cashback {store.cashback_ativo ? '✓' : '✗'}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
                       <MessageSquare className="h-3 w-3" />
-                      <span className={store.crm_ativo ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}>
+                      <span className={store.crm_ativo ? 'text-success' : 'text-muted-foreground'}>
                         CRM {store.crm_ativo ? '✓' : '✗'}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
+                      <Heart className="h-3 w-3" />
+                      <span className={store.wishlist_ativo ? 'text-success' : 'text-muted-foreground'}>
+                        Wishlist {store.wishlist_ativo ? '✓' : '✗'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      <span className={store.ponto_ativo ? 'text-success' : 'text-muted-foreground'}>
+                        Ponto {store.ponto_ativo ? '✓' : '✗'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
                       <Package className="h-3 w-3" />
-                      <span className="text-green-600 dark:text-green-400">
+                      <span className="text-success">
                         ERP ✓
                       </span>
                     </div>
@@ -287,6 +317,8 @@ export const ModulesStoreConfig = () => {
               <ul className="list-disc list-inside space-y-1 text-blue-800 dark:text-blue-200">
                 <li><strong>Cashback:</strong> Gera créditos automaticamente quando clientes fazem compras. Configure valores e percentuais em "Gestão de Sistemas → Cashback".</li>
                 <li><strong>CRM:</strong> Gerencia relacionamento com clientes. Acesse tarefas, compromissos e pós-vendas no Dashboard da Loja quando ativo.</li>
+                <li><strong>Wishlist:</strong> Sistema de lista de desejos para registrar produtos que clientes querem comprar. Acesse no Dashboard da Loja quando ativo.</li>
+                <li><strong>Controle de Ponto:</strong> Sistema de controle de ponto e jornada de trabalho. Gerencia registros de entrada, saída e banco de horas das colaboradoras.</li>
                 <li><strong>ERP:</strong> Integração automática com Tiny ERP. Sempre ativo para sincronizar pedidos, produtos e colaboradoras.</li>
               </ul>
             </div>
