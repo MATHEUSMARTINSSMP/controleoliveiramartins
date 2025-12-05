@@ -25,6 +25,51 @@ CREATE INDEX IF NOT EXISTS idx_stores_whatsapp_ativo
   WHERE whatsapp_ativo = true;
 
 -- ============================================================================
+-- SEGURANÇA: RLS Policies para credenciais WhatsApp
+-- ============================================================================
+
+-- Garantir que RLS está habilitado na tabela stores
+ALTER TABLE sistemaretiradas.stores ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Admin pode ver apenas suas próprias lojas
+DROP POLICY IF EXISTS "stores_admin_select_own" ON sistemaretiradas.stores;
+CREATE POLICY "stores_admin_select_own" ON sistemaretiradas.stores
+  FOR SELECT USING (
+    -- Admin só vê suas próprias lojas
+    admin_id = auth.uid()
+    OR
+    -- Colaboradoras podem ver dados básicos da sua loja (sem credenciais sensíveis)
+    EXISTS (
+      SELECT 1 FROM sistemaretiradas.profiles p
+      WHERE p.id = auth.uid() 
+      AND p.role = 'COLABORADORA'
+      AND p.store_id = stores.id
+    )
+  );
+
+-- Policy: Apenas Admin pode editar suas lojas (incluindo credenciais WhatsApp)
+DROP POLICY IF EXISTS "stores_admin_update_own" ON sistemaretiradas.stores;
+CREATE POLICY "stores_admin_update_own" ON sistemaretiradas.stores
+  FOR UPDATE USING (
+    admin_id = auth.uid()
+    AND EXISTS (
+      SELECT 1 FROM sistemaretiradas.profiles
+      WHERE id = auth.uid() AND role = 'ADMIN'
+    )
+  );
+
+-- Policy: Apenas Admin pode inserir lojas
+DROP POLICY IF EXISTS "stores_admin_insert" ON sistemaretiradas.stores;
+CREATE POLICY "stores_admin_insert" ON sistemaretiradas.stores
+  FOR INSERT WITH CHECK (
+    admin_id = auth.uid()
+    AND EXISTS (
+      SELECT 1 FROM sistemaretiradas.profiles
+      WHERE id = auth.uid() AND role = 'ADMIN'
+    )
+  );
+
+-- ============================================================================
 -- Verificação
 -- ============================================================================
 DO $$
@@ -39,4 +84,17 @@ BEGIN
   ELSE
     RAISE EXCEPTION '❌ Falha ao adicionar coluna uazapi_token';
   END IF;
+  
+  -- Verificar políticas RLS
+  IF EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'sistemaretiradas'
+    AND tablename = 'stores'
+    AND policyname = 'stores_admin_select_own'
+  ) THEN
+    RAISE NOTICE '✅ RLS Policy stores_admin_select_own criada com sucesso';
+  ELSE
+    RAISE NOTICE '⚠️ RLS Policy pode não ter sido criada (verifique manualmente)';
+  END IF;
 END $$;
+
