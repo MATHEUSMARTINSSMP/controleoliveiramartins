@@ -10,6 +10,18 @@ Complete multi-tenant ERP/sales management SaaS system migrated from Lovable to 
 - **Multi-tenancy**: RLS-based data isolation using `sistemaretiradas` schema
 
 ## Recent Changes
+- **2024-12-05**: Theme System + Auth Modernization:
+  - **Theme System**: ThemeProvider with dark/light toggle, localStorage persistence
+  - **Light Mode Colors**: Beige/golden palette (40 84% 85%, 38 92% 50%)
+  - **Dark Mode Colors**: Violet/purple palette (262 83% 58%, 280 100% 70%)
+  - **Auth.tsx Fully Theme-Aware**: All hardcoded colors replaced with semantic tokens
+  - **Utility Classes**: `.gradient-primary`, `.glass-card`, `.glow`, `.glow-sm`
+  - **LojaDashboard Modularization**: 5 reusable components in `src/components/loja/`:
+    - `types.ts`: Shared TypeScript interfaces
+    - `StoreMetricsCards.tsx`: Store performance metrics
+    - `ColaboradoraPerformanceCards.tsx`: Collaborator performance cards
+    - `RankingDisplay.tsx`: Sales ranking display
+    - `WeeklyHistoryChart.tsx`: 7-day history chart
 - **2024-12-05**: Phase 3 UI/UX Modernization - Futuristic Design System:
   - **New Design Tokens**: Violet/purple gradient palette, glassmorphism variables, glow shadows
   - **Modern UI Components**:
