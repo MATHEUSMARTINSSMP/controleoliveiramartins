@@ -299,11 +299,6 @@ export default function LojaDashboard() {
         }
     };
 
-    const fetchGoals = async () => {
-        if (!storeId) return;
-        return fetchGoalsWithStoreId(storeId);
-    };
-
     // Função auxiliar para calcular meta diária dinâmica
     const calculateDynamicDailyGoal = (
         metaMensal: number,
@@ -548,11 +543,6 @@ export default function LojaDashboard() {
     const handleSignOut = async () => {
         await signOut();
         navigate('/');
-    };
-
-    const fetch7DayHistory = async () => {
-        if (!storeId) return;
-        return fetch7DayHistoryWithStoreId(storeId);
     };
 
     const fetch7DayHistoryWithStoreId = async (currentStoreId: string) => {
@@ -910,14 +900,6 @@ export default function LojaDashboard() {
         setMonthlyDataByDay(resultFiltered);
     };
 
-    const fetchData = async () => {
-        if (!storeId) {
-            console.warn('[LojaDashboard] ⚠️ fetchData chamado mas storeId não está definido ainda');
-            return;
-        }
-        await fetchDataWithStoreId(storeId);
-    };
-
     const fetchDataWithStoreId = async (currentStoreId: string, currentStoreName?: string) => {
         if (!currentStoreId) {
             console.error('[LojaDashboard] ❌ fetchDataWithStoreId chamado sem storeId válido');
@@ -969,11 +951,6 @@ export default function LojaDashboard() {
         }
     };
 
-    const fetchMetrics = async () => {
-        if (!storeId) return;
-        return fetchMetricsWithStoreId(storeId);
-    };
-
     const fetchMetricsWithStoreId = async (currentStoreId: string) => {
         if (!currentStoreId) return;
 
@@ -1010,11 +987,6 @@ export default function LojaDashboard() {
                 meta_preco_medio_peca: 0,
             });
         }
-    };
-
-    const fetchColaboradorasPerformance = async () => {
-        if (!storeId) return;
-        return fetchColaboradorasPerformanceWithStoreId(storeId, storeName || undefined);
     };
 
     const fetchColaboradorasPerformanceWithStoreId = async (currentStoreId: string, currentStoreName?: string | null) => {
@@ -1253,11 +1225,6 @@ export default function LojaDashboard() {
         }
     };
 
-    const fetchRankingTop3 = async () => {
-        if (!storeId) return;
-        return fetchRankingTop3WithStoreId(storeId);
-    };
-
     const fetchRankingTop3WithStoreId = async (currentStoreId: string) => {
         if (!currentStoreId) return;
 
@@ -1298,11 +1265,6 @@ export default function LojaDashboard() {
 
             setRankingTop3(ranking as any[]);
         }
-    };
-
-    const fetchMonthlyRanking = async () => {
-        if (!storeId) return;
-        return fetchMonthlyRankingWithStoreId(storeId);
     };
 
     const fetchMonthlyRankingWithStoreId = async (currentStoreId: string) => {
@@ -1347,11 +1309,6 @@ export default function LojaDashboard() {
 
             setRankingMonthly(ranking as any[]);
         }
-    };
-
-    const fetchSales = async () => {
-        if (!storeId) return;
-        return fetchSalesWithStoreId(storeId, salesDateFilter);
     };
 
     // Atualizar vendas quando o filtro de data mudar
@@ -1493,14 +1450,6 @@ export default function LojaDashboard() {
 
             setSales(sortedSales);
         }
-    };
-
-    const fetchColaboradoras = async () => {
-        if (!storeId) {
-            console.warn('[LojaDashboard] ⚠️ storeId não definido, não é possível buscar colaboradoras');
-            return;
-        }
-        return fetchColaboradorasWithStoreId(storeId);
     };
 
     const fetchColaboradorasWithStoreId = async (currentStoreId: string, currentStoreName?: string | null) => {

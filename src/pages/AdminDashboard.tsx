@@ -4,13 +4,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, KeyRound, Bell, DollarSign, Settings, ExternalLink, BarChart, FileText, TrendingUp, Package, Brain, Gift } from "lucide-react";
+import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import ERPDashboard from "@/pages/erp/ERPDashboard";
 import CategoryReports from "@/pages/erp/CategoryReports";
 import ProductSalesIntelligence from "@/pages/erp/ProductSalesIntelligence";
 import CustomerIntelligence from "@/pages/erp/CustomerIntelligence";
 import CashbackManagement from "@/pages/erp/CashbackManagement";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CommercialDashboard } from "@/components/admin/CommercialDashboard";
@@ -25,13 +25,15 @@ import { CRMManagement } from "@/components/admin/CRMManagement";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAdminPendingAdiantamentos } from "@/hooks/queries";
 
 const AdminDashboard = () => {
   const { profile, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const [passwordDialog, setPasswordDialog] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
-  const [pendingAdiantamentos, setPendingAdiantamentos] = useState(0);
+  
+  const { data: pendingAdiantamentos = 0 } = useAdminPendingAdiantamentos();
 
   useEffect(() => {
     if (!loading) {
@@ -39,34 +41,9 @@ const AdminDashboard = () => {
         navigate("/");
       } else if (profile.role !== "ADMIN") {
         navigate("/me");
-      } else {
-        // Buscar adiantamentos pendentes
-        fetchPendingAdiantamentos();
-        // Atualizar a cada 30 segundos
-        const interval = setInterval(fetchPendingAdiantamentos, 30000);
-        return () => clearInterval(interval);
       }
     }
   }, [profile, loading, navigate]);
-
-  const fetchPendingAdiantamentos = async () => {
-    try {
-      const { data, error } = await supabase
-        .schema("sistemaretiradas")
-        .from("adiantamentos")
-        .select("id")
-        .eq("status", "PENDENTE");
-
-      if (error) {
-        console.error("Erro ao buscar adiantamentos pendentes:", error);
-        return;
-      }
-
-      setPendingAdiantamentos(data?.length || 0);
-    } catch (error) {
-      console.error("Erro ao buscar adiantamentos pendentes:", error);
-    }
-  };
 
   const handleChangePassword = async () => {
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {

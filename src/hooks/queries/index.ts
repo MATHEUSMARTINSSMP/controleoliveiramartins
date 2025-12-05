@@ -10,3 +10,5 @@ export * from './use-profiles';
 export * from './use-colaboradora';
 export * from './use-sales';
 export * from './use-bonuses';
+export * from './use-loja';
+export * from './use-admin';
