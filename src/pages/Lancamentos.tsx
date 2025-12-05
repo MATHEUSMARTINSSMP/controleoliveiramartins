@@ -632,20 +632,22 @@ const Lancamentos = () => {
                                     {formatCurrency(compra.valor_pendente)}
                                   </TableCell>
                                   <TableCell>
-                                    {profile?.role === "ADMIN" && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setCompraParaExcluir(compra.compra_id);
-                                        }}
-                                        className="border-destructive/20 text-destructive hover:text-destructive"
-                                      >
-                                        <Trash2 className="h-4 w-4 mr-1" />
-                                        Excluir
-                                      </Button>
-                                    )}
+                                    <div className="flex gap-2">
+                                      {profile?.role === "ADMIN" && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setCompraParaExcluir(compra.compra_id);
+                                          }}
+                                          className="border-destructive/20 text-destructive hover:text-destructive"
+                                        >
+                                          <Trash2 className="h-4 w-4 mr-1" />
+                                          Excluir Compra
+                                        </Button>
+                                      )}
+                                    </div>
                                   </TableCell>
                                 </TableRow>
                                 
