@@ -56,7 +56,7 @@ export const WhatsAppWebhookConfig = () => {
       }
 
       setConfig({
-        whatsapp_auth_webhook_url: configMap.get('whatsapp_auth_webhook_url') || 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/auth',
+        whatsapp_auth_webhook_url: configMap.get('whatsapp_auth_webhook_url') || 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/auth/connect',
         whatsapp_send_webhook_url: configMap.get('whatsapp_send_webhook_url') || 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send',
         n8n_webhook_auth: configMap.get('n8n_webhook_auth') || null,
       });
@@ -65,7 +65,7 @@ export const WhatsAppWebhookConfig = () => {
       toast.error('Erro ao carregar configurações');
       // Valores padrão em caso de erro
       setConfig({
-        whatsapp_auth_webhook_url: 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/auth',
+        whatsapp_auth_webhook_url: 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/auth/connect',
         whatsapp_send_webhook_url: 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send',
         n8n_webhook_auth: null,
       });
@@ -192,7 +192,7 @@ export const WhatsAppWebhookConfig = () => {
             <Input
               id="auth-webhook-url"
               type="url"
-              placeholder="https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/auth"
+              placeholder="https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/auth/connect"
               value={config.whatsapp_auth_webhook_url || ''}
               onChange={(e) => setConfig({ ...config, whatsapp_auth_webhook_url: e.target.value })}
             />
