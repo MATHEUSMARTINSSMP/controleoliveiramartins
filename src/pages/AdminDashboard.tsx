@@ -16,12 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CommercialDashboard } from "@/components/admin/CommercialDashboard";
 import { FinancialDashboard } from "@/components/admin/FinancialDashboard";
 import { StorePerformanceReports } from "@/components/admin/StorePerformanceReports";
-import { WhatsAppNotificationConfig } from "@/components/admin/WhatsAppNotificationConfig";
-import { WhatsAppStoreConfig } from "@/components/admin/WhatsAppStoreConfig";
+import { ConfigTabs } from "@/components/admin/ConfigTabs";
 import { GoalsTracking } from "@/components/admin/GoalsTracking";
-import { CashbackStoreConfig } from "@/components/admin/CashbackStoreConfig";
-import { CRMStoreConfig } from "@/components/admin/CRMStoreConfig";
-import { ModulesStoreConfig } from "@/components/admin/ModulesStoreConfig";
 import { CRMManagement } from "@/components/admin/CRMManagement";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -295,77 +291,8 @@ const AdminDashboard = () => {
               <CRMManagement />
             </TabsContent>
 
-            <TabsContent value="configuracoes" className="animate-fade-in space-y-6 sm:space-y-8">
-              {/* Seção 1: Módulos do Sistema */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Package className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold">Módulos do Sistema</h2>
-                </div>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Ative ou desative os módulos disponíveis para cada loja. Cada módulo oferece funcionalidades específicas.
-                </p>
-                <ModulesStoreConfig />
-              </div>
-
-              {/* Separador */}
-              <div className="border-t border-border my-6" />
-
-              {/* Seção 3: Configuração WhatsApp por Loja */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <MessageSquare className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold">Configuração WhatsApp por Loja</h2>
-                </div>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Configure credenciais WhatsApp por loja para envio de mensagens automáticas. Cada loja pode ter seu próprio número.
-                </p>
-                <WhatsAppStoreConfig />
-              </div>
-
-              {/* Separador */}
-              <div className="border-t border-border my-6" />
-
-              {/* Seção 3: Notificações WhatsApp */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Bell className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold">Notificações WhatsApp</h2>
-                </div>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Configure destinatários e tipos de notificações que serão enviadas via WhatsApp (Vendas, Adiantamentos, Parabéns).
-                </p>
-                <WhatsAppNotificationConfig />
-              </div>
-
-              {/* Separador */}
-              <div className="border-t border-border my-6" />
-
-              {/* Seção 4: Integrações ERP */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Settings className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold">Integrações ERP</h2>
-                </div>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Configure integrações ERP por loja (Tiny, Bling, Microvix, Conta Azul, etc). As vendas são sincronizadas automaticamente.
-                </p>
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <Button
-                        onClick={() => navigate("/admin/erp-integrations")}
-                        variant="outline"
-                        className="w-full sm:w-auto border-primary/30"
-                        size="sm"
-                      >
-                        <ExternalLink className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                        Gerenciar Integrações ERP
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+            <TabsContent value="configuracoes" className="animate-fade-in">
+              <ConfigTabs />
             </TabsContent>
           </Tabs>
         </motion.div>
