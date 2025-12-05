@@ -13,7 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { ArrowLeft, CheckCircle2, Undo2, Trash2, ChevronDown, ChevronRight, Package, Plus, ShoppingBag, Calendar } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
@@ -579,183 +578,177 @@ const Lancamentos = () => {
                           const isExpanded = expandedCompras.has(compra.compra_id);
                           const compraIdShort = compra.compra_id.substring(0, 8).toUpperCase();
 
+                          const toggleExpand = () => {
+                            const newExpanded = new Set(expandedCompras);
+                            if (isExpanded) {
+                              newExpanded.delete(compra.compra_id);
+                            } else {
+                              newExpanded.add(compra.compra_id);
+                            }
+                            setExpandedCompras(newExpanded);
+                          };
+
                           return (
-                            <Collapsible
-                              key={compra.compra_id}
-                              open={isExpanded}
-                              onOpenChange={(open) => {
-                                const newExpanded = new Set(expandedCompras);
-                                if (open) {
-                                  newExpanded.add(compra.compra_id);
-                                } else {
-                                  newExpanded.delete(compra.compra_id);
-                                }
-                                setExpandedCompras(newExpanded);
-                              }}
-                            >
-                              <>
-                                {/* Linha principal da compra */}
-                                <TableRow className={compra.valor_pendente === 0 ? "bg-muted/30" : ""}>
-                                  <TableCell>
-                                    <CollapsibleTrigger asChild>
-                                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                            <>
+                              {/* Linha principal da compra */}
+                              <TableRow key={compra.compra_id} className={compra.valor_pendente === 0 ? "bg-muted/30" : ""}>
+                                <TableCell>
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={toggleExpand}>
+                                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                  </Button>
+                                </TableCell>
+                                <TableCell className="font-medium">
+                                  {compra.colaboradora}
+                                </TableCell>
+                                <TableCell>
+                                  {compra.loja_nome}
+                                </TableCell>
+                                <TableCell>
+                                  {format(new Date(compra.data_compra), "dd/MM/yyyy")}
+                                </TableCell>
+                                <TableCell>
+                                  {compra.num_parcelas}x
+                                </TableCell>
+                                <TableCell className="font-semibold">
+                                  {formatCurrency(compra.valor_total)}
+                                </TableCell>
+                                <TableCell>
+                                  {formatCurrency(compra.valor_por_parcela)}
+                                </TableCell>
+                                <TableCell className="text-success">
+                                  {formatCurrency(compra.valor_pago)}
+                                </TableCell>
+                                <TableCell className={compra.valor_pendente > 0 ? "text-destructive font-semibold" : "text-muted-foreground"}>
+                                  {formatCurrency(compra.valor_pendente)}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex gap-2">
+                                    {profile?.role === "ADMIN" && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setCompraParaExcluir(compra.compra_id);
+                                        }}
+                                        className="border-destructive/20 text-destructive hover:text-destructive"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-1" />
+                                        Excluir Compra
                                       </Button>
-                                    </CollapsibleTrigger>
-                                  </TableCell>
-                                  <TableCell className="font-medium">
-                                    {compra.colaboradora}
-                                  </TableCell>
-                                  <TableCell>
-                                    {compra.loja_nome}
-                                  </TableCell>
-                                  <TableCell>
-                                    {format(new Date(compra.data_compra), "dd/MM/yyyy")}
-                                  </TableCell>
-                                  <TableCell>
-                                    {compra.num_parcelas}x
-                                  </TableCell>
-                                  <TableCell className="font-semibold">
-                                    {formatCurrency(compra.valor_total)}
-                                  </TableCell>
-                                  <TableCell>
-                                    {formatCurrency(compra.valor_por_parcela)}
-                                  </TableCell>
-                                  <TableCell className="text-success">
-                                    {formatCurrency(compra.valor_pago)}
-                                  </TableCell>
-                                  <TableCell className={compra.valor_pendente > 0 ? "text-destructive font-semibold" : "text-muted-foreground"}>
-                                    {formatCurrency(compra.valor_pendente)}
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex gap-2">
-                                      {profile?.role === "ADMIN" && (
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setCompraParaExcluir(compra.compra_id);
-                                          }}
-                                          className="border-destructive/20 text-destructive hover:text-destructive"
-                                        >
-                                          <Trash2 className="h-4 w-4 mr-1" />
-                                          Excluir Compra
-                                        </Button>
-                                      )}
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                                
-                                {/* Parcelas expandidas */}
-                                <CollapsibleContent asChild>
-                                  <>
-                                    {compra.parcelas
-                                      .sort((a, b) => a.n_parcela - b.n_parcela)
-                                      .map((parcela) => {
-                                        const competenciaFormatada = `${parcela.competencia.slice(0, 4)}/${parcela.competencia.slice(4)}`;
-                                        
-                                        return (
-                                          <TableRow key={parcela.id} className="bg-muted/20">
-                                            <TableCell></TableCell>
-                                            <TableCell className="text-muted-foreground text-xs pl-8">
-                                              └─ {parcela.n_parcela}/{compra.num_parcelas}
-                                            </TableCell>
-                                            <TableCell className="text-muted-foreground text-xs">
-                                              Descontar em: {competenciaFormatada}
-                                            </TableCell>
-                                            <TableCell colSpan={3}></TableCell>
-                                            <TableCell>
-                                              {formatCurrency(parcela.valor_parcela)}
-                                            </TableCell>
-                                            <TableCell>
-                                              {getStatusBadge(parcela.status_parcela)}
-                                            </TableCell>
-                                            <TableCell>
-                                              <div className="flex gap-2">
-                                                {parcela.status_parcela === "PENDENTE" || parcela.status_parcela === "AGENDADO" ? (
-                                                  <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      handleDescontar(parcela.id);
-                                                    }}
-                                                    className="border-primary/20"
-                                                  >
-                                                    <CheckCircle2 className="h-4 w-4 mr-1" />
-                                                    Descontar
-                                                  </Button>
-                                                ) : parcela.status_parcela === "DESCONTADO" ? (
-                                                  <Dialog>
-                                                    <DialogTrigger asChild>
-                                                      <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          setSelectedParcela(parcela.id);
-                                                        }}
-                                                        className="border-destructive/20"
-                                                      >
-                                                        <Undo2 className="h-4 w-4 mr-1" />
-                                                        Estornar
-                                                      </Button>
-                                                    </DialogTrigger>
-                                                    <DialogContent>
-                                                      <DialogHeader>
-                                                        <DialogTitle>Estornar Parcela</DialogTitle>
-                                                      </DialogHeader>
-                                                      <div className="space-y-4">
-                                                        <div>
-                                                          <Label htmlFor="motivo">Motivo do Estorno *</Label>
-                                                          <Textarea
-                                                            id="motivo"
-                                                            value={motivoEstorno}
-                                                            onChange={(e) => setMotivoEstorno(e.target.value)}
-                                                            placeholder="Descreva o motivo do estorno"
-                                                            rows={4}
-                                                          />
-                                                        </div>
-                                                        <Button
-                                                          onClick={handleEstornar}
-                                                          className="w-full"
-                                                          variant="destructive"
-                                                        >
-                                                          Confirmar Estorno
-                                                        </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                              
+                              {/* Parcelas expandidas */}
+                              {isExpanded && (
+                                <>
+                                  {compra.parcelas
+                                    .sort((a, b) => a.n_parcela - b.n_parcela)
+                                    .map((parcela) => {
+                                      const competenciaFormatada = `${parcela.competencia.slice(0, 4)}/${parcela.competencia.slice(4)}`;
+                                      
+                                      return (
+                                        <TableRow key={parcela.id} className="bg-muted/20">
+                                          <TableCell></TableCell>
+                                          <TableCell className="text-muted-foreground text-xs pl-8">
+                                            Parcela {parcela.n_parcela}/{compra.num_parcelas}
+                                          </TableCell>
+                                          <TableCell className="text-muted-foreground text-xs">
+                                            Descontar em: {competenciaFormatada}
+                                          </TableCell>
+                                          <TableCell colSpan={3}></TableCell>
+                                          <TableCell>
+                                            {formatCurrency(parcela.valor_parcela)}
+                                          </TableCell>
+                                          <TableCell>
+                                            {getStatusBadge(parcela.status_parcela)}
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="flex gap-2">
+                                              {parcela.status_parcela === "PENDENTE" || parcela.status_parcela === "AGENDADO" ? (
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDescontar(parcela.id);
+                                                  }}
+                                                  className="border-primary/20"
+                                                >
+                                                  <CheckCircle2 className="h-4 w-4 mr-1" />
+                                                  Descontar
+                                                </Button>
+                                              ) : parcela.status_parcela === "DESCONTADO" ? (
+                                                <Dialog>
+                                                  <DialogTrigger asChild>
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedParcela(parcela.id);
+                                                      }}
+                                                      className="border-destructive/20"
+                                                    >
+                                                      <Undo2 className="h-4 w-4 mr-1" />
+                                                      Estornar
+                                                    </Button>
+                                                  </DialogTrigger>
+                                                  <DialogContent>
+                                                    <DialogHeader>
+                                                      <DialogTitle>Estornar Parcela</DialogTitle>
+                                                    </DialogHeader>
+                                                    <div className="space-y-4">
+                                                      <div>
+                                                        <Label htmlFor="motivo">Motivo do Estorno *</Label>
+                                                        <Textarea
+                                                          id="motivo"
+                                                          value={motivoEstorno}
+                                                          onChange={(e) => setMotivoEstorno(e.target.value)}
+                                                          placeholder="Descreva o motivo do estorno"
+                                                          rows={4}
+                                                        />
                                                       </div>
-                                                    </DialogContent>
-                                                  </Dialog>
-                                                ) : null}
-                                              </div>
-                                            </TableCell>
-                                          </TableRow>
-                                        );
-                                      })}
-                                    {/* Detalhes dos produtos */}
-                                    <TableRow>
-                                      <TableCell colSpan={10} className="bg-muted/40 p-5">
-                                        <div className="space-y-3">
-                                          <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                                            <Package className="h-4 w-4 text-primary" />
-                                            Produtos da Compra
-                                            <span className="font-mono text-xs text-muted-foreground font-normal ml-1">({compraIdShort})</span>
-                                          </div>
-                                          <div className="space-y-1.5">
-                                            {compra.item.split(',').map((item, idx) => (
-                                              <div key={idx} className="text-sm text-foreground py-1.5 px-3 bg-background/80 rounded-md border border-border/30">
-                                                {item.trim()}
-                                              </div>
-                                            ))}
-                                          </div>
+                                                      <Button
+                                                        onClick={handleEstornar}
+                                                        className="w-full"
+                                                        variant="destructive"
+                                                      >
+                                                        Confirmar Estorno
+                                                      </Button>
+                                                    </div>
+                                                  </DialogContent>
+                                                </Dialog>
+                                              ) : null}
+                                            </div>
+                                          </TableCell>
+                                        </TableRow>
+                                      );
+                                    })}
+                                  {/* Detalhes dos produtos */}
+                                  <TableRow key={`${compra.compra_id}-items`}>
+                                    <TableCell colSpan={10} className="bg-muted/40 p-5">
+                                      <div className="space-y-3">
+                                        <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                                          <Package className="h-4 w-4 text-primary" />
+                                          Produtos da Compra
+                                          <span className="font-mono text-xs text-muted-foreground font-normal ml-1">({compraIdShort})</span>
                                         </div>
-                                      </TableCell>
-                                    </TableRow>
-                                  </>
-                                </CollapsibleContent>
-                              </>
-                            </Collapsible>
+                                        <div className="space-y-1.5">
+                                          {compra.item.split(',').map((item, idx) => (
+                                            <div key={idx} className="text-sm text-foreground py-1.5 px-3 bg-background/80 rounded-md border border-border/30">
+                                              {item.trim()}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                </>
+                              )}
+                            </>
                           );
                         })}
                       </TableBody>
@@ -823,124 +816,118 @@ const Lancamentos = () => {
                                     const compraIdShort = parcela.compra_id.substring(0, 8).toUpperCase();
                                     const isParcelaExpanded = expandedParcelas.has(parcela.id);
 
+                                    const toggleParcelaExpand = () => {
+                                      const newExpanded = new Set(expandedParcelas);
+                                      if (isParcelaExpanded) {
+                                        newExpanded.delete(parcela.id);
+                                      } else {
+                                        newExpanded.add(parcela.id);
+                                      }
+                                      setExpandedParcelas(newExpanded);
+                                    };
+
                                     return (
-                                      <Collapsible
-                                        key={parcela.id}
-                                        open={isParcelaExpanded}
-                                        onOpenChange={(open) => {
-                                          const newExpanded = new Set(expandedParcelas);
-                                          if (open) {
-                                            newExpanded.add(parcela.id);
-                                          } else {
-                                            newExpanded.delete(parcela.id);
-                                          }
-                                          setExpandedParcelas(newExpanded);
-                                        }}
-                                      >
-                                        <>
-                                          <TableRow className={parcela.status_parcela === "DESCONTADO" ? "bg-muted/20" : ""}>
-                                            <TableCell>
-                                              <div className="flex items-center gap-2">
-                                                <CollapsibleTrigger asChild>
-                                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                                    {isParcelaExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                                  </Button>
-                                                </CollapsibleTrigger>
-                                                <span className="font-mono text-xs font-semibold text-primary">
-                                                  {compraIdShort}
-                                                </span>
-                                              </div>
-                                            </TableCell>
-                                            <TableCell className="font-medium">
-                                              {parcela.purchases.profiles.name}
-                                            </TableCell>
-                                            <TableCell>
-                                              {parcela.n_parcela}/{parcela.purchases.num_parcelas}
-                                            </TableCell>
-                                            <TableCell>{formatCurrency(parcela.valor_parcela)}</TableCell>
-                                            <TableCell>{getStatusBadge(parcela.status_parcela)}</TableCell>
-                                            <TableCell>
-                                              <div className="flex gap-2">
-                                                {parcela.status_parcela === "PENDENTE" || parcela.status_parcela === "AGENDADO" ? (
-                                                  <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      handleDescontar(parcela.id);
-                                                    }}
-                                                    className="border-primary/20"
-                                                  >
-                                                    <CheckCircle2 className="h-4 w-4 mr-1" />
-                                                    Descontar
-                                                  </Button>
-                                                ) : parcela.status_parcela === "DESCONTADO" ? (
-                                                  <Dialog>
-                                                    <DialogTrigger asChild>
-                                                      <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          setSelectedParcela(parcela.id);
-                                                        }}
-                                                        className="border-destructive/20"
-                                                      >
-                                                        <Undo2 className="h-4 w-4 mr-1" />
-                                                        Estornar
-                                                      </Button>
-                                                    </DialogTrigger>
-                                                    <DialogContent>
-                                                      <DialogHeader>
-                                                        <DialogTitle>Estornar Parcela</DialogTitle>
-                                                      </DialogHeader>
-                                                      <div className="space-y-4">
-                                                        <div>
-                                                          <Label htmlFor="motivo">Motivo do Estorno *</Label>
-                                                          <Textarea
-                                                            id="motivo"
-                                                            value={motivoEstorno}
-                                                            onChange={(e) => setMotivoEstorno(e.target.value)}
-                                                            placeholder="Descreva o motivo do estorno"
-                                                            rows={4}
-                                                          />
-                                                        </div>
-                                                        <Button
-                                                          onClick={handleEstornar}
-                                                          className="w-full"
-                                                          variant="destructive"
-                                                        >
-                                                          Confirmar Estorno
-                                                        </Button>
+                                      <>
+                                        <TableRow key={parcela.id} className={parcela.status_parcela === "DESCONTADO" ? "bg-muted/20" : ""}>
+                                          <TableCell>
+                                            <div className="flex items-center gap-2">
+                                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={toggleParcelaExpand}>
+                                                {isParcelaExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                              </Button>
+                                              <span className="font-mono text-xs font-semibold text-primary">
+                                                {compraIdShort}
+                                              </span>
+                                            </div>
+                                          </TableCell>
+                                          <TableCell className="font-medium">
+                                            {parcela.purchases.profiles.name}
+                                          </TableCell>
+                                          <TableCell>
+                                            {parcela.n_parcela}/{parcela.purchases.num_parcelas}
+                                          </TableCell>
+                                          <TableCell>{formatCurrency(parcela.valor_parcela)}</TableCell>
+                                          <TableCell>{getStatusBadge(parcela.status_parcela)}</TableCell>
+                                          <TableCell>
+                                            <div className="flex gap-2">
+                                              {parcela.status_parcela === "PENDENTE" || parcela.status_parcela === "AGENDADO" ? (
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDescontar(parcela.id);
+                                                  }}
+                                                  className="border-primary/20"
+                                                >
+                                                  <CheckCircle2 className="h-4 w-4 mr-1" />
+                                                  Descontar
+                                                </Button>
+                                              ) : parcela.status_parcela === "DESCONTADO" ? (
+                                                <Dialog>
+                                                  <DialogTrigger asChild>
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedParcela(parcela.id);
+                                                      }}
+                                                      className="border-destructive/20"
+                                                    >
+                                                      <Undo2 className="h-4 w-4 mr-1" />
+                                                      Estornar
+                                                    </Button>
+                                                  </DialogTrigger>
+                                                  <DialogContent>
+                                                    <DialogHeader>
+                                                      <DialogTitle>Estornar Parcela</DialogTitle>
+                                                    </DialogHeader>
+                                                    <div className="space-y-4">
+                                                      <div>
+                                                        <Label htmlFor="motivo">Motivo do Estorno *</Label>
+                                                        <Textarea
+                                                          id="motivo"
+                                                          value={motivoEstorno}
+                                                          onChange={(e) => setMotivoEstorno(e.target.value)}
+                                                          placeholder="Descreva o motivo do estorno"
+                                                          rows={4}
+                                                        />
                                                       </div>
-                                                    </DialogContent>
-                                                  </Dialog>
-                                                ) : null}
+                                                      <Button
+                                                        onClick={handleEstornar}
+                                                        className="w-full"
+                                                        variant="destructive"
+                                                      >
+                                                        Confirmar Estorno
+                                                      </Button>
+                                                    </div>
+                                                  </DialogContent>
+                                                </Dialog>
+                                              ) : null}
+                                            </div>
+                                          </TableCell>
+                                        </TableRow>
+                                        {isParcelaExpanded && (
+                                          <TableRow key={`${parcela.id}-detail`}>
+                                            <TableCell colSpan={6} className="bg-muted/40 p-5">
+                                              <div className="space-y-3">
+                                                <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                                                  <Package className="h-4 w-4 text-primary" />
+                                                  Produtos da Compra
+                                                  <span className="font-mono text-xs text-muted-foreground font-normal ml-1">({compraIdShort})</span>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                  {parcela.purchases.item.split(',').map((item, idx) => (
+                                                    <div key={idx} className="text-sm text-foreground py-1.5 px-3 bg-background/80 rounded-md border border-border/30">
+                                                      {item.trim()}
+                                                    </div>
+                                                  ))}
+                                                </div>
                                               </div>
                                             </TableCell>
                                           </TableRow>
-                                          <CollapsibleContent asChild>
-                                            <TableRow>
-                                              <TableCell colSpan={6} className="bg-muted/40 p-5">
-                                                <div className="space-y-3">
-                                                  <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                                                    <Package className="h-4 w-4 text-primary" />
-                                                    Produtos da Compra
-                                                    <span className="font-mono text-xs text-muted-foreground font-normal ml-1">({compraIdShort})</span>
-                                                  </div>
-                                                  <div className="space-y-1.5">
-                                                    {parcela.purchases.item.split(',').map((item, idx) => (
-                                                      <div key={idx} className="text-sm text-foreground py-1.5 px-3 bg-background/80 rounded-md border border-border/30">
-                                                        {item.trim()}
-                                                      </div>
-                                                    ))}
-                                                  </div>
-                                                </div>
-                                              </TableCell>
-                                            </TableRow>
-                                          </CollapsibleContent>
-                                        </>
-                                      </Collapsible>
+                                        )}
+                                      </>
                                     );
                                   })}
                                 </TableBody>
