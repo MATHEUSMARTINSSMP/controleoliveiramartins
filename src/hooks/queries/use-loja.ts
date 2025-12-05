@@ -79,7 +79,7 @@ export function useStoreSettings(storeId: string | null | undefined) {
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, name, cashback_ativo, crm_ativo')
+        .select('id, name, cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo')
         .eq('id', storeId)
         .single();
 

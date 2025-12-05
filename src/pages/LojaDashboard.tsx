@@ -46,6 +46,8 @@ const PostSaleSchedulerDialog = lazy(() => import("@/components/loja/PostSaleSch
 const TrophiesGallery = lazy(() => import("@/components/loja/TrophiesGallery").then(m => ({ default: m.TrophiesGallery })));
 const CashbackLojaView = lazy(() => import("@/components/loja/CashbackLojaView"));
 const CRMLojaView = lazy(() => import("@/components/loja/CRMLojaView"));
+const WishlistLojaView = lazy(() => import("@/components/loja/WishlistLojaView"));
+const TimeClockLojaView = lazy(() => import("@/components/timeclock/TimeClockLojaView").then(m => ({ default: m.TimeClockLojaView })));
 
 interface Sale {
     id: string;
@@ -81,7 +83,9 @@ export default function LojaDashboard() {
     const [salesDateFilter, setSalesDateFilter] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [cashbackAtivo, setCashbackAtivo] = useState<boolean>(false);
     const [crmAtivo, setCrmAtivo] = useState<boolean>(false);
-    const [activeView, setActiveView] = useState<'metas' | 'cashback' | 'crm'>('metas');
+    const [pontoAtivo, setPontoAtivo] = useState<boolean>(false);
+    const [wishlistAtivo, setWishlistAtivo] = useState<boolean>(false);
+    const [activeView, setActiveView] = useState<'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto'>('metas');
 
     interface FormaPagamento {
         tipo: 'CREDITO' | 'DEBITO' | 'DINHEIRO' | 'PIX' | 'BOLETO';
@@ -178,6 +182,8 @@ export default function LojaDashboard() {
         if (storeSettings) {
             setCashbackAtivo(storeSettings.cashback_ativo || false);
             setCrmAtivo(storeSettings.crm_ativo || false);
+            setPontoAtivo(storeSettings.ponto_ativo || false);
+            setWishlistAtivo(storeSettings.wishlist_ativo || false);
         }
     }, [storeSettings]);
 
@@ -267,7 +273,7 @@ export default function LojaDashboard() {
         }
     }, [profile, authLoading, navigate]);
 
-    // Verificar se cashback e CRM estão ativos para a loja
+    // Verificar se módulos estão ativos para a loja (fallback caso useStoreSettings não funcione)
     useEffect(() => {
         const checkModuleStatus = async () => {
             if (!storeId) return;
@@ -276,7 +282,7 @@ export default function LojaDashboard() {
                 const { data, error } = await supabase
                     .schema('sistemaretiradas')
                     .from('stores')
-                    .select('cashback_ativo, crm_ativo')
+                    .select('cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo')
                     .eq('id', storeId)
                     .single();
 
@@ -287,15 +293,17 @@ export default function LojaDashboard() {
 
                 setCashbackAtivo(data?.cashback_ativo || false);
                 setCrmAtivo(data?.crm_ativo || false);
+                setPontoAtivo(data?.ponto_ativo || false);
+                setWishlistAtivo(data?.wishlist_ativo || false);
             } catch (error) {
                 console.error('Erro ao verificar status dos módulos:', error);
             }
         };
 
-        if (storeId) {
+        if (storeId && !storeSettings) {
             checkModuleStatus();
         }
-    }, [storeId]);
+    }, [storeId, storeSettings]);
 
     const identifyStore = async () => {
         if (!profile) return;
@@ -2709,9 +2717,17 @@ export default function LojaDashboard() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        {(cashbackAtivo || crmAtivo) && (
-                            <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm')}>
-                                <TabsList className={`h-8 ${cashbackAtivo && crmAtivo ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                        {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo) && (
+                            <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto')}>
+                                <TabsList className={`h-8 ${
+                                    [cashbackAtivo, crmAtivo, wishlistAtivo, pontoAtivo].filter(Boolean).length === 1
+                                        ? 'grid-cols-2'
+                                        : [cashbackAtivo, crmAtivo, wishlistAtivo, pontoAtivo].filter(Boolean).length === 2
+                                        ? 'grid-cols-3'
+                                        : [cashbackAtivo, crmAtivo, wishlistAtivo, pontoAtivo].filter(Boolean).length === 3
+                                        ? 'grid-cols-4'
+                                        : 'grid-cols-5'
+                                }`}>
                                     <TabsTrigger value="metas" className="text-xs px-3 h-7">
                                         Metas
                                     </TabsTrigger>
@@ -2723,6 +2739,16 @@ export default function LojaDashboard() {
                                     {crmAtivo && (
                                         <TabsTrigger value="crm" className="text-xs px-3 h-7">
                                             CRM
+                                        </TabsTrigger>
+                                    )}
+                                    {wishlistAtivo && (
+                                        <TabsTrigger value="wishlist" className="text-xs px-3 h-7">
+                                            Wishlist
+                                        </TabsTrigger>
+                                    )}
+                                    {pontoAtivo && (
+                                        <TabsTrigger value="ponto" className="text-xs px-3 h-7">
+                                            Ponto
                                         </TabsTrigger>
                                     )}
                                 </TabsList>
@@ -2749,8 +2775,8 @@ export default function LojaDashboard() {
                 >
 
                     {/* Conteúdo Principal com Abas */}
-                    {(cashbackAtivo || crmAtivo) ? (
-                        <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm')} className="space-y-4">
+                    {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo) ? (
+                        <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto')} className="space-y-4">
                             <TabsContent value="metas" className="space-y-4 sm:space-y-6">
                                 {/* Todo o conteúdo atual do dashboard de metas */}
                                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

@@ -1,4 +1,4 @@
-import { useState, useMemo, lazy, Suspense } from "react";
+import { useState, useMemo, lazy, Suspense, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +27,8 @@ import { motion } from "framer-motion";
 
 const ColaboradoraCommercial = lazy(() => import("@/components/colaboradora/ColaboradoraCommercial").then(m => ({ default: m.ColaboradoraCommercial })));
 const WeeklyGincanaResults = lazy(() => import("@/components/loja/WeeklyGincanaResults"));
+const TimeClockHistory = lazy(() => import("@/components/timeclock/TimeClockHistory").then(m => ({ default: m.TimeClockHistory })));
+const TimeClockHoursBalance = lazy(() => import("@/components/timeclock/TimeClockHoursBalance").then(m => ({ default: m.TimeClockHoursBalance })));
 import {
   DollarSign,
   Calendar,
@@ -98,6 +100,43 @@ const ColaboradoraDashboard = () => {
   // Password dialog
   const [passwordDialog, setPasswordDialog] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ newPassword: "", confirmPassword: "" });
+
+  // Verificar se módulo de ponto está ativo para a loja da colaboradora
+  const [pontoAtivo, setPontoAtivo] = useState<boolean>(false);
+  const storeId = profile?.store_id || getStoreIdFromProfile(profile);
+
+  useEffect(() => {
+    const checkPontoAtivo = async () => {
+      if (!storeId) {
+        setPontoAtivo(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .schema('sistemaretiradas')
+          .from('stores')
+          .select('ponto_ativo')
+          .eq('id', storeId)
+          .single();
+
+        if (error) {
+          console.error('Erro ao verificar módulo ponto:', error);
+          setPontoAtivo(false);
+          return;
+        }
+
+        setPontoAtivo(data?.ponto_ativo || false);
+      } catch (error) {
+        console.error('Erro ao verificar status do módulo ponto:', error);
+        setPontoAtivo(false);
+      }
+    };
+
+    if (storeId) {
+      checkPontoAtivo();
+    }
+  }, [storeId]);
 
   // Derived data from performance hook
   const goalData = performance ? {
@@ -303,7 +342,7 @@ const ColaboradoraDashboard = () => {
         </div>
 
         <Tabs defaultValue="metas" className="space-y-4">
-          <TabsList className="w-full grid grid-cols-5 h-9">
+          <TabsList className={`w-full grid ${pontoAtivo ? 'grid-cols-6' : 'grid-cols-5'} h-9`}>
             <TabsTrigger value="metas" className="text-xs">
               <span className="hidden sm:inline">Minhas Metas</span>
               <span className="sm:hidden">Metas</span>
@@ -321,6 +360,12 @@ const ColaboradoraDashboard = () => {
               <span className="hidden sm:inline">Adiantamentos</span>
               <span className="sm:hidden">Adiant.</span>
             </TabsTrigger>
+            {pontoAtivo && (
+              <TabsTrigger value="ponto" className="text-xs">
+                <span className="hidden sm:inline">Ponto</span>
+                <span className="sm:hidden">Ponto</span>
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* ABA METAS */}
@@ -925,6 +970,30 @@ const ColaboradoraDashboard = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* ABA PONTO */}
+          {pontoAtivo && storeId && profile?.id && (
+            <TabsContent value="ponto" className="space-y-4">
+              <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                <Card>
+                  <CardHeader className="p-3 sm:p-6">
+                    <CardTitle className="text-base sm:text-lg">Meu Banco de Horas</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                    <TimeClockHoursBalance storeId={storeId} colaboradoraId={profile.id} />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="p-3 sm:p-6">
+                    <CardTitle className="text-base sm:text-lg">Histórico de Ponto</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                    <TimeClockHistory storeId={storeId} colaboradoraId={profile.id} showOnlyToday={false} />
+                  </CardContent>
+                </Card>
+              </Suspense>
+            </TabsContent>
+          )}
         </Tabs>
         </motion.div>
       </main>
