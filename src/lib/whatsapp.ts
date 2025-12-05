@@ -5,6 +5,7 @@
 interface SendWhatsAppParams {
   phone: string;
   message: string;
+  store_id?: string; // MULTI-TENANCY: Se fornecido, usa credenciais da loja
 }
 
 interface SendWhatsAppResponse {
@@ -12,20 +13,27 @@ interface SendWhatsAppResponse {
   message?: string;
   error?: string;
   skipped?: boolean;
+  credentials_source?: string; // Indica se usou credenciais da loja ou global
 }
 
 /**
  * Envia mensagem WhatsApp via função Netlify
+ * 
+ * MULTI-TENANCY:
+ * - Se store_id for fornecido e a loja tiver WhatsApp configurado, usa as credenciais da loja
+ * - Caso contrário, usa as credenciais globais (variáveis de ambiente)
  */
 export async function sendWhatsAppMessage({
   phone,
   message,
+  store_id,
 }: SendWhatsAppParams): Promise<SendWhatsAppResponse> {
   try {
     console.log('📱 [sendWhatsAppMessage] Iniciando envio de WhatsApp...');
     console.log('📱 [sendWhatsAppMessage] Telefone:', phone);
+    console.log('📱 [sendWhatsAppMessage] Store ID:', store_id || 'não fornecido (usará global)');
     console.log('📱 [sendWhatsAppMessage] Mensagem (primeiros 100 chars):', message.substring(0, 100));
-    
+
     // Detectar se está em desenvolvimento ou produção
     const isDevelopment = import.meta.env.DEV;
     const baseUrl = isDevelopment
@@ -36,10 +44,15 @@ export async function sendWhatsAppMessage({
     console.log('📱 [sendWhatsAppMessage] URL da função Netlify:', functionUrl);
     console.log('📱 [sendWhatsAppMessage] Ambiente:', isDevelopment ? 'DESENVOLVIMENTO' : 'PRODUÇÃO');
 
-    const payload = {
+    const payload: { phone: string; message: string; store_id?: string } = {
       phone,
       message,
     };
+
+    // Adicionar store_id se fornecido (para multi-tenancy)
+    if (store_id) {
+      payload.store_id = store_id;
+    }
 
     console.log('📱 [sendWhatsAppMessage] Enviando requisição para Netlify Function...');
     const response = await fetch(functionUrl, {
@@ -61,6 +74,7 @@ export async function sendWhatsAppMessage({
     }
 
     console.log('📱 [sendWhatsAppMessage] ✅ Mensagem enviada com sucesso!');
+    console.log('📱 [sendWhatsAppMessage] Fonte das credenciais:', data.credentials_source || 'não informada');
     return data;
   } catch (error: any) {
     console.error('📱 [sendWhatsAppMessage] ❌ Erro ao enviar mensagem WhatsApp:', error);
@@ -93,15 +107,15 @@ export function formatVendaMessage(params: {
   formasPagamento?: FormaPagamento[];
 }): string {
   const { colaboradoraName, valor, qtdPecas, storeName, dataVenda, observacoes, totalDia, totalMes, formasPagamento } = params;
-  
+
   const dataFormatada = dataVenda
     ? new Date(dataVenda).toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
     : 'hoje';
 
   const valorFormatado = new Intl.NumberFormat('pt-BR', {
@@ -113,16 +127,16 @@ export function formatVendaMessage(params: {
   // A Netlify Function vai escapar corretamente a mensagem antes de enviar para o n8n
   // Isso permite que o n8n use {{ $json.message }} sem quebrar o JSON
   let message = `🛒 *Nova Venda Lançada*\n\n`;
-  
+
   message += `*Colaboradora:* ${colaboradoraName}\n`;
-  
+
   if (storeName) {
     message += `*Loja:* ${storeName}\n`;
   }
-  
+
   message += `*Valor:* ${valorFormatado}\n`;
   message += `*Quantidade de Peças:* ${qtdPecas}\n`;
-  
+
   // Adicionar formas de pagamento se disponíveis
   if (formasPagamento && formasPagamento.length > 0) {
     const formasTexto = formasPagamento.map(f => {
@@ -137,9 +151,9 @@ export function formatVendaMessage(params: {
     }).join(' | ');
     message += `*Formas de Pagamento:* ${formasTexto}\n`;
   }
-  
+
   message += `*Data:* ${dataFormatada}\n`;
-  
+
   // Adicionar totais se disponíveis
   if (totalDia !== undefined && totalDia !== null) {
     const totalDiaFormatado = new Intl.NumberFormat('pt-BR', {
@@ -148,7 +162,7 @@ export function formatVendaMessage(params: {
     }).format(totalDia);
     message += `*Total Vendido (Hoje):* ${totalDiaFormatado}\n`;
   }
-  
+
   if (totalMes !== undefined && totalMes !== null) {
     const totalMesFormatado = new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -156,12 +170,12 @@ export function formatVendaMessage(params: {
     }).format(totalMes);
     message += `*Total Mês:* ${totalMesFormatado}\n`;
   }
-  
+
   // Adicionar observações se houver
   if (observacoes && observacoes.trim()) {
     message += `\n*Observações:*\n${observacoes.trim()}\n`;
   }
-  
+
   message += `\nSistema EleveaOne 📊`;
 
   return message;
@@ -178,7 +192,7 @@ export function formatAdiantamentoMessage(params: {
   storeName?: string;
 }): string {
   const { colaboradoraName, valor, mesCompetencia, observacoes, storeName } = params;
-  
+
   const valorFormatado = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
@@ -199,21 +213,21 @@ export function formatAdiantamentoMessage(params: {
   });
 
   let message = `💰 *Nova Solicitação de Adiantamento*\n\n`;
-  
+
   message += `*Colaboradora:* ${colaboradoraName}\n`;
-  
+
   if (storeName) {
     message += `*Loja:* ${storeName}\n`;
   }
-  
+
   message += `*Valor Solicitado:* ${valorFormatado}\n`;
   message += `*Mês de Competência:* ${mesFormatado}\n`;
   message += `*Data da Solicitação:* ${dataAtual}\n`;
-  
+
   if (observacoes && observacoes.trim()) {
     message += `\n*Observações:*\n${observacoes.trim()}\n`;
   }
-  
+
   message += `\nSistema EleveaOne 📊`;
 
   return message;
@@ -228,10 +242,10 @@ export function formatParabensMessage(params: {
   storeName?: string;
 }): string {
   const { colaboradoraName, valor } = params;
-  
+
   // Extrair apenas o primeiro nome
   const primeiroNome = colaboradoraName.split(' ')[0];
-  
+
   const valorFormatado = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
@@ -262,10 +276,10 @@ export function formatGincanaMessage(params: {
   premioCheckpointFinal?: string | null; // Prêmio checkpoint final (super gincana)
 }): string {
   const { colaboradoraName, storeName, semanaReferencia, metaValor, superMetaValor, dataInicio, dataFim, premioCheckpoint1, premioCheckpointFinal } = params;
-  
+
   // Extrair apenas o primeiro nome
   const primeiroNome = colaboradoraName.split(' ')[0];
-  
+
   // Formatar valores monetários
   const metaFormatada = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -273,14 +287,14 @@ export function formatGincanaMessage(params: {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(metaValor);
-  
-  const superMetaFormatada = superMetaValor 
+
+  const superMetaFormatada = superMetaValor
     ? new Intl.NumberFormat('pt-BR', {
-        style: 'currency',
-        currency: 'BRL',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(superMetaValor)
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(superMetaValor)
     : null;
 
   // Formatar prêmios
@@ -296,7 +310,7 @@ export function formatGincanaMessage(params: {
     message += ` PREMIO ${premioCheckpoint1Formatado}`;
   }
   message += `\n`;
-  
+
   if (superMetaFormatada) {
     message += `VALOR META SUPER GINCANA SEMANAL ${superMetaFormatada}`;
     if (premioCheckpointFinalFormatado) {
@@ -304,7 +318,7 @@ export function formatGincanaMessage(params: {
     }
     message += `\n`;
   }
-  
+
   message += `\nBOA SORTE E BOAS VENDAS!`;
 
   return message;
@@ -330,13 +344,13 @@ export function formatBonusMessage(params: {
   valorBonusTexto3?: string | null;
   condicaoRanking?: number | null; // 1, 2 ou 3 - indica quantas posições há prêmios
 }): string {
-  const { 
-    colaboradoraName, 
-    bonusName, 
-    bonusDescription, 
-    valorBonus, 
-    valorBonusTexto, 
-    storeName, 
+  const {
+    colaboradoraName,
+    bonusName,
+    bonusDescription,
+    valorBonus,
+    valorBonusTexto,
+    storeName,
     preRequisitos,
     valorBonus1,
     valorBonus2,
@@ -346,10 +360,10 @@ export function formatBonusMessage(params: {
     valorBonusTexto3,
     condicaoRanking
   } = params;
-  
+
   // Extrair apenas o primeiro nome
   const primeiroNome = colaboradoraName.split(' ')[0];
-  
+
   // Verificar se há prêmios por posição (Top 1, 2, 3)
   const temPremiosPorPosicao = condicaoRanking && condicaoRanking > 0 && (
     (valorBonus1 !== null && valorBonus1 !== undefined && valorBonus1 > 0) ||
@@ -364,19 +378,19 @@ export function formatBonusMessage(params: {
   message += `Olá, ${primeiroNome}!\n\n`;
   message += `Um novo bônus foi criado para você:\n\n`;
   message += `*Bônus:* ${bonusName}\n`;
-  
+
   if (bonusDescription && bonusDescription.trim()) {
     message += `*Descrição:* ${bonusDescription.trim()}\n`;
   }
-  
+
   if (storeName) {
     message += `*Loja:* ${storeName}\n`;
   }
-  
+
   // Se houver prêmios por posição, mostrar todos os prêmios disponíveis
   if (temPremiosPorPosicao) {
     message += `\n*Prêmios por Posição:*\n`;
-    
+
     // Top 1
     if ((valorBonus1 !== null && valorBonus1 !== undefined && valorBonus1 > 0) || (valorBonusTexto1 && valorBonusTexto1.trim())) {
       let premio1 = '';
@@ -392,7 +406,7 @@ export function formatBonusMessage(params: {
         message += `🥇 *1º Lugar:* ${premio1}\n`;
       }
     }
-    
+
     // Top 2
     if (condicaoRanking && condicaoRanking >= 2) {
       if ((valorBonus2 !== null && valorBonus2 !== undefined && valorBonus2 > 0) || (valorBonusTexto2 && valorBonusTexto2.trim())) {
@@ -410,7 +424,7 @@ export function formatBonusMessage(params: {
         }
       }
     }
-    
+
     // Top 3
     if (condicaoRanking && condicaoRanking >= 3) {
       if ((valorBonus3 !== null && valorBonus3 !== undefined && valorBonus3 > 0) || (valorBonusTexto3 && valorBonusTexto3.trim())) {
@@ -439,12 +453,12 @@ export function formatBonusMessage(params: {
         currency: 'BRL',
       }).format(valorBonus);
     }
-    
+
     if (valorFormatado) {
       message += `*Valor:* ${valorFormatado}\n`;
     }
   }
-  
+
   // Adicionar pré-requisitos se houver (array de pré-requisitos)
   if (preRequisitos && preRequisitos.length > 0) {
     const preRequisitosFiltrados = preRequisitos.filter(pr => pr && pr.trim()).map(pr => pr.trim());
@@ -455,7 +469,7 @@ export function formatBonusMessage(params: {
       });
     }
   }
-  
+
   message += `\nBoa sorte! 💪\n\n`;
   message += `Sistema EleveaOne 📊`;
 
@@ -474,35 +488,35 @@ export function formatCashbackMessage(params: {
   saldoAtual: number;
 }): string {
   const { clienteNome, storeName, cashbackAmount, dataExpiracao, percentualUsoMaximo, saldoAtual } = params;
-  
+
   // Extrair apenas o primeiro nome
   const primeiroNome = clienteNome.split(' ')[0];
-  
+
   // Formatar valores monetários
   const cashbackFormatado = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
   }).format(cashbackAmount);
-  
+
   const saldoFormatado = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
   }).format(saldoAtual);
-  
+
   // Formatar data de expiração
   const dataExpiracaoFormatada = new Date(dataExpiracao).toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   });
-  
+
   // Formatar percentual de uso máximo
   const percentualFormatado = new Intl.NumberFormat('pt-BR', {
     style: 'percent',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(percentualUsoMaximo / 100);
-  
+
   let message = `🎁 *Cashback Gerado!*\n\n`;
   message += `${primeiroNome},\n\n`;
   message += `Obrigado pela sua compra na ${storeName}, nós somos muito gratos por ter você como nossa cliente.\n\n`;

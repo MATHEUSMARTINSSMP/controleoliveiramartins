@@ -1,0 +1,325 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Save, Phone, Wifi, WifiOff, TestTube, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+
+interface Store {
+    id: string;
+    name: string;
+    uazapi_token: string | null;
+    uazapi_instance_id: string | null;
+    whatsapp_ativo: boolean;
+    whatsapp_connection_status: string | null;
+    whatsapp_connected_at: string | null;
+}
+
+export const WhatsAppStoreConfig = () => {
+    const { profile } = useAuth();
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState<string | null>(null);
+    const [testing, setTesting] = useState<string | null>(null);
+    const [stores, setStores] = useState<Store[]>([]);
+
+    useEffect(() => {
+        if (profile && profile.role === 'ADMIN') {
+            fetchStores();
+        }
+    }, [profile]);
+
+    const fetchStores = async () => {
+        if (!profile) return;
+
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .schema('sistemaretiradas')
+                .from('stores')
+                .select('id, name, uazapi_token, uazapi_instance_id, whatsapp_ativo, whatsapp_connection_status, whatsapp_connected_at')
+                .eq('admin_id', profile.id)
+                .eq('active', true)
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+            setStores(data || []);
+        } catch (error: any) {
+            console.error('Erro ao buscar lojas:', error);
+            toast.error('Erro ao carregar lojas');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const updateStore = (storeId: string, field: keyof Store, value: any) => {
+        setStores(prev => prev.map(store =>
+            store.id === storeId ? { ...store, [field]: value } : store
+        ));
+    };
+
+    const handleSave = async (store: Store) => {
+        setSaving(store.id);
+        try {
+            const { error } = await supabase
+                .schema('sistemaretiradas')
+                .from('stores')
+                .update({
+                    uazapi_token: store.uazapi_token || null,
+                    uazapi_instance_id: store.uazapi_instance_id || null,
+                    whatsapp_ativo: store.whatsapp_ativo,
+                    whatsapp_connection_status: store.uazapi_token ? 'configured' : 'disconnected',
+                })
+                .eq('id', store.id);
+
+            if (error) throw error;
+
+            toast.success(`Configurações da loja ${store.name} salvas!`);
+            await fetchStores();
+        } catch (error: any) {
+            console.error('Erro ao salvar:', error);
+            toast.error('Erro ao salvar configurações: ' + error.message);
+        } finally {
+            setSaving(null);
+        }
+    };
+
+    const handleTest = async (store: Store) => {
+        if (!store.uazapi_token) {
+            toast.error('Configure o token UazAPI primeiro');
+            return;
+        }
+
+        setTesting(store.id);
+        try {
+            // Enviar mensagem de teste
+            const response = await fetch('/.netlify/functions/send-whatsapp-message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: '5500000000000', // Número de teste
+                    message: `🧪 Teste de conexão WhatsApp\n\nLoja: ${store.name}\nHorário: ${new Date().toLocaleString('pt-BR')}`,
+                    store_id: store.id,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                toast.success('Conexão testada com sucesso!');
+
+                // Atualizar status da conexão
+                await supabase
+                    .schema('sistemaretiradas')
+                    .from('stores')
+                    .update({
+                        whatsapp_connection_status: 'connected',
+                        whatsapp_connected_at: new Date().toISOString(),
+                    })
+                    .eq('id', store.id);
+
+                await fetchStores();
+            } else {
+                throw new Error(data.error || 'Erro desconhecido');
+            }
+        } catch (error: any) {
+            console.error('Erro no teste:', error);
+            toast.error('Erro ao testar: ' + error.message);
+
+            // Atualizar status para erro
+            await supabase
+                .schema('sistemaretiradas')
+                .from('stores')
+                .update({ whatsapp_connection_status: 'error' })
+                .eq('id', store.id);
+
+            await fetchStores();
+        } finally {
+            setTesting(null);
+        }
+    };
+
+    const getStatusBadge = (store: Store) => {
+        if (!store.whatsapp_ativo) {
+            return <Badge variant="secondary">Desativado</Badge>;
+        }
+
+        switch (store.whatsapp_connection_status) {
+            case 'connected':
+                return (
+                    <Badge className="bg-green-500 hover:bg-green-600">
+                        <Wifi className="h-3 w-3 mr-1" />
+                        Conectado
+                    </Badge>
+                );
+            case 'configured':
+                return (
+                    <Badge variant="outline" className="text-yellow-600 border-yellow-600">
+                        Configurado
+                    </Badge>
+                );
+            case 'error':
+                return (
+                    <Badge variant="destructive">
+                        <WifiOff className="h-3 w-3 mr-1" />
+                        Erro
+                    </Badge>
+                );
+            default:
+                return (
+                    <Badge variant="secondary">
+                        <WifiOff className="h-3 w-3 mr-1" />
+                        Não Configurado
+                    </Badge>
+                );
+        }
+    };
+
+    if (loading) {
+        return (
+            <Card>
+                <CardContent className="pt-6">
+                    <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <p className="text-muted-foreground">Carregando configurações...</p>
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            <div>
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <Phone className="h-6 w-6" />
+                    Configuração WhatsApp por Loja
+                </h2>
+                <p className="text-muted-foreground mt-1">
+                    Configure o WhatsApp para cada loja. Lojas sem configuração usarão o WhatsApp global.
+                </p>
+            </div>
+
+            {stores.length === 0 ? (
+                <Card>
+                    <CardContent className="pt-6">
+                        <p className="text-center text-muted-foreground">
+                            Nenhuma loja encontrada.
+                        </p>
+                    </CardContent>
+                </Card>
+            ) : (
+                stores.map((store) => (
+                    <Card key={store.id}>
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {store.name}
+                                        {getStatusBadge(store)}
+                                    </CardTitle>
+                                    <CardDescription>
+                                        {store.whatsapp_connected_at && (
+                                            <>Última conexão: {new Date(store.whatsapp_connected_at).toLocaleString('pt-BR')}</>
+                                        )}
+                                    </CardDescription>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Label htmlFor={`whatsapp-ativo-${store.id}`} className="text-sm">
+                                        Ativar WhatsApp
+                                    </Label>
+                                    <Switch
+                                        id={`whatsapp-ativo-${store.id}`}
+                                        checked={store.whatsapp_ativo}
+                                        onCheckedChange={(checked) => updateStore(store.id, 'whatsapp_ativo', checked)}
+                                    />
+                                </div>
+                            </div>
+                        </CardHeader>
+
+                        {store.whatsapp_ativo && (
+                            <CardContent className="space-y-4">
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label htmlFor={`token-${store.id}`}>
+                                            UazAPI Token *
+                                        </Label>
+                                        <Input
+                                            id={`token-${store.id}`}
+                                            type="password"
+                                            placeholder="Cole o token da UazAPI"
+                                            value={store.uazapi_token || ''}
+                                            onChange={(e) => updateStore(store.id, 'uazapi_token', e.target.value)}
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Token de autenticação da API UazAPI
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor={`instance-${store.id}`}>
+                                            Instance ID (opcional)
+                                        </Label>
+                                        <Input
+                                            id={`instance-${store.id}`}
+                                            placeholder="ID da instância"
+                                            value={store.uazapi_instance_id || ''}
+                                            onChange={(e) => updateStore(store.id, 'uazapi_instance_id', e.target.value)}
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            ID da instância do WhatsApp na UazAPI
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-2 pt-2">
+                                    <Button
+                                        onClick={() => handleSave(store)}
+                                        disabled={saving === store.id}
+                                        className="gap-2"
+                                    >
+                                        {saving === store.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Save className="h-4 w-4" />
+                                        )}
+                                        Salvar
+                                    </Button>
+
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => handleTest(store)}
+                                        disabled={testing === store.id || !store.uazapi_token}
+                                        className="gap-2"
+                                    >
+                                        {testing === store.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <TestTube className="h-4 w-4" />
+                                        )}
+                                        Testar Conexão
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        )}
+                    </Card>
+                ))
+            )}
+
+            <Card className="bg-muted/50">
+                <CardContent className="pt-6">
+                    <h3 className="font-semibold mb-2">ℹ️ Como funciona</h3>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                        <li>• Se a loja tiver WhatsApp ativo e token configurado, as mensagens serão enviadas pelo número da loja</li>
+                        <li>• Se a loja não tiver WhatsApp configurado, será usado o número global da Elevea</li>
+                        <li>• Você pode obter o token UazAPI no painel de controle da sua conta UazAPI</li>
+                    </ul>
+                </CardContent>
+            </Card>
+        </div>
+    );
+};

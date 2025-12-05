@@ -17,6 +17,7 @@ import { CommercialDashboard } from "@/components/admin/CommercialDashboard";
 import { FinancialDashboard } from "@/components/admin/FinancialDashboard";
 import { StorePerformanceReports } from "@/components/admin/StorePerformanceReports";
 import { WhatsAppNotificationConfig } from "@/components/admin/WhatsAppNotificationConfig";
+import { WhatsAppStoreConfig } from "@/components/admin/WhatsAppStoreConfig";
 import { GoalsTracking } from "@/components/admin/GoalsTracking";
 import { CashbackStoreConfig } from "@/components/admin/CashbackStoreConfig";
 import { CRMStoreConfig } from "@/components/admin/CRMStoreConfig";
@@ -34,7 +35,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const [passwordDialog, setPasswordDialog] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
-  
+
   const { data: pendingAdiantamentos = 0 } = useAdminPendingAdiantamentos();
 
   useEffect(() => {
@@ -81,7 +82,7 @@ const AdminDashboard = () => {
   if (loading || !profile) {
     return (
       <div className="page-container flex items-center justify-center">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="text-center space-y-4 relative z-10"
@@ -242,7 +243,7 @@ const AdminDashboard = () => {
               </div>
               <FinancialDashboard />
             </TabsContent>
-            
+
             <TabsContent value="gestao-sistemas" className="animate-fade-in space-y-4 sm:space-y-6">
               <Tabs defaultValue="dashboard" className="space-y-4">
                 <TabsList className="grid w-full grid-cols-5 max-w-5xl">
@@ -267,23 +268,23 @@ const AdminDashboard = () => {
                     <span className="hidden sm:inline">Cashback</span>
                   </TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="dashboard" className="space-y-4">
                   <ERPDashboard />
                 </TabsContent>
-                
+
                 <TabsContent value="categorias" className="space-y-4">
                   <CategoryReports />
                 </TabsContent>
-                
+
                 <TabsContent value="produtos" className="space-y-4">
                   <ProductSalesIntelligence />
                 </TabsContent>
-                
+
                 <TabsContent value="clientes" className="space-y-4">
                   <CustomerIntelligence />
                 </TabsContent>
-                
+
                 <TabsContent value="cashback" className="space-y-4">
                   <CashbackManagement />
                 </TabsContent>
@@ -295,9 +296,10 @@ const AdminDashboard = () => {
             </TabsContent>
 
             <TabsContent value="configuracoes" className="animate-fade-in space-y-4 sm:space-y-6">
+              <WhatsAppStoreConfig />
               <WhatsAppNotificationConfig />
               <ModulesStoreConfig />
-              
+
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base sm:text-lg flex items-center gap-2">
