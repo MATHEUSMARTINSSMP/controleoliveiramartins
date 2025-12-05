@@ -177,15 +177,7 @@ export default function LojaDashboard() {
         colaboradorasData
     );
 
-    // Sincronizar dados dos hooks com estados legados (para compatibilidade temporária)
-    useEffect(() => {
-        if (storeSettings) {
-            setCashbackAtivo(storeSettings.cashback_ativo || false);
-            setCrmAtivo(storeSettings.crm_ativo || false);
-            setPontoAtivo(storeSettings.ponto_ativo || false);
-            setWishlistAtivo(storeSettings.wishlist_ativo || false);
-        }
-    }, [storeSettings]);
+    // REMOVIDO: Duplicado - usando o useEffect mais abaixo
 
     useEffect(() => {
         if (salesData) {
@@ -273,49 +265,62 @@ export default function LojaDashboard() {
         }
     }, [profile, authLoading, navigate]);
 
-    // ✅ CORREÇÃO: Atualizar estados dos módulos quando storeSettings mudar
+    // ✅ ATUALIZAR ESTADOS DOS MÓDULOS quando storeSettings mudar OU quando storeId mudar
     useEffect(() => {
-        if (storeSettings) {
-            console.log('[LojaDashboard] Atualizando estados dos módulos:', storeSettings);
-            setCashbackAtivo(storeSettings.cashback_ativo || false);
-            setCrmAtivo(storeSettings.crm_ativo || false);
-            setPontoAtivo(storeSettings.ponto_ativo || false);
-            setWishlistAtivo(storeSettings.wishlist_ativo || false);
-        }
-    }, [storeSettings]);
+        const updateModuleStates = async () => {
+            // Prioridade 1: Usar storeSettings do hook React Query
+            if (storeSettings) {
+                console.log('[LojaDashboard] ✅ Atualizando módulos via storeSettings:', {
+                    cashback: storeSettings.cashback_ativo,
+                    crm: storeSettings.crm_ativo,
+                    ponto: storeSettings.ponto_ativo,
+                    wishlist: storeSettings.wishlist_ativo,
+                    storeId: storeId
+                });
+                setCashbackAtivo(storeSettings.cashback_ativo === true);
+                setCrmAtivo(storeSettings.crm_ativo === true);
+                setPontoAtivo(storeSettings.ponto_ativo === true);
+                setWishlistAtivo(storeSettings.wishlist_ativo === true);
+                return;
+            }
 
-    // Verificar se módulos estão ativos para a loja (fallback caso useStoreSettings não funcione)
-    useEffect(() => {
-        const checkModuleStatus = async () => {
-            if (!storeId) return;
+            // Prioridade 2: Fallback direto do Supabase se storeSettings não estiver disponível
+            if (storeId) {
+                console.log('[LojaDashboard] ⚠️ storeSettings não disponível, usando fallback para storeId:', storeId);
+                try {
+                    const { data, error } = await supabase
+                        .schema('sistemaretiradas')
+                        .from('stores')
+                        .select('cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo')
+                        .eq('id', storeId)
+                        .single();
 
-            try {
-                const { data, error } = await supabase
-                    .schema('sistemaretiradas')
-                    .from('stores')
-                    .select('cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo')
-                    .eq('id', storeId)
-                    .single();
+                    if (error) {
+                        console.error('[LojaDashboard] ❌ Erro ao buscar módulos (fallback):', error);
+                        return;
+                    }
 
-                if (error) {
-                    console.error('Erro ao verificar módulos:', error);
-                    return;
+                    if (data) {
+                        console.log('[LojaDashboard] ✅ Módulos encontrados (fallback):', {
+                            cashback: data.cashback_ativo,
+                            crm: data.crm_ativo,
+                            ponto: data.ponto_ativo,
+                            wishlist: data.wishlist_ativo
+                        });
+                        setCashbackAtivo(data.cashback_ativo === true);
+                        setCrmAtivo(data.crm_ativo === true);
+                        setPontoAtivo(data.ponto_ativo === true);
+                        setWishlistAtivo(data.wishlist_ativo === true);
+                    }
+                } catch (error) {
+                    console.error('[LojaDashboard] ❌ Erro ao verificar status dos módulos:', error);
                 }
-
-                console.log('[LojaDashboard] Módulos encontrados (fallback):', data);
-                setCashbackAtivo(data?.cashback_ativo || false);
-                setCrmAtivo(data?.crm_ativo || false);
-                setPontoAtivo(data?.ponto_ativo || false);
-                setWishlistAtivo(data?.wishlist_ativo || false);
-            } catch (error) {
-                console.error('Erro ao verificar status dos módulos:', error);
+            } else {
+                console.log('[LojaDashboard] ⚠️ storeId não disponível ainda');
             }
         };
 
-        // Só usar fallback se storeSettings não estiver disponível
-        if (storeId && !storeSettings) {
-            checkModuleStatus();
-        }
+        updateModuleStates();
     }, [storeId, storeSettings]);
 
     const identifyStore = async () => {
@@ -422,6 +427,34 @@ export default function LojaDashboard() {
 
                 console.log('[LojaDashboard] 🎯 Definindo storeId:', targetStoreId);
                 console.log('[LojaDashboard] 🎯 storeName:', finalStoreName || 'não definido ainda');
+
+                // ✅ BUSCAR MÓDULOS DIRETAMENTE DO BANCO quando identificar a loja
+                try {
+                    const { data: modulesData, error: modulesError } = await supabase
+                        .schema('sistemaretiradas')
+                        .from('stores')
+                        .select('cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo')
+                        .eq('id', targetStoreId)
+                        .single();
+
+                    if (!modulesError && modulesData) {
+                        console.log('[LojaDashboard] ✅ Módulos carregados diretamente:', {
+                            cashback: modulesData.cashback_ativo,
+                            crm: modulesData.crm_ativo,
+                            ponto: modulesData.ponto_ativo,
+                            wishlist: modulesData.wishlist_ativo
+                        });
+                        // Setar módulos IMEDIATAMENTE
+                        setCashbackAtivo(modulesData.cashback_ativo === true);
+                        setCrmAtivo(modulesData.crm_ativo === true);
+                        setPontoAtivo(modulesData.ponto_ativo === true);
+                        setWishlistAtivo(modulesData.wishlist_ativo === true);
+                    } else {
+                        console.error('[LojaDashboard] ❌ Erro ao buscar módulos:', modulesError);
+                    }
+                } catch (error) {
+                    console.error('[LojaDashboard] ❌ Erro ao buscar módulos:', error);
+                }
 
                 // IMPORTANTE: Setar os estados primeiro
                 setStoreId(targetStoreId);
@@ -3858,6 +3891,20 @@ export default function LojaDashboard() {
                                     <CRMLojaView storeId={storeId} />
                                 </Suspense>
                             </TabsContent>
+                            {wishlistAtivo && (
+                                <TabsContent value="wishlist" className="space-y-4 sm:space-y-6">
+                                    <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                        <WishlistLojaView />
+                                    </Suspense>
+                                </TabsContent>
+                            )}
+                            {pontoAtivo && (
+                                <TabsContent value="ponto" className="space-y-4 sm:space-y-6">
+                                    <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                        <TimeClockLojaView storeId={storeId} />
+                                    </Suspense>
+                                </TabsContent>
+                            )}
                         </Tabs>
                     ) : (
                         // Se cashback não estiver ativo, mostrar apenas o conteúdo de metas (sem abas)
