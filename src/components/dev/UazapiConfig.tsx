@@ -106,7 +106,7 @@ export const UazapiConfig = () => {
           <CardTitle className="text-white">Configuração UazAPI Admin Token</CardTitle>
         </div>
         <CardDescription className="text-slate-400">
-          Configure o token de administrador da UazAPI para autenticação WhatsApp
+          Configure o token de administrador da UazAPI (global e fixo - uma única conta para todas as lojas)
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -144,7 +144,7 @@ export const UazapiConfig = () => {
               className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
             />
             <p className="text-xs text-slate-400">
-              Token de administrador da UazAPI necessário para autenticação e criação de instâncias WhatsApp
+              Token de administrador da UazAPI (GLOBAL - uma única conta para todas as lojas). Cada loja terá sua própria instância WhatsApp configurada separadamente.
             </p>
           </div>
         </div>
@@ -174,10 +174,11 @@ export const UazapiConfig = () => {
           <AlertTitle className="text-blue-200">Informações</AlertTitle>
           <AlertDescription className="text-blue-200">
             <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-              <li>Este token é usado para autenticação e criação de instâncias WhatsApp via UazAPI</li>
+              <li><strong>Admin Token (Global/Fixo):</strong> Uma única conta UazAPI para todo o sistema</li>
+              <li><strong>Instância (Por Loja):</strong> Cada loja configura sua própria instância WhatsApp separadamente</li>
+              <li>Este token é usado para criar e gerenciar as instâncias WhatsApp de cada loja</li>
               <li>O token é armazenado de forma segura no banco de dados</li>
               <li>Você pode obter este token no painel de controle da UazAPI</li>
-              <li>Este token é global e aplica-se a todas as lojas</li>
             </ul>
           </AlertDescription>
         </Alert>

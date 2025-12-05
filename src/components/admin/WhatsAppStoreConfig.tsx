@@ -473,9 +473,11 @@ export const WhatsAppStoreConfig = () => {
                 <CardContent className="pt-6">
                     <h3 className="font-semibold mb-2">ℹ️ Como funciona</h3>
                     <ul className="text-sm text-muted-foreground space-y-1">
-                        <li>• Se a loja tiver WhatsApp ativo e token configurado, as mensagens serão enviadas pelo número da loja</li>
+                        <li>• <strong>Admin Token (Global):</strong> Uma única conta UazAPI configurada no painel dev - aplica-se a todas as lojas</li>
+                        <li>• <strong>Instância (Por Loja):</strong> Cada loja configura sua própria instância WhatsApp separadamente</li>
+                        <li>• Se a loja tiver WhatsApp ativo e instância configurada, as mensagens serão enviadas pelo número da loja</li>
                         <li>• Se a loja não tiver WhatsApp configurado, será usado o número global da Elevea</li>
-                        <li>• Você pode obter o token UazAPI no painel de controle da sua conta UazAPI</li>
+                        <li>• A instância é criada automaticamente via autenticação QR Code ou pode ser configurada manualmente</li>
                     </ul>
                 </CardContent>
             </Card>
