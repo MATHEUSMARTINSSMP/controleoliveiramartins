@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Eye, EyeOff, Mail, Lock, User, ArrowRight, Sparkles } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const Auth = () => {
   const { profile, loading: authLoading, user } = useAuth();
@@ -229,25 +230,28 @@ const Auth = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-violet-950 to-slate-950 p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4 relative overflow-hidden">
+      <div className="absolute top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
       <div className="absolute inset-0 overflow-hidden">
         <motion.div 
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-violet-500/10 to-transparent rounded-full blur-3xl"
+          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-primary/10 to-transparent rounded-full blur-3xl"
           animate={{ scale: [1, 1.1, 1], rotate: [0, 5, 0] }}
           transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div 
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-purple-500/10 to-transparent rounded-full blur-3xl"
+          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-accent/10 to-transparent rounded-full blur-3xl"
           animate={{ scale: [1.1, 1, 1.1], rotate: [0, -5, 0] }}
           transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div 
-          className="absolute top-1/4 right-1/4 w-72 h-72 bg-violet-500/10 rounded-full blur-3xl"
+          className="absolute top-1/4 right-1/4 w-72 h-72 bg-primary/10 rounded-full blur-3xl"
           animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.6, 0.3] }}
           transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div 
-          className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"
+          className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-accent/10 rounded-full blur-3xl"
           animate={{ scale: [1.2, 1, 1.2], opacity: [0.2, 0.5, 0.2] }}
           transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
         />
@@ -266,33 +270,26 @@ const Auth = () => {
           transition={{ delay: 0.2 }}
         >
           <motion.div 
-            className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 mb-4 shadow-2xl"
-            animate={{ 
-              boxShadow: [
-                "0 0 30px rgba(139, 92, 246, 0.3)",
-                "0 0 50px rgba(139, 92, 246, 0.4)",
-                "0 0 30px rgba(139, 92, 246, 0.3)",
-              ]
-            }}
+            className="inline-flex items-center justify-center w-20 h-20 rounded-2xl gradient-primary mb-4 shadow-2xl glow"
             transition={{ duration: 3, repeat: Infinity }}
             whileHover={{ scale: 1.05, rotate: 5 }}
           >
-            <Sparkles className="w-10 h-10 text-white" />
+            <Sparkles className="w-10 h-10 text-primary-foreground" />
           </motion.div>
-          <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
+          <h1 className="text-4xl font-bold text-foreground mb-2 tracking-tight">
             EleveaOne
           </h1>
-          <p className="text-violet-300/70 text-lg">
+          <p className="text-muted-foreground text-lg">
             Sistema de Gestao Inteligente
           </p>
         </motion.div>
 
-        <Card className="bg-slate-800/50 backdrop-blur-xl border-slate-700/50 shadow-2xl shadow-black/20">
+        <Card className="glass-card shadow-2xl">
           <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-xl text-center text-white">
+            <CardTitle className="text-xl text-center">
               {isLogin ? "Bem-vindo de volta" : "Criar conta"}
             </CardTitle>
-            <CardDescription className="text-center text-slate-400">
+            <CardDescription className="text-center">
               {isLogin ? "Entre com suas credenciais" : "Preencha os dados abaixo"}
             </CardDescription>
           </CardHeader>
@@ -301,9 +298,9 @@ const Auth = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
                 <div className="space-y-2">
-                  <Label htmlFor="name" className="text-slate-300">Nome Completo</Label>
+                  <Label htmlFor="name">Nome Completo</Label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                       id="name"
                       type="text"
@@ -311,7 +308,7 @@ const Auth = () => {
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       required={!isLogin}
-                      className="pl-10 bg-slate-900/50 border-slate-600/50 text-white placeholder:text-slate-500 focus:border-violet-500 focus:ring-violet-500/20 transition-all"
+                      className="pl-10"
                       data-testid="input-name"
                     />
                   </div>
@@ -319,9 +316,9 @@ const Auth = () => {
               )}
               
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-300">Email</Label>
+                <Label htmlFor="email">Email</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
@@ -329,30 +326,30 @@ const Auth = () => {
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     required
-                    className="pl-10 bg-slate-900/50 border-slate-600/50 text-white placeholder:text-slate-500 focus:border-violet-500 focus:ring-violet-500/20 transition-all"
+                    className="pl-10"
                     data-testid="input-email"
                   />
                 </div>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-slate-300">Senha</Label>
+                <Label htmlFor="password">Senha</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
+                    placeholder="........"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     required
-                    className="pl-10 pr-10 bg-slate-900/50 border-slate-600/50 text-white placeholder:text-slate-500 focus:border-violet-500 focus:ring-violet-500/20 transition-all"
+                    className="pl-10 pr-10"
                     data-testid="input-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                     data-testid="button-toggle-password"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -363,7 +360,7 @@ const Auth = () => {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white font-semibold py-5 rounded-xl shadow-lg shadow-violet-500/25 transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/30 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                className="w-full gradient-primary text-primary-foreground font-semibold py-5 rounded-xl glow-sm transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                 data-testid="button-submit"
               >
                 {loading ? (
@@ -385,7 +382,7 @@ const Auth = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/forgot-password')}
-                  className="w-full text-sm text-slate-400 hover:text-violet-400 transition-colors"
+                  className="w-full text-sm text-muted-foreground hover:text-primary transition-colors"
                   data-testid="link-forgot-password"
                 >
                   Esqueci minha senha
@@ -394,10 +391,10 @@ const Auth = () => {
               
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-700" />
+                  <div className="w-full border-t border-border" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-slate-800/50 px-2 text-slate-500">ou</span>
+                  <span className="bg-card px-2 text-muted-foreground">ou</span>
                 </div>
               </div>
               
@@ -407,13 +404,13 @@ const Auth = () => {
                   setIsLogin(!isLogin);
                   setFormData({ ...formData, password: "", name: "" });
                 }}
-                className="w-full text-sm text-slate-400 hover:text-white transition-colors py-2"
+                className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
                 data-testid="button-toggle-mode"
               >
                 {isLogin ? (
-                  <>Nao tem conta? <span className="text-violet-400 font-medium">Cadastre-se</span></>
+                  <>Nao tem conta? <span className="text-primary font-medium">Cadastre-se</span></>
                 ) : (
-                  <>Ja tem conta? <span className="text-violet-400 font-medium">Faca login</span></>
+                  <>Ja tem conta? <span className="text-primary font-medium">Faca login</span></>
                 )}
               </button>
             </div>
@@ -421,7 +418,7 @@ const Auth = () => {
         </Card>
         
         <motion.p 
-          className="text-center text-violet-400/50 text-xs mt-6"
+          className="text-center text-muted-foreground/50 text-xs mt-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
