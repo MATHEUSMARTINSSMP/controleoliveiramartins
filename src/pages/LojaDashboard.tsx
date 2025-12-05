@@ -2808,18 +2808,26 @@ export default function LojaDashboard() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        {/* DEBUG: Log dos estados dos módulos */}
-                        {(() => {
-                            console.log('[LojaDashboard] 🔍 DEBUG RENDER - Estados dos módulos:', {
-                                cashbackAtivo,
-                                crmAtivo,
-                                wishlistAtivo,
-                                pontoAtivo,
-                                storeId,
-                                hasAnyModule: cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo
-                            });
-                            return null;
-                        })()}
+                        {/* DEBUG VISUAL: Mostrar estados dos módulos na tela */}
+                        {process.env.NODE_ENV === 'development' && (
+                            <div className="fixed bottom-4 right-4 bg-black/80 text-white text-xs p-2 rounded z-50 max-w-xs">
+                                <div className="font-bold mb-1">DEBUG Módulos:</div>
+                                <div>storeId: {storeId ? '✅' : '❌'}</div>
+                                <div>Cashback: {cashbackAtivo ? '✅' : '❌'}</div>
+                                <div>CRM: {crmAtivo ? '✅' : '❌'}</div>
+                                <div>Wishlist: {wishlistAtivo ? '✅' : '❌'}</div>
+                                <div>Ponto: {pontoAtivo ? '✅' : '❌'}</div>
+                                <div>storeSettings: {storeSettings ? '✅' : '❌'}</div>
+                                {storeSettings && (
+                                    <div className="mt-1 text-[10px]">
+                                        DB: C={storeSettings.cashback_ativo ? '1' : '0'} 
+                                        R={storeSettings.crm_ativo ? '1' : '0'} 
+                                        W={storeSettings.wishlist_ativo ? '1' : '0'} 
+                                        P={storeSettings.ponto_ativo ? '1' : '0'}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo) && (
                             <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto')}>
                                 <TabsList className={`h-8 ${
