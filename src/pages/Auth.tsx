@@ -178,7 +178,7 @@ const Auth = () => {
         <ThemeToggle />
       </div>
 
-      {/* Orbs roxos animados - visíveis no dark mode */}
+      {/* Orbs animados - roxo no dark, dourado no light */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
           animate={{
@@ -190,7 +190,7 @@ const Auth = () => {
             repeat: Infinity,
             ease: "easeInOut"
           }}
-          className="absolute top-1/4 -left-20 w-80 h-80 bg-purple-500/20 dark:bg-purple-500/30 rounded-full blur-3xl"
+          className="absolute top-1/4 -left-20 w-80 h-80 bg-amber-500/15 dark:bg-violet-500/20 rounded-full blur-3xl"
         />
         <motion.div
           animate={{
@@ -202,7 +202,7 @@ const Auth = () => {
             repeat: Infinity,
             ease: "easeInOut"
           }}
-          className="absolute bottom-1/4 -right-20 w-96 h-96 bg-violet-500/15 dark:bg-violet-500/25 rounded-full blur-3xl"
+          className="absolute bottom-1/4 -right-20 w-96 h-96 bg-orange-400/12 dark:bg-purple-500/18 rounded-full blur-3xl"
         />
         <motion.div
           animate={{
@@ -214,7 +214,7 @@ const Auth = () => {
             repeat: Infinity,
             ease: "easeInOut"
           }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-fuchsia-500/10 dark:bg-fuchsia-500/20 rounded-full blur-3xl"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-yellow-500/10 dark:bg-indigo-500/15 rounded-full blur-3xl"
         />
       </div>
 
@@ -225,7 +225,7 @@ const Auth = () => {
         className="w-full max-w-md relative z-10"
       >
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 dark:from-purple-400 dark:to-violet-500 mb-4 shadow-lg shadow-purple-500/25">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 dark:from-violet-500 dark:to-purple-600 mb-4 shadow-lg shadow-amber-500/20 dark:shadow-violet-500/25">
             <Sparkles className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-foreground mb-1">

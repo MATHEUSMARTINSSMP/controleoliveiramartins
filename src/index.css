@@ -66,42 +66,42 @@
   }
 
   .dark {
-    --background: 0 0% 2%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 6%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 6%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 100%;
-    --primary-foreground: 0 0% 2%;
-    --primary-glow: 0 0% 80%;
-    --secondary: 0 0% 10%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 10%;
-    --muted-foreground: 0 0% 60%;
-    --accent: 0 0% 12%;
-    --accent-foreground: 0 0% 98%;
+    --background: 262 20% 4%;
+    --foreground: 262 10% 95%;
+    --card: 262 18% 8%;
+    --card-foreground: 262 10% 95%;
+    --popover: 262 18% 8%;
+    --popover-foreground: 262 10% 95%;
+    --primary: 262 60% 65%;
+    --primary-foreground: 262 20% 4%;
+    --primary-glow: 262 50% 75%;
+    --secondary: 262 15% 12%;
+    --secondary-foreground: 262 10% 90%;
+    --muted: 262 12% 14%;
+    --muted-foreground: 262 10% 55%;
+    --accent: 262 15% 16%;
+    --accent-foreground: 262 10% 95%;
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 12%;
-    --input: 0 0% 12%;
-    --ring: 0 0% 98%;
-    --success: 0 0% 60%;
-    --warning: 0 0% 60%;
+    --border: 262 12% 15%;
+    --input: 262 12% 14%;
+    --ring: 262 60% 65%;
+    --success: 262 30% 60%;
+    --warning: 262 40% 60%;
     
-    --gradient-primary: linear-gradient(135deg, hsl(262 83% 58%), hsl(280 100% 70%));
-    --gradient-secondary: linear-gradient(135deg, hsl(262 30% 15%), hsl(280 30% 10%));
-    --gradient-hero: linear-gradient(180deg, hsl(262 30% 4%) 0%, hsl(280 25% 6%) 100%);
-    --gradient-page: linear-gradient(180deg, hsl(262 25% 3%) 0%, hsl(280 20% 5%) 100%);
-    --gradient-card: linear-gradient(145deg, rgba(30,20,40,0.95), rgba(20,15,30,0.9));
-    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+    --gradient-primary: linear-gradient(135deg, hsl(262 50% 55%), hsl(270 45% 50%));
+    --gradient-secondary: linear-gradient(135deg, hsl(262 20% 12%), hsl(270 18% 8%));
+    --gradient-hero: linear-gradient(180deg, hsl(262 20% 4%) 0%, hsl(270 18% 6%) 100%);
+    --gradient-page: linear-gradient(180deg, hsl(262 18% 4%) 0%, hsl(270 15% 6%) 100%);
+    --gradient-card: linear-gradient(145deg, rgba(25,20,35,0.95), rgba(18,15,28,0.9));
+    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
     --gradient-mesh: 
-      radial-gradient(at 20% 50%, hsl(262 83% 58% / 0.25) 0px, transparent 50%),
-      radial-gradient(at 80% 80%, hsl(280 100% 60% / 0.2) 0px, transparent 50%),
-      radial-gradient(at 40% 0%, hsl(300 70% 60% / 0.15) 0px, transparent 50%);
-    --gradient-orb-1: hsl(262 83% 58% / 0.35);
-    --gradient-orb-2: hsl(280 100% 60% / 0.3);
-    --gradient-orb-3: hsl(300 70% 60% / 0.25);
+      radial-gradient(at 20% 50%, hsl(262 50% 55% / 0.18) 0px, transparent 50%),
+      radial-gradient(at 80% 80%, hsl(270 45% 50% / 0.14) 0px, transparent 50%),
+      radial-gradient(at 40% 0%, hsl(275 40% 45% / 0.1) 0px, transparent 50%);
+    --gradient-orb-1: hsl(262 50% 55% / 0.25);
+    --gradient-orb-2: hsl(270 45% 50% / 0.2);
+    --gradient-orb-3: hsl(275 40% 45% / 0.15);
     
     --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.4);
     --shadow-hover: 0 4px 6px -1px rgb(0 0 0 / 0.5);
@@ -200,27 +200,27 @@
   @keyframes meshShift {
     0% {
       background: 
-        radial-gradient(at 20% 50%, hsl(262 83% 58% / 0.25) 0px, transparent 50%),
-        radial-gradient(at 80% 80%, hsl(280 100% 60% / 0.2) 0px, transparent 50%),
-        radial-gradient(at 40% 0%, hsl(300 70% 60% / 0.15) 0px, transparent 50%);
+        radial-gradient(at 20% 50%, hsl(262 50% 55% / 0.2) 0px, transparent 50%),
+        radial-gradient(at 80% 80%, hsl(270 45% 50% / 0.15) 0px, transparent 50%),
+        radial-gradient(at 40% 0%, hsl(275 40% 45% / 0.1) 0px, transparent 50%);
     }
     33% {
       background: 
-        radial-gradient(at 30% 70%, hsl(262 83% 58% / 0.25) 0px, transparent 50%),
-        radial-gradient(at 70% 60%, hsl(280 100% 60% / 0.2) 0px, transparent 50%),
-        radial-gradient(at 60% 20%, hsl(300 70% 60% / 0.15) 0px, transparent 50%);
+        radial-gradient(at 30% 70%, hsl(262 50% 55% / 0.2) 0px, transparent 50%),
+        radial-gradient(at 70% 60%, hsl(270 45% 50% / 0.15) 0px, transparent 50%),
+        radial-gradient(at 60% 20%, hsl(275 40% 45% / 0.1) 0px, transparent 50%);
     }
     66% {
       background: 
-        radial-gradient(at 40% 30%, hsl(262 83% 58% / 0.25) 0px, transparent 50%),
-        radial-gradient(at 60% 70%, hsl(280 100% 60% / 0.2) 0px, transparent 50%),
-        radial-gradient(at 20% 50%, hsl(300 70% 60% / 0.15) 0px, transparent 50%);
+        radial-gradient(at 40% 30%, hsl(262 50% 55% / 0.2) 0px, transparent 50%),
+        radial-gradient(at 60% 70%, hsl(270 45% 50% / 0.15) 0px, transparent 50%),
+        radial-gradient(at 20% 50%, hsl(275 40% 45% / 0.1) 0px, transparent 50%);
     }
     100% {
       background: 
-        radial-gradient(at 20% 50%, hsl(262 83% 58% / 0.25) 0px, transparent 50%),
-        radial-gradient(at 80% 80%, hsl(280 100% 60% / 0.2) 0px, transparent 50%),
-        radial-gradient(at 40% 0%, hsl(300 70% 60% / 0.15) 0px, transparent 50%);
+        radial-gradient(at 20% 50%, hsl(262 50% 55% / 0.2) 0px, transparent 50%),
+        radial-gradient(at 80% 80%, hsl(270 45% 50% / 0.15) 0px, transparent 50%),
+        radial-gradient(at 40% 0%, hsl(275 40% 45% / 0.1) 0px, transparent 50%);
     }
   }
 
