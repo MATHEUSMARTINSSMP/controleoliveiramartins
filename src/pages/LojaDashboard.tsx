@@ -319,7 +319,7 @@ export default function LojaDashboard() {
                         .from('stores')
                         .select('cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo')
                         .eq('id', storeId)
-                        .single();
+                        .maybeSingle(); // ✅ Usar maybeSingle() para evitar erro quando não encontrar
 
                     if (error) {
                         console.error('[LojaDashboard] ❌ Erro ao buscar módulos (fallback):', error);
@@ -483,7 +483,7 @@ export default function LojaDashboard() {
                         .from('stores')
                         .select('cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo')
                         .eq('id', targetStoreId)
-                        .single();
+                        .maybeSingle(); // ✅ Usar maybeSingle() para evitar erro quando não encontrar
 
                     if (!modulesError && modulesData) {
                         console.log('[LojaDashboard] ✅ Módulos carregados diretamente:', {
@@ -2834,31 +2834,6 @@ export default function LojaDashboard() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        {/* DEBUG VISUAL: Mostrar estados dos módulos na tela - SEMPRE VISÍVEL PARA DEBUG */}
-                        <div className="fixed bottom-4 right-4 bg-black/90 text-white text-xs p-3 rounded-lg z-50 max-w-xs shadow-lg border border-white/20">
-                            <div className="font-bold mb-2 text-yellow-400">🔍 DEBUG Módulos:</div>
-                            <div className="space-y-1">
-                                <div>storeId: <span className={storeId ? 'text-green-400' : 'text-red-400'}>{storeId ? '✅ ' + storeId.substring(0, 8) : '❌ null'}</span></div>
-                                <div>Cashback: <span className={cashbackAtivo ? 'text-green-400' : 'text-red-400'}>{cashbackAtivo ? '✅' : '❌'}</span></div>
-                                <div>CRM: <span className={crmAtivo ? 'text-green-400' : 'text-red-400'}>{crmAtivo ? '✅' : '❌'}</span></div>
-                                <div>Wishlist: <span className={wishlistAtivo ? 'text-green-400' : 'text-red-400'}>{wishlistAtivo ? '✅' : '❌'}</span></div>
-                                <div>Ponto: <span className={pontoAtivo ? 'text-green-400' : 'text-red-400'}>{pontoAtivo ? '✅' : '❌'}</span></div>
-                                <div className="border-t border-white/20 mt-1 pt-1">
-                                    storeSettings: <span className={storeSettings ? 'text-green-400' : 'text-red-400'}>{storeSettings ? '✅' : '❌'}</span>
-                                </div>
-                                {storeSettings && (
-                                    <div className="mt-1 text-[10px] bg-white/10 p-1 rounded">
-                                        <div className="font-semibold mb-0.5">Valores do DB:</div>
-                                        <div>C={String(storeSettings.cashback_ativo)} R={String(storeSettings.crm_ativo)} W={String(storeSettings.wishlist_ativo)} P={String(storeSettings.ponto_ativo)}</div>
-                                    </div>
-                                )}
-                                <div className="mt-1 text-[10px] bg-blue-500/20 p-1 rounded">
-                                    Condição: <span className={(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo) ? 'text-green-400' : 'text-red-400'}>
-                                        {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo) ? 'TRUE - Tabs devem aparecer' : 'FALSE - Tabs não aparecem'}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
                         {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo) && (
                             <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto')}>
                                 <TabsList className={`h-8 ${

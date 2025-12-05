@@ -81,9 +81,18 @@ export function useStoreSettings(storeId: string | null | undefined) {
         .from('stores')
         .select('id, name, cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo')
         .eq('id', storeId)
-        .single();
+        .maybeSingle(); // ✅ Usar maybeSingle() para evitar erro quando não encontrar
 
-      if (error) throw error;
+      if (error) {
+        console.error('[useStoreSettings] Erro ao buscar store settings:', error);
+        throw error;
+      }
+      
+      if (!data) {
+        console.warn('[useStoreSettings] Loja não encontrada para storeId:', storeId);
+        return null;
+      }
+      
       return data;
     },
     enabled: !!storeId,
