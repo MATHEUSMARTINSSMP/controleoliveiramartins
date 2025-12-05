@@ -492,11 +492,32 @@ export default function LojaDashboard() {
                             ponto: modulesData.ponto_ativo,
                             wishlist: modulesData.wishlist_ativo
                         });
+                        // Usar Boolean() para garantir conversão correta
+                        const cashback = Boolean(modulesData.cashback_ativo) && modulesData.cashback_ativo === true;
+                        const crm = Boolean(modulesData.crm_ativo) && modulesData.crm_ativo === true;
+                        const ponto = Boolean(modulesData.ponto_ativo) && modulesData.ponto_ativo === true;
+                        const wishlist = Boolean(modulesData.wishlist_ativo) && modulesData.wishlist_ativo === true;
+                        
+                        console.log('[LojaDashboard] ✅ Valores booleanos calculados (identifyStore):', {
+                            cashback,
+                            crm,
+                            ponto,
+                            wishlist,
+                            rawValues: {
+                                cashback: modulesData.cashback_ativo,
+                                crm: modulesData.crm_ativo,
+                                ponto: modulesData.ponto_ativo,
+                                wishlist: modulesData.wishlist_ativo
+                            }
+                        });
+                        
                         // Setar módulos IMEDIATAMENTE
-                        setCashbackAtivo(modulesData.cashback_ativo === true);
-                        setCrmAtivo(modulesData.crm_ativo === true);
-                        setPontoAtivo(modulesData.ponto_ativo === true);
-                        setWishlistAtivo(modulesData.wishlist_ativo === true);
+                        setCashbackAtivo(cashback);
+                        setCrmAtivo(crm);
+                        setPontoAtivo(ponto);
+                        setWishlistAtivo(wishlist);
+                        
+                        console.log('[LojaDashboard] ✅ Estados setados diretamente em identifyStore');
                     } else {
                         console.error('[LojaDashboard] ❌ Erro ao buscar módulos:', modulesError);
                     }
@@ -2813,26 +2834,31 @@ export default function LojaDashboard() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        {/* DEBUG VISUAL: Mostrar estados dos módulos na tela */}
-                        {process.env.NODE_ENV === 'development' && (
-                            <div className="fixed bottom-4 right-4 bg-black/80 text-white text-xs p-2 rounded z-50 max-w-xs">
-                                <div className="font-bold mb-1">DEBUG Módulos:</div>
-                                <div>storeId: {storeId ? '✅' : '❌'}</div>
-                                <div>Cashback: {cashbackAtivo ? '✅' : '❌'}</div>
-                                <div>CRM: {crmAtivo ? '✅' : '❌'}</div>
-                                <div>Wishlist: {wishlistAtivo ? '✅' : '❌'}</div>
-                                <div>Ponto: {pontoAtivo ? '✅' : '❌'}</div>
-                                <div>storeSettings: {storeSettings ? '✅' : '❌'}</div>
+                        {/* DEBUG VISUAL: Mostrar estados dos módulos na tela - SEMPRE VISÍVEL PARA DEBUG */}
+                        <div className="fixed bottom-4 right-4 bg-black/90 text-white text-xs p-3 rounded-lg z-50 max-w-xs shadow-lg border border-white/20">
+                            <div className="font-bold mb-2 text-yellow-400">🔍 DEBUG Módulos:</div>
+                            <div className="space-y-1">
+                                <div>storeId: <span className={storeId ? 'text-green-400' : 'text-red-400'}>{storeId ? '✅ ' + storeId.substring(0, 8) : '❌ null'}</span></div>
+                                <div>Cashback: <span className={cashbackAtivo ? 'text-green-400' : 'text-red-400'}>{cashbackAtivo ? '✅' : '❌'}</span></div>
+                                <div>CRM: <span className={crmAtivo ? 'text-green-400' : 'text-red-400'}>{crmAtivo ? '✅' : '❌'}</span></div>
+                                <div>Wishlist: <span className={wishlistAtivo ? 'text-green-400' : 'text-red-400'}>{wishlistAtivo ? '✅' : '❌'}</span></div>
+                                <div>Ponto: <span className={pontoAtivo ? 'text-green-400' : 'text-red-400'}>{pontoAtivo ? '✅' : '❌'}</span></div>
+                                <div className="border-t border-white/20 mt-1 pt-1">
+                                    storeSettings: <span className={storeSettings ? 'text-green-400' : 'text-red-400'}>{storeSettings ? '✅' : '❌'}</span>
+                                </div>
                                 {storeSettings && (
-                                    <div className="mt-1 text-[10px]">
-                                        DB: C={storeSettings.cashback_ativo ? '1' : '0'} 
-                                        R={storeSettings.crm_ativo ? '1' : '0'} 
-                                        W={storeSettings.wishlist_ativo ? '1' : '0'} 
-                                        P={storeSettings.ponto_ativo ? '1' : '0'}
+                                    <div className="mt-1 text-[10px] bg-white/10 p-1 rounded">
+                                        <div className="font-semibold mb-0.5">Valores do DB:</div>
+                                        <div>C={String(storeSettings.cashback_ativo)} R={String(storeSettings.crm_ativo)} W={String(storeSettings.wishlist_ativo)} P={String(storeSettings.ponto_ativo)}</div>
                                     </div>
                                 )}
+                                <div className="mt-1 text-[10px] bg-blue-500/20 p-1 rounded">
+                                    Condição: <span className={(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo) ? 'text-green-400' : 'text-red-400'}>
+                                        {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo) ? 'TRUE - Tabs devem aparecer' : 'FALSE - Tabs não aparecem'}
+                                    </span>
+                                </div>
                             </div>
-                        )}
+                        </div>
                         {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo) && (
                             <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto')}>
                                 <TabsList className={`h-8 ${
