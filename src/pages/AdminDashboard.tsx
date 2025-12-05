@@ -80,151 +80,97 @@ const AdminDashboard = () => {
 
   if (loading || !profile) {
     return (
-      <div className="page-container flex flex-col items-center justify-center">
-        <div className="absolute inset-0 overflow-hidden">
-          <motion.div 
-            className="floating-orb w-96 h-96 top-1/4 left-1/4"
-            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-          />
-          <motion.div 
-            className="floating-orb-2 w-80 h-80 bottom-1/4 right-1/4"
-            animate={{ scale: [1.2, 1, 1.2], opacity: [0.2, 0.4, 0.2] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-          />
-        </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="z-10 text-center space-y-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center space-y-4"
         >
-          <motion.div 
-            className="w-20 h-20 mx-auto rounded-2xl gradient-primary glow flex items-center justify-center shadow-2xl"
-            animate={{ y: [0, -10, 0] }}
-            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <Sparkles className="w-10 h-10 text-primary-foreground" />
-          </motion.div>
-          <div className="space-y-2">
-            <h2 className="text-2xl font-bold text-foreground">Carregando</h2>
-            <p className="text-muted-foreground">Preparando painel administrativo</p>
-          </div>
-          <motion.div className="flex justify-center gap-2">
-            {[0, 1, 2].map((i) => (
-              <motion.div
-                key={i}
-                className="w-3 h-3 rounded-full gradient-primary"
-                animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 1, delay: i * 0.2, repeat: Infinity }}
-              />
-            ))}
-          </motion.div>
+          <div className="w-12 h-12 mx-auto border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
+          <p className="text-sm text-muted-foreground">Carregando...</p>
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="page-container">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <motion.div 
-          className="floating-orb w-[600px] h-[600px] -top-64 -left-64 opacity-50"
-          animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.4, 0.3] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div 
-          className="floating-orb-2 w-[500px] h-[500px] -bottom-32 -right-32 opacity-40"
-          animate={{ scale: [1.1, 1, 1.1], opacity: [0.2, 0.35, 0.2] }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-        />
-      </div>
-
-      <header className="header-futuristic border-b border-primary/10">
-        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold gradient-text">
-              Dashboard Admin
-            </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground break-words">Bem-vindo, {profile.name}</p>
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
+        <div className="container mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-lg font-semibold">Dashboard Admin</h1>
           </div>
-          <div className="flex gap-2 w-full sm:w-auto items-center flex-wrap">
-            <ThemeToggle />
+          <div className="flex items-center gap-2">
             {pendingAdiantamentos > 0 && (
               <Button
                 variant="outline"
-                onClick={() => navigate("/admin/adiantamentos")}
-                className="border-orange-500/50 bg-orange-500/10 text-orange-600 dark:text-orange-400 text-xs sm:text-sm flex-1 sm:flex-initial relative"
                 size="sm"
+                onClick={() => navigate("/admin/adiantamentos")}
+                className="relative text-xs"
               >
-                <Bell className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Adiantamentos</span>
-                <span className="sm:hidden">Adiant.</span>
+                <Bell className="h-4 w-4 mr-1" />
+                Adiantamentos
                 <Badge
                   variant="destructive"
-                  className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs font-bold animate-pulse"
+                  className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs"
                 >
                   {pendingAdiantamentos > 99 ? '99+' : pendingAdiantamentos}
                 </Badge>
               </Button>
             )}
+            <ThemeToggle />
             <Button
-              variant="outline"
+              variant="ghost"
+              size="icon"
               onClick={() => setPasswordDialog(true)}
-              className="border-primary/20 text-xs sm:text-sm flex-1 sm:flex-initial"
-              size="sm"
             >
-              <KeyRound className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">Alterar Senha</span>
-              <span className="sm:hidden">Senha</span>
+              <KeyRound className="h-4 w-4" />
             </Button>
             <Button
-              variant="outline"
+              variant="ghost"
+              size="icon"
               onClick={handleSignOut}
-              className="border-primary/20 text-xs sm:text-sm flex-1 sm:flex-initial"
-              size="sm"
             >
-              <LogOut className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-              Sair
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 relative z-10">
+      <main className="container mx-auto px-4 sm:px-6 py-6">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.3 }}
         >
-          <Tabs defaultValue="gestao-metas" className="space-y-4 sm:space-y-6">
-            <TabsList className="grid w-full grid-cols-5 max-w-5xl glass-card p-1 rounded-xl">
-              <TabsTrigger value="gestao-metas" className="rounded-lg text-xs sm:text-sm data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:glow-sm">
+          <Tabs defaultValue="gestao-metas" className="space-y-6">
+            <TabsList className="w-full grid grid-cols-5 h-9 max-w-4xl">
+              <TabsTrigger value="gestao-metas" className="text-xs">
                 <span className="hidden sm:inline">Gestao de Metas</span>
                 <span className="sm:hidden">Metas</span>
               </TabsTrigger>
-              <TabsTrigger value="gestao-pessoas" className="rounded-lg text-xs sm:text-sm data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:glow-sm">
+              <TabsTrigger value="gestao-pessoas" className="text-xs">
                 <span className="hidden sm:inline">Gestao de Pessoas</span>
                 <span className="sm:hidden">Pessoas</span>
               </TabsTrigger>
-              <TabsTrigger value="gestao-sistemas" className="rounded-lg text-xs sm:text-sm data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:glow-sm">
+              <TabsTrigger value="gestao-sistemas" className="text-xs">
                 <span className="hidden sm:inline">Gestao de Sistemas</span>
                 <span className="sm:hidden">Sistemas</span>
               </TabsTrigger>
-              <TabsTrigger value="gestao-crm" className="rounded-lg text-xs sm:text-sm data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:glow-sm">
+              <TabsTrigger value="gestao-crm" className="text-xs">
                 <span className="hidden sm:inline">Gestao CRM</span>
                 <span className="sm:hidden">CRM</span>
               </TabsTrigger>
-              <TabsTrigger value="configuracoes" className="rounded-lg text-xs sm:text-sm data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:glow-sm">
+              <TabsTrigger value="configuracoes" className="text-xs">
                 <span className="hidden sm:inline">Configuracoes</span>
                 <span className="sm:hidden">Config</span>
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="gestao-metas" className="space-y-4 sm:space-y-6 animate-fade-in">
-              <div className="flex flex-wrap gap-2 sm:gap-4">
+            <TabsContent value="gestao-metas" className="space-y-4">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   onClick={() => navigate("/admin/metas")}
-                  className="btn-futuristic text-xs sm:text-sm flex-1 sm:flex-initial"
                   size="sm"
                 >
                   <span className="hidden sm:inline">Gerenciar Metas</span>
@@ -233,7 +179,6 @@ const AdminDashboard = () => {
                 <Button
                   variant="outline"
                   onClick={() => navigate("/admin/bonus")}
-                  className="border-primary/30 text-xs sm:text-sm flex-1 sm:flex-initial"
                   size="sm"
                 >
                   <span className="hidden sm:inline">Gerenciar Bonus</span>
@@ -241,25 +186,22 @@ const AdminDashboard = () => {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => navigate("/admin/relatorios")}
-                  className="border-primary/30 text-xs sm:text-sm flex-1 sm:flex-initial"
                   size="sm"
+                  onClick={() => navigate("/admin/relatorios")}
                 >
                   Relatorios
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => navigate("/admin/benchmarks")}
-                  className="border-primary/30 text-xs sm:text-sm flex-1 sm:flex-initial"
                   size="sm"
+                  onClick={() => navigate("/admin/benchmarks")}
                 >
                   Benchmarks
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => navigate("/admin/colaboradores")}
-                  className="border-primary/30 text-xs sm:text-sm flex-1 sm:flex-initial"
                   size="sm"
+                  onClick={() => navigate("/admin/colaboradores")}
                 >
                   <span className="hidden sm:inline">Colaboradoras & Lojas</span>
                   <span className="sm:hidden">Perfis</span>

@@ -2547,114 +2547,67 @@ export default function LojaDashboard() {
 
     if (loading) {
         return (
-            <div className="page-container flex items-center justify-center">
-                <div className="absolute inset-0 overflow-hidden">
-                    <motion.div 
-                        className="floating-orb w-96 h-96 top-1/4 left-1/4"
-                        animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-                        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                    />
-                    <motion.div 
-                        className="floating-orb-2 w-80 h-80 bottom-1/4 right-1/4"
-                        animate={{ scale: [1.2, 1, 1.2], opacity: [0.2, 0.4, 0.2] }}
-                        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                    />
-                </div>
+            <div className="min-h-screen bg-background flex items-center justify-center">
                 <motion.div 
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="z-10 text-center space-y-6"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-center space-y-4"
                 >
-                    <motion.div 
-                        className="w-20 h-20 mx-auto rounded-2xl gradient-primary glow flex items-center justify-center shadow-2xl"
-                        animate={{ y: [0, -10, 0] }}
-                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                    >
-                        <Store className="w-10 h-10 text-primary-foreground" />
-                    </motion.div>
-                    <div className="space-y-2">
-                        <h2 className="text-2xl font-bold text-foreground">Carregando</h2>
-                        <p className="text-muted-foreground">Preparando painel da loja</p>
-                    </div>
-                    <motion.div className="flex justify-center gap-2">
-                        {[0, 1, 2].map((i) => (
-                            <motion.div
-                                key={i}
-                                className="w-3 h-3 rounded-full gradient-primary"
-                                animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
-                                transition={{ duration: 1, delay: i * 0.2, repeat: Infinity }}
-                            />
-                        ))}
-                    </motion.div>
+                    <div className="w-12 h-12 mx-auto border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
+                    <p className="text-sm text-muted-foreground">Carregando...</p>
                 </motion.div>
             </div>
         );
     }
 
     return (
-        <div className="page-container">
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <motion.div 
-                    className="floating-orb w-[600px] h-[600px] -top-64 -left-64 opacity-50"
-                    animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.4, 0.3] }}
-                    transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-                />
-                <motion.div 
-                    className="floating-orb-2 w-[500px] h-[500px] -bottom-32 -right-32 opacity-40"
-                    animate={{ scale: [1.1, 1, 1.1], opacity: [0.2, 0.35, 0.2] }}
-                    transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-                />
-            </div>
-
-            <header className="header-futuristic border-b border-primary/10 mb-4">
-                <div className="container mx-auto px-3 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <StoreLogo storeId={storeId || profile?.store_id} className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" />
-                        <div className="min-w-0 flex-1">
-                            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold gradient-text break-words">{storeName || profile?.name || "Loja"}</h1>
-                            <p className="text-xs sm:text-sm text-muted-foreground">Gestao de Vendas</p>
+        <div className="min-h-screen bg-background">
+            <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
+                <div className="container mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <StoreLogo storeId={storeId || profile?.store_id} className="w-8 h-8 object-contain flex-shrink-0" />
+                        <div className="min-w-0">
+                            <h1 className="text-base sm:text-lg font-semibold truncate">{storeName || profile?.name || "Loja"}</h1>
                         </div>
                     </div>
-                    <div className="flex gap-2 w-full sm:w-auto items-center flex-wrap">
-                        <ThemeToggle />
+                    <div className="flex items-center gap-2">
                         {(cashbackAtivo || crmAtivo) && (
-                            <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm')} className="w-full sm:w-auto">
-                                <TabsList className={`grid w-full sm:w-auto glass-card p-1 rounded-xl ${cashbackAtivo && crmAtivo ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                                    <TabsTrigger value="metas" className="rounded-lg text-xs sm:text-sm data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground">
+                            <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm')}>
+                                <TabsList className={`h-8 ${cashbackAtivo && crmAtivo ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                                    <TabsTrigger value="metas" className="text-xs px-3 h-7">
                                         Metas
                                     </TabsTrigger>
                                     {cashbackAtivo && (
-                                        <TabsTrigger value="cashback" className="rounded-lg text-xs sm:text-sm data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground">
+                                        <TabsTrigger value="cashback" className="text-xs px-3 h-7">
                                             Cashback
                                         </TabsTrigger>
                                     )}
                                     {crmAtivo && (
-                                        <TabsTrigger value="crm" className="rounded-lg text-xs sm:text-sm data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground">
+                                        <TabsTrigger value="crm" className="text-xs px-3 h-7">
                                             CRM
                                         </TabsTrigger>
                                     )}
                                 </TabsList>
                             </Tabs>
                         )}
+                        <ThemeToggle />
                         <Button
-                            variant="outline"
+                            variant="ghost"
+                            size="icon"
                             onClick={() => signOut()}
-                            className="border-primary/30 text-xs sm:text-sm"
-                            size="sm"
                         >
-                            <LogOut className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                            Sair
+                            <LogOut className="h-4 w-4" />
                         </Button>
                     </div>
                 </div>
             </header>
 
-            <main className="container mx-auto px-3 sm:px-6 pb-6 relative z-10">
+            <main className="container mx-auto px-4 sm:px-6 py-6">
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="space-y-4 sm:space-y-6"
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
             >
 
             {/* Conteúdo Principal com Abas */}
@@ -3428,13 +3381,13 @@ export default function LojaDashboard() {
 
                         {/* Ranking Mensal com Pódio (Ouro e Prata) */}
                         {rankingMonthly.length > 0 && (
-                            <Card className="bg-gradient-to-br from-card to-muted/50 border-primary/10 overflow-hidden">
-                                <CardHeader className="pb-2 p-3 sm:p-6 bg-gradient-to-r from-primary/5 to-accent/5">
+                            <Card>
+                                <CardHeader className="pb-2 p-3 sm:p-6">
                                     <CardTitle className="flex items-center gap-2 text-sm sm:text-lg">
-                                        <Award className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500" />
-                                        <span>Pódio Mensal</span>
+                                        <Award className="h-4 w-4 sm:h-5 sm:w-5" />
+                                        <span>Podio Mensal</span>
                                     </CardTitle>
-                                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">Ranking acumulado do mês - Top 2</p>
+                                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">Ranking acumulado do mes - Top 2</p>
                                 </CardHeader>
                                 <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                                     <div className="space-y-3 sm:space-y-4">
@@ -3447,36 +3400,29 @@ export default function LojaDashboard() {
                                                 <div
                                                     key={item.colaboradora_id}
                                                     className={`
-                                            relative flex items-center justify-between p-3 sm:p-4 rounded-lg border-2
+                                            relative flex items-center justify-between p-3 sm:p-4 rounded-md border
                                             ${isOuro
-                                                            ? 'bg-gradient-to-r from-yellow-50 to-yellow-100 dark:from-yellow-950/30 dark:to-yellow-900/20 border-yellow-400 shadow-lg shadow-yellow-500/20'
+                                                            ? 'bg-muted/50 border-foreground/20'
                                                             : isPrata
-                                                                ? 'bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900/30 dark:to-gray-800/20 border-gray-300 shadow-lg shadow-gray-400/20'
+                                                                ? 'bg-muted/30 border-border'
                                                                 : 'bg-background/50 border-border/50'
                                                         }
                                         `}
-                                                    style={isOuro ? {
-                                                        boxShadow: '0 0 20px rgba(234, 179, 8, 0.4), 0 4px 6px rgba(0, 0, 0, 0.1)',
-                                                        borderColor: 'rgba(234, 179, 8, 0.6)'
-                                                    } : isPrata ? {
-                                                        boxShadow: '0 0 20px rgba(156, 163, 175, 0.4), 0 4px 6px rgba(0, 0, 0, 0.1)',
-                                                        borderColor: 'rgba(156, 163, 175, 0.6)'
-                                                    } : {}}
                                                 >
                                                     <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                                                         <div className={`
                                                 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0
                                                 ${isOuro
-                                                                ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-yellow-950 shadow-lg'
+                                                                ? 'bg-foreground text-background'
                                                                 : isPrata
-                                                                    ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-gray-900 shadow-lg'
-                                                                    : 'bg-amber-700 text-amber-100'
+                                                                    ? 'bg-muted-foreground/30 text-foreground'
+                                                                    : 'bg-muted text-muted-foreground'
                                                             }
                                             `}>
-                                                            {isOuro ? '🥇' : isPrata ? '🥈' : index + 1}
+                                                            {index + 1}
                                                         </div>
                                                         <div className="min-w-0 flex-1">
-                                                            <span className="font-bold text-sm sm:text-base break-words block">{item.name}</span>
+                                                            <span className="font-semibold text-sm sm:text-base break-words block">{item.name}</span>
                                                             {perf && (
                                                                 <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 space-y-0.5">
                                                                     <div className="flex gap-2">
@@ -3489,7 +3435,7 @@ export default function LojaDashboard() {
                                                         </div>
                                                     </div>
                                                     <div className="text-right flex-shrink-0 ml-2">
-                                                        <p className={`font-bold text-lg sm:text-xl ${isOuro ? 'text-yellow-700' : isPrata ? 'text-gray-700' : 'text-primary'}`}>
+                                                        <p className="font-bold text-lg sm:text-xl">
                                                             R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                         </p>
                                                         {perf && perf.percentualMensal > 0 && (
@@ -4492,13 +4438,13 @@ export default function LojaDashboard() {
 
                     {/* Ranking Mensal com Pódio (Ouro e Prata) */}
                     {rankingMonthly.length > 0 && (
-                        <Card className="bg-gradient-to-br from-card to-muted/50 border-primary/10 overflow-hidden">
-                            <CardHeader className="pb-2 p-3 sm:p-6 bg-gradient-to-r from-primary/5 to-accent/5">
+                        <Card>
+                            <CardHeader className="pb-2 p-3 sm:p-6">
                                 <CardTitle className="flex items-center gap-2 text-sm sm:text-lg">
-                                    <Award className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500" />
-                                    <span>Pódio Mensal</span>
+                                    <Award className="h-4 w-4 sm:h-5 sm:w-5" />
+                                    <span>Podio Mensal</span>
                                 </CardTitle>
-                                <p className="text-xs sm:text-sm text-muted-foreground mt-1">Ranking acumulado do mês - Top 2</p>
+                                <p className="text-xs sm:text-sm text-muted-foreground mt-1">Ranking acumulado do mes - Top 2</p>
                             </CardHeader>
                             <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                                 <div className="space-y-3 sm:space-y-4">
@@ -4511,11 +4457,11 @@ export default function LojaDashboard() {
                                             <div
                                                 key={item.colaboradora_id}
                                                 className={`
-                                                relative flex items-center justify-between p-3 sm:p-4 rounded-lg border-2
+                                                relative flex items-center justify-between p-3 sm:p-4 rounded-md border
                                                 ${isOuro
-                                                        ? 'bg-gradient-to-r from-yellow-50 to-yellow-100 dark:from-yellow-950/30 dark:to-yellow-900/20 border-yellow-400 shadow-lg shadow-yellow-500/20'
+                                                        ? 'bg-muted/50 border-foreground/20'
                                                         : isPrata
-                                                            ? 'bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900/30 dark:to-gray-800/20 border-gray-300 shadow-lg shadow-gray-400/20'
+                                                            ? 'bg-muted/30 border-border'
                                                             : 'bg-background/50 border-border/50'
                                                     }
                                             `}
@@ -4524,16 +4470,16 @@ export default function LojaDashboard() {
                                                     <div className={`
                                                     w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0
                                                     ${isOuro
-                                                            ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-yellow-950 shadow-lg'
+                                                            ? 'bg-foreground text-background'
                                                             : isPrata
-                                                                ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-gray-900 shadow-lg'
-                                                                : 'bg-amber-700 text-amber-100'
+                                                                ? 'bg-muted-foreground/30 text-foreground'
+                                                                : 'bg-muted text-muted-foreground'
                                                         }
                                                 `}>
-                                                        {isOuro ? '🥇' : isPrata ? '🥈' : index + 1}
+                                                        {index + 1}
                                                     </div>
                                                     <div className="min-w-0 flex-1">
-                                                        <span className="font-bold text-sm sm:text-base break-words block">{item.name}</span>
+                                                        <span className="font-semibold text-sm sm:text-base break-words block">{item.name}</span>
                                                         {perf && (
                                                             <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 space-y-0.5">
                                                                 <div className="flex gap-2">
@@ -4546,7 +4492,7 @@ export default function LojaDashboard() {
                                                     </div>
                                                 </div>
                                                 <div className="text-right flex-shrink-0 ml-2">
-                                                    <p className={`font-bold text-lg sm:text-xl ${isOuro ? 'text-yellow-700' : isPrata ? 'text-gray-700' : 'text-primary'}`}>
+                                                    <p className="font-bold text-lg sm:text-xl">
                                                         R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                     </p>
                                                     {perf && perf.percentualMensal > 0 && (

@@ -159,125 +159,44 @@ const Auth = () => {
 
   if (isRedirecting || (!authLoading && profile && user)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden">
-          <motion.div 
-            className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl"
-            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-          />
-          <motion.div 
-            className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-accent/20 rounded-full blur-3xl"
-            animate={{ scale: [1.2, 1, 1.2], opacity: [0.2, 0.4, 0.2] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-          />
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center space-y-8 z-10"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center space-y-4"
         >
-          <motion.div 
-            className="relative"
-            animate={{ y: [0, -10, 0] }}
-            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <motion.div 
-              className="w-24 h-24 mx-auto rounded-2xl gradient-primary glow flex items-center justify-center shadow-2xl"
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              <Sparkles className="w-12 h-12 text-primary-foreground" />
-            </motion.div>
-          </motion.div>
-          <div className="space-y-3">
-            <motion.h2 
-              className="text-3xl font-bold text-foreground"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              Entrando
-            </motion.h2>
-            <motion.p 
-              className="text-muted-foreground"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-            >
-              Preparando seu painel
-            </motion.p>
-          </div>
-          <motion.div className="flex justify-center gap-2">
-            {[0, 1, 2].map((i) => (
-              <motion.div
-                key={i}
-                className="w-3 h-3 rounded-full gradient-primary"
-                animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 1, delay: i * 0.2, repeat: Infinity }}
-              />
-            ))}
-          </motion.div>
+          <div className="w-12 h-12 mx-auto border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
+          <p className="text-sm text-muted-foreground">Entrando...</p>
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <div className="absolute top-4 right-4 z-50">
         <ThemeToggle />
       </div>
-      <div className="absolute inset-0 overflow-hidden">
-        <motion.div 
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-primary/10 to-transparent rounded-full blur-3xl"
-          animate={{ scale: [1, 1.1, 1], rotate: [0, 5, 0] }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div 
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-accent/10 to-transparent rounded-full blur-3xl"
-          animate={{ scale: [1.1, 1, 1.1], rotate: [0, -5, 0] }}
-          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div 
-          className="absolute top-1/4 right-1/4 w-72 h-72 bg-primary/10 rounded-full blur-3xl"
-          animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.6, 0.3] }}
-          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div 
-          className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-accent/10 rounded-full blur-3xl"
-          animate={{ scale: [1.2, 1, 1.2], opacity: [0.2, 0.5, 0.2] }}
-          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-        />
-      </div>
 
       <motion.div 
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="w-full max-w-md relative z-10"
+        transition={{ duration: 0.4 }}
+        className="w-full max-w-md"
       >
-        <motion.div 
-          className="text-center mb-8"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <motion.div 
-            className="inline-flex items-center justify-center w-20 h-20 rounded-2xl gradient-primary mb-4 shadow-2xl glow"
-            transition={{ duration: 3, repeat: Infinity }}
-            whileHover={{ scale: 1.05, rotate: 5 }}
-          >
-            <Sparkles className="w-10 h-10 text-primary-foreground" />
-          </motion.div>
-          <h1 className="text-4xl font-bold text-foreground mb-2 tracking-tight">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-foreground mb-4">
+            <Sparkles className="w-8 h-8 text-background" />
+          </div>
+          <h1 className="text-3xl font-bold text-foreground mb-1">
             EleveaOne
           </h1>
-          <p className="text-muted-foreground text-lg">
+          <p className="text-muted-foreground">
             Sistema de Gestao Inteligente
           </p>
-        </motion.div>
+        </div>
 
-        <Card className="glass-card shadow-2xl">
+        <Card className="shadow-sm border">
           <CardHeader className="space-y-1 pb-4">
             <CardTitle className="text-xl text-center">
               {isLogin ? "Bem-vindo de volta" : "Criar conta"}
@@ -353,12 +272,12 @@ const Auth = () => {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full gradient-primary text-primary-foreground font-semibold py-5 rounded-xl glow-sm transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                className="w-full"
                 data-testid="button-submit"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Processando...
                   </span>
                 ) : (
@@ -410,14 +329,9 @@ const Auth = () => {
           </CardContent>
         </Card>
         
-        <motion.p 
-          className="text-center text-muted-foreground/50 text-xs mt-6"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-        >
+        <p className="text-center text-muted-foreground/60 text-xs mt-6">
           2024 EleveaOne. Todos os direitos reservados.
-        </motion.p>
+        </p>
       </motion.div>
     </div>
   );

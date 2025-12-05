@@ -217,117 +217,66 @@ const ColaboradoraDashboard = () => {
 
   if (loading || !profile || kpisLoading) {
     return (
-      <div className="page-container flex items-center justify-center">
-        <div className="absolute inset-0 overflow-hidden">
-          <motion.div 
-            className="floating-orb w-96 h-96 top-1/4 left-1/4"
-            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-          />
-          <motion.div 
-            className="floating-orb-2 w-80 h-80 bottom-1/4 right-1/4"
-            animate={{ scale: [1.2, 1, 1.2], opacity: [0.2, 0.4, 0.2] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-          />
-        </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="z-10 text-center space-y-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center space-y-4"
         >
-          <motion.div 
-            className="w-20 h-20 mx-auto rounded-2xl gradient-primary glow flex items-center justify-center shadow-2xl"
-            animate={{ y: [0, -10, 0] }}
-            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <ShoppingBag className="w-10 h-10 text-primary-foreground" />
-          </motion.div>
-          <div className="space-y-2">
-            <h2 className="text-2xl font-bold text-foreground">Carregando</h2>
-            <p className="text-muted-foreground">Preparando seu painel</p>
-          </div>
-          <motion.div className="flex justify-center gap-2">
-            {[0, 1, 2].map((i) => (
-              <motion.div
-                key={i}
-                className="w-3 h-3 rounded-full gradient-primary"
-                animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 1, delay: i * 0.2, repeat: Infinity }}
-              />
-            ))}
-          </motion.div>
+          <div className="w-12 h-12 mx-auto border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
+          <p className="text-sm text-muted-foreground">Carregando...</p>
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="page-container">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <motion.div 
-          className="floating-orb w-[600px] h-[600px] -top-64 -left-64 opacity-50"
-          animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.4, 0.3] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div 
-          className="floating-orb-2 w-[500px] h-[500px] -bottom-32 -right-32 opacity-40"
-          animate={{ scale: [1.1, 1, 1.1], opacity: [0.2, 0.35, 0.2] }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-        />
-      </div>
-
-      <header className="header-futuristic border-b border-primary/10">
-        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
+        <div className="container mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
             <StoreLogo 
               storeId={getStoreIdFromProfile(profile)} 
-              className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" 
+              className="w-8 h-8 object-contain flex-shrink-0" 
             />
-            <div className="flex-1 min-w-0">
-              <p className="text-base sm:text-lg font-semibold gradient-text break-words">
-                Bem-vinda, {profile.name?.split(' ')[0] || profile.name}
-              </p>
-            </div>
+            <span className="text-sm font-medium truncate">
+              {profile.name?.split(' ')[0] || profile.name}
+            </span>
           </div>
-          <div className="flex gap-2 w-full sm:w-auto items-center flex-wrap">
+          <div className="flex items-center gap-2">
             <ThemeToggle />
             <Button
-              variant="outline"
+              variant="ghost"
+              size="icon"
               onClick={() => setPasswordDialog(true)}
-              className="border-primary/30 text-xs sm:text-sm flex-1 sm:flex-initial"
-              size="sm"
             >
-              <KeyRound className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">Alterar Senha</span>
-              <span className="sm:hidden">Senha</span>
+              <KeyRound className="h-4 w-4" />
             </Button>
             <Button
-              variant="outline"
+              variant="ghost"
+              size="icon"
               onClick={handleSignOut}
-              className="border-primary/30 text-xs sm:text-sm flex-1 sm:flex-initial"
-              size="sm"
             >
-              <LogOut className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-              Sair
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 relative z-10">
+      <main className="container mx-auto px-4 sm:px-6 py-6">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.3 }}
         >
-        <div className="grid gap-3 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-6 sm:mb-8">
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 mb-6">
           <KPICard
             title="Limite Total"
             value={formatCurrency(kpis?.limiteTotal || 0)}
             icon={DollarSign}
           />
           <KPICard
-            title="Limite Disponível"
+            title="Limite Disponivel"
             value={formatCurrency(kpis?.limiteDisponivel || 0)}
             icon={CheckCircle}
           />
@@ -337,7 +286,7 @@ const ColaboradoraDashboard = () => {
             icon={Calendar}
           />
           <KPICard
-            title="Próximas Parcelas"
+            title="Proximas Parcelas"
             value={formatCurrency(kpis?.proximasParcelas || 0)}
             icon={Calendar}
           />
@@ -353,22 +302,22 @@ const ColaboradoraDashboard = () => {
           />
         </div>
 
-        <Tabs defaultValue="metas" className="space-y-3 sm:space-y-4">
-          <TabsList className="grid w-full grid-cols-5 h-auto glass-card p-1 rounded-xl">
-            <TabsTrigger value="metas" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2 rounded-lg data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:glow-sm">
+        <Tabs defaultValue="metas" className="space-y-4">
+          <TabsList className="w-full grid grid-cols-5 h-9">
+            <TabsTrigger value="metas" className="text-xs">
               <span className="hidden sm:inline">Minhas Metas</span>
               <span className="sm:hidden">Metas</span>
             </TabsTrigger>
-            <TabsTrigger value="resumo" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2 rounded-lg data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:glow-sm">
+            <TabsTrigger value="resumo" className="text-xs">
               Resumo
             </TabsTrigger>
-            <TabsTrigger value="compras" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2 rounded-lg data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:glow-sm">
+            <TabsTrigger value="compras" className="text-xs">
               Compras
             </TabsTrigger>
-            <TabsTrigger value="parcelas" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2 rounded-lg data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:glow-sm">
+            <TabsTrigger value="parcelas" className="text-xs">
               Parcelas
             </TabsTrigger>
-            <TabsTrigger value="adiantamentos" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2 rounded-lg data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:glow-sm">
+            <TabsTrigger value="adiantamentos" className="text-xs">
               <span className="hidden sm:inline">Adiantamentos</span>
               <span className="sm:hidden">Adiant.</span>
             </TabsTrigger>
