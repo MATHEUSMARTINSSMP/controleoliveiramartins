@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Save, Phone, Wifi, WifiOff, TestTube, Loader2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Save, Phone, Wifi, WifiOff, TestTube, Loader2, Lock, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -20,18 +21,71 @@ interface Store {
     whatsapp_connected_at: string | null;
 }
 
+interface AdminPlan {
+    plan_name: string | null;
+    can_use_own_whatsapp: boolean;
+}
+
 export const WhatsAppStoreConfig = () => {
     const { profile } = useAuth();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState<string | null>(null);
     const [testing, setTesting] = useState<string | null>(null);
     const [stores, setStores] = useState<Store[]>([]);
+    const [adminPlan, setAdminPlan] = useState<AdminPlan>({ plan_name: null, can_use_own_whatsapp: false });
 
     useEffect(() => {
         if (profile && profile.role === 'ADMIN') {
+            fetchAdminPlan();
             fetchStores();
         }
     }, [profile]);
+
+    const fetchAdminPlan = async () => {
+        if (!profile) return;
+
+        try {
+            // Buscar plano do admin via admin_subscriptions
+            const { data, error } = await supabase
+                .schema('sistemaretiradas')
+                .from('admin_subscriptions')
+                .select(`
+                    plan_id,
+                    subscription_plans:plan_id (
+                        name,
+                        display_name
+                    )
+                `)
+                .eq('admin_id', profile.id)
+                .eq('status', 'active')
+                .maybeSingle();
+
+            if (error) {
+                console.error('Erro ao buscar plano:', error);
+                return;
+            }
+
+            if (data && data.subscription_plans) {
+                const plan = data.subscription_plans as any;
+                const planName = plan.name?.toUpperCase() || '';
+                // Business e Enterprise podem usar WhatsApp próprio
+                const canUseOwnWhatsApp = planName === 'BUSINESS' || planName === 'ENTERPRISE';
+
+                setAdminPlan({
+                    plan_name: plan.display_name || plan.name,
+                    can_use_own_whatsapp: canUseOwnWhatsApp,
+                });
+            } else {
+                // Se não tem plano, assume Starter (não pode usar WhatsApp próprio)
+                setAdminPlan({
+                    plan_name: 'Starter',
+                    can_use_own_whatsapp: false,
+                });
+            }
+        } catch (error: any) {
+            console.error('Erro ao buscar plano do admin:', error);
+        }
+    };
 
     const fetchStores = async () => {
         if (!profile) return;
@@ -198,11 +252,40 @@ export const WhatsAppStoreConfig = () => {
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <Phone className="h-6 w-6" />
                     Configuração WhatsApp por Loja
+                    {adminPlan.plan_name && (
+                        <Badge variant="outline" className="ml-2">
+                            Plano {adminPlan.plan_name}
+                        </Badge>
+                    )}
                 </h2>
                 <p className="text-muted-foreground mt-1">
                     Configure o WhatsApp para cada loja. Lojas sem configuração usarão o WhatsApp global.
                 </p>
             </div>
+
+            {/* Alerta para planos que não permitem WhatsApp próprio */}
+            {!adminPlan.can_use_own_whatsapp && (
+                <Alert className="border-yellow-500/50 bg-yellow-500/10">
+                    <Lock className="h-4 w-4 text-yellow-600" />
+                    <AlertTitle className="text-yellow-700 dark:text-yellow-400">
+                        Recurso disponível nos planos Business e Enterprise
+                    </AlertTitle>
+                    <AlertDescription className="text-yellow-600 dark:text-yellow-300">
+                        <p className="mb-3">
+                            O WhatsApp personalizado por loja está disponível a partir do plano <strong>Business</strong>.
+                            No plano atual, suas mensagens são enviadas pelo WhatsApp global da Elevea.
+                        </p>
+                        <Button
+                            size="sm"
+                            className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700"
+                            onClick={() => window.open('/landing#pricing', '_blank')}
+                        >
+                            <Sparkles className="h-4 w-4 mr-2" />
+                            Fazer Upgrade
+                        </Button>
+                    </AlertDescription>
+                </Alert>
+            )}
 
             {stores.length === 0 ? (
                 <Card>
@@ -236,6 +319,7 @@ export const WhatsAppStoreConfig = () => {
                                         id={`whatsapp-ativo-${store.id}`}
                                         checked={store.whatsapp_ativo}
                                         onCheckedChange={(checked) => updateStore(store.id, 'whatsapp_ativo', checked)}
+                                        disabled={!adminPlan.can_use_own_whatsapp}
                                     />
                                 </div>
                             </div>
