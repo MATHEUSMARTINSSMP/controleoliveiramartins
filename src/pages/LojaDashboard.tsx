@@ -22,7 +22,6 @@ import { StoreLogo } from "@/lib/storeLogo";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { motion } from "framer-motion";
-import { AnimatedOrbs } from "@/components/ui/animated-orbs";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -2700,7 +2699,6 @@ export default function LojaDashboard() {
 
     return (
         <div className="page-container">
-            <AnimatedOrbs />
             <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b relative">
                 <div className="container mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0">

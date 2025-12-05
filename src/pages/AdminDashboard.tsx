@@ -28,7 +28,6 @@ import { Label } from "@/components/ui/label";
 import { useAdminPendingAdiantamentos } from "@/hooks/queries";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { motion } from "framer-motion";
-import { AnimatedOrbs } from "@/components/ui/animated-orbs";
 
 const AdminDashboard = () => {
   const { profile, signOut, loading } = useAuth();
@@ -96,7 +95,6 @@ const AdminDashboard = () => {
 
   return (
     <div className="page-container">
-      <AnimatedOrbs />
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b relative">
         <div className="container mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
           <div className="min-w-0">

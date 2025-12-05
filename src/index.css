@@ -215,74 +215,24 @@
   }
 
   .page-container {
-    @apply min-h-screen relative overflow-hidden;
+    @apply min-h-screen relative;
     background: var(--gradient-page);
   }
 
   .page-container::before {
     content: '';
-    @apply absolute inset-0 pointer-events-none;
-    background: var(--gradient-mesh);
-    animation: meshShift 20s ease-in-out infinite;
-  }
-
-  @keyframes meshShift {
-    0% {
-      background: 
-        radial-gradient(at 20% 50%, hsl(262 50% 55% / 0.2) 0px, transparent 50%),
-        radial-gradient(at 80% 80%, hsl(270 45% 50% / 0.15) 0px, transparent 50%),
-        radial-gradient(at 40% 0%, hsl(275 40% 45% / 0.1) 0px, transparent 50%);
-    }
-    33% {
-      background: 
-        radial-gradient(at 30% 70%, hsl(262 50% 55% / 0.2) 0px, transparent 50%),
-        radial-gradient(at 70% 60%, hsl(270 45% 50% / 0.15) 0px, transparent 50%),
-        radial-gradient(at 60% 20%, hsl(275 40% 45% / 0.1) 0px, transparent 50%);
-    }
-    66% {
-      background: 
-        radial-gradient(at 40% 30%, hsl(262 50% 55% / 0.2) 0px, transparent 50%),
-        radial-gradient(at 60% 70%, hsl(270 45% 50% / 0.15) 0px, transparent 50%),
-        radial-gradient(at 20% 50%, hsl(275 40% 45% / 0.1) 0px, transparent 50%);
-    }
-    100% {
-      background: 
-        radial-gradient(at 20% 50%, hsl(262 50% 55% / 0.2) 0px, transparent 50%),
-        radial-gradient(at 80% 80%, hsl(270 45% 50% / 0.15) 0px, transparent 50%),
-        radial-gradient(at 40% 0%, hsl(275 40% 45% / 0.1) 0px, transparent 50%);
-    }
+    @apply fixed inset-0 pointer-events-none -z-10;
+    background: 
+      radial-gradient(at 20% 30%, hsl(262 50% 55% / 0.12) 0px, transparent 50%),
+      radial-gradient(at 80% 70%, hsl(262 45% 50% / 0.08) 0px, transparent 50%),
+      radial-gradient(at 50% 50%, hsl(262 40% 45% / 0.05) 0px, transparent 60%);
   }
 
   :root .page-container::before {
-    background: var(--gradient-mesh);
-    animation: meshShiftLight 20s ease-in-out infinite;
-  }
-
-  @keyframes meshShiftLight {
-    0% {
-      background: 
-        radial-gradient(at 20% 50%, hsl(38 92% 50% / 0.15) 0px, transparent 50%),
-        radial-gradient(at 80% 80%, hsl(40 84% 65% / 0.12) 0px, transparent 50%),
-        radial-gradient(at 40% 0%, hsl(28 70% 45% / 0.1) 0px, transparent 50%);
-    }
-    33% {
-      background: 
-        radial-gradient(at 30% 70%, hsl(38 92% 50% / 0.15) 0px, transparent 50%),
-        radial-gradient(at 70% 60%, hsl(40 84% 65% / 0.12) 0px, transparent 50%),
-        radial-gradient(at 60% 20%, hsl(28 70% 45% / 0.1) 0px, transparent 50%);
-    }
-    66% {
-      background: 
-        radial-gradient(at 40% 30%, hsl(38 92% 50% / 0.15) 0px, transparent 50%),
-        radial-gradient(at 60% 70%, hsl(40 84% 65% / 0.12) 0px, transparent 50%),
-        radial-gradient(at 20% 50%, hsl(28 70% 45% / 0.1) 0px, transparent 50%);
-    }
-    100% {
-      background: 
-        radial-gradient(at 20% 50%, hsl(38 92% 50% / 0.15) 0px, transparent 50%),
-        radial-gradient(at 80% 80%, hsl(40 84% 65% / 0.12) 0px, transparent 50%),
-        radial-gradient(at 40% 0%, hsl(28 70% 45% / 0.1) 0px, transparent 50%);
-    }
+    background: 
+      radial-gradient(at 20% 30%, hsl(38 85% 55% / 0.10) 0px, transparent 50%),
+      radial-gradient(at 80% 70%, hsl(38 80% 50% / 0.07) 0px, transparent 50%),
+      radial-gradient(at 50% 50%, hsl(38 75% 45% / 0.04) 0px, transparent 60%);
   }
 
   .animate-fade-in {
