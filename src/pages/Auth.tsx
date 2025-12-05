@@ -178,6 +178,46 @@ const Auth = () => {
         <ThemeToggle />
       </div>
 
+      {/* Orbs roxos animados - visíveis no dark mode */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          animate={{
+            x: [0, 30, 0],
+            y: [0, -20, 0],
+          }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute top-1/4 -left-20 w-80 h-80 bg-purple-500/20 dark:bg-purple-500/30 rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            x: [0, -20, 0],
+            y: [0, 30, 0],
+          }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute bottom-1/4 -right-20 w-96 h-96 bg-violet-500/15 dark:bg-violet-500/25 rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            x: [0, 15, 0],
+            y: [0, 15, 0],
+          }}
+          transition={{
+            duration: 12,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-fuchsia-500/10 dark:bg-fuchsia-500/20 rounded-full blur-3xl"
+        />
+      </div>
+
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -185,8 +225,8 @@ const Auth = () => {
         className="w-full max-w-md relative z-10"
       >
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-foreground mb-4">
-            <Sparkles className="w-8 h-8 text-background" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 dark:from-purple-400 dark:to-violet-500 mb-4 shadow-lg shadow-purple-500/25">
+            <Sparkles className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-foreground mb-1">
             EleveaOne
