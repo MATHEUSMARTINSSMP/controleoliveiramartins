@@ -1,17 +1,4 @@
-# Não redirecionar arquivos estáticos
-/assets/*    /assets/:splat    200
-/*.js        /:splat.js        200
-/*.css       /:splat.css        200
-/*.png       /:splat.png        200
-/*.jpg       /:splat.jpg        200
-/*.jpeg      /:splat.jpeg       200
-/*.svg       /:splat.svg        200
-/*.woff      /:splat.woff       200
-/*.woff2     /:splat.woff2      200
-/*.ico       /:splat.ico        200
-/*.json      /:splat.json       200
-/*.map       /:splat.map        200
-
-# Redirecionar todas as outras rotas para index.html (SPA routing)
+# Netlify serve arquivos estáticos automaticamente se existirem
+# Este redirect só é aplicado se o arquivo não existir
 /*    /index.html   200
 
