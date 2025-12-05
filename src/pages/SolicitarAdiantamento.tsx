@@ -272,6 +272,7 @@ export default function SolicitarAdiantamento() {
             sendWhatsAppMessage({
               phone,
               message,
+              store_id: colaboradoraData.store_id, // ✅ Multi-tenancy: usar WhatsApp da loja se configurado
             }).then(result => {
               if (result.success) {
                 console.log(`✅ WhatsApp enviado com sucesso para ${phone}`);

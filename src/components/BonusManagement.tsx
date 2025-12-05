@@ -653,6 +653,7 @@ export default function BonusManagement() {
                                                     const promise = sendWhatsAppMessage({
                                                         phone: cleaned,
                                                         message: notificationMessage,
+                                                        store_id: formData.store_id, // ✅ Multi-tenancy: usar WhatsApp da loja se configurado
                                                     }).then(result => {
                                                         if (result.success) {
                                                             console.log(`✅ [BonusManagement] WhatsApp enviado com sucesso para número da tabela (${cleaned})`);
@@ -713,6 +714,7 @@ export default function BonusManagement() {
                                         sendWhatsAppMessage({
                                             phone: lojaPhone,
                                             message: lojaMessage,
+                                            store_id: formData.store_id, // ✅ Multi-tenancy: usar WhatsApp da loja se configurado
                                         }).then(result => {
                                             if (result.success) {
                                                 console.log(`✅ [BonusManagement] WhatsApp enviado com sucesso para LOJA ${lojaProfile.name} (${lojaPhone})`);
@@ -795,6 +797,7 @@ export default function BonusManagement() {
                                                 sendWhatsAppMessage({
                                                     phone,
                                                     message: notificationMessage,
+                                                    // ✅ Multi-tenancy: "TODAS" não tem store_id específico, usar global
                                                 }).then(result => {
                                                     if (result.success) {
                                                         console.log(`✅ [BonusManagement] WhatsApp enviado com sucesso para número da tabela (${phone})`);
@@ -849,6 +852,7 @@ export default function BonusManagement() {
                                         sendWhatsAppMessage({
                                             phone,
                                             message,
+                                            store_id: colab.store_id || colab.store_default || null, // ✅ Multi-tenancy: usar WhatsApp da loja da colaboradora
                                         }).then(result => {
                                             if (result.success) {
                                                 console.log(`✅ [BonusManagement] WhatsApp enviado com sucesso para ${colab.name} (${phone})`);

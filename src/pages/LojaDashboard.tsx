@@ -273,6 +273,17 @@ export default function LojaDashboard() {
         }
     }, [profile, authLoading, navigate]);
 
+    // ✅ CORREÇÃO: Atualizar estados dos módulos quando storeSettings mudar
+    useEffect(() => {
+        if (storeSettings) {
+            console.log('[LojaDashboard] Atualizando estados dos módulos:', storeSettings);
+            setCashbackAtivo(storeSettings.cashback_ativo || false);
+            setCrmAtivo(storeSettings.crm_ativo || false);
+            setPontoAtivo(storeSettings.ponto_ativo || false);
+            setWishlistAtivo(storeSettings.wishlist_ativo || false);
+        }
+    }, [storeSettings]);
+
     // Verificar se módulos estão ativos para a loja (fallback caso useStoreSettings não funcione)
     useEffect(() => {
         const checkModuleStatus = async () => {
@@ -291,6 +302,7 @@ export default function LojaDashboard() {
                     return;
                 }
 
+                console.log('[LojaDashboard] Módulos encontrados (fallback):', data);
                 setCashbackAtivo(data?.cashback_ativo || false);
                 setCrmAtivo(data?.crm_ativo || false);
                 setPontoAtivo(data?.ponto_ativo || false);
@@ -300,6 +312,7 @@ export default function LojaDashboard() {
             }
         };
 
+        // Só usar fallback se storeSettings não estiver disponível
         if (storeId && !storeSettings) {
             checkModuleStatus();
         }
@@ -2095,6 +2108,7 @@ export default function LojaDashboard() {
                                     sendWhatsAppMessage({
                                         phone,
                                         message,
+                                        store_id: storeId, // ✅ Multi-tenancy: usar WhatsApp da loja se configurado
                                     }).then(result => {
                                         if (result.success) {
                                             console.log(`✅ WhatsApp enviado com sucesso para ${phone}`);
@@ -2144,6 +2158,7 @@ export default function LojaDashboard() {
                                         return sendWA({
                                             phone: cleanedPhone,
                                             message: parabensMessage,
+                                            store_id: storeId, // ✅ Multi-tenancy: usar WhatsApp da loja se configurado
                                         }).catch(err => {
                                             console.error(`❌ Erro ao enviar parabéns para ${cleanedPhone}:`, err);
                                         });
