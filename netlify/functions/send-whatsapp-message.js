@@ -7,15 +7,17 @@ const corsHeaders = {
  * Envia mensagem WhatsApp via Webhook n8n Elevea
  * 
  * Variáveis de ambiente necessárias no Netlify:
- * - WHATSAPP_WEBHOOK_URL: URL do webhook
- * - N8N_WEBHOOK_AUTH: Token de autenticação do webhook
+ * - WHATSAPP_WEBHOOK_URL: URL do webhook n8n
+ * - N8N_WEBHOOK_AUTH: Token de autenticação do webhook (x-app-key)
+ * - UAZAPI_TOKEN: Token da API UAZAPI para envio de WhatsApp
  * - WHATSAPP_SITE_SLUG: Slug do site (padrão: elevea)
  * - N8N_CUSTOMER_ID: ID do cliente (email)
+ * - UAZAPI_INSTANCE_ID: ID da instância UAZAPI (opcional)
  * 
  * Configuração:
  * - Webhook URL: Configure via variável de ambiente
  * - Auth Header: x-app-key (via N8N_WEBHOOK_AUTH)
- * - Formato: { siteSlug, customerId, phone_number, message }
+ * - Formato: { siteSlug, customerId, phone_number, message, uazapi_token, uazapi_instance_id }
  */
 exports.handler = async (event, context) => {
   // Handle CORS preflight
@@ -124,15 +126,32 @@ exports.handler = async (event, context) => {
     // Credenciais via variáveis de ambiente
     const webhookUrl = process.env.WHATSAPP_WEBHOOK_URL || 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send';
     const webhookAuth = process.env.N8N_WEBHOOK_AUTH;
+    const uazapiToken = process.env.UAZAPI_TOKEN;
+    const uazapiInstanceId = process.env.UAZAPI_INSTANCE_ID;
     const siteSlug = process.env.WHATSAPP_SITE_SLUG || 'elevea';
     const customerId = process.env.N8N_CUSTOMER_ID;
 
     console.log('📱 Enviando mensagem WhatsApp via Webhook n8n para:', normalizedPhone);
     console.log('📱 Webhook URL:', webhookUrl);
+    console.log('📱 UAZAPI Token presente:', !!uazapiToken);
+    console.log('📱 UAZAPI Instance ID:', uazapiInstanceId || 'não configurado');
     console.log('Mensagem:', message.substring(0, 50) + '...');
 
+    // Validar token UAZAPI
+    if (!uazapiToken) {
+      console.error('❌ UAZAPI_TOKEN não configurado nas variáveis de ambiente do Netlify');
+      return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        body: JSON.stringify({
+          error: 'Token UAZAPI não configurado. Verifique as variáveis de ambiente no Netlify.',
+          success: false,
+        }),
+      };
+    }
+
     // Enviar via Webhook n8n
-    // Formato esperado: { siteSlug, customerId, phoneNumber, message }
+    // Formato esperado: { siteSlug, customerId, phone_number, message, uazapi_token, uazapi_instance_id }
     // Header de autenticação: x-app-key (não Authorization)
     // IMPORTANTE: Escapar a mensagem como string JSON para que funcione no n8n
     // Quando o n8n usar {{ $json.message }} no JSON body, ele precisa receber
@@ -145,7 +164,13 @@ exports.handler = async (event, context) => {
       customerId: customerId,
       phone_number: String(normalizedPhone), // snake_case + String() para garantir que não seja tratado como número
       message: messageSafe, // Mensagem já escapada para uso direto no JSON do n8n
+      uazapi_token: uazapiToken, // Token UAZAPI para o workflow n8n usar
     };
+
+    // Adicionar instance_id se configurado
+    if (uazapiInstanceId) {
+      payload.uazapi_instance_id = uazapiInstanceId;
+    }
 
     console.log('📦 Payload enviado:', JSON.stringify(payload, null, 2));
 
