@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,6 +50,18 @@ interface Adiantamento {
   };
 }
 
+interface CompraAgrupada {
+  compra_id: string;
+  colaboradora: string;
+  item: string;
+  num_parcelas: number;
+  total_valor: number;
+  parcelas: Parcela[];
+  primeira_competencia: string;
+  todas_descontadas: boolean;
+  tem_pendentes: boolean;
+}
+
 const Lancamentos = () => {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -63,8 +75,8 @@ const Lancamentos = () => {
   const [mesFiltro, setMesFiltro] = useState<string>("TODOS");
   const [adiantamentoParaExcluir, setAdiantamentoParaExcluir] = useState<string | null>(null);
   const [compraParaExcluir, setCompraParaExcluir] = useState<string | null>(null);
-  const [expandedParcelas, setExpandedParcelas] = useState<Set<string>>(new Set());
   const [expandedCompras, setExpandedCompras] = useState<Set<string>>(new Set());
+  const [expandedParcelas, setExpandedParcelas] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!authLoading) {
@@ -160,6 +172,34 @@ const Lancamentos = () => {
     await Promise.all([fetchParcelas(), fetchAdiantamentos()]);
     setLoading(false);
   };
+
+  // Agrupar parcelas por compra
+  const comprasAgrupadas = useMemo(() => {
+    const parcelasFiltradas = parcelas.filter(p => mesFiltro === "TODOS" || p.competencia === mesFiltro);
+    
+    const agrupadas = parcelasFiltradas.reduce((acc, parcela) => {
+      if (!acc[parcela.compra_id]) {
+        acc[parcela.compra_id] = {
+          compra_id: parcela.compra_id,
+          colaboradora: parcela.purchases.profiles.name,
+          item: parcela.purchases.item,
+          num_parcelas: parcela.purchases.num_parcelas,
+          parcelas: [],
+          primeira_competencia: parcela.competencia,
+        };
+      }
+      acc[parcela.compra_id].parcelas.push(parcela);
+      return acc;
+    }, {} as Record<string, CompraAgrupada>);
+
+    // Calcular totais e status
+    return Object.values(agrupadas).map(compra => ({
+      ...compra,
+      total_valor: compra.parcelas.reduce((sum, p) => sum + p.valor_parcela, 0),
+      todas_descontadas: compra.parcelas.every(p => p.status_parcela === "DESCONTADO"),
+      tem_pendentes: compra.parcelas.some(p => p.status_parcela === "PENDENTE" || p.status_parcela === "AGENDADO"),
+    }));
+  }, [parcelas, mesFiltro]);
 
   const handleDescontar = async (parcelaId: string) => {
     try {
@@ -340,11 +380,11 @@ const Lancamentos = () => {
 
         <Card className="backdrop-blur-sm bg-card/95 shadow-[var(--shadow-card)] border-primary/10">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <CardTitle className="text-2xl bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 Lançamentos e Descontos
               </CardTitle>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button
                   onClick={() => navigate("/admin/nova-compra")}
                   className="bg-gradient-to-r from-primary to-accent hover:opacity-90"
@@ -382,52 +422,40 @@ const Lancamentos = () => {
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
+            {/* SEÇÃO DE COMPRAS */}
             {(tipoFiltro === "TODOS" || tipoFiltro === "COMPRAS") && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-4">Compras - Parcelas</h3>
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[50px]"></TableHead>
-                        <TableHead>ID Compra</TableHead>
-                        <TableHead>Colaboradora</TableHead>
-                        <TableHead>Parcela</TableHead>
-                        <TableHead>Competência</TableHead>
-                        <TableHead>Valor</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(() => {
-                        // Agrupar parcelas por compra
-                        const parcelasFiltradas = parcelas.filter(p => mesFiltro === "TODOS" || p.competencia === mesFiltro);
-                        const comprasAgrupadas = parcelasFiltradas.reduce((acc, parcela) => {
-                          if (!acc[parcela.compra_id]) {
-                            acc[parcela.compra_id] = {
-                              compra_id: parcela.compra_id,
-                              colaboradora: parcela.purchases.profiles.name,
-                              item: parcela.purchases.item,
-                              num_parcelas: parcela.purchases.num_parcelas,
-                              parcelas: []
-                            };
-                          }
-                          acc[parcela.compra_id].parcelas.push(parcela);
-                          return acc;
-                        }, {} as Record<string, any>);
-
-                        return Object.values(comprasAgrupadas).map((compra: any) => {
-                          const isCompraExpanded = expandedCompras.has(compra.compra_id);
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Compras</h3>
+                {comprasAgrupadas.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-8 text-center text-muted-foreground">
+                      Nenhuma compra encontrada
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="rounded-md border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[50px]"></TableHead>
+                          <TableHead>ID Compra</TableHead>
+                          <TableHead>Colaboradora</TableHead>
+                          <TableHead>Total</TableHead>
+                          <TableHead>Parcelas</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {comprasAgrupadas.map((compra) => {
+                          const isExpanded = expandedCompras.has(compra.compra_id);
                           const compraIdShort = compra.compra_id.substring(0, 8).toUpperCase();
-                          const todasParcelasDescontadas = compra.parcelas.every((p: Parcela) => p.status_parcela === "DESCONTADO");
-                          const temParcelasPendentes = compra.parcelas.some((p: Parcela) => p.status_parcela === "PENDENTE" || p.status_parcela === "AGENDADO");
 
                           return (
                             <Collapsible
                               key={compra.compra_id}
-                              open={isCompraExpanded}
+                              open={isExpanded}
                               onOpenChange={(open) => {
                                 const newExpanded = new Set(expandedCompras);
                                 if (open) {
@@ -440,84 +468,61 @@ const Lancamentos = () => {
                             >
                               <>
                                 {/* Linha principal da compra */}
-                                <TableRow className={todasParcelasDescontadas ? "bg-muted/30" : ""}>
+                                <TableRow className={compra.todas_descontadas ? "bg-muted/30" : ""}>
                                   <TableCell>
                                     <CollapsibleTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0"
-                                      >
-                                        {isCompraExpanded ? (
-                                          <ChevronDown className="h-4 w-4" />
-                                        ) : (
-                                          <ChevronRight className="h-4 w-4" />
-                                        )}
+                                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                                       </Button>
                                     </CollapsibleTrigger>
                                   </TableCell>
                                   <TableCell>
-                                    <button
-                                      className="font-mono text-xs font-semibold text-primary hover:underline transition-colors"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const newExpanded = new Set(expandedCompras);
-                                        if (!isCompraExpanded) {
-                                          newExpanded.add(compra.compra_id);
-                                        } else {
-                                          newExpanded.delete(compra.compra_id);
-                                        }
-                                        setExpandedCompras(newExpanded);
-                                      }}
-                                    >
+                                    <span className="font-mono text-xs font-semibold text-primary">
                                       {compraIdShort}
-                                    </button>
+                                    </span>
                                   </TableCell>
                                   <TableCell className="font-medium">
                                     {compra.colaboradora}
                                   </TableCell>
-                                  <TableCell>
-                                    {compra.parcelas.length}/{compra.num_parcelas} parcelas
+                                  <TableCell className="font-semibold">
+                                    {formatCurrency(compra.total_valor)}
                                   </TableCell>
                                   <TableCell>
-                                    {compra.parcelas.length > 0 ? `${compra.parcelas[0].competencia.slice(0, 4)}/${compra.parcelas[0].competencia.slice(4)}` : "-"}
+                                    {compra.parcelas.length}/{compra.num_parcelas}
                                   </TableCell>
                                   <TableCell>
-                                    {formatCurrency(compra.parcelas.reduce((sum: number, p: Parcela) => sum + p.valor_parcela, 0))}
-                                  </TableCell>
-                                  <TableCell>
-                                    {todasParcelasDescontadas ? (
+                                    {compra.todas_descontadas ? (
                                       <Badge variant="default">Todas Descontadas</Badge>
-                                    ) : temParcelasPendentes ? (
+                                    ) : compra.tem_pendentes ? (
                                       <Badge variant="outline">Pendente</Badge>
                                     ) : (
                                       <Badge variant="secondary">Parcial</Badge>
                                     )}
                                   </TableCell>
                                   <TableCell>
-                                    <div className="flex gap-2">
-                                      {profile?.role === "ADMIN" && (
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setCompraParaExcluir(compra.compra_id);
-                                          }}
-                                          className="border-destructive/20 text-destructive hover:text-destructive"
-                                        >
-                                          <Trash2 className="h-4 w-4 mr-1" />
-                                          Excluir
-                                        </Button>
-                                      )}
-                                    </div>
+                                    {profile?.role === "ADMIN" && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setCompraParaExcluir(compra.compra_id);
+                                        }}
+                                        className="border-destructive/20 text-destructive hover:text-destructive"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-1" />
+                                        Excluir
+                                      </Button>
+                                    )}
                                   </TableCell>
                                 </TableRow>
+                                
                                 {/* Parcelas expandidas */}
                                 <CollapsibleContent asChild>
                                   <>
-                                    {compra.parcelas.map((parcela: Parcela) => {
+                                    {compra.parcelas.map((parcela) => {
                                       const isParcelaExpanded = expandedParcelas.has(parcela.id);
+                                      
                                       return (
                                         <Collapsible
                                           key={parcela.id}
@@ -533,35 +538,26 @@ const Lancamentos = () => {
                                           }}
                                         >
                                           <>
-                                            <TableRow className={parcela.status_parcela === "DESCONTADO" ? "bg-muted/20" : ""}>
+                                            <TableRow className={`${parcela.status_parcela === "DESCONTADO" ? "bg-muted/20" : ""} ${isExpanded ? "" : "hidden"}`}>
                                               <TableCell>
                                                 <CollapsibleTrigger asChild>
-                                                  <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-8 w-8 p-0"
-                                                  >
-                                                    {isParcelaExpanded ? (
-                                                      <ChevronDown className="h-4 w-4" />
-                                                    ) : (
-                                                      <ChevronRight className="h-4 w-4" />
-                                                    )}
+                                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                                    {isParcelaExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                                                   </Button>
                                                 </CollapsibleTrigger>
                                               </TableCell>
-                                              <TableCell className="text-muted-foreground text-xs">
+                                              <TableCell className="text-muted-foreground text-xs pl-8">
                                                 └─ {compraIdShort}
                                               </TableCell>
                                               <TableCell className="text-muted-foreground">
                                                 {parcela.purchases.profiles.name}
                                               </TableCell>
-                                              <TableCell>
-                                                {parcela.n_parcela}/{parcela.purchases.num_parcelas || parcela.n_parcela}
+                                              <TableCell className="text-muted-foreground">
+                                                {formatCurrency(parcela.valor_parcela)}
                                               </TableCell>
                                               <TableCell>
-                                                {parcela.competencia.slice(0, 4)}/{parcela.competencia.slice(4)}
+                                                {parcela.n_parcela}/{parcela.purchases.num_parcelas}
                                               </TableCell>
-                                              <TableCell>{formatCurrency(parcela.valor_parcela)}</TableCell>
                                               <TableCell>{getStatusBadge(parcela.status_parcela)}</TableCell>
                                               <TableCell>
                                                 <div className="flex gap-2">
@@ -624,9 +620,11 @@ const Lancamentos = () => {
                                                 </div>
                                               </TableCell>
                                             </TableRow>
+                                            
+                                            {/* Detalhes da parcela (produtos) */}
                                             <CollapsibleContent asChild>
-                                              <TableRow>
-                                                <TableCell colSpan={8} className="bg-muted/40 p-5">
+                                              <TableRow className={isParcelaExpanded ? "" : "hidden"}>
+                                                <TableCell colSpan={7} className="bg-muted/40 p-5">
                                                   <div className="space-y-3">
                                                     <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
                                                       <Package className="h-4 w-4 text-primary" />
@@ -653,112 +651,120 @@ const Lancamentos = () => {
                               </>
                             </Collapsible>
                           );
-                        });
-                      })()}
-                    </TableBody>
-                  </Table>
-                </div>
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </div>
             )}
 
+            {/* SEÇÃO DE ADIANTAMENTOS */}
             {(tipoFiltro === "TODOS" || tipoFiltro === "ADIANTAMENTOS") && (
               <div>
                 <h3 className="text-lg font-semibold mb-4">Adiantamentos Salariais</h3>
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Colaboradora</TableHead>
-                        <TableHead>Competência</TableHead>
-                        <TableHead>Valor</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {adiantamentos
-                        .filter(a => mesFiltro === "TODOS" || a.mes_competencia === mesFiltro)
-                        .map((adiantamento) => (
-                          <TableRow key={adiantamento.id}>
-                            <TableCell className="font-medium">
-                              {adiantamento.profiles.name}
-                            </TableCell>
-                            <TableCell>
-                              {adiantamento.mes_competencia.slice(0, 4)}/{adiantamento.mes_competencia.slice(4)}
-                            </TableCell>
-                            <TableCell>{formatCurrency(adiantamento.valor)}</TableCell>
-                            <TableCell>{getStatusBadge(adiantamento.status)}</TableCell>
-                            <TableCell>
-                              <div className="flex gap-2">
-                                {adiantamento.status === "APROVADO" && !adiantamento.data_desconto && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleDescontarAdiantamento(adiantamento.id)}
-                                    className="border-primary/20"
-                                  >
-                                    <CheckCircle2 className="h-4 w-4 mr-1" />
-                                    Descontar
-                                  </Button>
-                                )}
-                                {adiantamento.status === "DESCONTADO" && (
-                                  <Dialog>
-                                    <DialogTrigger asChild>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => setSelectedAdiantamento(adiantamento.id)}
-                                        className="border-destructive/20"
-                                      >
-                                        <Undo2 className="h-4 w-4 mr-1" />
-                                        Estornar
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent>
-                                      <DialogHeader>
-                                        <DialogTitle>Estornar Adiantamento</DialogTitle>
-                                      </DialogHeader>
-                                      <div className="space-y-4">
-                                        <div>
-                                          <Label htmlFor="motivoAd">Motivo do Estorno *</Label>
-                                          <Textarea
-                                            id="motivoAd"
-                                            value={motivoEstorno}
-                                            onChange={(e) => setMotivoEstorno(e.target.value)}
-                                            placeholder="Descreva o motivo do estorno"
-                                            rows={4}
-                                          />
-                                        </div>
+                {adiantamentos.filter(a => mesFiltro === "TODOS" || a.mes_competencia === mesFiltro).length === 0 ? (
+                  <Card>
+                    <CardContent className="py-8 text-center text-muted-foreground">
+                      Nenhum adiantamento encontrado
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="rounded-md border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Colaboradora</TableHead>
+                          <TableHead>Competência</TableHead>
+                          <TableHead>Valor</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {adiantamentos
+                          .filter(a => mesFiltro === "TODOS" || a.mes_competencia === mesFiltro)
+                          .map((adiantamento) => (
+                            <TableRow key={adiantamento.id}>
+                              <TableCell className="font-medium">
+                                {adiantamento.profiles.name}
+                              </TableCell>
+                              <TableCell>
+                                {adiantamento.mes_competencia.slice(0, 4)}/{adiantamento.mes_competencia.slice(4)}
+                              </TableCell>
+                              <TableCell>{formatCurrency(adiantamento.valor)}</TableCell>
+                              <TableCell>{getStatusBadge(adiantamento.status)}</TableCell>
+                              <TableCell>
+                                <div className="flex gap-2">
+                                  {adiantamento.status === "APROVADO" && !adiantamento.data_desconto && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleDescontarAdiantamento(adiantamento.id)}
+                                      className="border-primary/20"
+                                    >
+                                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                                      Descontar
+                                    </Button>
+                                  )}
+                                  {adiantamento.status === "DESCONTADO" && (
+                                    <Dialog>
+                                      <DialogTrigger asChild>
                                         <Button
-                                          onClick={handleEstornarAdiantamento}
-                                          className="w-full"
-                                          variant="destructive"
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => setSelectedAdiantamento(adiantamento.id)}
+                                          className="border-destructive/20"
                                         >
-                                          Confirmar Estorno
+                                          <Undo2 className="h-4 w-4 mr-1" />
+                                          Estornar
                                         </Button>
-                                      </div>
-                                    </DialogContent>
-                                  </Dialog>
-                                )}
-                                {/* Botão de excluir - apenas ADMIN pode excluir */}
-                                {profile?.role === "ADMIN" && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => setAdiantamentoParaExcluir(adiantamento.id)}
-                                    className="border-destructive/20 text-destructive hover:text-destructive"
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-1" />
-                                    Excluir
-                                  </Button>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                                      </DialogTrigger>
+                                      <DialogContent>
+                                        <DialogHeader>
+                                          <DialogTitle>Estornar Adiantamento</DialogTitle>
+                                        </DialogHeader>
+                                        <div className="space-y-4">
+                                          <div>
+                                            <Label htmlFor="motivoAd">Motivo do Estorno *</Label>
+                                            <Textarea
+                                              id="motivoAd"
+                                              value={motivoEstorno}
+                                              onChange={(e) => setMotivoEstorno(e.target.value)}
+                                              placeholder="Descreva o motivo do estorno"
+                                              rows={4}
+                                            />
+                                          </div>
+                                          <Button
+                                            onClick={handleEstornarAdiantamento}
+                                            className="w-full"
+                                            variant="destructive"
+                                          >
+                                            Confirmar Estorno
+                                          </Button>
+                                        </div>
+                                      </DialogContent>
+                                    </Dialog>
+                                  )}
+                                  {profile?.role === "ADMIN" && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setAdiantamentoParaExcluir(adiantamento.id)}
+                                      className="border-destructive/20 text-destructive hover:text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-1" />
+                                      Excluir
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
