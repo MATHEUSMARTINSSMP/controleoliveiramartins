@@ -335,4 +335,3 @@ export function TimeClockHistory({ storeId, colaboradoraId, showOnlyToday = fals
   );
 }
 
-

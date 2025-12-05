@@ -630,4 +630,3 @@ O sistema calcula o banco de horas comparando:
 
 **FIM DO DOCUMENTO PONTO & JORNADA**
 
-

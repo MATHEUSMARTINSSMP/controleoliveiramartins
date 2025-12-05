@@ -292,4 +292,3 @@ const WishlistManagement = React.memo(function WishlistManagement() {
 
 export default WishlistManagement;
 
-
