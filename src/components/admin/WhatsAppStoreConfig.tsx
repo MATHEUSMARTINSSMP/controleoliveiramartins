@@ -7,9 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Save, Phone, Wifi, WifiOff, TestTube, Loader2, Lock, Sparkles } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Save, Phone, Wifi, WifiOff, TestTube, Loader2, Lock, Sparkles, QrCode, Key } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { WhatsAppAuth } from "./WhatsAppAuth";
 
 interface Store {
     id: string;
@@ -327,67 +329,95 @@ export const WhatsAppStoreConfig = () => {
 
                         {store.whatsapp_ativo && (
                             <CardContent className="space-y-4">
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    <div className="space-y-2">
-                                        <Label htmlFor={`token-${store.id}`}>
-                                            UazAPI Token *
-                                        </Label>
-                                        <Input
-                                            id={`token-${store.id}`}
-                                            type="password"
-                                            placeholder="Cole o token da UazAPI"
-                                            value={store.uazapi_token || ''}
-                                            onChange={(e) => updateStore(store.id, 'uazapi_token', e.target.value)}
+                                <Tabs defaultValue="auth" className="w-full">
+                                    <TabsList className="grid w-full grid-cols-2">
+                                        <TabsTrigger value="auth" className="gap-2">
+                                            <QrCode className="h-4 w-4" />
+                                            Autenticação QR Code
+                                        </TabsTrigger>
+                                        <TabsTrigger value="manual" className="gap-2">
+                                            <Key className="h-4 w-4" />
+                                            Configuração Manual
+                                        </TabsTrigger>
+                                    </TabsList>
+
+                                    <TabsContent value="auth" className="space-y-4">
+                                        <WhatsAppAuth
+                                            storeId={store.id}
+                                            storeName={store.name}
+                                            customerId={profile?.email || ''}
+                                            siteSlug={store.name.toLowerCase().replace(/\s+/g, '-')}
+                                            onAuthSuccess={() => {
+                                                fetchStores();
+                                                toast.success('WhatsApp conectado! As credenciais foram salvas automaticamente.');
+                                            }}
                                         />
-                                        <p className="text-xs text-muted-foreground">
-                                            Token de autenticação da API UazAPI
-                                        </p>
-                                    </div>
+                                    </TabsContent>
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor={`instance-${store.id}`}>
-                                            Instance ID (opcional)
-                                        </Label>
-                                        <Input
-                                            id={`instance-${store.id}`}
-                                            placeholder="ID da instância"
-                                            value={store.uazapi_instance_id || ''}
-                                            onChange={(e) => updateStore(store.id, 'uazapi_instance_id', e.target.value)}
-                                        />
-                                        <p className="text-xs text-muted-foreground">
-                                            ID da instância do WhatsApp na UazAPI
-                                        </p>
-                                    </div>
-                                </div>
+                                    <TabsContent value="manual" className="space-y-4">
+                                        <div className="grid gap-4 md:grid-cols-2">
+                                            <div className="space-y-2">
+                                                <Label htmlFor={`token-${store.id}`}>
+                                                    UazAPI Token *
+                                                </Label>
+                                                <Input
+                                                    id={`token-${store.id}`}
+                                                    type="password"
+                                                    placeholder="Cole o token da UazAPI"
+                                                    value={store.uazapi_token || ''}
+                                                    onChange={(e) => updateStore(store.id, 'uazapi_token', e.target.value)}
+                                                />
+                                                <p className="text-xs text-muted-foreground">
+                                                    Token de autenticação da API UazAPI
+                                                </p>
+                                            </div>
 
-                                <div className="flex gap-2 pt-2">
-                                    <Button
-                                        onClick={() => handleSave(store)}
-                                        disabled={saving === store.id}
-                                        className="gap-2"
-                                    >
-                                        {saving === store.id ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                            <Save className="h-4 w-4" />
-                                        )}
-                                        Salvar
-                                    </Button>
+                                            <div className="space-y-2">
+                                                <Label htmlFor={`instance-${store.id}`}>
+                                                    Instance ID (opcional)
+                                                </Label>
+                                                <Input
+                                                    id={`instance-${store.id}`}
+                                                    placeholder="ID da instância"
+                                                    value={store.uazapi_instance_id || ''}
+                                                    onChange={(e) => updateStore(store.id, 'uazapi_instance_id', e.target.value)}
+                                                />
+                                                <p className="text-xs text-muted-foreground">
+                                                    ID da instância do WhatsApp na UazAPI
+                                                </p>
+                                            </div>
+                                        </div>
 
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => handleTest(store)}
-                                        disabled={testing === store.id || !store.uazapi_token}
-                                        className="gap-2"
-                                    >
-                                        {testing === store.id ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                            <TestTube className="h-4 w-4" />
-                                        )}
-                                        Testar Conexão
-                                    </Button>
-                                </div>
+                                        <div className="flex gap-2 pt-2">
+                                            <Button
+                                                onClick={() => handleSave(store)}
+                                                disabled={saving === store.id}
+                                                className="gap-2"
+                                            >
+                                                {saving === store.id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <Save className="h-4 w-4" />
+                                                )}
+                                                Salvar
+                                            </Button>
+
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => handleTest(store)}
+                                                disabled={testing === store.id || !store.uazapi_token}
+                                                className="gap-2"
+                                            >
+                                                {testing === store.id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <TestTube className="h-4 w-4" />
+                                                )}
+                                                Testar Conexão
+                                            </Button>
+                                        </div>
+                                    </TabsContent>
+                                </Tabs>
                             </CardContent>
                         )}
                     </Card>
