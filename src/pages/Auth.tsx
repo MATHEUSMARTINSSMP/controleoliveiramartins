@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -309,24 +309,19 @@ const Auth = () => {
                 </div>
               </div>
               
-              <Button
+              <LoadingButton
                 type="submit"
-                disabled={loading}
+                isLoading={loading}
+                loadingText="Processando..."
+                successText="Sucesso!"
                 className="w-full"
                 data-testid="button-submit"
               >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Processando...
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center gap-2">
-                    {isLogin ? "Entrar" : "Criar conta"}
-                    <ArrowRight className="w-4 h-4" />
-                  </span>
-                )}
-              </Button>
+                <span className="flex items-center justify-center gap-2">
+                  {isLogin ? "Entrar" : "Criar conta"}
+                  <ArrowRight className="w-4 h-4" />
+                </span>
+              </LoadingButton>
             </form>
             
             <div className="mt-6 space-y-3">

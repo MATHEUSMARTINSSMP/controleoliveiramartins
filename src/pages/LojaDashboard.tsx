@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { motion } from "framer-motion";
 import { AnimatedOrbs } from "@/components/ui/animated-orbs";
+import { LoadingButton } from "@/components/ui/loading-button";
 
 const WeeklyGoalProgress = lazy(() => import("@/components/WeeklyGoalProgress"));
 const WeeklyBonusProgress = lazy(() => import("@/components/WeeklyBonusProgress"));
@@ -59,6 +60,8 @@ export default function LojaDashboard() {
     const [colaboradoras, setColaboradoras] = useState<Colaboradora[]>([]);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [submitSuccess, setSubmitSuccess] = useState(false);
     const [storeId, setStoreId] = useState<string | null>(null);
     const [storeName, setStoreName] = useState<string | null>(null);
     const [salesDateFilter, setSalesDateFilter] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
@@ -1619,6 +1622,8 @@ export default function LojaDashboard() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        if (submitting) return;
+
         if (!formData.colaboradora_id || !formData.valor || !formData.qtd_pecas) {
             toast.error('Preencha todos os campos obrigatórios');
             return;
@@ -1667,6 +1672,9 @@ export default function LojaDashboard() {
             observacoesFinal = `Formas de Pagamento: ${formasPagamentoTexto}`;
         }
 
+        setSubmitting(true);
+        setSubmitSuccess(false);
+
         const { data: insertedSale, error } = await supabase
             .schema("sistemaretiradas")
             .from('sales')
@@ -1685,7 +1693,13 @@ export default function LojaDashboard() {
         if (error) {
             toast.error('Erro ao lançar venda');
             console.error(error);
+            setSubmitting(false);
         } else {
+            setSubmitSuccess(true);
+            setTimeout(() => {
+                setSubmitSuccess(false);
+                setSubmitting(false);
+            }, 1500);
             // PRIORIDADE 1: Salvar venda (já salvo acima)
             // IMPORTANTE: Salvar dados da venda ANTES de resetar o form
             const vendaData = {
@@ -2861,12 +2875,19 @@ export default function LojaDashboard() {
                                     </div>
 
                                     <div className="flex gap-2">
-                                        <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="flex-1">
+                                        <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="flex-1" disabled={submitting}>
                                             Cancelar
                                         </Button>
-                                        <Button type="submit" className="flex-1">
-                                            Lançar Venda
-                                        </Button>
+                                        <LoadingButton 
+                                            type="submit" 
+                                            className="flex-1"
+                                            isLoading={submitting}
+                                            isSuccess={submitSuccess}
+                                            loadingText="Enviando..."
+                                            successText="Venda Lancada!"
+                                        >
+                                            Lancar Venda
+                                        </LoadingButton>
                                     </div>
                                 </form>
                             </DialogContent>
@@ -3928,12 +3949,19 @@ export default function LojaDashboard() {
                                 </div>
 
                                 <div className="flex gap-2">
-                                    <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="flex-1">
+                                    <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="flex-1" disabled={submitting}>
                                         Cancelar
                                     </Button>
-                                    <Button type="submit" className="flex-1">
-                                        Lançar Venda
-                                    </Button>
+                                    <LoadingButton 
+                                        type="submit" 
+                                        className="flex-1"
+                                        isLoading={submitting}
+                                        isSuccess={submitSuccess}
+                                        loadingText="Enviando..."
+                                        successText="Venda Lancada!"
+                                    >
+                                        Lancar Venda
+                                    </LoadingButton>
                                 </div>
                             </form>
                         </DialogContent>
