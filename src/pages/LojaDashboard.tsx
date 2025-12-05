@@ -232,8 +232,9 @@ export default function LojaDashboard() {
         if (rankingMonthlyData) {
             setRankingMonthly(rankingMonthlyData.map(r => ({
                 colaboradora_id: r.colaboradoraId,
-                colaboradora_name: r.colaboradoraName,
-                total: r.total
+                name: r.colaboradoraName,
+                total: r.total,
+                qtdVendas: r.qtdVendas || 0
             })));
         }
     }, [rankingMonthlyData]);
@@ -3526,7 +3527,7 @@ export default function LojaDashboard() {
                                     </CardContent>
                                 </Card>
 
-                                {/* Ranking Mensal com Pódio (Ouro e Prata) */}
+                                {/* Ranking Mensal com Pódio */}
                                 {rankingMonthly.length > 0 && (
                                     <Card>
                                         <CardHeader className="pb-2 p-3 sm:p-6">
@@ -3534,62 +3535,51 @@ export default function LojaDashboard() {
                                                 <Award className="h-4 w-4 sm:h-5 sm:w-5" />
                                                 <span>Podio Mensal</span>
                                             </CardTitle>
-                                            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Ranking acumulado do mes - Top 2</p>
+                                            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Ranking acumulado do mes</p>
                                         </CardHeader>
                                         <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                                            <div className="space-y-3 sm:space-y-4">
-                                                {rankingMonthly.slice(0, 2).map((item, index) => {
+                                            <div className="space-y-2">
+                                                {rankingMonthly.map((item, index) => {
                                                     const perf = colaboradorasPerformance.find(p => p.id === item.colaboradora_id);
                                                     const isOuro = index === 0;
                                                     const isPrata = index === 1;
+                                                    const isBronze = index === 2;
+
+                                                    const getRowStyle = () => {
+                                                        if (isOuro) return { background: 'linear-gradient(90deg, hsl(45 80% 92%) 0%, hsl(var(--card)) 100%)' };
+                                                        if (isPrata) return { background: 'linear-gradient(90deg, hsl(0 0% 88%) 0%, hsl(var(--card)) 100%)' };
+                                                        if (isBronze) return { background: 'linear-gradient(90deg, hsl(30 50% 85%) 0%, hsl(var(--card)) 100%)' };
+                                                        return {};
+                                                    };
 
                                                     return (
                                                         <div
                                                             key={item.colaboradora_id}
-                                                            className={`
-                                            relative flex items-center justify-between p-3 sm:p-4 rounded-md border
-                                            ${isOuro
-                                                                    ? 'bg-muted/50 border-foreground/20'
-                                                                    : isPrata
-                                                                        ? 'bg-muted/30 border-border'
-                                                                        : 'bg-background/50 border-border/50'
-                                                                }
-                                        `}
+                                                            className={`relative flex items-center justify-between p-3 rounded-md border ${
+                                                                isOuro ? 'border-primary/30' : isPrata ? 'border-muted-foreground/20' : isBronze ? 'border-primary/20' : 'border-border/50 bg-muted/20'
+                                                            }`}
+                                                            style={getRowStyle()}
                                                         >
-                                                            <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                                                                <div className={`
-                                                w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0
-                                                ${isOuro
-                                                                        ? 'bg-foreground text-background'
-                                                                        : isPrata
-                                                                            ? 'bg-muted-foreground/30 text-foreground'
-                                                                            : 'bg-muted text-muted-foreground'
-                                                                    }
-                                            `}>
+                                                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold flex-shrink-0 ${
+                                                                    isOuro ? 'bg-primary text-primary-foreground' : isPrata ? 'bg-muted-foreground/40 text-foreground' : isBronze ? 'bg-primary/60 text-primary-foreground' : 'bg-muted text-muted-foreground'
+                                                                }`}>
                                                                     {index + 1}
                                                                 </div>
                                                                 <div className="min-w-0 flex-1">
-                                                                    <span className="font-semibold text-sm sm:text-base break-words block">{item.name}</span>
+                                                                    <span className="font-semibold text-sm break-words block">{item.name || 'Colaboradora'}</span>
                                                                     {perf && (
-                                                                        <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 space-y-0.5">
-                                                                            <div className="flex gap-2">
-                                                                                <span>Ticket: R$ {perf.ticketMedio.toFixed(2)}</span>
-                                                                                <span>PA: {(perf.qtdPecas / Math.max(perf.qtdVendasMes, 1)).toFixed(1)}</span>
-                                                                            </div>
-                                                                            <div>Vendas: {item.qtdVendas}</div>
+                                                                        <div className="text-[10px] text-muted-foreground mt-0.5 flex gap-2 flex-wrap">
+                                                                            <span>Ticket: R$ {perf.ticketMedio.toFixed(2)}</span>
+                                                                            <span>PA: {(perf.qtdPecas / Math.max(perf.qtdVendasMes, 1)).toFixed(1)}</span>
                                                                         </div>
                                                                     )}
                                                                 </div>
                                                             </div>
                                                             <div className="text-right flex-shrink-0 ml-2">
-                                                                <p className="font-bold text-lg sm:text-xl">
+                                                                <p className="font-bold text-base sm:text-lg">
                                                                     R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                                 </p>
-                                                                {perf && perf.percentualMensal > 0 && (
-                                                                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-                                                                        {perf.percentualMensal.toFixed(0)}% da meta
-                                                                    </p>
-                                                                )}
                                                             </div>
                                                         </div>
                                                     );
@@ -4592,7 +4582,7 @@ export default function LojaDashboard() {
                                 </CardContent>
                             </Card>
 
-                            {/* Ranking Mensal com Pódio (Ouro e Prata) */}
+                            {/* Ranking Mensal com Pódio */}
                             {rankingMonthly.length > 0 && (
                                 <Card>
                                     <CardHeader className="pb-2 p-3 sm:p-6">
@@ -4600,62 +4590,51 @@ export default function LojaDashboard() {
                                             <Award className="h-4 w-4 sm:h-5 sm:w-5" />
                                             <span>Podio Mensal</span>
                                         </CardTitle>
-                                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">Ranking acumulado do mes - Top 2</p>
+                                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">Ranking acumulado do mes</p>
                                     </CardHeader>
                                     <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                                        <div className="space-y-3 sm:space-y-4">
-                                            {rankingMonthly.slice(0, 2).map((item, index) => {
+                                        <div className="space-y-2">
+                                            {rankingMonthly.map((item, index) => {
                                                 const perf = colaboradorasPerformance.find(p => p.id === item.colaboradora_id);
                                                 const isOuro = index === 0;
                                                 const isPrata = index === 1;
+                                                const isBronze = index === 2;
+
+                                                const getRowStyle = () => {
+                                                    if (isOuro) return { background: 'linear-gradient(90deg, hsl(45 80% 92%) 0%, hsl(var(--card)) 100%)' };
+                                                    if (isPrata) return { background: 'linear-gradient(90deg, hsl(0 0% 88%) 0%, hsl(var(--card)) 100%)' };
+                                                    if (isBronze) return { background: 'linear-gradient(90deg, hsl(30 50% 85%) 0%, hsl(var(--card)) 100%)' };
+                                                    return {};
+                                                };
 
                                                 return (
                                                     <div
                                                         key={item.colaboradora_id}
-                                                        className={`
-                                                relative flex items-center justify-between p-3 sm:p-4 rounded-md border
-                                                ${isOuro
-                                                                ? 'bg-muted/50 border-foreground/20'
-                                                                : isPrata
-                                                                    ? 'bg-muted/30 border-border'
-                                                                    : 'bg-background/50 border-border/50'
-                                                            }
-                                            `}
+                                                        className={`relative flex items-center justify-between p-3 rounded-md border ${
+                                                            isOuro ? 'border-primary/30' : isPrata ? 'border-muted-foreground/20' : isBronze ? 'border-primary/20' : 'border-border/50 bg-muted/20'
+                                                        }`}
+                                                        style={getRowStyle()}
                                                     >
-                                                        <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                                                            <div className={`
-                                                    w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0
-                                                    ${isOuro
-                                                                    ? 'bg-foreground text-background'
-                                                                    : isPrata
-                                                                        ? 'bg-muted-foreground/30 text-foreground'
-                                                                        : 'bg-muted text-muted-foreground'
-                                                                }
-                                                `}>
+                                                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                            <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold flex-shrink-0 ${
+                                                                isOuro ? 'bg-primary text-primary-foreground' : isPrata ? 'bg-muted-foreground/40 text-foreground' : isBronze ? 'bg-primary/60 text-primary-foreground' : 'bg-muted text-muted-foreground'
+                                                            }`}>
                                                                 {index + 1}
                                                             </div>
                                                             <div className="min-w-0 flex-1">
-                                                                <span className="font-semibold text-sm sm:text-base break-words block">{item.name}</span>
+                                                                <span className="font-semibold text-sm break-words block">{item.name || 'Colaboradora'}</span>
                                                                 {perf && (
-                                                                    <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 space-y-0.5">
-                                                                        <div className="flex gap-2">
-                                                                            <span>Ticket: R$ {perf.ticketMedio.toFixed(2)}</span>
-                                                                            <span>PA: {(perf.qtdPecas / Math.max(perf.qtdVendasMes, 1)).toFixed(1)}</span>
-                                                                        </div>
-                                                                        <div>Vendas: {item.qtdVendas}</div>
+                                                                    <div className="text-[10px] text-muted-foreground mt-0.5 flex gap-2 flex-wrap">
+                                                                        <span>Ticket: R$ {perf.ticketMedio.toFixed(2)}</span>
+                                                                        <span>PA: {(perf.qtdPecas / Math.max(perf.qtdVendasMes, 1)).toFixed(1)}</span>
                                                                     </div>
                                                                 )}
                                                             </div>
                                                         </div>
                                                         <div className="text-right flex-shrink-0 ml-2">
-                                                            <p className="font-bold text-lg sm:text-xl">
+                                                            <p className="font-bold text-base sm:text-lg">
                                                                 R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                             </p>
-                                                            {perf && perf.percentualMensal > 0 && (
-                                                                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-                                                                    {perf.percentualMensal.toFixed(0)}% da meta
-                                                                </p>
-                                                            )}
                                                         </div>
                                                     </div>
                                                 );
