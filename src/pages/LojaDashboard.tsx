@@ -2828,7 +2828,7 @@ export default function LojaDashboard() {
 
                                             if (valorTotal > 0 && Math.abs(diferenca) > 0.01) {
                                                 return (
-                                                    <div className={`p-2 rounded text-sm ${diferenca > 0 ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                                                    <div className={`p-2 rounded text-sm ${diferenca > 0 ? 'bg-status-ontrack/10 text-status-ontrack border border-status-ontrack/30' : 'bg-destructive/10 text-destructive border border-destructive/30'}`}>
                                                         {diferenca > 0
                                                             ? `⚠️ Faltam R$ ${diferenca.toFixed(2)} para completar o valor total`
                                                             : `⚠️ Valor excede o total em R$ ${Math.abs(diferenca).toFixed(2)}`
@@ -3086,7 +3086,7 @@ export default function LojaDashboard() {
                                                     {perf.metaDiaria > 0 && (
                                                         <div className="flex items-center justify-between text-base">
                                                             <span className="text-muted-foreground">Falta:</span>
-                                                            <span className={`font-semibold ${perf.vendido >= perf.metaDiaria ? 'text-green-600' : 'text-orange-600'}`}>
+                                                            <span className={`font-semibold ${perf.vendido >= perf.metaDiaria ? 'text-status-ahead' : 'text-status-ontrack'}`}>
                                                                 R$ {Math.max(0, perf.metaDiaria - perf.vendido).toFixed(2)}
                                                             </span>
                                                         </div>
@@ -3184,10 +3184,10 @@ export default function LojaDashboard() {
                                                             {perf.meta > 0 ? (
                                                                 <>
                                                                     <span className={
-                                                                        perf.percentual >= 120 ? 'text-yellow-600 font-bold' :
-                                                                            perf.percentual >= 100 ? 'text-green-600 font-bold' :
-                                                                                perf.percentual >= 90 ? 'text-yellow-500' :
-                                                                                    'text-red-600'
+                                                                        perf.percentual >= 120 ? 'text-status-ahead font-bold' :
+                                                                            perf.percentual >= 100 ? 'text-status-ahead font-bold' :
+                                                                                perf.percentual >= 90 ? 'text-status-ontrack' :
+                                                                                    'text-status-behind'
                                                                     }>
                                                                         {perf.percentual.toFixed(0)}%
                                                                         {perf.percentual >= 120 && ' 🏆'}
@@ -3196,7 +3196,7 @@ export default function LojaDashboard() {
                                                                         Mês: {perf.percentualMensal.toFixed(0)}%
                                                                     </div>
                                                                     {perf.faltaMensal > 0 && (
-                                                                        <div className="text-[10px] text-orange-600 mt-0.5">
+                                                                        <div className="text-[10px] text-status-ontrack mt-0.5">
                                                                             Falta: R$ {perf.faltaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                                         </div>
                                                                     )}
@@ -3606,7 +3606,7 @@ export default function LojaDashboard() {
                                                                                 className={`
                                                                         text-xs text-center font-medium
                                                                         ${bateuMeta
-                                                                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-900 dark:text-green-100'
+                                                                                        ? 'bg-status-ahead/20 dark:bg-status-ahead/10 text-foreground'
                                                                                         : dayData.valor > 0
                                                                                             ? 'text-foreground'
                                                                                             : 'text-muted-foreground'
@@ -3906,10 +3906,10 @@ export default function LojaDashboard() {
 
                                         if (valorTotal > 0 && Math.abs(diferenca) > 0.01) {
                                             return (
-                                                <div className={`p-2 rounded text-sm ${diferenca > 0 ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                                                <div className={`p-2 rounded text-sm ${diferenca > 0 ? 'bg-status-ontrack/10 text-status-ontrack border border-status-ontrack/30' : 'bg-destructive/10 text-destructive border border-destructive/30'}`}>
                                                     {diferenca > 0
-                                                        ? `⚠️ Faltam R$ ${diferenca.toFixed(2)} para completar o valor total`
-                                                        : `⚠️ Valor excede o total em R$ ${Math.abs(diferenca).toFixed(2)}`
+                                                        ? `Faltam R$ ${diferenca.toFixed(2)} para completar o valor total`
+                                                        : `Valor excede o total em R$ ${Math.abs(diferenca).toFixed(2)}`
                                                     }
                                                 </div>
                                             );
@@ -4158,7 +4158,7 @@ export default function LojaDashboard() {
                                                 {perf.metaDiaria > 0 && (
                                                     <div className="flex items-center justify-between text-base">
                                                         <span className="text-muted-foreground">Falta:</span>
-                                                        <span className={`font-semibold ${perf.vendido >= perf.metaDiaria ? 'text-green-600' : 'text-orange-600'}`}>
+                                                        <span className={`font-semibold ${perf.vendido >= perf.metaDiaria ? 'text-status-ahead' : 'text-status-ontrack'}`}>
                                                             R$ {Math.max(0, perf.metaDiaria - perf.vendido).toFixed(2)}
                                                         </span>
                                                     </div>
@@ -4248,19 +4248,18 @@ export default function LojaDashboard() {
                                                         {perf.meta > 0 ? (
                                                             <>
                                                                 <span className={
-                                                                    perf.percentual >= 120 ? 'text-yellow-600 font-bold' :
-                                                                        perf.percentual >= 100 ? 'text-green-600 font-bold' :
-                                                                            perf.percentual >= 90 ? 'text-yellow-500' :
-                                                                                'text-red-600'
+                                                                    perf.percentual >= 120 ? 'text-status-ahead font-bold' :
+                                                                        perf.percentual >= 100 ? 'text-status-ahead font-bold' :
+                                                                            perf.percentual >= 90 ? 'text-status-ontrack' :
+                                                                                'text-status-behind'
                                                                 }>
                                                                     {perf.percentual.toFixed(0)}%
-                                                                    {perf.percentual >= 120 && ' 🏆'}
                                                                 </span>
                                                                 <div className="text-[10px] text-muted-foreground mt-0.5">
                                                                     Mês: {perf.percentualMensal.toFixed(0)}%
                                                                 </div>
                                                                 {perf.faltaMensal > 0 && (
-                                                                    <div className="text-[10px] text-orange-600 mt-0.5">
+                                                                    <div className="text-[10px] text-status-ontrack mt-0.5">
                                                                         Falta: R$ {perf.faltaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                                     </div>
                                                                 )}
@@ -4670,7 +4669,7 @@ export default function LojaDashboard() {
                                                                             className={`
                                                                             text-xs text-center font-medium
                                                                             ${bateuMeta
-                                                                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-900 dark:text-green-100'
+                                                                                    ? 'bg-status-ahead/20 dark:bg-status-ahead/10 text-foreground'
                                                                                     : dayData.valor > 0
                                                                                         ? 'text-foreground'
                                                                                         : 'text-muted-foreground'
