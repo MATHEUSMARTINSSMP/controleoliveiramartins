@@ -3,9 +3,10 @@
  * Enterprise-grade hooks for colaboradora dashboard data
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { QUERY_KEYS, type Profile, type Adiantamento, type Purchase, type Parcela } from './types';
+import { useToast } from '@/hooks/use-toast';
+import { QUERY_KEYS, type Adiantamento, type Purchase, type Parcela } from './types';
 
 interface ColaboradoraKPIs {
   totalPendente: number;
@@ -263,5 +264,140 @@ export function useColaboradoraSalesHistory(
     },
     enabled: !!profileId && !!storeId,
     staleTime: 1000 * 60 * 2,
+  });
+}
+
+export function useCancelAdiantamento() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ adiantamentoId, colaboradoraId }: { adiantamentoId: string; colaboradoraId: string }) => {
+      const { error } = await supabase
+        .schema('sistemaretiradas')
+        .from('adiantamentos')
+        .update({ status: 'CANCELADO' })
+        .eq('id', adiantamentoId)
+        .eq('colaboradora_id', colaboradoraId)
+        .eq('status', 'PENDENTE');
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.adiantamentos] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.kpis] });
+      toast({ title: 'Sucesso', description: 'Adiantamento cancelado com sucesso!' });
+    },
+    onError: () => {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível cancelar o adiantamento.',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export interface ColaboradoraPerformance {
+  goal: {
+    id: string;
+    meta_valor: number;
+    mes_referencia: string;
+    tipo: string;
+  } | null;
+  totalMes: number;
+  totalHoje: number;
+  qtdVendasHoje: number;
+  qtdPecasHoje: number;
+  ticketMedioHoje: number;
+  paHoje: number;
+  percentualMeta: number;
+  dailyGoal: number;
+  dailyProgress: number;
+  ranking: number | null;
+}
+
+export function useColaboradoraPerformance(profileId: string | null | undefined) {
+  return useQuery({
+    queryKey: [QUERY_KEYS.sales, 'performance', profileId],
+    queryFn: async (): Promise<ColaboradoraPerformance | null> => {
+      if (!profileId) return null;
+
+      const now = new Date();
+      const mesAtual = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const today = now.toISOString().split('T')[0];
+      const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+      const [goalResult, salesMonthResult, salesTodayResult, rankingResult] = await Promise.all([
+        supabase
+          .schema('sistemaretiradas')
+          .from('goals')
+          .select('id, meta_valor, mes_referencia, tipo')
+          .eq('colaboradora_id', profileId)
+          .eq('mes_referencia', mesAtual)
+          .eq('tipo', 'INDIVIDUAL')
+          .maybeSingle(),
+        supabase
+          .schema('sistemaretiradas')
+          .from('sales')
+          .select('valor, qtd_pecas')
+          .eq('colaboradora_id', profileId)
+          .gte('data_venda', `${startOfMonth}T00:00:00`),
+        supabase
+          .schema('sistemaretiradas')
+          .from('sales')
+          .select('valor, qtd_pecas')
+          .eq('colaboradora_id', profileId)
+          .gte('data_venda', `${today}T00:00:00`)
+          .lte('data_venda', `${today}T23:59:59`),
+        supabase
+          .schema('sistemaretiradas')
+          .from('sales')
+          .select('colaboradora_id, valor')
+          .gte('data_venda', `${startOfMonth}T00:00:00`),
+      ]);
+
+      const goal = goalResult.data;
+      const salesMonth = salesMonthResult.data || [];
+      const salesToday = salesTodayResult.data || [];
+      const rankingData = rankingResult.data || [];
+
+      const totalMes = salesMonth.reduce((sum, s) => sum + Number(s.valor || 0), 0);
+      const totalHoje = salesToday.reduce((sum, s) => sum + Number(s.valor || 0), 0);
+      const qtdVendasHoje = salesToday.length;
+      const qtdPecasHoje = salesToday.reduce((sum, s) => sum + Number(s.qtd_pecas || 0), 0);
+      const ticketMedioHoje = qtdVendasHoje > 0 ? totalHoje / qtdVendasHoje : 0;
+      const paHoje = qtdVendasHoje > 0 ? qtdPecasHoje / qtdVendasHoje : 0;
+
+      const metaValor = Number(goal?.meta_valor || 0);
+      const percentualMeta = metaValor > 0 ? (totalMes / metaValor) * 100 : 0;
+      const dailyGoal = metaValor > 0 ? metaValor / daysInMonth : 0;
+      const dailyProgress = dailyGoal > 0 ? (totalHoje / dailyGoal) * 100 : 0;
+
+      const grouped = rankingData.reduce((acc, sale) => {
+        acc[sale.colaboradora_id] = (acc[sale.colaboradora_id] || 0) + Number(sale.valor || 0);
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const sortedIds = Object.keys(grouped).sort((a, b) => grouped[b] - grouped[a]);
+      const ranking = sortedIds.indexOf(profileId) + 1;
+
+      return {
+        goal,
+        totalMes,
+        totalHoje,
+        qtdVendasHoje,
+        qtdPecasHoje,
+        ticketMedioHoje,
+        paHoje,
+        percentualMeta,
+        dailyGoal,
+        dailyProgress,
+        ranking: ranking > 0 ? ranking : null,
+      };
+    },
+    enabled: !!profileId,
+    staleTime: 1000 * 60,
   });
 }

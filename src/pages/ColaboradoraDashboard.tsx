@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, lazy, Suspense } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Achievements } from "@/components/colaboradora/Achievements";
+import {
+  useColaboradoraKPIs,
+  useColaboradoraAdiantamentos,
+  useColaboradoraCompras,
+  useColaboradoraParcelas,
+  useColaboradoraPerformance,
+  useCancelAdiantamento,
+} from "@/hooks/queries";
+import { useStores } from "@/hooks/queries";
 
 const ColaboradoraCommercial = lazy(() => import("@/components/colaboradora/ColaboradoraCommercial").then(m => ({ default: m.ColaboradoraCommercial })));
 const WeeklyGincanaResults = lazy(() => import("@/components/loja/WeeklyGincanaResults"));
@@ -37,63 +46,23 @@ import { StoreLogo, getStoreIdFromProfile } from "@/lib/storeLogo";
 import {
   type PeriodFilter,
   type MonthlyBreakdown,
-  getMonthsInPeriod,
-  aggregateMonthlyData,
-  getStatusBadgeVariant,
-  getStatusLabel
 } from "@/lib/monthlyCalendar";
-
-interface UserKPIs {
-  totalPendente: number;
-  proximasParcelas: number;
-  totalPago: number;
-  limiteTotal: number;
-  limiteDisponivel: number;
-  limiteMensal: number;
-  limiteDisponivelMensal: number;
-}
-
-interface Adiantamento {
-  id: string;
-  valor: number;
-  data_solicitacao: string;
-  mes_competencia: string;
-  status: string;
-  motivo_recusa: string | null;
-  observacoes: string | null;
-}
-
-interface Compra {
-  id: string;
-  data_compra: string;
-  item: string;
-  preco_final: number;
-  num_parcelas: number;
-  stores: { name: string } | null;
-  status_compra: string;
-}
-
-interface Parcela {
-  id: string;
-  n_parcela: number;
-  competencia: string;
-  valor_parcela: number;
-  status_parcela: string;
-  compra_id: string;
-  purchases: {
-    item: string;
-    stores: { name: string } | null;
-  } | null;
-}
 
 const ColaboradoraDashboard = () => {
   const { profile, signOut, loading } = useAuth();
   const navigate = useNavigate();
-  const [kpis, setKpis] = useState<UserKPIs | null>(null);
-  const [adiantamentos, setAdiantamentos] = useState<Adiantamento[]>([]);
-  const [compras, setCompras] = useState<Compra[]>([]);
-  const [parcelas, setParcelas] = useState<Parcela[]>([]);
-  const [lojas, setLojas] = useState<{ id: string, name: string }[]>([]);
+
+  // React Query hooks
+  const { data: kpis, isLoading: kpisLoading } = useColaboradoraKPIs(profile?.id);
+  const { data: adiantamentos = [] } = useColaboradoraAdiantamentos(profile?.id);
+  const { data: compras = [] } = useColaboradoraCompras(profile?.id);
+  const { data: parcelas = [] } = useColaboradoraParcelas(profile?.id);
+  const { data: storesData = [] } = useStores();
+  const { data: performance } = useColaboradoraPerformance(profile?.id);
+  const cancelAdiantamentoMutation = useCancelAdiantamento();
+
+  // Lojas from stores hook
+  const lojas = storesData;
 
   // Filters
   const [comprasFilters, setComprasFilters] = useState({
@@ -120,368 +89,31 @@ const ColaboradoraDashboard = () => {
 
   // Monthly calendar state
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>({ type: 'ultimos-3' });
-  const [customStartDate, setCustomStartDate] = useState("");
-  const [customEndDate, setCustomEndDate] = useState("");
   const [monthlyBreakdown, setMonthlyBreakdown] = useState<MonthlyBreakdown[]>([]);
   const [expandedMonthRow, setExpandedMonthRow] = useState<string | null>(null);
-
-  // Goals and Sales state
-  const [goalData, setGoalData] = useState<any>(null);
-  const [salesData, setSalesData] = useState<any>(null);
-  const [bonuses, setBonuses] = useState<any[]>([]);
-  const [dailyGoal, setDailyGoal] = useState<number>(0);
-  const [dailyProgress, setDailyProgress] = useState<number>(0);
-
-  const [history7Days, setHistory7Days] = useState<any[]>([]);
-  const [userRanking, setUserRanking] = useState<number | null>(null);
 
   // Password dialog
   const [passwordDialog, setPasswordDialog] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ newPassword: "", confirmPassword: "" });
-  const hasFetchedDataRef = useRef(false);
 
-  useEffect(() => {
-    if (!loading && profile && !hasFetchedDataRef.current) {
-      hasFetchedDataRef.current = true;
-      fetchAllData();
-    }
-  }, [profile, loading]);
+  // Derived data from performance hook
+  const goalData = performance ? {
+    ...performance.goal,
+    realizado: performance.totalMes,
+    percentual: performance.percentualMeta,
+  } : null;
 
-  const fetchAllData = async () => {
-    await Promise.all([
-      fetchUserKPIs(),
-      fetchAdiantamentos(),
-      fetchCompras(),
-      fetchParcelas(),
-      fetchLojas(),
-      fetchGoalsAndSales()
-    ]);
-  };
+  const salesData = performance ? {
+    totalHoje: performance.totalHoje,
+    qtdVendasHoje: performance.qtdVendasHoje,
+    qtdPecasHoje: performance.qtdPecasHoje,
+    ticketMedioHoje: performance.ticketMedioHoje,
+    paHoje: performance.paHoje,
+  } : null;
 
-  const fetchLojas = async () => {
-    const { data } = await supabase.schema("sistemaretiradas").from("stores").select("id, name").eq("active", true);
-    if (data) setLojas(data);
-  };
-
-  const fetchUserKPIs = async () => {
-    if (!profile) return;
-
-    try {
-      const { data: profileData } = await supabase
-        .schema("sistemaretiradas")
-        .from("profiles")
-        .select("limite_total, limite_mensal")
-        .eq("id", profile.id)
-        .single();
-
-      const { data: purchases } = await supabase
-        .schema("sistemaretiradas")
-        .from("purchases")
-        .select("id")
-        .eq("colaboradora_id", profile.id);
-
-      if (!purchases) return;
-
-      const purchaseIds = purchases.map(p => p.id);
-
-      const { data: parcelas } = await supabase
-        .schema("sistemaretiradas")
-        .from("parcelas")
-        .select("valor_parcela, status_parcela, competencia")
-        .in("compra_id", purchaseIds);
-
-      const { data: adiantamentosData } = await supabase
-        .schema("sistemaretiradas")
-        .from("adiantamentos")
-        .select("valor, mes_competencia")
-        .eq("colaboradora_id", profile.id)
-        .in("status", ["APROVADO", "DESCONTADO"]);
-
-      const totalParcelasPendentes = parcelas
-        ?.filter(p => p.status_parcela === "PENDENTE" || p.status_parcela === "AGENDADO")
-        .reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
-
-      const totalAdiantamentos = adiantamentosData?.reduce((sum, a) => sum + Number(a.valor), 0) || 0;
-      const totalPendente = totalParcelasPendentes + totalAdiantamentos;
-
-      const currentMonth = new Date().toISOString().slice(0, 7).replace("-", "");
-      const proximasParcelas = parcelas
-        ?.filter(p =>
-          (p.status_parcela === "PENDENTE" || p.status_parcela === "AGENDADO") &&
-          p.competencia <= currentMonth
-        )
-        .reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
-
-      const totalPago = parcelas
-        ?.filter(p => p.status_parcela === "DESCONTADO")
-        .reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
-
-      const limiteTotal = Number(profileData?.limite_total || 1000);
-      const limiteDisponivel = limiteTotal - totalPendente;
-      const limiteMensal = Number(profileData?.limite_mensal || 800);
-
-      // Calculate current month usage (parcelas + adiantamentos)
-      const currentMonthStr = format(new Date(), 'yyyyMM');
-
-      const parcelasEsteMes = parcelas
-        ?.filter(p =>
-          p.competencia === currentMonthStr &&
-          p.status_parcela === 'PENDENTE'
-        )
-        .reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
-
-      const adiantamentosEsteMes = adiantamentosData
-        ?.filter(a => {
-          // Adiantamentos with mes_competencia matching current month
-          // Check both APROVADO and DESCONTADO as both count against monthly limit
-          return a.mes_competencia === currentMonthStr;
-        })
-        .reduce((sum, a) => sum + Number(a.valor), 0) || 0;
-
-      const usadoEsteMes = parcelasEsteMes + adiantamentosEsteMes;
-      const limiteDisponivelMensal = Math.max(0, limiteMensal - usadoEsteMes);
-
-      setKpis({
-        totalPendente,
-        proximasParcelas,
-        totalPago,
-        limiteTotal,
-        limiteDisponivel,
-        limiteMensal,
-        limiteDisponivelMensal
-      });
-    } catch (error) {
-      console.error("Error fetching user KPIs:", error);
-      toast.error("Erro ao carregar seus dados");
-      setKpis({
-        totalPendente: 0,
-        proximasParcelas: 0,
-        totalPago: 0,
-        limiteTotal: 1000,
-        limiteDisponivel: 1000,
-        limiteMensal: 800,
-        limiteDisponivelMensal: 800
-      });
-    }
-  };
-
-  const fetchAdiantamentos = async () => {
-    if (!profile) return;
-
-    const { data, error } = await supabase
-      .schema("sistemaretiradas")
-      .from("adiantamentos")
-      .select("*")
-      .eq("colaboradora_id", profile.id)
-      .order("data_solicitacao", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching adiantamentos:", error);
-    } else {
-      setAdiantamentos(data || []);
-    }
-  };
-
-  const fetchGoalsAndSales = async () => {
-    if (!profile) return;
-
-    try {
-      const mesAtual = format(new Date(), 'yyyyMM');
-      const today = format(new Date(), 'yyyy-MM-dd');
-
-      // Buscar meta individual
-      const { data: goal } = await supabase
-        .schema("sistemaretiradas")
-        .from('goals')
-        .select('*')
-        .eq('colaboradora_id', profile.id)
-        .eq('mes_referencia', mesAtual)
-        .eq('tipo', 'INDIVIDUAL')
-        .single();
-
-      // Buscar vendas do mês
-      const { data: sales } = await supabase
-        .schema("sistemaretiradas")
-        .from('sales')
-        .select('*')
-        .eq('colaboradora_id', profile.id)
-        .gte('data_venda', `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01T00:00:00`);
-
-      // Buscar vendas de hoje
-      const { data: salesToday } = await supabase
-        .schema("sistemaretiradas")
-        .from('sales')
-        .select('*')
-        .eq('colaboradora_id', profile.id)
-        .gte('data_venda', `${today}T00:00:00`);
-
-      // Buscar bônus ativos
-      const { data: bonusesData } = await supabase
-        .schema("sistemaretiradas")
-        .from('bonuses')
-        .select('*')
-        .eq('ativo', true)
-        .order('valor_condicao', { ascending: true });
-
-      const totalMes = sales?.reduce((sum, s) => sum + Number(s.valor), 0) || 0;
-      const totalHoje = salesToday?.reduce((sum, s) => sum + Number(s.valor), 0) || 0;
-      const qtdVendasHoje = salesToday?.length || 0;
-      const qtdPecasHoje = salesToday?.reduce((sum, s) => sum + Number(s.qtd_pecas), 0) || 0;
-      const ticketMedioHoje = qtdVendasHoje > 0 ? totalHoje / qtdVendasHoje : 0;
-      const paHoje = qtdVendasHoje > 0 ? qtdPecasHoje / qtdVendasHoje : 0;
-
-      setGoalData({
-        ...goal,
-        realizado: totalMes,
-        percentual: goal ? (totalMes / goal.meta_valor) * 100 : 0,
-      });
-
-      setSalesData({
-        totalHoje,
-        qtdVendasHoje,
-        qtdPecasHoje,
-        ticketMedioHoje,
-        paHoje,
-      });
-
-      setBonuses(bonusesData || []);
-
-      // Calculate Daily Goal
-      if (goal) {
-        const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-        const daily = Number(goal.meta_valor) / daysInMonth;
-        setDailyGoal(daily);
-        setDailyProgress((totalHoje / daily) * 100);
-      }
-
-      // Fetch 7-Day History
-      const startDate = format(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
-      const { data: historyData } = await supabase
-        .schema("sistemaretiradas")
-        .from('sales')
-        .select('data_venda, valor, qtd_pecas')
-        .eq('colaboradora_id', profile.id)
-        .gte('data_venda', `${startDate}T00:00:00`)
-        .order('data_venda', { ascending: true });
-
-      if (historyData) {
-        const grouped: Record<string, any> = {};
-        historyData.forEach((sale: any) => {
-          const day = sale.data_venda.split('T')[0];
-          if (!grouped[day]) {
-            grouped[day] = { total: 0, qtdVendas: 0, qtdPecas: 0 };
-          }
-          grouped[day].total += Number(sale.valor);
-          grouped[day].qtdVendas += 1;
-          grouped[day].qtdPecas += Number(sale.qtd_pecas);
-        });
-        const result = Object.entries(grouped).map(([day, info]) => ({ day, ...info }));
-        setHistory7Days(result);
-      }
-
-      // Fetch Ranking Position
-      const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
-      const { data: rankingData } = await supabase
-        .schema("sistemaretiradas")
-        .from('sales')
-        .select('colaboradora_id, valor')
-        .gte('data_venda', `${startOfMonth}T00:00:00`);
-
-      if (rankingData) {
-        const grouped = rankingData.reduce((acc: any, sale: any) => {
-          acc[sale.colaboradora_id] = (acc[sale.colaboradora_id] || 0) + Number(sale.valor);
-          return acc;
-        }, {});
-        const sortedIds = Object.keys(grouped).sort((a, b) => grouped[b] - grouped[a]);
-        const position = sortedIds.indexOf(profile.id) + 1;
-        setUserRanking(position > 0 ? position : null);
-      }
-
-    } catch (error) {
-      console.error('Error fetching goals and sales:', error);
-    }
-  };
-
-  const fetchCompras = async () => {
-    if (!profile) return;
-
-    const { data, error } = await supabase
-      .schema("sistemaretiradas")
-      .from("purchases")
-      .select(`
-        id,
-        data_compra,
-        item,
-        preco_final,
-        num_parcelas,
-        status_compra,
-        stores (name)
-      `)
-      .eq("colaboradora_id", profile.id)
-      .order("data_compra", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching compras:", error);
-    } else {
-      setCompras(data || []);
-    }
-  };
-
-  const fetchParcelas = async () => {
-    if (!profile) return;
-
-    try {
-      const { data: purchases } = await supabase
-        .schema("sistemaretiradas")
-        .from("purchases")
-        .select("id")
-        .eq("colaboradora_id", profile.id);
-
-      if (!purchases || purchases.length === 0) {
-        setParcelas([]);
-        return;
-      }
-
-      const purchaseIds = purchases.map(p => p.id);
-
-      const { data, error } = await supabase
-        .schema("sistemaretiradas")
-        .from("parcelas")
-        .select("id, n_parcela, competencia, valor_parcela, status_parcela, compra_id")
-        .in("compra_id", purchaseIds)
-        .order("competencia", { ascending: false });
-
-      if (error) {
-        console.error("Error fetching parcelas:", error);
-        setParcelas([]);
-        return;
-      }
-
-      // Fetch purchase details separately
-      const { data: purchasesDetails } = await supabase
-        .schema("sistemaretiradas")
-        .from("purchases")
-        .select(`
-          id,
-          item,
-          stores (name)
-        `)
-        .in("id", purchaseIds);
-
-      // Map purchases to parcelas
-      const purchasesMap = new Map(purchasesDetails?.map(p => [p.id, p]) || []);
-
-      const parcelasWithPurchases = data?.map(p => ({
-        ...p,
-        purchases: purchasesMap.get(p.compra_id) || null
-      })) || [];
-
-      setParcelas(parcelasWithPurchases);
-    } catch (error) {
-      console.error("Error in fetchParcelas:", error);
-      setParcelas([]);
-    }
-  };
+  const dailyGoal = performance?.dailyGoal || 0;
+  const dailyProgress = performance?.dailyProgress || 0;
+  const userRanking = performance?.ranking || null;
 
   const handleChangePassword = async () => {
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
@@ -514,25 +146,12 @@ const ColaboradoraDashboard = () => {
     navigate("/");
   };
 
-  const handleExcluirAdiantamento = async (adiantamentoId: string) => {
-    try {
-      const { error } = await supabase
-        .schema("sistemaretiradas")
-        .from("adiantamentos")
-        .update({
-          status: "CANCELADO" as any,
-        })
-        .eq("id", adiantamentoId)
-        .eq("colaboradora_id", profile!.id) // Garantir que só pode cancelar seus próprios
-        .eq("status", "PENDENTE"); // Só pode cancelar se estiver PENDENTE
-
-      if (error) throw error;
-      toast.success("Adiantamento cancelado com sucesso!");
-      fetchAdiantamentos();
-    } catch (error: any) {
-      toast.error("Erro ao cancelar adiantamento");
-      console.error(error);
-    }
+  const handleExcluirAdiantamento = (adiantamentoId: string) => {
+    if (!profile?.id) return;
+    cancelAdiantamentoMutation.mutate({
+      adiantamentoId,
+      colaboradoraId: profile.id,
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -549,42 +168,51 @@ const ColaboradoraDashboard = () => {
     return <Badge variant={variants[status] || "default"}>{status}</Badge>;
   };
 
-  // Filter functions
-  const filteredCompras = compras.filter(c => {
-    const dataCompra = new Date(c.data_compra);
-    const matchDataInicio = !comprasFilters.dataInicio || dataCompra >= new Date(comprasFilters.dataInicio);
-    const matchDataFim = !comprasFilters.dataFim || dataCompra <= new Date(comprasFilters.dataFim);
-    const matchLoja = comprasFilters.loja === "TODAS" || c.stores?.name === comprasFilters.loja;
-    const matchStatus = comprasFilters.status === "TODOS" || c.status_compra === comprasFilters.status;
-    const matchBusca = !comprasFilters.busca || c.item.toLowerCase().includes(comprasFilters.busca.toLowerCase());
+  // Filter functions using useMemo
+  const filteredCompras = useMemo(() => {
+    return compras.filter(c => {
+      const dataCompra = new Date(c.data_compra);
+      const matchDataInicio = !comprasFilters.dataInicio || dataCompra >= new Date(comprasFilters.dataInicio);
+      const matchDataFim = !comprasFilters.dataFim || dataCompra <= new Date(comprasFilters.dataFim);
+      const matchLoja = comprasFilters.loja === "TODAS" || c.stores?.name === comprasFilters.loja;
+      const matchStatus = comprasFilters.status === "TODOS" || c.status_compra === comprasFilters.status;
+      const matchBusca = !comprasFilters.busca || c.item.toLowerCase().includes(comprasFilters.busca.toLowerCase());
+      return matchDataInicio && matchDataFim && matchLoja && matchStatus && matchBusca;
+    });
+  }, [compras, comprasFilters]);
 
-    return matchDataInicio && matchDataFim && matchLoja && matchStatus && matchBusca;
-  });
+  const filteredParcelas = useMemo(() => {
+    return parcelas.filter(p => {
+      const matchMesAno = parcelasFilters.mesAno === "TODOS" || p.competencia === parcelasFilters.mesAno;
+      const matchStatus = parcelasFilters.status === "TODOS" || p.status_parcela === parcelasFilters.status;
+      const matchValorMin = !parcelasFilters.valorMin || Number(p.valor_parcela) >= Number(parcelasFilters.valorMin);
+      const matchValorMax = !parcelasFilters.valorMax || Number(p.valor_parcela) <= Number(parcelasFilters.valorMax);
+      return matchMesAno && matchStatus && matchValorMin && matchValorMax;
+    });
+  }, [parcelas, parcelasFilters]);
 
-  const filteredParcelas = parcelas.filter(p => {
-    const matchMesAno = parcelasFilters.mesAno === "TODOS" || p.competencia === parcelasFilters.mesAno;
-    const matchStatus = parcelasFilters.status === "TODOS" || p.status_parcela === parcelasFilters.status;
-    const matchValorMin = !parcelasFilters.valorMin || Number(p.valor_parcela) >= Number(parcelasFilters.valorMin);
-    const matchValorMax = !parcelasFilters.valorMax || Number(p.valor_parcela) <= Number(parcelasFilters.valorMax);
-
-    return matchMesAno && matchStatus && matchValorMin && matchValorMax;
-  });
-
-  const filteredAdiantamentos = adiantamentos.filter(a => {
-    const dataSolicitacao = new Date(a.data_solicitacao);
-    const matchDataInicio = !adiantamentosFilters.dataInicio || dataSolicitacao >= new Date(adiantamentosFilters.dataInicio);
-    const matchDataFim = !adiantamentosFilters.dataFim || dataSolicitacao <= new Date(adiantamentosFilters.dataFim);
-    const matchStatus = adiantamentosFilters.status === "TODOS" || a.status === adiantamentosFilters.status;
-    const matchMesComp = adiantamentosFilters.mesCompetencia === "TODOS" || a.mes_competencia === adiantamentosFilters.mesCompetencia;
-
-    return matchDataInicio && matchDataFim && matchStatus && matchMesComp;
-  });
+  const filteredAdiantamentos = useMemo(() => {
+    return adiantamentos.filter(a => {
+      const dataSolicitacao = new Date(a.data_solicitacao);
+      const matchDataInicio = !adiantamentosFilters.dataInicio || dataSolicitacao >= new Date(adiantamentosFilters.dataInicio);
+      const matchDataFim = !adiantamentosFilters.dataFim || dataSolicitacao <= new Date(adiantamentosFilters.dataFim);
+      const matchStatus = adiantamentosFilters.status === "TODOS" || a.status === adiantamentosFilters.status;
+      const matchMesComp = adiantamentosFilters.mesCompetencia === "TODOS" || a.mes_competencia === adiantamentosFilters.mesCompetencia;
+      return matchDataInicio && matchDataFim && matchStatus && matchMesComp;
+    });
+  }, [adiantamentos, adiantamentosFilters]);
 
   // Get unique months from parcelas
-  const mesesDisponiveis = Array.from(new Set(parcelas.map(p => p.competencia))).sort().reverse();
-  const mesesAdiantamentos = Array.from(new Set(adiantamentos.map(a => a.mes_competencia))).sort().reverse();
+  const mesesDisponiveis = useMemo(() => 
+    Array.from(new Set(parcelas.map(p => p.competencia))).sort().reverse(), 
+    [parcelas]
+  );
+  const mesesAdiantamentos = useMemo(() => 
+    Array.from(new Set(adiantamentos.map(a => a.mes_competencia))).sort().reverse(),
+    [adiantamentos]
+  );
 
-  if (loading || !profile || kpis === null) {
+  if (loading || !profile || kpisLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10">
         <div className="text-center">

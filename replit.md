@@ -10,6 +10,12 @@ Complete multi-tenant ERP/sales management SaaS system migrated from Lovable to 
 - **Multi-tenancy**: RLS-based data isolation using `sistemaretiradas` schema
 
 ## Recent Changes
+- **2024-12-05**: ColaboradoraDashboard refactored to use React Query hooks:
+  - Removed ~200 lines of duplicate fetch functions
+  - Added useColaboradoraPerformance hook for goals, sales, ranking aggregation
+  - Added useCancelAdiantamento mutation with toast notifications and cache invalidation
+  - Filter functions converted to useMemo for performance optimization
+  - All manual data fetching replaced with hooks: useColaboradoraKPIs, useColaboradoraAdiantamentos, useColaboradoraCompras, useColaboradoraParcelas, useStores
 - **2024-12-04**: Phase 1 Enterprise Modernization completed:
   - Error Boundaries with page/section/component levels
   - Skeleton loaders for all dashboards
