@@ -754,7 +754,7 @@ const ColaboradoraDashboard = () => {
           {/* ABA RESUMO */}
           <TabsContent value="resumo">
             {/* RESUMO DO MÊS VIGENTE - DESTAQUE */}
-            <Card className="mb-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
+            <Card className="mb-6">
               <CardHeader className="pb-3 p-3 sm:p-6">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-xl">
                   <CalendarClock className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
@@ -930,7 +930,7 @@ const ColaboradoraDashboard = () => {
       </main>
 
       <Dialog open={passwordDialog} onOpenChange={setPasswordDialog}>
-        <DialogContent className="glass-card">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Alterar Senha</DialogTitle>
           </DialogHeader>

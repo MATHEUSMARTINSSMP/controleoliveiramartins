@@ -245,24 +245,24 @@ const AdminDashboard = () => {
             
             <TabsContent value="gestao-sistemas" className="animate-fade-in space-y-4 sm:space-y-6">
               <Tabs defaultValue="dashboard" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-5 max-w-5xl glass-card p-1 rounded-xl">
-                  <TabsTrigger value="dashboard" className="rounded-lg text-xs sm:text-sm data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground">
+                <TabsList className="grid w-full grid-cols-5 max-w-5xl">
+                  <TabsTrigger value="dashboard" className="text-xs sm:text-sm">
                     <Package className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                     <span className="hidden sm:inline">Dashboard</span>
                   </TabsTrigger>
-                  <TabsTrigger value="categorias" className="rounded-lg text-xs sm:text-sm data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground">
+                  <TabsTrigger value="categorias" className="text-xs sm:text-sm">
                     <BarChart className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                     <span className="hidden sm:inline">Relatorios</span>
                   </TabsTrigger>
-                  <TabsTrigger value="produtos" className="rounded-lg text-xs sm:text-sm data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground">
+                  <TabsTrigger value="produtos" className="text-xs sm:text-sm">
                     <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                     <span className="hidden sm:inline">Produtos</span>
                   </TabsTrigger>
-                  <TabsTrigger value="clientes" className="rounded-lg text-xs sm:text-sm data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground">
+                  <TabsTrigger value="clientes" className="text-xs sm:text-sm">
                     <Brain className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                     <span className="hidden sm:inline">Clientes</span>
                   </TabsTrigger>
-                  <TabsTrigger value="cashback" className="rounded-lg text-xs sm:text-sm data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground">
+                  <TabsTrigger value="cashback" className="text-xs sm:text-sm">
                     <Gift className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                     <span className="hidden sm:inline">Cashback</span>
                   </TabsTrigger>
@@ -298,7 +298,7 @@ const AdminDashboard = () => {
               <WhatsAppNotificationConfig />
               <ModulesStoreConfig />
               
-              <Card className="glass-card border-primary/20">
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                     <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -328,7 +328,7 @@ const AdminDashboard = () => {
       </main>
 
       <Dialog open={passwordDialog} onOpenChange={setPasswordDialog}>
-        <DialogContent className="glass-card max-w-[95vw] sm:max-w-md">
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-base sm:text-lg">Alterar Senha</DialogTitle>
           </DialogHeader>
