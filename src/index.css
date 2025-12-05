@@ -321,17 +321,15 @@
   }
 
   .btn-futuristic {
-    @apply gradient-primary text-primary-foreground font-semibold rounded-xl transition-all duration-300;
-    box-shadow: var(--shadow-glow-sm);
+    @apply bg-foreground text-background font-medium rounded-md transition-all duration-200;
   }
 
   .btn-futuristic:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-glow);
+    @apply opacity-90;
   }
 
   .btn-futuristic:active {
-    transform: translateY(0);
+    @apply opacity-80;
   }
 
   .page-container {
