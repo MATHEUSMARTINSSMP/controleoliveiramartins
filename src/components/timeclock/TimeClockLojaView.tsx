@@ -113,6 +113,7 @@ export function TimeClockLojaView({ storeId: propStoreId }: TimeClockLojaViewPro
           <TimeClockHistory
             storeId={storeId!}
             colaboradoraId={colaboradoraId}
+            showOnlyToday={true}
           />
         </CardContent>
       </Card>
