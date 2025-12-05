@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare } from "lucide-react";
+import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Webhook } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import ERPDashboard from "@/pages/erp/ERPDashboard";
 import CategoryReports from "@/pages/erp/CategoryReports";
@@ -311,11 +311,26 @@ const AdminDashboard = () => {
               {/* Separador */}
               <div className="border-t border-border my-6" />
 
-              {/* Seção 2: Configuração WhatsApp */}
+              {/* Seção 2: Configuração de Webhooks n8n */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Webhook className="h-5 w-5 text-primary" />
+                  <h2 className="text-lg font-semibold">Configuração de Webhooks n8n</h2>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Configure as URLs dos webhooks do n8n para autenticação e envio de mensagens WhatsApp.
+                </p>
+                <WhatsAppWebhookConfig />
+              </div>
+
+              {/* Separador */}
+              <div className="border-t border-border my-6" />
+
+              {/* Seção 3: Configuração WhatsApp por Loja */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2 mb-2">
                   <MessageSquare className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold">Configuração WhatsApp</h2>
+                  <h2 className="text-lg font-semibold">Configuração WhatsApp por Loja</h2>
                 </div>
                 <p className="text-sm text-muted-foreground mb-4">
                   Configure credenciais WhatsApp por loja para envio de mensagens automáticas. Cada loja pode ter seu próprio número.

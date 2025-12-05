@@ -108,9 +108,36 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Preparar payload para n8n
-    const webhookUrl = process.env.WHATSAPP_AUTH_WEBHOOK_URL || 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/auth';
-    const webhookAuth = process.env.N8N_WEBHOOK_AUTH;
+    // Buscar URL do webhook da tabela app_config ou usar variável de ambiente
+    let webhookUrl = process.env.WHATSAPP_AUTH_WEBHOOK_URL;
+    let webhookAuth = process.env.N8N_WEBHOOK_AUTH;
+
+    // Tentar buscar da tabela app_config se não estiver nas variáveis de ambiente
+    if (!webhookUrl) {
+      const { data: configData } = await supabase
+        .from('app_config')
+        .select('value')
+        .eq('key', 'whatsapp_auth_webhook_url')
+        .maybeSingle();
+      
+      if (configData && configData.value) {
+        webhookUrl = configData.value;
+      } else {
+        webhookUrl = 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/auth';
+      }
+    }
+
+    if (!webhookAuth) {
+      const { data: authData } = await supabase
+        .from('app_config')
+        .select('value')
+        .eq('key', 'n8n_webhook_auth')
+        .maybeSingle();
+      
+      if (authData && authData.value) {
+        webhookAuth = authData.value;
+      }
+    }
 
     const payload = {
       customer_id: customer_id,
