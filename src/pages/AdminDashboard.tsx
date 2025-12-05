@@ -18,7 +18,6 @@ import { FinancialDashboard } from "@/components/admin/FinancialDashboard";
 import { StorePerformanceReports } from "@/components/admin/StorePerformanceReports";
 import { WhatsAppNotificationConfig } from "@/components/admin/WhatsAppNotificationConfig";
 import { WhatsAppStoreConfig } from "@/components/admin/WhatsAppStoreConfig";
-import { WhatsAppWebhookConfig } from "@/components/admin/WhatsAppWebhookConfig";
 import { GoalsTracking } from "@/components/admin/GoalsTracking";
 import { CashbackStoreConfig } from "@/components/admin/CashbackStoreConfig";
 import { CRMStoreConfig } from "@/components/admin/CRMStoreConfig";
@@ -307,21 +306,6 @@ const AdminDashboard = () => {
                   Ative ou desative os módulos disponíveis para cada loja. Cada módulo oferece funcionalidades específicas.
                 </p>
                 <ModulesStoreConfig />
-              </div>
-
-              {/* Separador */}
-              <div className="border-t border-border my-6" />
-
-              {/* Seção 2: Configuração de Webhooks n8n */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Webhook className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold">Configuração de Webhooks n8n</h2>
-                </div>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Configure as URLs dos webhooks do n8n para autenticação e envio de mensagens WhatsApp.
-                </p>
-                <WhatsAppWebhookConfig />
               </div>
 
               {/* Separador */}

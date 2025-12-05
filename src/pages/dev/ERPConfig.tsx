@@ -3,16 +3,18 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, CheckCircle2, XCircle, Save, Store, Key, Eye, EyeOff, ExternalLink, TestTube, RefreshCw } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Save, Store, Key, Eye, EyeOff, ExternalLink, TestTube, RefreshCw, Search } from "lucide-react";
 import { toast } from "sonner";
 import { getERPAuthorizationUrl, testERPConnection } from "@/lib/erpIntegrations";
 import { syncTinyOrders, syncTinyContacts } from "@/lib/erp/syncTiny";
+import { WebhookConfig } from "@/components/dev/WebhookConfig";
 
 interface Store {
   id: string;
@@ -36,6 +38,9 @@ const ERPConfig = () => {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [stores, setStores] = useState<Store[]>([]);
+  const [allStores, setAllStores] = useState<Store[]>([]);
+  const [storeIntegrations, setStoreIntegrations] = useState<Record<string, ERPIntegration>>({});
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedStoreId, setSelectedStoreId] = useState<string>("");
   const [selectedSistema, setSelectedSistema] = useState<string>("TINY");
   const [integration, setIntegration] = useState<ERPIntegration | null>(null);
@@ -74,14 +79,6 @@ const ERPConfig = () => {
     fetchStores();
   }, [profile, authLoading, navigate]);
 
-  useEffect(() => {
-    if (selectedStoreId) {
-      fetchIntegration();
-    } else {
-      setIntegration(null);
-      setFormData({ client_id: "", client_secret: "" });
-    }
-  }, [selectedStoreId]);
 
   // Verificar se voltou do OAuth callback
   useEffect(() => {
@@ -110,25 +107,41 @@ const ERPConfig = () => {
   const fetchStores = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // Buscar TODAS as lojas (ativas e inativas)
+      const { data: storesData, error: storesError } = await supabase
         .schema("sistemaretiradas")
         .from("stores")
         .select("id, name, sistema_erp, active")
-        .eq("active", true)
         .order("name");
 
-      if (error) throw error;
+      if (storesError) throw storesError;
 
-      setStores(data || []);
+      const allStoresData = storesData || [];
+      setAllStores(allStoresData);
+      setStores(allStoresData); // Inicialmente todas as lojas
       
-      // Selecionar primeira loja por padrão
-      if (data && data.length > 0) {
-        setSelectedStoreId(data[0].id);
-        // Se a loja já tem sistema_erp, usar ele
-        if (data[0].sistema_erp) {
-          setSelectedSistema(data[0].sistema_erp);
-        }
+      // Buscar TODAS as integrações ERP de uma vez
+      const { data: integrationsData, error: integrationsError } = await supabase
+        .schema("sistemaretiradas")
+        .from("erp_integrations")
+        .select("*")
+        .eq("active", true);
+
+      if (integrationsError && integrationsError.code !== 'PGRST116') {
+        console.error("Erro ao buscar integrações:", integrationsError);
       }
+
+      // Criar mapa de integrações por store_id
+      const integrationsMap: Record<string, ERPIntegration> = {};
+      if (integrationsData) {
+        integrationsData.forEach((int: any) => {
+          integrationsMap[int.store_id] = int;
+        });
+      }
+      setStoreIntegrations(integrationsMap);
+      
+      // Não selecionar loja por padrão - usuário deve escolher
     } catch (error: any) {
       console.error("Erro ao buscar lojas:", error);
       toast.error("Erro ao carregar lojas");
@@ -534,6 +547,36 @@ const ERPConfig = () => {
 
   const selectedStore = stores.find(s => s.id === selectedStoreId);
 
+  // Filtrar lojas baseado no termo de busca
+  const filteredStores = allStores.filter(store =>
+    store.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (store.sistema_erp && store.sistema_erp.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  // Atualizar stores filtradas quando searchTerm muda
+  useEffect(() => {
+    setStores(filteredStores);
+  }, [searchTerm, allStores]);
+
+  // Atualizar integration quando seleciona loja (usar dados já carregados se disponível)
+  useEffect(() => {
+    if (selectedStoreId && storeIntegrations[selectedStoreId]) {
+      const existingIntegration = storeIntegrations[selectedStoreId];
+      setIntegration(existingIntegration);
+      setFormData({
+        client_id: existingIntegration.client_id || "",
+        client_secret: existingIntegration.client_secret || "",
+      });
+      setSelectedSistema(existingIntegration.sistema_erp || "TINY");
+    } else if (selectedStoreId) {
+      // Se não tem nos dados carregados, buscar
+      fetchIntegration();
+    } else {
+      setIntegration(null);
+      setFormData({ client_id: "", client_secret: "" });
+    }
+  }, [selectedStoreId]);
+
   // Mostrar loading enquanto autentica ou carrega dados
   if (authLoading || (profile && loading)) {
     return (
@@ -562,37 +605,140 @@ const ERPConfig = () => {
           </Button>
         </div>
 
-        {/* Seleção de Loja */}
+        {/* Lista de Lojas com Tokens Configurados */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Store className="h-5 w-5" />
-              Selecionar Loja
+              Lojas e Integrações ERP ({allStores.length} lojas)
             </CardTitle>
             <CardDescription>
-              Escolha a loja para configurar as credenciais de integração
+              Todas as lojas e suas configurações de integração ERP. Clique em uma loja para configurar.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <Label>Loja:</Label>
-              <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma loja" />
-                </SelectTrigger>
-                <SelectContent>
-                  {stores.map((store) => (
-                    <SelectItem key={store.id} value={store.id}>
-                      {store.name}
-                      {store.sistema_erp && (
-                        <Badge variant="outline" className="ml-2">
-                          {store.sistema_erp}
-                        </Badge>
-                      )}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <CardContent className="space-y-4">
+            {/* Campo de Busca */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome da loja ou sistema ERP..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Tabela de Lojas */}
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Loja</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Sistema ERP</TableHead>
+                    <TableHead>Integração</TableHead>
+                    <TableHead>Client ID</TableHead>
+                    <TableHead>Última Sincronização</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredStores.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                        Nenhuma loja encontrada
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredStores.map((store) => {
+                      const storeIntegration = storeIntegrations[store.id];
+                      const isSelected = selectedStoreId === store.id;
+                      
+                      return (
+                        <TableRow
+                          key={store.id}
+                          className={isSelected ? "bg-primary/10" : "cursor-pointer hover:bg-muted/50"}
+                          onClick={() => setSelectedStoreId(store.id)}
+                        >
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              {store.name}
+                              {!store.active && (
+                                <Badge variant="outline" className="text-xs">Inativa</Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {store.active ? (
+                              <Badge className="bg-green-500">Ativa</Badge>
+                            ) : (
+                              <Badge variant="outline">Inativa</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {store.sistema_erp ? (
+                              <Badge variant="outline">{store.sistema_erp}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {storeIntegration ? (
+                              <Badge
+                                className={
+                                  storeIntegration.sync_status === 'CONNECTED'
+                                    ? 'bg-green-500'
+                                    : storeIntegration.sync_status === 'ERROR'
+                                    ? 'bg-red-500'
+                                    : 'bg-yellow-500'
+                                }
+                              >
+                                {storeIntegration.sync_status === 'CONNECTED' ? 'Conectado' :
+                                 storeIntegration.sync_status === 'ERROR' ? 'Erro' :
+                                 'Desconectado'}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline">Não Configurado</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="max-w-[200px]">
+                            {storeIntegration?.client_id ? (
+                              <div className="flex items-center gap-2">
+                                <code className="text-xs bg-muted px-2 py-1 rounded truncate max-w-[150px]">
+                                  {storeIntegration.client_id.substring(0, 20)}...
+                                </code>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {storeIntegration?.last_sync_at ? (
+                              <span className="text-sm text-muted-foreground">
+                                {new Date(storeIntegration.last_sync_at).toLocaleDateString("pt-BR")}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant={isSelected ? "default" : "outline"}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedStoreId(store.id);
+                              }}
+                            >
+                              {isSelected ? "Selecionada" : "Selecionar"}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>
@@ -880,6 +1026,9 @@ const ERPConfig = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Webhook Config Section */}
+        <WebhookConfig />
 
         {/* Info Card */}
         <Card>

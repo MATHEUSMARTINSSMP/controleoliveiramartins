@@ -47,45 +47,106 @@ export const WhatsAppStoreConfig = () => {
         if (!profile) return;
 
         try {
-            // Buscar plano do admin via admin_subscriptions
-            const { data, error } = await supabase
+            console.log('[WhatsAppStoreConfig] 🔍 Buscando plano para admin:', profile.id);
+            
+            // Buscar assinatura do admin
+            const { data: subscriptionData, error: subscriptionError } = await supabase
                 .schema('sistemaretiradas')
                 .from('admin_subscriptions')
-                .select(`
-                    plan_id,
-                    subscription_plans:plan_id (
-                        name,
-                        display_name
-                    )
-                `)
+                .select('plan_id, status')
                 .eq('admin_id', profile.id)
-                .eq('status', 'active')
+                .eq('status', 'ACTIVE')
                 .maybeSingle();
 
-            if (error) {
-                console.error('Erro ao buscar plano:', error);
+            console.log('[WhatsAppStoreConfig] 📊 Assinatura encontrada:', subscriptionData);
+            console.log('[WhatsAppStoreConfig] ❌ Erro na query:', subscriptionError);
+
+            if (subscriptionError) {
+                console.error('[WhatsAppStoreConfig] Erro ao buscar assinatura:', subscriptionError);
+                
+                // Fallback: tentar sem JOIN
+                const { data: fallbackSub, error: fallbackError } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('admin_subscriptions')
+                    .select('plan_id, status')
+                    .eq('admin_id', profile.id)
+                    .maybeSingle();
+
+                if (fallbackError || !fallbackSub?.plan_id) {
+                    console.warn('[WhatsAppStoreConfig] ⚠️ Nenhuma assinatura encontrada, usando Starter');
+                    setAdminPlan({
+                        plan_name: 'Starter',
+                        can_use_own_whatsapp: false,
+                    });
+                    return;
+                }
+
+                // Buscar plano separadamente
+                const { data: planData, error: planError } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('subscription_plans')
+                    .select('name, display_name, is_active')
+                    .eq('id', fallbackSub.plan_id)
+                    .maybeSingle();
+
+                if (planError || !planData || !planData.is_active) {
+                    console.warn('[WhatsAppStoreConfig] ⚠️ Plano não encontrado ou inativo');
+                    setAdminPlan({
+                        plan_name: 'Starter',
+                        can_use_own_whatsapp: false,
+                    });
+                    return;
+                }
+
+                const planName = (planData.name || '').toUpperCase();
+                const canUseOwnWhatsApp = planName === 'BUSINESS' || planName === 'ENTERPRISE';
+                
+                console.log('[WhatsAppStoreConfig] ✅ Plano encontrado (fallback):', planName, 'canUseOwnWhatsApp:', canUseOwnWhatsApp);
+
+                setAdminPlan({
+                    plan_name: planData.display_name || planData.name || 'Starter',
+                    can_use_own_whatsapp: canUseOwnWhatsApp,
+                });
                 return;
             }
 
-            if (data && data.subscription_plans) {
-                const plan = data.subscription_plans as any;
-                const planName = plan.name?.toUpperCase() || '';
-                // Business e Enterprise podem usar WhatsApp próprio
-                const canUseOwnWhatsApp = planName === 'BUSINESS' || planName === 'ENTERPRISE';
-
-                setAdminPlan({
-                    plan_name: plan.display_name || plan.name,
-                    can_use_own_whatsapp: canUseOwnWhatsApp,
-                });
-            } else {
-                // Se não tem plano, assume Starter (não pode usar WhatsApp próprio)
+            if (!subscriptionData) {
+                console.warn('[WhatsAppStoreConfig] ⚠️ Nenhuma assinatura ativa encontrada');
                 setAdminPlan({
                     plan_name: 'Starter',
                     can_use_own_whatsapp: false,
                 });
+                return;
             }
+
+            // Extrair dados do plano do JOIN
+            const plan = (subscriptionData as any).subscription_plans;
+            
+            if (!plan || !plan.is_active) {
+                console.warn('[WhatsAppStoreConfig] ⚠️ Plano não encontrado ou inativo no JOIN');
+                setAdminPlan({
+                    plan_name: 'Starter',
+                    can_use_own_whatsapp: false,
+                });
+                return;
+            }
+
+            const planName = (plan.name || '').toUpperCase();
+            const canUseOwnWhatsApp = planName === 'BUSINESS' || planName === 'ENTERPRISE';
+            
+            console.log('[WhatsAppStoreConfig] ✅ Plano encontrado:', planName);
+            console.log('[WhatsAppStoreConfig] ✅ Pode usar WhatsApp próprio:', canUseOwnWhatsApp);
+
+            setAdminPlan({
+                plan_name: plan.display_name || plan.name || 'Starter',
+                can_use_own_whatsapp: canUseOwnWhatsApp,
+            });
         } catch (error: any) {
-            console.error('Erro ao buscar plano do admin:', error);
+            console.error('[WhatsAppStoreConfig] ❌ Erro ao buscar plano do admin:', error);
+            setAdminPlan({
+                plan_name: 'Starter',
+                can_use_own_whatsapp: false,
+            });
         }
     };
 
