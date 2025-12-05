@@ -286,22 +286,27 @@ export default function LojaDashboard() {
                     crmType: typeof storeSettings.crm_ativo
                 });
                 
-                const cashback = storeSettings.cashback_ativo === true;
-                const crm = storeSettings.crm_ativo === true;
-                const ponto = storeSettings.ponto_ativo === true;
-                const wishlist = storeSettings.wishlist_ativo === true;
+                // Usar Boolean() para garantir conversão correta
+                const cashback = Boolean(storeSettings.cashback_ativo);
+                const crm = Boolean(storeSettings.crm_ativo);
+                const ponto = Boolean(storeSettings.ponto_ativo);
+                const wishlist = Boolean(storeSettings.wishlist_ativo);
                 
                 console.log('[LojaDashboard] ✅ Valores booleanos calculados:', {
                     cashback,
                     crm,
                     ponto,
-                    wishlist
+                    wishlist,
+                    rawCashback: storeSettings.cashback_ativo,
+                    rawCrm: storeSettings.crm_ativo
                 });
                 
                 setCashbackAtivo(cashback);
                 setCrmAtivo(crm);
                 setPontoAtivo(ponto);
                 setWishlistAtivo(wishlist);
+                
+                console.log('[LojaDashboard] ✅ Estados atualizados via storeSettings');
                 return;
             }
 
@@ -2884,6 +2889,13 @@ export default function LojaDashboard() {
                     transition={{ duration: 0.3 }}
                     className="space-y-6"
                 >
+
+                    {/* DEBUG: Log dos estados antes de renderizar */}
+                    {process.env.NODE_ENV === 'development' && (
+                        <div className="p-2 bg-muted rounded text-xs">
+                            <strong>DEBUG Módulos:</strong> cashback={String(cashbackAtivo)}, crm={String(crmAtivo)}, wishlist={String(wishlistAtivo)}, ponto={String(pontoAtivo)} | storeId={storeId || 'null'} | Condição: {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo) ? 'TRUE' : 'FALSE'}
+                        </div>
+                    )}
 
                     {/* Conteúdo Principal com Abas */}
                     {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo) ? (
