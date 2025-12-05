@@ -403,7 +403,7 @@ const AdminDashboard = () => {
               <Button variant="outline" onClick={() => setPasswordDialog(false)} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
                 Cancelar
               </Button>
-              <Button onClick={handleChangePassword} className="btn-futuristic w-full sm:w-auto text-xs sm:text-sm" size="sm">
+              <Button onClick={handleChangePassword} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
                 Salvar
               </Button>
             </div>
