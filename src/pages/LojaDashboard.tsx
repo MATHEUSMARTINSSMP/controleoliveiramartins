@@ -2300,7 +2300,7 @@ export default function LojaDashboard() {
                 console.error(error);
             } else {
                 toast.success(isVendaERP ? 'Venda e pedido do ERP excluídos com sucesso!' : 'Venda excluída com sucesso!');
-                await fetchData();
+                if (storeId) await fetchDataWithStoreId(storeId);
             }
         } catch (error: any) {
             toast.error('Erro ao deletar: ' + error.message);
@@ -2340,7 +2340,7 @@ export default function LojaDashboard() {
             toast.success('Folga marcada com sucesso!');
             setOffDayDialog(false);
             setSelectedColabForOffDay(null);
-            await fetchData();
+            if (storeId) await fetchDataWithStoreId(storeId);
         } catch (error: any) {
             toast.error('Erro ao marcar folga: ' + error.message);
         }
