@@ -56,11 +56,10 @@ interface GlassCardTitleProps {
   gradient?: boolean;
 }
 
-export function GlassCardTitle({ children, className, gradient }: GlassCardTitleProps) {
+export function GlassCardTitle({ children, className }: GlassCardTitleProps) {
   return (
     <h3 className={cn(
       "text-lg font-semibold leading-none tracking-tight",
-      gradient && "gradient-text",
       className
     )}>
       {children}

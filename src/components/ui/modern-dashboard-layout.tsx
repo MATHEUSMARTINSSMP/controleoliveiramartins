@@ -17,20 +17,20 @@ export function ModernDashboardLayout({
     <div className={cn("min-h-screen relative", className)}>
       {showBackground && (
         <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-          <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-primary/5" />
+          <div className="absolute inset-0 bg-background" />
           <motion.div 
-            className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl"
+            className="absolute top-0 right-0 w-[600px] h-[600px] bg-foreground/5 rounded-full blur-3xl"
             animate={{ 
               scale: [1, 1.1, 1],
-              opacity: [0.3, 0.5, 0.3],
+              opacity: [0.2, 0.3, 0.2],
             }}
             transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
           />
           <motion.div 
-            className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-accent/5 rounded-full blur-3xl"
+            className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-foreground/5 rounded-full blur-3xl"
             animate={{ 
               scale: [1.1, 1, 1.1],
-              opacity: [0.2, 0.4, 0.2],
+              opacity: [0.15, 0.25, 0.15],
             }}
             transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
           />
@@ -75,7 +75,7 @@ export function DashboardHeader({
       <div className="flex items-center gap-4">
         {icon && (
           <motion.div 
-            className="p-3 rounded-xl gradient-primary text-white shadow-lg"
+            className="p-3 rounded-lg bg-foreground text-background shadow-md"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: "spring" }}

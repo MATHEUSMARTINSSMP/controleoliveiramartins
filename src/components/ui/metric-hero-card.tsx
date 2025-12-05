@@ -39,19 +39,19 @@ export function MetricHeroCard({
   const isPositive = trend !== undefined && trend >= 0;
 
   const variantStyles = {
-    default: "from-slate-500/10 to-slate-600/5 dark:from-slate-400/10 dark:to-slate-500/5",
-    primary: "from-primary/15 to-primary/5",
-    success: "from-green-500/15 to-green-600/5",
-    warning: "from-yellow-500/15 to-yellow-600/5",
-    danger: "from-red-500/15 to-red-600/5",
+    default: "from-muted/50 to-muted/25",
+    primary: "from-muted/50 to-muted/25",
+    success: "from-muted/50 to-muted/25",
+    warning: "from-muted/50 to-muted/25",
+    danger: "from-muted/50 to-muted/25",
   };
 
   const iconStyles = {
-    default: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-    primary: "gradient-primary text-white",
-    success: "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
-    warning: "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400",
-    danger: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+    default: "bg-secondary text-foreground",
+    primary: "bg-foreground text-background",
+    success: "bg-secondary text-foreground",
+    warning: "bg-secondary text-foreground",
+    danger: "bg-secondary text-foreground",
   };
 
   const sizeStyles = {
@@ -89,13 +89,7 @@ export function MetricHeroCard({
       )}
     >
       <div className="absolute top-0 right-0 w-32 h-32 -mr-8 -mt-8">
-        <div className={cn(
-          "w-full h-full rounded-full opacity-20 blur-2xl",
-          variant === "primary" ? "bg-primary" : 
-          variant === "success" ? "bg-green-500" :
-          variant === "warning" ? "bg-yellow-500" :
-          variant === "danger" ? "bg-red-500" : "bg-slate-500"
-        )} />
+        <div className="w-full h-full rounded-full opacity-10 blur-2xl bg-foreground" />
       </div>
 
       <div className="relative z-10">

@@ -69,12 +69,7 @@ export function ModernStatCard({
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: delay + 0.3 }}
-                className={cn(
-                  "text-xs font-medium px-2 py-0.5 rounded-full",
-                  trend.isPositive 
-                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                    : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                )}
+                className="text-xs font-medium px-2 py-0.5 rounded-full bg-secondary text-foreground"
               >
                 {trend.isPositive ? "+" : ""}{trend.value.toFixed(1)}%
               </motion.span>
@@ -89,7 +84,7 @@ export function ModernStatCard({
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: delay + 0.2, type: "spring" }}
-            className="p-3 rounded-xl gradient-primary text-white shrink-0"
+            className="p-3 rounded-lg bg-foreground text-background shrink-0"
           >
             <Icon className="w-5 h-5" />
           </motion.div>

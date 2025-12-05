@@ -100,12 +100,12 @@ export function AnimatedPercentage({
       />
       {showBar && (
         <div className={cn(
-          "w-full bg-muted rounded-full overflow-hidden",
+          "w-full bg-secondary rounded-full overflow-hidden",
           sizeClasses[size]
         )}>
           <motion.div
             className={cn(
-              "h-full gradient-primary rounded-full",
+              "h-full bg-foreground rounded-full",
               barClassName
             )}
             initial={{ width: 0 }}
