@@ -15,16 +15,16 @@ type ThemeProviderState = {
 };
 
 const initialState: ThemeProviderState = {
-  theme: "system",
+  theme: "dark",
   setTheme: () => null,
-  resolvedTheme: "light",
+  resolvedTheme: "dark",
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
 export function ThemeProvider({
   children,
-  defaultTheme = "system",
+  defaultTheme = "dark",
   storageKey = "elevea-ui-theme",
   ...props
 }: ThemeProviderProps) {
@@ -32,7 +32,7 @@ export function ThemeProvider({
     () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
   );
 
-  const [resolvedTheme, setResolvedTheme] = useState<"dark" | "light">("light");
+  const [resolvedTheme, setResolvedTheme] = useState<"dark" | "light">("dark");
 
   useEffect(() => {
     const root = window.document.documentElement;

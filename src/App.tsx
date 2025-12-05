@@ -68,7 +68,7 @@ function PageLoader() {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="light" storageKey="elevea-ui-theme">
+    <ThemeProvider defaultTheme="dark" storageKey="elevea-ui-theme">
       <AuthProvider>
         <TooltipProvider>
           <Toaster />
