@@ -602,9 +602,9 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
 
     // Helper para obter cor do status
     const getStatusColor = (status: 'on-track' | 'ahead' | 'behind') => {
-        if (status === 'ahead') return 'text-green-600';
-        if (status === 'behind') return 'text-red-600';
-        return 'text-yellow-600';
+        if (status === 'ahead') return 'text-status-ahead';
+        if (status === 'behind') return 'text-status-behind';
+        return 'text-status-ontrack';
     };
 
     // Helper para obter texto do status
@@ -616,12 +616,12 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
 
     // Badge principal: se já bateu a meta, mostrar isso. Senão, mostrar status por semana (projeção)
     const getMainStatusBadge = () => {
-        if (progress.progress >= 100) return { text: 'Meta Batida! 🎉', color: 'bg-green-500', icon: Trophy };
-        if (progress.superProgress >= 100) return { text: 'Super Meta! 🚀', color: 'bg-purple-500', icon: Zap };
+        if (progress.progress >= 100) return { text: 'Meta Batida!', color: 'bg-status-ahead', icon: Trophy };
+        if (progress.superProgress >= 100) return { text: 'Super Meta!', color: 'bg-primary', icon: Zap };
         // Mostrar status baseado na projeção da semana
-        if (progress.status === 'ahead') return { text: 'Projeção: À Frente', color: 'bg-green-500', icon: TrendingUp };
-        if (progress.status === 'behind') return { text: 'Projeção: Atrasado', color: 'bg-red-500', icon: Target };
-        return { text: 'Projeção: No Ritmo', color: 'bg-yellow-500', icon: Target };
+        if (progress.status === 'ahead') return { text: 'Projeção: À Frente', color: 'bg-status-ahead', icon: TrendingUp };
+        if (progress.status === 'behind') return { text: 'Projeção: Atrasado', color: 'bg-status-behind', icon: Target };
+        return { text: 'Projeção: No Ritmo', color: 'bg-status-ontrack', icon: Target };
     };
 
     const mainStatusBadge = getMainStatusBadge();
@@ -629,12 +629,12 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
 
     // Usar status até hoje para cor da borda (mais relevante para o dia a dia)
     const borderColorClass = progress.progress >= 100 
-        ? 'border-green-500' 
+        ? 'border-status-ahead' 
         : progress.statusByToday === 'ahead' 
-            ? 'border-green-300'
+            ? 'border-status-ahead-border'
             : progress.statusByToday === 'behind'
-                ? 'border-red-300'
-                : 'border-yellow-300';
+                ? 'border-status-behind-border'
+                : 'border-status-ontrack-border';
 
     return (
         <Card className={`border-2 shadow-lg overflow-visible ${borderColorClass}`}>
@@ -665,13 +665,13 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 text-xs sm:text-sm">
                                 <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                                     <div className="flex items-center gap-2">
-                                        <div className="w-3 h-3 rounded-full bg-green-500 flex-shrink-0"></div>
+                                        <div className="w-3 h-3 rounded-full bg-primary flex-shrink-0"></div>
                                         <span className="text-muted-foreground text-xs sm:text-sm font-medium">
                                             Meta: {formatCurrency(progress.meta_valor)}
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <div className="w-3 h-3 rounded-full bg-purple-500 flex-shrink-0"></div>
+                                        <div className="w-3 h-3 rounded-full bg-primary/60 flex-shrink-0"></div>
                                         <span className="text-muted-foreground text-xs sm:text-sm font-medium">
                                             Super: {formatCurrency(progress.super_meta_valor)}
                                         </span>
@@ -696,10 +696,10 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                     }}
                                 />
                                 
-                                {/* Progress Fill - entre meta e super meta (verde) */}
+                                {/* Progress Fill - entre meta e super meta */}
                                 {progress.realizado > progress.meta_valor && (
                                     <div 
-                                        className="absolute top-0 h-full bg-gradient-to-r from-green-500 via-green-500/90 to-green-500/80 transition-all duration-500 rounded-full"
+                                        className="absolute top-0 h-full bg-gradient-to-r from-primary/70 via-primary/60 to-primary/50 transition-all duration-500 rounded-full"
                                         style={{ 
                                             left: `${(progress.meta_valor / progress.super_meta_valor) * 100}%`,
                                             width: `${Math.min(
@@ -713,7 +713,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                 {/* Checkpoint 1: Meta Semanal Marker (proporcional) */}
                                 {progress.meta_valor > 0 && (
                                     <div 
-                                        className="absolute top-0 h-full w-1 bg-green-600 z-20 shadow-lg"
+                                        className="absolute top-0 h-full w-1 bg-primary z-20 shadow-lg"
                                         style={{ 
                                             left: `${(progress.meta_valor / progress.super_meta_valor) * 100}%`,
                                             transform: 'translateX(-50%)'
@@ -724,7 +724,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
 
                                 {/* Checkpoint 2: Super Meta Marker (final) */}
                                 <div 
-                                    className="absolute top-0 right-0 h-full w-1 bg-purple-600 z-20 shadow-lg rounded-r-full"
+                                    className="absolute top-0 right-0 h-full w-1 bg-primary/60 z-20 shadow-lg rounded-r-full"
                                     style={{ right: '0' }}
                                     title={`Super Meta: ${formatCurrency(progress.super_meta_valor)}`}
                                 />
@@ -738,9 +738,9 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                         className={`absolute text-[10px] sm:text-xs font-bold whitespace-nowrap px-1.5 py-0.5 sm:px-2 sm:py-1 rounded shadow-md ${
                                             progress.realizado >= progress.meta_valor 
                                                 ? progress.realizado >= progress.super_meta_valor
-                                                    ? 'bg-purple-500 text-white border-2 border-purple-700' 
-                                                    : 'bg-green-500 text-white border-2 border-green-700' 
-                                                : 'bg-green-200 text-green-800 border border-green-400'
+                                                    ? 'bg-primary text-primary-foreground border-2 border-primary/70' 
+                                                    : 'bg-primary text-primary-foreground border-2 border-primary/70' 
+                                                : 'bg-secondary text-secondary-foreground border border-border'
                                         }`}
                                         style={{ 
                                             left: `${Math.min((progress.meta_valor / progress.super_meta_valor) * 100, 85)}%`,
@@ -760,8 +760,8 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                 <div 
                                     className={`absolute text-[10px] sm:text-xs font-bold whitespace-nowrap px-1.5 py-0.5 sm:px-2 sm:py-1 rounded shadow-md ${
                                         progress.realizado >= progress.super_meta_valor 
-                                            ? 'bg-purple-500 text-white border-2 border-purple-700' 
-                                            : 'bg-purple-200 text-purple-800 border border-purple-400'
+                                            ? 'bg-primary text-primary-foreground border-2 border-primary/70' 
+                                            : 'bg-muted text-muted-foreground border border-border'
                                     }`}
                                     style={{ 
                                         right: '0',
@@ -804,11 +804,11 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                             <div className="flex items-center justify-between text-[9px] sm:text-xs text-muted-foreground px-1 gap-1">
                                 <span className="flex-shrink-0 text-xs">R$ 0</span>
                                 {progress.meta_valor > 0 && (
-                                    <span className="font-medium text-green-600 flex-shrink-0 text-center text-[9px] sm:text-xs hidden sm:inline">
+                                    <span className="font-medium text-primary flex-shrink-0 text-center text-[9px] sm:text-xs hidden sm:inline">
                                         Meta: {formatCurrency(progress.meta_valor, { showSymbol: false, decimals: 0 })}
                                     </span>
                                 )}
-                                <span className="font-medium text-purple-600 flex-shrink-0 text-right text-[9px] sm:text-xs">
+                                <span className="font-medium text-primary/70 flex-shrink-0 text-right text-[9px] sm:text-xs">
                                     Super: {formatCurrency(progress.super_meta_valor, { showSymbol: false, decimals: 0 })}
                                 </span>
                             </div>
@@ -848,7 +848,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                             </div>
                             <div className="bg-muted/30 p-3 sm:p-4 rounded-lg text-center border border-muted-foreground/10">
                                 <div className="text-xs sm:text-sm text-muted-foreground mb-1.5">Projeção Semanal</div>
-                                <div className={`text-lg sm:text-xl font-bold ${progress.projected >= progress.meta_valor ? 'text-green-600' : 'text-yellow-600'}`}>
+                                <div className={`text-lg sm:text-xl font-bold ${progress.projected >= progress.meta_valor ? 'text-status-ahead' : 'text-status-ontrack'}`}>
                                     {formatCurrency(progress.projected)}
                                 </div>
                                 <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Baseada na média</div>
@@ -864,9 +864,9 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                         {/* Status até hoje vs o que deveria ter vendido */}
                         {progress.projectedByToday !== undefined && progress.projectedByToday > 0 && (
                             <div className={`p-3 sm:p-4 rounded-lg border-2 ${
-                                progress.statusByToday === 'behind' ? 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800' :
-                                progress.statusByToday === 'ahead' ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800' :
-                                'bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-800'
+                                progress.statusByToday === 'behind' ? 'bg-status-behind-bg border-status-behind-border' :
+                                progress.statusByToday === 'ahead' ? 'bg-status-ahead-bg border-status-ahead-border' :
+                                'bg-status-ontrack-bg border-status-ontrack-border'
                             }`}>
                                 <div className="flex items-start gap-2">
                                     {progress.statusByToday === 'behind' ? (
@@ -890,12 +890,12 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                                 <span className="font-bold">{formatCurrency(progress.projectedByToday)}</span>
                                             </div>
                                             {progress.realizado >= progress.projectedByToday ? (
-                                                <div className="flex justify-between text-green-600 font-bold mt-1 pt-1 border-t">
+                                                <div className="flex justify-between text-status-ahead font-bold mt-1 pt-1 border-t">
                                                     <span>Diferença:</span>
-                                                    <span>+{formatCurrency(progress.realizado - progress.projectedByToday)} 🎉</span>
+                                                    <span>+{formatCurrency(progress.realizado - progress.projectedByToday)}</span>
                                                 </div>
                                             ) : (
-                                                <div className="flex justify-between text-red-600 font-bold mt-1 pt-1 border-t">
+                                                <div className="flex justify-between text-status-behind font-bold mt-1 pt-1 border-t">
                                                     <span>Faltando:</span>
                                                     <span>{formatCurrency(progress.projectedByToday - progress.realizado)}</span>
                                                 </div>
@@ -909,16 +909,16 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                         {/* Status Message - Projeção da Semana */}
                         {progress.progress < 100 && progress.daysRemaining > 0 && (
                             <div className={`p-3 sm:p-4 rounded-lg border-2 ${
-                                progress.status === 'behind' ? 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800' :
-                                progress.status === 'ahead' ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800' :
-                                'bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-800'
+                                progress.status === 'behind' ? 'bg-status-behind-bg border-status-behind-border' :
+                                progress.status === 'ahead' ? 'bg-status-ahead-bg border-status-ahead-border' :
+                                'bg-status-ontrack-bg border-status-ontrack-border'
                             }`}>
                                 {progress.status === 'behind' ? (
                                     <div className="flex items-start gap-2">
                                         <Target className={`h-5 w-5 ${getStatusColor(progress.status)} mt-0.5 flex-shrink-0`} />
                                         <div className="flex-1 min-w-0">
                                             <p className={`font-semibold ${getStatusColor(progress.status)}`}>Projeção da Semana: Atrasado</p>
-                                            <p className="text-xs sm:text-sm text-red-700 dark:text-red-300 mt-1">
+                                            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                                                 Com base na média diária atual, a projeção para o final da semana é de <strong>{formatCurrency(progress.projected)}</strong>.
                                                 Faltam <strong>{formatCurrency(deficit)}</strong> para bater a meta semanal.
                                                 Você precisa vender <strong>{formatCurrency(needsDaily)}</strong> por dia nos próximos {progress.daysRemaining} dias.
@@ -930,7 +930,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                         <TrendingUp className={`h-5 w-5 ${getStatusColor(progress.status)} mt-0.5 flex-shrink-0`} />
                                         <div className="flex-1 min-w-0">
                                             <p className={`font-semibold ${getStatusColor(progress.status)}`}>Projeção da Semana: À Frente</p>
-                                            <p className="text-xs sm:text-sm text-green-700 dark:text-green-300 mt-1">
+                                            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                                                 Com base na média diária atual, a projeção para o final da semana é de <strong>{formatCurrency(progress.projected)}</strong>.
                                                 {progress.progress >= 100 && (
                                                     <> Você já superou a meta em <strong>{formatCurrency(ahead)}</strong>! Continue assim para bater a super meta!</>
@@ -943,7 +943,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                         <Target className={`h-5 w-5 ${getStatusColor(progress.status)} mt-0.5 flex-shrink-0`} />
                                         <div className="flex-1 min-w-0">
                                             <p className={`font-semibold ${getStatusColor(progress.status)}`}>Projeção da Semana: No Ritmo</p>
-                                            <p className="text-xs sm:text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                                            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                                                 Com base na média diária atual, a projeção para o final da semana é de <strong>{formatCurrency(progress.projected)}</strong>.
                                                 Mantenha o ritmo atual para bater a meta semanal!
                                             </p>
@@ -954,12 +954,12 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                         )}
 
                         {progress.progress >= 100 && (
-                            <div className="p-4 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-300">
+                            <div className="p-4 rounded-lg bg-status-ahead-bg border-2 border-status-ahead-border">
                                 <div className="flex items-center gap-2">
-                                    <Trophy className="h-6 w-6 text-green-600" />
+                                    <Trophy className="h-6 w-6 text-status-ahead" />
                                     <div>
-                                        <p className="font-bold text-green-900 text-lg">🎉 Meta Semanal Batida!</p>
-                                        <p className="text-sm text-green-700 mt-1">
+                                        <p className="font-bold text-foreground text-lg">Meta Semanal Batida!</p>
+                                        <p className="text-sm text-muted-foreground mt-1">
                                             {colaboradoraId 
                                                 ? `Parabéns! Você alcançou a meta semanal. ${progress.superProgress < 100 ? 'Continue para bater a super meta!' : ''}`
                                                 : `Parabéns, Equipe! A loja atingiu a meta semanal. ${progress.superProgress < 100 ? 'Continue para bater a super meta!' : ''}`

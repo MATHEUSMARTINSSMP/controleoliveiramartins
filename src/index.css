@@ -24,8 +24,23 @@
     --border: 35 20% 85%;
     --input: 40 15% 92%;
     --ring: 38 92% 50%;
-    --success: 142 70% 45%;
-    --warning: 38 92% 50%;
+    --success: 38 80% 40%;
+    --success-foreground: 38 90% 25%;
+    --warning: 32 70% 55%;
+    --warning-foreground: 32 80% 30%;
+    --alert: 28 60% 35%;
+    --alert-foreground: 28 70% 25%;
+    
+    --status-ahead: 38 85% 45%;
+    --status-ahead-bg: 38 60% 95%;
+    --status-ahead-border: 38 50% 80%;
+    --status-behind: 28 50% 40%;
+    --status-behind-bg: 30 40% 94%;
+    --status-behind-border: 28 35% 75%;
+    --status-ontrack: 35 65% 50%;
+    --status-ontrack-bg: 35 50% 96%;
+    --status-ontrack-border: 35 40% 82%;
+    
     --radius: 0.5rem;
     
     --gradient-primary: linear-gradient(135deg, hsl(38 92% 50%), hsl(28 85% 40%));
@@ -86,8 +101,22 @@
     --border: 262 12% 15%;
     --input: 262 12% 14%;
     --ring: 262 60% 65%;
-    --success: 262 30% 60%;
-    --warning: 262 40% 60%;
+    --success: 262 45% 70%;
+    --success-foreground: 262 50% 85%;
+    --warning: 262 35% 55%;
+    --warning-foreground: 262 40% 75%;
+    --alert: 262 25% 45%;
+    --alert-foreground: 262 30% 65%;
+    
+    --status-ahead: 262 50% 70%;
+    --status-ahead-bg: 262 30% 12%;
+    --status-ahead-border: 262 35% 25%;
+    --status-behind: 262 25% 45%;
+    --status-behind-bg: 262 20% 10%;
+    --status-behind-border: 262 20% 20%;
+    --status-ontrack: 262 40% 60%;
+    --status-ontrack-bg: 262 25% 11%;
+    --status-ontrack-border: 262 30% 22%;
     
     --gradient-primary: linear-gradient(135deg, hsl(262 50% 55%), hsl(270 45% 50%));
     --gradient-secondary: linear-gradient(135deg, hsl(262 20% 12%), hsl(270 18% 8%));

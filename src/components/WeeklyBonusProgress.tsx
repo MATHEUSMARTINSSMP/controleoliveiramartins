@@ -387,25 +387,25 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
                 </div>
             </CardHeader>
             <CardContent className="pt-6 space-y-4">
-                {/* Super Meta Semanal - ROXO */}
+                {/* Super Meta Semanal */}
                 {superMetaAtingidas.length > 0 && weeklyBonuses.super_meta_bonus !== null && (
-                    <div className="bg-purple-50 dark:bg-purple-950/20 border-2 border-purple-400 dark:border-purple-800 rounded-lg p-4 sm:p-6">
+                    <div className="bg-status-ahead-bg border-2 border-status-ahead-border rounded-lg p-4 sm:p-6">
                         <div className="flex items-center gap-2 mb-4">
-                            <Trophy className="h-5 w-5 text-purple-600" />
+                            <Trophy className="h-5 w-5 text-primary" />
                             <span className="font-bold text-base sm:text-lg">Super Meta Semanal - Prêmio: R$ {weeklyBonuses.super_meta_bonus}</span>
                         </div>
                         <div className="space-y-2">
                             {superMetaAtingidas.map(colab => (
                                 <div key={colab.colaboradoraId} className="space-y-1">
-                                    <div className="flex items-center justify-between bg-white dark:bg-gray-900 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
+                                    <div className="flex items-center justify-between bg-card p-3 rounded-lg border border-border">
                                         <span className="text-sm sm:text-base font-semibold">{colab.colaboradoraName}</span>
-                                        <Badge className="bg-purple-500 text-white">
+                                        <Badge className="bg-primary text-primary-foreground">
                                             <CheckCircle2 className="h-3 w-3 mr-1" />
                                             ATINGIDO
                                         </Badge>
                                     </div>
                                     {colab.preRequisitosReasonSuperMeta && (
-                                        <div className="flex items-center gap-1 text-xs text-orange-600 bg-orange-50 dark:bg-orange-950/20 p-2 rounded">
+                                        <div className="flex items-center gap-1 text-xs text-status-ontrack bg-status-ontrack-bg p-2 rounded">
                                             <AlertCircle className="h-3 w-3" />
                                             <span>{colab.preRequisitosReasonSuperMeta}</span>
                                         </div>
@@ -416,24 +416,24 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
                     </div>
                 )}
 
-                {/* Meta Semanal - VERDE */}
+                {/* Meta Semanal */}
                 {metaAtingidas.length > 0 && weeklyBonuses.meta_bonus !== null && (
-                    <div className="bg-green-50 dark:bg-green-950/20 border-2 border-green-400 dark:border-green-800 rounded-lg p-4 sm:p-6">
+                    <div className="bg-status-ontrack-bg border-2 border-status-ontrack-border rounded-lg p-4 sm:p-6">
                         <div className="flex items-center gap-2 mb-4">
-                            <Target className="h-5 w-5 text-green-600" />
+                            <Target className="h-5 w-5 text-primary" />
                             <span className="font-bold text-base sm:text-lg">Meta Semanal - Prêmio: R$ {weeklyBonuses.meta_bonus}</span>
                         </div>
                         <div className="space-y-2">
                             {metaAtingidas.map(colab => (
                                 <div key={colab.colaboradoraId} className="space-y-1">
-                                    <div className="flex items-center justify-between bg-white dark:bg-gray-900 p-3 rounded-lg border border-green-200 dark:border-green-800">
+                                    <div className="flex items-center justify-between bg-card p-3 rounded-lg border border-border">
                                         <span className="text-sm sm:text-base font-semibold">{colab.colaboradoraName}</span>
-                                        <span className="text-sm sm:text-base font-bold text-green-700 dark:text-green-400">
+                                        <span className="text-sm sm:text-base font-bold text-status-ahead">
                                             Falta R$ {colab.faltaSuperMeta.toFixed(2)} para Super Meta Semanal
                                         </span>
                                     </div>
                                     {colab.preRequisitosReasonMeta && (
-                                        <div className="flex items-center gap-1 text-xs text-orange-600 bg-orange-50 dark:bg-orange-950/20 p-2 rounded">
+                                        <div className="flex items-center gap-1 text-xs text-status-ontrack bg-status-ontrack-bg p-2 rounded">
                                             <AlertCircle className="h-3 w-3" />
                                             <span>{colab.preRequisitosReasonMeta}</span>
                                         </div>
@@ -444,12 +444,12 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
                     </div>
                 )}
 
-                {/* Nenhuma Meta Atingida - SEM COR */}
+                {/* Nenhuma Meta Atingida */}
                 {nenhumaAtingida.length > 0 && (
-                    <div className="bg-gray-50 dark:bg-gray-950/20 border-2 border-gray-300 dark:border-gray-800 rounded-lg p-4 sm:p-6">
+                    <div className="bg-muted/30 border-2 border-border rounded-lg p-4 sm:p-6">
                         <div className="space-y-2">
                             {nenhumaAtingida.map(colab => (
-                                <div key={colab.colaboradoraId} className="flex items-center justify-between bg-white dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-800">
+                                <div key={colab.colaboradoraId} className="flex items-center justify-between bg-card p-3 rounded-lg border border-border">
                                     <span className="text-sm sm:text-base font-semibold">{colab.colaboradoraName}</span>
                                     <span className="text-sm sm:text-base font-bold text-muted-foreground">
                                         Falta R$ {colab.faltaMeta.toFixed(2)} para atingir a Meta Semanal

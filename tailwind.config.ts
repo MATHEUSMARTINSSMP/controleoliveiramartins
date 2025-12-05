@@ -47,6 +47,29 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+        alert: {
+          DEFAULT: "hsl(var(--alert))",
+          foreground: "hsl(var(--alert-foreground))",
+        },
+        status: {
+          ahead: "hsl(var(--status-ahead))",
+          "ahead-bg": "hsl(var(--status-ahead-bg))",
+          "ahead-border": "hsl(var(--status-ahead-border))",
+          behind: "hsl(var(--status-behind))",
+          "behind-bg": "hsl(var(--status-behind-bg))",
+          "behind-border": "hsl(var(--status-behind-border))",
+          ontrack: "hsl(var(--status-ontrack))",
+          "ontrack-bg": "hsl(var(--status-ontrack-bg))",
+          "ontrack-border": "hsl(var(--status-ontrack-border))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
