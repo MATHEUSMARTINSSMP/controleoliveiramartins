@@ -677,7 +677,7 @@ const Lancamentos = () => {
                                             </TableCell>
                                             <TableCell>
                                               <div className="flex gap-2">
-                                                {parcela.status_parcela === "PENDENTE" && (
+                                                {parcela.status_parcela === "PENDENTE" || parcela.status_parcela === "AGENDADO" ? (
                                                   <Button
                                                     size="sm"
                                                     variant="outline"
@@ -690,8 +690,7 @@ const Lancamentos = () => {
                                                     <CheckCircle2 className="h-4 w-4 mr-1" />
                                                     Descontar
                                                   </Button>
-                                                )}
-                                                {parcela.status_parcela === "DESCONTADO" && (
+                                                ) : parcela.status_parcela === "DESCONTADO" ? (
                                                   <Dialog>
                                                     <DialogTrigger asChild>
                                                       <Button
@@ -732,7 +731,7 @@ const Lancamentos = () => {
                                                       </div>
                                                     </DialogContent>
                                                   </Dialog>
-                                                )}
+                                                ) : null}
                                               </div>
                                             </TableCell>
                                           </TableRow>
@@ -866,7 +865,7 @@ const Lancamentos = () => {
                                             <TableCell>{getStatusBadge(parcela.status_parcela)}</TableCell>
                                             <TableCell>
                                               <div className="flex gap-2">
-                                                {parcela.status_parcela === "PENDENTE" && (
+                                                {parcela.status_parcela === "PENDENTE" || parcela.status_parcela === "AGENDADO" ? (
                                                   <Button
                                                     size="sm"
                                                     variant="outline"
@@ -879,8 +878,7 @@ const Lancamentos = () => {
                                                     <CheckCircle2 className="h-4 w-4 mr-1" />
                                                     Descontar
                                                   </Button>
-                                                )}
-                                                {parcela.status_parcela === "DESCONTADO" && (
+                                                ) : parcela.status_parcela === "DESCONTADO" ? (
                                                   <Dialog>
                                                     <DialogTrigger asChild>
                                                       <Button
@@ -921,7 +919,7 @@ const Lancamentos = () => {
                                                       </div>
                                                     </DialogContent>
                                                   </Dialog>
-                                                )}
+                                                ) : null}
                                               </div>
                                             </TableCell>
                                           </TableRow>
