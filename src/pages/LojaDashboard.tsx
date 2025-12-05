@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award, Download, FileSpreadsheet, FileText, Database, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award, Download, FileSpreadsheet, FileText, Database, ChevronDown, ChevronRight, Loader2, Store } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -20,6 +20,8 @@ import { toast } from "sonner";
 import { format, startOfWeek, getWeek, getYear } from "date-fns";
 import { StoreLogo } from "@/lib/storeLogo";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { motion } from "framer-motion";
 
 const WeeklyGoalProgress = lazy(() => import("@/components/WeeklyGoalProgress"));
 const WeeklyBonusProgress = lazy(() => import("@/components/WeeklyBonusProgress"));
@@ -2545,48 +2547,115 @@ export default function LojaDashboard() {
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10">
-                <div className="mb-6 flex justify-center">
-                    <img src="/elevea.png" alt="EleveaOne" className="h-16 w-auto animate-pulse max-w-[200px]" />
+            <div className="page-container flex items-center justify-center">
+                <div className="absolute inset-0 overflow-hidden">
+                    <motion.div 
+                        className="floating-orb w-96 h-96 top-1/4 left-1/4"
+                        animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+                        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                    <motion.div 
+                        className="floating-orb-2 w-80 h-80 bottom-1/4 right-1/4"
+                        animate={{ scale: [1.2, 1, 1.2], opacity: [0.2, 0.4, 0.2] }}
+                        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                    />
                 </div>
-                <p className="text-muted-foreground">Carregando...</p>
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="z-10 text-center space-y-6"
+                >
+                    <motion.div 
+                        className="w-20 h-20 mx-auto rounded-2xl gradient-primary glow flex items-center justify-center shadow-2xl"
+                        animate={{ y: [0, -10, 0] }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                    >
+                        <Store className="w-10 h-10 text-primary-foreground" />
+                    </motion.div>
+                    <div className="space-y-2">
+                        <h2 className="text-2xl font-bold text-foreground">Carregando</h2>
+                        <p className="text-muted-foreground">Preparando painel da loja</p>
+                    </div>
+                    <motion.div className="flex justify-center gap-2">
+                        {[0, 1, 2].map((i) => (
+                            <motion.div
+                                key={i}
+                                className="w-3 h-3 rounded-full gradient-primary"
+                                animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
+                                transition={{ duration: 1, delay: i * 0.2, repeat: Infinity }}
+                            />
+                        ))}
+                    </motion.div>
+                </motion.div>
             </div>
         );
     }
 
     return (
-        <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <StoreLogo storeId={storeId || profile?.store_id} className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold break-words">{storeName || profile?.name || "Loja"}</h1>
-                        <p className="text-xs sm:text-sm text-muted-foreground">Gestão de Vendas</p>
+        <div className="page-container">
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <motion.div 
+                    className="floating-orb w-[600px] h-[600px] -top-64 -left-64 opacity-50"
+                    animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.4, 0.3] }}
+                    transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+                />
+                <motion.div 
+                    className="floating-orb-2 w-[500px] h-[500px] -bottom-32 -right-32 opacity-40"
+                    animate={{ scale: [1.1, 1, 1.1], opacity: [0.2, 0.35, 0.2] }}
+                    transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+                />
+            </div>
+
+            <header className="header-futuristic border-b border-primary/10 mb-4">
+                <div className="container mx-auto px-3 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <StoreLogo storeId={storeId || profile?.store_id} className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold gradient-text break-words">{storeName || profile?.name || "Loja"}</h1>
+                            <p className="text-xs sm:text-sm text-muted-foreground">Gestao de Vendas</p>
+                        </div>
+                    </div>
+                    <div className="flex gap-2 w-full sm:w-auto items-center flex-wrap">
+                        <ThemeToggle />
+                        {(cashbackAtivo || crmAtivo) && (
+                            <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm')} className="w-full sm:w-auto">
+                                <TabsList className={`grid w-full sm:w-auto glass-card p-1 rounded-xl ${cashbackAtivo && crmAtivo ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                                    <TabsTrigger value="metas" className="rounded-lg text-xs sm:text-sm data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground">
+                                        Metas
+                                    </TabsTrigger>
+                                    {cashbackAtivo && (
+                                        <TabsTrigger value="cashback" className="rounded-lg text-xs sm:text-sm data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground">
+                                            Cashback
+                                        </TabsTrigger>
+                                    )}
+                                    {crmAtivo && (
+                                        <TabsTrigger value="crm" className="rounded-lg text-xs sm:text-sm data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground">
+                                            CRM
+                                        </TabsTrigger>
+                                    )}
+                                </TabsList>
+                            </Tabs>
+                        )}
+                        <Button
+                            variant="outline"
+                            onClick={() => signOut()}
+                            className="border-primary/30 text-xs sm:text-sm"
+                            size="sm"
+                        >
+                            <LogOut className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                            Sair
+                        </Button>
                     </div>
                 </div>
-                <div className="flex gap-2 w-full sm:w-auto">
-                    {/* Abas de Navegação - Metas, Cashback e CRM */}
-                    {(cashbackAtivo || crmAtivo) && (
-                        <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm')} className="w-full sm:w-auto">
-                            <TabsList className={`grid w-full sm:w-auto bg-muted/50 ${cashbackAtivo && crmAtivo ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                                <TabsTrigger value="metas" className="rounded-lg text-xs sm:text-sm">
-                                    Metas
-                                </TabsTrigger>
-                                {cashbackAtivo && (
-                                    <TabsTrigger value="cashback" className="rounded-lg text-xs sm:text-sm">
-                                        Cashback
-                                    </TabsTrigger>
-                                )}
-                                {crmAtivo && (
-                                    <TabsTrigger value="crm" className="rounded-lg text-xs sm:text-sm">
-                                        CRM
-                                    </TabsTrigger>
-                                )}
-                            </TabsList>
-                        </Tabs>
-                    )}
-                </div>
-            </div>
+            </header>
+
+            <main className="container mx-auto px-3 sm:px-6 pb-6 relative z-10">
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="space-y-4 sm:space-y-6"
+            >
 
             {/* Conteúdo Principal com Abas */}
             {(cashbackAtivo || crmAtivo) ? (
@@ -4709,8 +4778,9 @@ export default function LojaDashboard() {
                     )}
                 </div>
             )}
+            </motion.div>
+            </main>
 
-            {/* Dialog de Agendamento de Pós-Venda */}
             {lastSaleData && storeId && (
                 <Suspense fallback={null}>
                     <PostSaleSchedulerDialog

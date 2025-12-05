@@ -22,6 +22,8 @@ import {
   useCancelAdiantamento,
 } from "@/hooks/queries";
 import { useStores } from "@/hooks/queries";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { motion } from "framer-motion";
 
 const ColaboradoraCommercial = lazy(() => import("@/components/colaboradora/ColaboradoraCommercial").then(m => ({ default: m.ColaboradoraCommercial })));
 const WeeklyGincanaResults = lazy(() => import("@/components/loja/WeeklyGincanaResults"));
@@ -37,7 +39,8 @@ import {
   Filter,
   X,
   Trash2,
-  Loader2
+  Loader2,
+  Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
@@ -214,40 +217,84 @@ const ColaboradoraDashboard = () => {
 
   if (loading || !profile || kpisLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10">
-        <div className="text-center">
-          <div className="mb-6 flex justify-center">
-            <img src="/elevea.png" alt="EleveaOne" className="h-16 w-auto animate-pulse max-w-[200px]" />
-          </div>
-          <div className="inline-block p-6 rounded-full bg-gradient-to-br from-primary to-accent mb-6 animate-pulse">
-            <ShoppingBag className="w-16 h-16 text-primary-foreground" />
-          </div>
-          <p className="text-muted-foreground">Carregando...</p>
+      <div className="page-container flex items-center justify-center">
+        <div className="absolute inset-0 overflow-hidden">
+          <motion.div 
+            className="floating-orb w-96 h-96 top-1/4 left-1/4"
+            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="floating-orb-2 w-80 h-80 bottom-1/4 right-1/4"
+            animate={{ scale: [1.2, 1, 1.2], opacity: [0.2, 0.4, 0.2] }}
+            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+          />
         </div>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="z-10 text-center space-y-6"
+        >
+          <motion.div 
+            className="w-20 h-20 mx-auto rounded-2xl gradient-primary glow flex items-center justify-center shadow-2xl"
+            animate={{ y: [0, -10, 0] }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <ShoppingBag className="w-10 h-10 text-primary-foreground" />
+          </motion.div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-foreground">Carregando</h2>
+            <p className="text-muted-foreground">Preparando seu painel</p>
+          </div>
+          <motion.div className="flex justify-center gap-2">
+            {[0, 1, 2].map((i) => (
+              <motion.div
+                key={i}
+                className="w-3 h-3 rounded-full gradient-primary"
+                animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 1, delay: i * 0.2, repeat: Infinity }}
+              />
+            ))}
+          </motion.div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10">
-      <header className="bg-card/80 backdrop-blur-lg border-b border-primary/10 sticky top-0 z-50 shadow-[var(--shadow-card)]">
-        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+    <div className="page-container">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div 
+          className="floating-orb w-[600px] h-[600px] -top-64 -left-64 opacity-50"
+          animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.4, 0.3] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div 
+          className="floating-orb-2 w-[500px] h-[500px] -bottom-32 -right-32 opacity-40"
+          animate={{ scale: [1.1, 1, 1.1], opacity: [0.2, 0.35, 0.2] }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+        />
+      </div>
+
+      <header className="header-futuristic border-b border-primary/10">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <StoreLogo 
               storeId={getStoreIdFromProfile(profile)} 
               className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" 
             />
             <div className="flex-1 min-w-0">
-              <p className="text-base sm:text-lg font-semibold text-foreground break-words">
+              <p className="text-base sm:text-lg font-semibold gradient-text break-words">
                 Bem-vinda, {profile.name?.split(' ')[0] || profile.name}
               </p>
             </div>
           </div>
-          <div className="flex gap-2 w-full sm:w-auto">
+          <div className="flex gap-2 w-full sm:w-auto items-center flex-wrap">
+            <ThemeToggle />
             <Button
               variant="outline"
               onClick={() => setPasswordDialog(true)}
-              className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
+              className="border-primary/30 text-xs sm:text-sm flex-1 sm:flex-initial"
               size="sm"
             >
               <KeyRound className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
@@ -257,7 +304,7 @@ const ColaboradoraDashboard = () => {
             <Button
               variant="outline"
               onClick={handleSignOut}
-              className="border-primary/20 hover:bg-primary/10 text-xs sm:text-sm flex-1 sm:flex-initial"
+              className="border-primary/30 text-xs sm:text-sm flex-1 sm:flex-initial"
               size="sm"
             >
               <LogOut className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
@@ -267,7 +314,12 @@ const ColaboradoraDashboard = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
         <div className="grid gap-3 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-6 sm:mb-8">
           <KPICard
             title="Limite Total"
@@ -302,21 +354,21 @@ const ColaboradoraDashboard = () => {
         </div>
 
         <Tabs defaultValue="metas" className="space-y-3 sm:space-y-4">
-          <TabsList className="grid w-full grid-cols-5 h-auto">
-            <TabsTrigger value="metas" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2">
+          <TabsList className="grid w-full grid-cols-5 h-auto glass-card p-1 rounded-xl">
+            <TabsTrigger value="metas" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2 rounded-lg data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:glow-sm">
               <span className="hidden sm:inline">Minhas Metas</span>
               <span className="sm:hidden">Metas</span>
             </TabsTrigger>
-            <TabsTrigger value="resumo" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2">
+            <TabsTrigger value="resumo" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2 rounded-lg data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:glow-sm">
               Resumo
             </TabsTrigger>
-            <TabsTrigger value="compras" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2">
+            <TabsTrigger value="compras" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2 rounded-lg data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:glow-sm">
               Compras
             </TabsTrigger>
-            <TabsTrigger value="parcelas" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2">
+            <TabsTrigger value="parcelas" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2 rounded-lg data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:glow-sm">
               Parcelas
             </TabsTrigger>
-            <TabsTrigger value="adiantamentos" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2">
+            <TabsTrigger value="adiantamentos" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2 rounded-lg data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:glow-sm">
               <span className="hidden sm:inline">Adiantamentos</span>
               <span className="sm:hidden">Adiant.</span>
             </TabsTrigger>
@@ -925,11 +977,11 @@ const ColaboradoraDashboard = () => {
             </Card>
           </TabsContent>
         </Tabs>
+        </motion.div>
       </main>
 
-      {/* Password Dialog */}
       <Dialog open={passwordDialog} onOpenChange={setPasswordDialog}>
-        <DialogContent>
+        <DialogContent className="glass-card">
           <DialogHeader>
             <DialogTitle>Alterar Senha</DialogTitle>
           </DialogHeader>
