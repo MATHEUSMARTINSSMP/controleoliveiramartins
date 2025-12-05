@@ -91,25 +91,25 @@ export function TimeClockRegister({
       ENTRADA: {
         label: 'Registrar Entrada',
         icon: LogIn,
-        color: 'bg-green-600 hover:bg-green-700',
+        color: 'bg-success hover:bg-success/90 text-success-foreground',
         description: 'Início do expediente',
       },
       SAIDA_INTERVALO: {
         label: 'Registrar Saída - Intervalo',
         icon: Coffee,
-        color: 'bg-orange-600 hover:bg-orange-700',
+        color: 'bg-warning hover:bg-warning/90 text-warning-foreground',
         description: 'Início do intervalo',
       },
       ENTRADA_INTERVALO: {
         label: 'Registrar Retorno - Intervalo',
         icon: ArrowRight,
-        color: 'bg-blue-600 hover:bg-blue-700',
+        color: 'bg-primary hover:bg-primary/90 text-primary-foreground',
         description: 'Fim do intervalo',
       },
       SAIDA: {
         label: 'Registrar Saída',
         icon: LogOut,
-        color: 'bg-red-600 hover:bg-red-700',
+        color: 'bg-destructive hover:bg-destructive/90 text-destructive-foreground',
         description: 'Fim do expediente',
       },
     };
@@ -184,7 +184,7 @@ export function TimeClockRegister({
           {hoursBalance && (
             <div className="mb-4 p-3 rounded-lg border">
               <div className="text-sm text-muted-foreground mb-1">Banco de Horas:</div>
-              <div className={`text-lg font-bold ${hoursBalance.saldo_minutos >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <div className={`text-lg font-bold ${hoursBalance.saldo_minutos >= 0 ? 'text-success' : 'text-destructive'}`}>
                 {formatHoursBalance(hoursBalance.saldo_minutos)}
               </div>
             </div>
@@ -231,7 +231,7 @@ export function TimeClockRegister({
                   key={tipo}
                   onClick={() => handleRegister(tipo)}
                   disabled={isDisabled}
-                  className={`${config.color} text-white ${isNext ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+                  className={`${config.color} ${isNext ? 'ring-2 ring-primary ring-offset-2' : ''}`}
                   size="lg"
                 >
                   <Icon className="mr-2 h-5 w-5" />
@@ -245,12 +245,12 @@ export function TimeClockRegister({
           </div>
 
           {/* Aviso sobre horário fixo */}
-          <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900">
+          <div className="mt-4 p-3 rounded-lg bg-muted/50 border">
             <div className="flex items-start gap-2">
-              <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-              <div className="text-xs text-blue-900 dark:text-blue-100">
+              <Clock className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-muted-foreground">
                 <p className="font-semibold mb-1">Horário Fixo</p>
-                <p className="text-blue-800 dark:text-blue-200">
+                <p>
                   O horário registrado é fixo e não pode ser alterado. Caso precise de ajuste especial, use o campo de observação e solicite autorização ao admin.
                 </p>
               </div>

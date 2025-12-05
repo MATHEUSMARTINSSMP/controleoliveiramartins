@@ -258,7 +258,7 @@ export function TimeClockHistory({ storeId, colaboradoraId, showOnlyToday = fals
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-sm text-muted-foreground mb-1">Saldo Atual do Banco de Horas</div>
-                    <div className={`text-2xl font-bold ${hoursBalance.saldo_minutos >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <div className={`text-2xl font-bold ${hoursBalance.saldo_minutos >= 0 ? 'text-success' : 'text-destructive'}`}>
                       {formatHoursBalance(hoursBalance.saldo_minutos)}
                     </div>
                   </div>
