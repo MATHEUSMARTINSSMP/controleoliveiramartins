@@ -1339,7 +1339,7 @@ export default function BonusManagement() {
                                     </div>
                                     <div className="bg-muted p-2 rounded">
                                         <span className="text-[10px] sm:text-xs text-muted-foreground block">Valor Bônus</span>
-                                        <span className="font-medium text-green-600 text-xs sm:text-sm">
+                                        <span className="font-medium text-status-ahead text-xs sm:text-sm">
                                             {(bonus as any).valor_bonus_texto
                                                 ? (bonus as any).valor_bonus_texto
                                                 : bonus.tipo === 'PERCENTUAL'
@@ -1651,14 +1651,14 @@ export default function BonusManagement() {
                                 if (isIndicador) {
                                     return (
                                         <div className="space-y-2">
-                                            <div className="bg-blue-50 dark:bg-blue-950/20 p-2 rounded border border-blue-200 dark:border-blue-800">
-                                                <p className="text-xs text-blue-700 dark:text-blue-300">
-                                                    ⚠️ Para indicadores (Ticket Médio, PA, Número de Peças), é obrigatório definir o período exato.
+                                            <div className="bg-primary/10 dark:bg-primary/5 p-2 rounded border border-primary/20 dark:border-primary/30">
+                                                <p className="text-xs text-foreground">
+                                                    Para indicadores (Ticket Médio, PA, Número de Peças), é obrigatório definir o período exato.
                                                 </p>
                                             </div>
                                             <div className="grid grid-cols-2 gap-2">
                                                 <div>
-                                                    <Label className="text-xs sm:text-sm">Data Início <span className="text-red-500">*</span></Label>
+                                                    <Label className="text-xs sm:text-sm">Data Início <span className="text-destructive">*</span></Label>
                                                     <Input
                                                         type="date"
                                                         value={formData.periodo_data_inicio}
@@ -1668,7 +1668,7 @@ export default function BonusManagement() {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <Label className="text-xs sm:text-sm">Data Fim <span className="text-red-500">*</span></Label>
+                                                    <Label className="text-xs sm:text-sm">Data Fim <span className="text-destructive">*</span></Label>
                                                     <Input
                                                         type="date"
                                                         value={formData.periodo_data_fim}
@@ -2022,7 +2022,7 @@ export default function BonusManagement() {
 
                         {/* Prêmios por Posição (Top 1, 2, 3) - Apenas para Condições Básicas com Ranking */}
                         {formData.categoria_condicao === "BASICA" && formData.condicao_ranking && formData.condicao_ranking !== "" && (
-                                <div className="space-y-3 mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                                <div className="space-y-3 mt-4 p-3 bg-primary/10 dark:bg-primary/5 rounded-lg border border-primary/20 dark:border-primary/30">
                                     <Label className="text-xs sm:text-sm font-semibold">Prêmios por Posição</Label>
                                     <p className="text-[10px] sm:text-xs text-muted-foreground">
                                         Configure prêmios diferentes para cada posição do ranking

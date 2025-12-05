@@ -339,9 +339,9 @@ export function BonusTracker() {
     };
 
     const getProgressColor = (progress: number) => {
-        if (progress >= 95) return "bg-green-500";
-        if (progress >= 80) return "bg-yellow-500";
-        return "bg-blue-500";
+        if (progress >= 95) return "bg-primary";
+        if (progress >= 80) return "bg-primary/70";
+        return "bg-primary/50";
     };
 
     if (loading) {
@@ -484,10 +484,10 @@ export function BonusTracker() {
 
                                             // Ícone de medalha baseado na posição
                                             const getMedalIcon = () => {
-                                                if (position === 1) return <Trophy className="h-5 w-5 text-yellow-500" />;
-                                                if (position === 2) return <Medal className="h-5 w-5 text-gray-400" />;
-                                                if (position === 3) return <Medal className="h-5 w-5 text-amber-600" />;
-                                                return <span className="text-xs font-bold text-muted-foreground w-5 text-center">{position}º</span>;
+                                                if (position === 1) return <Trophy className="h-5 w-5 text-primary" />;
+                                                if (position === 2) return <Medal className="h-5 w-5 text-muted-foreground" />;
+                                                if (position === 3) return <Medal className="h-5 w-5 text-primary/70" />;
+                                                return <span className="text-xs font-bold text-muted-foreground w-5 text-center">{position}</span>;
                                             };
 
                                             // Valor formatado baseado no tipo_condicao
@@ -575,10 +575,10 @@ export function BonusTracker() {
                                                         {/* Valor do indicador ou progresso */}
                                                         <div className="flex flex-col items-end gap-1">
                                                             <span className={`font-bold text-base ${
-                                                                colab.achieved ? "text-green-600" : 
-                                                                position === 1 ? "text-yellow-600" : 
-                                                                position === 2 ? "text-gray-600" :
-                                                                position === 3 ? "text-amber-600" :
+                                                                colab.achieved ? "text-status-ahead" : 
+                                                                position === 1 ? "text-primary" : 
+                                                                position === 2 ? "text-muted-foreground" :
+                                                                position === 3 ? "text-primary/70" :
                                                                 ""
                                                             }`}>
                                                                 {getFormattedValue()}
@@ -605,7 +605,7 @@ export function BonusTracker() {
                                                     )}
                                                     
                                                     {colab.progress >= (bonus.meta_minima_percentual || 0) && !colab.achieved && colab.preRequisitosReason && (
-                                                        <div className="flex items-center gap-1 text-[10px] text-orange-600 mt-2">
+                                                        <div className="flex items-center gap-1 text-[10px] text-status-ontrack mt-2">
                                                             <AlertCircle className="h-3 w-3" />
                                                             <span className="break-words">{colab.preRequisitosReason}</span>
                                                         </div>

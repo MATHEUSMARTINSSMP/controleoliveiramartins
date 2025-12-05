@@ -66,7 +66,7 @@ export function ColaboradoraPerformanceCards({
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Realizado:</span>
-                  <span className="font-semibold text-green-600">
+                  <span className="font-semibold text-status-ahead">
                     {formatCurrency(perf.monthlySales)}
                   </span>
                 </div>
@@ -78,7 +78,7 @@ export function ColaboradoraPerformanceCards({
                   <span className="text-xs text-muted-foreground">Progresso</span>
                   <Badge 
                     variant={perf.progressPercent >= 100 ? "default" : "secondary"}
-                    className={perf.progressPercent >= 100 ? "bg-green-500" : ""}
+                    className={perf.progressPercent >= 100 ? "bg-primary" : ""}
                   >
                     {perf.progressPercent.toFixed(1)}%
                   </Badge>

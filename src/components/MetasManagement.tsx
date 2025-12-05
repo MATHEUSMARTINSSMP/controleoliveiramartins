@@ -45,10 +45,10 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
     render() {
         if (this.state.hasError) {
             return (
-                <div className="min-h-screen flex items-center justify-center bg-red-50 p-4">
-                    <div className="max-w-md w-full bg-white p-6 rounded-lg shadow-lg border border-red-200">
-                        <h2 className="text-xl font-bold text-red-700 mb-4">Algo deu errado na página de Metas</h2>
-                        <div className="bg-red-100 p-4 rounded text-sm font-mono text-red-800 overflow-auto mb-4">
+                <div className="min-h-screen flex items-center justify-center bg-destructive/10 p-4">
+                    <div className="max-w-md w-full bg-card p-6 rounded-lg shadow-lg border border-destructive/30">
+                        <h2 className="text-xl font-bold text-destructive mb-4">Algo deu errado na página de Metas</h2>
+                        <div className="bg-destructive/10 p-4 rounded text-sm font-mono text-destructive overflow-auto mb-4">
                             {this.state.error?.toString()}
                         </div>
                         <Button onClick={() => window.location.reload()} variant="outline" className="w-full">
@@ -1963,7 +1963,7 @@ const MetasManagementContent = () => {
                                                 <span className="font-medium text-xs sm:text-sm truncate flex-1 min-w-0 mr-2">{ind.profiles?.name}</span>
                                                 <div className="text-right flex-shrink-0">
                                                     <div className="font-bold text-xs sm:text-sm">R$ {ind.meta_valor.toLocaleString('pt-BR')}</div>
-                                                    <div className="text-[10px] sm:text-xs text-purple-600 font-medium">Super: R$ {ind.super_meta_valor.toLocaleString('pt-BR')}</div>
+                                                    <div className="text-[10px] sm:text-xs text-primary/80 font-medium">Super: R$ {ind.super_meta_valor.toLocaleString('pt-BR')}</div>
                                                 </div>
                                             </div>
                                         ))}
@@ -2051,10 +2051,10 @@ const MetasManagementContent = () => {
                                                     className={`overflow-hidden shadow-md hover:shadow-lg transition-all border-l-4 ${
                                                         isCurrentWeek 
                                                             ? 'border-l-primary bg-gradient-to-r from-primary/5 to-transparent' 
-                                                            : 'border-l-purple-500 bg-gradient-to-r from-purple-500/5 to-transparent'
+                                                            : 'border-l-primary/60 bg-gradient-to-r from-primary/5 to-transparent'
                                                     }`}
                                                 >
-                                                    <div className="p-4 sm:p-6 bg-gradient-to-r from-primary/10 to-purple-500/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b">
+                                                    <div className="p-4 sm:p-6 bg-gradient-to-r from-primary/10 to-primary/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b">
                                                         <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
                                                             <div className="min-w-0 flex-1">
                                                                 <h3 className="font-bold text-base sm:text-lg truncate">
@@ -2072,7 +2072,7 @@ const MetasManagementContent = () => {
                                                             <div className="text-left sm:text-right flex-1 sm:flex-initial">
                                                                 <p className="text-xs text-muted-foreground">Total ({colabsCount} colaboradora{colabsCount > 1 ? 's' : ''})</p>
                                                                 <p className="font-bold text-sm sm:text-lg text-primary">R$ {totalMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                                                <p className="text-xs text-purple-600 font-medium">Super: R$ {totalSuper.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                                <p className="text-xs text-primary/80 font-medium">Super: R$ {totalSuper.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                                             </div>
                                                             <Button variant="outline" size="sm" onClick={() => handleEditWeekly(group.goals[0])} className="flex-shrink-0">
                                                                 <Edit className="h-4 w-4 mr-1 sm:mr-2" />
@@ -2168,7 +2168,7 @@ const MetasManagementContent = () => {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <div>
-                                <Label className="text-blue-600 font-semibold text-xs sm:text-sm">Meta da Loja (R$)</Label>
+                                <Label className="text-primary font-semibold text-xs sm:text-sm">Meta da Loja (R$)</Label>
                                 <Input
                                     type="number"
                                     value={metaLoja}
@@ -2177,7 +2177,7 @@ const MetasManagementContent = () => {
                                 />
                             </div>
                             <div>
-                                <Label className="text-purple-600 font-semibold text-xs sm:text-sm">Super Meta da Loja (R$)</Label>
+                                <Label className="text-primary/80 font-semibold text-xs sm:text-sm">Super Meta da Loja (R$)</Label>
                                 <Input
                                     type="number"
                                     value={superMetaLoja}
@@ -2230,7 +2230,7 @@ const MetasManagementContent = () => {
                                                     type="number"
                                                     value={colab.superMeta}
                                                     onChange={e => handleColabChange(colab.id, 'superMeta', e.target.value)}
-                                                    className="pl-6 h-7 sm:h-8 text-xs sm:text-sm text-purple-700 font-medium"
+                                                    className="pl-6 h-7 sm:h-8 text-xs sm:text-sm text-primary/80 font-medium"
                                                     disabled={!colab.recebeMeta}
                                                 />
                                             </div>
@@ -2241,10 +2241,10 @@ const MetasManagementContent = () => {
                             <div className="p-2 sm:p-3 bg-muted/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0 border-t">
                                 <span className="font-semibold text-xs sm:text-sm">Total Distribuído:</span>
                                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
-                                    <span className={`text-xs sm:text-sm ${validateTotal() ? "text-green-600 font-bold" : "text-red-600 font-bold"}`}>
+                                    <span className={`text-xs sm:text-sm ${validateTotal() ? "text-status-ahead font-bold" : "text-status-behind font-bold"}`}>
                                         Meta: R$ {colabGoals.filter(c => c.recebeMeta).reduce((s, c) => s + c.meta, 0).toLocaleString('pt-BR')}
                                     </span>
-                                    <span className="text-xs sm:text-sm text-purple-600 font-bold">
+                                    <span className="text-xs sm:text-sm text-primary/80 font-bold">
                                         Super: R$ {colabGoals.filter(c => c.recebeMeta).reduce((s, c) => s + c.superMeta, 0).toLocaleString('pt-BR')}
                                     </span>
                                 </div>
@@ -2285,15 +2285,15 @@ const MetasManagementContent = () => {
 
                                     {/* Summary Cards */}
                                     <div className="grid grid-cols-2 gap-3 mb-4">
-                                        <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                                            <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">Meta da Loja</div>
-                                            <div className="text-xl font-bold text-blue-700 dark:text-blue-300">
+                                        <div className="p-3 bg-primary/10 dark:bg-primary/5 rounded-lg border border-primary/20 dark:border-primary/30">
+                                            <div className="text-xs text-primary font-medium mb-1">Meta da Loja</div>
+                                            <div className="text-xl font-bold text-foreground">
                                                 R$ {parseFloat(metaLoja || "0").toLocaleString('pt-BR')}
                                             </div>
                                         </div>
-                                        <div className="p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                                            <div className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-1">Super Meta</div>
-                                            <div className="text-xl font-bold text-purple-700 dark:text-purple-300">
+                                        <div className="p-3 bg-primary/5 dark:bg-primary/5 rounded-lg border border-primary/10 dark:border-primary/20">
+                                            <div className="text-xs text-primary/80 font-medium mb-1">Super Meta</div>
+                                            <div className="text-xl font-bold text-foreground">
                                                 R$ {parseFloat(superMetaLoja || "0").toLocaleString('pt-BR')}
                                             </div>
                                         </div>
@@ -2355,8 +2355,8 @@ const MetasManagementContent = () => {
                                                     <div
                                                         key={date}
                                                         className={`p-3 rounded-lg border-2 transition-all hover:shadow-md ${isFirstHalf
-                                                            ? 'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20 border-blue-300 dark:border-blue-700'
-                                                            : 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/30 dark:to-gray-800/20 border-gray-300 dark:border-gray-700'
+                                                            ? 'bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30 dark:border-primary/40'
+                                                            : 'bg-gradient-to-br from-muted/50 to-muted/30 border-border'
                                                             }`}
                                                     >
                                                         <div className="text-center space-y-1">
@@ -2374,10 +2374,10 @@ const MetasManagementContent = () => {
                                                             />
                                                             {metaValue > 0 && (
                                                                 <>
-                                                                    <div className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                                                                    <div className="text-[10px] text-primary font-medium">
                                                                         R$ {dailyMeta.toFixed(0)}
                                                                     </div>
-                                                                    <div className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">
+                                                                    <div className="text-[10px] text-primary/80 font-medium">
                                                                         R$ {dailySuperMeta.toFixed(0)}
                                                                     </div>
                                                                 </>
@@ -2391,19 +2391,19 @@ const MetasManagementContent = () => {
 
                                     {/* Total Sum Indicator */}
                                     <div className={`p-2 rounded-lg border text-center font-semibold text-sm ${isValid
-                                        ? 'bg-green-50 border-green-300 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-400'
-                                        : 'bg-orange-50 border-orange-300 text-orange-700 dark:bg-orange-900/20 dark:border-orange-700 dark:text-orange-400'
+                                        ? 'bg-status-ahead/10 border-status-ahead/30 text-status-ahead'
+                                        : 'bg-status-ontrack/10 border-status-ontrack/30 text-status-ontrack'
                                         }`}>
                                         Soma Total: {totalWeight.toFixed(2)}% {isValid ? '✓' : (totalWeight > 100 ? `(${(totalWeight - 100).toFixed(2)}% a mais)` : `(falta ${(100 - totalWeight).toFixed(2)}%)`)}
                                     </div>
                                     {/* Legend */}
                                     <div className="flex gap-4 justify-center text-xs pt-2 border-t">
                                         <div className="flex items-center gap-2">
-                                            <div className="w-4 h-4 rounded bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300"></div>
+                                            <div className="w-4 h-4 rounded bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/30"></div>
                                             <span>Primeira quinzena ({firstQuinzenaTotal.toFixed(1)}%)</span>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <div className="w-4 h-4 rounded bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-300"></div>
+                                            <div className="w-4 h-4 rounded bg-gradient-to-br from-muted/50 to-muted/30 border-2 border-border"></div>
                                             <span>Segunda quinzena ({secondQuinzenaTotal.toFixed(1)}%)</span>
                                         </div>
                                     </div>
@@ -2563,18 +2563,18 @@ const MetasManagementContent = () => {
                             <div className="space-y-3 sm:space-y-4">
                                 <Label className="text-xs sm:text-sm font-semibold block">4. Sugestões do Sistema</Label>
                                 
-                                <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                                <Card className="bg-primary/10 dark:bg-primary/5 border-primary/20 dark:border-primary/30">
                                     <CardContent className="p-3 sm:p-4">
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <p className="text-xs sm:text-sm text-blue-700 dark:text-blue-300 font-medium">Meta Mensal Total da Loja</p>
-                                                <p className="text-sm sm:text-base text-blue-900 dark:text-blue-100 font-semibold mt-1">
+                                                <p className="text-xs sm:text-sm text-primary font-medium">Meta Mensal Total da Loja</p>
+                                                <p className="text-sm sm:text-base text-foreground font-semibold mt-1">
                                                     R$ {monthlyGoal.meta_valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                 </p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-xs sm:text-sm text-purple-700 dark:text-purple-300 font-medium">Super Meta Mensal</p>
-                                                <p className="text-sm sm:text-base text-purple-900 dark:text-purple-100 font-semibold mt-1">
+                                                <p className="text-xs sm:text-sm text-primary/80 font-medium">Super Meta Mensal</p>
+                                                <p className="text-sm sm:text-base text-foreground font-semibold mt-1">
                                                     R$ {monthlyGoal.super_meta_valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                 </p>
                                             </div>
@@ -2582,22 +2582,22 @@ const MetasManagementContent = () => {
                                     </CardContent>
                                 </Card>
 
-                                <Card className="bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+                                <Card className="bg-status-ahead/10 dark:bg-status-ahead/5 border-status-ahead/20 dark:border-status-ahead/30">
                                     <CardContent className="p-3 sm:p-4">
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between">
                                                 <div>
-                                                    <p className="text-xs sm:text-sm text-green-700 dark:text-green-300 font-medium">Gincana Semanal Sugerida (por colaboradora ativa)</p>
-                                                    <p className="text-base sm:text-lg text-green-900 dark:text-green-100 font-bold mt-1">
+                                                    <p className="text-xs sm:text-sm text-status-ahead font-medium">Gincana Semanal Sugerida (por colaboradora ativa)</p>
+                                                    <p className="text-base sm:text-lg text-foreground font-bold mt-1">
                                                         R$ {suggestedWeeklyMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                     </p>
-                                                    <p className="text-[10px] sm:text-xs text-green-600 dark:text-green-400 mt-1">
+                                                    <p className="text-[10px] sm:text-xs text-status-ahead mt-1">
                                                         ({colaboradorasAtivas.filter(c => c.active).length} colaboradora{colaboradorasAtivas.filter(c => c.active).length !== 1 ? 's' : ''} ativa{colaboradorasAtivas.filter(c => c.active).length !== 1 ? 's' : ''})
                                                     </p>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="text-xs sm:text-sm text-purple-700 dark:text-purple-300 font-medium">Super Gincana Semanal Sugerida</p>
-                                                    <p className="text-base sm:text-lg text-purple-900 dark:text-purple-100 font-bold mt-1">
+                                                    <p className="text-xs sm:text-sm text-primary/80 font-medium">Super Gincana Semanal Sugerida</p>
+                                                    <p className="text-base sm:text-lg text-foreground font-bold mt-1">
                                                         R$ {suggestedWeeklySuperMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                     </p>
                                                 </div>
@@ -2744,9 +2744,9 @@ const MetasManagementContent = () => {
                             <Label className="text-xs sm:text-sm font-semibold block">5. Definir Prêmios da Gincana</Label>
                             
                             {/* Prêmio Checkpoint 1 (Meta) */}
-                            <Card className="bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+                            <Card className="bg-status-ahead/10 dark:bg-status-ahead/5 border-status-ahead/20 dark:border-status-ahead/30">
                                 <CardHeader className="pb-3">
-                                    <CardTitle className="text-sm">🎯 Prêmio Checkpoint 1 (Gincana Semanal - Meta)</CardTitle>
+                                    <CardTitle className="text-sm">Prêmio Checkpoint 1 (Gincana Semanal - Meta)</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-3">
                                     <div className="flex items-center gap-3">
@@ -2781,9 +2781,9 @@ const MetasManagementContent = () => {
                             </Card>
 
                             {/* Prêmio Checkpoint Final (Super Meta) */}
-                            <Card className="bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800">
+                            <Card className="bg-primary/10 dark:bg-primary/5 border-primary/20 dark:border-primary/30">
                                 <CardHeader className="pb-3">
-                                    <CardTitle className="text-sm">🏆 Prêmio Checkpoint Final (Super Gincana Semanal - Super Meta)</CardTitle>
+                                    <CardTitle className="text-sm">Prêmio Checkpoint Final (Super Gincana Semanal - Super Meta)</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-3">
                                     <div className="flex items-center gap-3">
@@ -2820,10 +2820,10 @@ const MetasManagementContent = () => {
 
                         {/* Mensagem quando não há meta mensal */}
                         {selectedStore && selectedWeek && !loadingSuggestions && !monthlyGoal && (
-                            <Card className="bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800">
+                            <Card className="bg-status-ontrack/10 dark:bg-status-ontrack/5 border-status-ontrack/20 dark:border-status-ontrack/30">
                                 <CardContent className="p-3 sm:p-4">
-                                    <p className="text-xs sm:text-sm text-yellow-800 dark:text-yellow-200">
-                                        ⚠️ Meta mensal não encontrada para esta loja no mês correspondente à semana selecionada. 
+                                    <p className="text-xs sm:text-sm text-status-ontrack">
+                                        Meta mensal não encontrada para esta loja no mês correspondente à semana selecionada. 
                                         Defina a meta mensal primeiro.
                                     </p>
                                 </CardContent>

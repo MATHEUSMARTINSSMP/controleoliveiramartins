@@ -125,9 +125,9 @@ export function WeeklyGoalsTracker() {
     };
 
     const getProgressColor = (progress: number) => {
-        if (progress >= 100) return "bg-green-500";
-        if (progress >= 80) return "bg-yellow-500";
-        return "bg-blue-500";
+        if (progress >= 100) return "bg-primary";
+        if (progress >= 80) return "bg-primary/70";
+        return "bg-primary/50";
     };
 
     if (loading) {
@@ -187,7 +187,7 @@ export function WeeklyGoalsTracker() {
                                             R$ {colab.vendidoSemana.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} / R${" "}
                                             {colab.metaSemanal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                                             {colab.superMetaSemanal > 0 && (
-                                                <span className="ml-1 text-purple-600 font-semibold">
+                                                <span className="ml-1 text-primary font-semibold">
                                                     (Super: R$ {colab.superMetaSemanal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })})
                                                 </span>
                                             )}
@@ -195,13 +195,13 @@ export function WeeklyGoalsTracker() {
                                     </div>
                                     <div className="flex items-center gap-1">
                                         {colab.checkpoint1 ? (
-                                            <CheckCircle2 className="h-4 w-4 text-green-500" title="Checkpoint 1 ✓" />
+                                            <CheckCircle2 className="h-4 w-4 text-primary" title="Checkpoint 1" />
                                         ) : (
                                             <Circle className="h-4 w-4 text-muted-foreground" title="Checkpoint 1" />
                                         )}
                                         {colab.superMetaSemanal > 0 && (
                                             colab.checkpointFinal ? (
-                                                <CheckCircle2 className="h-4 w-4 text-yellow-500" title="Checkpoint Final ✓" />
+                                                <CheckCircle2 className="h-4 w-4 text-primary/70" title="Checkpoint Final" />
                                             ) : (
                                                 <Circle className="h-4 w-4 text-muted-foreground" title="Checkpoint Final" />
                                             )

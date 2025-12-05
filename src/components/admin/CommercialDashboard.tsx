@@ -392,13 +392,12 @@ export const CommercialDashboard = () => {
         }
     };
 
-    // Helper to get color based on performance vs benchmark
     const getKPIColor = (value: number, benchmark: number) => {
-        if (!benchmark) return "text-gray-500";
+        if (!benchmark) return "text-muted-foreground";
         const ratio = value / benchmark;
-        if (ratio >= 1) return "text-green-600";
-        if (ratio >= 0.9) return "text-yellow-600";
-        return "text-red-600";
+        if (ratio >= 1) return "text-status-ahead";
+        if (ratio >= 0.9) return "text-status-ontrack";
+        return "text-status-behind";
     };
 
     const todayTotal = todaySales.reduce((sum, store) => sum + store.total_valor, 0);
@@ -484,34 +483,34 @@ export const CommercialDashboard = () => {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 sm:gap-3">
-                                        <div className="p-2 sm:p-3 bg-blue-500/10 rounded-lg flex-shrink-0">
-                                            <ShoppingBag className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" />
+                                        <div className="p-2 sm:p-3 bg-primary/10 rounded-lg flex-shrink-0">
+                                            <ShoppingBag className="h-5 w-5 sm:h-6 sm:w-6 text-primary/80" />
                                         </div>
                                         <div className="min-w-0">
                                             <p className="text-xs sm:text-sm text-muted-foreground">Total de Vendas</p>
-                                            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-600">
+                                            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-primary/80">
                                                 {salesSummary.total_vendas}
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 sm:gap-3">
-                                        <div className="p-2 sm:p-3 bg-purple-500/10 rounded-lg flex-shrink-0">
-                                            <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500" />
+                                        <div className="p-2 sm:p-3 bg-primary/10 rounded-lg flex-shrink-0">
+                                            <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-primary/70" />
                                         </div>
                                         <div className="min-w-0 flex-1">
                                             <p className="text-xs sm:text-sm text-muted-foreground">Ticket Médio</p>
-                                            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-purple-600 break-words">
+                                            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-primary/70 break-words">
                                                 {formatCurrency(salesSummary.ticket_medio)}
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 sm:gap-3">
-                                        <div className="p-2 sm:p-3 bg-green-500/10 rounded-lg flex-shrink-0">
-                                            <Package className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
+                                        <div className="p-2 sm:p-3 bg-primary/10 rounded-lg flex-shrink-0">
+                                            <Package className="h-5 w-5 sm:h-6 sm:w-6 text-primary/60" />
                                         </div>
                                         <div className="min-w-0">
                                             <p className="text-xs sm:text-sm text-muted-foreground">PA</p>
-                                            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-green-600">
+                                            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-primary/60">
                                                 {salesSummary.pa.toFixed(1)}
                                             </p>
                                         </div>
@@ -642,10 +641,10 @@ export const CommercialDashboard = () => {
 
             {/* Informação sobre relatórios detalhados */}
             {periodFilter !== 'today' && (
-                <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+                <Card className="bg-primary/10 dark:bg-primary/5 border-primary/20 dark:border-primary/30">
                     <CardContent className="pt-6">
-                        <p className="text-sm text-blue-900 dark:text-blue-100">
-                            💡 <strong>Dica:</strong> Para informações mais detalhadas, acesse a página de{" "}
+                        <p className="text-sm text-foreground">
+                            <strong>Dica:</strong> Para informações mais detalhadas, acesse a página de{" "}
                             <strong>Relatórios</strong> no menu principal.
                         </p>
                     </CardContent>
@@ -803,7 +802,7 @@ export const CommercialDashboard = () => {
                                 <div>
                                     <div className="flex justify-between text-xs sm:text-sm mb-1">
                                         <span className="text-muted-foreground">Meta Mensal</span>
-                                        <span className={`font-bold text-sm sm:text-base ${progress >= 100 ? 'text-green-600' : 'text-primary'}`}>
+                                        <span className={`font-bold text-sm sm:text-base ${progress >= 100 ? 'text-status-ahead' : 'text-primary'}`}>
                                             {progress.toFixed(1)}%
                                         </span>
                                     </div>
@@ -816,25 +815,25 @@ export const CommercialDashboard = () => {
 
                                 {/* Summary KPIs */}
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center border-t pt-3">
-                                    <div className="p-2 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+                                    <div className="p-2 bg-primary/10 dark:bg-primary/5 rounded-lg">
                                         <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">Vendas</div>
-                                        <div className="font-bold text-sm sm:text-base text-blue-600">
+                                        <div className="font-bold text-sm sm:text-base text-primary">
                                             {store.total_vendas}
                                         </div>
                                     </div>
-                                    <div className="p-2 bg-purple-50 dark:bg-purple-950/20 rounded-lg">
+                                    <div className="p-2 bg-primary/10 dark:bg-primary/5 rounded-lg">
                                         <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">Ticket Médio</div>
                                         <div className={`font-bold text-xs sm:text-sm ${getKPIColor(store.ticket_medio, bench?.ideal_ticket_medio)}`}>
                                             R$ {store.ticket_medio.toFixed(0)}
                                         </div>
                                     </div>
-                                    <div className="p-2 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                                    <div className="p-2 bg-primary/10 dark:bg-primary/5 rounded-lg">
                                         <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">P.A.</div>
                                         <div className={`font-bold text-xs sm:text-sm ${getKPIColor(store.pa, bench?.ideal_pa)}`}>
                                             {store.pa.toFixed(1)}
                                         </div>
                                     </div>
-                                    <div className="p-2 bg-orange-50 dark:bg-orange-950/20 rounded-lg">
+                                    <div className="p-2 bg-primary/10 dark:bg-primary/5 rounded-lg">
                                         <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">Preço Médio</div>
                                         <div className={`font-bold text-xs sm:text-sm ${getKPIColor(store.preco_medio, bench?.ideal_preco_medio)}`}>
                                             R$ {store.preco_medio.toFixed(0)}

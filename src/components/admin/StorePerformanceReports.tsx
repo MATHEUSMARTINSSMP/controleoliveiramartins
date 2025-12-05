@@ -802,12 +802,12 @@ export const StorePerformanceReports = () => {
                                                         {formatCurrency(vendedor.vendido_dia)}
                                                     </TableCell>
                                                     <TableCell className={`text-xs sm:text-sm text-center font-semibold ${
-                                                        vendedor.falta_meta_mes > 0 ? 'text-orange-600' : 'text-green-600'
+                                                        vendedor.falta_meta_mes > 0 ? 'text-status-behind' : 'text-status-ahead'
                                                     }`}>
                                                         {formatCurrency(vendedor.falta_meta_mes)}
                                                     </TableCell>
                                                     <TableCell className={`text-xs sm:text-sm text-center font-semibold ${
-                                                        vendedor.falta_meta_dia > 0 ? 'text-orange-600' : 'text-green-600'
+                                                        vendedor.falta_meta_dia > 0 ? 'text-status-behind' : 'text-status-ahead'
                                                     }`}>
                                                         {formatCurrency(vendedor.falta_meta_dia)}
                                                     </TableCell>

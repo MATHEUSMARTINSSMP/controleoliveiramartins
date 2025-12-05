@@ -86,7 +86,7 @@ export function WeeklyHistoryChart({ history, className }: WeeklyHistoryChartPro
                     <span className="font-semibold">{formatCurrency(day.totalSales)}</span>
                     <Badge 
                       variant={isAboveGoal ? "default" : "secondary"}
-                      className={`text-xs ${isAboveGoal ? "bg-green-500" : ""}`}
+                      className={`text-xs ${isAboveGoal ? "bg-primary" : ""}`}
                     >
                       {isAboveGoal ? (
                         <TrendingUp className="w-3 h-3 mr-1" />
@@ -101,8 +101,8 @@ export function WeeklyHistoryChart({ history, className }: WeeklyHistoryChartPro
                   <motion.div
                     className={`absolute left-0 top-0 h-full rounded-full ${
                       isAboveGoal 
-                        ? "bg-gradient-to-r from-green-500 to-emerald-500" 
-                        : "bg-gradient-to-r from-primary to-violet-500"
+                        ? "bg-primary" 
+                        : "bg-primary/60"
                     }`}
                     initial={{ width: 0 }}
                     animate={{ width: `${barWidth}%` }}

@@ -237,11 +237,11 @@ export function GoalsHistory() {
                             </div>
                             <div className="flex items-center gap-2 text-sm">
                                 {historyData.progress >= 100 ? (
-                                    <TrendingUp className="h-4 w-4 text-green-600" />
+                                    <TrendingUp className="h-4 w-4 text-status-ahead" />
                                 ) : (
-                                    <TrendingDown className="h-4 w-4 text-red-600" />
+                                    <TrendingDown className="h-4 w-4 text-status-behind" />
                                 )}
-                                <span className={historyData.progress >= 100 ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
+                                <span className={historyData.progress >= 100 ? "text-status-ahead font-semibold" : "text-status-behind font-semibold"}>
                                     {historyData.progress.toFixed(1)}% da meta
                                 </span>
                             </div>
@@ -260,9 +260,9 @@ export function GoalsHistory() {
                                             <div className="flex items-center gap-2">
                                                 <span className="font-medium text-sm break-words">{colab.name}</span>
                                                 {colab.atingiu ? (
-                                                    <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                                    <CheckCircle2 className="h-4 w-4 text-status-ahead flex-shrink-0" />
                                                 ) : (
-                                                    <XCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                                                    <XCircle className="h-4 w-4 text-status-behind flex-shrink-0" />
                                                 )}
                                             </div>
                                             <p className="text-xs text-muted-foreground">

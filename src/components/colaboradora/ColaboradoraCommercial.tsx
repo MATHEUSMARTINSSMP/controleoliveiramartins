@@ -102,29 +102,29 @@ export const ColaboradoraCommercial = () => {
   const getStatusColor = () => {
     switch (calculation.status) {
       case 'ahead':
-        return 'text-green-600 bg-green-50 border-green-200';
+        return 'text-status-ahead bg-status-ahead-bg border-status-ahead-border';
       case 'behind':
-        return 'text-red-600 bg-red-50 border-red-200';
+        return 'text-status-behind bg-status-behind-bg border-status-behind-border';
       default:
-        return 'text-blue-600 bg-blue-50 border-blue-200';
+        return 'text-status-ontrack bg-status-ontrack-bg border-status-ontrack-border';
     }
   };
 
   const getStatusIcon = () => {
     switch (calculation.status) {
       case 'ahead':
-        return <TrendingUp className="h-5 w-5 text-green-600" />;
+        return <TrendingUp className="h-5 w-5 text-status-ahead" />;
       case 'behind':
-        return <TrendingDown className="h-5 w-5 text-red-600" />;
+        return <TrendingDown className="h-5 w-5 text-status-behind" />;
       default:
-        return <CheckCircle2 className="h-5 w-5 text-blue-600" />;
+        return <CheckCircle2 className="h-5 w-5 text-status-ontrack" />;
     }
   };
 
   const getProgressColor = (percentual: number) => {
-    if (percentual >= 100) return 'bg-green-500';
-    if (percentual >= 70) return 'bg-yellow-500';
-    return 'bg-red-500';
+    if (percentual >= 100) return 'bg-primary';
+    if (percentual >= 70) return 'bg-primary/70';
+    return 'bg-primary/50';
   };
 
   return (
@@ -148,7 +148,7 @@ export const ColaboradoraCommercial = () => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Vendido Hoje</span>
-                <span className="text-lg font-bold text-green-600">
+                <span className="text-lg font-bold text-status-ahead">
                   {formatCurrency(calculation.vendidoHoje)}
                 </span>
               </div>
@@ -184,9 +184,9 @@ export const ColaboradoraCommercial = () => {
       </Card>
 
       {/* 2. Super Meta Diária */}
-      <Card className="border-2 border-purple-200 shadow-lg">
-        <CardHeader className="bg-gradient-to-r from-purple-50 to-purple-100/50 pb-4">
-          <CardTitle className="flex items-center gap-2 text-purple-700">
+      <Card className="border-2 border-primary/30 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5 pb-4">
+          <CardTitle className="flex items-center gap-2 text-primary">
             <Zap className="h-6 w-6" />
             Super Meta Diária
           </CardTitle>
@@ -196,13 +196,13 @@ export const ColaboradoraCommercial = () => {
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Super Meta do Dia</span>
-                <Badge variant="outline" className="font-semibold border-purple-300 text-purple-700">
+                <Badge variant="outline" className="font-semibold border-primary/50 text-primary">
                   {formatCurrency(calculation.superMetaDiariaAjustada)}
                 </Badge>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Vendido Hoje</span>
-                <span className="text-lg font-bold text-green-600">
+                <span className="text-lg font-bold text-status-ahead">
                   {formatCurrency(calculation.vendidoHoje)}
                 </span>
               </div>
@@ -216,7 +216,7 @@ export const ColaboradoraCommercial = () => {
               </div>
               <Progress 
                 value={calculation.percentualSuperMetaHoje} 
-                className="h-3 bg-purple-100"
+                className="h-3 bg-primary/20"
               />
             </div>
           </div>
@@ -225,9 +225,9 @@ export const ColaboradoraCommercial = () => {
 
       {/* 3. Gincana Semanal - Mostrar apenas se houver */}
       {!loadingGincana && gincanaSemanal && (
-        <Card className="border-2 border-blue-200 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100/50 pb-4">
-            <CardTitle className="flex items-center gap-2 text-blue-700">
+        <Card className="border-2 border-primary/20 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5 pb-4">
+            <CardTitle className="flex items-center gap-2 text-primary">
               <Gift className="h-6 w-6" />
               Gincana Semanal
             </CardTitle>
@@ -237,13 +237,13 @@ export const ColaboradoraCommercial = () => {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Meta da Gincana</span>
-                  <Badge variant="outline" className="font-semibold border-blue-300 text-blue-700">
+                  <Badge variant="outline" className="font-semibold border-primary/50 text-primary">
                     {formatCurrency(gincanaSemanal.meta_valor)}
                   </Badge>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Vendido na Semana</span>
-                  <span className="text-lg font-bold text-green-600">
+                  <span className="text-lg font-bold text-status-ahead">
                     {formatCurrency(gincanaSemanal.realizado)}
                   </span>
                 </div>
@@ -257,7 +257,7 @@ export const ColaboradoraCommercial = () => {
                 </div>
                 <Progress 
                   value={(gincanaSemanal.realizado / gincanaSemanal.meta_valor) * 100} 
-                  className="h-3 bg-blue-100"
+                  className="h-3 bg-primary/20"
                 />
               </div>
             </div>
@@ -267,9 +267,9 @@ export const ColaboradoraCommercial = () => {
 
       {/* 4. Super Gincana Semanal - Mostrar apenas se houver */}
       {!loadingGincana && gincanaSemanal && gincanaSemanal.super_meta_valor > 0 && (
-        <Card className="border-2 border-orange-200 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-orange-50 to-orange-100/50 pb-4">
-            <CardTitle className="flex items-center gap-2 text-orange-700">
+        <Card className="border-2 border-primary/30 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5 pb-4">
+            <CardTitle className="flex items-center gap-2 text-primary">
               <Zap className="h-6 w-6" />
               Super Gincana Semanal
             </CardTitle>
@@ -279,13 +279,13 @@ export const ColaboradoraCommercial = () => {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Super Meta da Gincana</span>
-                  <Badge variant="outline" className="font-semibold border-orange-300 text-orange-700">
+                  <Badge variant="outline" className="font-semibold border-primary/50 text-primary">
                     {formatCurrency(gincanaSemanal.super_meta_valor)}
                   </Badge>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Vendido na Semana</span>
-                  <span className="text-lg font-bold text-green-600">
+                  <span className="text-lg font-bold text-status-ahead">
                     {formatCurrency(gincanaSemanal.realizado)}
                   </span>
                 </div>
@@ -299,7 +299,7 @@ export const ColaboradoraCommercial = () => {
                 </div>
                 <Progress 
                   value={(gincanaSemanal.realizado / gincanaSemanal.super_meta_valor) * 100} 
-                  className="h-3 bg-orange-100"
+                  className="h-3 bg-primary/20"
                 />
               </div>
             </div>
@@ -334,16 +334,16 @@ export const ColaboradoraCommercial = () => {
             </div>
             <div className="space-y-2">
               <div className="text-sm text-muted-foreground">Realizado</div>
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-2xl font-bold text-status-ahead">
                 {formatCurrency(calculation.realizadoMensal)}
               </div>
             </div>
             <div className="space-y-2">
               <div className="text-sm text-muted-foreground">Progresso</div>
               <div className={`text-2xl font-bold ${
-                calculation.percentualMensal >= 100 ? 'text-green-600' :
-                calculation.percentualMensal >= 80 ? 'text-blue-600' :
-                'text-orange-600'
+                calculation.percentualMensal >= 100 ? 'text-status-ahead' :
+                calculation.percentualMensal >= 80 ? 'text-status-ontrack' :
+                'text-status-behind'
               }`}>
                 {calculation.percentualMensal.toFixed(1)}%
               </div>
@@ -366,7 +366,7 @@ export const ColaboradoraCommercial = () => {
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Projeção Mensal</span>
               <span className={`font-bold ${
-                calculation.projecaoMensal >= calculation.metaMensal ? 'text-green-600' : 'text-orange-600'
+                calculation.projecaoMensal >= calculation.metaMensal ? 'text-status-ahead' : 'text-status-behind'
               }`}>
                 {formatCurrency(calculation.projecaoMensal)}
               </span>
@@ -376,16 +376,16 @@ export const ColaboradoraCommercial = () => {
           {/* Duas Colunas: Ritmo Necessário | Dias Restantes e Déficit */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Coluna 1: Ritmo Necessário */}
-            <div className="flex flex-col h-full p-4 bg-gradient-to-br from-orange-50 to-orange-100/30 rounded-lg border border-orange-200">
+            <div className="flex flex-col h-full p-4 bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg border border-primary/20">
               <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="h-5 w-5 text-orange-600" />
-                <h3 className="text-base font-bold text-orange-700">Ritmo Necessário</h3>
+                <TrendingUp className="h-5 w-5 text-primary" />
+                <h3 className="text-base font-bold text-primary">Ritmo Necessário</h3>
               </div>
               
               {/* Para bater a meta - Destaque */}
-              <div className="p-4 bg-orange-600 rounded-lg border-2 border-orange-700 shadow-md">
-                <div className="text-xs text-orange-100 mb-2 font-medium">Para bater a meta</div>
-                <div className="text-3xl font-bold text-white">
+              <div className="p-4 bg-primary rounded-lg border-2 border-primary/70 shadow-md">
+                <div className="text-xs text-primary-foreground/80 mb-2 font-medium">Para bater a meta</div>
+                <div className="text-3xl font-bold text-primary-foreground">
                   {formatCurrency(calculation.ritmoNecessario)}/dia
                 </div>
               </div>
@@ -394,27 +394,27 @@ export const ColaboradoraCommercial = () => {
             {/* Coluna 2: Dias Restantes e Déficit */}
             <div className="flex flex-col h-full gap-4">
               {/* Dias restantes */}
-              <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100/30 rounded-lg border border-blue-200">
+              <div className="p-4 bg-gradient-to-br from-muted/50 to-muted/30 rounded-lg border border-border">
                 <div className="flex items-center gap-2 mb-3">
-                  <Calendar className="h-5 w-5 text-blue-600" />
-                  <h3 className="text-base font-bold text-blue-700">Dias Restantes</h3>
+                  <Calendar className="h-5 w-5 text-muted-foreground" />
+                  <h3 className="text-base font-bold text-foreground">Dias Restantes</h3>
                 </div>
-                <div className="text-3xl font-bold text-blue-700">
+                <div className="text-3xl font-bold text-foreground">
                   {calculation.diasRestantes} dias
                 </div>
               </div>
 
               {/* Déficit - Se houver */}
               {calculation.deficit > 0 ? (
-                <div className="p-4 bg-red-100 rounded-lg border-2 border-red-300 shadow-sm flex-1">
+                <div className="p-4 bg-status-behind-bg rounded-lg border-2 border-status-behind-border shadow-sm flex-1">
                   <div className="flex items-center gap-2 mb-3">
-                    <AlertCircle className="h-5 w-5 text-red-600" />
-                    <div className="text-sm font-semibold text-red-700 uppercase tracking-wide">Déficit</div>
+                    <AlertCircle className="h-5 w-5 text-status-behind" />
+                    <div className="text-sm font-semibold text-status-behind uppercase tracking-wide">Déficit</div>
                   </div>
-                  <div className="text-2xl font-bold text-red-700 mb-2">
+                  <div className="text-2xl font-bold text-status-behind mb-2">
                     {formatCurrency(calculation.deficit)}
                   </div>
-                  <div className="text-xs text-red-600">
+                  <div className="text-xs text-status-behind">
                     Valor necessário para recuperar o atraso
                   </div>
                 </div>
@@ -431,9 +431,9 @@ export const ColaboradoraCommercial = () => {
       </Card>
 
       {/* 7. Super Meta Mensal - Modo Paisagem */}
-      <Card className="shadow-md border-purple-200">
-        <CardHeader className="bg-gradient-to-r from-purple-50 to-purple-100/50 pb-4">
-          <CardTitle className="flex items-center gap-2 text-purple-700">
+      <Card className="shadow-md border-primary/20">
+        <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5 pb-4">
+          <CardTitle className="flex items-center gap-2 text-primary">
             <Zap className="h-5 w-5" />
             Super Meta Mensal
           </CardTitle>
@@ -441,40 +441,40 @@ export const ColaboradoraCommercial = () => {
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Super Meta */}
-            <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100/30 rounded-lg border border-purple-200">
+            <div className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg border border-primary/20">
               <div className="flex items-center gap-2 mb-3">
-                <Target className="h-4 w-4 text-purple-600" />
-                <h3 className="text-sm font-bold text-purple-700">Super Meta</h3>
+                <Target className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-bold text-primary">Super Meta</h3>
               </div>
-              <div className="text-xl font-bold text-purple-600">
+              <div className="text-xl font-bold text-primary">
                 {formatCurrency(calculation.superMetaMensal)}
               </div>
             </div>
 
             {/* Falta para Super Meta */}
-            <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100/30 rounded-lg border border-purple-200">
+            <div className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg border border-primary/20">
               <div className="text-xs text-muted-foreground mb-2">Falta para Super Meta</div>
-              <div className="text-xl font-bold text-purple-700">
+              <div className="text-xl font-bold text-primary">
                 {formatCurrency(Math.max(0, calculation.superMetaMensal - calculation.realizadoMensal))}
               </div>
             </div>
 
             {/* Progresso */}
-            <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100/30 rounded-lg border border-purple-200">
+            <div className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg border border-primary/20">
               <div className="text-xs text-muted-foreground mb-2">Progresso</div>
-              <div className="text-xl font-bold text-purple-700 mb-2">
+              <div className="text-xl font-bold text-primary mb-2">
                 {((calculation.realizadoMensal / calculation.superMetaMensal) * 100).toFixed(1)}%
               </div>
               <Progress 
                 value={Math.min((calculation.realizadoMensal / calculation.superMetaMensal) * 100, 100)} 
-                className="h-2 bg-purple-100"
+                className="h-2 bg-primary/20"
               />
             </div>
 
             {/* Necessário por dia - Destaque */}
-            <div className="p-4 bg-purple-600 rounded-lg border-2 border-purple-700 shadow-md">
-              <div className="text-xs text-purple-100 mb-2 font-medium">Necessário por dia</div>
-              <div className="text-2xl font-bold text-white">
+            <div className="p-4 bg-primary rounded-lg border-2 border-primary/70 shadow-md">
+              <div className="text-xs text-primary-foreground/80 mb-2 font-medium">Necessário por dia</div>
+              <div className="text-2xl font-bold text-primary-foreground">
                 {formatCurrency(calculation.ritmoSuperMeta)}
               </div>
             </div>

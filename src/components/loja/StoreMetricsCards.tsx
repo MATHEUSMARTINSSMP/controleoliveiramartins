@@ -116,7 +116,7 @@ export function StoreMetricsCards({
               </CardTitle>
             </CardHeader>
             <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
-              <div className="text-2xl sm:text-4xl font-bold text-green-600">
+              <div className="text-2xl sm:text-4xl font-bold text-status-ahead">
                 {formatCurrency(todaySales)}
               </div>
               <div className="text-sm text-muted-foreground mt-2">

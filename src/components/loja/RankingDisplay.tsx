@@ -22,11 +22,11 @@ const formatCurrency = (value: number) => {
 const getMedalIcon = (position: number) => {
   switch (position) {
     case 1:
-      return <Trophy className="w-5 h-5 text-yellow-500" />;
+      return <Trophy className="w-5 h-5 text-primary" />;
     case 2:
-      return <Medal className="w-5 h-5 text-gray-400" />;
+      return <Medal className="w-5 h-5 text-muted-foreground" />;
     case 3:
-      return <Award className="w-5 h-5 text-amber-600" />;
+      return <Award className="w-5 h-5 text-primary/70" />;
     default:
       return null;
   }
@@ -35,11 +35,11 @@ const getMedalIcon = (position: number) => {
 const getMedalBg = (position: number) => {
   switch (position) {
     case 1:
-      return "bg-gradient-to-r from-yellow-100 to-yellow-50 dark:from-yellow-900/20 dark:to-yellow-800/10 border-yellow-300 dark:border-yellow-700";
+      return "bg-primary/10 border-primary/30";
     case 2:
-      return "bg-gradient-to-r from-gray-100 to-gray-50 dark:from-gray-800/20 dark:to-gray-700/10 border-gray-300 dark:border-gray-600";
+      return "bg-muted/50 border-border";
     case 3:
-      return "bg-gradient-to-r from-amber-100 to-amber-50 dark:from-amber-900/20 dark:to-amber-800/10 border-amber-300 dark:border-amber-700";
+      return "bg-primary/5 border-primary/20";
     default:
       return "bg-card border-border";
   }
