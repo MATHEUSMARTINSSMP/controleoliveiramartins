@@ -217,8 +217,8 @@ export const WebhookConfig = () => {
             </Label>
             <Input
               id="n8n-auth-key"
-              type="text"
-              placeholder="#mmP220411"
+              type="password"
+              placeholder="Digite a chave de autenticação do n8n"
               value={config.n8n_webhook_auth || ''}
               onChange={(e) => setConfig({ ...config, n8n_webhook_auth: e.target.value })}
               className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"

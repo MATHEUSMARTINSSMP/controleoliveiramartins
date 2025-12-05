@@ -13,7 +13,8 @@
   NODE_VERSION = "18"
   # Ignorar detecção de chaves que usamos via env vars (não estão hardcoded no código)
   # O código usa process.env.SUPABASE_SERVICE_ROLE_KEY corretamente
-  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_ANON_KEY,VITE_SUPABASE_PUBLISHABLE_KEY,SUPABASE_SERVICE_ROLE_KEY"
+  # N8N_WEBHOOK_AUTH é configurado via app_config no Supabase, não hardcoded
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_ANON_KEY,VITE_SUPABASE_PUBLISHABLE_KEY,SUPABASE_SERVICE_ROLE_KEY,N8N_WEBHOOK_AUTH"
 
 [functions]
   directory = "netlify/functions"
