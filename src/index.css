@@ -31,15 +31,17 @@
     --alert: 28 60% 35%;
     --alert-foreground: 28 70% 25%;
     
-    --status-ahead: 38 85% 45%;
-    --status-ahead-bg: 38 60% 95%;
-    --status-ahead-border: 38 50% 80%;
-    --status-behind: 28 50% 40%;
-    --status-behind-bg: 30 40% 94%;
-    --status-behind-border: 28 35% 75%;
-    --status-ontrack: 35 65% 50%;
-    --status-ontrack-bg: 35 50% 96%;
-    --status-ontrack-border: 35 40% 82%;
+    --status-ahead: 38 75% 50%;
+    --status-ahead-bg: 38 50% 96%;
+    --status-ahead-border: 38 40% 85%;
+    --status-behind: 38 45% 55%;
+    --status-behind-bg: 38 35% 95%;
+    --status-behind-border: 38 30% 82%;
+    --status-ontrack: 38 60% 52%;
+    --status-ontrack-bg: 38 40% 96%;
+    --status-ontrack-border: 38 35% 84%;
+    
+    --card-header-gradient: linear-gradient(135deg, hsl(38 45% 97%) 0%, hsl(40 35% 94%) 100%);
     
     --radius: 0.5rem;
     
@@ -111,12 +113,14 @@
     --status-ahead: 262 50% 70%;
     --status-ahead-bg: 262 30% 12%;
     --status-ahead-border: 262 35% 25%;
-    --status-behind: 262 25% 45%;
-    --status-behind-bg: 262 20% 10%;
-    --status-behind-border: 262 20% 20%;
+    --status-behind: 262 35% 55%;
+    --status-behind-bg: 262 25% 11%;
+    --status-behind-border: 262 25% 22%;
     --status-ontrack: 262 40% 60%;
     --status-ontrack-bg: 262 25% 11%;
     --status-ontrack-border: 262 30% 22%;
+    
+    --card-header-gradient: linear-gradient(135deg, hsl(262 25% 10%) 0%, hsl(262 20% 8%) 100%);
     
     --gradient-primary: linear-gradient(135deg, hsl(262 50% 55%), hsl(270 45% 50%));
     --gradient-secondary: linear-gradient(135deg, hsl(262 20% 12%), hsl(270 18% 8%));

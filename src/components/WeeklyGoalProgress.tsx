@@ -637,16 +637,16 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                 : 'border-status-ontrack-border';
 
     return (
-        <Card className={`border-2 shadow-lg overflow-visible ${borderColorClass}`}>
-            <CardHeader className={`bg-gradient-to-r ${mainStatusBadge.color} bg-opacity-10 pb-3`}>
-                <div className="flex items-center justify-between">
+        <Card className={`border shadow-lg overflow-visible ${borderColorClass}`}>
+            <CardHeader className="pb-3" style={{ background: 'var(--card-header-gradient)' }}>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                     <CardTitle className="flex items-center gap-2">
                         <Calendar className="h-5 w-5 text-primary" />
                         <span>
                           {colaboradoraId ? 'Sua Meta Semanal' : storeName ? `Meta Semanal (${storeName})` : 'Meta Semanal'}
                         </span>
                     </CardTitle>
-                    <Badge className={`${mainStatusBadge.color} text-white`}>
+                    <Badge className={`${mainStatusBadge.color} text-primary-foreground`}>
                         <MainStatusIcon className="h-3 w-3 mr-1" />
                         {mainStatusBadge.text}
                     </Badge>
@@ -750,7 +750,10 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                             zIndex: 10
                                         }}
                                     >
-                                        🎯 CP1: {formatCurrency(progress.meta_valor, { showSymbol: false, decimals: 0 })}
+                                        <span className="flex items-center gap-1">
+                                            <Target className="h-3 w-3" />
+                                            CP1: {formatCurrency(progress.meta_valor, { showSymbol: false, decimals: 0 })}
+                                        </span>
                                         <div className="text-[9px] font-normal mt-0.5 whitespace-nowrap text-center">
                                             Checkpoint
                                         </div>
@@ -772,7 +775,10 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                                         zIndex: 10
                                     }}
                                 >
-                                    <span className="hidden sm:inline">🏆 </span>Final: {formatCurrency(progress.super_meta_valor, { showSymbol: false, decimals: 0 })}
+                                    <span className="flex items-center gap-1">
+                                        <Trophy className="h-3 w-3 hidden sm:inline" />
+                                        Final: {formatCurrency(progress.super_meta_valor, { showSymbol: false, decimals: 0 })}
+                                    </span>
                                     <div className="text-[9px] font-normal mt-0.5 whitespace-nowrap text-right">
                                         Meta Final
                                     </div>
