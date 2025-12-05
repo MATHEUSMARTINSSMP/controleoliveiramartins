@@ -10,16 +10,24 @@ Complete multi-tenant ERP/sales management SaaS system migrated from Lovable to 
 - **Multi-tenancy**: RLS-based data isolation using `sistemaretiradas` schema
 
 ## Recent Changes
-- **2024-12-05**: Phase 4 - EXTREME PROFESSIONALISM - Monocromatic Design Overhaul:
-  - **Design Philosophy**: COMPLETELY monocromatic (black, white, grays only) - ZERO colors
-  - **Dark Mode Default**: Tema escuro como padrao (background: 0 0% 2% - preto absoluto)
-  - **Light Mode**: Neutral whites and grays (background: 0 0% 99%)
-  - **No Gradients**: Removed ALL gradient-primary, gradient-secondary, gradient-accent
-  - **Professional Palette**: Only foreground (98% dark / 2% light) and background colors
-  - **Button Style**: bg-foreground text-background - clean, minimal, Stripe-like
-  - **Icon Boxes**: bg-foreground text-background with rounded-lg (NOT rounded-xl)
-  - **Updated Components**: metric-hero-card, modern-dashboard-layout, modern-stat-card, animated-counter, glass-card
-  - **Result**: EXTREMELY professional, technological, futuristic design - zero childish colors
+- **2024-12-05**: Phase 5 - DUAL MONOCHROMATIC PALETTES with Animated Orbs:
+  - **Design Philosophy**: Two distinct monochromatic palettes per theme
+  - **Dark Theme**: Purple/Violet monocromatic palette (262deg hue) with subtle animated orbs
+    - Background: 262 20% 4% (deep purple-black)
+    - Cards/inputs: 262 18% 8% to 262 15% 16%
+    - Primary: 262 60% 65% (muted violet)
+    - Animated orbs: violet-500/20, purple-500/18, indigo-500/15
+  - **Light Theme**: Beige/Golden/Brown monocromatic palette (35-40deg hue)
+    - Background: 40 30% 96%
+    - Cards: 40 40% 97%
+    - Primary: 38 92% 50% (golden)
+    - Animated orbs: amber-500/15, orange-400/12, yellow-500/10
+  - **Animated Orbs Component**: `src/components/ui/animated-orbs.tsx`
+    - Floating blur orbs with framer-motion animations
+    - Different speeds (15s, 18s, 20s, 22s) for organic feel
+    - Applied to all pages: Auth, Admin, Loja, Colaboradora dashboards
+  - **Auth Page Enhanced**: Purple gradient icon, violet button, animated background orbs
+  - **Result**: Elegant, chic, minimalist, futuristic - subtle colors within each theme family
 - **2024-12-05**: Theme System + Auth Modernization:
   - **Theme System**: ThemeProvider with dark/light toggle, localStorage persistence (dark as default)
   - **Auth.tsx Fully Theme-Aware**: All colors replaced with semantic tokens
