@@ -33,7 +33,6 @@ interface Parcela {
     num_parcelas: number;
     data_compra: string;
     preco_final: number;
-    store_id: string | null;
     loja_id: string | null;
     profiles: {
       name: string;
