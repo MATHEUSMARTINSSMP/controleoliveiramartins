@@ -268,6 +268,12 @@ export default function LojaDashboard() {
     // ✅ ATUALIZAR ESTADOS DOS MÓDULOS quando storeSettings mudar OU quando storeId mudar
     useEffect(() => {
         const updateModuleStates = async () => {
+            console.log('[LojaDashboard] 🔄 useEffect updateModuleStates executado:', {
+                storeId,
+                hasStoreSettings: !!storeSettings,
+                storeSettingsData: storeSettings
+            });
+
             // Prioridade 1: Usar storeSettings do hook React Query
             if (storeSettings) {
                 console.log('[LojaDashboard] ✅ Atualizando módulos via storeSettings:', {
@@ -275,12 +281,27 @@ export default function LojaDashboard() {
                     crm: storeSettings.crm_ativo,
                     ponto: storeSettings.ponto_ativo,
                     wishlist: storeSettings.wishlist_ativo,
-                    storeId: storeId
+                    storeId: storeId,
+                    cashbackType: typeof storeSettings.cashback_ativo,
+                    crmType: typeof storeSettings.crm_ativo
                 });
-                setCashbackAtivo(storeSettings.cashback_ativo === true);
-                setCrmAtivo(storeSettings.crm_ativo === true);
-                setPontoAtivo(storeSettings.ponto_ativo === true);
-                setWishlistAtivo(storeSettings.wishlist_ativo === true);
+                
+                const cashback = storeSettings.cashback_ativo === true;
+                const crm = storeSettings.crm_ativo === true;
+                const ponto = storeSettings.ponto_ativo === true;
+                const wishlist = storeSettings.wishlist_ativo === true;
+                
+                console.log('[LojaDashboard] ✅ Valores booleanos calculados:', {
+                    cashback,
+                    crm,
+                    ponto,
+                    wishlist
+                });
+                
+                setCashbackAtivo(cashback);
+                setCrmAtivo(crm);
+                setPontoAtivo(ponto);
+                setWishlistAtivo(wishlist);
                 return;
             }
 
@@ -297,6 +318,12 @@ export default function LojaDashboard() {
 
                     if (error) {
                         console.error('[LojaDashboard] ❌ Erro ao buscar módulos (fallback):', error);
+                        console.error('[LojaDashboard] ❌ Detalhes do erro:', {
+                            message: error.message,
+                            details: error.details,
+                            hint: error.hint,
+                            code: error.code
+                        });
                         return;
                     }
 
@@ -305,12 +332,28 @@ export default function LojaDashboard() {
                             cashback: data.cashback_ativo,
                             crm: data.crm_ativo,
                             ponto: data.ponto_ativo,
-                            wishlist: data.wishlist_ativo
+                            wishlist: data.wishlist_ativo,
+                            cashbackType: typeof data.cashback_ativo
                         });
-                        setCashbackAtivo(data.cashback_ativo === true);
-                        setCrmAtivo(data.crm_ativo === true);
-                        setPontoAtivo(data.ponto_ativo === true);
-                        setWishlistAtivo(data.wishlist_ativo === true);
+                        
+                        const cashback = data.cashback_ativo === true;
+                        const crm = data.crm_ativo === true;
+                        const ponto = data.ponto_ativo === true;
+                        const wishlist = data.wishlist_ativo === true;
+                        
+                        console.log('[LojaDashboard] ✅ Setando módulos (fallback):', {
+                            cashback,
+                            crm,
+                            ponto,
+                            wishlist
+                        });
+                        
+                        setCashbackAtivo(cashback);
+                        setCrmAtivo(crm);
+                        setPontoAtivo(ponto);
+                        setWishlistAtivo(wishlist);
+                    } else {
+                        console.warn('[LojaDashboard] ⚠️ data é null ou undefined no fallback');
                     }
                 } catch (error) {
                     console.error('[LojaDashboard] ❌ Erro ao verificar status dos módulos:', error);
@@ -2765,6 +2808,18 @@ export default function LojaDashboard() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
+                        {/* DEBUG: Log dos estados dos módulos */}
+                        {(() => {
+                            console.log('[LojaDashboard] 🔍 DEBUG RENDER - Estados dos módulos:', {
+                                cashbackAtivo,
+                                crmAtivo,
+                                wishlistAtivo,
+                                pontoAtivo,
+                                storeId,
+                                hasAnyModule: cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo
+                            });
+                            return null;
+                        })()}
                         {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo) && (
                             <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto')}>
                                 <TabsList className={`h-8 ${
