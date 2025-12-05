@@ -125,7 +125,6 @@ const Lancamentos = () => {
             num_parcelas,
             data_compra,
             preco_final,
-            store_id,
             loja_id
           )
         `)
@@ -174,7 +173,6 @@ const Lancamentos = () => {
           data_compra,
           preco_final,
           num_parcelas,
-          store_id,
           loja_id,
           parcelas(
             id,
@@ -191,7 +189,7 @@ const Lancamentos = () => {
 
       // Buscar perfis e lojas
       const colaboradoraIds = [...new Set(comprasData?.map((c: any) => c.colaboradora_id).filter(Boolean) || [])];
-      const storeIds = [...new Set(comprasData?.map((c: any) => c.store_id || c.loja_id).filter(Boolean) || [])];
+      const storeIds = [...new Set(comprasData?.map((c: any) => c.loja_id).filter(Boolean) || [])];
 
       const [profilesData, storesData] = await Promise.all([
         supabase
@@ -221,7 +219,7 @@ const Lancamentos = () => {
         return {
           compra_id: c.id,
           colaboradora: profilesMap.get(c.colaboradora_id) || "Desconhecido",
-          loja_nome: storesMap.get(c.store_id || c.loja_id) || "Não informado",
+          loja_nome: storesMap.get(c.loja_id) || "Não informado",
           data_compra: c.data_compra,
           num_parcelas: c.num_parcelas,
           valor_total: c.preco_final,
@@ -237,7 +235,6 @@ const Lancamentos = () => {
               num_parcelas: c.num_parcelas,
               data_compra: c.data_compra,
               preco_final: c.preco_final,
-              store_id: c.store_id,
               loja_id: c.loja_id,
               profiles: {
                 name: profilesMap.get(c.colaboradora_id) || "Desconhecido"
