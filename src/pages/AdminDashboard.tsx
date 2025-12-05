@@ -218,7 +218,7 @@ const AdminDashboard = () => {
               <div className="flex flex-wrap gap-2 sm:gap-4">
                 <Button
                   onClick={() => navigate("/admin/colaboradores")}
-                  className="btn-futuristic text-xs sm:text-sm flex-1 sm:flex-initial"
+                  className="text-xs sm:text-sm flex-1 sm:flex-initial"
                   size="sm"
                 >
                   <span className="hidden sm:inline">Colaboradoras & Lojas</span>
