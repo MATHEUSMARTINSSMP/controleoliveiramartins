@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award, Download, FileSpreadsheet, FileText, Database, ChevronDown, ChevronRight, Loader2, Store } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award, Download, FileSpreadsheet, FileText, Database, ChevronDown, ChevronRight, Loader2, Store, AlertTriangle, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -2812,9 +2812,9 @@ export default function LojaDashboard() {
                                                                 onClick={() => {
                                                                     setFormasPagamento(formasPagamento.filter((_, i) => i !== index));
                                                                 }}
-                                                                className="h-9 w-9 p-0 text-destructive"
+                                                                className="h-9 w-9 p-0 text-status-behind"
                                                             >
-                                                                ×
+                                                                <X className="h-4 w-4" />
                                                             </Button>
                                                         )}
                                                     </div>
@@ -2828,11 +2828,14 @@ export default function LojaDashboard() {
 
                                             if (valorTotal > 0 && Math.abs(diferenca) > 0.01) {
                                                 return (
-                                                    <div className={`p-2 rounded text-sm ${diferenca > 0 ? 'bg-status-ontrack/10 text-status-ontrack border border-status-ontrack/30' : 'bg-destructive/10 text-destructive border border-destructive/30'}`}>
-                                                        {diferenca > 0
-                                                            ? `⚠️ Faltam R$ ${diferenca.toFixed(2)} para completar o valor total`
-                                                            : `⚠️ Valor excede o total em R$ ${Math.abs(diferenca).toFixed(2)}`
-                                                        }
+                                                    <div className={`p-2 rounded text-sm flex items-center gap-2 ${diferenca > 0 ? 'bg-status-ontrack/10 text-status-ontrack border border-status-ontrack/30' : 'bg-status-behind/10 text-status-behind border border-status-behind/30'}`}>
+                                                        <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                                                        <span>
+                                                            {diferenca > 0
+                                                                ? `Faltam R$ ${diferenca.toFixed(2)} para completar o valor total`
+                                                                : `Valor excede o total em R$ ${Math.abs(diferenca).toFixed(2)}`
+                                                            }
+                                                        </span>
                                                     </div>
                                                 );
                                             }
@@ -2926,7 +2929,7 @@ export default function LojaDashboard() {
                                                 </div>
                                                 {goals.super_meta_valor && (
                                                     <p className="text-sm sm:text-base text-muted-foreground flex items-center justify-center gap-1.5">
-                                                        <span>🏆</span>
+                                                        <Trophy className="h-4 w-4" />
                                                         <span>Super Meta: R$ {goals.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                                     </p>
                                                 )}
@@ -2935,7 +2938,7 @@ export default function LojaDashboard() {
                                     ) : (
                                         <div className="space-y-3">
                                             <p className="text-2xl sm:text-3xl font-bold text-muted-foreground">N/A</p>
-                                            <p className="text-sm sm:text-base text-destructive">
+                                            <p className="text-sm sm:text-base text-status-behind">
                                                 Meta não encontrada
                                             </p>
                                         </div>
@@ -3190,7 +3193,7 @@ export default function LojaDashboard() {
                                                                                     'text-status-behind'
                                                                     }>
                                                                         {perf.percentual.toFixed(0)}%
-                                                                        {perf.percentual >= 120 && ' 🏆'}
+                                                                        {perf.percentual >= 120 && <Trophy className="h-4 w-4 inline ml-1" />}
                                                                     </span>
                                                                     <div className="text-[10px] text-muted-foreground mt-0.5">
                                                                         Mês: {perf.percentualMensal.toFixed(0)}%
@@ -3350,7 +3353,7 @@ export default function LojaDashboard() {
                                                                         <Button variant="ghost" size="sm" onClick={() => handleEdit(sale)} className="h-8 w-8 p-0">
                                                                             <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
                                                                         </Button>
-                                                                        <Button variant="ghost" size="sm" className="text-destructive h-8 w-8 p-0" onClick={() => handleDelete(sale.id)}>
+                                                                        <Button variant="ghost" size="sm" className="text-status-behind h-8 w-8 p-0" onClick={() => handleDelete(sale.id)}>
                                                                             <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                                                                         </Button>
                                                                     </div>
@@ -3890,9 +3893,9 @@ export default function LojaDashboard() {
                                                             onClick={() => {
                                                                 setFormasPagamento(formasPagamento.filter((_, i) => i !== index));
                                                             }}
-                                                            className="h-9 w-9 p-0 text-destructive"
+                                                            className="h-9 w-9 p-0 text-status-behind"
                                                         >
-                                                            ×
+                                                            <X className="h-4 w-4" />
                                                         </Button>
                                                     )}
                                                 </div>
@@ -3906,11 +3909,14 @@ export default function LojaDashboard() {
 
                                         if (valorTotal > 0 && Math.abs(diferenca) > 0.01) {
                                             return (
-                                                <div className={`p-2 rounded text-sm ${diferenca > 0 ? 'bg-status-ontrack/10 text-status-ontrack border border-status-ontrack/30' : 'bg-destructive/10 text-destructive border border-destructive/30'}`}>
-                                                    {diferenca > 0
-                                                        ? `Faltam R$ ${diferenca.toFixed(2)} para completar o valor total`
-                                                        : `Valor excede o total em R$ ${Math.abs(diferenca).toFixed(2)}`
-                                                    }
+                                                <div className={`p-2 rounded text-sm flex items-center gap-2 ${diferenca > 0 ? 'bg-status-ontrack/10 text-status-ontrack border border-status-ontrack/30' : 'bg-status-behind/10 text-status-behind border border-status-behind/30'}`}>
+                                                    <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                                                    <span>
+                                                        {diferenca > 0
+                                                            ? `Faltam R$ ${diferenca.toFixed(2)} para completar o valor total`
+                                                            : `Valor excede o total em R$ ${Math.abs(diferenca).toFixed(2)}`
+                                                        }
+                                                    </span>
                                                 </div>
                                             );
                                         }
@@ -3999,7 +4005,7 @@ export default function LojaDashboard() {
                                             </div>
                                             {goals.super_meta_valor && (
                                                 <p className="text-sm sm:text-base text-muted-foreground flex items-center justify-center gap-1.5">
-                                                    <span>🏆</span>
+                                                    <Trophy className="h-4 w-4" />
                                                     <span>Super Meta: R$ {goals.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                                 </p>
                                             )}
@@ -4008,7 +4014,7 @@ export default function LojaDashboard() {
                                 ) : (
                                     <div className="space-y-3">
                                         <p className="text-2xl sm:text-3xl font-bold text-muted-foreground">N/A</p>
-                                        <p className="text-sm sm:text-base text-destructive">
+                                        <p className="text-sm sm:text-base text-status-behind">
                                             Meta não encontrada
                                         </p>
                                     </div>
@@ -4413,7 +4419,7 @@ export default function LojaDashboard() {
                                                                     <Button variant="ghost" size="sm" onClick={() => handleEdit(sale)} className="h-8 w-8 p-0">
                                                                         <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
                                                                     </Button>
-                                                                    <Button variant="ghost" size="sm" className="text-destructive h-8 w-8 p-0" onClick={() => handleDelete(sale.id)}>
+                                                                    <Button variant="ghost" size="sm" className="text-status-behind h-8 w-8 p-0" onClick={() => handleDelete(sale.id)}>
                                                                         <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                                                                     </Button>
                                                                 </div>
