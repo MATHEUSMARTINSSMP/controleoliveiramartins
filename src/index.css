@@ -34,23 +34,28 @@
     --gradient-card: linear-gradient(145deg, rgba(255,250,240,0.95), rgba(255,248,235,0.85));
     --gradient-glass: linear-gradient(135deg, rgba(255,250,240,0.15), rgba(255,248,235,0.08));
     --gradient-glow: radial-gradient(circle at 50% 50%, hsl(45 80% 55% / 0.3), transparent 70%);
+    --gradient-hero: linear-gradient(135deg, hsl(40 30% 96%) 0%, hsl(38 40% 90%) 50%, hsl(35 50% 85%) 100%);
+    --gradient-page: linear-gradient(180deg, hsl(40 30% 96%) 0%, hsl(38 35% 94%) 50%, hsl(40 30% 96%) 100%);
     --gradient-mesh: 
-      radial-gradient(at 40% 20%, hsl(38 70% 50% / 0.12) 0px, transparent 50%),
-      radial-gradient(at 80% 0%, hsl(45 80% 55% / 0.08) 0px, transparent 50%),
-      radial-gradient(at 0% 50%, hsl(32 60% 45% / 0.08) 0px, transparent 50%),
-      radial-gradient(at 80% 50%, hsl(38 70% 50% / 0.06) 0px, transparent 50%),
-      radial-gradient(at 0% 100%, hsl(45 80% 55% / 0.08) 0px, transparent 50%);
+      radial-gradient(at 40% 20%, hsl(38 70% 50% / 0.15) 0px, transparent 50%),
+      radial-gradient(at 80% 0%, hsl(45 80% 55% / 0.12) 0px, transparent 50%),
+      radial-gradient(at 0% 50%, hsl(32 60% 45% / 0.10) 0px, transparent 50%),
+      radial-gradient(at 80% 50%, hsl(38 70% 50% / 0.08) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, hsl(45 80% 55% / 0.12) 0px, transparent 50%);
+    --gradient-orb-1: hsl(38 70% 50% / 0.2);
+    --gradient-orb-2: hsl(45 80% 55% / 0.15);
+    --gradient-orb-3: hsl(32 60% 45% / 0.15);
     
     --shadow-sm: 0 1px 2px 0 rgb(120 80 40 / 0.05);
     --shadow-card: 0 4px 6px -1px rgb(120 80 40 / 0.08), 0 2px 4px -2px rgb(120 80 40 / 0.06);
     --shadow-hover: 0 10px 15px -3px rgb(120 80 40 / 0.1), 0 4px 6px -4px rgb(120 80 40 / 0.08);
-    --shadow-glow: 0 0 40px hsl(45 80% 55% / 0.3);
-    --shadow-glow-sm: 0 0 20px hsl(38 70% 50% / 0.25);
+    --shadow-glow: 0 0 40px hsl(45 80% 55% / 0.35);
+    --shadow-glow-sm: 0 0 20px hsl(38 70% 50% / 0.3);
     --shadow-glass: 0 8px 32px 0 rgba(120, 80, 40, 0.1);
     
-    --glass-bg: rgba(255, 252, 245, 0.75);
-    --glass-border: rgba(200, 170, 120, 0.2);
-    --glass-blur: 12px;
+    --glass-bg: rgba(255, 252, 245, 0.8);
+    --glass-border: rgba(200, 170, 120, 0.25);
+    --glass-blur: 16px;
 
     --sidebar-background: 40 25% 96%;
     --sidebar-foreground: 30 20% 15%;
@@ -85,6 +90,10 @@
     --ring: 262 83% 58%;
     --success: 142 70% 50%;
     
+    --gradient-primary: linear-gradient(135deg, hsl(262 83% 58%), hsl(280 100% 70%));
+    --gradient-secondary: linear-gradient(135deg, hsl(270 60% 50%), hsl(262 83% 58%));
+    --gradient-hero: linear-gradient(135deg, hsl(240 10% 4%) 0%, hsl(262 40% 12%) 50%, hsl(240 10% 4%) 100%);
+    --gradient-page: linear-gradient(180deg, hsl(240 10% 4%) 0%, hsl(262 30% 8%) 50%, hsl(240 10% 4%) 100%);
     --gradient-card: linear-gradient(145deg, rgba(30,30,40,0.9), rgba(20,20,30,0.8));
     --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
     --gradient-mesh: 
@@ -93,12 +102,17 @@
       radial-gradient(at 0% 50%, hsl(270 60% 50% / 0.15) 0px, transparent 50%),
       radial-gradient(at 80% 50%, hsl(262 83% 58% / 0.1) 0px, transparent 50%),
       radial-gradient(at 0% 100%, hsl(280 100% 70% / 0.15) 0px, transparent 50%);
+    --gradient-orb-1: hsl(262 83% 58% / 0.25);
+    --gradient-orb-2: hsl(280 100% 70% / 0.2);
+    --gradient-orb-3: hsl(270 60% 50% / 0.2);
+    
     --shadow-card: 0 4px 6px -1px rgb(0 0 0 / 0.3);
     --shadow-hover: 0 10px 25px -5px rgb(0 0 0 / 0.4);
-    --shadow-glow: 0 0 60px hsl(280 100% 70% / 0.35);
+    --shadow-glow: 0 0 60px hsl(280 100% 70% / 0.4);
+    --shadow-glow-sm: 0 0 30px hsl(262 83% 58% / 0.35);
     
-    --glass-bg: rgba(30, 30, 50, 0.6);
-    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-bg: rgba(30, 30, 50, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.12);
     
     --sidebar-background: 240 10% 6%;
     --sidebar-foreground: 0 0% 98%;
@@ -135,8 +149,27 @@
     box-shadow: var(--shadow-glass);
   }
 
+  .glass-strong {
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--glass-border);
+  }
+
   .gradient-primary {
     background: var(--gradient-primary);
+  }
+
+  .gradient-secondary {
+    background: var(--gradient-secondary);
+  }
+
+  .gradient-page {
+    background: var(--gradient-page);
+  }
+
+  .gradient-hero {
+    background: var(--gradient-hero);
   }
 
   .gradient-mesh {
@@ -157,7 +190,37 @@
   }
 
   .glow-text {
-    text-shadow: 0 0 20px hsl(280 100% 70% / 0.5);
+    text-shadow: 0 0 20px hsl(var(--primary-glow) / 0.5);
+  }
+
+  .futuristic-bg {
+    @apply relative overflow-hidden;
+    background: var(--gradient-page);
+  }
+
+  .futuristic-bg::before {
+    content: '';
+    @apply absolute inset-0 pointer-events-none;
+    background: var(--gradient-mesh);
+  }
+
+  .floating-orb {
+    @apply absolute rounded-full blur-3xl pointer-events-none;
+    background: var(--gradient-orb-1);
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .floating-orb-2 {
+    @apply absolute rounded-full blur-3xl pointer-events-none;
+    background: var(--gradient-orb-2);
+    animation: float 8s ease-in-out infinite reverse;
+  }
+
+  .floating-orb-3 {
+    @apply absolute rounded-full blur-3xl pointer-events-none;
+    background: var(--gradient-orb-3);
+    animation: float 7s ease-in-out infinite;
+    animation-delay: -2s;
   }
 
   .animate-float {
@@ -235,6 +298,58 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  .card-futuristic {
+    @apply glass-card;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card-futuristic::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.05),
+      transparent
+    );
+    animation: shimmer 3s infinite;
+  }
+
+  .header-futuristic {
+    @apply glass-strong sticky top-0 z-50;
+    box-shadow: var(--shadow-card);
+  }
+
+  .btn-futuristic {
+    @apply gradient-primary text-primary-foreground font-semibold rounded-xl transition-all duration-300;
+    box-shadow: var(--shadow-glow-sm);
+  }
+
+  .btn-futuristic:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow);
+  }
+
+  .btn-futuristic:active {
+    transform: translateY(0);
+  }
+
+  .page-container {
+    @apply min-h-screen relative overflow-hidden;
+    background: var(--gradient-page);
+  }
+
+  .page-container::before {
+    content: '';
+    @apply absolute inset-0 pointer-events-none;
+    background: var(--gradient-mesh);
+  }
 }
 
 @keyframes float {
@@ -242,16 +357,16 @@
     transform: translateY(0px);
   }
   50% {
-    transform: translateY(-10px);
+    transform: translateY(-20px);
   }
 }
 
 @keyframes glow {
   from {
-    box-shadow: 0 0 20px hsl(262 83% 58% / 0.3);
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
   }
   to {
-    box-shadow: 0 0 40px hsl(280 100% 70% / 0.5);
+    box-shadow: 0 0 40px hsl(var(--primary-glow) / 0.5);
   }
 }
 
@@ -266,10 +381,10 @@
 
 @keyframes shimmer {
   0% {
-    background-position: -200% 0;
+    left: -100%;
   }
   100% {
-    background-position: 200% 0;
+    left: 100%;
   }
 }
 
