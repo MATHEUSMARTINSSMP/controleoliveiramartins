@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, QrCode, CheckCircle2, XCircle, RefreshCw, Wifi, WifiOff } from "lucide-react";
+import { Loader2, QrCode, CheckCircle2, XCircle, WifiOff, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -32,7 +32,7 @@ export const WhatsAppAuth = ({
 }: WhatsAppAuthProps) => {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const [polling, setPolling] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -66,10 +66,6 @@ export const WhatsAppAuth = ({
 
   const checkStatus = async (silent = false) => {
     if (!customerId || !siteSlug) return;
-
-    if (!silent) {
-      setCheckingStatus(true);
-    }
 
     try {
       const isDevelopment = import.meta.env.DEV;
@@ -115,10 +111,6 @@ export const WhatsAppAuth = ({
       console.error('Erro ao verificar status:', error);
       if (!silent) {
         toast.error('Erro ao verificar status: ' + error.message);
-      }
-    } finally {
-      if (!silent) {
-        setCheckingStatus(false);
       }
     }
   };
@@ -176,6 +168,61 @@ export const WhatsAppAuth = ({
       toast.error('Erro ao iniciar autenticação: ' + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!customerId || !siteSlug || !authStatus?.instance_id) {
+      toast.error('Dados insuficientes para desconectar');
+      return;
+    }
+
+    setDisconnecting(true);
+    try {
+      // Atualizar status no banco de dados
+      const { supabase } = await import("@/integrations/supabase/client");
+      
+      // Atualizar whatsapp_credentials
+      await supabase
+        .schema('sistemaretiradas')
+        .from('whatsapp_credentials')
+        .update({
+          uazapi_status: 'disconnected',
+          status: 'inactive',
+        })
+        .eq('customer_id', customerId)
+        .eq('site_slug', siteSlug);
+
+      // Atualizar stores se houver store_id
+      if (storeId) {
+        await supabase
+          .schema('sistemaretiradas')
+          .from('stores')
+          .update({
+            whatsapp_connection_status: 'disconnected',
+          })
+          .eq('id', storeId);
+      }
+
+      // Atualizar estado local
+      setAuthStatus({
+        status: 'disconnected',
+        qr_code: null,
+        instance_id: null,
+        phone_number: null,
+        instance_name: null,
+      });
+
+      toast.success('WhatsApp desconectado com sucesso!');
+      
+      if (onAuthSuccess) {
+        onAuthSuccess();
+      }
+    } catch (error: any) {
+      console.error('Erro ao desconectar:', error);
+      toast.error('Erro ao desconectar: ' + error.message);
+    } finally {
+      setDisconnecting(false);
     }
   };
 
@@ -299,7 +346,7 @@ export const WhatsAppAuth = ({
         <div className="flex gap-2">
           <Button
             onClick={startAuth}
-            disabled={loading || checkingStatus}
+            disabled={loading || disconnecting}
             className="gap-2"
           >
             {loading ? (
@@ -310,24 +357,31 @@ export const WhatsAppAuth = ({
             ) : (
               <>
                 <QrCode className="h-4 w-4" />
-                {authStatus?.status === 'connected' ? 'Reconectar' : 'Conectar WhatsApp'}
+                {authStatus?.status === 'connected' ? 'Reconectar' : 'Gerar QR Code'}
               </>
             )}
           </Button>
 
-          <Button
-            variant="outline"
-            onClick={() => checkStatus()}
-            disabled={checkingStatus}
-            className="gap-2"
-          >
-            {checkingStatus ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-            Verificar Status
-          </Button>
+          {authStatus?.status === 'connected' && (
+            <Button
+              variant="destructive"
+              onClick={handleDisconnect}
+              disabled={disconnecting || loading}
+              className="gap-2"
+            >
+              {disconnecting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Desconectando...
+                </>
+              ) : (
+                <>
+                  <LogOut className="h-4 w-4" />
+                  Desconectar
+                </>
+              )}
+            </Button>
+          )}
         </div>
 
         {authStatus?.instance_id && (
