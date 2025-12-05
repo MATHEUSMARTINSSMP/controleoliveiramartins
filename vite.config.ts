@@ -16,4 +16,14 @@ export default defineConfig(({ mode }) => ({
       "@assets": path.resolve(__dirname, "./attached_assets"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Garantir que os chunks sejam gerados com nomes consistentes em /assets/
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
+      },
+    },
+  },
 }));
