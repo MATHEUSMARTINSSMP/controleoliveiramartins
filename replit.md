@@ -28,7 +28,29 @@ Complete multi-tenant ERP/sales management SaaS system migrated from Lovable to 
 - **Lazy Charts**: `src/components/ui/lazy-chart.tsx` - Recharts components with Suspense
 - **Prefetch System**: `src/lib/prefetch.ts` - Route-based intelligent preloading
 - **Loading States**: `src/hooks/use-async-action.ts` - Async action management with toasts
+- **Virtual Table**: `src/components/ui/virtual-table.tsx` - Efficient rendering for large datasets
 - **All routes use lazy() with Suspense boundaries in App.tsx**
+
+## React Query Hooks Architecture
+Located in `src/hooks/queries/`:
+- **Types**: `types.ts` - Shared TypeScript interfaces for all entities
+- **Base Utilities**: `use-supabase-query.ts` - Query helpers and cache utilities
+- **Stores**: `use-stores.ts` - Store queries and settings
+- **Profiles**: `use-profiles.ts` - User profile queries and mutations
+- **Colaboradora**: `use-colaboradora.ts` - Dashboard data, KPIs, purchases, parcelas
+- **Sales**: `use-sales.ts` - Sales queries, stats, ranking, mutations
+- **Bonuses**: `use-bonuses.ts` - Bonus/goals queries with progress tracking
+
+### Query Keys Convention
+All query keys follow the pattern: `[QUERY_KEY, filters/params]`
+- `['profiles', { role, storeId, activeOnly }]`
+- `['sales', { storeId, colaboradoraId, dateRange }]`
+- `['bonuses', 'active', storeId]`
+
+### Cache Strategy
+- `staleTime`: 1-5 minutes depending on data volatility
+- `gcTime`: 5 minutes for garbage collection
+- Auto-invalidation on mutations
 
 ## Database Schema
 - **Schema**: `sistemaretiradas` (all tables use this schema)
