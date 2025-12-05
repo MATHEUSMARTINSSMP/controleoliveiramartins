@@ -139,10 +139,11 @@ exports.handler = async (event, context) => {
       }
     }
 
+    // Enviar payload em camelCase para compatibilidade com workflow n8n
     const payload = {
-      customer_id: customer_id,
-      site_slug: site_slug,
-      uazapi_admin_token: uazapiAdminToken,
+      customerId: customer_id,
+      siteSlug: site_slug,
+      uazapiToken: uazapiAdminToken,
     };
 
     console.log('[WhatsApp Auth] Chamando webhook n8n:', webhookUrl);
