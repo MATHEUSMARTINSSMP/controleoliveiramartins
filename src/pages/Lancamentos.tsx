@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, Undo2, Trash2, ChevronDown, ChevronRight, Package } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Undo2, Trash2, ChevronDown, ChevronRight, Package, Plus } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
@@ -62,7 +62,9 @@ const Lancamentos = () => {
   const [tipoFiltro, setTipoFiltro] = useState<"TODOS" | "COMPRAS" | "ADIANTAMENTOS">("TODOS");
   const [mesFiltro, setMesFiltro] = useState<string>("TODOS");
   const [adiantamentoParaExcluir, setAdiantamentoParaExcluir] = useState<string | null>(null);
+  const [compraParaExcluir, setCompraParaExcluir] = useState<string | null>(null);
   const [expandedParcelas, setExpandedParcelas] = useState<Set<string>>(new Set());
+  const [expandedCompras, setExpandedCompras] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!authLoading) {
@@ -273,6 +275,37 @@ const Lancamentos = () => {
     }
   };
 
+  const handleExcluirCompra = async () => {
+    if (!compraParaExcluir) return;
+
+    try {
+      // Deletar parcelas primeiro
+      const { error: parcelasError } = await supabase
+        .schema("sistemaretiradas")
+        .from("parcelas")
+        .delete()
+        .eq("compra_id", compraParaExcluir);
+
+      if (parcelasError) throw parcelasError;
+
+      // Deletar compra
+      const { error: compraError } = await supabase
+        .schema("sistemaretiradas")
+        .from("purchases")
+        .delete()
+        .eq("id", compraParaExcluir);
+
+      if (compraError) throw compraError;
+
+      toast.success("Compra excluída com sucesso!");
+      setCompraParaExcluir(null);
+      fetchData();
+    } catch (error: any) {
+      toast.error("Erro ao excluir compra: " + error.message);
+      console.error(error);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; label: string }> = {
       PENDENTE: { variant: "outline", label: "Pendente" },
@@ -312,6 +345,13 @@ const Lancamentos = () => {
                 Lançamentos e Descontos
               </CardTitle>
               <div className="flex gap-2">
+                <Button
+                  onClick={() => navigate("/admin/nova-compra")}
+                  className="bg-gradient-to-r from-primary to-accent hover:opacity-90"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nova Compra
+                </Button>
                 <Select value={mesFiltro} onValueChange={setMesFiltro}>
                   <SelectTrigger className="w-[150px]">
                     <SelectValue placeholder="Mês" />
@@ -361,28 +401,46 @@ const Lancamentos = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {parcelas
-                        .filter(p => mesFiltro === "TODOS" || p.competencia === mesFiltro)
-                        .map((parcela) => {
-                          const isExpanded = expandedParcelas.has(parcela.id);
-                          const compraIdShort = parcela.compra_id.substring(0, 8).toUpperCase();
-                          
+                      {(() => {
+                        // Agrupar parcelas por compra
+                        const parcelasFiltradas = parcelas.filter(p => mesFiltro === "TODOS" || p.competencia === mesFiltro);
+                        const comprasAgrupadas = parcelasFiltradas.reduce((acc, parcela) => {
+                          if (!acc[parcela.compra_id]) {
+                            acc[parcela.compra_id] = {
+                              compra_id: parcela.compra_id,
+                              colaboradora: parcela.purchases.profiles.name,
+                              item: parcela.purchases.item,
+                              num_parcelas: parcela.purchases.num_parcelas,
+                              parcelas: []
+                            };
+                          }
+                          acc[parcela.compra_id].parcelas.push(parcela);
+                          return acc;
+                        }, {} as Record<string, any>);
+
+                        return Object.values(comprasAgrupadas).map((compra: any) => {
+                          const isCompraExpanded = expandedCompras.has(compra.compra_id);
+                          const compraIdShort = compra.compra_id.substring(0, 8).toUpperCase();
+                          const todasParcelasDescontadas = compra.parcelas.every((p: Parcela) => p.status_parcela === "DESCONTADO");
+                          const temParcelasPendentes = compra.parcelas.some((p: Parcela) => p.status_parcela === "PENDENTE" || p.status_parcela === "AGENDADO");
+
                           return (
                             <Collapsible
-                              key={parcela.id}
-                              open={isExpanded}
+                              key={compra.compra_id}
+                              open={isCompraExpanded}
                               onOpenChange={(open) => {
-                                const newExpanded = new Set(expandedParcelas);
+                                const newExpanded = new Set(expandedCompras);
                                 if (open) {
-                                  newExpanded.add(parcela.id);
+                                  newExpanded.add(compra.compra_id);
                                 } else {
-                                  newExpanded.delete(parcela.id);
+                                  newExpanded.delete(compra.compra_id);
                                 }
-                                setExpandedParcelas(newExpanded);
+                                setExpandedCompras(newExpanded);
                               }}
                             >
                               <>
-                                <TableRow>
+                                {/* Linha principal da compra */}
+                                <TableRow className={todasParcelasDescontadas ? "bg-muted/30" : ""}>
                                   <TableCell>
                                     <CollapsibleTrigger asChild>
                                       <Button
@@ -390,7 +448,7 @@ const Lancamentos = () => {
                                         size="sm"
                                         className="h-8 w-8 p-0"
                                       >
-                                        {isExpanded ? (
+                                        {isCompraExpanded ? (
                                           <ChevronDown className="h-4 w-4" />
                                         ) : (
                                           <ChevronRight className="h-4 w-4" />
@@ -403,114 +461,200 @@ const Lancamentos = () => {
                                       className="font-mono text-xs font-semibold text-primary hover:underline transition-colors"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        const newExpanded = new Set(expandedParcelas);
-                                        if (!isExpanded) {
-                                          newExpanded.add(parcela.id);
+                                        const newExpanded = new Set(expandedCompras);
+                                        if (!isCompraExpanded) {
+                                          newExpanded.add(compra.compra_id);
                                         } else {
-                                          newExpanded.delete(parcela.id);
+                                          newExpanded.delete(compra.compra_id);
                                         }
-                                        setExpandedParcelas(newExpanded);
+                                        setExpandedCompras(newExpanded);
                                       }}
                                     >
                                       {compraIdShort}
                                     </button>
                                   </TableCell>
                                   <TableCell className="font-medium">
-                                    {parcela.purchases.profiles.name}
+                                    {compra.colaboradora}
                                   </TableCell>
                                   <TableCell>
-                                    {parcela.n_parcela}/{parcela.purchases.num_parcelas || parcela.n_parcela}
+                                    {compra.parcelas.length}/{compra.num_parcelas} parcelas
                                   </TableCell>
                                   <TableCell>
-                                    {parcela.competencia.slice(0, 4)}/{parcela.competencia.slice(4)}
+                                    {compra.parcelas.length > 0 ? `${compra.parcelas[0].competencia.slice(0, 4)}/${compra.parcelas[0].competencia.slice(4)}` : "-"}
                                   </TableCell>
-                                  <TableCell>{formatCurrency(parcela.valor_parcela)}</TableCell>
-                                  <TableCell>{getStatusBadge(parcela.status_parcela)}</TableCell>
+                                  <TableCell>
+                                    {formatCurrency(compra.parcelas.reduce((sum: number, p: Parcela) => sum + p.valor_parcela, 0))}
+                                  </TableCell>
+                                  <TableCell>
+                                    {todasParcelasDescontadas ? (
+                                      <Badge variant="default">Todas Descontadas</Badge>
+                                    ) : temParcelasPendentes ? (
+                                      <Badge variant="outline">Pendente</Badge>
+                                    ) : (
+                                      <Badge variant="secondary">Parcial</Badge>
+                                    )}
+                                  </TableCell>
                                   <TableCell>
                                     <div className="flex gap-2">
-                                      {parcela.status_parcela === "PENDENTE" && (
+                                      {profile?.role === "ADMIN" && (
                                         <Button
                                           size="sm"
                                           variant="outline"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            handleDescontar(parcela.id);
+                                            setCompraParaExcluir(compra.compra_id);
                                           }}
-                                          className="border-primary/20"
+                                          className="border-destructive/20 text-destructive hover:text-destructive"
                                         >
-                                          <CheckCircle2 className="h-4 w-4 mr-1" />
-                                          Descontar
+                                          <Trash2 className="h-4 w-4 mr-1" />
+                                          Excluir
                                         </Button>
-                                      )}
-                                      {parcela.status_parcela === "DESCONTADO" && (
-                                        <Dialog>
-                                          <DialogTrigger asChild>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedParcela(parcela.id);
-                                              }}
-                                              className="border-destructive/20"
-                                            >
-                                              <Undo2 className="h-4 w-4 mr-1" />
-                                              Estornar
-                                            </Button>
-                                          </DialogTrigger>
-                                          <DialogContent>
-                                            <DialogHeader>
-                                              <DialogTitle>Estornar Parcela</DialogTitle>
-                                            </DialogHeader>
-                                            <div className="space-y-4">
-                                              <div>
-                                                <Label htmlFor="motivo">Motivo do Estorno *</Label>
-                                                <Textarea
-                                                  id="motivo"
-                                                  value={motivoEstorno}
-                                                  onChange={(e) => setMotivoEstorno(e.target.value)}
-                                                  placeholder="Descreva o motivo do estorno"
-                                                  rows={4}
-                                                />
-                                              </div>
-                                              <Button
-                                                onClick={handleEstornar}
-                                                className="w-full"
-                                                variant="destructive"
-                                              >
-                                                Confirmar Estorno
-                                              </Button>
-                                            </div>
-                                          </DialogContent>
-                                        </Dialog>
                                       )}
                                     </div>
                                   </TableCell>
                                 </TableRow>
+                                {/* Parcelas expandidas */}
                                 <CollapsibleContent asChild>
-                                  <TableRow>
-                                    <TableCell colSpan={8} className="bg-muted/40 p-5">
-                                      <div className="space-y-3">
-                                        <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                                          <Package className="h-4 w-4 text-primary" />
-                                          Produtos da Compra
-                                          <span className="font-mono text-xs text-muted-foreground font-normal ml-1">({compraIdShort})</span>
-                                        </div>
-                                        <div className="space-y-1.5">
-                                          {parcela.purchases.item.split(',').map((item, idx) => (
-                                            <div key={idx} className="text-sm text-foreground py-1.5 px-3 bg-background/80 rounded-md border border-border/30">
-                                              {item.trim()}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    </TableCell>
-                                  </TableRow>
+                                  <>
+                                    {compra.parcelas.map((parcela: Parcela) => {
+                                      const isParcelaExpanded = expandedParcelas.has(parcela.id);
+                                      return (
+                                        <Collapsible
+                                          key={parcela.id}
+                                          open={isParcelaExpanded}
+                                          onOpenChange={(open) => {
+                                            const newExpanded = new Set(expandedParcelas);
+                                            if (open) {
+                                              newExpanded.add(parcela.id);
+                                            } else {
+                                              newExpanded.delete(parcela.id);
+                                            }
+                                            setExpandedParcelas(newExpanded);
+                                          }}
+                                        >
+                                          <>
+                                            <TableRow className={parcela.status_parcela === "DESCONTADO" ? "bg-muted/20" : ""}>
+                                              <TableCell>
+                                                <CollapsibleTrigger asChild>
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 w-8 p-0"
+                                                  >
+                                                    {isParcelaExpanded ? (
+                                                      <ChevronDown className="h-4 w-4" />
+                                                    ) : (
+                                                      <ChevronRight className="h-4 w-4" />
+                                                    )}
+                                                  </Button>
+                                                </CollapsibleTrigger>
+                                              </TableCell>
+                                              <TableCell className="text-muted-foreground text-xs">
+                                                └─ {compraIdShort}
+                                              </TableCell>
+                                              <TableCell className="text-muted-foreground">
+                                                {parcela.purchases.profiles.name}
+                                              </TableCell>
+                                              <TableCell>
+                                                {parcela.n_parcela}/{parcela.purchases.num_parcelas || parcela.n_parcela}
+                                              </TableCell>
+                                              <TableCell>
+                                                {parcela.competencia.slice(0, 4)}/{parcela.competencia.slice(4)}
+                                              </TableCell>
+                                              <TableCell>{formatCurrency(parcela.valor_parcela)}</TableCell>
+                                              <TableCell>{getStatusBadge(parcela.status_parcela)}</TableCell>
+                                              <TableCell>
+                                                <div className="flex gap-2">
+                                                  {parcela.status_parcela === "PENDENTE" && (
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDescontar(parcela.id);
+                                                      }}
+                                                      className="border-primary/20"
+                                                    >
+                                                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                                                      Descontar
+                                                    </Button>
+                                                  )}
+                                                  {parcela.status_parcela === "DESCONTADO" && (
+                                                    <Dialog>
+                                                      <DialogTrigger asChild>
+                                                        <Button
+                                                          size="sm"
+                                                          variant="outline"
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedParcela(parcela.id);
+                                                          }}
+                                                          className="border-destructive/20"
+                                                        >
+                                                          <Undo2 className="h-4 w-4 mr-1" />
+                                                          Estornar
+                                                        </Button>
+                                                      </DialogTrigger>
+                                                      <DialogContent>
+                                                        <DialogHeader>
+                                                          <DialogTitle>Estornar Parcela</DialogTitle>
+                                                        </DialogHeader>
+                                                        <div className="space-y-4">
+                                                          <div>
+                                                            <Label htmlFor="motivo">Motivo do Estorno *</Label>
+                                                            <Textarea
+                                                              id="motivo"
+                                                              value={motivoEstorno}
+                                                              onChange={(e) => setMotivoEstorno(e.target.value)}
+                                                              placeholder="Descreva o motivo do estorno"
+                                                              rows={4}
+                                                            />
+                                                          </div>
+                                                          <Button
+                                                            onClick={handleEstornar}
+                                                            className="w-full"
+                                                            variant="destructive"
+                                                          >
+                                                            Confirmar Estorno
+                                                          </Button>
+                                                        </div>
+                                                      </DialogContent>
+                                                    </Dialog>
+                                                  )}
+                                                </div>
+                                              </TableCell>
+                                            </TableRow>
+                                            <CollapsibleContent asChild>
+                                              <TableRow>
+                                                <TableCell colSpan={8} className="bg-muted/40 p-5">
+                                                  <div className="space-y-3">
+                                                    <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                                                      <Package className="h-4 w-4 text-primary" />
+                                                      Produtos da Compra
+                                                      <span className="font-mono text-xs text-muted-foreground font-normal ml-1">({compraIdShort})</span>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                      {parcela.purchases.item.split(',').map((item, idx) => (
+                                                        <div key={idx} className="text-sm text-foreground py-1.5 px-3 bg-background/80 rounded-md border border-border/30">
+                                                          {item.trim()}
+                                                        </div>
+                                                      ))}
+                                                    </div>
+                                                  </div>
+                                                </TableCell>
+                                              </TableRow>
+                                            </CollapsibleContent>
+                                          </>
+                                        </Collapsible>
+                                      );
+                                    })}
+                                  </>
                                 </CollapsibleContent>
                               </>
                             </Collapsible>
                           );
-                        })}
+                        });
+                      })()}
                     </TableBody>
                   </Table>
                 </div>
@@ -634,6 +778,27 @@ const Lancamentos = () => {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleExcluirAdiantamento}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de confirmação para excluir compra */}
+      <AlertDialog open={!!compraParaExcluir} onOpenChange={(open) => !open && setCompraParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Compra</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta compra e todas as suas parcelas? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleExcluirCompra}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir
