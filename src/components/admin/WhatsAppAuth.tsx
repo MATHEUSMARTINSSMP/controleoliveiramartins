@@ -384,11 +384,6 @@ export const WhatsAppAuth = ({
           )}
         </div>
 
-        {authStatus?.instance_id && (
-          <div className="text-xs text-muted-foreground">
-            <p>Instance ID: {authStatus.instance_id}</p>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
