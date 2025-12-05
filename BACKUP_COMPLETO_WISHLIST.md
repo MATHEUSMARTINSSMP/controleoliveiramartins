@@ -838,4 +838,3 @@ export function useLojaModuleStatus(storeId: string | null): ModuleStatus {
 
 **FIM DO DOCUMENTO WISHLIST**
 
-

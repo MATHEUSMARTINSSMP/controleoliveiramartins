@@ -417,4 +417,3 @@ export function WishlistSearch({ storeId, onScheduleCRM, refreshTrigger }: Wishl
   );
 }
 
-

@@ -149,4 +149,3 @@ export function TimeClockAuth({ storeId, onAuthSuccess, onCancel }: TimeClockAut
   );
 }
 
-
