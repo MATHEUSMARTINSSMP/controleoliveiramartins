@@ -45,6 +45,14 @@ CREATE POLICY "stores_admin_select_own" ON sistemaretiradas.stores
       AND p.role = 'COLABORADORA'
       AND p.store_id = stores.id
     )
+    OR
+    -- Usuários LOJA podem ver dados básicos da sua loja (sem credenciais sensíveis)
+    EXISTS (
+      SELECT 1 FROM sistemaretiradas.profiles p
+      WHERE p.id = auth.uid() 
+      AND p.role = 'LOJA'
+      AND p.store_id = stores.id
+    )
   );
 
 -- Policy: Apenas Admin pode editar suas lojas (incluindo credenciais WhatsApp)
