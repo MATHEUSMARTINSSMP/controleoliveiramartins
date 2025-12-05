@@ -18,6 +18,7 @@ import { FinancialDashboard } from "@/components/admin/FinancialDashboard";
 import { StorePerformanceReports } from "@/components/admin/StorePerformanceReports";
 import { WhatsAppNotificationConfig } from "@/components/admin/WhatsAppNotificationConfig";
 import { WhatsAppStoreConfig } from "@/components/admin/WhatsAppStoreConfig";
+import { WhatsAppWebhookConfig } from "@/components/admin/WhatsAppWebhookConfig";
 import { GoalsTracking } from "@/components/admin/GoalsTracking";
 import { CashbackStoreConfig } from "@/components/admin/CashbackStoreConfig";
 import { CRMStoreConfig } from "@/components/admin/CRMStoreConfig";
