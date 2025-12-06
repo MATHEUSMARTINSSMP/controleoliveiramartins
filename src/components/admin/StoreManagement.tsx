@@ -330,9 +330,29 @@ export function StoreManagement({ adminId }: StoreManagementProps) {
                             <Input
                                 id="name"
                                 value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                onChange={(e) => {
+                                    const newName = e.target.value;
+                                    setFormData({ 
+                                        ...formData, 
+                                        name: newName,
+                                        // Gerar site_slug automaticamente se estiver vazio
+                                        site_slug: formData.site_slug || newName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+                                    });
+                                }}
                                 placeholder="Ex: Loja Centro"
                             />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="site_slug">Site Slug (opcional)</Label>
+                            <Input
+                                id="site_slug"
+                                value={formData.site_slug}
+                                onChange={(e) => setFormData({ ...formData, site_slug: e.target.value })}
+                                placeholder="Ex: loja-centro (gerado automaticamente se vazio)"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Identificador único da loja para APIs e workflows. Deixe vazio para gerar automaticamente.
+                            </p>
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="sistema_erp">Sistema ERP (opcional)</Label>
