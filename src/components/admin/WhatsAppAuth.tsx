@@ -193,8 +193,12 @@ export const WhatsAppAuth = ({
       const data = await response.json();
 
       if (data.success) {
+        const newStatus = data.status || 'not_configured';
+        
+        console.log('[WhatsAppAuth] Status verificado:', newStatus, 'Status anterior:', authStatus?.status);
+        
         setAuthStatus({
-          status: data.status || 'not_configured',
+          status: newStatus,
           qr_code: data.qr_code,
           instance_id: data.instance_id,
           phone_number: data.phone_number,
@@ -202,18 +206,29 @@ export const WhatsAppAuth = ({
         });
 
         // Se conectou, parar polling e chamar callback
-        if (data.status === 'connected' && polling) {
+        if (newStatus === 'connected') {
+          console.log('[WhatsAppAuth] ✅ Conexão estabelecida! Parando polling...');
           setPolling(false);
           setTimeoutCountdown(null);
-          // Limpar timeout se ainda estiver ativo
+          // Limpar todos os timers
           if (connectionTimeoutRef.current) {
             clearTimeout(connectionTimeoutRef.current);
             connectionTimeoutRef.current = null;
           }
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          if (countdownIntervalRef.current) {
+            clearInterval(countdownIntervalRef.current);
+            countdownIntervalRef.current = null;
+          }
           if (onAuthSuccess) {
             onAuthSuccess();
           }
-          toast.success('WhatsApp conectado com sucesso!');
+          if (!silent) {
+            toast.success('WhatsApp conectado com sucesso!');
+          }
         }
       } else {
         throw new Error(data.error || 'Erro ao verificar status');
