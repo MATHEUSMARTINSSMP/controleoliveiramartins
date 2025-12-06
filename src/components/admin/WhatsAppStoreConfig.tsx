@@ -12,6 +12,7 @@ import { WhatsAppAuth } from "./WhatsAppAuth";
 interface Store {
     id: string;
     name: string;
+    site_slug: string | null;
     whatsapp_connection_status: string | null;
     whatsapp_connected_at: string | null;
 }
@@ -94,7 +95,7 @@ export const WhatsAppStoreConfig = () => {
             const { data, error } = await supabase
                 .schema('sistemaretiradas')
                 .from('stores')
-                .select('id, name, whatsapp_connection_status, whatsapp_connected_at')
+                .select('id, name, site_slug, whatsapp_connection_status, whatsapp_connected_at')
                 .eq('admin_id', profile.id)
                 .eq('active', true)
                 .order('name', { ascending: true });
@@ -219,7 +220,7 @@ export const WhatsAppStoreConfig = () => {
                                 storeId={store.id}
                                 storeName={store.name}
                                 customerId={profile?.email || ''}
-                                siteSlug={store.name.toLowerCase().replace(/\s+/g, '-')}
+                                siteSlug={store.site_slug || store.name.toLowerCase().replace(/\s+/g, '-')}
                                 onAuthSuccess={() => {
                                     fetchStores();
                                 }}

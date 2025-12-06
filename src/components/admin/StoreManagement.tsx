@@ -12,6 +12,7 @@ import { toast } from "sonner";
 interface Store {
     id: string;
     name: string;
+    site_slug: string | null;
     active: boolean;
     admin_id: string;
     sistema_erp: string | null;
@@ -32,6 +33,7 @@ export function StoreManagement({ adminId }: StoreManagementProps) {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         name: "",
+        site_slug: "",
         sistema_erp: "",
         cashback_ativo: false,
     });
@@ -92,6 +94,7 @@ export function StoreManagement({ adminId }: StoreManagementProps) {
             setSelectedId(store.id);
             setFormData({
                 name: store.name,
+                site_slug: store.site_slug || "",
                 sistema_erp: store.sistema_erp || "",
                 cashback_ativo: store.cashback_ativo,
             });
@@ -100,6 +103,7 @@ export function StoreManagement({ adminId }: StoreManagementProps) {
             setSelectedId(null);
             setFormData({
                 name: "",
+                site_slug: "",
                 sistema_erp: "",
                 cashback_ativo: false,
             });
@@ -121,6 +125,7 @@ export function StoreManagement({ adminId }: StoreManagementProps) {
                     .from("stores")
                     .update({
                         name: formData.name,
+                        site_slug: formData.site_slug.trim() || null,
                         sistema_erp: formData.sistema_erp || null,
                         cashback_ativo: formData.cashback_ativo,
                         updated_at: new Date().toISOString(),
@@ -140,11 +145,13 @@ export function StoreManagement({ adminId }: StoreManagementProps) {
                 }
 
                 // Criar nova loja
+                // O site_slug será gerado automaticamente pelo trigger se não for fornecido
                 const { error } = await supabase
                     .schema("sistemaretiradas")
                     .from("stores")
                     .insert({
                         name: formData.name,
+                        site_slug: formData.site_slug.trim() || null, // Trigger vai gerar se null
                         admin_id: adminId,
                         sistema_erp: formData.sistema_erp || null,
                         cashback_ativo: formData.cashback_ativo,
@@ -237,6 +244,7 @@ export function StoreManagement({ adminId }: StoreManagementProps) {
                         <TableHeader>
                             <TableRow className="bg-muted/50">
                                 <TableHead className="font-semibold">Nome</TableHead>
+                                <TableHead className="font-semibold">Site Slug</TableHead>
                                 <TableHead className="font-semibold">Sistema ERP</TableHead>
                                 <TableHead className="font-semibold">Cashback</TableHead>
                                 <TableHead className="font-semibold">Status</TableHead>
@@ -247,6 +255,11 @@ export function StoreManagement({ adminId }: StoreManagementProps) {
                             {stores.map((store) => (
                                 <TableRow key={store.id} className="hover:bg-muted/50 transition-colors">
                                     <TableCell className="font-medium">{store.name}</TableCell>
+                                    <TableCell>
+                                        <code className="text-xs bg-muted px-2 py-1 rounded">
+                                            {store.site_slug || "-"}
+                                        </code>
+                                    </TableCell>
                                     <TableCell>{store.sistema_erp || "-"}</TableCell>
                                     <TableCell>
                                         {store.cashback_ativo ? (
