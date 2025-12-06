@@ -145,6 +145,10 @@ export const WhatsAppAuth = ({
         clearTimeout(connectionTimeoutRef.current);
         connectionTimeoutRef.current = null;
       }
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+      }
       setTimeoutCountdown(null);
     }
 
@@ -337,6 +341,10 @@ export const WhatsAppAuth = ({
     if (connectionTimeoutRef.current) {
       clearTimeout(connectionTimeoutRef.current);
       connectionTimeoutRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
     }
     
     setPolling(false);
