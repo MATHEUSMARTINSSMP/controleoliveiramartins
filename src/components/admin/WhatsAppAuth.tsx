@@ -211,6 +211,18 @@ export const WhatsAppAuth = ({
       return;
     }
 
+    // Cancelar qualquer processo em andamento antes de iniciar novo
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
+    setPolling(false);
+    setTimeoutCountdown(null);
+
     setLoading(true);
     try {
       const isDevelopment = import.meta.env.DEV;
@@ -293,6 +305,33 @@ export const WhatsAppAuth = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancel = () => {
+    // Cancelar processo de conexão em andamento
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
+    
+    setPolling(false);
+    setLoading(false);
+    setTimeoutCountdown(null);
+    
+    // Resetar status para not_configured para permitir nova tentativa
+    setAuthStatus({
+      status: 'not_configured',
+      qr_code: null,
+      instance_id: null,
+      phone_number: null,
+      instance_name: null,
+    });
+    
+    toast.info('Conexão cancelada. Você pode tentar novamente.');
   };
 
   const handleDisconnect = async () => {
@@ -475,27 +514,54 @@ export const WhatsAppAuth = ({
         )}
 
         <div className="flex gap-2">
-          <Button
-            onClick={startAuth}
-            disabled={loading || disconnecting || (authStatus?.status === 'connecting' && timeoutCountdown === null)}
-            className="gap-2"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Iniciando...
-              </>
-            ) : (
-              <>
-                <QrCode className="h-4 w-4" />
-                {authStatus?.status === 'connected' 
-                  ? 'Reconectar' 
-                  : authStatus?.status === 'connecting' 
-                    ? 'Aguardando conexão...'
-                    : 'Gerar QR Code'}
-              </>
-            )}
-          </Button>
+          {authStatus?.status === 'connecting' ? (
+            <>
+              <Button
+                onClick={handleCancel}
+                variant="outline"
+                className="flex-1"
+                disabled={disconnecting}
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Cancelar
+              </Button>
+              <Button
+                onClick={startAuth}
+                disabled={loading || disconnecting}
+                className="flex-1"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Gerando QR Code...
+                  </>
+                ) : (
+                  <>
+                    <QrCode className="h-4 w-4 mr-2" />
+                    Tentar Novamente
+                  </>
+                )}
+              </Button>
+            </>
+          ) : (
+            <Button
+              onClick={startAuth}
+              disabled={loading || disconnecting}
+              className="w-full"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Gerando QR Code...
+                </>
+              ) : (
+                <>
+                  <QrCode className="h-4 w-4 mr-2" />
+                  {authStatus?.status === 'connected' ? 'Reconectar' : 'Gerar QR Code'}
+                </>
+              )}
+            </Button>
+          )}
 
           {authStatus?.status === 'connected' && (
             <Button
