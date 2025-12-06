@@ -39,6 +39,25 @@ export const WhatsAppAuth = ({
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [timeoutCountdown, setTimeoutCountdown] = useState<number | null>(null);
 
+  // Cleanup ao desmontar o componente ou mudar de store
+  useEffect(() => {
+    return () => {
+      // Limpar todos os timers e intervalos
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
+      // Resetar estados
+      setPolling(false);
+      setLoading(false);
+      setTimeoutCountdown(null);
+    };
+  }, [customerId, siteSlug]);
+
   // Verificar status inicial
   useEffect(() => {
     if (customerId && siteSlug) {
@@ -115,15 +134,18 @@ export const WhatsAppAuth = ({
       setTimeoutCountdown(null);
     }
 
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-      if (connectionTimeoutRef.current) {
-        clearTimeout(connectionTimeoutRef.current);
-      }
-      setTimeoutCountdown(null);
-    };
+      return () => {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+        if (connectionTimeoutRef.current) {
+          clearTimeout(connectionTimeoutRef.current);
+          connectionTimeoutRef.current = null;
+        }
+        clearInterval(countdownInterval);
+        setTimeoutCountdown(null);
+      };
   }, [polling, authStatus?.status]);
 
   const checkStatus = async (silent = false) => {
