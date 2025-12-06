@@ -1,0 +1,43 @@
+================================================================================
+QUERY CORRIGIDA: PostgreSQL - Get Token
+================================================================================
+Node no n8n: "PostgreSQL - Get Token"
+
+⚠️ CORREÇÃO: Removido uazapi_admin_token (não existe nesta tabela!)
+             O admin_token já vem do node anterior (Get Config)
+
+================================================================================
+QUERY CORRIGIDA (copiar e colar):
+================================================================================
+
+SELECT 
+  uazapi_token,
+  uazapi_instance_id,
+  uazapi_status
+FROM sistemaretiradas.whatsapp_credentials
+WHERE customer_id = $1 
+  AND site_slug = $2 
+  AND status = 'active'
+LIMIT 1;
+
+================================================================================
+PARÂMETROS:
+================================================================================
+$1 → {{ $json.customer_id }}
+$2 → {{ $json.site_slug }}
+
+================================================================================
+EXPLICAÇÃO:
+================================================================================
+A tabela whatsapp_credentials NÃO tem a coluna uazapi_admin_token.
+
+O uazapi_admin_token é GLOBAL e está na tabela uazapi_config,
+que já é buscado no node anterior "PostgreSQL - Get Config".
+
+Esta query busca apenas:
+- uazapi_token (token da instância da loja)
+- uazapi_instance_id (ID da instância)
+- uazapi_status (status da conexão)
+
+================================================================================
+
