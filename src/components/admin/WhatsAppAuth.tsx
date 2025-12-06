@@ -36,6 +36,8 @@ export const WhatsAppAuth = ({
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const [polling, setPolling] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [timeoutCountdown, setTimeoutCountdown] = useState<number | null>(null);
 
   // Verificar status inicial
   useEffect(() => {
@@ -47,20 +49,80 @@ export const WhatsAppAuth = ({
   // Polling para verificar status quando está conectando
   useEffect(() => {
     if (polling && authStatus?.status === 'connecting') {
+      // Iniciar timeout de 2 minutos
+      const TIMEOUT_DURATION = 120000; // 2 minutos em milissegundos
+      let countdown = 120; // 2 minutos em segundos
+      setTimeoutCountdown(countdown);
+
+      // Timer de countdown para exibir na UI
+      const countdownInterval = setInterval(() => {
+        countdown -= 1;
+        if (countdown > 0) {
+          setTimeoutCountdown(countdown);
+        } else {
+          clearInterval(countdownInterval);
+        }
+      }, 1000);
+
+      // Polling para verificar status
       pollingIntervalRef.current = setInterval(() => {
         checkStatus(true); // silent check
       }, 5000); // Verificar a cada 5 segundos
+
+      // Timeout de 2 minutos - se não conectar, resetar
+      connectionTimeoutRef.current = setTimeout(() => {
+        console.log('[WhatsAppAuth] ⏱️ Timeout de 2 minutos atingido - resetando conexão');
+        
+        // Parar polling
+        setPolling(false);
+        clearInterval(countdownInterval);
+        setTimeoutCountdown(null);
+        
+        // Resetar status
+        setAuthStatus({
+          status: 'not_configured',
+          qr_code: null,
+          instance_id: null,
+          phone_number: null,
+          instance_name: null,
+        });
+        
+        toast.warning('Tempo de conexão expirado. Clique em "Gerar QR Code" para tentar novamente.');
+      }, TIMEOUT_DURATION);
+
+      return () => {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+        if (connectionTimeoutRef.current) {
+          clearTimeout(connectionTimeoutRef.current);
+          connectionTimeoutRef.current = null;
+        }
+        clearInterval(countdownInterval);
+        setTimeoutCountdown(null);
+      };
     } else {
+      // Limpar todos os timers quando não está mais conectando
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
+      setTimeoutCountdown(null);
     }
 
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
       }
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+      }
+      setTimeoutCountdown(null);
     };
   }, [polling, authStatus?.status]);
 
@@ -99,6 +161,12 @@ export const WhatsAppAuth = ({
         // Se conectou, parar polling e chamar callback
         if (data.status === 'connected' && polling) {
           setPolling(false);
+          setTimeoutCountdown(null);
+          // Limpar timeout se ainda estiver ativo
+          if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = null;
+          }
           if (onAuthSuccess) {
             onAuthSuccess();
           }
@@ -318,7 +386,14 @@ export const WhatsAppAuth = ({
               </AlertTitle>
               <AlertDescription className="text-yellow-600 dark:text-yellow-300">
                 <p>Abra o WhatsApp no seu celular e escaneie o código abaixo.</p>
-                <p className="text-xs mt-2">Aguardando conexão...</p>
+                {timeoutCountdown !== null && (
+                  <p className="text-xs mt-2 font-medium">
+                    Aguardando conexão... ({Math.floor(timeoutCountdown / 60)}:{(timeoutCountdown % 60).toString().padStart(2, '0')})
+                  </p>
+                )}
+                {timeoutCountdown === null && (
+                  <p className="text-xs mt-2">Aguardando conexão...</p>
+                )}
               </AlertDescription>
             </Alert>
             <div className="flex justify-center p-4 bg-background rounded-lg border">
@@ -346,7 +421,7 @@ export const WhatsAppAuth = ({
         <div className="flex gap-2">
           <Button
             onClick={startAuth}
-            disabled={loading || disconnecting}
+            disabled={loading || disconnecting || (authStatus?.status === 'connecting' && timeoutCountdown === null)}
             className="gap-2"
           >
             {loading ? (
@@ -357,7 +432,11 @@ export const WhatsAppAuth = ({
             ) : (
               <>
                 <QrCode className="h-4 w-4" />
-                {authStatus?.status === 'connected' ? 'Reconectar' : 'Gerar QR Code'}
+                {authStatus?.status === 'connected' 
+                  ? 'Reconectar' 
+                  : authStatus?.status === 'connecting' 
+                    ? 'Aguardando conexão...'
+                    : 'Gerar QR Code'}
               </>
             )}
           </Button>
