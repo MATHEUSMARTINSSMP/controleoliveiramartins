@@ -210,23 +210,57 @@ export const WhatsAppAuth = ({
 
       const data = await response.json();
 
+      console.log('[WhatsAppAuth] Resposta completa:', data);
+      console.log('[WhatsAppAuth] QR Code recebido:', data.qr_code);
+      console.log('[WhatsAppAuth] Status recebido:', data.status);
+      console.log('[WhatsAppAuth] Data completa:', JSON.stringify(data, null, 2));
+
       if (data.success) {
+        // Tentar extrair QR Code de diferentes possíveis estruturas
+        const qrCode = data.qr_code || 
+                      data.data?.qr_code || 
+                      data.data?.qrcode || 
+                      data.qrcode ||
+                      data.qrCode ||
+                      null;
+
+        const status = data.status || 
+                      data.data?.status || 
+                      'not_configured';
+
+        const instanceId = data.instance_id || 
+                          data.data?.instance_id || 
+                          data.data?.instanceId ||
+                          null;
+
+        const phoneNumber = data.phone_number || 
+                          data.data?.phone_number || 
+                          data.data?.phoneNumber ||
+                          null;
+
+        console.log('[WhatsAppAuth] QR Code extraído:', qrCode ? 'SIM' : 'NÃO');
+        console.log('[WhatsAppAuth] Status extraído:', status);
+
         setAuthStatus({
-          status: data.status || 'connecting',
-          qr_code: data.qr_code,
-          instance_id: data.instance_id,
-          phone_number: data.phone_number,
+          status: status,
+          qr_code: qrCode,
+          instance_id: instanceId,
+          phone_number: phoneNumber,
         });
 
         // Iniciar polling se estiver conectando
-        if (data.status === 'connecting' && data.qr_code) {
+        if (status === 'connecting' && qrCode) {
           setPolling(true);
           toast.success('QR Code gerado! Escaneie com seu WhatsApp.');
-        } else if (data.status === 'connected') {
+        } else if (status === 'connected') {
           if (onAuthSuccess) {
             onAuthSuccess();
           }
           toast.success('WhatsApp já está conectado!');
+        } else if (status === 'connecting' && !qrCode) {
+          console.warn('[WhatsAppAuth] Status é connecting mas não há QR Code!');
+          toast.warning('Aguardando QR Code...');
+          setPolling(true);
         }
       } else {
         throw new Error(data.error || 'Erro ao iniciar autenticação');
