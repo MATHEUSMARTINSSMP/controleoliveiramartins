@@ -23,7 +23,6 @@ LIMIT 1;
 -- Parâmetros: $1 = customer_id, $2 = site_slug
 
 SELECT 
-  uazapi_admin_token,  -- ← ADMIN TOKEN (para criar instâncias)
   uazapi_token,        -- ← Token da instância (para enviar mensagens)
   uazapi_instance_id,
   uazapi_status

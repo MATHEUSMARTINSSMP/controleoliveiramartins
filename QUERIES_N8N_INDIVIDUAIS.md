@@ -27,7 +27,6 @@ LIMIT 1;
 **Query**:
 ```sql
 SELECT 
-  uazapi_admin_token,  -- ← ADMIN TOKEN (para criar instâncias)
   uazapi_token,        -- ← Token da instância (para enviar mensagens)
   uazapi_instance_id,
   uazapi_status

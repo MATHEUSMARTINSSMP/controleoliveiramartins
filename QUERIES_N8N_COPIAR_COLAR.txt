@@ -25,7 +25,6 @@ Parâmetros: Nenhum
 Node no n8n: "PostgreSQL - Get Token"
 
 SELECT 
-  uazapi_admin_token,
   uazapi_token,
   uazapi_instance_id,
   uazapi_status
