@@ -188,44 +188,106 @@ exports.handler = async (event, context) => {
     }
 
     console.log('[WhatsApp Auth] ✅ Resposta do n8n:', JSON.stringify(responseData, null, 2));
-    console.log('[WhatsApp Auth] QR Code na resposta:', responseData.qr_code || responseData.qrcode || responseData.qrCode || 'NÃO ENCONTRADO');
-    console.log('[WhatsApp Auth] Status na resposta:', responseData.status || 'NÃO ENCONTRADO');
 
-    // Tentar extrair QR Code de diferentes possíveis estruturas da resposta do n8n
-    const qrCode = responseData.qr_code || 
-                   responseData.qrcode || 
-                   responseData.qrCode ||
-                   responseData.data?.qr_code ||
-                   responseData.data?.qrcode ||
-                   responseData.body?.qr_code ||
-                   responseData.body?.qrcode ||
+    // A resposta do n8n pode vir como array ou objeto
+    // Estrutura 1: Array do Respond final (dados já processados)
+    // Estrutura 2: Objeto direto do HTTP Request (com instance dentro)
+    let processedData = responseData;
+    if (Array.isArray(responseData) && responseData.length > 0) {
+      processedData = responseData[0];
+      console.log('[WhatsApp Auth] Resposta é array, usando primeiro elemento');
+      
+      // Se o array contém dados já processados (com uazapi_qr_code direto)
+      if (processedData.uazapi_qr_code) {
+        console.log('[WhatsApp Auth] Estrutura: Array com dados já processados');
+        // Já temos tudo diretamente no processedData
+      } else if (processedData.instance) {
+        console.log('[WhatsApp Auth] Estrutura: Array com instance dentro');
+        // Dados dentro de instance
+      }
+    }
+
+    // Tentar extrair QR Code de diferentes possíveis estruturas
+    // Estrutura 1 (Respond final): [{ uazapi_qr_code: "...", uazapi_status: "..." }]
+    // Estrutura 2 (HTTP Request): [{ instance: { qrcode: "...", status: "...", id: "..." } }]
+    const qrCode = processedData.uazapi_qr_code ||  // Estrutura do Respond final
+                   processedData.instance?.qrcode || // Estrutura do HTTP Request
+                   processedData.qr_code || 
+                   processedData.qrcode || 
+                   processedData.qrCode ||
+                   processedData.data?.qr_code ||
+                   processedData.data?.qrcode ||
+                   processedData.data?.instance?.qrcode ||
+                   processedData.body?.qr_code ||
+                   processedData.body?.qrcode ||
+                   processedData.body?.instance?.qrcode ||
                    null;
 
-    const status = responseData.status || 
-                   responseData.data?.status || 
-                   responseData.body?.status ||
+    const status = processedData.uazapi_status ||  // Estrutura do Respond final
+                   processedData.instance?.status || // Estrutura do HTTP Request
+                   processedData.status || 
+                   processedData.data?.status ||
+                   processedData.data?.instance?.status ||
+                   processedData.body?.status ||
+                   processedData.body?.instance?.status ||
                    'connecting';
 
-    const instanceId = responseData.instance_id || 
-                      responseData.instanceId ||
-                      responseData.data?.instance_id ||
-                      responseData.body?.instance_id ||
+    const instanceId = processedData.uazapi_instance_id ||  // Estrutura do Respond final
+                      processedData.instance?.id ||  // Estrutura do HTTP Request
+                      processedData.instance_id || 
+                      processedData.instanceId ||
+                      processedData.data?.instance_id ||
+                      processedData.data?.instance?.id ||
+                      processedData.body?.instance_id ||
+                      processedData.body?.instance?.id ||
                       null;
 
-    const token = responseData.token || 
-                  responseData.data?.token ||
-                  responseData.body?.token ||
+    const token = processedData.uazapi_token ||  // Estrutura do Respond final
+                  processedData.instance?.token ||  // Estrutura do HTTP Request
+                  processedData.token || 
+                  processedData.data?.token ||
+                  processedData.data?.instance?.token ||
+                  processedData.body?.token ||
+                  processedData.body?.instance?.token ||
                   null;
 
-    const phoneNumber = responseData.phone_number || 
-                       responseData.phoneNumber ||
-                       responseData.data?.phone_number ||
-                       responseData.body?.phone_number ||
+    const phoneNumber = processedData.uazapi_phone_number ||  // Estrutura do Respond final
+                       processedData.instance?.profileName ||  // Estrutura do HTTP Request
+                       processedData.phone_number || 
+                       processedData.phoneNumber ||
+                       processedData.data?.phone_number ||
+                       processedData.body?.phone_number ||
                        null;
 
     console.log('[WhatsApp Auth] QR Code extraído:', qrCode ? 'SIM (' + (qrCode.substring(0, 50) + '...') + ')' : 'NÃO');
     console.log('[WhatsApp Auth] Status extraído:', status);
     console.log('[WhatsApp Auth] Instance ID extraído:', instanceId);
+    console.log('[WhatsApp Auth] Token extraído:', token ? 'SIM' : 'NÃO');
+    console.log('[WhatsApp Auth] Phone Number extraído:', phoneNumber || 'NÃO');
+
+    // Extrair outros campos necessários
+    const instanceName = processedData.whatsapp_instance_name ||
+                        processedData.instance?.name ||
+                        processedData.instance_name ||
+                        processedData.instanceName ||
+                        existingCredentials?.whatsapp_instance_name ||
+                        null;
+
+    const chatwootBaseUrl = processedData.chatwoot_base_url ||
+                           existingCredentials?.chatwoot_base_url ||
+                           null;
+
+    const chatwootAccountId = processedData.chatwoot_account_id ||
+                             existingCredentials?.chatwoot_account_id ||
+                             null;
+
+    const chatwootAccessToken = processedData.chatwoot_access_token ||
+                               existingCredentials?.chatwoot_access_token ||
+                               null;
+
+    const chatwootInboxId = processedData.chatwoot_inbox_id ||
+                           existingCredentials?.chatwoot_inbox_id ||
+                           null;
 
     // Salvar/atualizar credenciais no banco
     const credentialsData = {
@@ -236,13 +298,13 @@ exports.handler = async (event, context) => {
       uazapi_phone_number: phoneNumber || existingCredentials?.uazapi_phone_number || null,
       uazapi_qr_code: qrCode || existingCredentials?.uazapi_qr_code || null,
       uazapi_status: status || 'connecting',
-      whatsapp_instance_name: responseData.instance_name || responseData.instanceName || existingCredentials?.whatsapp_instance_name || null,
-      chatwoot_base_url: responseData.chatwoot_base_url || existingCredentials?.chatwoot_base_url || null,
-      chatwoot_account_id: responseData.chatwoot_account_id || existingCredentials?.chatwoot_account_id || null,
-      chatwoot_access_token: responseData.chatwoot_access_token || existingCredentials?.chatwoot_access_token || null,
-      chatwoot_inbox_id: responseData.chatwoot_inbox_id || existingCredentials?.chatwoot_inbox_id || null,
+      whatsapp_instance_name: instanceName,
+      chatwoot_base_url: chatwootBaseUrl,
+      chatwoot_account_id: chatwootAccountId,
+      chatwoot_access_token: chatwootAccessToken,
+      chatwoot_inbox_id: chatwootInboxId,
       status: 'active',
-      instance_metadata: responseData.metadata || responseData.data || existingCredentials?.instance_metadata || null,
+      instance_metadata: processedData.instance_metadata || processedData.instance || existingCredentials?.instance_metadata || null,
     };
 
     const { error: upsertError } = await supabase
@@ -257,13 +319,13 @@ exports.handler = async (event, context) => {
     }
 
     // Se houver store_id, atualizar também a tabela stores
-    if (store_id && responseData.token) {
+    if (store_id && token) {
       await supabase
         .from('stores')
         .update({
-          uazapi_token: responseData.token,
-          uazapi_instance_id: responseData.instance_id,
-          whatsapp_connection_status: responseData.status || 'connecting',
+          uazapi_token: token,
+          uazapi_instance_id: instanceId,
+          whatsapp_connection_status: status || 'connecting',
         })
         .eq('id', store_id);
     }
