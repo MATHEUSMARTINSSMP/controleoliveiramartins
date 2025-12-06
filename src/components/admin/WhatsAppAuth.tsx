@@ -129,7 +129,10 @@ export const WhatsAppAuth = ({
           clearTimeout(connectionTimeoutRef.current);
           connectionTimeoutRef.current = null;
         }
-        clearInterval(countdownInterval);
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
         setTimeoutCountdown(null);
       };
     } else {
@@ -154,7 +157,10 @@ export const WhatsAppAuth = ({
           clearTimeout(connectionTimeoutRef.current);
           connectionTimeoutRef.current = null;
         }
-        clearInterval(countdownInterval);
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
         setTimeoutCountdown(null);
       };
   }, [polling, authStatus?.status]);
