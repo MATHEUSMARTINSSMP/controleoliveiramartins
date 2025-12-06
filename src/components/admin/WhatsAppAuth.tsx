@@ -37,6 +37,7 @@ export const WhatsAppAuth = ({
   const [polling, setPolling] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [timeoutCountdown, setTimeoutCountdown] = useState<number | null>(null);
 
   // Cleanup ao desmontar o componente ou mudar de store
@@ -50,6 +51,10 @@ export const WhatsAppAuth = ({
       if (connectionTimeoutRef.current) {
         clearTimeout(connectionTimeoutRef.current);
         connectionTimeoutRef.current = null;
+      }
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
       }
       // Resetar estados
       setPolling(false);
@@ -74,12 +79,15 @@ export const WhatsAppAuth = ({
       setTimeoutCountdown(countdown);
 
       // Timer de countdown para exibir na UI
-      const countdownInterval = setInterval(() => {
+      countdownIntervalRef.current = setInterval(() => {
         countdown -= 1;
         if (countdown > 0) {
           setTimeoutCountdown(countdown);
         } else {
-          clearInterval(countdownInterval);
+          if (countdownIntervalRef.current) {
+            clearInterval(countdownIntervalRef.current);
+            countdownIntervalRef.current = null;
+          }
         }
       }, 1000);
 
@@ -94,7 +102,10 @@ export const WhatsAppAuth = ({
         
         // Parar polling
         setPolling(false);
-        clearInterval(countdownInterval);
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
         setTimeoutCountdown(null);
         
         // Resetar status
@@ -219,6 +230,10 @@ export const WhatsAppAuth = ({
     if (connectionTimeoutRef.current) {
       clearTimeout(connectionTimeoutRef.current);
       connectionTimeoutRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
     }
     setPolling(false);
     setTimeoutCountdown(null);
