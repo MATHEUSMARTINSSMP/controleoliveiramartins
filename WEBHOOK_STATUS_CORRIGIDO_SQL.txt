@@ -1,0 +1,74 @@
+================================================================================
+QUERY SQL CORRIGIDA PARA O WEBHOOK DE STATUS
+================================================================================
+Node: "🗄️ PostgreSQL - Get Status"
+Schema: sistemaretiradas (NÃO elevea)
+================================================================================
+
+SELECT 
+  customer_id,
+  site_slug,
+  uazapi_instance_id,
+  uazapi_token,
+  uazapi_status,
+  uazapi_qr_code,
+  uazapi_phone_number,
+  chatwoot_inbox_id,
+  created_at,
+  updated_at
+FROM sistemaretiradas.whatsapp_credentials
+WHERE customer_id = $1 AND site_slug = $2 AND status = 'active'
+LIMIT 1;
+
+================================================================================
+PARÂMETROS:
+================================================================================
+$1 → {{ $json.customer_id }}
+$2 → {{ $json.site_slug }}
+
+================================================================================
+NODE ADICIONAL: UPDATE STATUS QUANDO CONECTAR
+================================================================================
+Adicionar APÓS "📦 Code - Process Status"
+Node: "🗄️ PostgreSQL - Update Status if Connected"
+
+================================================================================
+CONDIÇÃO IF ANTES DO UPDATE:
+================================================================================
+Node: "❓ IF - Status Changed to Connected"
+
+Condição:
+{{ $json.status }} === 'connected' 
+AND 
+{{ $('🗄️ PostgreSQL - Get Status').item.json.uazapi_status }} !== 'connected'
+
+================================================================================
+QUERY UPDATE:
+================================================================================
+
+UPDATE sistemaretiradas.whatsapp_credentials
+SET 
+  uazapi_status = $1,
+  uazapi_phone_number = CASE 
+    WHEN $2 IS NOT NULL AND $2 != '' AND $2 != 'null' THEN $2 
+    ELSE uazapi_phone_number 
+  END,
+  uazapi_qr_code = NULL,
+  updated_at = NOW()
+WHERE 
+  customer_id = $3 
+  AND site_slug = $4
+  AND uazapi_instance_id = $5
+RETURNING *;
+
+================================================================================
+PARÂMETROS UPDATE:
+================================================================================
+$1 → {{ $json.status }}
+$2 → {{ $json.phoneNumber }}
+$3 → {{ $('🗄️ PostgreSQL - Get Status').item.json.customer_id }}
+$4 → {{ $('🗄️ PostgreSQL - Get Status').item.json.site_slug }}
+$5 → {{ $json.instanceId }}
+
+================================================================================
+
