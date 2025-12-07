@@ -530,10 +530,15 @@ export function formatCashbackMessage(params: {
 }
 
 // =====================================================
-// WhatsApp Status API Helper (Polling via N8N)
+// WhatsApp Status API Helper (via Netlify Function proxy)
 // =====================================================
 
-const N8N_STATUS_ENDPOINT = 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/auth/status';
+const getStatusEndpoint = () => {
+  if (typeof window !== 'undefined' && window.location.hostname.includes('eleveaone.com')) {
+    return 'https://eleveaone.com.br/.netlify/functions/whatsapp-status';
+  }
+  return '/.netlify/functions/whatsapp-status';
+};
 
 export interface WhatsAppStatusResponse {
   success: boolean;
@@ -569,14 +574,13 @@ export async function fetchWhatsAppStatus(params: FetchStatusParams): Promise<Wh
   }
 
   try {
-    const url = new URL(N8N_STATUS_ENDPOINT);
-    url.searchParams.append('siteSlug', siteSlug);
-    url.searchParams.append('customerId', customerId);
+    const endpoint = getStatusEndpoint();
+    const url = `${endpoint}?siteSlug=${encodeURIComponent(siteSlug)}&customerId=${encodeURIComponent(customerId)}`;
 
-    const response = await fetch(url.toString(), {
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
     });
 
