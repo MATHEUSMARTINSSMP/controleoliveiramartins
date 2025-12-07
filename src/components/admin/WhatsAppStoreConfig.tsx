@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Save, Phone, Wifi, WifiOff, TestTube, Loader2, Lock, Sparkles, RefreshCw, Eye } from "lucide-react";
+import { Save, Phone, Wifi, WifiOff, TestTube, Loader2, Lock, Sparkles, RefreshCw, Eye, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchWhatsAppStatus, isTerminalStatus, type WhatsAppStatusResponse } from "@/lib/whatsapp";
@@ -609,6 +609,45 @@ export const WhatsAppStoreConfig = () => {
                                             <p className="text-xs text-muted-foreground mt-4">
                                                 Abra o WhatsApp no celular, va em Configuracoes, Dispositivos Conectados e escaneie
                                             </p>
+                                            <div className="flex gap-2 justify-center mt-4">
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={() => {
+                                                        setPollingStores(prev => {
+                                                            const newSet = new Set(prev);
+                                                            newSet.delete(store.slug);
+                                                            return newSet;
+                                                        });
+                                                        setStoresWithCredentials(prev =>
+                                                            prev.map(s => s.slug === store.slug ? {
+                                                                ...s,
+                                                                credentials: {
+                                                                    ...s.credentials,
+                                                                    uazapi_qr_code: null,
+                                                                    uazapi_status: 'disconnected',
+                                                                } as WhatsAppCredential
+                                                            } : s)
+                                                        );
+                                                        toast.info('Operacao cancelada');
+                                                    }}
+                                                    data-testid={`button-cancel-qr-${store.id}`}
+                                                >
+                                                    <X className="h-4 w-4 mr-1" />
+                                                    Cancelar
+                                                </Button>
+                                                <Button
+                                                    onClick={() => handleCheckStatus(store)}
+                                                    disabled={checkingStatus === store.slug}
+                                                    data-testid={`button-refresh-qr-${store.id}`}
+                                                >
+                                                    {checkingStatus === store.slug ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                                    ) : (
+                                                        <RefreshCw className="h-4 w-4 mr-1" />
+                                                    )}
+                                                    Gerar Novo QR Code
+                                                </Button>
+                                            </div>
                                         </div>
                                     ) : store.credentials?.uazapi_status === 'connected' ? (
                                         <div className="p-6 bg-green-500/10 border border-green-500/30 rounded-lg text-center">
