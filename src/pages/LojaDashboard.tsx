@@ -3559,7 +3559,7 @@ export default function LojaDashboard() {
                                                         <TableHead className="text-xs sm:text-sm">Vendedora</TableHead>
                                                         <TableHead className="text-xs sm:text-sm">Valor</TableHead>
                                                         <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Peças</TableHead>
-                                                        <TableHead className="text-xs sm:text-sm hidden md:table-cell">Valor/Venda</TableHead>
+                                                        <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Forma Pagamento</TableHead>
                                                         <TableHead className="text-xs sm:text-sm">Ações</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
