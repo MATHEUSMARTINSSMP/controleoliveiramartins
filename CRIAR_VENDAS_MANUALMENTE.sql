@@ -13,8 +13,7 @@ SELECT
   qtd_itens,
   store_id,
   colaboradora_id,
-  data_pedido,
-  status
+  data_pedido
 FROM sistemaretiradas.tiny_orders
 WHERE numero_pedido IN ('1426', '1429', '1432');
 
