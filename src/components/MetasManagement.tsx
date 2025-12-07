@@ -794,7 +794,8 @@ const MetasManagementContent = () => {
                                 console.log(`[createBonusForWeeklyGincana] 📱 Enviando WhatsApp consolidado para ${colab.name} (${telefone})...`);
                                 const result = await sendWhatsAppMessage({
                                     phone: telefone,
-                                    message: message
+                                    message: message,
+                                    store_id: selectedStore || undefined, // Multi-tenancy: usar WhatsApp da loja se configurado
                                 });
                                 
                                 if (result.success) {

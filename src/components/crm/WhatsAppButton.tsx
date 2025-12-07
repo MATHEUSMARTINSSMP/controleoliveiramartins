@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 interface WhatsAppButtonProps {
   phone: string;
   message: string;
+  store_id?: string; // Multi-tenancy: usar WhatsApp da loja se configurado
   size?: "default" | "sm" | "lg" | "icon";
   variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
   className?: string;
@@ -16,6 +17,7 @@ interface WhatsAppButtonProps {
 export default function WhatsAppButton({
   phone,
   message,
+  store_id,
   size = "sm",
   variant = "outline",
   className
@@ -33,6 +35,7 @@ export default function WhatsAppButton({
       const result = await sendWhatsAppMessage({
         phone,
         message,
+        store_id,
       });
 
       if (result.success) {
