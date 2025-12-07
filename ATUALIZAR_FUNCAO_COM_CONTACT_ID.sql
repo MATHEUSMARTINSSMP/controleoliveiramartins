@@ -33,7 +33,7 @@ BEGIN
       o.id as tiny_order_id,
       o.store_id,
       o.colaboradora_id,
-      o.tiny_contact_id,
+      o.cliente_id as tiny_contact_id,
       o.data_pedido,
       o.valor_total,
       o.itens,

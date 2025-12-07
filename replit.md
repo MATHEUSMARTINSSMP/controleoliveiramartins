@@ -10,6 +10,14 @@ Complete multi-tenant ERP/sales management SaaS system migrated from Lovable to 
 - **Multi-tenancy**: RLS-based data isolation using `sistemaretiradas` schema
 
 ## Recent Changes
+- **2024-12-07**: Critical Bug Fixes - Tiny ERP Sales Sync:
+  - **Bug Fixed**: `qtd_itens` field was NOT being saved in `prepararDadosPedidoCompleto` function
+  - This caused `sales_qtd_pecas_check` constraint violations when creating sales
+  - **Solution**: Added `qtd_itens` calculation from `itensComCategorias` array
+  - **New Column**: Added `tiny_contact_id` to `sales` table for better traceability
+  - **Function Updated**: `criar_vendas_de_tiny_orders` now uses `qtd_itens` column and includes `tiny_contact_id`
+  - **Mapping**: `tiny_orders.cliente_id` maps to `sales.tiny_contact_id`
+  - **SQL Files Created**: `ADICIONAR_TINY_CONTACT_ID.sql`, `ATUALIZAR_FUNCAO_COM_CONTACT_ID.sql`
 - **2024-12-05**: Phase 5 - DUAL MONOCHROMATIC PALETTES with Animated Orbs:
   - **Design Philosophy**: Two distinct monochromatic palettes per theme
   - **Dark Theme**: Purple/Violet monocromatic palette (262deg hue) with subtle animated orbs
