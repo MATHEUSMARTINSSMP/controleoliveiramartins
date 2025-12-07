@@ -1,0 +1,51 @@
+[
+  {
+    "customer_id": "matheusmartinss@icloud.com",
+    "site_slug": "loungerie",
+    "uazapi_instance_id": "r6998790615d454",
+    "instance_name": "loungerie_matheusmartinss_icloud_com",
+    "chatwoot_base_url": "http://31.97.129.229:3000",
+    "chatwoot_access_token": "QfZQ83rvSoG8V4FLNqaEfG2Z",
+    "chatwoot_account_id": 1,
+    "chatwoot_inbox_id": 6,
+    "uazapi_base_url": "https://elevea.uazapi.com",
+    "phone_number": "",
+    "contact_name": "",
+    "uazapi_phone_number": null,
+    "message_text": "Evento de conexão: connecting",
+    "message_id": "",
+    "direction": "inbound",
+    "event": "connection",
+    "metadata": "{}",
+    "created_at": "2025-12-07T16:19:17.748Z",
+    "uazapi_token": "c8d80459-0427-41e3-9476-56140ed5040e",
+    "uazapi_status": "connecting",
+    "is_connection_event": true,
+    "processed": true,
+    "skip_chatwoot": true,
+    "raw_data": {
+      "BaseUrl": "https://elevea.uazapi.com",
+      "EventType": "connection",
+      "instance": {
+        "name": "loungerie_matheusmartinss_icloud_com",
+        "qrcode": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEAAQMAAABmvDolAAAABlBMVEX///8AAABVwtN+AAAEu0lEQVR42uyZPY7zLhfFL6KgMxuIzDZSWGJLKd1B5zJbQqLINrCygeuOAnFeXSd5PuqJXbz/h2JmYv00QebewzlA/8Z/aygA0bJ7Jl9ZodFM6DpHwwDSSUAhHS2NupGRR9c5sGseCxfSZwEr8sLAsxHRhmZiwNomCrwifxGI7J5N3sOaPO6knkA9G2Bei04EAI8atrX5GOhEoJBewGuh60y26GriMOpEM/2xWEcDAJa7HS/TdeZtzY/lPoyXaZ7/LNqfATLMnbrGYwGKrnMYyKH+1X4HA2oF4s2uz2QWa4EU7uSeuRp6z/EUILc5cCG6krXFJxNt1xnRdvUtoHgsQHfpapjc3t3yrFJxb4U5Hug0zdaO5AEilWtgrLIkIJroHIBcxgJbnPTdME4UQK7oGjCSTycBsiQ3O17Igwd5dlP9opdoi8KXANLAnaXgibY1mXjbgBxnVjgNUI3MnQWLRA4PMKlnC5HW4s8CRp0BS7qZxaqisTCPus2zHV81+RUgzWTlr8AKOcnPp7ReGV8ldwYw6WplRo/KwziZ5b7JVMHutaGcAKji20y8ohlYco0Mb8WJIuC1FicAslgL03jxiDy45BFVJ10J40j0HUDJt2NFrgHDKCsCiJjb9755BjCSX6JYNVNF2K6zBdpkZC1wFuDSZO5WBB62j76G2EeXzEJr918CVM6V4NBEQlWjwBv2musfGTwcUH2SDkPTaeZBtte9G2V7da9/cDxAo0e18smAt+JTYNtFC+yvsj8ckNYzsF3qgQeXH5G2TjoSUIi+A6wAxC76R7Qv76jWJ6oR35ZOAopOhqGeGYAtOgXeusvLsqeycwBSyLusJr9Yu2ZUQhf3wutnY/0p8JqD3bttn4NhWfvdsE10FuABUNfpGqCAKq64aERRvnQOQKpN4U5rE3e2dSl71S8UFvtLH34OyOun3fxzJ1E5ck/U8NvLHQ6o7sUTuebFD6NdDXjXd7iX0p4BFPKRuOtGsx1cRr0Nqk2zQVf5JIDkl8X6TDI91Yhu2G0zxtF/CXDNg3dXPEvK9ZUGeVQt+juAHA+oROEO92xXYharxoNDroZV1+kcYD9NuombqjM2aT2ovTSh1vw1QFpPNsnwlhuFQrOh8R0GjwfIiX+gQr6SHVy7EkHsaaXucjoNaHOwXfKm3cokertKPcC9NtYzgNFjYVtcuu6T9NhTWTX4FMyPAbU2eeWSNgyjTyYGtRax6R8fdTxApHO8YdQCkEI1UeJPDba/o/3xgOo0BbZFt2uwG5KpYZAYXPmdeb8AFNL1xih0NZZUrmL7iwa4fE6TDgdEYQxTv/jH60hcbNJFV8P99ynK4QCk4AFpQGm9mbYVGeCPbT4ekLhvoh3FMLOkMvFyDssC+pzT/hxoupJdIfVggZfKidKifyLv0cB+TguMDnUWu1hn2vqFiFi9N7Xjgf0W5sadJpHaNT9iQHH71UD5dST+Q6CQXtiSBBDein5gPwoW8/+79Y4G9hsQAbBI5VXDW9+VFl2fCdyhnngsbKUqpB70svx1C3MK4J7ySUlWYh51XkCd9JcA8TABu8LAFiLZVjRiYJTTAIm5vF84BB5coz0E0WzwPsA8Afg3/n/G/wIAAP//O3+v3dhuruUAAAAASUVORK5CYII=",
+        "status": "connecting"
+      },
+      "instanceName": "loungerie_matheusmartinss_icloud_com",
+      "owner": "",
+      "token": "c8d80459-0427-41e3-9476-56140ed5040e"
+    },
+    "pg_customer_id": "matheusmartinss@icloud.com",
+    "pg_site_slug": "loungerie",
+    "webhook_customer_id": "",
+    "webhook_site_slug": "",
+    "webhook_source": "Code - Merge Webhooks (UAZAPI)",
+    "has_webhook_data": true,
+    "has_pg_data": true,
+    "is_chatwoot_webhook": false,
+    "skip_create_contact": false,
+    "message": "Contato não encontrado, será criado",
+    "chatwoot_contact_id": null,
+    "contact_exists": false
+  }
+]
