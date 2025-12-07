@@ -1921,6 +1921,9 @@ export default function LojaDashboard() {
         setSubmitting(true);
         setSubmitSuccess(false);
 
+        // Preparar forma_pagamento principal (para compatibilidade)
+        const formaPrincipal = formasPagamento.length > 0 ? formasPagamento[0].tipo : null;
+
         const { data: insertedSale, error } = await supabase
             .schema("sistemaretiradas")
             .from('sales')
@@ -1930,8 +1933,10 @@ export default function LojaDashboard() {
                 valor: parseFloat(formData.valor),
                 qtd_pecas: parseInt(formData.qtd_pecas),
                 data_venda: formData.data_venda,
-                observacoes: observacoesFinal || null,
+                observacoes: formData.observacoes || null,
                 lancado_por_id: profile?.id,
+                forma_pagamento: formaPrincipal,
+                formas_pagamento_json: formasPagamento,
             })
             .select()
             .single();
@@ -2414,21 +2419,8 @@ export default function LojaDashboard() {
             return;
         }
 
-        // Preparar observações com formas de pagamento
-        let observacoesFinal = formData.observacoes || '';
-        const formasPagamentoTexto = formasPagamento.map(f => {
-            let texto = `${f.tipo}: R$ ${f.valor.toFixed(2)}`;
-            if (f.tipo === 'CREDITO' && f.parcelas) {
-                texto += ` (${f.parcelas}x)`;
-            }
-            return texto;
-        }).join(' | ');
-
-        if (observacoesFinal) {
-            observacoesFinal += ` | Formas de Pagamento: ${formasPagamentoTexto}`;
-        } else {
-            observacoesFinal = `Formas de Pagamento: ${formasPagamentoTexto}`;
-        }
+        // Preparar forma_pagamento principal (para compatibilidade)
+        const formaPrincipal = formasPagamento.length > 0 ? formasPagamento[0].tipo : null;
 
         try {
             // Atualizar a venda
@@ -2440,7 +2432,9 @@ export default function LojaDashboard() {
                     valor: parseFloat(formData.valor),
                     qtd_pecas: parseInt(formData.qtd_pecas),
                     data_venda: formData.data_venda,
-                    observacoes: observacoesFinal || null,
+                    observacoes: formData.observacoes || null,
+                    forma_pagamento: formaPrincipal,
+                    formas_pagamento_json: formasPagamento,
                 })
                 .eq('id', editingSaleId!);
 
@@ -2459,7 +2453,9 @@ export default function LojaDashboard() {
                         colaboradora_id: formData.colaboradora_id,
                         valor_total: parseFloat(formData.valor),
                         data_pedido: formData.data_venda,
-                        observacoes: observacoesFinal || null,
+                        observacoes: formData.observacoes || null,
+                        forma_pagamento: formaPrincipal,
+                        formas_pagamento_json: formasPagamento,
                         updated_at: new Date().toISOString(),
                     })
                     .eq('id', sale.tiny_order_id);
