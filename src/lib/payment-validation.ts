@@ -12,6 +12,8 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
   BOLETO: 'Boleto',
 };
 
+export const MAX_PARCELAS = 6;
+
 export const formaPagamentoSchema = z.object({
   tipo: z.enum(PAYMENT_METHOD_TYPES, {
     errorMap: () => ({ message: 'Tipo de pagamento invalido' }),
@@ -20,16 +22,16 @@ export const formaPagamentoSchema = z.object({
     required_error: 'Valor e obrigatorio',
     invalid_type_error: 'Valor deve ser um numero',
   }).positive('Valor deve ser maior que zero'),
-  parcelas: z.number().int().min(1).max(12).optional(),
+  parcelas: z.number().int().min(1).max(MAX_PARCELAS).optional(),
 }).refine(
   (data) => {
     if (data.tipo === 'CREDITO') {
-      return data.parcelas !== undefined && data.parcelas >= 1 && data.parcelas <= 12;
+      return data.parcelas !== undefined && data.parcelas >= 1 && data.parcelas <= MAX_PARCELAS;
     }
     return true;
   },
   {
-    message: 'Credito requer numero de parcelas entre 1 e 12',
+    message: `Credito requer numero de parcelas entre 1 e ${MAX_PARCELAS}`,
     path: ['parcelas'],
   }
 ).refine(

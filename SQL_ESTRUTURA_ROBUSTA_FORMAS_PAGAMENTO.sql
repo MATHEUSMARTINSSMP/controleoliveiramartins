@@ -90,10 +90,10 @@ BEGIN
       RETURN FALSE;
     END IF;
     
-    -- Validar parcelas apenas para CREDITO
+    -- Validar parcelas apenas para CREDITO (maximo 6x)
     IF v_tipo = 'CREDITO' THEN
-      IF v_parcelas IS NULL OR v_parcelas < 1 OR v_parcelas > 12 THEN
-        RAISE NOTICE 'Parcelas para CREDITO deve ser entre 1 e 12';
+      IF v_parcelas IS NULL OR v_parcelas < 1 OR v_parcelas > 6 THEN
+        RAISE NOTICE 'Parcelas para CREDITO deve ser entre 1 e 6';
         RETURN FALSE;
       END IF;
     ELSE

@@ -23,6 +23,7 @@ import {
     validateFormasPagamento, 
     getFormaPrincipal, 
     calcularTotalFormas,
+    formatFormasPagamentoResumo,
     type FormaPagamento as FormaPagamentoType,
     PAYMENT_METHOD_TYPES,
     type PaymentMethodType
@@ -1897,6 +1898,15 @@ export default function LojaDashboard() {
         // Obter forma de pagamento principal (maior valor)
         const formaPrincipal = getFormaPrincipal(formasPagamento);
 
+        // Gerar resumo textual para compatibilidade (backup legivel)
+        const resumoPagamentos = formatFormasPagamentoResumo(formasPagamento);
+        let observacoesComPagamento = formData.observacoes || '';
+        if (resumoPagamentos && resumoPagamentos !== 'Nao informado') {
+            observacoesComPagamento = observacoesComPagamento 
+                ? `${observacoesComPagamento} | Pagamento: ${resumoPagamentos}`
+                : `Pagamento: ${resumoPagamentos}`;
+        }
+
         try {
             const { data: insertedSale, error } = await supabase
                 .schema("sistemaretiradas")
@@ -1907,7 +1917,7 @@ export default function LojaDashboard() {
                     valor: valorVenda,
                     qtd_pecas: parseInt(formData.qtd_pecas),
                     data_venda: formData.data_venda,
-                    observacoes: formData.observacoes || null,
+                    observacoes: observacoesComPagamento || null,
                     lancado_por_id: profile?.id,
                     forma_pagamento: formaPrincipal,
                     formas_pagamento_json: formasPagamento,
@@ -2406,8 +2416,17 @@ export default function LojaDashboard() {
             return;
         }
 
-        // Preparar forma_pagamento principal (para compatibilidade)
-        const formaPrincipal = formasPagamento.length > 0 ? formasPagamento[0].tipo : null;
+        // Obter forma de pagamento principal (maior valor)
+        const formaPrincipal = getFormaPrincipal(formasPagamento);
+
+        // Gerar resumo textual para compatibilidade (backup legivel)
+        const resumoPagamentos = formatFormasPagamentoResumo(formasPagamento);
+        let observacoesComPagamento = formData.observacoes || '';
+        if (resumoPagamentos && resumoPagamentos !== 'Nao informado') {
+            observacoesComPagamento = observacoesComPagamento 
+                ? `${observacoesComPagamento} | Pagamento: ${resumoPagamentos}`
+                : `Pagamento: ${resumoPagamentos}`;
+        }
 
         try {
             // Atualizar a venda
@@ -2419,7 +2438,7 @@ export default function LojaDashboard() {
                     valor: parseFloat(formData.valor),
                     qtd_pecas: parseInt(formData.qtd_pecas),
                     data_venda: formData.data_venda,
-                    observacoes: formData.observacoes || null,
+                    observacoes: observacoesComPagamento || null,
                     forma_pagamento: formaPrincipal,
                     formas_pagamento_json: formasPagamento,
                 })
@@ -2440,7 +2459,7 @@ export default function LojaDashboard() {
                         colaboradora_id: formData.colaboradora_id,
                         valor_total: parseFloat(formData.valor),
                         data_pedido: formData.data_venda,
-                        observacoes: formData.observacoes || null,
+                        observacoes: observacoesComPagamento || null,
                         forma_pagamento: formaPrincipal,
                         formas_pagamento_json: formasPagamento,
                         updated_at: new Date().toISOString(),
