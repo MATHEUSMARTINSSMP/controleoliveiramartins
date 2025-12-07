@@ -1,0 +1,98 @@
+[
+  {
+    "numero_pedido": "1426",
+    "cliente_nome": "Cássia Favacho",
+    "valor_total": "898.00",
+    "colab_tiny": "05bc89cf-75cd-4cf3-909c-956fdf37380c",
+    "sale_id": null,
+    "colab_sale": null,
+    "data_venda": null,
+    "data_venda_raw": null,
+    "dia_sale": null,
+    "status": "FALTA VENDA"
+  },
+  {
+    "numero_pedido": "1427",
+    "cliente_nome": "Fabiana Alencar Feitosa",
+    "valor_total": "827.00",
+    "colab_tiny": "05bc89cf-75cd-4cf3-909c-956fdf37380c",
+    "sale_id": "bf9ec7e2-17eb-4288-8cd7-00e774a4a3ce",
+    "colab_sale": "05bc89cf-75cd-4cf3-909c-956fdf37380c",
+    "data_venda": "2025-12-06 16:00:30",
+    "data_venda_raw": "2025-12-06 16:00:30",
+    "dia_sale": "2025-12-06",
+    "status": "OK"
+  },
+  {
+    "numero_pedido": "1428",
+    "cliente_nome": "Stefanny Marques",
+    "valor_total": "608.00",
+    "colab_tiny": "05bc89cf-75cd-4cf3-909c-956fdf37380c",
+    "sale_id": "525bdf94-6083-4bd4-83ac-7b37da527f0d",
+    "colab_sale": "05bc89cf-75cd-4cf3-909c-956fdf37380c",
+    "data_venda": "2025-12-06 17:51:03",
+    "data_venda_raw": "2025-12-06 17:51:03",
+    "dia_sale": "2025-12-06",
+    "status": "OK"
+  },
+  {
+    "numero_pedido": "1429",
+    "cliente_nome": "Jesuiana Oliveira ",
+    "valor_total": "248.00",
+    "colab_tiny": "60fffeda-d1ea-4a10-aa0a-1c08ca796b95",
+    "sale_id": null,
+    "colab_sale": null,
+    "data_venda": null,
+    "data_venda_raw": null,
+    "dia_sale": null,
+    "status": "FALTA VENDA"
+  },
+  {
+    "numero_pedido": "1430",
+    "cliente_nome": "Anny Galelo",
+    "valor_total": "932.00",
+    "colab_tiny": "206bb44c-1c81-42e7-b235-dce4168c6441",
+    "sale_id": "a2d1b0e7-43dd-45aa-9d80-e353ccddbd8d",
+    "colab_sale": "206bb44c-1c81-42e7-b235-dce4168c6441",
+    "data_venda": "2025-12-06 18:40:11",
+    "data_venda_raw": "2025-12-06 18:40:11",
+    "dia_sale": "2025-12-06",
+    "status": "OK"
+  },
+  {
+    "numero_pedido": "1431",
+    "cliente_nome": "Alana Malvao",
+    "valor_total": "248.00",
+    "colab_tiny": "206bb44c-1c81-42e7-b235-dce4168c6441",
+    "sale_id": "63addf24-daa3-4a40-983d-d3e45402f373",
+    "colab_sale": "206bb44c-1c81-42e7-b235-dce4168c6441",
+    "data_venda": "2025-12-06 19:44:04",
+    "data_venda_raw": "2025-12-06 19:44:04",
+    "dia_sale": "2025-12-06",
+    "status": "OK"
+  },
+  {
+    "numero_pedido": "1432",
+    "cliente_nome": "Wendy Moura ",
+    "valor_total": "898.00",
+    "colab_tiny": "206bb44c-1c81-42e7-b235-dce4168c6441",
+    "sale_id": null,
+    "colab_sale": null,
+    "data_venda": null,
+    "data_venda_raw": null,
+    "dia_sale": null,
+    "status": "FALTA VENDA"
+  },
+  {
+    "numero_pedido": "1433",
+    "cliente_nome": "Ana Paula ",
+    "valor_total": "898.00",
+    "colab_tiny": "60fffeda-d1ea-4a10-aa0a-1c08ca796b95",
+    "sale_id": "dd9f3263-8185-4ac3-959a-85e2596eec31",
+    "colab_sale": "60fffeda-d1ea-4a10-aa0a-1c08ca796b95",
+    "data_venda": "2025-12-06 21:49:04",
+    "data_venda_raw": "2025-12-06 21:49:04",
+    "dia_sale": "2025-12-06",
+    "status": "OK"
+  }
+]
