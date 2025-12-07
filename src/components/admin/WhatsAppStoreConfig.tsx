@@ -193,12 +193,15 @@ export const WhatsAppStoreConfig = () => {
     const fetchAdminPlan = async () => {
         if (!profile) return;
 
+        console.log('[fetchAdminPlan] Buscando plano para admin_id:', profile.id);
+
         try {
             const { data, error } = await supabase
                 .schema('sistemaretiradas')
                 .from('admin_subscriptions')
                 .select(`
                     plan_id,
+                    status,
                     subscription_plans:plan_id (
                         name,
                         display_name
@@ -208,8 +211,10 @@ export const WhatsAppStoreConfig = () => {
                 .eq('status', 'active')
                 .maybeSingle();
 
+            console.log('[fetchAdminPlan] Resultado da query:', { data, error });
+
             if (error) {
-                console.error('Erro ao buscar plano:', error);
+                console.error('[fetchAdminPlan] Erro ao buscar plano:', error);
                 return;
             }
 
@@ -218,18 +223,21 @@ export const WhatsAppStoreConfig = () => {
                 const planName = plan.name?.toUpperCase() || '';
                 const canUseOwnWhatsApp = planName === 'BUSINESS' || planName === 'ENTERPRISE';
 
+                console.log('[fetchAdminPlan] Plano encontrado:', { planName, canUseOwnWhatsApp, plan });
+
                 setAdminPlan({
                     plan_name: plan.display_name || plan.name,
                     can_use_own_whatsapp: canUseOwnWhatsApp,
                 });
             } else {
+                console.warn('[fetchAdminPlan] Nenhum plano ativo encontrado, usando Starter');
                 setAdminPlan({
                     plan_name: 'Starter',
                     can_use_own_whatsapp: false,
                 });
             }
         } catch (error: any) {
-            console.error('Erro ao buscar plano do admin:', error);
+            console.error('[fetchAdminPlan] Erro ao buscar plano do admin:', error);
         }
     };
 
