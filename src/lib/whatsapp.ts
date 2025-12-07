@@ -540,6 +540,13 @@ const getStatusEndpoint = () => {
   return '/.netlify/functions/whatsapp-status';
 };
 
+const getConnectEndpoint = () => {
+  if (typeof window !== 'undefined' && window.location.hostname.includes('eleveaone.com')) {
+    return 'https://eleveaone.com.br/.netlify/functions/whatsapp-connect';
+  }
+  return '/.netlify/functions/whatsapp-connect';
+};
+
 export interface WhatsAppStatusResponse {
   success: boolean;
   ok: boolean;
@@ -655,5 +662,72 @@ function normalizeWhatsAppStatus(
  */
 export function isTerminalStatus(status: WhatsAppStatusResponse['status']): boolean {
   return status === 'connected' || status === 'error';
+}
+
+export interface WhatsAppConnectResponse {
+  success: boolean;
+  qrCode: string | null;
+  instanceId: string | null;
+  status: string;
+  message: string | null;
+  error?: string;
+}
+
+/**
+ * Iniciar conexao WhatsApp e gerar QR Code
+ */
+export async function connectWhatsApp(params: FetchStatusParams): Promise<WhatsAppConnectResponse> {
+  const { siteSlug, customerId } = params;
+  
+  if (!siteSlug || !customerId) {
+    return {
+      success: false,
+      qrCode: null,
+      instanceId: null,
+      status: 'error',
+      message: 'Parametros invalidos',
+      error: 'Missing siteSlug or customerId',
+    };
+  }
+
+  try {
+    const endpoint = getConnectEndpoint();
+    const url = `${endpoint}?siteSlug=${encodeURIComponent(siteSlug)}&customerId=${encodeURIComponent(customerId)}`;
+
+    console.log('[WhatsApp] Iniciando conexao:', url);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('[WhatsApp] Resposta conexao:', data);
+    
+    return {
+      success: data.success ?? false,
+      qrCode: data.qrCode || null,
+      instanceId: data.instanceId || null,
+      status: data.status || 'connecting',
+      message: data.message || null,
+      error: data.error || undefined,
+    };
+  } catch (error: any) {
+    console.error('Erro ao conectar WhatsApp:', error);
+    return {
+      success: false,
+      qrCode: null,
+      instanceId: null,
+      status: 'error',
+      message: 'Erro ao conectar',
+      error: error.message,
+    };
+  }
 }
 

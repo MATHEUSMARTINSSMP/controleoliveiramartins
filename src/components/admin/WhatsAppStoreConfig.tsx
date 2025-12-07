@@ -10,7 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Save, Phone, Wifi, WifiOff, TestTube, Loader2, Lock, Sparkles, RefreshCw, Eye, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { fetchWhatsAppStatus, isTerminalStatus, type WhatsAppStatusResponse } from "@/lib/whatsapp";
+import { fetchWhatsAppStatus, connectWhatsApp, isTerminalStatus, type WhatsAppStatusResponse } from "@/lib/whatsapp";
 
 interface Store {
     id: string;
@@ -129,6 +129,52 @@ export const WhatsAppStoreConfig = () => {
         } catch (error: any) {
             console.error('Erro ao verificar status:', error);
             toast.error('Erro ao verificar status: ' + error.message);
+        } finally {
+            setCheckingStatus(null);
+        }
+    }, [profile?.email]);
+
+    // Funcao para GERAR novo QR Code (iniciar conexao)
+    const handleGenerateQRCode = useCallback(async (store: StoreWithCredentials) => {
+        if (!profile?.email) return;
+
+        setCheckingStatus(store.slug);
+        toast.info(`Gerando QR Code para ${store.name}...`);
+
+        try {
+            const result = await connectWhatsApp({
+                siteSlug: store.slug,
+                customerId: profile.email,
+            });
+
+            console.log('[WhatsApp] Resultado conexao:', result);
+
+            if (result.qrCode) {
+                setStoresWithCredentials(prev =>
+                    prev.map(s => s.slug === store.slug ? {
+                        ...s,
+                        credentials: {
+                            ...s.credentials,
+                            uazapi_status: 'qr_required',
+                            uazapi_qr_code: result.qrCode,
+                            updated_at: new Date().toISOString(),
+                        } as WhatsAppCredential
+                    } : s)
+                );
+
+                setPollingStores(prev => new Set(prev).add(store.slug));
+                startPollingForStore(store);
+                toast.success(`QR Code gerado! Escaneie para conectar ${store.name}`);
+            } else if (result.error) {
+                toast.error(`Erro ao gerar QR Code: ${result.error}`);
+            } else {
+                toast.info(`Aguardando resposta do servidor...`);
+                setPollingStores(prev => new Set(prev).add(store.slug));
+                startPollingForStore(store);
+            }
+        } catch (error: any) {
+            console.error('Erro ao gerar QR Code:', error);
+            toast.error('Erro ao gerar QR Code: ' + error.message);
         } finally {
             setCheckingStatus(null);
         }
@@ -636,7 +682,7 @@ export const WhatsAppStoreConfig = () => {
                                                     Cancelar
                                                 </Button>
                                                 <Button
-                                                    onClick={() => handleCheckStatus(store)}
+                                                    onClick={() => handleGenerateQRCode(store)}
                                                     disabled={checkingStatus === store.slug}
                                                     data-testid={`button-refresh-qr-${store.id}`}
                                                 >
@@ -672,7 +718,7 @@ export const WhatsAppStoreConfig = () => {
 
                                     <div className="flex gap-2 justify-center flex-wrap">
                                         <Button
-                                            onClick={() => handleCheckStatus(store)}
+                                            onClick={() => handleGenerateQRCode(store)}
                                             disabled={checkingStatus === store.slug || pollingStores.has(store.slug)}
                                             className="gap-2"
                                             data-testid={`button-generate-qr-${store.id}`}
