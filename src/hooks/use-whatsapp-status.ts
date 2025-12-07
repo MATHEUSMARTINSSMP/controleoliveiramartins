@@ -41,7 +41,7 @@ export function useWhatsAppStatus({
   enabled = true,
 }: UseWhatsAppStatusOptions): UseWhatsAppStatusReturn {
   const queryClient = useQueryClient();
-  const [isPollingEnabled, setIsPollingEnabled] = useState(false);
+  const [isPollingEnabled, setIsPollingEnabled] = useState(true); // Iniciar habilitado
   const [manualRefreshUntil, setManualRefreshUntil] = useState<number | null>(null);
 
   const queryKey = ['whatsapp-status', siteSlug, customerId];
@@ -55,19 +55,14 @@ export function useWhatsAppStatus({
     enabled: enabled && !!siteSlug && !!customerId,
     staleTime: 10000, // 10 segundos
     refetchInterval: (query) => {
-      // Se desabilitado, nao fazer polling
-      if (!isPollingEnabled) return false;
-
-      // Se tem janela de refresh manual ativa
-      if (manualRefreshUntil && Date.now() < manualRefreshUntil) {
-        return POLLING_INTERVAL;
-      }
-
       // Se status terminal (connected/error), parar polling
       const currentData = query.state.data;
       if (currentData && isTerminalStatus(currentData.status)) {
         return false;
       }
+
+      // Se desabilitado explicitamente, nao fazer polling
+      if (!isPollingEnabled) return false;
 
       return POLLING_INTERVAL;
     },
@@ -80,15 +75,22 @@ export function useWhatsAppStatus({
     }
   }, [data?.status]);
 
-  // Limpar janela de refresh manual quando expirar
+  // Habilitar polling automaticamente quando status nao e terminal
+  useEffect(() => {
+    if (data && !isTerminalStatus(data.status)) {
+      setIsPollingEnabled(true);
+    }
+  }, [data?.status]);
+
+  // Limpar janela de refresh manual quando expirar (manter polling se nao terminal)
   useEffect(() => {
     if (!manualRefreshUntil) return;
 
     const timeout = setTimeout(() => {
       setManualRefreshUntil(null);
-      // Se status ainda nao e terminal, manter polling
+      // Manter polling se status ainda nao e terminal
       if (data && !isTerminalStatus(data.status)) {
-        setIsPollingEnabled(false);
+        setIsPollingEnabled(true); // Manter ativo, nao desabilitar
       }
     }, manualRefreshUntil - Date.now());
 
