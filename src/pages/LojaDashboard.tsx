@@ -19,6 +19,14 @@ import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
 import { format, startOfWeek, getWeek, getYear } from "date-fns";
 import { StoreLogo } from "@/lib/storeLogo";
+import { 
+    validateFormasPagamento, 
+    getFormaPrincipal, 
+    calcularTotalFormas,
+    type FormaPagamento as FormaPagamentoType,
+    PAYMENT_METHOD_TYPES,
+    type PaymentMethodType
+} from "@/lib/payment-validation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { motion } from "framer-motion";
@@ -87,13 +95,7 @@ export default function LojaDashboard() {
     const [wishlistAtivo, setWishlistAtivo] = useState<boolean>(false);
     const [activeView, setActiveView] = useState<'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto'>('metas');
 
-    interface FormaPagamento {
-        tipo: 'CREDITO' | 'DEBITO' | 'DINHEIRO' | 'PIX' | 'BOLETO';
-        valor: number;
-        parcelas?: number;
-    }
-
-    const [formasPagamento, setFormasPagamento] = useState<FormaPagamento[]>([{
+    const [formasPagamento, setFormasPagamento] = useState<FormaPagamentoType[]>([{
         tipo: 'DINHEIRO',
         valor: 0,
     }]);
@@ -1871,81 +1873,62 @@ export default function LojaDashboard() {
         if (submitting) return;
 
         if (!formData.colaboradora_id || !formData.valor || !formData.qtd_pecas) {
-            toast.error('Preencha todos os campos obrigatórios');
+            toast.error('Preencha todos os campos obrigatorios');
             return;
-        }
-
-        // Validar formas de pagamento
-        const totalFormas = formasPagamento.reduce((sum, f) => sum + (f.valor || 0), 0);
-        const valorTotal = parseFloat(formData.valor) || 0;
-
-        if (totalFormas <= 0) {
-            toast.error('Adicione pelo menos uma forma de pagamento com valor maior que zero');
-            return;
-        }
-
-        if (Math.abs(totalFormas - valorTotal) > 0.01) {
-            toast.error(`A soma das formas de pagamento (R$ ${totalFormas.toFixed(2)}) deve ser igual ao valor total (R$ ${valorTotal.toFixed(2)})`);
-            return;
-        }
-
-        // Validar parcelas para crédito
-        for (const forma of formasPagamento) {
-            if (forma.tipo === 'CREDITO' && (!forma.parcelas || forma.parcelas < 1 || forma.parcelas > 6)) {
-                toast.error('Número de parcelas deve estar entre 1 e 6 para pagamento no crédito');
-                return;
-            }
         }
 
         if (!storeId) {
-            toast.error('Erro: ID da loja não identificado');
+            toast.error('Erro: ID da loja nao identificado');
             return;
         }
 
-        // Preparar observações com formas de pagamento
-        let observacoesFinal = formData.observacoes || '';
-        const formasPagamentoTexto = formasPagamento.map(f => {
-            let texto = `${f.tipo}: R$ ${f.valor.toFixed(2)}`;
-            if (f.tipo === 'CREDITO' && f.parcelas) {
-                texto += ` (${f.parcelas}x)`;
-            }
-            return texto;
-        }).join(' | ');
+        const valorVenda = parseFloat(formData.valor) || 0;
 
-        if (observacoesFinal) {
-            observacoesFinal += ` | Formas de Pagamento: ${formasPagamentoTexto}`;
-        } else {
-            observacoesFinal = `Formas de Pagamento: ${formasPagamentoTexto}`;
+        // Validacao robusta usando o modulo de validacao
+        const validacao = validateFormasPagamento(formasPagamento, valorVenda);
+        if (!validacao.valid) {
+            validacao.errors.forEach(err => toast.error(err));
+            return;
         }
 
         setSubmitting(true);
         setSubmitSuccess(false);
 
-        // Preparar forma_pagamento principal (para compatibilidade)
-        const formaPrincipal = formasPagamento.length > 0 ? formasPagamento[0].tipo : null;
+        // Obter forma de pagamento principal (maior valor)
+        const formaPrincipal = getFormaPrincipal(formasPagamento);
 
-        const { data: insertedSale, error } = await supabase
-            .schema("sistemaretiradas")
-            .from('sales')
-            .insert({
-                colaboradora_id: formData.colaboradora_id,
-                store_id: storeId,
-                valor: parseFloat(formData.valor),
-                qtd_pecas: parseInt(formData.qtd_pecas),
-                data_venda: formData.data_venda,
-                observacoes: formData.observacoes || null,
-                lancado_por_id: profile?.id,
-                forma_pagamento: formaPrincipal,
-                formas_pagamento_json: formasPagamento,
-            })
-            .select()
-            .single();
+        try {
+            const { data: insertedSale, error } = await supabase
+                .schema("sistemaretiradas")
+                .from('sales')
+                .insert({
+                    colaboradora_id: formData.colaboradora_id,
+                    store_id: storeId,
+                    valor: valorVenda,
+                    qtd_pecas: parseInt(formData.qtd_pecas),
+                    data_venda: formData.data_venda,
+                    observacoes: formData.observacoes || null,
+                    lancado_por_id: profile?.id,
+                    forma_pagamento: formaPrincipal,
+                    formas_pagamento_json: formasPagamento,
+                })
+                .select()
+                .single();
 
-        if (error) {
-            toast.error('Erro ao lançar venda');
-            console.error(error);
-            setSubmitting(false);
-        } else {
+            if (error) {
+                console.error('[Venda] Erro ao inserir:', error);
+                if (error.code === '42703') {
+                    toast.error('Erro: Coluna nao existe no banco. Execute o SQL de migracao.');
+                } else if (error.code === '23514') {
+                    toast.error('Erro: Dados invalidos. Verifique valores e formas de pagamento.');
+                } else {
+                    toast.error('Erro ao lancar venda: ' + (error.message || 'Erro desconhecido'));
+                }
+                setSubmitting(false);
+                return;
+            }
+
+            // Sucesso
             setSubmitSuccess(true);
             setTimeout(() => {
                 setSubmitSuccess(false);
@@ -1980,7 +1963,7 @@ export default function LojaDashboard() {
                     saleId: insertedSale.id,
                     colaboradoraId: formData.colaboradora_id,
                     saleDate: formData.data_venda,
-                    saleObservations: observacoesFinal || null
+                    saleObservations: formData.observacoes || null
                 });
                 // Usar setTimeout para garantir que o estado seja atualizado antes de abrir o dialog
                 setTimeout(() => {
@@ -2327,6 +2310,10 @@ export default function LojaDashboard() {
                 fetch7DayHistoryWithStoreId(storeId),
                 fetchMonthlyDataByDayWithStoreId(storeId)
             ]);
+        } catch (error: any) {
+            console.error('[Venda] Erro inesperado:', error);
+            toast.error('Erro inesperado ao lancar venda: ' + (error.message || 'Erro desconhecido'));
+            setSubmitting(false);
         }
     };
 
