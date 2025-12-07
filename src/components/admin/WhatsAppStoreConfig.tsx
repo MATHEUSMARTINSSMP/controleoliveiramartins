@@ -521,7 +521,7 @@ export const WhatsAppStoreConfig = () => {
                     )}
                 </h2>
                 <p className="text-muted-foreground mt-1">
-                    Configure o WhatsApp para cada loja. Credenciais salvas em tabela dedicada para integracao N8N.
+                    Conecte o WhatsApp de cada loja para envio automatico de mensagens.
                 </p>
             </div>
 
@@ -595,127 +595,55 @@ export const WhatsAppStoreConfig = () => {
 
                             {store.whatsapp_ativo && (
                                 <CardContent className="space-y-4">
-                                    <div className="grid gap-4 md:grid-cols-2">
-                                        <div className="space-y-2">
-                                            <Label htmlFor={`token-${store.id}`}>
-                                                UazAPI Token *
-                                            </Label>
-                                            <Input
-                                                id={`token-${store.id}`}
-                                                data-testid={`input-token-${store.id}`}
-                                                type="password"
-                                                placeholder="Cole o token da UazAPI"
-                                                value={local.uazapi_token || ''}
-                                                onChange={(e) => updateLocalCredential(store.slug, 'uazapi_token', e.target.value)}
-                                            />
-                                            <p className="text-xs text-muted-foreground">
-                                                Token de autenticacao da API UazAPI
+                                    {store.credentials?.uazapi_qr_code ? (
+                                        <div className="p-6 bg-muted rounded-lg text-center">
+                                            <p className="text-sm text-muted-foreground mb-4">
+                                                Escaneie o QR Code abaixo com o WhatsApp para conectar
                                             </p>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor={`instance-${store.id}`}>
-                                                Instance ID
-                                            </Label>
-                                            <Input
-                                                id={`instance-${store.id}`}
-                                                data-testid={`input-instance-${store.id}`}
-                                                placeholder="ID da instancia"
-                                                value={local.uazapi_instance_id || ''}
-                                                onChange={(e) => updateLocalCredential(store.slug, 'uazapi_instance_id', e.target.value)}
-                                            />
-                                            <p className="text-xs text-muted-foreground">
-                                                ID da instancia do WhatsApp na UazAPI
-                                            </p>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor={`phone-${store.id}`}>
-                                                Numero de Telefone
-                                            </Label>
-                                            <Input
-                                                id={`phone-${store.id}`}
-                                                data-testid={`input-phone-${store.id}`}
-                                                placeholder="5511999999999"
-                                                value={local.uazapi_phone_number || ''}
-                                                onChange={(e) => updateLocalCredential(store.slug, 'uazapi_phone_number', e.target.value)}
-                                            />
-                                            <p className="text-xs text-muted-foreground">
-                                                Numero conectado ao WhatsApp (formato: 55 + DDD + numero)
-                                            </p>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor={`instance-name-${store.id}`}>
-                                                Nome da Instancia
-                                            </Label>
-                                            <Input
-                                                id={`instance-name-${store.id}`}
-                                                data-testid={`input-instance-name-${store.id}`}
-                                                placeholder={store.slug}
-                                                value={local.whatsapp_instance_name || ''}
-                                                onChange={(e) => updateLocalCredential(store.slug, 'whatsapp_instance_name', e.target.value)}
-                                            />
-                                            <p className="text-xs text-muted-foreground">
-                                                Nome identificador da instancia no N8N
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {store.credentials?.uazapi_qr_code && (
-                                        <div className="p-4 bg-muted rounded-lg">
-                                            <Label className="mb-2 block">QR Code para Conexao</Label>
                                             <img 
                                                 src={store.credentials.uazapi_qr_code} 
                                                 alt="QR Code WhatsApp" 
-                                                className="max-w-[200px] mx-auto"
+                                                className="max-w-[250px] mx-auto rounded-lg"
+                                                data-testid={`qrcode-${store.id}`}
                                             />
+                                            <p className="text-xs text-muted-foreground mt-4">
+                                                Abra o WhatsApp no celular, va em Configuracoes, Dispositivos Conectados e escaneie
+                                            </p>
+                                        </div>
+                                    ) : store.credentials?.uazapi_status === 'connected' ? (
+                                        <div className="p-6 bg-green-500/10 border border-green-500/30 rounded-lg text-center">
+                                            <Wifi className="h-12 w-12 mx-auto text-green-500 mb-2" />
+                                            <p className="text-lg font-medium text-green-700 dark:text-green-400">
+                                                WhatsApp Conectado
+                                            </p>
+                                            {store.credentials?.uazapi_phone_number && (
+                                                <p className="text-sm text-muted-foreground mt-1">
+                                                    Numero: {store.credentials.uazapi_phone_number}
+                                                </p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="p-6 bg-muted rounded-lg text-center">
+                                            <WifiOff className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                                            <p className="text-sm text-muted-foreground">
+                                                Clique em "Gerar QR Code" para conectar o WhatsApp desta loja
+                                            </p>
                                         </div>
                                     )}
 
-                                    <div className="flex gap-2 pt-2 flex-wrap">
+                                    <div className="flex gap-2 justify-center flex-wrap">
                                         <Button
-                                            onClick={() => handleSave(store)}
-                                            disabled={saving === store.id}
-                                            className="gap-2"
-                                            data-testid={`button-save-${store.id}`}
-                                        >
-                                            {saving === store.id ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                            ) : (
-                                                <Save className="h-4 w-4" />
-                                            )}
-                                            Salvar Credenciais
-                                        </Button>
-
-                                        <Button
-                                            variant="outline"
                                             onClick={() => handleCheckStatus(store)}
                                             disabled={checkingStatus === store.slug || pollingStores.has(store.slug)}
                                             className="gap-2"
-                                            data-testid={`button-check-status-${store.id}`}
+                                            data-testid={`button-generate-qr-${store.id}`}
                                         >
                                             {checkingStatus === store.slug || pollingStores.has(store.slug) ? (
                                                 <Loader2 className="h-4 w-4 animate-spin" />
                                             ) : (
-                                                <Eye className="h-4 w-4" />
+                                                <RefreshCw className="h-4 w-4" />
                                             )}
-                                            {pollingStores.has(store.slug) ? 'Verificando...' : 'Verificar Status'}
-                                        </Button>
-
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => handleTest(store)}
-                                            disabled={testing === store.id || !local.uazapi_token}
-                                            className="gap-2"
-                                            data-testid={`button-test-${store.id}`}
-                                        >
-                                            {testing === store.id ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                            ) : (
-                                                <TestTube className="h-4 w-4" />
-                                            )}
-                                            Testar Conexao
+                                            {pollingStores.has(store.slug) ? 'Conectando...' : 'Gerar QR Code'}
                                         </Button>
                                     </div>
                                 </CardContent>
@@ -725,17 +653,6 @@ export const WhatsAppStoreConfig = () => {
                 })
             )}
 
-            <Card className="bg-muted/50">
-                <CardContent className="pt-6">
-                    <h3 className="font-semibold mb-2">Como funciona</h3>
-                    <ul className="text-sm text-muted-foreground space-y-1">
-                        <li>As credenciais sao salvas na tabela <code className="bg-background px-1 rounded">whatsapp_credentials</code></li>
-                        <li>O N8N busca credenciais usando <code className="bg-background px-1 rounded">customer_id</code> (seu email) e <code className="bg-background px-1 rounded">site_slug</code></li>
-                        <li>Cada loja tem seu proprio token e configuracao isolados</li>
-                        <li>Se a loja nao tiver WhatsApp configurado, sera usado o numero global da Elevea</li>
-                    </ul>
-                </CardContent>
-            </Card>
         </div>
     );
 };
