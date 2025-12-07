@@ -190,8 +190,8 @@ exports.handler = async (event, context) => {
     console.log(`[WhatsApp] Fonte das credenciais: ${credentialsSource}`);
     console.log(`[WhatsApp] siteSlug: ${siteSlug}, customerId: ${customerId}`);
 
-    // Preparar payload
-    const webhookUrl = process.env.WHATSAPP_WEBHOOK_URL || 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send';
+    // Preparar payload - Usar webhook Chatwoot para roteamento multi-tenant
+    const webhookUrl = process.env.WHATSAPP_WEBHOOK_URL || 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/webhook/chatwoot';
     const webhookAuth = process.env.N8N_WEBHOOK_AUTH;
 
     const messageEscaped = JSON.stringify(message);

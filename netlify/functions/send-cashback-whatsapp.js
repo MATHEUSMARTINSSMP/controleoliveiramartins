@@ -292,7 +292,8 @@ exports.handler = async (event, context) => {
     console.log('[SendCashbackWhatsApp] Mensagem:', message.substring(0, 100) + '...');
 
     // 8. MULTI-TENANCY: Buscar credenciais WhatsApp da loja ou usar globais
-    const webhookUrl = process.env.WHATSAPP_WEBHOOK_URL || 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send';
+    // Usar webhook Chatwoot para roteamento multi-tenant correto
+    const webhookUrl = process.env.WHATSAPP_WEBHOOK_URL || 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/webhook/chatwoot';
     const webhookAuth = process.env.N8N_WEBHOOK_AUTH;
     
     // Gerar slug a partir do nome da loja
