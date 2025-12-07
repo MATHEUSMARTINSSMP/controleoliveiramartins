@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Save, Phone, Wifi, WifiOff, TestTube, Loader2, Lock, Sparkles, RefreshCw } from "lucide-react";
+import { Save, Phone, Wifi, WifiOff, TestTube, Loader2, Lock, Sparkles, RefreshCw, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { fetchWhatsAppStatus, isTerminalStatus, type WhatsAppStatusResponse } from "@/lib/whatsapp";
 
 interface Store {
     id: string;
@@ -62,13 +63,132 @@ export const WhatsAppStoreConfig = () => {
     const [storesWithCredentials, setStoresWithCredentials] = useState<StoreWithCredentials[]>([]);
     const [adminPlan, setAdminPlan] = useState<AdminPlan>({ plan_name: null, can_use_own_whatsapp: false });
     const [localCredentials, setLocalCredentials] = useState<Record<string, Partial<WhatsAppCredential>>>({});
+    
+    // Status polling state
+    const [statusMap, setStatusMap] = useState<Record<string, WhatsAppStatusResponse | null>>({});
+    const [checkingStatus, setCheckingStatus] = useState<string | null>(null);
+    const [pollingStores, setPollingStores] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         if (profile && profile.role === 'ADMIN') {
             fetchAdminPlan();
             fetchStoresAndCredentials();
         }
-    }, [profile?.id]); // Só recarregar se o ID do profile mudar
+    }, [profile?.id]); // So recarregar se o ID do profile mudar
+
+    // Funcao para verificar status de uma loja via N8N
+    const handleCheckStatus = useCallback(async (store: StoreWithCredentials) => {
+        if (!profile?.email) return;
+
+        setCheckingStatus(store.slug);
+        toast.info(`Verificando status de ${store.name}...`);
+
+        try {
+            const status = await fetchWhatsAppStatus({
+                siteSlug: store.slug,
+                customerId: profile.email,
+            });
+
+            setStatusMap(prev => ({ ...prev, [store.slug]: status }));
+
+            // Atualizar credenciais locais com status do N8N
+            setStoresWithCredentials(prev =>
+                prev.map(s => s.slug === store.slug ? {
+                    ...s,
+                    credentials: {
+                        ...s.credentials,
+                        uazapi_status: status.status,
+                        uazapi_qr_code: status.qrCode,
+                        uazapi_phone_number: status.phoneNumber || s.credentials?.uazapi_phone_number,
+                        updated_at: new Date().toISOString(),
+                    } as WhatsAppCredential
+                } : s)
+            );
+
+            // Se nao e terminal, iniciar polling
+            if (!isTerminalStatus(status.status)) {
+                setPollingStores(prev => new Set(prev).add(store.slug));
+                startPollingForStore(store);
+            } else {
+                setPollingStores(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(store.slug);
+                    return newSet;
+                });
+            }
+
+            if (status.connected) {
+                toast.success(`${store.name} esta conectado!`);
+            } else if (status.status === 'qr_required') {
+                toast.info(`${store.name}: Escaneie o QR Code para conectar`);
+            } else if (status.status === 'error') {
+                toast.error(`${store.name}: Erro na conexao`);
+            } else {
+                toast.info(`${store.name}: Status: ${status.status}`);
+            }
+        } catch (error: any) {
+            console.error('Erro ao verificar status:', error);
+            toast.error('Erro ao verificar status: ' + error.message);
+        } finally {
+            setCheckingStatus(null);
+        }
+    }, [profile?.email]);
+
+    // Polling automatico para lojas em estados de transicao
+    const startPollingForStore = useCallback((store: StoreWithCredentials) => {
+        if (!profile?.email) return;
+
+        const pollInterval = setInterval(async () => {
+            try {
+                const status = await fetchWhatsAppStatus({
+                    siteSlug: store.slug,
+                    customerId: profile.email!,
+                });
+
+                setStatusMap(prev => ({ ...prev, [store.slug]: status }));
+
+                // Atualizar UI
+                setStoresWithCredentials(prev =>
+                    prev.map(s => s.slug === store.slug ? {
+                        ...s,
+                        credentials: {
+                            ...s.credentials,
+                            uazapi_status: status.status,
+                            uazapi_qr_code: status.qrCode,
+                            uazapi_phone_number: status.phoneNumber || s.credentials?.uazapi_phone_number,
+                            updated_at: new Date().toISOString(),
+                        } as WhatsAppCredential
+                    } : s)
+                );
+
+                // Se atingiu status terminal, parar polling
+                if (isTerminalStatus(status.status)) {
+                    clearInterval(pollInterval);
+                    setPollingStores(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(store.slug);
+                        return newSet;
+                    });
+
+                    if (status.connected) {
+                        toast.success(`${store.name} conectado com sucesso!`);
+                    }
+                }
+            } catch (error) {
+                console.error('Erro no polling:', error);
+            }
+        }, 12000); // 12 segundos
+
+        // Limpar apos 2 minutos
+        setTimeout(() => {
+            clearInterval(pollInterval);
+            setPollingStores(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(store.slug);
+                return newSet;
+            });
+        }, 120000);
+    }, [profile?.email]);
 
     const fetchAdminPlan = async () => {
         if (!profile) return;
@@ -558,6 +678,21 @@ export const WhatsAppStoreConfig = () => {
                                                 <Save className="h-4 w-4" />
                                             )}
                                             Salvar Credenciais
+                                        </Button>
+
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => handleCheckStatus(store)}
+                                            disabled={checkingStatus === store.slug || pollingStores.has(store.slug)}
+                                            className="gap-2"
+                                            data-testid={`button-check-status-${store.id}`}
+                                        >
+                                            {checkingStatus === store.slug || pollingStores.has(store.slug) ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Eye className="h-4 w-4" />
+                                            )}
+                                            {pollingStores.has(store.slug) ? 'Verificando...' : 'Verificar Status'}
                                         </Button>
 
                                         <Button
