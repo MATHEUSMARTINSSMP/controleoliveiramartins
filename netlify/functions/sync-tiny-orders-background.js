@@ -2285,6 +2285,16 @@ function prepararDadosPedidoCompleto(storeId, pedido, pedidoCompleto, clienteId,
     forma_envio: pedido.transportador?.formaEnvio?.nome || null,
     endereco_entrega: pedido.enderecoEntrega || null,
     itens: (itensComCategorias && itensComCategorias.length > 0) ? itensComCategorias : null,
+    qtd_itens: (() => {
+      if (itensComCategorias && itensComCategorias.length > 0) {
+        const totalPecas = itensComCategorias.reduce((sum, item) => {
+          return sum + (parseInt(item.quantidade) || 1);
+        }, 0);
+        console.log(`[SyncBackground] 📦 qtd_itens calculado: ${totalPecas} peças de ${itensComCategorias.length} itens`);
+        return totalPecas;
+      }
+      return 1;
+    })(),
     observacoes: pedido.observacoes || null,
     vendedor_nome: pedido.vendedor?.nome || pedido.vendedor_nome || null,
     vendedor_tiny_id: pedido.vendedor?.id?.toString() || null,
