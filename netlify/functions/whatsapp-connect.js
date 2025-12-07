@@ -27,15 +27,15 @@ exports.handler = async (event) => {
       };
     }
 
-    const url = new URL(N8N_CONNECT_ENDPOINT);
-    url.searchParams.append('siteSlug', siteSlug);
-    url.searchParams.append('customerId', customerId);
+    console.log('Calling N8N connect endpoint:', N8N_CONNECT_ENDPOINT);
 
-    console.log('Calling N8N connect endpoint:', url.toString());
-
-    const response = await fetch(url.toString(), { 
-      method: 'GET', 
-      headers: { 'Accept': 'application/json' } 
+    const response = await fetch(N8N_CONNECT_ENDPOINT, { 
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json' 
+      },
+      body: JSON.stringify({ siteSlug, customerId }),
     });
     
     const responseText = await response.text();
