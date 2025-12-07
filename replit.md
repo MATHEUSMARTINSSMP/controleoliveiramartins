@@ -10,6 +10,13 @@ Complete multi-tenant ERP/sales management SaaS system migrated from Lovable to 
 - **Multi-tenancy**: RLS-based data isolation using `sistemaretiradas` schema
 
 ## Recent Changes
+- **2024-12-07**: WhatsApp Status Polling System:
+  - **New Hook**: `src/hooks/use-whatsapp-status.ts` - React Query-based polling with intelligent start/stop
+  - **Status Helper**: `src/lib/whatsapp.ts` - Added `fetchWhatsAppStatus()` for N8N endpoint polling
+  - **Polling Strategy**: 12-second interval, stops on terminal states (connected/error)
+  - **New UI**: "Verificar Status" button in WhatsApp config with automatic polling feedback
+  - **State Machine**: idle, connecting, qr_required, connected, error
+  - **Terminal Detection**: `isTerminalStatus()` helper to stop polling when connected/error
 - **2024-12-07**: WhatsApp Integration Stabilization & Frontend Refetch Optimization:
   - **Frontend Loop Fixed**: Removed automatic `fetchStoresAndCredentials()` after save/test operations
   - **Optimized Updates**: Local state updates instead of full refetch - prevents excessive re-renders
