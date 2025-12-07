@@ -8,7 +8,6 @@ SELECT
   id,
   numero_pedido,
   cliente_nome,
-  cliente_id,
   valor_total,
   qtd_itens,
   store_id,
@@ -24,8 +23,7 @@ INSERT INTO sistemaretiradas.sales (
   store_id,
   colaboradora_id,
   tiny_order_id,
-  tiny_contact_id,
-  valor_total,
+  valor,
   qtd_pecas,
   data_venda,
   created_at
@@ -34,8 +32,7 @@ SELECT
   o.store_id,
   o.colaboradora_id,
   o.id as tiny_order_id,
-  o.tiny_contact_id,
-  o.valor_total,
+  o.valor_total as valor,
   COALESCE(o.qtd_itens, 1) as qtd_pecas,
   COALESCE(o.data_pedido, o.created_at) as data_venda,
   NOW() as created_at
@@ -50,8 +47,7 @@ INSERT INTO sistemaretiradas.sales (
   store_id,
   colaboradora_id,
   tiny_order_id,
-  tiny_contact_id,
-  valor_total,
+  valor,
   qtd_pecas,
   data_venda,
   created_at
@@ -60,8 +56,7 @@ SELECT
   o.store_id,
   o.colaboradora_id,
   o.id as tiny_order_id,
-  o.tiny_contact_id,
-  o.valor_total,
+  o.valor_total as valor,
   COALESCE(o.qtd_itens, 1) as qtd_pecas,
   COALESCE(o.data_pedido, o.created_at) as data_venda,
   NOW() as created_at
@@ -76,8 +71,7 @@ INSERT INTO sistemaretiradas.sales (
   store_id,
   colaboradora_id,
   tiny_order_id,
-  tiny_contact_id,
-  valor_total,
+  valor,
   qtd_pecas,
   data_venda,
   created_at
@@ -86,8 +80,7 @@ SELECT
   o.store_id,
   o.colaboradora_id,
   o.id as tiny_order_id,
-  o.tiny_contact_id,
-  o.valor_total,
+  o.valor_total as valor,
   COALESCE(o.qtd_itens, 1) as qtd_pecas,
   COALESCE(o.data_pedido, o.created_at) as data_venda,
   NOW() as created_at
@@ -104,7 +97,7 @@ SELECT
   o.qtd_itens,
   s.id as sale_id,
   s.qtd_pecas,
-  s.valor_total,
+  s.valor,
   CASE WHEN s.id IS NULL THEN 'AINDA FALTA' ELSE 'CRIADA!' END as status
 FROM sistemaretiradas.tiny_orders o
 LEFT JOIN sistemaretiradas.sales s ON s.tiny_order_id = o.id
