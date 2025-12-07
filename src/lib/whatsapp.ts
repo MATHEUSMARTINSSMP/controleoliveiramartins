@@ -529,3 +529,127 @@ export function formatCashbackMessage(params: {
   return message;
 }
 
+// =====================================================
+// WhatsApp Status API Helper (Polling via N8N)
+// =====================================================
+
+const N8N_STATUS_ENDPOINT = 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/auth/status';
+
+export interface WhatsAppStatusResponse {
+  success: boolean;
+  ok: boolean;
+  connected: boolean;
+  status: 'connected' | 'disconnected' | 'connecting' | 'qr_required' | 'error';
+  qrCode: string | null;
+  instanceId: string | null;
+  phoneNumber: string | null;
+}
+
+export interface FetchStatusParams {
+  siteSlug: string;
+  customerId: string;
+}
+
+/**
+ * Fetch WhatsApp connection status from N8N endpoint
+ */
+export async function fetchWhatsAppStatus(params: FetchStatusParams): Promise<WhatsAppStatusResponse> {
+  const { siteSlug, customerId } = params;
+  
+  if (!siteSlug || !customerId) {
+    return {
+      success: false,
+      ok: false,
+      connected: false,
+      status: 'error',
+      qrCode: null,
+      instanceId: null,
+      phoneNumber: null,
+    };
+  }
+
+  try {
+    const url = new URL(N8N_STATUS_ENDPOINT);
+    url.searchParams.append('siteSlug', siteSlug);
+    url.searchParams.append('customerId', customerId);
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // Normalizar resposta
+    return {
+      success: data.success ?? true,
+      ok: data.ok ?? true,
+      connected: data.connected ?? false,
+      status: normalizeWhatsAppStatus(data.status, data.connected, data.qrCode),
+      qrCode: data.qrCode || null,
+      instanceId: data.instanceId || null,
+      phoneNumber: data.phoneNumber || null,
+    };
+  } catch (error) {
+    console.error('Erro ao verificar status WhatsApp:', error);
+    return {
+      success: false,
+      ok: false,
+      connected: false,
+      status: 'error',
+      qrCode: null,
+      instanceId: null,
+      phoneNumber: null,
+    };
+  }
+}
+
+/**
+ * Normaliza status baseado em multiplos indicadores
+ */
+function normalizeWhatsAppStatus(
+  rawStatus: string | undefined, 
+  connected: boolean, 
+  qrCode: string | null
+): WhatsAppStatusResponse['status'] {
+  // Se tem QR code, precisa escanear
+  if (qrCode && !connected) {
+    return 'qr_required';
+  }
+  
+  // Se esta conectado
+  if (connected) {
+    return 'connected';
+  }
+  
+  // Mapear status raw
+  const statusLower = (rawStatus || '').toLowerCase();
+  
+  if (statusLower === 'connected' || statusLower === 'open') {
+    return 'connected';
+  }
+  
+  if (statusLower === 'connecting' || statusLower === 'loading') {
+    return 'connecting';
+  }
+  
+  if (statusLower === 'error' || statusLower === 'failed') {
+    return 'error';
+  }
+  
+  return 'disconnected';
+}
+
+/**
+ * Verifica se o status e terminal (nao precisa mais polling)
+ */
+export function isTerminalStatus(status: WhatsAppStatusResponse['status']): boolean {
+  return status === 'connected' || status === 'error';
+}
+
