@@ -18,7 +18,6 @@ interface Sale {
   observacoes: string | null;
   tiny_order_id: string | null;
   forma_pagamento: string | null;
-  formas_pagamento_json: any | null;
   colaboradora: {
     name: string;
   };
@@ -122,7 +121,6 @@ export function useStoreSales(storeId: string | null | undefined, filterDate?: s
           observacoes,
           tiny_order_id,
           forma_pagamento,
-          formas_pagamento_json,
           colaboradora:profiles!colaboradora_id(name)
         `)
         .eq('store_id', storeId)
@@ -135,7 +133,6 @@ export function useStoreSales(storeId: string | null | undefined, filterDate?: s
         ...sale,
         colaboradora: sale.colaboradora || { name: 'Desconhecido' },
         forma_pagamento: sale.forma_pagamento || null,
-        formas_pagamento_json: sale.formas_pagamento_json || null,
       }));
     },
     enabled: !!storeId,
