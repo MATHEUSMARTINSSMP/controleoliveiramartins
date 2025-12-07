@@ -208,7 +208,7 @@ export const WhatsAppStoreConfig = () => {
                     )
                 `)
                 .eq('admin_id', profile.id)
-                .eq('status', 'active')
+                .ilike('status', 'active')
                 .maybeSingle();
 
             console.log('[fetchAdminPlan] Resultado da query:', { data, error });
