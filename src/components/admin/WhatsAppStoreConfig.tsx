@@ -68,7 +68,7 @@ export const WhatsAppStoreConfig = () => {
             fetchAdminPlan();
             fetchStoresAndCredentials();
         }
-    }, [profile]);
+    }, [profile?.id]); // Só recarregar se o ID do profile mudar
 
     const fetchAdminPlan = async () => {
         if (!profile) return;
@@ -240,7 +240,22 @@ export const WhatsAppStoreConfig = () => {
             if (error) throw error;
 
             toast.success(`Credenciais da loja ${store.name} salvas!`);
-            await fetchStoresAndCredentials();
+            
+            // Atualizar apenas localmente sem refetch
+            setStoresWithCredentials(prev => 
+                prev.map(s => s.slug === store.slug ? {
+                    ...s,
+                    credentials: {
+                        ...s.credentials,
+                        uazapi_token: local.uazapi_token,
+                        uazapi_instance_id: local.uazapi_instance_id,
+                        uazapi_phone_number: local.uazapi_phone_number,
+                        whatsapp_instance_name: local.whatsapp_instance_name,
+                        uazapi_status: local.uazapi_token ? 'configured' : 'disconnected',
+                        updated_at: new Date().toISOString(),
+                    } as WhatsAppCredential
+                } : s)
+            );
         } catch (error: any) {
             console.error('Erro ao salvar:', error);
             toast.error('Erro ao salvar credenciais: ' + error.message);
@@ -273,17 +288,17 @@ export const WhatsAppStoreConfig = () => {
             if (data.success) {
                 toast.success('Conexao testada com sucesso!');
 
-                await supabase
-                    .schema('sistemaretiradas')
-                    .from('whatsapp_credentials')
-                    .update({
-                        uazapi_status: 'connected',
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq('customer_id', profile?.email)
-                    .eq('site_slug', store.slug);
-
-                await fetchStoresAndCredentials();
+                // Atualizar apenas localmente
+                setStoresWithCredentials(prev => 
+                    prev.map(s => s.slug === store.slug ? {
+                        ...s,
+                        credentials: {
+                            ...s.credentials,
+                            uazapi_status: 'connected',
+                            updated_at: new Date().toISOString(),
+                        } as WhatsAppCredential
+                    } : s)
+                );
             } else {
                 throw new Error(data.error || 'Erro desconhecido');
             }
@@ -291,14 +306,17 @@ export const WhatsAppStoreConfig = () => {
             console.error('Erro no teste:', error);
             toast.error('Erro ao testar: ' + error.message);
 
-            await supabase
-                .schema('sistemaretiradas')
-                .from('whatsapp_credentials')
-                .update({ uazapi_status: 'error' })
-                .eq('customer_id', profile?.email)
-                .eq('site_slug', store.slug);
-
-            await fetchStoresAndCredentials();
+            // Atualizar apenas localmente
+            setStoresWithCredentials(prev => 
+                prev.map(s => s.slug === store.slug ? {
+                    ...s,
+                    credentials: {
+                        ...s.credentials,
+                        uazapi_status: 'error',
+                        updated_at: new Date().toISOString(),
+                    } as WhatsAppCredential
+                } : s)
+            );
         } finally {
             setTesting(null);
         }

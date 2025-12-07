@@ -10,6 +10,15 @@ Complete multi-tenant ERP/sales management SaaS system migrated from Lovable to 
 - **Multi-tenancy**: RLS-based data isolation using `sistemaretiradas` schema
 
 ## Recent Changes
+- **2024-12-07**: WhatsApp Integration Stabilization & Frontend Refetch Optimization:
+  - **Frontend Loop Fixed**: Removed automatic `fetchStoresAndCredentials()` after save/test operations
+  - **Optimized Updates**: Local state updates instead of full refetch - prevents excessive re-renders
+  - **useEffect Fixed**: Changed dependency from `[profile]` to `[profile?.id]` - avoids unnecessary reloads
+  - **N8N Query Corrected**: Fixed schema from `elevea` to `sistemaretiradas` in PostgreSQL save credentials query
+  - **Connection Event Flow**: Connection events now skip Chatwoot and only save credentials (prevents webhook loop)
+  - **File Created**: `N8N_QUERY_SAVE_CREDENTIALS.sql` with correct schema and field mapping
+  - **Loop Prevention Guide**: `PARAR_LOOP_N8N.md` for webhook deduplication
+  - **Component Updated**: `src/components/admin/WhatsAppStoreConfig.tsx` with optimized state management
 - **2024-12-07**: Critical Bug Fixes - Tiny ERP Sales Sync:
   - **Bug Fixed**: `qtd_itens` field was NOT being saved in `prepararDadosPedidoCompleto` function
   - This caused `sales_qtd_pecas_check` constraint violations when creating sales
