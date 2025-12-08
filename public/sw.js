@@ -20,18 +20,22 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate event - limpar caches antigos
+// Activate event - limpar caches antigos e forçar atualização
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
+          // Limpar TODOS os caches antigos, incluindo o atual se for versão antiga
           if (cacheName !== CACHE_NAME) {
             console.log('Removendo cache antigo:', cacheName);
             return caches.delete(cacheName);
           }
         })
-      );
+      ).then(() => {
+        // Forçar atualização imediata do ServiceWorker
+        return self.clients.claim();
+      });
     })
   );
 });
@@ -40,16 +44,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
-  // NÃO cachear módulos JS dinâmicos (podem ter hash no nome e causar problemas)
-  if (url.pathname.includes('/assets/') && url.pathname.endsWith('.js')) {
-    // Para módulos JS, sempre buscar da rede primeiro
-    event.respondWith(
-      fetch(event.request)
-        .catch(() => {
-          // Se falhar, tentar cache como último recurso
-          return caches.match(event.request);
-        })
-    );
+  // NÃO interceptar módulos JS dinâmicos - deixar passar direto para a rede
+  // Isso evita problemas com ServiceWorker interceptando módulos com hash
+  if (url.pathname.includes('/assets/') && 
+      (url.pathname.endsWith('.js') || url.pathname.match(/\.js\?/))) {
+    // Para módulos JS, não interceptar - deixar o navegador buscar normalmente
     return;
   }
   
