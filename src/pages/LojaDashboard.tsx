@@ -14,9 +14,9 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award, Download, FileSpreadsheet, FileText, Database, ChevronDown, ChevronRight, Loader2, Store, AlertTriangle, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { useFolgas } from "@/hooks/useFolgas";
 import { useGoalRedistribution } from "@/hooks/useGoalRedistribution";
+import { useRedistributedDailyGoal, getRedistributedGoalForColaboradora } from "@/hooks/useRedistributedDailyGoal";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -190,59 +190,21 @@ export default function LojaDashboard() {
     const { offDays, toggleFolga, isOnLeave, refetch: refetchFolgas, loading: loadingFolgas } = useFolgas({ storeId, date: todayStr });
     const { redistributeGoalsForDate } = useGoalRedistribution({ storeId });
     
-    // Redistribuir metas automaticamente quando folgas forem carregadas e houver folgas no dia
-    const hasRedistributedRef = useRef<Set<string>>(new Set());
+    // Hook para cálculo de metas redistribuídas em tempo real (frontend only)
+    const { 
+        metaDiariaLoja, 
+        colaboradorasGoals: redistGoals, 
+        totalColaboradorasTrabalhando,
+        totalColaboradorasFolga,
+        refetch: refetchRedistGoals
+    } = useRedistributedDailyGoal({ storeId, date: todayStr });
+    
+    // Refetch das metas redistribuídas quando folgas mudam
     useEffect(() => {
-        if (!storeId || loadingFolgas || !offDays) return;
-        
-        const folgasHoje = offDays.filter(f => f.off_date === todayStr);
-        const folgasKey = `${storeId}-${todayStr}`;
-        
-        // Evitar redistribuição múltipla para o mesmo dia/loja
-        if (folgasHoje.length > 0 && !hasRedistributedRef.current.has(folgasKey)) {
-            hasRedistributedRef.current.add(folgasKey);
-            console.log(`[LojaDashboard] 🔄 Redistribuindo metas automaticamente para ${folgasHoje.length} folga(s) encontrada(s)`);
-            (async () => {
-                try {
-                    const redistributed = await redistributeGoalsForDate(todayStr);
-                    if (redistributed) {
-                        // Invalidar todas as queries relacionadas
-                        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.goals] });
-                        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.sales] });
-                        queryClient.invalidateQueries({ queryKey: ['loja'] });
-                        queryClient.invalidateQueries({ queryKey: ['colaboradora'] });
-                        
-                        // Forçar refetch das queries críticas
-                        await Promise.all([
-                            queryClient.refetchQueries({ queryKey: [QUERY_KEYS.goals] }),
-                            queryClient.refetchQueries({ queryKey: [QUERY_KEYS.sales] }),
-                            queryClient.refetchQueries({ queryKey: ['loja'] }),
-                            refetchColaboradorasPerformance(),
-                        ]);
-                        
-                        // Aguardar um pouco para garantir que as queries foram atualizadas
-                        await new Promise(resolve => setTimeout(resolve, 800));
-                        
-                        // Limpar cache de fetchDataWithStoreId para forçar recarregamento
-                        lastFetchedStoreIdRef.current = null;
-                        isFetchingDataRef.current = false;
-                        
-                        // Marcar que vamos usar dados locais após redistribuição
-                        useLocalPerformanceRef.current = true;
-                        
-                        // Recarregar dados da loja para atualizar performance
-                        if (storeId && storeName) {
-                            await fetchDataWithStoreId(storeId, storeName);
-                        }
-                    }
-                } catch (err) {
-                    console.error('[LojaDashboard] Erro ao redistribuir metas automaticamente:', err);
-                    // Remover da lista para permitir nova tentativa
-                    hasRedistributedRef.current.delete(folgasKey);
-                }
-            })();
+        if (offDays && storeId) {
+            refetchRedistGoals();
         }
-    }, [storeId, offDays, todayStr, loadingFolgas, redistributeGoalsForDate, queryClient, storeName]);
+    }, [offDays, storeId, refetchRedistGoals]);
 
     // REMOVIDO: Duplicado - usando o useEffect mais abaixo
 
@@ -299,7 +261,7 @@ export default function LojaDashboard() {
                 colaboradora_id: r.colaboradoraId,
                 name: r.colaboradoraName,
                 total: r.total,
-                qtdVendas: r.qtdVendas || 0
+                qtdVendas: (r as any).qtdVendas || 0
             })));
         }
     }, [rankingMonthlyData]);
@@ -2059,7 +2021,7 @@ export default function LojaDashboard() {
             };
 
             // Salvar formas de pagamento antes de resetar
-            const formasPagamentoData = [...formasPagamento];
+            const formasPagamentoData: FormaPagamentoType[] = formasPagamento.filter(fp => fp.tipo && fp.valor !== undefined) as FormaPagamentoType[];
 
             toast.success('Venda lançada com sucesso!');
             setDialogOpen(false);
@@ -3450,6 +3412,8 @@ export default function LojaDashboard() {
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 justify-items-center">
                                             {colaboradorasPerformance.map((perf) => {
                                                 const isFolga = isOnLeave(perf.id, todayStr);
+                                                const redistGoal = getRedistributedGoalForColaboradora(perf.id, redistGoals);
+                                                const metaRedistribuida = redistGoal?.metaDiariaRedistribuida ?? perf.metaDiaria ?? 0;
                                                 
                                                 const handleToggleFolga = async () => {
                                                     if (!storeId) {
@@ -3458,48 +3422,10 @@ export default function LojaDashboard() {
                                                     }
                                                     
                                                     try {
-                                                        // Primeiro, marcar/desmarcar folga
                                                         const success = await toggleFolga(perf.id, todayStr);
                                                         if (success) {
-                                                            // Aguardar um pouco para garantir que a folga foi salva
-                                                            await new Promise(resolve => setTimeout(resolve, 300));
-                                                            
-                                                            // Redistribuir metas automaticamente
-                                                            const redistributed = await redistributeGoalsForDate(todayStr);
-                                                            
-                                                            if (redistributed) {
-                                                                // Invalidar todas as queries relacionadas para atualizar UI
-                                                                queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.goals] });
-                                                                queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.sales] });
-                                                                queryClient.invalidateQueries({ queryKey: ['loja'] });
-                                                                queryClient.invalidateQueries({ queryKey: ['colaboradora'] });
-                                                                
-                                                                // Recarregar folgas para atualizar estado local
-                                                                await refetchFolgas();
-                                                                
-                                                                // Forçar refetch das queries críticas primeiro
-                                                                await Promise.all([
-                                                                    queryClient.refetchQueries({ queryKey: [QUERY_KEYS.goals] }),
-                                                                    queryClient.refetchQueries({ queryKey: [QUERY_KEYS.sales] }),
-                                                                    queryClient.refetchQueries({ queryKey: ['loja'] }),
-                                                                    refetchColaboradorasPerformance(),
-                                                                ]);
-                                                                
-                                                                // Aguardar um pouco para garantir que as queries foram atualizadas
-                                                                await new Promise(resolve => setTimeout(resolve, 800));
-                                                                
-                                                                // Limpar cache de fetchDataWithStoreId para forçar recarregamento
-                                                                lastFetchedStoreIdRef.current = null;
-                                                                isFetchingDataRef.current = false;
-                                                                
-                                                                // Marcar que vamos usar dados locais após redistribuição
-                                                                useLocalPerformanceRef.current = true;
-                                                                
-                                                                // Recarregar dados da loja para atualizar metas e performance
-                                                                if (storeId && storeName) {
-                                                                    await fetchDataWithStoreId(storeId, storeName);
-                                                                }
-                                                            }
+                                                            await refetchFolgas();
+                                                            await refetchRedistGoals();
                                                         }
                                                     } catch (error: any) {
                                                         console.error('[LojaDashboard] Erro ao alterar folga:', error);
@@ -3533,26 +3459,31 @@ export default function LojaDashboard() {
                                                                         De Folga
                                                                     </Badge>
                                                                     <p className="text-xs text-muted-foreground mt-2">
-                                                                        Meta redistribuída para outras colaboradoras
+                                                                        Meta redistribuida para outras colaboradoras
                                                                     </p>
                                                                 </div>
                                                             ) : (
                                                                 <>
-                                                                    {/* Meta do Dia */}
+                                                                    {/* Meta do Dia - Redistribuida */}
                                                                     <div className="space-y-2.5">
                                                                         <div className="flex items-center justify-between text-base">
                                                                             <span className="text-muted-foreground">Meta do Dia</span>
-                                                                            <span className="font-semibold">R$ {perf.metaDiaria > 0 ? perf.metaDiaria.toFixed(2) : '0.00'}</span>
+                                                                            <span className="font-semibold">R$ {metaRedistribuida > 0 ? metaRedistribuida.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</span>
                                                                         </div>
+                                                                        {totalColaboradorasFolga > 0 && (
+                                                                            <p className="text-xs text-muted-foreground italic">
+                                                                                Cobrindo {totalColaboradorasFolga} colega(s) de folga
+                                                                            </p>
+                                                                        )}
                                                                         <div className="flex items-center justify-between text-base">
                                                                             <span className="text-muted-foreground">Vendido:</span>
-                                                                            <span className="font-bold text-primary">R$ {perf.vendido.toFixed(2)}</span>
+                                                                            <span className="font-bold text-primary">R$ {perf.vendido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                                                         </div>
-                                                                        {perf.metaDiaria > 0 && (
+                                                                        {metaRedistribuida > 0 && (
                                                                             <div className="flex items-center justify-between text-base">
                                                                                 <span className="text-muted-foreground">Falta:</span>
-                                                                                <span className={`font-semibold ${perf.vendido >= perf.metaDiaria ? 'text-status-ahead' : 'text-status-ontrack'}`}>
-                                                                                    R$ {Math.max(0, perf.metaDiaria - perf.vendido).toFixed(2)}
+                                                                                <span className={`font-semibold ${perf.vendido >= metaRedistribuida ? 'text-status-ahead' : 'text-status-ontrack'}`}>
+                                                                                    R$ {Math.max(0, metaRedistribuida - perf.vendido).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                                                 </span>
                                                                             </div>
                                                                         )}
