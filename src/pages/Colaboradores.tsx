@@ -211,6 +211,24 @@ const Colaboradores = () => {
     if (colaboradora) {
       setEditMode(true);
       setSelectedId(colaboradora.id);
+      
+      // Buscar o valor correto para o Select
+      // Tentar encontrar uma loja que corresponda ao store_default da colaboradora
+      let storeValue = colaboradora.store_default || "";
+      
+      // Se temos lojas carregadas, verificar se o store_default corresponde a alguma loja
+      if (storeValue && lojas.length > 0) {
+        const matchingLoja = lojas.find(loja => {
+          const lojaValue = loja.store_default || loja.name || '';
+          return lojaValue === storeValue || loja.name === storeValue;
+        });
+        
+        if (matchingLoja) {
+          // Usar o valor que está no Select (store_default ou name)
+          storeValue = matchingLoja.store_default || matchingLoja.name || storeValue;
+        }
+      }
+      
       setFormData({
         name: colaboradora.name,
         email: colaboradora.email,
@@ -218,7 +236,7 @@ const Colaboradores = () => {
         password: "",
         limite_total: colaboradora.limite_total.toString(),
         limite_mensal: colaboradora.limite_mensal.toString(),
-        store: colaboradora.store_default || "",
+        store: storeValue,
         whatsapp: colaboradora.whatsapp || "",
       });
     } else {
@@ -261,26 +279,35 @@ const Colaboradores = () => {
             .eq("active", true);
 
           if (storeData) {
-            // Normalizar nome para busca flexível
-            const normalizeName = (name: string) => {
-              return name
-                .toLowerCase()
-                .replace(/[|,]/g, '')
-                .replace(/\s+/g, ' ')
-                .trim();
-            };
+            // Primeiro tentar match exato
+            let matchingStore = storeData.find(s => s.name === formData.store);
+            
+            // Se não encontrou, tentar match normalizado (mais flexível)
+            if (!matchingStore) {
+              const normalizeName = (name: string) => {
+                return name
+                  .toLowerCase()
+                  .replace(/[|,]/g, '')
+                  .replace(/\s+/g, ' ')
+                  .trim();
+              };
 
-            const normalizedStoreName = normalizeName(formData.store);
-            const matchingStore = storeData.find(s => {
-              const normalizedStore = normalizeName(s.name);
-              return normalizedStore === normalizedStoreName ||
-                s.name === formData.store ||
-                normalizedStore.includes(normalizedStoreName) ||
-                normalizedStoreName.includes(normalizedStore);
-            });
+              const normalizedStoreName = normalizeName(formData.store);
+              matchingStore = storeData.find(s => {
+                const normalizedStore = normalizeName(s.name);
+                return normalizedStore === normalizedStoreName;
+              });
+            }
 
             if (matchingStore) {
               updateData.store_id = matchingStore.id;
+              // Garantir que store_default seja o nome exato da loja
+              updateData.store_default = matchingStore.name;
+            } else {
+              console.warn('[Colaboradores] Loja não encontrada:', formData.store);
+              toast.error(`Loja "${formData.store}" não encontrada. Verifique o nome.`);
+              setIsSubmitting(false);
+              return;
             }
           }
         }
@@ -309,6 +336,7 @@ const Colaboradores = () => {
 
         // Buscar store_id dinamicamente da tabela stores
         let storeIdToSend: string | null = null;
+        let storeNameToSend: string | null = null;
         if (formData.store) {
           const { data: storeData } = await supabase
             .schema("sistemaretiradas")
@@ -317,26 +345,33 @@ const Colaboradores = () => {
             .eq("active", true);
 
           if (storeData) {
-            // Normalizar nome para busca flexível
-            const normalizeName = (name: string) => {
-              return name
-                .toLowerCase()
-                .replace(/[|,]/g, '')
-                .replace(/\s+/g, ' ')
-                .trim();
-            };
+            // Primeiro tentar match exato
+            let matchingStore = storeData.find(s => s.name === formData.store);
+            
+            // Se não encontrou, tentar match normalizado (mais flexível)
+            if (!matchingStore) {
+              const normalizeName = (name: string) => {
+                return name
+                  .toLowerCase()
+                  .replace(/[|,]/g, '')
+                  .replace(/\s+/g, ' ')
+                  .trim();
+              };
 
-            const normalizedStoreName = normalizeName(formData.store);
-            const matchingStore = storeData.find(s => {
-              const normalizedStore = normalizeName(s.name);
-              return normalizedStore === normalizedStoreName ||
-                s.name === formData.store ||
-                normalizedStore.includes(normalizedStoreName) ||
-                normalizedStoreName.includes(normalizedStore);
-            });
+              const normalizedStoreName = normalizeName(formData.store);
+              matchingStore = storeData.find(s => {
+                const normalizedStore = normalizeName(s.name);
+                return normalizedStore === normalizedStoreName;
+              });
+            }
 
             if (matchingStore) {
               storeIdToSend = matchingStore.id;
+              storeNameToSend = matchingStore.name; // Usar nome exato da loja
+            } else {
+              toast.error(`Loja "${formData.store}" não encontrada. Verifique o nome.`);
+              setIsSubmitting(false);
+              return;
             }
           }
         }
@@ -354,7 +389,7 @@ const Colaboradores = () => {
             cpf: normalizeCPF(formData.cpf),  // Normalize CPF before sending
             limite_total: formData.limite_total,
             limite_mensal: formData.limite_mensal,
-            store_default: formData.store,
+            store_default: storeNameToSend || formData.store, // Usar nome exato da loja
             store_id: storeIdToSend, // Add store_id
             whatsapp: formData.whatsapp.replace(/\D/g, ''), // Normalizar WhatsApp (apenas números)
           }),
@@ -854,9 +889,19 @@ const Colaboradores = () => {
                   <SelectValue placeholder="Selecione a loja" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Mr. Kitsch">Mr. Kitsch</SelectItem>
-                  <SelectItem value="Loungerie">Loungerie</SelectItem>
-                  <SelectItem value="Sacada Oh,Boy!">Sacada Oh,Boy!</SelectItem>
+                  {lojas
+                    .filter((loja) => loja.active !== false)
+                    .map((loja) => {
+                      // Usar store_name se disponível, senão usar name
+                      const displayName = loja.store_name || loja.name || 'Sem nome';
+                      // Usar store_default se disponível, senão usar name
+                      const storeValue = loja.store_default || loja.name || displayName;
+                      return (
+                        <SelectItem key={loja.id} value={storeValue}>
+                          {displayName}
+                        </SelectItem>
+                      );
+                    })}
                 </SelectContent>
               </Select>
             </div>
