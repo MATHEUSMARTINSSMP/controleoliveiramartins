@@ -2,13 +2,74 @@
 -- SQL COMPLETO PARA ASSINATURA DIGITAL DO PONTO (REP-P)
 -- Portaria 671/2021 - Sistema de Ponto Eletronico
 -- =====================================================
+-- 
+-- IMPORTANTE: Antes de executar este SQL, certifique-se de que
+-- as tabelas base ja existem:
+-- - sistemaretiradas.profiles
+-- - sistemaretiradas.stores
+-- - sistemaretiradas.time_clock_records
+--
+-- Se time_clock_records NAO existir, execute primeiro:
+-- SQL_BASE_TIME_CLOCK.sql (ou a secao PARTE 0 abaixo)
+-- =====================================================
 
 -- =====================================================
--- PARTE 1: TABELA DE PINS DE ASSINATURA DIGITAL
+-- PARTE 0: TABELA BASE DE REGISTROS DE PONTO
+-- (Execute apenas se a tabela ainda nao existir)
 -- =====================================================
 
 -- Habilitar extensao pgcrypto se nao existir
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Tabela base de registros de ponto
+CREATE TABLE IF NOT EXISTS sistemaretiradas.time_clock_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  store_id UUID NOT NULL REFERENCES sistemaretiradas.stores(id) ON DELETE CASCADE,
+  colaboradora_id UUID NOT NULL REFERENCES sistemaretiradas.profiles(id) ON DELETE CASCADE,
+  tipo_registro TEXT NOT NULL CHECK (tipo_registro IN ('ENTRADA', 'SAIDA_INTERVALO', 'ENTRADA_INTERVALO', 'SAIDA')),
+  horario TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  latitude DECIMAL(10, 8),
+  longitude DECIMAL(11, 8),
+  endereco_completo TEXT,
+  observacao TEXT,
+  justificativa_admin TEXT,
+  autorizado_por UUID REFERENCES sistemaretiradas.profiles(id),
+  ip_address TEXT,
+  user_agent TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  alterado_em TIMESTAMP WITH TIME ZONE,
+  alterado_por UUID REFERENCES sistemaretiradas.profiles(id)
+);
+
+-- Indices para time_clock_records
+CREATE INDEX IF NOT EXISTS idx_tcr_store ON sistemaretiradas.time_clock_records(store_id);
+CREATE INDEX IF NOT EXISTS idx_tcr_colaboradora ON sistemaretiradas.time_clock_records(colaboradora_id);
+CREATE INDEX IF NOT EXISTS idx_tcr_horario ON sistemaretiradas.time_clock_records(horario DESC);
+CREATE INDEX IF NOT EXISTS idx_tcr_tipo ON sistemaretiradas.time_clock_records(tipo_registro);
+
+-- RLS para time_clock_records
+ALTER TABLE sistemaretiradas.time_clock_records ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "colaboradora_own_records" ON sistemaretiradas.time_clock_records;
+CREATE POLICY "colaboradora_own_records" ON sistemaretiradas.time_clock_records
+  FOR ALL
+  USING (colaboradora_id = auth.uid());
+
+DROP POLICY IF EXISTS "admin_store_records" ON sistemaretiradas.time_clock_records;
+CREATE POLICY "admin_store_records" ON sistemaretiradas.time_clock_records
+  FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM sistemaretiradas.profiles p
+      WHERE p.id = auth.uid()
+      AND (p.role = 'ADMIN' OR (p.role = 'LOJA' AND p.store_id = time_clock_records.store_id))
+    )
+  );
+
+-- =====================================================
+-- PARTE 1: TABELA DE PINS DE ASSINATURA DIGITAL
+-- =====================================================
 
 -- Tabela para armazenar o PIN de assinatura digital de cada colaboradora
 CREATE TABLE IF NOT EXISTS sistemaretiradas.time_clock_signature_pins (
@@ -664,6 +725,7 @@ CREATE POLICY "admin_view_audit_logs" ON sistemaretiradas.time_clock_pin_audit_l
 -- PARTE 6: COMENTARIOS
 -- =====================================================
 
+COMMENT ON TABLE sistemaretiradas.time_clock_records IS 'Registros de ponto dos colaboradores (entrada, saida, intervalos)';
 COMMENT ON TABLE sistemaretiradas.time_clock_signature_pins IS 'PINs de assinatura digital para registro de ponto (REP-P). PIN e diferente da senha de acesso ao sistema.';
 COMMENT ON COLUMN sistemaretiradas.time_clock_signature_pins.pin_hash IS 'Hash bcrypt do PIN de 6-8 digitos';
 COMMENT ON COLUMN sistemaretiradas.time_clock_signature_pins.tentativas_falhas IS 'Contador de tentativas falhas para bloqueio (max 5)';
