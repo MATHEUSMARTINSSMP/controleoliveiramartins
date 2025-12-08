@@ -160,10 +160,47 @@ export const WhatsAppGlobalConfig = () => {
         customerId: credential.customer_id,
       });
 
+      console.log('[WhatsApp Global] Resultado conexao:', { 
+        success: result.success, 
+        hasQrCode: !!result.qrCode,
+        qrCodeLength: result.qrCode?.length || 0,
+        status: result.status 
+      });
+
       if (result.success) {
-        toast.success('Conexao iniciada! Aguarde o QR Code...');
+        if (result.qrCode) {
+          setStatusResponse({
+            success: true,
+            ok: true,
+            connected: false,
+            status: 'qr_required',
+            qrCode: result.qrCode,
+            instanceId: result.instanceId,
+            phoneNumber: null,
+          });
+          
+          setCredential(prev => prev ? {
+            ...prev,
+            uazapi_status: 'qr_required',
+            uazapi_qr_code: result.qrCode,
+          } : null);
+
+          await supabase
+            .schema('sistemaretiradas')
+            .from('whatsapp_credentials')
+            .update({
+              uazapi_status: 'qr_required',
+              uazapi_qr_code: result.qrCode,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', credential.id);
+
+          toast.success('QR Code gerado! Escaneie com o WhatsApp.');
+        } else {
+          toast.success('Conexao iniciada! Aguarde o QR Code...');
+        }
         setPolling(true);
-        setTimeout(() => handleCheckStatus(), 2000);
+        setTimeout(() => handleCheckStatus(), 3000);
       } else {
         toast.error(result.message || 'Erro ao iniciar conexao');
       }
