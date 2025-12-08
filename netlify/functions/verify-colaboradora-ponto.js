@@ -104,27 +104,81 @@ exports.handler = async (event, context) => {
     }
 
     // Buscar dados da loja para validação flexível
-    console.log('[verify-colaboradora-ponto] Buscando loja com ID:', storeId);
+    console.log('[verify-colaboradora-ponto] Buscando loja com ID completo:', storeId);
+    console.log('[verify-colaboradora-ponto] Tipo do storeId:', typeof storeId);
+    console.log('[verify-colaboradora-ponto] Tamanho do storeId:', storeId?.length);
+    
+    // Primeiro, tentar buscar sem .single() para ver se encontra algo
+    const { data: storesList, error: listError } = await supabaseAdmin
+      .schema('sistemaretiradas')
+      .from('stores')
+      .select('id, name, ponto_ativo, active')
+      .eq('id', storeId);
+
+    console.log('[verify-colaboradora-ponto] Resultado da busca (sem .single()):', {
+      encontrou: storesList?.length || 0,
+      dados: storesList,
+      erro: listError
+    });
+
+    // Se não encontrou, tentar buscar todas as lojas para debug
+    if (!storesList || storesList.length === 0) {
+      console.log('[verify-colaboradora-ponto] ⚠️ Loja não encontrada, buscando todas as lojas para debug...');
+      const { data: allStores, error: allStoresError } = await supabaseAdmin
+        .schema('sistemaretiradas')
+        .from('stores')
+        .select('id, name, active')
+        .limit(10);
+      
+      console.log('[verify-colaboradora-ponto] Lojas disponíveis no banco:', {
+        total: allStores?.length || 0,
+        lojas: allStores?.map(s => ({ id: s.id, name: s.name, active: s.active })),
+        erro: allStoresError
+      });
+    }
+
+    // Agora tentar com .single()
     const { data: store, error: storeError } = await supabaseAdmin
       .schema('sistemaretiradas')
       .from('stores')
-      .select('id, name, ponto_ativo')
+      .select('id, name, ponto_ativo, active')
       .eq('id', storeId)
       .single();
 
+    // Determinar qual loja usar (da query .single() ou da lista)
+    let finalStore = null;
+    
     if (storeError) {
-      console.error('[verify-colaboradora-ponto] ❌ Erro ao buscar loja:', storeError);
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          error: 'Loja não encontrada',
-          details: storeError.message,
-        }),
-      };
+      console.error('[verify-colaboradora-ponto] ❌ Erro ao buscar loja:', {
+        message: storeError.message,
+        code: storeError.code,
+        details: storeError.details,
+        hint: storeError.hint,
+        storeId: storeId
+      });
+      
+      // Se a loja foi encontrada na lista mas deu erro no .single(), usar a primeira
+      if (storesList && storesList.length > 0) {
+        console.log('[verify-colaboradora-ponto] ⚠️ Erro no .single() mas loja encontrada na lista, usando primeira:', storesList[0]);
+        finalStore = storesList[0];
+      } else {
+        return {
+          statusCode: 404,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            error: 'Loja não encontrada',
+            details: storeError.message || `Nenhuma loja encontrada com ID: ${storeId}`,
+            code: storeError.code,
+          }),
+        };
+      }
+    } else if (store) {
+      finalStore = store;
+    } else if (storesList && storesList.length > 0) {
+      finalStore = storesList[0];
     }
 
-    if (!store) {
+    if (!finalStore) {
       console.error('[verify-colaboradora-ponto] ❌ Loja não encontrada no banco para ID:', storeId);
       return {
         statusCode: 404,
@@ -136,7 +190,12 @@ exports.handler = async (event, context) => {
       };
     }
 
-    console.log('[verify-colaboradora-ponto] ✅ Loja encontrada:', { id: store.id, name: store.name, ponto_ativo: store.ponto_ativo });
+    console.log('[verify-colaboradora-ponto] ✅ Loja encontrada:', { 
+      id: finalStore.id, 
+      name: finalStore.name, 
+      ponto_ativo: finalStore.ponto_ativo,
+      active: finalStore.active
+    });
 
     // Validação flexível: verificar se pertence à loja
     // 1. Verificar se store_id corresponde
@@ -144,7 +203,7 @@ exports.handler = async (event, context) => {
     const belongsToStore = 
       profile.store_id === storeId || 
       (profile.store_default && 
-       profile.store_default.toLowerCase().trim() === store.name.toLowerCase().trim());
+       profile.store_default.toLowerCase().trim() === finalStore.name.toLowerCase().trim());
 
     if (!belongsToStore) {
       return {
@@ -156,13 +215,13 @@ exports.handler = async (event, context) => {
             colaboradora_store_id: profile.store_id,
             colaboradora_store_default: profile.store_default,
             loja_id: storeId,
-            loja_name: store.name,
+            loja_name: finalStore.name,
           },
         }),
       };
     }
 
-    if (!store.ponto_ativo) {
+    if (!finalStore.ponto_ativo) {
       return {
         statusCode: 403,
         headers: corsHeaders,
