@@ -843,6 +843,20 @@ export const WhatsAppStoreConfig = () => {
 
                                     <div className="flex gap-2 justify-center flex-wrap">
                                         <Button
+                                            variant="outline"
+                                            onClick={() => handleCheckStatus(store)}
+                                            disabled={checkingStatus === store.slug}
+                                            className="gap-2"
+                                            data-testid={`button-check-status-${store.id}`}
+                                        >
+                                            {checkingStatus === store.slug ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Eye className="h-4 w-4" />
+                                            )}
+                                            Verificar Status
+                                        </Button>
+                                        <Button
                                             onClick={() => handleGenerateQRCode(store)}
                                             disabled={checkingStatus === store.slug || pollingStores.has(store.slug)}
                                             className="gap-2"
