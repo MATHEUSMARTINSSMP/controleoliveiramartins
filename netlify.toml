@@ -18,6 +18,8 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+  # Excluir módulos pesados do bundle para evitar limite de 50MB
+  external_node_modules = ["@wppconnect-team/wppconnect", "puppeteer-core", "chrome-aws-lambda", "puppeteer"]
 
 # ============================================================================
 # CRON JOB: Expiração Automática de Cashback
