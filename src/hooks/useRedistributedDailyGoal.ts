@@ -32,14 +32,20 @@ interface UseRedistributedDailyGoalResult {
   refetch: () => Promise<void>;
 }
 
+interface OffDayInput {
+  colaboradora_id: string;
+}
+
 interface UseRedistributedDailyGoalOptions {
   storeId: string | null;
   date?: string;
+  externalOffDays?: OffDayInput[];
 }
 
 export function useRedistributedDailyGoal({
   storeId,
-  date = format(new Date(), 'yyyy-MM-dd')
+  date = format(new Date(), 'yyyy-MM-dd'),
+  externalOffDays
 }: UseRedistributedDailyGoalOptions): UseRedistributedDailyGoalResult {
   const [isLoading, setIsLoading] = useState(true);
   const [metaDiariaLoja, setMetaDiariaLoja] = useState(0);
@@ -57,12 +63,7 @@ export function useRedistributedDailyGoal({
       const mesReferencia = format(dateObj, 'yyyyMM');
       const daysInMonth = getDaysInMonth(dateObj);
 
-      const [
-        { data: metaLoja },
-        { data: colaboradoras },
-        { data: folgas },
-        { data: metasIndividuais }
-      ] = await Promise.all([
+      const queries: Promise<any>[] = [
         supabase
           .schema('sistemaretiradas')
           .from('goals')
@@ -81,19 +82,30 @@ export function useRedistributedDailyGoal({
           .eq('active', true),
         supabase
           .schema('sistemaretiradas')
-          .from('collaborator_off_days')
-          .select('colaboradora_id')
-          .eq('store_id', storeId)
-          .eq('off_date', date),
-        supabase
-          .schema('sistemaretiradas')
           .from('goals')
           .select('colaboradora_id, meta_valor, super_meta_valor, daily_weights')
           .eq('store_id', storeId)
           .eq('mes_referencia', mesReferencia)
           .eq('tipo', 'INDIVIDUAL')
           .is('semana_referencia', null)
-      ]);
+      ];
+
+      if (!externalOffDays) {
+        queries.push(
+          supabase
+            .schema('sistemaretiradas')
+            .from('collaborator_off_days')
+            .select('colaboradora_id')
+            .eq('store_id', storeId)
+            .eq('off_date', date)
+        );
+      }
+
+      const results = await Promise.all(queries);
+      const { data: metaLoja } = results[0];
+      const { data: colaboradoras } = results[1];
+      const { data: metasIndividuais } = results[2];
+      const folgas = externalOffDays || (results[3]?.data || []);
 
       if (!colaboradoras || colaboradoras.length === 0) {
         setMetaDiariaLoja(0);
@@ -172,7 +184,7 @@ export function useRedistributedDailyGoal({
     } finally {
       setIsLoading(false);
     }
-  }, [storeId, date]);
+  }, [storeId, date, externalOffDays]);
 
   useEffect(() => {
     calculate();

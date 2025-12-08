@@ -188,6 +188,11 @@ export default function LojaDashboard() {
     // Hooks para gestão de folgas
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const { offDays, toggleFolga, isOnLeave, refetch: refetchFolgas, loading: loadingFolgas } = useFolgas({ storeId, date: todayStr });
+    
+    const externalOffDays = useMemo(() => 
+        offDays.map(od => ({ colaboradora_id: od.colaboradora_id })), 
+        [offDays]
+    );
     const { redistributeGoalsForDate } = useGoalRedistribution({ storeId });
     
     // Hook para cálculo de metas redistribuídas em tempo real (frontend only)
@@ -197,16 +202,7 @@ export default function LojaDashboard() {
         totalColaboradorasTrabalhando,
         totalColaboradorasFolga,
         refetch: refetchRedistGoals
-    } = useRedistributedDailyGoal({ storeId, date: todayStr });
-    
-    // Refetch das metas redistribuídas quando folgas mudam
-    useEffect(() => {
-        if (offDays && storeId) {
-            refetchRedistGoals();
-        }
-    }, [offDays, storeId, refetchRedistGoals]);
-
-    // REMOVIDO: Duplicado - usando o useEffect mais abaixo
+    } = useRedistributedDailyGoal({ storeId, date: todayStr, externalOffDays });
 
     useEffect(() => {
         if (salesData) {
@@ -3422,11 +3418,7 @@ export default function LojaDashboard() {
                                                     }
                                                     
                                                     try {
-                                                        const success = await toggleFolga(perf.id, todayStr);
-                                                        if (success) {
-                                                            await refetchFolgas();
-                                                            await refetchRedistGoals();
-                                                        }
+                                                        await toggleFolga(perf.id, todayStr);
                                                     } catch (error: any) {
                                                         console.error('[LojaDashboard] Erro ao alterar folga:', error);
                                                         toast.error('Erro ao alterar folga: ' + (error.message || 'Erro desconhecido'));
