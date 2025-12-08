@@ -81,6 +81,15 @@ The system is built with a modern web stack:
 - **TypeScript Fixes**: Corrected type casting for Supabase RPC calls in TimeClockRegister.tsx
 - **All LSP Errors Resolved**: Component fully typed and working
 
+### 2024-12-08: Daily Goal Check Module (Gamification)
+- **ModulesStoreConfig.tsx**: Added `daily_goal_check` module following the established pattern (CRM, Wishlist, Ponto, Cashback)
+- **Module configuration**: `hasConfig: true` enables the settings button when module is active
+- **Store interface extended**: `daily_goal_check_ativo`, `daily_goal_check_valor_bonus`, `daily_goal_check_horario_limite`
+- **Configuration dialog**: Allows admin to set bonus value (R$) and time limit for daily check
+- **DailyGoalCheckNotification.tsx**: Component displays notification to collaborators from 9AM until configured time limit
+- **Pattern**: Module configuration is centralized in ModulesStoreConfig.tsx, not in StoreManagement.tsx
+- **Gamification benefit**: Collaborators receive bonus for confirming they viewed their daily goal
+
 ### Pending Configuration
 - Configure Netlify environment variables for email functions:
   - `RESEND_API_KEY` - API key from Resend
