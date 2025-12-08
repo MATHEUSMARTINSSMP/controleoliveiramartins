@@ -95,14 +95,7 @@ export function useGoalRedistribution({ storeId }: UseGoalRedistributionOptions)
         }
       }
 
-      // Redistribuir a meta entre as colaboradoras que não estão de folga
-      const metaPorColaboradora = metaDiaria / colaboradorasAtivas.length;
-      const superMetaPorColaboradora = superMetaDiaria / colaboradorasAtivas.length;
-
-      // Buscar semana de referência
-      const semanaRef = `${getYear(startOfWeek(dataFolgaObj, { weekStartsOn: 1 }))}${getWeek(startOfWeek(dataFolgaObj, { weekStartsOn: 1 }), { weekStartsOn: 1 })}`;
-
-      // Buscar metas das colaboradoras de folga para redistribuir
+      // Buscar metas das colaboradoras de folga para redistribuir APENAS A META DO DIA
       const colaboradorasEmFolgaIds = Array.from(colaboradorasEmFolga);
       let metaFolgaTotal = 0;
       let superMetaFolgaTotal = 0;
@@ -121,7 +114,7 @@ export function useGoalRedistribution({ storeId }: UseGoalRedistributionOptions)
             .maybeSingle();
           
           if (metaFolga) {
-            // Calcular meta diária da colaboradora de folga
+            // Calcular APENAS a meta diária da colaboradora de folga (não a mensal)
             let metaDiariaFolga = Number(metaFolga.meta_valor) / daysInMonth;
             let superMetaDiariaFolga = Number(metaFolga.super_meta_valor) / daysInMonth;
             
@@ -139,11 +132,11 @@ export function useGoalRedistribution({ storeId }: UseGoalRedistributionOptions)
         }
       }
       
-      // Total a redistribuir = meta do dia da loja + metas das colaboradoras de folga
+      // Total a redistribuir = meta do dia da loja + metas do dia das colaboradoras de folga
       const totalMetaRedistribuir = metaDiaria + metaFolgaTotal;
       const totalSuperMetaRedistribuir = superMetaDiaria + superMetaFolgaTotal;
       
-      // Redistribuir entre as colaboradoras ativas
+      // Redistribuir APENAS A META DO DIA entre as colaboradoras ativas
       const metaPorColaboradora = colaboradorasAtivas.length > 0 ? totalMetaRedistribuir / colaboradorasAtivas.length : 0;
       const superMetaPorColaboradora = colaboradorasAtivas.length > 0 ? totalSuperMetaRedistribuir / colaboradorasAtivas.length : 0;
 
