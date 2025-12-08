@@ -115,8 +115,30 @@ The system is built with a modern web stack:
 - **Critical Limit**: Maximum 10 messages per day per store enforced in UI (button disabled + warning message)
 - **Mobile-first**: All components responsive with sm: breakpoints
 
+### 2024-12-08: WhatsApp Global Fallback System
+- **Purpose**: Lojas SEM numero WhatsApp proprio conectado usam o numero GLOBAL (Elevea) para enviar notificacoes
+- **Logica de Credenciais (send-whatsapp-message.js)**:
+  1. Se loja tem `whatsapp_ativo = false`: NAO envia (skip)
+  2. Se loja tem `whatsapp_ativo = true` E credenciais proprias conectadas: Usa credenciais da loja
+  3. Se loja tem `whatsapp_ativo = true` MAS nao tem credenciais conectadas: Usa credencial GLOBAL (`is_global = true`)
+  4. Fallback final: Variaveis de ambiente (`WHATSAPP_SITE_SLUG`, `N8N_CUSTOMER_ID`)
+- **SQL Migration**: `sql_migrations_archive/SQL_WHATSAPP_GLOBAL_CREDENTIALS.sql`
+  - Campo `is_global` na tabela `whatsapp_credentials`
+  - Campos `display_name`, `uazapi_phone_number`, `uazapi_qr_code`, `uazapi_status`
+  - Indice unico para garantir apenas UMA credencial global ativa
+  - Funcoes RPC: `get_global_whatsapp_credential()`, `upsert_global_whatsapp_credential()`, `update_global_whatsapp_status()`
+- **WhatsAppGlobalConfig.tsx**: Componente dev para configurar numero global
+  - Localizado em `/dev/erp-config` (nova aba "WhatsApp Global")
+  - Conectar/Reconectar numero
+  - Exibir QR Code para conexao
+  - Verificar status da conexao
+- **ERPConfig.tsx**: Reorganizado com tabs (Integracao ERP | WhatsApp Global)
+- **send-cashback-whatsapp.js**: Refatorado para usar send-whatsapp-message centralizado
+- **Beneficio**: Admin de loja pode ativar WhatsApp sem precisar de numero proprio
+
 ### Pending Configuration
 - Configure Netlify environment variables for email functions:
   - `RESEND_API_KEY` - API key from Resend
   - `SUPABASE_URL` - Project URL from Supabase
   - `SUPABASE_SERVICE_ROLE_KEY` - Service role key from Supabase
+- Execute SQL migration `SQL_WHATSAPP_GLOBAL_CREDENTIALS.sql` no Supabase para adicionar suporte a credencial global

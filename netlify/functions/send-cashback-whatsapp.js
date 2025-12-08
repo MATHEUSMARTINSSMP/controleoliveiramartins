@@ -291,115 +291,52 @@ exports.handler = async (event, context) => {
     console.log('[SendCashbackWhatsApp] 📱 Enviando WhatsApp para:', telefoneNormalizado);
     console.log('[SendCashbackWhatsApp] Mensagem:', message.substring(0, 100) + '...');
 
-    // 8. MULTI-TENANCY: Buscar credenciais WhatsApp da loja ou usar globais
-    // Webhook N8N para envio de mensagens
-    const webhookUrl = process.env.WHATSAPP_WEBHOOK_URL || 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send';
-    const webhookAuth = process.env.N8N_WEBHOOK_AUTH;
+    // 8. ENVIAR VIA FUNCAO CENTRALIZADA send-whatsapp-message
+    // A funcao send-whatsapp-message cuida de:
+    // - Buscar credenciais proprias da loja (se conectadas)
+    // - Fallback para credencial global (is_global = true)
+    // - Fallback final para variaveis de ambiente
     
-    // Gerar slug a partir do nome da loja
-    const generateSlug = (name) => {
-      return name
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, '_')
-        .replace(/(^_|_$)/g, '')
-        .replace(/_+/g, '_');
-    };
-
-    let siteSlug = process.env.WHATSAPP_SITE_SLUG || 'elevea';
-    let customerId = process.env.N8N_CUSTOMER_ID;
-    let credentialsSource = 'global';
-
-    // Tentar buscar credenciais da loja especifica
-    try {
-      // Buscar loja com admin_id e whatsapp_ativo
-      const { data: lojaCompleta, error: lojaCompletaError } = await supabase
-        .from('stores')
-        .select('name, admin_id, whatsapp_ativo')
-        .eq('id', store_id)
-        .single();
-
-      if (!lojaCompletaError && lojaCompleta && lojaCompleta.whatsapp_ativo) {
-        const storeSlug = generateSlug(lojaCompleta.name);
-        console.log('[SendCashbackWhatsApp] Loja com WhatsApp ativo:', lojaCompleta.name, '| Slug:', storeSlug);
-
-        // Buscar email do admin
-        const { data: adminProfile, error: adminError } = await supabase
-          .from('profiles')
-          .select('email')
-          .eq('id', lojaCompleta.admin_id)
-          .single();
-
-        if (!adminError && adminProfile && adminProfile.email) {
-          const adminEmail = adminProfile.email;
-
-          // Buscar credenciais WhatsApp da loja
-          const { data: credentials, error: credError } = await supabase
-            .from('whatsapp_credentials')
-            .select('uazapi_status, site_slug')
-            .eq('customer_id', adminEmail)
-            .eq('site_slug', storeSlug)
-            .eq('status', 'active')
-            .maybeSingle();
-
-          if (!credError && credentials && credentials.uazapi_status === 'connected') {
-            siteSlug = storeSlug;
-            customerId = adminEmail;
-            credentialsSource = `loja:${lojaCompleta.name}`;
-            console.log(`[SendCashbackWhatsApp] Usando credenciais da loja: ${lojaCompleta.name}`);
-          } else {
-            console.log('[SendCashbackWhatsApp] Loja sem WhatsApp conectado, usando credenciais globais');
-          }
-        }
-      } else {
-        console.log('[SendCashbackWhatsApp] WhatsApp desativado na loja, usando credenciais globais');
-      }
-    } catch (credErr) {
-      console.warn('[SendCashbackWhatsApp] Erro ao buscar credenciais da loja:', credErr.message);
-    }
-
-    console.log(`[SendCashbackWhatsApp] Fonte das credenciais: ${credentialsSource}`);
-    console.log(`[SendCashbackWhatsApp] siteSlug: ${siteSlug}, customerId: ${customerId}`);
-
-    const messageEscaped = JSON.stringify(message);
-    const messageSafe = messageEscaped.slice(1, -1);
-
-    const payload = {
-      siteSlug: siteSlug,
-      customerId: customerId,
-      phone_number: String(telefoneNormalizado),
-      message: messageSafe,
-    };
-
-    const headers = {
-      'Content-Type': 'application/json',
-    };
-
-    if (webhookAuth) {
-      headers['x-app-key'] = webhookAuth;
-    }
-
-    const response = await fetch(webhookUrl, {
+    console.log('[SendCashbackWhatsApp] Chamando send-whatsapp-message centralizado...');
+    
+    const netlifyUrl = process.env.URL || 'https://eleveaone.com.br';
+    const sendMessageUrl = `${netlifyUrl}/.netlify/functions/send-whatsapp-message`;
+    
+    const response = await fetch(sendMessageUrl, {
       method: 'POST',
-      headers: headers,
-      body: JSON.stringify(payload),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        phone: telefoneNormalizado,
+        message: message,
+        store_id: store_id, // Passa store_id para logica de multi-tenancy
+      }),
     });
 
-    const responseText = await response.text();
-    let responseData;
-    try {
-      responseData = JSON.parse(responseText);
-    } catch (e) {
-      responseData = { message: responseText, raw: responseText };
-    }
+    const responseData = await response.json();
 
-    if (!response.ok) {
+    if (!response.ok || !responseData.success) {
+      // Se foi skipped (whatsapp desativado na loja), retornar como skipped
+      if (responseData.skipped) {
+        console.log('[SendCashbackWhatsApp] Envio pulado - WhatsApp desativado na loja');
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            skipped: true,
+            message: 'WhatsApp desativado para esta loja',
+          }),
+        };
+      }
+      
       console.error('[SendCashbackWhatsApp] ❌ Erro ao enviar WhatsApp:', responseData);
-      throw new Error(responseData.message || responseData.error || `HTTP ${response.status}`);
+      throw new Error(responseData.error || `HTTP ${response.status}`);
     }
 
     console.log('[SendCashbackWhatsApp] ✅ WhatsApp enviado com sucesso!');
+    console.log('[SendCashbackWhatsApp] Fonte das credenciais:', responseData.credentials_source || 'nao informada');
 
     return {
       statusCode: 200,

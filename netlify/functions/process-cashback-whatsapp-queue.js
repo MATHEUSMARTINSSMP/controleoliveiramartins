@@ -115,8 +115,22 @@ exports.handler = async (event, context) => {
 
         const result = await response.json();
 
-        if (response.ok && result.success) {
-          // Sucesso
+        // IMPORTANTE: Verificar skipped ANTES de success, pois skipped vem junto com success: true
+        if (result.skipped) {
+          // WhatsApp desativado ou cliente sem telefone - marcar como SKIPPED
+          await supabase
+            .from('cashback_whatsapp_queue')
+            .update({
+              status: 'SKIPPED',
+              error_message: result.message || result.error || 'WhatsApp desativado ou sem telefone',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', item.id);
+
+          skipped++;
+          console.log(`[ProcessCashbackWhatsAppQueue] ⏭️ WhatsApp pulado para transação ${item.transaction_id}: ${result.message || result.error}`);
+        } else if (response.ok && result.success) {
+          // Sucesso real - mensagem enviada
           await supabase
             .from('cashback_whatsapp_queue')
             .update({
@@ -127,8 +141,9 @@ exports.handler = async (event, context) => {
 
           sent++;
           console.log(`[ProcessCashbackWhatsAppQueue] ✅ WhatsApp enviado para transação ${item.transaction_id}`);
-        } else if (result.skipped) {
-          // Cliente sem telefone - marcar como SKIPPED
+          console.log(`[ProcessCashbackWhatsAppQueue] Fonte das credenciais: ${result.credentials_source || 'nao informada'}`);
+        } else if (result.error) {
+          // Falha com mensagem de erro
           await supabase
             .from('cashback_whatsapp_queue')
             .update({
