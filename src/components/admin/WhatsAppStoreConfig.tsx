@@ -367,20 +367,28 @@ export const WhatsAppStoreConfig = () => {
             });
             setLocalCredentials(initialLocal);
 
+            // Terminar loading ANTES de verificar status via N8N
+            // Assim o usuario ve as lojas imediatamente
+            setLoading(false);
+
             // Verificar status real via N8N para TODAS as lojas com WhatsApp ativado
             // Isso garante que lojas conectadas no N8N sejam detectadas mesmo sem instance_id local
             const storesToCheck = combined.filter(s => s.whatsapp_ativo);
             if (storesToCheck.length > 0 && profile?.email) {
                 console.log('[fetchStoresAndCredentials] Verificando status de', storesToCheck.length, 'lojas com WhatsApp ativado...');
                 
-                for (const store of storesToCheck) {
+                // Verificar todas as lojas em PARALELO para ser mais rapido
+                const statusPromises = storesToCheck.map(async (store) => {
                     try {
+                        console.log('[fetchStoresAndCredentials] Verificando status N8N para:', store.slug);
                         const status = await fetchWhatsAppStatus({
                             siteSlug: store.slug,
-                            customerId: profile.email,
+                            customerId: profile.email!,
                         });
                         
-                        // Atualizar estado local
+                        console.log('[fetchStoresAndCredentials] Resposta N8N para', store.slug, ':', status);
+                        
+                        // Atualizar estado local IMEDIATAMENTE
                         setStoresWithCredentials(prev =>
                             prev.map(s => s.slug === store.slug ? {
                                 ...s,
@@ -388,6 +396,7 @@ export const WhatsAppStoreConfig = () => {
                                     ...s.credentials,
                                     uazapi_status: status.status,
                                     uazapi_phone_number: status.phoneNumber || s.credentials?.uazapi_phone_number,
+                                    uazapi_instance_id: status.instanceId || s.credentials?.uazapi_instance_id,
                                 } as WhatsAppCredential
                             } : s)
                         );
@@ -421,31 +430,24 @@ export const WhatsAppStoreConfig = () => {
                                     onConflict: 'customer_id,site_slug'
                                 });
                                 
-                            console.log('[fetchStoresAndCredentials] Status atualizado para', store.slug, ':', status.status, 'instanceId:', status.instanceId);
-                            
-                            // Atualizar estado local com instanceId se encontrado
-                            if (status.instanceId) {
-                                setStoresWithCredentials(prev =>
-                                    prev.map(s => s.slug === store.slug ? {
-                                        ...s,
-                                        credentials: {
-                                            ...s.credentials,
-                                            uazapi_instance_id: status.instanceId,
-                                        } as WhatsAppCredential
-                                    } : s)
-                                );
-                            }
+                            console.log('[fetchStoresAndCredentials] Status salvo no Supabase para', store.slug, ':', status.status);
                         }
+                        
+                        return { slug: store.slug, status };
                     } catch (err) {
                         console.error('[fetchStoresAndCredentials] Erro ao verificar status de', store.slug, ':', err);
+                        return { slug: store.slug, error: err };
                     }
-                }
+                });
+                
+                // Aguardar todas as verificacoes
+                await Promise.all(statusPromises);
+                console.log('[fetchStoresAndCredentials] Todas as verificacoes de status concluidas');
             }
 
         } catch (error: any) {
             console.error('Erro ao buscar lojas:', error);
             toast.error('Erro ao carregar lojas');
-        } finally {
             setLoading(false);
         }
     };
