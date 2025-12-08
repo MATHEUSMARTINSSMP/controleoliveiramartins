@@ -1223,14 +1223,16 @@ export default function LojaDashboard() {
             return;
         }
 
-        // Prevenir múltiplas chamadas com o mesmo storeId
-        if (isFetchingDataRef.current && lastFetchedStoreIdRef.current === currentStoreId) {
+        // Prevenir múltiplas chamadas com o mesmo storeId (mas permitir se forçado)
+        // Se lastFetchedStoreIdRef foi limpo (null), significa que queremos forçar recarregamento
+        if (isFetchingDataRef.current && lastFetchedStoreIdRef.current === currentStoreId && lastFetchedStoreIdRef.current !== null) {
             console.log('[LojaDashboard] ⚠️ fetchDataWithStoreId já está sendo executado para este storeId, ignorando chamada duplicada');
             return;
         }
 
-        // Se já foi buscado recentemente para este storeId, não buscar novamente
-        if (lastFetchedStoreIdRef.current === currentStoreId && storeId === currentStoreId) {
+        // Se já foi buscado recentemente para este storeId, não buscar novamente (a menos que seja forçado)
+        // Se lastFetchedStoreIdRef foi limpo (null), significa que queremos forçar recarregamento
+        if (lastFetchedStoreIdRef.current === currentStoreId && storeId === currentStoreId && lastFetchedStoreIdRef.current !== null) {
             console.log('[LojaDashboard] ⚠️ Dados já foram buscados para este storeId, ignorando chamada duplicada');
             return;
         }
