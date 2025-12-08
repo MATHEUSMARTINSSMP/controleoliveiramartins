@@ -47,6 +47,7 @@ interface CRMCommitment {
   type: "AJUSTE" | "FOLLOW_UP" | "VENDA" | "OUTRO";
   scheduledDate: string;
   notes: string;
+  status: "AGENDADO" | "CONCLUÍDO" | "CANCELADO" | "FALTANDO";
   storeName?: string;
 }
 
@@ -179,7 +180,7 @@ export const CRMManagement = () => {
       const query = supabase
         .schema('sistemaretiradas')
         .from('crm_tasks')
-        .select('*, stores(name), crm_contacts(nome)')
+        .select('*, stores(name)')
         .order('due_date', { ascending: true });
 
       // Aplicar filtro de loja se selecionado
@@ -195,7 +196,7 @@ export const CRMManagement = () => {
         setTasks(data.map((t: any) => ({
           id: t.id,
           title: t.title,
-          cliente: t.cliente_nome || t.crm_contacts?.nome || 'Cliente não identificado',
+          cliente: t.cliente_nome || 'Cliente não identificado',
           dueDate: t.due_date ? format(new Date(t.due_date), 'HH:mm') : '',
           priority: t.priority || 'MÉDIA',
           status: t.status || 'PENDENTE',
@@ -330,7 +331,7 @@ export const CRMManagement = () => {
       const query = supabase
         .schema('sistemaretiradas')
         .from('crm_commitments')
-        .select('*, stores(name), crm_contacts(nome)')
+        .select('*, stores(name)')
         .order('scheduled_date', { ascending: true });
 
       // Aplicar filtro de loja se selecionado
@@ -345,10 +346,11 @@ export const CRMManagement = () => {
       if (data) {
         setCommitments(data.map((c: any) => ({
           id: c.id,
-          cliente: c.cliente_nome || c.crm_contacts?.nome || 'Cliente não identificado',
+          cliente: c.cliente_nome || 'Cliente não identificado',
           type: c.type || 'OUTRO',
           scheduledDate: c.scheduled_date,
           notes: c.notes || '',
+          status: c.status || 'AGENDADO',
           storeName: c.stores?.name
         })));
       }
