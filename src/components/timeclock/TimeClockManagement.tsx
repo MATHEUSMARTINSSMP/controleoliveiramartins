@@ -1,24 +1,60 @@
 /**
- * Componente modular para gestão completa de controle de ponto no Dash Loja/Admin
- * Aba em Gestão de Pessoas
+ * Componente modular para gestao completa de controle de ponto no Dash Loja/Admin
+ * Aba em Gestao de Pessoas
+ * Conformidade com CLT e Portaria 671/2021 (REP-P)
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStoreData } from '@/hooks/useStoreData';
+import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { WorkScheduleConfig } from './WorkScheduleConfig';
 import { HoursBalanceManagement } from './HoursBalanceManagement';
-import { Clock, Calendar, TrendingUp } from 'lucide-react';
+import { TimeClockChangeRequests } from './TimeClockChangeRequests';
+import { TimeClockReports } from './TimeClockReports';
+import { Clock, Calendar, TrendingUp, FileEdit, BarChart3, AlertCircle } from 'lucide-react';
 
 interface TimeClockManagementProps {
   storeId?: string | null;
+  stores?: { id: string; name: string }[];
+  showStoreSelector?: boolean;
 }
 
-export function TimeClockManagement({ storeId: propStoreId }: TimeClockManagementProps) {
+export function TimeClockManagement({ storeId: propStoreId, stores, showStoreSelector = false }: TimeClockManagementProps) {
   const { storeId: contextStoreId } = useStoreData();
-  const storeId = propStoreId || contextStoreId;
+  const [selectedStoreId, setSelectedStoreId] = useState<string>(propStoreId || contextStoreId || '');
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
-  if (!storeId) {
+  const storeId = selectedStoreId || propStoreId || contextStoreId;
+
+  useEffect(() => {
+    if (storeId) {
+      fetchPendingRequestsCount();
+    }
+  }, [storeId]);
+
+  const fetchPendingRequestsCount = async () => {
+    if (!storeId) return;
+    try {
+      const { count, error } = await supabase
+        .schema('sistemaretiradas')
+        .from('time_clock_change_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('store_id', storeId)
+        .eq('status', 'PENDENTE');
+
+      if (!error && count !== null) {
+        setPendingRequestsCount(count);
+      }
+    } catch (err) {
+      console.error('[TimeClockManagement] Erro ao buscar contagem:', err);
+    }
+  };
+
+  if (!storeId && !showStoreSelector) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         Selecione uma loja para gerenciar o controle de ponto
@@ -28,29 +64,76 @@ export function TimeClockManagement({ storeId: propStoreId }: TimeClockManagemen
 
   return (
     <div className="space-y-4">
-      <Tabs defaultValue="jornada" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="jornada" className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            <span className="hidden sm:inline">Configurar Jornada</span>
-            <span className="sm:hidden">Jornada</span>
-          </TabsTrigger>
-          <TabsTrigger value="banco-horas" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            <span className="hidden sm:inline">Banco de Horas</span>
-            <span className="sm:hidden">Horas</span>
-          </TabsTrigger>
-        </TabsList>
+      {showStoreSelector && stores && stores.length > 0 && (
+        <div className="max-w-xs">
+          <Label className="text-sm">Selecione a Loja</Label>
+          <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+            <SelectTrigger data-testid="select-store-timeclock">
+              <SelectValue placeholder="Selecione uma loja..." />
+            </SelectTrigger>
+            <SelectContent>
+              {stores.map(store => (
+                <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
-        <TabsContent value="jornada">
-          <WorkScheduleConfig storeId={storeId} />
-        </TabsContent>
+      {storeId ? (
+        <Tabs defaultValue="jornada" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="jornada" className="flex items-center gap-2" data-testid="tab-jornada">
+              <Calendar className="h-4 w-4" />
+              <span className="hidden sm:inline">Jornada</span>
+            </TabsTrigger>
+            <TabsTrigger value="banco-horas" className="flex items-center gap-2" data-testid="tab-banco-horas">
+              <TrendingUp className="h-4 w-4" />
+              <span className="hidden sm:inline">Banco de Horas</span>
+            </TabsTrigger>
+            <TabsTrigger value="relatorios" className="flex items-center gap-2" data-testid="tab-relatorios">
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Relatorios</span>
+            </TabsTrigger>
+            <TabsTrigger value="solicitacoes" className="flex items-center gap-2 relative" data-testid="tab-solicitacoes">
+              <FileEdit className="h-4 w-4" />
+              <span className="hidden sm:inline">Solicitacoes</span>
+              {pendingRequestsCount > 0 && (
+                <Badge 
+                  variant="destructive" 
+                  className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs animate-pulse"
+                >
+                  {pendingRequestsCount}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="banco-horas">
-          <HoursBalanceManagement storeId={storeId} />
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="jornada">
+            <WorkScheduleConfig storeId={storeId} />
+          </TabsContent>
+
+          <TabsContent value="banco-horas">
+            <HoursBalanceManagement storeId={storeId} />
+          </TabsContent>
+
+          <TabsContent value="relatorios">
+            <TimeClockReports storeId={storeId} />
+          </TabsContent>
+
+          <TabsContent value="solicitacoes">
+            <TimeClockChangeRequests 
+              storeId={storeId} 
+              isAdmin 
+              onCountChange={fetchPendingRequestsCount}
+            />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <div className="text-center py-8 text-muted-foreground">
+          Selecione uma loja para gerenciar o controle de ponto
+        </div>
+      )}
     </div>
   );
 }
-

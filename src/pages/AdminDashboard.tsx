@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare } from "lucide-react";
+import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import ERPDashboard from "@/pages/erp/ERPDashboard";
 import CategoryReports from "@/pages/erp/CategoryReports";
@@ -23,6 +23,7 @@ import { CashbackStoreConfig } from "@/components/admin/CashbackStoreConfig";
 import { CRMStoreConfig } from "@/components/admin/CRMStoreConfig";
 import { ModulesStoreConfig } from "@/components/admin/ModulesStoreConfig";
 import { CRMManagement } from "@/components/admin/CRMManagement";
+import { TimeClockManagement } from "@/components/timeclock/TimeClockManagement";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +36,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const [passwordDialog, setPasswordDialog] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [adminStores, setAdminStores] = useState<{ id: string; name: string }[]>([]);
 
   const { data: pendingAdiantamentos = 0 } = useAdminPendingAdiantamentos();
 
@@ -47,6 +49,29 @@ const AdminDashboard = () => {
       }
     }
   }, [profile, loading, navigate]);
+
+  useEffect(() => {
+    if (profile?.id) {
+      fetchAdminStores();
+    }
+  }, [profile?.id]);
+
+  const fetchAdminStores = async () => {
+    if (!profile?.id) return;
+    try {
+      const { data, error } = await supabase
+        .schema('sistemaretiradas')
+        .from('stores')
+        .select('id, name')
+        .eq('admin_id', profile.id)
+        .order('name');
+      
+      if (error) throw error;
+      setAdminStores(data || []);
+    } catch (err) {
+      console.error('[AdminDashboard] Erro ao buscar lojas:', err);
+    }
+  };
 
   const handleChangePassword = async () => {
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
@@ -215,33 +240,84 @@ const AdminDashboard = () => {
             </TabsContent>
 
             <TabsContent value="gestao-pessoas" className="animate-fade-in space-y-4 sm:space-y-6">
-              <div className="flex flex-wrap gap-2 sm:gap-4">
-                <Button
-                  onClick={() => navigate("/admin/colaboradores")}
-                  className="text-xs sm:text-sm flex-1 sm:flex-initial"
-                  size="sm"
-                >
-                  <span className="hidden sm:inline">Colaboradoras & Lojas</span>
-                  <span className="sm:hidden">Perfis</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => navigate("/admin/adiantamentos")}
-                  className="border-primary/30 text-xs sm:text-sm flex-1 sm:flex-initial"
-                  size="sm"
-                >
-                  Adiantamentos
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => navigate("/admin/lancamentos")}
-                  className="border-primary/30 text-xs sm:text-sm flex-1 sm:flex-initial"
-                  size="sm"
-                >
-                  Lancamentos
-                </Button>
-              </div>
-              <FinancialDashboard />
+              <Tabs defaultValue="financeiro" className="space-y-4">
+                <TabsList className="grid w-full grid-cols-3 max-w-2xl">
+                  <TabsTrigger value="financeiro" className="text-xs sm:text-sm" data-testid="tab-gp-financeiro">
+                    <Wallet className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Financeiro</span>
+                    <span className="sm:hidden">Fin.</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="colaboradoras" className="text-xs sm:text-sm" data-testid="tab-gp-colaboradoras">
+                    <Users className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Colaboradoras</span>
+                    <span className="sm:hidden">Colab.</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="ponto" className="text-xs sm:text-sm" data-testid="tab-gp-ponto">
+                    <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Ponto & Jornada</span>
+                    <span className="sm:hidden">Ponto</span>
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="financeiro" className="space-y-4">
+                  <div className="flex flex-wrap gap-2 sm:gap-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate("/admin/adiantamentos")}
+                      className="border-primary/30 text-xs sm:text-sm flex-1 sm:flex-initial"
+                      size="sm"
+                    >
+                      Adiantamentos
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate("/admin/lancamentos")}
+                      className="border-primary/30 text-xs sm:text-sm flex-1 sm:flex-initial"
+                      size="sm"
+                    >
+                      Lancamentos
+                    </Button>
+                  </div>
+                  <FinancialDashboard />
+                </TabsContent>
+
+                <TabsContent value="colaboradoras" className="space-y-4">
+                  <div className="flex flex-wrap gap-2 sm:gap-4">
+                    <Button
+                      onClick={() => navigate("/admin/colaboradores")}
+                      className="text-xs sm:text-sm flex-1 sm:flex-initial"
+                      size="sm"
+                    >
+                      <span className="hidden sm:inline">Gerenciar Colaboradoras & Lojas</span>
+                      <span className="sm:hidden">Gerenciar Perfis</span>
+                    </Button>
+                  </div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Users className="h-5 w-5" />
+                        Gestao de Colaboradoras
+                      </CardTitle>
+                      <CardDescription>
+                        Gerencie perfis, lojas e permissoes das colaboradoras
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">
+                        Acesse o gerenciamento completo de colaboradoras e lojas clicando no botao acima.
+                      </p>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="ponto" className="space-y-4">
+                  <TimeClockManagement 
+                    stores={adminStores} 
+                    showStoreSelector={adminStores.length > 1}
+                    storeId={adminStores.length === 1 ? adminStores[0]?.id : undefined}
+                  />
+                </TabsContent>
+              </Tabs>
             </TabsContent>
 
             <TabsContent value="gestao-sistemas" className="animate-fade-in space-y-4 sm:space-y-6">

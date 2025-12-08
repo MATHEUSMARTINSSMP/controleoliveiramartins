@@ -28,8 +28,7 @@ import { motion } from "framer-motion";
 
 const ColaboradoraCommercial = lazy(() => import("@/components/colaboradora/ColaboradoraCommercial").then(m => ({ default: m.ColaboradoraCommercial })));
 const WeeklyGincanaResults = lazy(() => import("@/components/loja/WeeklyGincanaResults"));
-const TimeClockHistory = lazy(() => import("@/components/timeclock/TimeClockHistory").then(m => ({ default: m.TimeClockHistory })));
-const TimeClockHoursBalance = lazy(() => import("@/components/timeclock/TimeClockHoursBalance").then(m => ({ default: m.TimeClockHoursBalance })));
+const ColaboradoraTimeClockTab = lazy(() => import("@/components/colaboradora/ColaboradoraTimeClockTab").then(m => ({ default: m.ColaboradoraTimeClockTab })));
 import {
   DollarSign,
   Calendar,
@@ -980,22 +979,7 @@ const ColaboradoraDashboard = () => {
           {pontoAtivo && storeId && profile?.id && (
             <TabsContent value="ponto" className="space-y-4">
               <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-                <Card>
-                  <CardHeader className="p-3 sm:p-6">
-                    <CardTitle className="text-base sm:text-lg">Meu Banco de Horas</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                    <TimeClockHoursBalance storeId={storeId} colaboradoraId={profile.id} />
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="p-3 sm:p-6">
-                    <CardTitle className="text-base sm:text-lg">Histórico de Ponto</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                    <TimeClockHistory storeId={storeId} colaboradoraId={profile.id} showOnlyToday={false} />
-                  </CardContent>
-                </Card>
+                <ColaboradoraTimeClockTab storeId={storeId} colaboradoraId={profile.id} />
               </Suspense>
             </TabsContent>
           )}

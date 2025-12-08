@@ -10,6 +10,21 @@ Complete multi-tenant ERP/sales management SaaS system migrated from Lovable to 
 - **Multi-tenancy**: RLS-based data isolation using `sistemaretiradas` schema
 
 ## Recent Changes
+- **2024-12-08**: Time Clock System Enhancement (Ponto & Jornada):
+  - **New SQL Schema**: `SQL_SISTEMA_PONTO_COMPLETO.sql` with 3 new tables:
+    - `time_clock_change_requests`: Solicitations for time record changes
+    - `time_clock_digital_signatures`: Digital signatures for REP-P compliance
+    - `time_clock_period_closings`: Period closings for monthly/weekly reports
+  - **New Components**:
+    - `TimeClockChangeRequests.tsx`: Admin can approve/reject time change requests
+    - `TimeClockReports.tsx`: Advanced reports by month/week/custom period with overtime calculation
+    - `ColaboradoraTimeClockTab.tsx`: Modular component for collaborator time clock tab
+  - **TimeClockManagement Enhanced**: 4 tabs (Jornada, Banco de Horas, Relatorios, Solicitacoes)
+  - **AdminDashboard Updated**: "Gestao de Pessoas" now has 3 sub-tabs (Financeiro, Colaboradoras, Ponto & Jornada)
+  - **ColaboradoraDashboard Updated**: Ponto tab now has 3 sub-tabs (Historico, Relatorios, Banco de Horas)
+  - **Modular Architecture**: All time clock components are lazy-loaded and modular
+  - **RLS Policies**: Full security with ADMIN/LOJA/COLABORADORA access levels
+  - **Brazilian Labor Law Compliance**: CLT and Portaria 671/2021 (REP-P) compliant
 - **2024-12-08**: Goal Redistribution System (Frontend-Only):
   - **New Hook**: `src/hooks/useRedistributedDailyGoal.ts` - Real-time goal redistribution calculation
   - **Business Rule**: Store's daily goal is ALWAYS 100% covered by working collaborators
