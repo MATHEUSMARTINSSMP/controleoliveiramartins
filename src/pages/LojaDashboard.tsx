@@ -227,6 +227,9 @@ export default function LojaDashboard() {
                         lastFetchedStoreIdRef.current = null;
                         isFetchingDataRef.current = false;
                         
+                        // Marcar que vamos usar dados locais após redistribuição
+                        useLocalPerformanceRef.current = true;
+                        
                         // Recarregar dados da loja para atualizar performance
                         if (storeId && storeName) {
                             await fetchDataWithStoreId(storeId, storeName);
@@ -301,8 +304,13 @@ export default function LojaDashboard() {
         }
     }, [rankingMonthlyData]);
 
+    // Flag para controlar se devemos usar dados do React Query ou do fetchDataWithStoreId
+    const useLocalPerformanceRef = useRef(false);
+    
     useEffect(() => {
-        if (colaboradorasPerformanceData) {
+        // Só atualizar do React Query se não estivermos usando dados locais
+        // Isso evita que o React Query sobrescreva dados atualizados localmente
+        if (colaboradorasPerformanceData && !useLocalPerformanceRef.current) {
             setColaboradorasPerformance(colaboradorasPerformanceData);
         }
     }, [colaboradorasPerformanceData]);
@@ -1563,6 +1571,8 @@ export default function LojaDashboard() {
             performanceFiltered.forEach((p, idx) => {
                 console.log(`[LojaDashboard]   ${idx + 1}. ${p.name}: meta=R$ ${p.meta}, metaDiaria=R$ ${p.metaDiaria}, vendido hoje=R$ ${p.vendido}, vendido mês=R$ ${p.vendidoMes}`);
             });
+            // Marcar que estamos usando dados locais (do fetchDataWithStoreId)
+            useLocalPerformanceRef.current = true;
             setColaboradorasPerformance(performanceFiltered);
         } else {
             console.warn('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada para processar performance');
@@ -3480,6 +3490,9 @@ export default function LojaDashboard() {
                                                                 // Limpar cache de fetchDataWithStoreId para forçar recarregamento
                                                                 lastFetchedStoreIdRef.current = null;
                                                                 isFetchingDataRef.current = false;
+                                                                
+                                                                // Marcar que vamos usar dados locais após redistribuição
+                                                                useLocalPerformanceRef.current = true;
                                                                 
                                                                 // Recarregar dados da loja para atualizar metas e performance
                                                                 if (storeId && storeName) {
