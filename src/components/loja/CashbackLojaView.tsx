@@ -1077,7 +1077,7 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
             <CardContent>
               <div className="space-y-4">
                 {/* Filtros Avançados */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg border">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg border">
                   {/* Filtros de Tipo */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">

@@ -1049,7 +1049,7 @@ export default function ProductSalesIntelligence() {
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-4 items-end">
             {/* Filtros Visíveis */}
-            <div className="grid gap-4 md:grid-cols-4 flex-1">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 flex-1">
               <div>
                 <label className="text-xs font-medium mb-1.5 block text-muted-foreground">Período</label>
                 <Select value={periodPreset} onValueChange={(v) => setPeriodPreset(v as PeriodPreset)}>
@@ -1277,7 +1277,7 @@ export default function ProductSalesIntelligence() {
       </Card>
 
       {/* KPIs */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Vendas</CardTitle>

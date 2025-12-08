@@ -660,7 +660,7 @@ export default function CategoryReports() {
           <CardTitle>Filtros</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
             <div>
               <label className="text-sm font-medium mb-2 block">Loja</label>
               <Select value={selectedStore} onValueChange={setSelectedStore}>
@@ -698,7 +698,7 @@ export default function CategoryReports() {
       </Card>
 
       {/* Resumo */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Vendas</CardTitle>

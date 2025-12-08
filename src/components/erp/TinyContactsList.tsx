@@ -286,7 +286,7 @@ export default function TinyContactsList({ storeId, limit = 10000 }: TinyContact
       <CardContent>
         {/* Filtros e Paginação */}
         <div className="mb-4 space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -359,7 +359,7 @@ export default function TinyContactsList({ storeId, limit = 10000 }: TinyContact
                                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                                 </div>
                               ) : stats ? (
-                                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+                                <div className="grid gap-6 grid-cols-1 sm:grid-cols-3 lg:grid-cols-5">
                                   {/* Data de Nascimento */}
                                   <div className="space-y-1">
                                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">

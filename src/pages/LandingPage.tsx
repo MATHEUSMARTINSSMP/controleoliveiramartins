@@ -251,7 +251,7 @@ export default function LandingPage() {
                         </p>
                     </div>
 
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
                         {painPoints.map((point, i) => (
                             <Card key={i} className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-l-4 border-l-destructive">
                                 <div className="space-y-4">
@@ -289,7 +289,7 @@ export default function LandingPage() {
                         </p>
                     </div>
 
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                         {mainFeatures.map((feature, i) => (
                             <Card
                                 key={i}
