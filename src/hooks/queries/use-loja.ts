@@ -142,20 +142,73 @@ export function useStoreSales(storeId: string | null | undefined, filterDate?: s
 
 export function useStoreColaboradoras(storeId: string | null | undefined, storeName?: string | null) {
   return useQuery({
-    queryKey: [QUERY_KEYS.profiles, 'colaboradoras', storeId],
+    queryKey: [QUERY_KEYS.profiles, 'colaboradoras', storeId, storeName],
     queryFn: async (): Promise<Colaboradora[]> => {
       if (!storeId) return [];
 
-      const { data, error } = await supabase
+      console.log('[useStoreColaboradoras] Buscando colaboradoras para storeId:', storeId, 'storeName:', storeName);
+
+      // Estrategia 1: Buscar por store_id (UUID)
+      let { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('profiles')
-        .select('id, name, active')
+        .select('id, name, active, store_id, store_default')
         .eq('role', 'COLABORADORA')
-        .or(`store_id.eq.${storeId}${storeName ? `,store_default.ilike.%${storeName}%` : ''}`)
+        .eq('active', true)
+        .eq('store_id', storeId)
         .order('name');
 
-      if (error) throw error;
-      return data || [];
+      if (error) {
+        console.error('[useStoreColaboradoras] Erro na busca por store_id:', error);
+        throw error;
+      }
+
+      console.log('[useStoreColaboradoras] Encontradas por store_id:', data?.length || 0);
+
+      // Se encontrou por store_id, retornar
+      if (data && data.length > 0) {
+        return data;
+      }
+
+      // Estrategia 2: Buscar por store_default (nome da loja)
+      if (storeName) {
+        console.log('[useStoreColaboradoras] Tentando busca por store_default:', storeName);
+        
+        const { data: dataByName, error: errorByName } = await supabase
+          .schema('sistemaretiradas')
+          .from('profiles')
+          .select('id, name, active, store_id, store_default')
+          .eq('role', 'COLABORADORA')
+          .eq('active', true)
+          .ilike('store_default', `%${storeName}%`)
+          .order('name');
+
+        if (errorByName) {
+          console.error('[useStoreColaboradoras] Erro na busca por store_default:', errorByName);
+        } else if (dataByName && dataByName.length > 0) {
+          console.log('[useStoreColaboradoras] Encontradas por store_default:', dataByName.length);
+          return dataByName;
+        }
+      }
+
+      // Estrategia 3: Buscar todas e filtrar (fallback)
+      console.log('[useStoreColaboradoras] Nenhuma encontrada, buscando todas para debug...');
+      const { data: allColabs } = await supabase
+        .schema('sistemaretiradas')
+        .from('profiles')
+        .select('id, name, active, store_id, store_default')
+        .eq('role', 'COLABORADORA')
+        .eq('active', true)
+        .order('name');
+
+      console.log('[useStoreColaboradoras] Total de colaboradoras ativas no sistema:', allColabs?.length || 0);
+      if (allColabs) {
+        allColabs.forEach((c: any) => {
+          console.log(`[useStoreColaboradoras]   - ${c.name}: store_id=${c.store_id || 'NULL'}, store_default=${c.store_default || 'NULL'}`);
+        });
+      }
+
+      return [];
     },
     enabled: !!storeId,
     staleTime: 1000 * 60 * 2,
