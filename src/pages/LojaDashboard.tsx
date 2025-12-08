@@ -14,6 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award, Download, FileSpreadsheet, FileText, Database, ChevronDown, ChevronRight, Loader2, Store, AlertTriangle, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useFolgas } from "@/hooks/useFolgas";
 import { useGoalRedistribution } from "@/hooks/useGoalRedistribution";
 import * as XLSX from "xlsx";
@@ -182,6 +183,11 @@ export default function LojaDashboard() {
         storeId,
         colaboradorasData
     );
+
+    // Hooks para gestão de folgas
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const { toggleFolga, isOnLeave, refetch: refetchFolgas } = useFolgas({ storeId, date: todayStr });
+    const { redistributeGoalsForDate } = useGoalRedistribution({ storeId });
 
     // REMOVIDO: Duplicado - usando o useEffect mais abaixo
 
