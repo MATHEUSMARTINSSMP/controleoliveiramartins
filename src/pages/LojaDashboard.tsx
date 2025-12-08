@@ -196,11 +196,30 @@ export default function LojaDashboard() {
         const folgasHoje = offDays.filter(f => f.off_date === todayStr);
         if (folgasHoje.length > 0) {
             console.log(`[LojaDashboard] 🔄 Redistribuindo metas automaticamente para ${folgasHoje.length} folga(s) encontrada(s)`);
-            redistributeGoalsForDate(todayStr).catch(err => {
+            redistributeGoalsForDate(todayStr).then(redistributed => {
+                if (redistributed) {
+                    // Invalidar todas as queries relacionadas
+                    queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.goals] });
+                    queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.sales] });
+                    queryClient.invalidateQueries({ queryKey: ['loja'] });
+                    queryClient.invalidateQueries({ queryKey: ['colaboradora'] });
+                    
+                    // Forçar refetch das queries críticas
+                    queryClient.refetchQueries({ queryKey: [QUERY_KEYS.goals] });
+                    queryClient.refetchQueries({ queryKey: ['loja'] });
+                    
+                    // Recarregar dados da loja para atualizar performance
+                    if (storeId && storeName) {
+                        setTimeout(() => {
+                            fetchDataWithStoreId(storeId, storeName);
+                        }, 500);
+                    }
+                }
+            }).catch(err => {
                 console.error('[LojaDashboard] Erro ao redistribuir metas automaticamente:', err);
             });
         }
-    }, [storeId, offDays, todayStr, loadingFolgas, redistributeGoalsForDate]);
+    }, [storeId, offDays, todayStr, loadingFolgas, redistributeGoalsForDate, queryClient, storeName]);
 
     // REMOVIDO: Duplicado - usando o useEffect mais abaixo
 
