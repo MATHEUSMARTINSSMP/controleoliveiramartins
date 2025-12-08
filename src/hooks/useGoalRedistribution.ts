@@ -47,7 +47,7 @@ export function useGoalRedistribution({ storeId }: UseGoalRedistributionOptions)
         .from('collaborator_off_days')
         .select('colaboradora_id')
         .eq('store_id', storeId)
-        .eq('data_folga', dataFolga);
+        .eq('off_date', dataFolga);
 
       if (folgasError) throw folgasError;
 
@@ -242,7 +242,7 @@ export function useGoalRedistribution({ storeId }: UseGoalRedistributionOptions)
         .from('collaborator_off_days')
         .select('colaboradora_id')
         .eq('store_id', storeId)
-        .eq('data_folga', data);
+        .eq('off_date', data);
 
       if (folgasError) throw folgasError;
 

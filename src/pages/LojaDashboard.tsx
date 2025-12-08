@@ -13,6 +13,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award, Download, FileSpreadsheet, FileText, Database, ChevronDown, ChevronRight, Loader2, Store, AlertTriangle, X } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { useFolgas } from "@/hooks/useFolgas";
+import { useGoalRedistribution } from "@/hooks/useGoalRedistribution";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -2598,7 +2601,7 @@ export default function LojaDashboard() {
                 .from('collaborator_off_days')
                 .insert([{
                     colaboradora_id: selectedColabForOffDay,
-                    data_folga: offDayDate,
+                    off_date: offDayDate,
                     store_id: storeId
                 }]);
 
@@ -3344,46 +3347,99 @@ export default function LojaDashboard() {
                                     <div className="w-full max-w-6xl mx-auto">
                                         <h2 className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8 text-center">Planejamento do Dia</h2>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 justify-items-center">
-                                            {colaboradorasPerformance.map((perf) => (
-                                                <Card key={perf.id} className="flex flex-col w-full max-w-[380px] h-[280px]">
-                                                    <CardHeader className="pb-4 p-5 sm:p-6 text-center border-b">
-                                                        <CardTitle className="text-lg font-semibold leading-snug min-h-[3.5rem]">{perf.name}</CardTitle>
-                                                    </CardHeader>
-                                                    <CardContent className="p-5 sm:p-6 pt-5 sm:pt-6 flex-1 flex flex-col justify-center space-y-3">
-                                                        {/* Meta do Dia */}
-                                                        <div className="space-y-2.5">
-                                                            <div className="flex items-center justify-between text-base">
-                                                                <span className="text-muted-foreground">Meta do Dia</span>
-                                                                <span className="font-semibold">R$ {perf.metaDiaria > 0 ? perf.metaDiaria.toFixed(2) : '0.00'}</span>
-                                                            </div>
-                                                            <div className="flex items-center justify-between text-base">
-                                                                <span className="text-muted-foreground">Vendido:</span>
-                                                                <span className="font-bold text-primary">R$ {perf.vendido.toFixed(2)}</span>
-                                                            </div>
-                                                            {perf.metaDiaria > 0 && (
-                                                                <div className="flex items-center justify-between text-base">
-                                                                    <span className="text-muted-foreground">Falta:</span>
-                                                                    <span className={`font-semibold ${perf.vendido >= perf.metaDiaria ? 'text-status-ahead' : 'text-status-ontrack'}`}>
-                                                                        R$ {Math.max(0, perf.metaDiaria - perf.vendido).toFixed(2)}
-                                                                    </span>
-                                                                </div>
-                                                            )}
-                                                            {/* Progresso */}
-                                                            <div className="space-y-1.5 pt-2">
-                                                                <div className="flex items-center gap-3">
-                                                                    <Progress
-                                                                        value={Math.min(perf.percentual, 100)}
-                                                                        className="h-3 flex-1"
+                                            {colaboradorasPerformance.map((perf) => {
+                                                const isFolga = isOnLeave(perf.id, todayStr);
+                                                
+                                                const handleToggleFolga = async () => {
+                                                    if (!storeId) {
+                                                        toast.error('Loja não identificada');
+                                                        return;
+                                                    }
+                                                    
+                                                    try {
+                                                        const success = await toggleFolga(perf.id, todayStr);
+                                                        if (success) {
+                                                            // Redistribuir metas automaticamente
+                                                            await redistributeGoalsForDate(todayStr);
+                                                            // Recarregar dados
+                                                            if (storeId && storeName) {
+                                                                await fetchDataWithStoreId(storeId, storeName);
+                                                            }
+                                                        }
+                                                    } catch (error: any) {
+                                                        console.error('[LojaDashboard] Erro ao alterar folga:', error);
+                                                        toast.error('Erro ao alterar folga: ' + (error.message || 'Erro desconhecido'));
+                                                    }
+                                                };
+                                                
+                                                return (
+                                                    <Card key={perf.id} className={`flex flex-col w-full max-w-[380px] ${isFolga ? 'opacity-60 border-dashed' : ''}`}>
+                                                        <CardHeader className="pb-4 p-5 sm:p-6 text-center border-b">
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <CardTitle className={`text-lg font-semibold leading-snug min-h-[3.5rem] flex-1 ${isFolga ? 'line-through text-muted-foreground' : ''}`}>
+                                                                    {perf.name}
+                                                                </CardTitle>
+                                                                <div className="flex items-center gap-2">
+                                                                    <Label htmlFor={`folga-${perf.id}`} className="text-xs text-muted-foreground cursor-pointer">
+                                                                        {isFolga ? 'Folga' : 'Ativa'}
+                                                                    </Label>
+                                                                    <Switch
+                                                                        id={`folga-${perf.id}`}
+                                                                        checked={isFolga}
+                                                                        onCheckedChange={handleToggleFolga}
                                                                     />
-                                                                    <span className="text-base font-semibold whitespace-nowrap min-w-[50px] text-right">
-                                                                        {perf.percentual.toFixed(0)}%
-                                                                    </span>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    </CardContent>
-                                                </Card>
-                                            ))}
+                                                        </CardHeader>
+                                                        <CardContent className="p-5 sm:p-6 pt-5 sm:pt-6 flex-1 flex flex-col justify-center space-y-3">
+                                                            {isFolga ? (
+                                                                <div className="text-center py-4">
+                                                                    <Badge variant="destructive" className="text-sm">
+                                                                        De Folga
+                                                                    </Badge>
+                                                                    <p className="text-xs text-muted-foreground mt-2">
+                                                                        Meta redistribuída para outras colaboradoras
+                                                                    </p>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    {/* Meta do Dia */}
+                                                                    <div className="space-y-2.5">
+                                                                        <div className="flex items-center justify-between text-base">
+                                                                            <span className="text-muted-foreground">Meta do Dia</span>
+                                                                            <span className="font-semibold">R$ {perf.metaDiaria > 0 ? perf.metaDiaria.toFixed(2) : '0.00'}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center justify-between text-base">
+                                                                            <span className="text-muted-foreground">Vendido:</span>
+                                                                            <span className="font-bold text-primary">R$ {perf.vendido.toFixed(2)}</span>
+                                                                        </div>
+                                                                        {perf.metaDiaria > 0 && (
+                                                                            <div className="flex items-center justify-between text-base">
+                                                                                <span className="text-muted-foreground">Falta:</span>
+                                                                                <span className={`font-semibold ${perf.vendido >= perf.metaDiaria ? 'text-status-ahead' : 'text-status-ontrack'}`}>
+                                                                                    R$ {Math.max(0, perf.metaDiaria - perf.vendido).toFixed(2)}
+                                                                                </span>
+                                                                            </div>
+                                                                        )}
+                                                                        {/* Progresso */}
+                                                                        <div className="space-y-1.5 pt-2">
+                                                                            <div className="flex items-center gap-3">
+                                                                                <Progress
+                                                                                    value={Math.min(perf.percentual, 100)}
+                                                                                    className="h-3 flex-1"
+                                                                                />
+                                                                                <span className="text-base font-semibold whitespace-nowrap min-w-[50px] text-right">
+                                                                                    {perf.percentual.toFixed(0)}%
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </CardContent>
+                                                    </Card>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}

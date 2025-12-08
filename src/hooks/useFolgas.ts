@@ -11,7 +11,7 @@ interface OffDay {
   id: string;
   colaboradora_id: string;
   store_id: string;
-  data_folga: string;
+  off_date: string;
   created_at: string;
 }
 
@@ -49,10 +49,10 @@ export function useFolgas({ storeId, date }: UseFolgasOptions): UseFolgasReturn 
         .eq('store_id', storeId);
 
       if (data) {
-        query = query.eq('data_folga', data);
+        query = query.eq('off_date', data);
       }
 
-      const { data: folgasData, error } = await query.order('data_folga', { ascending: false });
+      const { data: folgasData, error } = await query.order('off_date', { ascending: false });
 
       if (error) throw error;
       setOffDays(folgasData || []);
@@ -79,7 +79,7 @@ export function useFolgas({ storeId, date }: UseFolgasOptions): UseFolgasReturn 
         .from('collaborator_off_days')
         .select('id')
         .eq('colaboradora_id', colaboradoraId)
-        .eq('data_folga', dataFolga)
+        .eq('off_date', dataFolga)
         .eq('store_id', storeId)
         .maybeSingle();
 
@@ -107,7 +107,7 @@ export function useFolgas({ storeId, date }: UseFolgasOptions): UseFolgasReturn 
           .from('collaborator_off_days')
           .insert([{
             colaboradora_id: colaboradoraId,
-            data_folga: dataFolga,
+            off_date: dataFolga,
             store_id: storeId
           }])
           .select()
@@ -132,7 +132,7 @@ export function useFolgas({ storeId, date }: UseFolgasOptions): UseFolgasReturn 
 
   const isOnLeave = useCallback((colaboradoraId: string, dataFolga: string): boolean => {
     return offDays.some(
-      offDay => offDay.colaboradora_id === colaboradoraId && offDay.data_folga === dataFolga
+      offDay => offDay.colaboradora_id === colaboradoraId && offDay.off_date === dataFolga
     );
   }, [offDays]);
 

@@ -12,3 +12,6 @@ export * from './use-sales';
 export * from './use-bonuses';
 export * from './use-loja';
 export * from './use-admin';
+export * from './use-purchases';
+export * from './use-adiantamentos';
+export * from './use-parcelas';

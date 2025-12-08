@@ -114,7 +114,7 @@ export function FolgasManagement({ storeId: propStoreId }: FolgasManagementProps
 
   const getFolgasCountForDay = (day: Date) => {
     const dayStr = format(day, 'yyyy-MM-dd');
-    return offDays.filter(f => f.data_folga === dayStr).length;
+    return offDays.filter(f => f.off_date === dayStr).length;
   };
 
   if (!storeId) {

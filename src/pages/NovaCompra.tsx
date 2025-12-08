@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Loader2, XCircle, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
+import { useCreatePurchase } from "@/hooks/queries";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +37,7 @@ interface Colaboradora {
 const NovaCompra = () => {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const createPurchase = useCreatePurchase();
   const [loading, setLoading] = useState(false);
   const [stores, setStores] = useState<Store[]>([]);
   const [colaboradoras, setColaboradoras] = useState<Colaboradora[]>([]);
@@ -302,28 +304,6 @@ const NovaCompra = () => {
       }
     }, 0);
 
-    // Criar compra
-    const { data: purchase, error: purchaseError } = await supabase
-      .schema("sistemaretiradas")
-      .from("purchases")
-      .insert({
-        colaboradora_id: formData.colaboradora_id,
-        loja_id: formData.loja_id,
-        data_compra: new Date(formData.data_compra).toISOString(),
-        item: itemsDescricao,
-        preco_venda: totalVenda,
-        desconto_beneficio: totalDesconto,
-        preco_final: precoFinal,
-        num_parcelas: numParcelas,
-        status_compra: "PENDENTE",
-        observacoes: formData.observacoes || null,
-        created_by_id: profile!.id,
-      })
-      .select()
-      .single();
-
-    if (purchaseError) throw purchaseError;
-
     // Gerar parcelas
     const [ano, mes] = formData.primeiro_mes.split("-");
     const parcelas = [];
@@ -338,7 +318,6 @@ const NovaCompra = () => {
       const valorParcela = i === numParcelas - 1 ? valorBase + diferenca : valorBase;
 
       parcelas.push({
-        compra_id: purchase.id,
         n_parcela: i + 1,
         competencia,
         valor_parcela: valorParcela,
@@ -346,10 +325,26 @@ const NovaCompra = () => {
       });
     }
 
-    const { error: parcelasError } = await supabase.schema("sistemaretiradas").from("parcelas").insert(parcelas);
-    if (parcelasError) throw parcelasError;
+    // Usar mutation hook - cache será invalidado automaticamente
+    await createPurchase.mutateAsync({
+      colaboradora_id: formData.colaboradora_id,
+      loja_id: formData.loja_id,
+      data_compra: new Date(formData.data_compra).toISOString(),
+      item: itemsDescricao,
+      preco_venda: totalVenda,
+      desconto_beneficio: totalDesconto,
+      preco_final: precoFinal,
+      num_parcelas: numParcelas,
+      status_compra: "PENDENTE",
+      observacoes: formData.observacoes || null,
+      created_by_id: profile!.id,
+      parcelas: parcelas.map(p => ({
+        ...p,
+        compra_id: '', // Será preenchido no hook
+      })),
+    });
 
-    toast.success("Compra criada com sucesso!");
+    // Navegar após sucesso (toast já foi exibido pelo hook)
     navigate("/admin");
   };
 

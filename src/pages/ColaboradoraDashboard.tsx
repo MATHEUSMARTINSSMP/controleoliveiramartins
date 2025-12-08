@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Achievements } from "@/components/colaboradora/Achievements";
+import { DailyGoalCheckNotification } from "@/components/colaboradora/DailyGoalCheckNotification";
 import {
   useColaboradoraKPIs,
   useColaboradoraAdiantamentos,
@@ -370,6 +371,10 @@ const ColaboradoraDashboard = () => {
 
           {/* ABA METAS */}
           <TabsContent value="metas" className="space-y-4">
+            {/* Notificação de check de meta diária */}
+            {profile?.store_id && (
+              <DailyGoalCheckNotification storeId={profile.store_id} />
+            )}
             <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
               <ColaboradoraCommercial />
             </Suspense>
