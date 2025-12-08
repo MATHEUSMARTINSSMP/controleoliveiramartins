@@ -182,7 +182,9 @@ export const WhatsAppNotificationConfig = () => {
       }, {} as Record<string, { phone: string; store_ids: string[]; ids: string[]; active: boolean }>);
 
       // Converter para formato de recipients
-      const grouped = Object.entries(groupedByPhone).reduce((acc, [key, value]) => {
+      type GroupedValue = { phone: string; store_ids: string[]; ids: string[]; active: boolean };
+      const grouped = Object.entries(groupedByPhone).reduce((acc, [key, val]) => {
+        const value = val as GroupedValue;
         const type = key.split('-')[0] as 'VENDA' | 'ADIANTAMENTO' | 'PARABENS';
         if (!acc[type]) {
           acc[type] = [];
@@ -276,11 +278,13 @@ export const WhatsAppNotificationConfig = () => {
     }));
   };
 
-  const validatePhone = (phone: string): boolean => {
+  const validatePhoneOrGroup = (phone: string): { valid: boolean; isGroup: boolean } => {
     const normalized = normalizePhone(phone);
-    // Deve ter entre 10 e 11 dígitos (sem DDI, sem 0 inicial)
-    // Aceita: 96981032928 (11 dígitos) ou 6981032928 (10 dígitos)
-    return normalized.length >= 10 && normalized.length <= 11;
+    // Numeros de telefone: 10-13 digitos (com ou sem DDI 55)
+    // IDs de grupo WhatsApp: 15-20 digitos (formato longo)
+    const isPhone = normalized.length >= 10 && normalized.length <= 13;
+    const isGroup = normalized.length >= 15 && normalized.length <= 20;
+    return { valid: isPhone || isGroup, isGroup };
   };
 
   const handleSave = async () => {
@@ -297,12 +301,12 @@ export const WhatsAppNotificationConfig = () => {
             return;
           }
           const normalizedPhone = normalizePhone(recipient.phone);
-          if (!validatePhone(recipient.phone)) {
+          const validation = validatePhoneOrGroup(recipient.phone);
+          if (!validation.valid) {
             toast.error(
-              `Número de telefone inválido em "${config.label}". ` +
-              `Digite apenas números (10-11 dígitos). ` +
-              `Você digitou: ${normalizedPhone.length} dígito(s). ` +
-              `Exemplos: 96981113307 ou 5596981113307`
+              `Numero invalido em "${config.label}". ` +
+              `Telefone: 10-13 digitos. Grupo: 15-20 digitos. ` +
+              `Voce digitou: ${normalizedPhone.length} digito(s).`
             );
             setSaving(false);
             return;
@@ -501,7 +505,7 @@ export const WhatsAppNotificationConfig = () => {
                       className="placeholder:text-muted-foreground/50"
                     />
                     <p className="text-xs text-muted-foreground/70">
-                      Formato: apenas números (10-11 dígitos). Ex: 96981113307 ou 5596981113307
+                      Telefone: 10-13 digitos (ex: 5596981113307). Grupo: 15-20 digitos
                     </p>
                   </div>
                   <Button
