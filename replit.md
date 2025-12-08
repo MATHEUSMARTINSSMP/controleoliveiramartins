@@ -34,6 +34,12 @@ The system is built with a modern web stack:
 
 ## Recent Changes
 
+### 2024-12-08: Type Unification and Bug Fixes
+- **FormaPagamento Type Unification**: Removed duplicate `FormaPagamento` interface from `whatsapp.ts` and now imports from `payment-validation.ts` for consistency across the codebase
+- **Daily Goal Calculation Bug Fix**: Added 50% monthly cap protection in `calculateDynamicDailyGoal` to prevent unrealistic daily goals (e.g., R$ 2.1M) when backlog accumulates
+- **Browserslist Updated**: Updated caniuse-lite database for better browser compatibility
+- **TypeScript Type Safety**: Fixed all RPC type casting in TimeClockRegister.tsx for proper Supabase function return types
+
 ### 2024-12-08: Digital Signature PIN System (REP-P Compliance)
 - **Security Decision**: PIN de assinatura digital e DIFERENTE da senha de acesso ao sistema
 - **Complete SQL Schema**: `sql_migrations_archive/SQL_ASSINATURA_DIGITAL_COMPLETO.sql` with:

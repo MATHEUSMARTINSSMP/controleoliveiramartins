@@ -651,65 +651,55 @@ export default function LojaDashboard() {
         dailyWeights: Record<string, number> | null,
         daysInMonth: number
     ): number => {
-        console.log('[calculateDynamicDailyGoal] 🔍 Iniciando cálculo...');
-        console.log('[calculateDynamicDailyGoal]   metaMensal:', metaMensal);
-        console.log('[calculateDynamicDailyGoal]   vendidoMes:', vendidoMes);
-        console.log('[calculateDynamicDailyGoal]   today:', today);
-        console.log('[calculateDynamicDailyGoal]   dailyWeights:', dailyWeights);
-        console.log('[calculateDynamicDailyGoal]   daysInMonth:', daysInMonth);
-
         // Calcular dias restantes do mês (incluindo o dia de hoje)
-        // FIX: Usar fuso horário local para evitar problema de UTC
-        const [year, month, day] = today.split('-').map(Number);
-        const hoje = new Date(year, month - 1, day); // Mês é 0-indexed
+        const [year, month] = today.split('-').map(Number);
+        const hoje = new Date(year, month - 1, parseInt(today.split('-')[2]));
         const diaAtual = hoje.getDate();
-        const diasFuturos = daysInMonth - diaAtual; // Dias APÓS hoje (não inclui hoje)
+        const diasFuturos = daysInMonth - diaAtual;
 
-        console.log('[calculateDynamicDailyGoal]   hoje (local):', hoje);
-        console.log('[calculateDynamicDailyGoal]   diaAtual:', diaAtual);
-        console.log('[calculateDynamicDailyGoal]   diasFuturos (após hoje):', diasFuturos);
-
-        // 1. META BASE: Meta do dia pelo peso configurado (SEMPRE garantida)
-        let metaBase = metaMensal / daysInMonth; // Default: proporcional
+        // 1. META BASE: Meta do dia pelo peso configurado
+        let metaBase = metaMensal / daysInMonth;
         if (dailyWeights && Object.keys(dailyWeights).length > 0) {
             const hojePeso = dailyWeights[today] || 0;
-            console.log('[calculateDynamicDailyGoal]   hojePeso para', today, ':', hojePeso);
-
             if (hojePeso > 0) {
                 metaBase = (metaMensal * hojePeso) / 100;
             }
         }
-        console.log('[calculateDynamicDailyGoal]   metaBase (peso do dia):', metaBase);
 
-        // 2. CALCULAR META ESPERADA ATÉ ONTEM (dias anteriores)
+        // 2. CALCULAR META ESPERADA ATÉ ONTEM
         let metaEsperadaAteOntem = 0;
         if (dailyWeights && Object.keys(dailyWeights).length > 0) {
-            // Somar pesos de todos os dias até ontem
             for (let d = 1; d < diaAtual; d++) {
                 const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                 const peso = dailyWeights[dateStr] || 0;
                 metaEsperadaAteOntem += (metaMensal * peso) / 100;
             }
         } else {
-            // Sem pesos: proporcional
             metaEsperadaAteOntem = (metaMensal / daysInMonth) * (diaAtual - 1);
         }
-        console.log('[calculateDynamicDailyGoal]   metaEsperadaAteOntem:', metaEsperadaAteOntem);
 
-        // 3. PENDENTE DOS DIAS ANTERIORES (pode ser negativo se estiver na frente)
+        // 3. PENDENTE DOS DIAS ANTERIORES
         const pendenteAteOntem = metaEsperadaAteOntem - vendidoMes;
-        console.log('[calculateDynamicDailyGoal]   pendenteAteOntem:', pendenteAteOntem);
 
-        // 4. DISTRIBUIR PENDENTE PELOS DIAS FUTUROS (não inclui hoje)
+        // 4. DISTRIBUIR PENDENTE PELOS DIAS FUTUROS
         let metaAdicional = 0;
         if (pendenteAteOntem > 0 && diasFuturos > 0) {
             metaAdicional = pendenteAteOntem / diasFuturos;
         }
-        console.log('[calculateDynamicDailyGoal]   metaAdicional (pendente ÷ dias futuros):', metaAdicional);
 
         // 5. META FINAL: Base + Adicional
-        const metaFinal = metaBase + metaAdicional;
-        console.log('[calculateDynamicDailyGoal]   ✅ Meta final (base + adicional):', metaFinal);
+        let metaFinal = metaBase + metaAdicional;
+        
+        // 6. PROTEÇÃO: Meta diária não pode ser maior que 50% da meta mensal
+        const maxMetaDiaria = metaMensal * 0.5;
+        if (metaFinal > maxMetaDiaria) {
+            metaFinal = maxMetaDiaria;
+        }
+        
+        // 7. PROTEÇÃO: Meta diária não pode ser negativa
+        if (metaFinal < 0) {
+            metaFinal = 0;
+        }
 
         return metaFinal;
     };
@@ -2078,8 +2068,9 @@ export default function LojaDashboard() {
                 observacoes: formData.observacoes || null,
             };
 
-            // Salvar formas de pagamento antes de resetar
-            const formasPagamentoData: FormaPagamentoType[] = formasPagamento.filter(fp => fp.tipo && fp.valor !== undefined) as FormaPagamentoType[];
+            // Salvar formas de pagamento antes de resetar (filtrar e garantir tipagem)
+            const formasPagamentoData: FormaPagamentoType[] = formasPagamento
+                .filter((fp): fp is FormaPagamentoType => fp.tipo !== undefined && fp.valor !== undefined);
 
             toast.success('Venda lançada com sucesso!');
             setDialogOpen(false);

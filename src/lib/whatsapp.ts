@@ -2,6 +2,8 @@
  * Helper para enviar mensagens WhatsApp
  */
 
+import { type FormaPagamento } from './payment-validation';
+
 interface SendWhatsAppParams {
   phone: string;
   message: string;
@@ -89,12 +91,6 @@ export async function sendWhatsAppMessage({
 /**
  * Formata mensagem de venda lançada (notificação para administrador)
  */
-interface FormaPagamento {
-  tipo: string;
-  valor: number;
-  parcelas?: number;
-}
-
 export function formatVendaMessage(params: {
   colaboradoraName: string;
   valor: number;
