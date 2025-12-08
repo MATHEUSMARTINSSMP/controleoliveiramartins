@@ -34,6 +34,14 @@ The system is built with a modern web stack:
 
 ## Recent Changes
 
+### 2024-12-08: Brazilian Monetary Formatting Standardization
+- **formatBRL() utility**: Created in `src/lib/utils.ts` as a short alias for `formatCurrency` with Brazilian locale
+- **Systematic replacement**: All user-facing monetary values now use `formatBRL(value, decimals)` instead of `R$ ${value.toFixed(2)}`
+- **Export data**: XLS/PDF exports and chart tooltips use `toLocaleString('pt-BR')` for consistent Brazilian separators
+- **Components updated**: LojaDashboard, WeeklyBonusProgress, MetasManagement, BonusManagement, BonusHistory, CommercialDashboard, BonusTracker, Relatorios, payment-validation
+- **Pattern established**: Use `formatBRL(value)` for UI displays, `toLocaleString('pt-BR')` for exports/tooltips
+- **Future**: Add lint rule to block direct `R$ ${value}` patterns outside utility helpers
+
 ### 2024-12-08: Type Unification and Bug Fixes
 - **FormaPagamento Type Unification**: Removed duplicate `FormaPagamento` interface from `whatsapp.ts` and now imports from `payment-validation.ts` for consistency across the codebase
 - **Daily Goal Calculation Bug Fix**: Added 50% monthly cap protection in `calculateDynamicDailyGoal` to prevent unrealistic daily goals (e.g., R$ 2.1M) when backlog accumulates
