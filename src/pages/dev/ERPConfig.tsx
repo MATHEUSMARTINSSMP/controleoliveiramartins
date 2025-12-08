@@ -9,10 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, CheckCircle2, XCircle, Save, Store, Key, Eye, EyeOff, ExternalLink, TestTube, RefreshCw } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, CheckCircle2, XCircle, Save, Store, Key, Eye, EyeOff, ExternalLink, TestTube, RefreshCw, MessageSquare, Package } from "lucide-react";
 import { toast } from "sonner";
 import { getERPAuthorizationUrl, testERPConnection } from "@/lib/erpIntegrations";
 import { syncTinyOrders, syncTinyContacts } from "@/lib/erp/syncTiny";
+import { WhatsAppGlobalConfig } from "@/components/dev/WhatsAppGlobalConfig";
 
 interface Store {
   id: string;
@@ -554,13 +556,31 @@ const ERPConfig = () => {
       <div className="container mx-auto max-w-4xl space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Painel Dev - Configuração ERP</h1>
-            <p className="text-muted-foreground">Configure credenciais de integração ERP por loja</p>
+            <h1 className="text-2xl font-bold">Painel Dev - Configuracoes</h1>
+            <p className="text-muted-foreground">Configure integracoes ERP e WhatsApp Global</p>
           </div>
           <Button variant="outline" onClick={() => navigate("/admin")}>
             Voltar
           </Button>
         </div>
+
+        <Tabs defaultValue="erp" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="erp" className="gap-2" data-testid="tab-dev-erp">
+              <Package className="h-4 w-4" />
+              Integracao ERP
+            </TabsTrigger>
+            <TabsTrigger value="whatsapp" className="gap-2" data-testid="tab-dev-whatsapp">
+              <MessageSquare className="h-4 w-4" />
+              WhatsApp Global
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="whatsapp" className="space-y-6">
+            <WhatsAppGlobalConfig />
+          </TabsContent>
+
+          <TabsContent value="erp" className="space-y-6">
 
         {/* Seleção de Loja */}
         <Card>
@@ -904,6 +924,9 @@ const ERPConfig = () => {
             </p>
           </CardContent>
         </Card>
+
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
