@@ -1,0 +1,108 @@
+Verificando o andamento da funcionalidade de check na meta do dia:
+
+
+[8 tools called]
+
+
+Verificando onde está a configuração no dash admin e os relatórios no dash loja:
+
+
+[8 tools called]
+
+
+## Resumo da funcionalidade de check de meta diária
+
+### O que foi implementado
+
+#### 1. Banco de dados (migração)
+- Tabela `daily_goal_checks` criada com:
+  - Registro de checks por colaboradora e data
+  - Campos: `meta_do_dia`, `valor_atrasado`, `valor_total_confirmado`, `valor_bonus`, `horario_check`
+  - Constraint UNIQUE para um check por colaboradora por dia
+- Colunas na tabela `stores`:
+  - `daily_goal_check_ativo` (BOOLEAN) — ativa/desativa a funcionalidade
+  - `daily_goal_check_valor_bonus` (NUMERIC) — valor do bônus por check
+  - `daily_goal_check_horario_limite` (TIME) — horário limite para fazer o check (padrão: 18:00)
+- RLS configurado:
+  - Colaboradoras veem seus próprios checks
+  - ADMIN vê todos os checks
+  - LOJA vê checks da sua loja
+
+#### 2. Frontend — Dash Colaboradora
+- Componente `DailyGoalCheckNotification.tsx`:
+  - Exibido na aba "Metas" do `ColaboradoraDashboard`
+  - Aparece a partir das 9h
+  - Mostra: meta do dia, valor atrasado (se houver), total a confirmar
+  - Dialog de confirmação com os valores
+  - Salva o check no banco e acumula o bônus
+  - Não aparece se já foi feito o check do dia ou se passou do horário limite
+
+### O que falta implementar
+
+#### 1. Dash Admin — configuração
+- Local: `src/components/admin/StoreManagement.tsx`
+- Necessário adicionar no formulário de criar/editar loja:
+  - Toggle para `daily_goal_check_ativo`
+  - Input para `daily_goal_check_valor_bonus` (R$)
+  - Input para `daily_goal_check_horario_limite` (HH:MM)
+- Status atual: não há campos no formulário
+
+#### 2. Dash Loja — relatório
+- Local: `src/pages/LojaDashboard.tsx`
+- Necessário criar:
+  - Seção/aba mostrando:
+    - Lista de colaboradoras
+    - Para cada dia: quem deu check e quem não deu
+    - Horário do check (quando feito)
+    - Valor confirmado por colaboradora
+    - Filtro por data/período
+- Status atual: não existe
+
+### Fluxo esperado
+
+1. Admin configura (faltando):
+   - Ativa a funcionalidade na loja
+   - Define o valor do bônus (ex: R$ 5,00)
+   - Define o horário limite (ex: 18:00)
+
+2. Colaboradora (implementado):
+   - A partir das 9h, vê a notificação no dash
+   - Clica em "Confirmar que vi"
+   - Confirma os valores no dialog
+   - Recebe o bônus acumulado
+
+3. Loja visualiza (faltando):
+   - Relatório diário/semanal/mensal
+   - Lista de quem deu check e quem não deu
+   - Horários dos checks
+   - Valores confirmados
+
+### Arquivos a modificar
+
+1. `src/components/admin/StoreManagement.tsx`:
+   - Adicionar campos no `formData`
+   - Adicionar inputs no dialog
+   - Incluir os campos no `INSERT`/`UPDATE`
+
+2. `src/pages/LojaDashboard.tsx`:
+   - Criar componente/seção de relatório
+   - Buscar dados de `daily_goal_checks` filtrados por `store_id`
+   - Exibir tabela/lista com filtros de data
+
+### Resumo do status
+
+| Funcionalidade | Status | Localização |
+|----------------|--------|-------------|
+| Migração DB | ✅ Completo | `supabase/migrations/20251208000001_create_daily_goal_checks.sql` |
+| Notificação Colaboradora | ✅ Completo | `src/components/colaboradora/DailyGoalCheckNotification.tsx` |
+| Integração no Dash Colaboradora | ✅ Completo | `src/pages/ColaboradoraDashboard.tsx` (linha 375) |
+| Configuração no Dash Admin | ❌ Faltando | `src/components/admin/StoreManagement.tsx` |
+| Relatório no Dash Loja | ❌ Faltando | `src/pages/LojaDashboard.tsx` |
+
+### Próximos passos
+
+1. Adicionar configuração no `StoreManagement`
+2. Criar componente de relatório no `LojaDashboard`
+3. Testar o fluxo completo
+
+Quer que eu implemente as partes faltantes?
