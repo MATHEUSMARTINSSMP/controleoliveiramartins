@@ -3373,18 +3373,26 @@ export default function LojaDashboard() {
                                                             const redistributed = await redistributeGoalsForDate(todayStr);
                                                             
                                                             if (redistributed) {
-                                                                // Invalidar queries para atualizar UI automaticamente
+                                                                // Invalidar todas as queries relacionadas para atualizar UI
                                                                 queryClient.invalidateQueries({ queryKey: ['goals'] });
                                                                 queryClient.invalidateQueries({ queryKey: ['sales'] });
                                                                 queryClient.invalidateQueries({ queryKey: ['loja'] });
+                                                                queryClient.invalidateQueries({ queryKey: ['colaboradora'] });
                                                                 
                                                                 // Recarregar folgas para atualizar estado local
                                                                 await refetchFolgas();
                                                                 
-                                                                // Recarregar dados da loja para atualizar metas
+                                                                // Aguardar um pouco para garantir que as queries foram invalidadas
+                                                                await new Promise(resolve => setTimeout(resolve, 500));
+                                                                
+                                                                // Recarregar dados da loja para atualizar metas e performance
                                                                 if (storeId && storeName) {
                                                                     await fetchDataWithStoreId(storeId, storeName);
                                                                 }
+                                                                
+                                                                // Forçar refetch dos hooks React Query
+                                                                queryClient.refetchQueries({ queryKey: ['goals'] });
+                                                                queryClient.refetchQueries({ queryKey: ['sales'] });
                                                             }
                                                         }
                                                     } catch (error: any) {
