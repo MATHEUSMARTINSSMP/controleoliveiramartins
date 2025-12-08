@@ -90,6 +90,31 @@ The system is built with a modern web stack:
 - **Pattern**: Module configuration is centralized in ModulesStoreConfig.tsx, not in StoreManagement.tsx
 - **Gamification benefit**: Collaborators receive bonus for confirming they viewed their daily goal
 
+### 2024-12-08: Store Task Alerts System (Sistema de Alertas)
+- **Purpose**: Allow admins to schedule recurring WhatsApp task reminders (e.g., "spray air freshener 3x/day")
+- **SQL Migration**: `sql_migrations_archive/SQL_SISTEMA_ALERTAS_LOJA.sql` with:
+  - Extended `store_notifications` table with `nome`, `sender_type`, `sender_phone`, `envios_hoje`, `data_ultimo_reset`, `admin_id`
+  - New `store_notification_recipients` junction table for multi-recipient support
+  - New `store_notification_logs` table for audit and quota tracking
+  - RPC functions: `can_send_notification()`, `increment_notification_count()`, `reset_notification_daily_count()`
+  - RLS policies for admin access control
+- **StoreTaskAlertsManager.tsx**: Complete CRUD component with:
+  - Task name and message configuration
+  - Multiple time slots selection (badges + custom time input)
+  - Weekday selection with quick presets (Seg-Sex, Seg-Sab, Todos)
+  - Sender type: GLOBAL (Elevea number) or STORE (own number)
+  - Multi-recipient support per task
+  - Daily limit guard (10 messages/day per store) with UI warning
+  - Duplicate task functionality
+  - All interactive elements have data-testid attributes
+- **WhatsAppManagement.tsx**: Unified tabbed interface with:
+  - Tab 1: Conexoes (existing WhatsAppStoreConfig)
+  - Tab 2: Destinatarios (existing WhatsAppNotificationConfig)
+  - Tab 3: Alertas (new StoreTaskAlertsManager)
+- **AdminDashboard.tsx**: Replaced scattered WhatsApp sections with unified `<WhatsAppManagement />` component
+- **Critical Limit**: Maximum 10 messages per day per store enforced in UI (button disabled + warning message)
+- **Mobile-first**: All components responsive with sm: breakpoints
+
 ### Pending Configuration
 - Configure Netlify environment variables for email functions:
   - `RESEND_API_KEY` - API key from Resend
