@@ -51,6 +51,7 @@ import {
     useCreateSale,
     useDeleteSale,
 } from "@/hooks/queries";
+import { QUERY_KEYS } from "@/hooks/queries/types";
 
 const WeeklyGoalProgress = lazy(() => import("@/components/WeeklyGoalProgress"));
 const WeeklyBonusProgress = lazy(() => import("@/components/WeeklyBonusProgress"));
