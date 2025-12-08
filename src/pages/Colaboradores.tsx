@@ -405,7 +405,13 @@ const Colaboradores = () => {
           .eq("id", selectedId);
 
         if (error) throw error;
+        
         toast.success("Colaboradora atualizada com sucesso!");
+        setDialogOpen(false); // Fechar o diálogo após sucesso
+        
+        // Atualizar a lista de colaboradoras imediatamente (após fechar o diálogo)
+        await fetchColaboradoras();
+        await fetchLojas(); // Também atualizar lojas caso tenha mudado algo
       } else {
         // Validate required fields
         if (!formData.name || !formData.cpf || !formData.email || !formData.password || !formData.store || !formData.whatsapp) {
