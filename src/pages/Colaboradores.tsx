@@ -218,44 +218,76 @@ const Colaboradores = () => {
     }
   };
 
-  const handleOpenDialog = (colaboradora?: Colaboradora) => {
+  const handleOpenDialog = async (colaboradora?: Colaboradora) => {
     if (colaboradora) {
       setEditMode(true);
       setSelectedId(colaboradora.id);
       
       // Buscar o valor correto para o Select
-      // Usar o nome real da loja da tabela stores, não o store_default do perfil
-      let storeValue = colaboradora.store_default || "";
+      // Verificar se store_default é UUID ou nome
+      const storeDefaultValue = colaboradora.store_default || "";
+      let storeValue = storeDefaultValue;
       
-      // Se temos lojas carregadas, buscar a loja que corresponde
-      if (storeValue && lojas.length > 0) {
-        // Primeiro tentar encontrar por store_default
-        let matchingLoja = lojas.find(loja => {
-          const lojaValue = loja.store_default || loja.name || '';
-          return lojaValue === storeValue || loja.name === storeValue;
-        });
+      // Verificar se é UUID
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(storeDefaultValue);
+      
+      if (isUUID) {
+        // Se for UUID, buscar o nome real da loja na tabela stores
+        console.log('[Colaboradores] store_default é UUID, buscando nome real:', storeDefaultValue);
+        const { data: storeData } = await supabase
+          .schema("sistemaretiradas")
+          .from("stores")
+          .select("id, name")
+          .eq("id", storeDefaultValue)
+          .eq("active", true)
+          .single();
         
-        // Se não encontrou, tentar normalizar e comparar
-        if (!matchingLoja) {
-          const normalizeName = (name: string) => {
-            return name
-              .toLowerCase()
-              .replace(/[|,]/g, '')
-              .replace(/\s+/g, ' ')
-              .trim();
-          };
-          
-          const normalizedStoreValue = normalizeName(storeValue);
-          matchingLoja = lojas.find(loja => {
-            const lojaName = loja.store_name || loja.store_default || loja.name || '';
-            return normalizeName(lojaName) === normalizedStoreValue;
+        if (storeData) {
+          storeValue = storeData.name;
+          console.log('[Colaboradores] ✅ Nome real da loja encontrado:', storeData.name);
+        } else {
+          console.warn('[Colaboradores] ⚠️ Loja não encontrada por UUID:', storeDefaultValue);
+          // Tentar encontrar nas lojas já carregadas
+          const matchingLoja = lojas.find(loja => {
+            const lojaId = loja.store_real_id || loja.store_id || loja.store_default;
+            return lojaId === storeDefaultValue;
           });
+          
+          if (matchingLoja) {
+            storeValue = matchingLoja.store_real_name || matchingLoja.store_name || matchingLoja.name || storeValue;
+          }
         }
-        
-        if (matchingLoja) {
-          // Usar o nome real da loja da tabela stores (store_real_name ou store_name)
-          // Isso garante que a busca na tabela stores funcione corretamente
-          storeValue = matchingLoja.store_real_name || matchingLoja.store_name || matchingLoja.store_default || matchingLoja.name || storeValue;
+      } else {
+        // Se for nome, verificar se temos lojas carregadas
+        if (storeDefaultValue && lojas.length > 0) {
+          // Primeiro tentar encontrar por store_default
+          let matchingLoja = lojas.find(loja => {
+            const lojaValue = loja.store_default || loja.name || '';
+            return lojaValue === storeDefaultValue || loja.name === storeDefaultValue;
+          });
+          
+          // Se não encontrou, tentar normalizar e comparar
+          if (!matchingLoja) {
+            const normalizeName = (name: string) => {
+              return name
+                .toLowerCase()
+                .replace(/[|,]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            };
+            
+            const normalizedStoreValue = normalizeName(storeDefaultValue);
+            matchingLoja = lojas.find(loja => {
+              const lojaName = loja.store_name || loja.store_default || loja.name || '';
+              return normalizeName(lojaName) === normalizedStoreValue;
+            });
+          }
+          
+          if (matchingLoja) {
+            // Usar o nome real da loja da tabela stores (store_real_name ou store_name)
+            // Isso garante que a busca na tabela stores funcione corretamente
+            storeValue = matchingLoja.store_real_name || matchingLoja.store_name || matchingLoja.store_default || matchingLoja.name || storeValue;
+          }
         }
       }
       
