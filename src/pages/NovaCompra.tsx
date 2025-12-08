@@ -376,7 +376,7 @@ const NovaCompra = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="colaboradora">Colaboradora *</Label>
                   <Select
@@ -502,7 +502,7 @@ const NovaCompra = () => {
                         required
                       />
 
-                      <div className="grid gap-3 md:grid-cols-2">
+                      <div className="grid gap-3 sm:grid-cols-2">
                         <div>
                           <Label className="text-xs">Preço Venda (R$)</Label>
                           <Input
@@ -581,7 +581,7 @@ const NovaCompra = () => {
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="data_compra">Data Compra *</Label>
                   <Input

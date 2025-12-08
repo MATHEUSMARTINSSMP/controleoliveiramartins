@@ -55,7 +55,7 @@ export function StoreMetricsCards({
       animate="show"
       className="space-y-4 sm:space-y-6"
     >
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <motion.div variants={item}>
           <Card className="flex flex-col h-full hover:shadow-lg transition-shadow">
             <CardHeader className="pb-4 p-5 sm:p-8 text-center border-b">
@@ -127,7 +127,7 @@ export function StoreMetricsCards({
         </motion.div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <motion.div variants={item}>
           <Card className="flex flex-col h-full hover:shadow-lg transition-shadow">
             <CardHeader className="pb-3 p-4 sm:p-6 text-center border-b">

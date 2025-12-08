@@ -47,6 +47,7 @@ import {
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { StoreLogo, getStoreIdFromProfile } from "@/lib/storeLogo";
 import {
   type PeriodFilter,
@@ -308,7 +309,7 @@ const ColaboradoraDashboard = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 mb-6">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-6">
           <KPICard
             title="Limite Total"
             value={formatCurrency(kpis?.limiteTotal || 0)}
@@ -807,7 +808,7 @@ const ColaboradoraDashboard = () => {
               <CardHeader className="pb-3 p-3 sm:p-6">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-xl">
                   <CalendarClock className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                  <span className="hidden sm:inline">Resumo do Mês ({format(new Date(), 'MMMM yyyy', { locale: { localize: { month: (n: number) => ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][n] } } })})</span>
+                  <span className="hidden sm:inline">Resumo do Mês ({format(new Date(), 'MMMM yyyy', { locale: ptBR })})</span>
                   <span className="sm:hidden">Resumo do Mês</span>
                 </CardTitle>
                 <p className="text-xs sm:text-sm text-muted-foreground">Descontos previstos para este mês</p>
@@ -834,7 +835,7 @@ const ColaboradoraDashboard = () => {
                         const thisMonth = format(new Date(), 'yyyyMM');
                         return parcelas
                           .filter(p => p.competencia === thisMonth && p.status_parcela === 'PENDENTE')
-                          .reduce((sum, p) => sum + parseFloat(p.valor_parcela || '0'), 0);
+                          .reduce((sum, p) => sum + parseFloat(String(p.valor_parcela || '0')), 0);
                       })())}
                     </p>
                   </div>
@@ -859,7 +860,7 @@ const ColaboradoraDashboard = () => {
                         const thisMonth = format(new Date(), 'yyyyMM');
                         return adiantamentos
                           .filter(a => a.mes_competencia === thisMonth && ['APROVADO', 'DESCONTADO'].includes(a.status))
-                          .reduce((sum, a) => sum + parseFloat(a.valor || '0'), 0);
+                          .reduce((sum, a) => sum + parseFloat(String(a.valor || '0')), 0);
                       })())}
                     </p>
                   </div>
@@ -878,10 +879,10 @@ const ColaboradoraDashboard = () => {
                           const thisMonth = format(new Date(), 'yyyyMM');
                           const parcelasSum = parcelas
                             .filter(p => p.competencia === thisMonth && p.status_parcela === 'PENDENTE')
-                            .reduce((sum, p) => sum + parseFloat(p.valor_parcela || '0'), 0);
+                            .reduce((sum, p) => sum + parseFloat(String(p.valor_parcela || '0')), 0);
                           const adiantamentosSum = adiantamentos
                             .filter(a => a.mes_competencia === thisMonth && ['APROVADO', 'DESCONTADO'].includes(a.status))
-                            .reduce((sum, a) => sum + parseFloat(a.valor || '0'), 0);
+                            .reduce((sum, a) => sum + parseFloat(String(a.valor || '0')), 0);
                           return parcelasSum + adiantamentosSum;
                         })())}
                       </p>
@@ -890,10 +891,10 @@ const ColaboradoraDashboard = () => {
                           const thisMonth = format(new Date(), 'yyyyMM');
                           const parcelasSum = parcelas
                             .filter(p => p.competencia === thisMonth && p.status_parcela === 'PENDENTE')
-                            .reduce((sum, p) => sum + parseFloat(p.valor_parcela || '0'), 0);
+                            .reduce((sum, p) => sum + parseFloat(String(p.valor_parcela || '0')), 0);
                           const adiantamentosSum = adiantamentos
                             .filter(a => a.mes_competencia === thisMonth && ['APROVADO', 'DESCONTADO'].includes(a.status))
-                            .reduce((sum, a) => sum + parseFloat(a.valor || '0'), 0);
+                            .reduce((sum, a) => sum + parseFloat(String(a.valor || '0')), 0);
                           const total = parcelasSum + adiantamentosSum;
                           const percentOfLimit = kpis ? (total / kpis.limiteMensal) * 100 : 0;
                           return `${percentOfLimit.toFixed(1)}% do limite mensal`;

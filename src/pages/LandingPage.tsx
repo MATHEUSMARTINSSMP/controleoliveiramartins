@@ -204,7 +204,7 @@ export default function LandingPage() {
                                 </Button>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-4 pt-8 animate-fade-in-up delay-400">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-8 animate-fade-in-up delay-400">
                                 {[
                                     { value: "40%", label: "Mais Produtividade" },
                                     { value: "10h", label: "Economizadas/Semana" },
