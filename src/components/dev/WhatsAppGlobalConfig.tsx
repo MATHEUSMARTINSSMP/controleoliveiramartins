@@ -222,38 +222,87 @@ export const WhatsAppGlobalConfig = () => {
         customerId: credential.customer_id,
       });
 
-      setStatusResponse(status);
+      const currentStatus = credential.uazapi_status;
+      const currentQrCode = credential.uazapi_qr_code || statusResponse?.qrCode;
+      
+      const newQrCode = status.qrCode || currentQrCode;
+      const newPhoneNumber = status.phoneNumber || credential.uazapi_phone_number;
+      
+      const statusChanged = status.status !== currentStatus;
+      const phoneChanged = status.phoneNumber && status.phoneNumber !== credential.uazapi_phone_number;
+      const qrCodeChanged = status.qrCode && status.qrCode !== currentQrCode;
+      const isConnected = status.connected || status.status === 'connected';
 
-      await supabase
-        .schema('sistemaretiradas')
-        .from('whatsapp_credentials')
-        .update({
+      console.log('[WhatsApp Global] Status check:', {
+        currentStatus,
+        newStatus: status.status,
+        statusChanged,
+        hasCurrentQr: !!currentQrCode,
+        hasNewQr: !!status.qrCode,
+        isConnected
+      });
+
+      if (isConnected) {
+        setStatusResponse(status);
+        setCredential(prev => prev ? {
+          ...prev,
+          uazapi_status: 'connected',
+          uazapi_phone_number: newPhoneNumber,
+          uazapi_qr_code: null,
+        } : null);
+
+        await supabase
+          .schema('sistemaretiradas')
+          .from('whatsapp_credentials')
+          .update({
+            uazapi_status: 'connected',
+            uazapi_phone_number: newPhoneNumber,
+            uazapi_qr_code: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', credential.id);
+
+        setPolling(false);
+        toast.success('WhatsApp Global conectado!');
+        return;
+      }
+
+      if (statusChanged || phoneChanged || qrCodeChanged) {
+        const finalQrCode = status.status === 'qr_required' ? newQrCode : (status.qrCode || null);
+        
+        setStatusResponse({
+          ...status,
+          qrCode: finalQrCode,
+        });
+
+        setCredential(prev => prev ? {
+          ...prev,
           uazapi_status: status.status,
-          uazapi_phone_number: status.phoneNumber || credential.uazapi_phone_number,
-          uazapi_qr_code: status.qrCode || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', credential.id);
+          uazapi_phone_number: newPhoneNumber,
+          uazapi_qr_code: finalQrCode,
+        } : null);
 
-      setCredential(prev => prev ? {
-        ...prev,
-        uazapi_status: status.status,
-        uazapi_phone_number: status.phoneNumber || prev.uazapi_phone_number,
-        uazapi_qr_code: status.qrCode || null,
-      } : null);
+        await supabase
+          .schema('sistemaretiradas')
+          .from('whatsapp_credentials')
+          .update({
+            uazapi_status: status.status,
+            uazapi_phone_number: newPhoneNumber,
+            uazapi_qr_code: finalQrCode,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', credential.id);
+      }
 
       if (isTerminalStatus(status.status)) {
         setPolling(false);
-        if (status.connected) {
-          toast.success('WhatsApp Global conectado!');
-        }
       }
     } catch (error: any) {
       console.error('Erro ao verificar status:', error);
     } finally {
       setCheckingStatus(false);
     }
-  }, [credential]);
+  }, [credential, statusResponse]);
 
   const getStatusBadge = () => {
     const status = credential?.uazapi_status || statusResponse?.status;
