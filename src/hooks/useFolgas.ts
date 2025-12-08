@@ -3,7 +3,7 @@
  * Centraliza lógica de buscar, adicionar e remover folgas
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -149,6 +149,13 @@ export function useFolgas({ storeId, date }: UseFolgasOptions): UseFolgasReturn 
       offDay => offDay.colaboradora_id === colaboradoraId && offDay.off_date === dataFolga
     );
   }, [offDays]);
+
+  // Carregar folgas automaticamente quando storeId ou date mudarem
+  useEffect(() => {
+    if (storeId && date) {
+      fetchFolgas(date);
+    }
+  }, [storeId, date, fetchFolgas]);
 
   return {
     offDays,

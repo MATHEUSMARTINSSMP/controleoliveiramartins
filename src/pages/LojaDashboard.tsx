@@ -186,8 +186,21 @@ export default function LojaDashboard() {
 
     // Hooks para gestão de folgas
     const todayStr = format(new Date(), 'yyyy-MM-dd');
-    const { toggleFolga, isOnLeave, refetch: refetchFolgas } = useFolgas({ storeId, date: todayStr });
+    const { offDays, toggleFolga, isOnLeave, refetch: refetchFolgas, loading: loadingFolgas } = useFolgas({ storeId, date: todayStr });
     const { redistributeGoalsForDate } = useGoalRedistribution({ storeId });
+    
+    // Redistribuir metas automaticamente quando folgas forem carregadas e houver folgas no dia
+    useEffect(() => {
+        if (!storeId || loadingFolgas || !offDays) return;
+        
+        const folgasHoje = offDays.filter(f => f.off_date === todayStr);
+        if (folgasHoje.length > 0) {
+            console.log(`[LojaDashboard] 🔄 Redistribuindo metas automaticamente para ${folgasHoje.length} folga(s) encontrada(s)`);
+            redistributeGoalsForDate(todayStr).catch(err => {
+                console.error('[LojaDashboard] Erro ao redistribuir metas automaticamente:', err);
+            });
+        }
+    }, [storeId, offDays, todayStr, loadingFolgas, redistributeGoalsForDate]);
 
     // REMOVIDO: Duplicado - usando o useEffect mais abaixo
 
