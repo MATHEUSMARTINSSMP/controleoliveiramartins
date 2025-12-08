@@ -170,24 +170,24 @@ const AdminDashboard = () => {
           transition={{ duration: 0.3 }}
         >
           <Tabs defaultValue="gestao-metas" className="space-y-6">
-            <TabsList className="w-full grid grid-cols-5 h-9 max-w-4xl">
-              <TabsTrigger value="gestao-metas" className="text-xs">
+            <TabsList className="flex flex-wrap h-auto gap-1 p-1 w-full max-w-4xl">
+              <TabsTrigger value="gestao-metas" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[50px] justify-center">
                 <span className="hidden sm:inline">Gestao de Metas</span>
                 <span className="sm:hidden">Metas</span>
               </TabsTrigger>
-              <TabsTrigger value="gestao-pessoas" className="text-xs">
+              <TabsTrigger value="gestao-pessoas" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[50px] justify-center">
                 <span className="hidden sm:inline">Gestao de Pessoas</span>
                 <span className="sm:hidden">Pessoas</span>
               </TabsTrigger>
-              <TabsTrigger value="gestao-sistemas" className="text-xs">
+              <TabsTrigger value="gestao-sistemas" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[50px] justify-center">
                 <span className="hidden sm:inline">Gestao de Sistemas</span>
                 <span className="sm:hidden">Sistemas</span>
               </TabsTrigger>
-              <TabsTrigger value="gestao-crm" className="text-xs">
+              <TabsTrigger value="gestao-crm" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[50px] justify-center">
                 <span className="hidden sm:inline">Gestao CRM</span>
                 <span className="sm:hidden">CRM</span>
               </TabsTrigger>
-              <TabsTrigger value="configuracoes" className="text-xs">
+              <TabsTrigger value="configuracoes" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[50px] justify-center">
                 <span className="hidden sm:inline">Configuracoes</span>
                 <span className="sm:hidden">Config</span>
               </TabsTrigger>
@@ -242,19 +242,19 @@ const AdminDashboard = () => {
 
             <TabsContent value="gestao-pessoas" className="animate-fade-in space-y-4 sm:space-y-6">
               <Tabs defaultValue="financeiro" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-3 max-w-2xl">
-                  <TabsTrigger value="financeiro" className="text-xs sm:text-sm" data-testid="tab-gp-financeiro">
-                    <Wallet className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <TabsList className="flex flex-wrap h-auto gap-1 p-1 w-full max-w-2xl">
+                  <TabsTrigger value="financeiro" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[70px] justify-center" data-testid="tab-gp-financeiro">
+                    <Wallet className="h-3 w-3 mr-1" />
                     <span className="hidden sm:inline">Financeiro</span>
                     <span className="sm:hidden">Fin.</span>
                   </TabsTrigger>
-                  <TabsTrigger value="colaboradoras" className="text-xs sm:text-sm" data-testid="tab-gp-colaboradoras">
-                    <Users className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <TabsTrigger value="colaboradoras" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[70px] justify-center" data-testid="tab-gp-colaboradoras">
+                    <Users className="h-3 w-3 mr-1" />
                     <span className="hidden sm:inline">Colaboradoras</span>
                     <span className="sm:hidden">Colab.</span>
                   </TabsTrigger>
-                  <TabsTrigger value="ponto" className="text-xs sm:text-sm" data-testid="tab-gp-ponto">
-                    <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <TabsTrigger value="ponto" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[70px] justify-center" data-testid="tab-gp-ponto">
+                    <Clock className="h-3 w-3 mr-1" />
                     <span className="hidden sm:inline">Ponto & Jornada</span>
                     <span className="sm:hidden">Ponto</span>
                   </TabsTrigger>
@@ -323,25 +323,25 @@ const AdminDashboard = () => {
 
             <TabsContent value="gestao-sistemas" className="animate-fade-in space-y-4 sm:space-y-6">
               <Tabs defaultValue="dashboard" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-5 max-w-5xl">
-                  <TabsTrigger value="dashboard" className="text-xs sm:text-sm">
-                    <Package className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <TabsList className="flex flex-wrap h-auto gap-1 p-1 w-full max-w-5xl">
+                  <TabsTrigger value="dashboard" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] justify-center">
+                    <Package className="h-3 w-3 mr-1" />
                     <span className="hidden sm:inline">Dashboard</span>
                   </TabsTrigger>
-                  <TabsTrigger value="categorias" className="text-xs sm:text-sm">
-                    <BarChart className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <TabsTrigger value="categorias" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] justify-center">
+                    <BarChart className="h-3 w-3 mr-1" />
                     <span className="hidden sm:inline">Relatorios</span>
                   </TabsTrigger>
-                  <TabsTrigger value="produtos" className="text-xs sm:text-sm">
-                    <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <TabsTrigger value="produtos" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] justify-center">
+                    <TrendingUp className="h-3 w-3 mr-1" />
                     <span className="hidden sm:inline">Produtos</span>
                   </TabsTrigger>
-                  <TabsTrigger value="clientes" className="text-xs sm:text-sm">
-                    <Brain className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <TabsTrigger value="clientes" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] justify-center">
+                    <Brain className="h-3 w-3 mr-1" />
                     <span className="hidden sm:inline">Clientes</span>
                   </TabsTrigger>
-                  <TabsTrigger value="cashback" className="text-xs sm:text-sm">
-                    <Gift className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <TabsTrigger value="cashback" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] justify-center">
+                    <Gift className="h-3 w-3 mr-1" />
                     <span className="hidden sm:inline">Cashback</span>
                   </TabsTrigger>
                 </TabsList>

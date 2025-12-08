@@ -2954,35 +2954,27 @@ export default function LojaDashboard() {
                     <div className="flex items-center gap-2">
                         {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo) && (
                             <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto')}>
-                                <TabsList className={`h-8 ${
-                                    [cashbackAtivo, crmAtivo, wishlistAtivo, pontoAtivo].filter(Boolean).length === 1
-                                        ? 'grid-cols-2'
-                                        : [cashbackAtivo, crmAtivo, wishlistAtivo, pontoAtivo].filter(Boolean).length === 2
-                                        ? 'grid-cols-3'
-                                        : [cashbackAtivo, crmAtivo, wishlistAtivo, pontoAtivo].filter(Boolean).length === 3
-                                        ? 'grid-cols-4'
-                                        : 'grid-cols-5'
-                                }`}>
-                                    <TabsTrigger value="metas" className="text-xs px-3 h-7">
+                                <TabsList className="flex flex-wrap h-auto gap-0.5 p-0.5">
+                                    <TabsTrigger value="metas" className="text-[10px] sm:text-xs px-2 py-1 justify-center">
                                         Metas
                                     </TabsTrigger>
                                     {cashbackAtivo && (
-                                        <TabsTrigger value="cashback" className="text-xs px-3 h-7">
+                                        <TabsTrigger value="cashback" className="text-[10px] sm:text-xs px-2 py-1 justify-center">
                                             Cashback
                                         </TabsTrigger>
                                     )}
                                     {crmAtivo && (
-                                        <TabsTrigger value="crm" className="text-xs px-3 h-7">
+                                        <TabsTrigger value="crm" className="text-[10px] sm:text-xs px-2 py-1 justify-center">
                                             CRM
                                         </TabsTrigger>
                                     )}
                                     {wishlistAtivo && (
-                                        <TabsTrigger value="wishlist" className="text-xs px-3 h-7">
+                                        <TabsTrigger value="wishlist" className="text-[10px] sm:text-xs px-2 py-1 justify-center">
                                             Wishlist
                                         </TabsTrigger>
                                     )}
                                     {pontoAtivo && (
-                                        <TabsTrigger value="ponto" className="text-xs px-3 h-7">
+                                        <TabsTrigger value="ponto" className="text-[10px] sm:text-xs px-2 py-1 justify-center">
                                             Ponto
                                         </TabsTrigger>
                                     )}

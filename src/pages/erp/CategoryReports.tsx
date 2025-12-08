@@ -737,21 +737,21 @@ export default function CategoryReports() {
 
       {/* Tabs com diferentes visões */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="categorias">
-            <Tag className="h-4 w-4 mr-2" />
+        <TabsList className="flex flex-wrap h-auto gap-1 p-1 w-full">
+          <TabsTrigger value="categorias" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[80px] justify-center">
+            <Tag className="h-3 w-3 mr-1" />
             Categorias
           </TabsTrigger>
-          <TabsTrigger value="produtos">
-            <Package className="h-4 w-4 mr-2" />
+          <TabsTrigger value="produtos" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[70px] justify-center">
+            <Package className="h-3 w-3 mr-1" />
             Produtos
           </TabsTrigger>
-          <TabsTrigger value="marcas">
-            <TrendingUp className="h-4 w-4 mr-2" />
+          <TabsTrigger value="marcas" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] justify-center">
+            <TrendingUp className="h-3 w-3 mr-1" />
             Marcas
           </TabsTrigger>
-          <TabsTrigger value="vendedores">
-            <User className="h-4 w-4 mr-2" />
+          <TabsTrigger value="vendedores" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[80px] justify-center">
+            <User className="h-3 w-3 mr-1" />
             Vendedores
           </TabsTrigger>
         </TabsList>

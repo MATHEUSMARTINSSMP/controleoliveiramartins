@@ -1326,11 +1326,11 @@ export default function ProductSalesIntelligence() {
 
       {/* Análises Inteligentes - Abas Reorganizadas */}
       <Tabs defaultValue="rankings" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="rankings">Rankings de Vendas</TabsTrigger>
-          <TabsTrigger value="attributes">Atributos (Cor/Tam)</TabsTrigger>
-          <TabsTrigger value="performance">Performance</TabsTrigger>
-          <TabsTrigger value="intelligence">Inteligência</TabsTrigger>
+        <TabsList className="flex flex-wrap h-auto gap-1 p-1 w-full">
+          <TabsTrigger value="rankings" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[70px] justify-center">Rankings</TabsTrigger>
+          <TabsTrigger value="attributes" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[70px] justify-center">Atributos</TabsTrigger>
+          <TabsTrigger value="performance" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[80px] justify-center">Performance</TabsTrigger>
+          <TabsTrigger value="intelligence" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[80px] justify-center">Inteligência</TabsTrigger>
         </TabsList>
 
         {/* GRUPO 1: RANKINGS */}

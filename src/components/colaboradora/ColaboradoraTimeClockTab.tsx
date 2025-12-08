@@ -31,19 +31,19 @@ export function ColaboradoraTimeClockTab({ storeId, colaboradoraId }: Colaborado
       </div>
     }>
       <Tabs defaultValue="historico" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 max-w-md">
-          <TabsTrigger value="historico" className="text-xs" data-testid="tab-ponto-historico">
-            <Clock className="h-3 w-3 mr-1 sm:mr-2" />
+        <TabsList className="flex flex-wrap h-auto gap-1 p-1 w-full max-w-md">
+          <TabsTrigger value="historico" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] justify-center" data-testid="tab-ponto-historico">
+            <Clock className="h-3 w-3 mr-1" />
             <span className="hidden sm:inline">Historico</span>
             <span className="sm:hidden">Hist.</span>
           </TabsTrigger>
-          <TabsTrigger value="relatorios" className="text-xs" data-testid="tab-ponto-relatorios">
-            <Calendar className="h-3 w-3 mr-1 sm:mr-2" />
+          <TabsTrigger value="relatorios" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] justify-center" data-testid="tab-ponto-relatorios">
+            <Calendar className="h-3 w-3 mr-1" />
             <span className="hidden sm:inline">Relatorios</span>
             <span className="sm:hidden">Rel.</span>
           </TabsTrigger>
-          <TabsTrigger value="banco-horas" className="text-xs" data-testid="tab-ponto-banco">
-            <TrendingUp className="h-3 w-3 mr-1 sm:mr-2" />
+          <TabsTrigger value="banco-horas" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] justify-center" data-testid="tab-ponto-banco">
+            <TrendingUp className="h-3 w-3 mr-1" />
             <span className="hidden sm:inline">Banco de Horas</span>
             <span className="sm:hidden">Banco</span>
           </TabsTrigger>

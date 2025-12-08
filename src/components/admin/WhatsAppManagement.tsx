@@ -34,33 +34,32 @@ export const WhatsAppManagement = ({ defaultTab = "conexoes" }: WhatsAppManageme
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full grid grid-cols-3 h-auto">
+        <TabsList className="flex flex-wrap h-auto gap-1 p-1 w-full">
           <TabsTrigger 
             value="conexoes" 
-            className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm"
+            className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[70px] flex items-center justify-center gap-1"
             data-testid="tab-conexoes"
           >
-            <Wifi className="h-4 w-4" />
+            <Wifi className="h-3 w-3" />
             <span className="hidden sm:inline">Conexões</span>
             <span className="sm:hidden">Conexão</span>
           </TabsTrigger>
           <TabsTrigger 
             value="destinatarios" 
-            className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm"
+            className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[70px] flex items-center justify-center gap-1"
             data-testid="tab-destinatarios"
           >
-            <Users className="h-4 w-4" />
+            <Users className="h-3 w-3" />
             <span className="hidden sm:inline">Destinatários</span>
             <span className="sm:hidden">Destino</span>
           </TabsTrigger>
           <TabsTrigger 
             value="alertas" 
-            className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm"
+            className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] flex items-center justify-center gap-1"
             data-testid="tab-alertas"
           >
-            <Bell className="h-4 w-4" />
-            <span className="hidden sm:inline">Alertas</span>
-            <span className="sm:hidden">Alertas</span>
+            <Bell className="h-3 w-3" />
+            Alertas
           </TabsTrigger>
         </TabsList>
 

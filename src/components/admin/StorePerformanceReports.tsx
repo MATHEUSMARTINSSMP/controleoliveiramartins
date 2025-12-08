@@ -474,30 +474,30 @@ export const StorePerformanceReports = () => {
                         <CardTitle className="text-base sm:text-lg">Resumo Geral - {report.period}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
                             <div className="text-center space-y-1">
-                                <p className="text-[10px] sm:text-xs text-muted-foreground break-words">Total Vendido</p>
-                                <p className="text-sm sm:text-base lg:text-lg font-bold text-primary break-words">
+                                <p className="text-[10px] sm:text-xs text-muted-foreground">Total Vendido</p>
+                                <p className="text-xs sm:text-base lg:text-lg font-bold text-primary truncate">
                                     {formatCurrency(report.totals.total_valor)}
                                 </p>
                             </div>
                             <div className="text-center space-y-1">
-                                <p className="text-[10px] sm:text-xs text-muted-foreground break-words">Total Vendas</p>
-                                <p className="text-sm sm:text-base lg:text-lg font-bold break-words">{report.totals.total_vendas}</p>
+                                <p className="text-[10px] sm:text-xs text-muted-foreground">Total Vendas</p>
+                                <p className="text-xs sm:text-base lg:text-lg font-bold">{report.totals.total_vendas}</p>
                             </div>
                             <div className="text-center space-y-1">
-                                <p className="text-[10px] sm:text-xs text-muted-foreground break-words">Total Peças</p>
-                                <p className="text-sm sm:text-base lg:text-lg font-bold break-words">{report.totals.total_pecas}</p>
+                                <p className="text-[10px] sm:text-xs text-muted-foreground">Total Peças</p>
+                                <p className="text-xs sm:text-base lg:text-lg font-bold">{report.totals.total_pecas}</p>
                             </div>
                             <div className="text-center space-y-1">
-                                <p className="text-[10px] sm:text-xs text-muted-foreground break-words">Ticket Médio</p>
-                                <p className="text-sm sm:text-base lg:text-lg font-bold break-words">
+                                <p className="text-[10px] sm:text-xs text-muted-foreground">Ticket Médio</p>
+                                <p className="text-xs sm:text-base lg:text-lg font-bold truncate">
                                     {formatCurrency(report.totals.ticket_medio)}
                                 </p>
                             </div>
-                            <div className="text-center space-y-1">
-                                <p className="text-[10px] sm:text-xs text-muted-foreground break-words">PA</p>
-                                <p className="text-sm sm:text-base lg:text-lg font-bold break-words">
+                            <div className="text-center space-y-1 col-span-2 sm:col-span-1">
+                                <p className="text-[10px] sm:text-xs text-muted-foreground">PA</p>
+                                <p className="text-xs sm:text-base lg:text-lg font-bold">
                                     {report.totals.pa.toFixed(1)}
                                 </p>
                             </div>
@@ -624,26 +624,26 @@ export const StorePerformanceReports = () => {
 
                 <TabsContent value="loja" className="space-y-4">
                     <Tabs defaultValue="dia" className="space-y-4">
-                        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-7 gap-2">
-                            <TabsTrigger value="dia" className="text-xs sm:text-sm">
+                        <TabsList className="flex flex-wrap h-auto gap-1 p-1">
+                            <TabsTrigger value="dia" className="text-xs px-2 py-1.5 flex-1 min-w-[60px]">
                                 Hoje
                             </TabsTrigger>
-                            <TabsTrigger value="ontem" className="text-xs sm:text-sm">
+                            <TabsTrigger value="ontem" className="text-xs px-2 py-1.5 flex-1 min-w-[60px]">
                                 Ontem
                             </TabsTrigger>
-                            <TabsTrigger value="semana" className="text-xs sm:text-sm">
+                            <TabsTrigger value="semana" className="text-xs px-2 py-1.5 flex-1 min-w-[70px]">
                                 Semana
                             </TabsTrigger>
-                            <TabsTrigger value="ultimos7" className="text-xs sm:text-sm">
+                            <TabsTrigger value="ultimos7" className="text-xs px-2 py-1.5 flex-1 min-w-[60px]">
                                 7 Dias
                             </TabsTrigger>
-                            <TabsTrigger value="mes_atual" className="text-xs sm:text-sm">
+                            <TabsTrigger value="mes_atual" className="text-xs px-2 py-1.5 flex-1 min-w-[80px]">
                                 Mês Atual
                             </TabsTrigger>
-                            <TabsTrigger value="mes_anterior" className="text-xs sm:text-sm">
+                            <TabsTrigger value="mes_anterior" className="text-xs px-2 py-1.5 flex-1 min-w-[90px]">
                                 Mês Anterior
                             </TabsTrigger>
-                            <TabsTrigger value="personalizado" className="text-xs sm:text-sm">
+                            <TabsTrigger value="personalizado" className="text-xs px-2 py-1.5 flex-1 min-w-[100px]">
                                 Personalizado
                             </TabsTrigger>
                         </TabsList>

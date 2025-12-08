@@ -82,26 +82,26 @@ export function TimeClockManagement({ storeId: propStoreId, stores, showStoreSel
 
       {storeId ? (
         <Tabs defaultValue="jornada" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="jornada" className="flex items-center gap-2" data-testid="tab-jornada">
-              <Calendar className="h-4 w-4" />
+          <TabsList className="flex flex-wrap h-auto gap-1 p-1 w-full">
+            <TabsTrigger value="jornada" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] flex items-center justify-center gap-1" data-testid="tab-jornada">
+              <Calendar className="h-3 w-3" />
               <span className="hidden sm:inline">Jornada</span>
             </TabsTrigger>
-            <TabsTrigger value="banco-horas" className="flex items-center gap-2" data-testid="tab-banco-horas">
-              <TrendingUp className="h-4 w-4" />
-              <span className="hidden sm:inline">Banco de Horas</span>
+            <TabsTrigger value="banco-horas" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] flex items-center justify-center gap-1" data-testid="tab-banco-horas">
+              <TrendingUp className="h-3 w-3" />
+              <span className="hidden sm:inline">Banco</span>
             </TabsTrigger>
-            <TabsTrigger value="relatorios" className="flex items-center gap-2" data-testid="tab-relatorios">
-              <BarChart3 className="h-4 w-4" />
+            <TabsTrigger value="relatorios" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] flex items-center justify-center gap-1" data-testid="tab-relatorios">
+              <BarChart3 className="h-3 w-3" />
               <span className="hidden sm:inline">Relatorios</span>
             </TabsTrigger>
-            <TabsTrigger value="solicitacoes" className="flex items-center gap-2 relative" data-testid="tab-solicitacoes">
-              <FileEdit className="h-4 w-4" />
+            <TabsTrigger value="solicitacoes" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[70px] flex items-center justify-center gap-1 relative" data-testid="tab-solicitacoes">
+              <FileEdit className="h-3 w-3" />
               <span className="hidden sm:inline">Solicitacoes</span>
               {pendingRequestsCount > 0 && (
                 <Badge 
                   variant="destructive" 
-                  className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs animate-pulse"
+                  className="absolute -top-2 -right-2 h-4 w-4 p-0 flex items-center justify-center text-[10px] animate-pulse"
                 >
                   {pendingRequestsCount}
                 </Badge>

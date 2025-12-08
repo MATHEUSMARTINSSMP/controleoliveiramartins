@@ -343,26 +343,26 @@ const ColaboradoraDashboard = () => {
         </div>
 
         <Tabs defaultValue="metas" className="space-y-4">
-          <TabsList className={`w-full grid ${pontoAtivo ? 'grid-cols-6' : 'grid-cols-5'} h-9`}>
-            <TabsTrigger value="metas" className="text-xs">
+          <TabsList className="flex flex-wrap h-auto gap-1 p-1 w-full">
+            <TabsTrigger value="metas" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[45px] justify-center">
               <span className="hidden sm:inline">Minhas Metas</span>
               <span className="sm:hidden">Metas</span>
             </TabsTrigger>
-            <TabsTrigger value="resumo" className="text-xs">
+            <TabsTrigger value="resumo" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[50px] justify-center">
               Resumo
             </TabsTrigger>
-            <TabsTrigger value="compras" className="text-xs">
+            <TabsTrigger value="compras" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[55px] justify-center">
               Compras
             </TabsTrigger>
-            <TabsTrigger value="parcelas" className="text-xs">
+            <TabsTrigger value="parcelas" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[55px] justify-center">
               Parcelas
             </TabsTrigger>
-            <TabsTrigger value="adiantamentos" className="text-xs">
+            <TabsTrigger value="adiantamentos" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[50px] justify-center">
               <span className="hidden sm:inline">Adiantamentos</span>
               <span className="sm:hidden">Adiant.</span>
             </TabsTrigger>
             {pontoAtivo && (
-              <TabsTrigger value="ponto" className="text-xs">
+              <TabsTrigger value="ponto" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[45px] justify-center">
                 <span className="hidden sm:inline">Ponto</span>
                 <span className="sm:hidden">Ponto</span>
               </TabsTrigger>

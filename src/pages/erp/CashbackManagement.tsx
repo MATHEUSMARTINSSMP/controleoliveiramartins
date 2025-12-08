@@ -1957,12 +1957,12 @@ export default function CashbackManagement() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="lancar">Lançar</TabsTrigger>
-          <TabsTrigger value="clientes">Clientes</TabsTrigger>
-          <TabsTrigger value="historico">Histórico Geral</TabsTrigger>
-          <TabsTrigger value="bonificar">Bonificar</TabsTrigger>
-          <TabsTrigger value="configuracoes">Configurações</TabsTrigger>
+        <TabsList className="flex flex-wrap h-auto gap-1 p-1 w-full">
+          <TabsTrigger value="lancar" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[55px] justify-center">Lançar</TabsTrigger>
+          <TabsTrigger value="clientes" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[55px] justify-center">Clientes</TabsTrigger>
+          <TabsTrigger value="historico" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[70px] justify-center">Histórico</TabsTrigger>
+          <TabsTrigger value="bonificar" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] justify-center">Bonificar</TabsTrigger>
+          <TabsTrigger value="configuracoes" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] justify-center">Config</TabsTrigger>
         </TabsList>
 
         {/* TAB 1: LANÇAR */}

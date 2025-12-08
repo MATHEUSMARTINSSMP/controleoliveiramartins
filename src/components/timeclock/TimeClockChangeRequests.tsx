@@ -186,17 +186,17 @@ export function TimeClockChangeRequests({ storeId, isAdmin = false, onCountChang
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="pendentes" className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
+          <TabsList className="flex flex-wrap h-auto gap-1 p-1 w-full">
+            <TabsTrigger value="pendentes" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[70px] flex items-center justify-center gap-1">
+              <AlertCircle className="h-3 w-3" />
               Pendentes
             </TabsTrigger>
-            <TabsTrigger value="aprovados" className="flex items-center gap-2">
-              <Check className="h-4 w-4" />
+            <TabsTrigger value="aprovados" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[70px] flex items-center justify-center gap-1">
+              <Check className="h-3 w-3" />
               Aprovados
             </TabsTrigger>
-            <TabsTrigger value="rejeitados" className="flex items-center gap-2">
-              <X className="h-4 w-4" />
+            <TabsTrigger value="rejeitados" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[70px] flex items-center justify-center gap-1">
+              <X className="h-3 w-3" />
               Rejeitados
             </TabsTrigger>
           </TabsList>
