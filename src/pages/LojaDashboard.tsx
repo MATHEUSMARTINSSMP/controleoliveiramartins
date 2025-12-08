@@ -179,7 +179,7 @@ export default function LojaDashboard() {
     const { data: rankingMonthlyData = [] } = useStoreMonthlyRanking(storeId);
 
     // Hook para performance das colaboradoras
-    const { data: colaboradorasPerformanceData = [] } = useStoreColaboradorasPerformance(
+    const { data: colaboradorasPerformanceData = [], refetch: refetchColaboradorasPerformance } = useStoreColaboradorasPerformance(
         storeId,
         colaboradorasData
     );
@@ -205,8 +205,11 @@ export default function LojaDashboard() {
                     queryClient.invalidateQueries({ queryKey: ['colaboradora'] });
                     
                     // Forçar refetch das queries críticas
-                    queryClient.refetchQueries({ queryKey: [QUERY_KEYS.goals] });
-                    queryClient.refetchQueries({ queryKey: ['loja'] });
+                    await Promise.all([
+                        queryClient.refetchQueries({ queryKey: [QUERY_KEYS.goals] }),
+                        queryClient.refetchQueries({ queryKey: [QUERY_KEYS.sales] }),
+                        queryClient.refetchQueries({ queryKey: ['loja'] }),
+                    ]);
                     
                     // Recarregar dados da loja para atualizar performance
                     if (storeId && storeName) {
