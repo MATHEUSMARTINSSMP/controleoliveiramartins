@@ -259,11 +259,20 @@ exports.handler = async (event, context) => {
 
     // Validação flexível: verificar se pertence à loja
     // 1. Verificar se store_id corresponde
-    // 2. Se não, verificar se store_default corresponde ao nome da loja
+    // 2. Se não, verificar se store_default corresponde ao nome da loja (com normalização)
+    const normalizeName = (name) => {
+      if (!name) return '';
+      return name
+        .toLowerCase()
+        .replace(/[|,]/g, '') // Remover pipes e vírgulas
+        .replace(/\s+/g, ' ') // Normalizar espaços
+        .trim();
+    };
+
     const belongsToStore = 
       profile.store_id === storeId || 
       (profile.store_default && 
-       profile.store_default.toLowerCase().trim() === finalStore.name.toLowerCase().trim());
+       normalizeName(profile.store_default) === normalizeName(finalStore.name));
 
     if (!belongsToStore) {
       return {
