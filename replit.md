@@ -10,6 +10,16 @@ Complete multi-tenant ERP/sales management SaaS system migrated from Lovable to 
 - **Multi-tenancy**: RLS-based data isolation using `sistemaretiradas` schema
 
 ## Recent Changes
+- **2024-12-08**: Goal Redistribution System (Frontend-Only):
+  - **New Hook**: `src/hooks/useRedistributedDailyGoal.ts` - Real-time goal redistribution calculation
+  - **Business Rule**: Store's daily goal is ALWAYS 100% covered by working collaborators
+  - **Redistribution Logic**: 
+    - With store goal: Divides store daily goal equally among working collaborators
+    - Without store goal: Sums all individual daily goals, then divides among working collaborators
+    - Collaborators on leave get metaDiariaRedistribuida = 0
+    - Working collaborators share the load equally
+  - **LojaDashboard Updated**: Shows redistributed goals in collaborator cards with fallback to original goals
+  - **No Database Changes**: All calculations are frontend-only, preserving original goals in database
 - **2024-12-07**: WhatsApp Status Polling System:
   - **New Hook**: `src/hooks/use-whatsapp-status.ts` - React Query-based polling with intelligent start/stop
   - **Status Helper**: `src/lib/whatsapp.ts` - Added `fetchWhatsAppStatus()` for N8N endpoint polling
