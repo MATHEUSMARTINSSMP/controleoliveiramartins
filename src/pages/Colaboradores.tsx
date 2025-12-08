@@ -494,10 +494,12 @@ const Colaboradores = () => {
         }
 
         toast.success("Colaboradora criada com sucesso! Email de boas-vindas enviado.");
+        setDialogOpen(false); // Fechar o diálogo após sucesso
+        
+        // Atualizar a lista de colaboradoras imediatamente (após fechar o diálogo)
+        await fetchColaboradoras();
+        await fetchLojas(); // Também atualizar lojas caso tenha mudado algo
       }
-
-      setDialogOpen(false);
-      fetchColaboradoras();
     } catch (error: any) {
       toast.error("Erro: " + error.message);
     } finally {
