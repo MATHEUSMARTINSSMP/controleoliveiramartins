@@ -85,7 +85,7 @@ export function TimeClockRegister({
     try {
       const { data, error } = await supabase.rpc('has_signature_pin', {
         p_colaboradora_id: colaboradoraId
-      });
+      }) as { data: boolean | null; error: any };
       
       if (error) {
         console.error('[TimeClockRegister] Error checking PIN:', error);
@@ -177,7 +177,7 @@ export function TimeClockRegister({
         p_colaboradora_id: colaboradoraId,
         p_token: resetToken,
         p_new_pin: resetNewPin
-      });
+      }) as { data: Array<{ success: boolean; message: string }> | null; error: any };
 
       if (error) throw error;
 
@@ -303,7 +303,7 @@ export function TimeClockRegister({
       const { data: validationResult, error: validationError } = await supabase.rpc('validate_signature_pin', {
         p_colaboradora_id: colaboradoraId,
         p_pin: pin
-      });
+      }) as { data: Array<{ valido: boolean; mensagem: string; bloqueado: boolean }> | null; error: any };
 
       if (validationError) {
         throw new Error(validationError.message);
