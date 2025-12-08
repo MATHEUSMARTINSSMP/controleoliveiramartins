@@ -117,11 +117,13 @@ The system is built with a modern web stack:
 
 ### 2024-12-08: WhatsApp Global Fallback System
 - **Purpose**: Lojas SEM numero WhatsApp proprio conectado usam o numero GLOBAL (Elevea) para enviar notificacoes
+- **Associacao Loja-Admin**: Feita via `profiles.store_id` (NAO via `stores.admin_id` que nao existe)
 - **Logica de Credenciais (send-whatsapp-message.js)**:
   1. Se loja tem `whatsapp_ativo = false`: NAO envia (skip)
-  2. Se loja tem `whatsapp_ativo = true` E credenciais proprias conectadas: Usa credenciais da loja
-  3. Se loja tem `whatsapp_ativo = true` MAS nao tem credenciais conectadas: Usa credencial GLOBAL (`is_global = true`)
-  4. Fallback final: Variaveis de ambiente (`WHATSAPP_SITE_SLUG`, `N8N_CUSTOMER_ID`)
+  2. Busca admin via `profiles` WHERE `store_id = loja.id` AND `role = 'ADMIN'`
+  3. Se loja tem `whatsapp_ativo = true` E credenciais proprias conectadas: Usa credenciais da loja
+  4. Se loja tem `whatsapp_ativo = true` MAS nao tem credenciais conectadas: Usa credencial GLOBAL (`is_global = true`)
+  5. Fallback final: Variaveis de ambiente (`WHATSAPP_SITE_SLUG`, `N8N_CUSTOMER_ID`)
 - **SQL Migration**: `sql_migrations_archive/SQL_WHATSAPP_GLOBAL_CREDENTIALS.sql`
   - Campo `is_global` na tabela `whatsapp_credentials`
   - Campos `display_name`, `uazapi_phone_number`, `uazapi_qr_code`, `uazapi_status`
