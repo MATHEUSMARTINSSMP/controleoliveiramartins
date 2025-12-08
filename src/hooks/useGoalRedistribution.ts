@@ -7,6 +7,8 @@ import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, getYear, getWeek, startOfWeek } from 'date-fns';
+import { useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/hooks/queries/types';
 
 interface UseGoalRedistributionReturn {
   redistributeGoalsForDate: (dataFolga: string) => Promise<boolean>;
@@ -19,6 +21,8 @@ interface UseGoalRedistributionOptions {
 }
 
 export function useGoalRedistribution({ storeId }: UseGoalRedistributionOptions): UseGoalRedistributionReturn {
+  const queryClient = useQueryClient();
+  
   const redistributeGoalsForDate = useCallback(async (dataFolga: string): Promise<boolean> => {
     if (!storeId) {
       console.warn('[useGoalRedistribution] StoreId não fornecido');
@@ -171,6 +175,12 @@ export function useGoalRedistribution({ storeId }: UseGoalRedistributionOptions)
       }
 
       if (successCount > 0) {
+        // Invalidar todas as queries relacionadas a goals para atualizar UI automaticamente
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.goals] });
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.sales] });
+        queryClient.invalidateQueries({ queryKey: ['loja'] });
+        queryClient.invalidateQueries({ queryKey: ['colaboradora'] });
+        
         toast.success(`Metas redistribuídas automaticamente para ${successCount} colaboradora(s) ativa(s)`);
         return true;
       }

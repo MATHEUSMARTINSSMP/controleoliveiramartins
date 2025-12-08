@@ -3363,13 +3363,28 @@ export default function LojaDashboard() {
                                                     }
                                                     
                                                     try {
+                                                        // Primeiro, marcar/desmarcar folga
                                                         const success = await toggleFolga(perf.id, todayStr);
                                                         if (success) {
+                                                            // Aguardar um pouco para garantir que a folga foi salva
+                                                            await new Promise(resolve => setTimeout(resolve, 300));
+                                                            
                                                             // Redistribuir metas automaticamente
-                                                            await redistributeGoalsForDate(todayStr);
-                                                            // Recarregar dados
-                                                            if (storeId && storeName) {
-                                                                await fetchDataWithStoreId(storeId, storeName);
+                                                            const redistributed = await redistributeGoalsForDate(todayStr);
+                                                            
+                                                            if (redistributed) {
+                                                                // Invalidar queries para atualizar UI automaticamente
+                                                                queryClient.invalidateQueries({ queryKey: ['goals'] });
+                                                                queryClient.invalidateQueries({ queryKey: ['sales'] });
+                                                                queryClient.invalidateQueries({ queryKey: ['loja'] });
+                                                                
+                                                                // Recarregar folgas para atualizar estado local
+                                                                await refetchFolgas();
+                                                                
+                                                                // Recarregar dados da loja para atualizar metas
+                                                                if (storeId && storeName) {
+                                                                    await fetchDataWithStoreId(storeId, storeName);
+                                                                }
                                                             }
                                                         }
                                                     } catch (error: any) {

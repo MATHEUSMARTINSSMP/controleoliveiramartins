@@ -6,6 +6,8 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/hooks/queries/types';
 
 interface OffDay {
   id: string;
@@ -30,6 +32,7 @@ interface UseFolgasOptions {
 }
 
 export function useFolgas({ storeId, date }: UseFolgasOptions): UseFolgasReturn {
+  const queryClient = useQueryClient();
   const [offDays, setOffDays] = useState<OffDay[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentDate, setCurrentDate] = useState<string | undefined>(date);
@@ -100,6 +103,9 @@ export function useFolgas({ storeId, date }: UseFolgasOptions): UseFolgasReturn 
         
         // Atualizar lista local
         setOffDays(prev => prev.filter(f => f.id !== existingFolga.id));
+        
+        // Recarregar folgas do banco para garantir sincronização
+        await fetchFolgas(dataFolga);
       } else {
         // Adicionar folga (marcar)
         const { data: newFolga, error: insertError } = await supabase
@@ -120,7 +126,15 @@ export function useFolgas({ storeId, date }: UseFolgasOptions): UseFolgasReturn 
         if (newFolga) {
           setOffDays(prev => [...prev, newFolga]);
         }
+        
+        // Recarregar folgas do banco para garantir sincronização
+        await fetchFolgas(dataFolga);
       }
+
+      // Invalidar queries relacionadas para atualizar UI
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.goals] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.sales] });
+      queryClient.invalidateQueries({ queryKey: ['loja'] });
 
       return true;
     } catch (error: any) {
