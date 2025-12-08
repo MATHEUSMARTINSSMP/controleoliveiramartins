@@ -100,6 +100,10 @@ export function TimeClockLojaView({ storeId: propStoreId }: TimeClockLojaViewPro
   }
 
   if (!storeId) {
+    console.warn('[TimeClockLojaView] ⚠️ storeId não disponível. Aguardando...', {
+      propStoreId: propStoreId,
+      contextStoreId: contextStoreId,
+    });
     return (
       <Card>
         <CardContent className="py-8 text-center text-muted-foreground">
@@ -110,6 +114,7 @@ export function TimeClockLojaView({ storeId: propStoreId }: TimeClockLojaViewPro
   }
 
   if (!authenticated || !colaboradoraId) {
+    console.log('[TimeClockLojaView] Renderizando TimeClockAuth com storeId:', storeId.substring(0, 8) + '...');
     return (
       <TimeClockAuth
         storeId={storeId}

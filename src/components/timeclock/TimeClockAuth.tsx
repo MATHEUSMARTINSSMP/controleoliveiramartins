@@ -4,7 +4,7 @@
  * NÃO altera a sessão principal do usuário LOJA
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,12 +13,16 @@ import { Loader2, Clock, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface TimeClockAuthProps {
-  storeId: string;
+  storeId: string | null;
   onAuthSuccess: (colaboradoraId: string, colaboradoraName: string) => void;
   onCancel?: () => void;
 }
 
 export function TimeClockAuth({ storeId, onAuthSuccess, onCancel }: TimeClockAuthProps) {
+  // Log para debug
+  useEffect(() => {
+    console.log('[TimeClockAuth] Componente montado com storeId:', storeId ? storeId.substring(0, 8) + '...' : 'null');
+  }, [storeId]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);

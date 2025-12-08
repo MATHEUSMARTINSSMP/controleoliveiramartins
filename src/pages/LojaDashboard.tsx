@@ -3979,7 +3979,14 @@ export default function LojaDashboard() {
                             {pontoAtivo && (
                                 <TabsContent value="ponto" className="space-y-4 sm:space-y-6">
                                     <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-                                        <TimeClockLojaView storeId={storeId} />
+                                        {storeId ? (
+                                            <TimeClockLojaView storeId={storeId} />
+                                        ) : (
+                                            <div className="flex items-center justify-center py-8 text-muted-foreground">
+                                                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                                                Carregando dados da loja...
+                                            </div>
+                                        )}
                                     </Suspense>
                                 </TabsContent>
                             )}
