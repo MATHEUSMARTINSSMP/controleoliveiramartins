@@ -367,12 +367,13 @@ export const WhatsAppStoreConfig = () => {
             });
             setLocalCredentials(initialLocal);
 
-            // Verificar status real via N8N para lojas com credenciais configuradas
-            const storesWithInstance = combined.filter(s => s.credentials?.uazapi_instance_id);
-            if (storesWithInstance.length > 0 && profile?.email) {
-                console.log('[fetchStoresAndCredentials] Verificando status de', storesWithInstance.length, 'lojas com credenciais...');
+            // Verificar status real via N8N para TODAS as lojas com WhatsApp ativado
+            // Isso garante que lojas conectadas no N8N sejam detectadas mesmo sem instance_id local
+            const storesToCheck = combined.filter(s => s.whatsapp_ativo);
+            if (storesToCheck.length > 0 && profile?.email) {
+                console.log('[fetchStoresAndCredentials] Verificando status de', storesToCheck.length, 'lojas com WhatsApp ativado...');
                 
-                for (const store of storesWithInstance) {
+                for (const store of storesToCheck) {
                     try {
                         const status = await fetchWhatsAppStatus({
                             siteSlug: store.slug,
@@ -391,20 +392,49 @@ export const WhatsAppStoreConfig = () => {
                             } : s)
                         );
                         
-                        // Salvar no Supabase se mudou
-                        if (status.status !== store.credentials?.uazapi_status) {
+                        // Salvar no Supabase se status diferente ou se encontrou dados novos
+                        const hasStatusChange = status.status !== store.credentials?.uazapi_status;
+                        const hasNewInstanceId = status.instanceId && !store.credentials?.uazapi_instance_id;
+                        const hasNewPhone = status.phoneNumber && !store.credentials?.uazapi_phone_number;
+                        
+                        if (hasStatusChange || hasNewInstanceId || hasNewPhone) {
+                            // Usar UPSERT para criar registro se nao existir
+                            const upsertData: Record<string, any> = {
+                                customer_id: profile.email,
+                                site_slug: store.slug,
+                                uazapi_status: status.status,
+                                updated_at: new Date().toISOString(),
+                                status: 'active',
+                            };
+                            
+                            if (status.phoneNumber) {
+                                upsertData.uazapi_phone_number = status.phoneNumber;
+                            }
+                            if (status.instanceId) {
+                                upsertData.uazapi_instance_id = status.instanceId;
+                            }
+                            
                             await supabase
                                 .schema('sistemaretiradas')
                                 .from('whatsapp_credentials')
-                                .update({
-                                    uazapi_status: status.status,
-                                    uazapi_phone_number: status.phoneNumber || null,
-                                    updated_at: new Date().toISOString(),
-                                })
-                                .eq('customer_id', profile.email)
-                                .eq('site_slug', store.slug);
+                                .upsert(upsertData, {
+                                    onConflict: 'customer_id,site_slug'
+                                });
                                 
-                            console.log('[fetchStoresAndCredentials] Status atualizado para', store.slug, ':', status.status);
+                            console.log('[fetchStoresAndCredentials] Status atualizado para', store.slug, ':', status.status, 'instanceId:', status.instanceId);
+                            
+                            // Atualizar estado local com instanceId se encontrado
+                            if (status.instanceId) {
+                                setStoresWithCredentials(prev =>
+                                    prev.map(s => s.slug === store.slug ? {
+                                        ...s,
+                                        credentials: {
+                                            ...s.credentials,
+                                            uazapi_instance_id: status.instanceId,
+                                        } as WhatsAppCredential
+                                    } : s)
+                                );
+                            }
                         }
                     } catch (err) {
                         console.error('[fetchStoresAndCredentials] Erro ao verificar status de', store.slug, ':', err);
