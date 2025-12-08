@@ -35,9 +35,15 @@ export function TimeClockAuth({ storeId, onAuthSuccess, onCancel }: TimeClockAut
       setLoading(true);
 
       if (!storeId) {
+        console.error('[TimeClockAuth] ❌ storeId não fornecido');
         toast.error('Email, senha e storeId são obrigatórios');
         return;
       }
+
+      console.log('[TimeClockAuth] Tentando login com:', { 
+        email: email.trim().toLowerCase(), 
+        storeId: storeId.substring(0, 8) + '...' 
+      });
 
       // Usar função Netlify para verificar credenciais sem alterar sessão principal
       const response = await fetch('/.netlify/functions/verify-colaboradora-ponto', {
@@ -53,6 +59,13 @@ export function TimeClockAuth({ storeId, onAuthSuccess, onCancel }: TimeClockAut
       });
 
       const data = await response.json();
+
+      console.log('[TimeClockAuth] Resposta da função:', { 
+        ok: response.ok, 
+        status: response.status,
+        error: data.error,
+        success: data.success 
+      });
 
       if (!response.ok) {
         throw new Error(data.error || 'Erro ao verificar credenciais');

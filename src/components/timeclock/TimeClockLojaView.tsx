@@ -21,6 +21,12 @@ export function TimeClockLojaView({ storeId: propStoreId }: TimeClockLojaViewPro
   const { storeId: contextStoreId } = useStoreData();
   const storeId = propStoreId || contextStoreId;
   
+  console.log('[TimeClockLojaView] storeId:', { 
+    propStoreId: propStoreId ? propStoreId.substring(0, 8) + '...' : 'null',
+    contextStoreId: contextStoreId ? contextStoreId.substring(0, 8) + '...' : 'null',
+    finalStoreId: storeId ? storeId.substring(0, 8) + '...' : 'null'
+  });
+  
   const [authenticated, setAuthenticated] = useState(false);
   const [colaboradoraId, setColaboradoraId] = useState<string | null>(null);
   const [colaboradoraName, setColaboradoraName] = useState<string>('');
@@ -30,6 +36,9 @@ export function TimeClockLojaView({ storeId: propStoreId }: TimeClockLojaViewPro
   useEffect(() => {
     if (storeId) {
       checkPontoAtivo();
+    } else {
+      console.warn('[TimeClockLojaView] ⚠️ storeId não disponível');
+      setLoading(false);
     }
   }, [storeId]);
 

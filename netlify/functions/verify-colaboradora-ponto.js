@@ -31,9 +31,13 @@ exports.handler = async (event, context) => {
       }
     );
 
-    const { email, password, storeId } = JSON.parse(event.body || '{}');
+    const body = JSON.parse(event.body || '{}');
+    const { email, password, storeId } = body;
+
+    console.log('[verify-colaboradora-ponto] Request body:', { email, storeId: storeId ? `${storeId.substring(0, 8)}...` : 'null/undefined' });
 
     if (!email || !password || !storeId) {
+      console.error('[verify-colaboradora-ponto] ❌ Campos obrigatórios faltando:', { email: !!email, password: !!password, storeId: !!storeId });
       return {
         statusCode: 400,
         headers: corsHeaders,
@@ -100,6 +104,7 @@ exports.handler = async (event, context) => {
     }
 
     // Buscar dados da loja para validação flexível
+    console.log('[verify-colaboradora-ponto] Buscando loja com ID:', storeId);
     const { data: store, error: storeError } = await supabaseAdmin
       .schema('sistemaretiradas')
       .from('stores')
@@ -107,15 +112,31 @@ exports.handler = async (event, context) => {
       .eq('id', storeId)
       .single();
 
-    if (storeError || !store) {
+    if (storeError) {
+      console.error('[verify-colaboradora-ponto] ❌ Erro ao buscar loja:', storeError);
       return {
         statusCode: 404,
         headers: corsHeaders,
         body: JSON.stringify({
           error: 'Loja não encontrada',
+          details: storeError.message,
         }),
       };
     }
+
+    if (!store) {
+      console.error('[verify-colaboradora-ponto] ❌ Loja não encontrada no banco para ID:', storeId);
+      return {
+        statusCode: 404,
+        headers: corsHeaders,
+        body: JSON.stringify({
+          error: 'Loja não encontrada',
+          details: `Nenhuma loja encontrada com ID: ${storeId}`,
+        }),
+      };
+    }
+
+    console.log('[verify-colaboradora-ponto] ✅ Loja encontrada:', { id: store.id, name: store.name, ponto_ativo: store.ponto_ativo });
 
     // Validação flexível: verificar se pertence à loja
     // 1. Verificar se store_id corresponde
