@@ -1,203 +1,7 @@
 # Sistema de Retiradas - Multi-tenant ERP/Sales Management
 
 ## Overview
-Complete multi-tenant ERP/sales management SaaS system migrated from Lovable to Replit. Features subscription-based licensing, Tiny ERP integration, cashback system with WhatsApp notifications, sales tracking, goals, bonuses, and comprehensive reporting.
-
-## Project Architecture
-- **Frontend**: React + TypeScript + Vite + TailwindCSS + shadcn/ui
-- **Backend**: Supabase (PostgreSQL + Edge Functions)
-- **External Services**: Tiny ERP API, WhatsApp notifications (n8n webhook)
-- **Multi-tenancy**: RLS-based data isolation using `sistemaretiradas` schema
-
-## Recent Changes
-- **2024-12-08**: Time Clock System Enhancement (Ponto & Jornada):
-  - **New SQL Schema**: `SQL_SISTEMA_PONTO_COMPLETO.sql` with 3 new tables:
-    - `time_clock_change_requests`: Solicitations for time record changes
-    - `time_clock_digital_signatures`: Digital signatures for REP-P compliance
-    - `time_clock_period_closings`: Period closings for monthly/weekly reports
-  - **New Components**:
-    - `TimeClockChangeRequests.tsx`: Admin can approve/reject time change requests
-    - `TimeClockReports.tsx`: Advanced reports by month/week/custom period with overtime calculation
-    - `ColaboradoraTimeClockTab.tsx`: Modular component for collaborator time clock tab
-  - **TimeClockManagement Enhanced**: 4 tabs (Jornada, Banco de Horas, Relatorios, Solicitacoes)
-  - **AdminDashboard Updated**: "Gestao de Pessoas" now has 3 sub-tabs (Financeiro, Colaboradoras, Ponto & Jornada)
-  - **ColaboradoraDashboard Updated**: Ponto tab now has 3 sub-tabs (Historico, Relatorios, Banco de Horas)
-  - **Modular Architecture**: All time clock components are lazy-loaded and modular
-  - **RLS Policies**: Full security with ADMIN/LOJA/COLABORADORA access levels
-  - **Brazilian Labor Law Compliance**: CLT and Portaria 671/2021 (REP-P) compliant
-- **2024-12-08**: Goal Redistribution System (Frontend-Only):
-  - **New Hook**: `src/hooks/useRedistributedDailyGoal.ts` - Real-time goal redistribution calculation
-  - **Business Rule**: Store's daily goal is ALWAYS 100% covered by working collaborators
-  - **Redistribution Logic**: 
-    - With store goal: Divides store daily goal equally among working collaborators
-    - Without store goal: Sums all individual daily goals, then divides among working collaborators
-    - Collaborators on leave get metaDiariaRedistribuida = 0
-    - Working collaborators share the load equally
-  - **LojaDashboard Updated**: Shows redistributed goals in collaborator cards with fallback to original goals
-  - **No Database Changes**: All calculations are frontend-only, preserving original goals in database
-- **2024-12-07**: WhatsApp Status Polling System:
-  - **New Hook**: `src/hooks/use-whatsapp-status.ts` - React Query-based polling with intelligent start/stop
-  - **Status Helper**: `src/lib/whatsapp.ts` - Added `fetchWhatsAppStatus()` for N8N endpoint polling
-  - **Polling Strategy**: 12-second interval, stops on terminal states (connected/error)
-  - **New UI**: "Verificar Status" button in WhatsApp config with automatic polling feedback
-  - **State Machine**: idle, connecting, qr_required, connected, error
-  - **Terminal Detection**: `isTerminalStatus()` helper to stop polling when connected/error
-- **2024-12-07**: WhatsApp Integration Stabilization & Frontend Refetch Optimization:
-  - **Frontend Loop Fixed**: Removed automatic `fetchStoresAndCredentials()` after save/test operations
-  - **Optimized Updates**: Local state updates instead of full refetch - prevents excessive re-renders
-  - **useEffect Fixed**: Changed dependency from `[profile]` to `[profile?.id]` - avoids unnecessary reloads
-  - **N8N Query Corrected**: Fixed schema from `elevea` to `sistemaretiradas` in PostgreSQL save credentials query
-  - **Connection Event Flow**: Connection events now skip Chatwoot and only save credentials (prevents webhook loop)
-  - **File Created**: `N8N_QUERY_SAVE_CREDENTIALS.sql` with correct schema and field mapping
-  - **Loop Prevention Guide**: `PARAR_LOOP_N8N.md` for webhook deduplication
-  - **Component Updated**: `src/components/admin/WhatsAppStoreConfig.tsx` with optimized state management
-- **2024-12-07**: Critical Bug Fixes - Tiny ERP Sales Sync:
-  - **Bug Fixed**: `qtd_itens` field was NOT being saved in `prepararDadosPedidoCompleto` function
-  - This caused `sales_qtd_pecas_check` constraint violations when creating sales
-  - **Solution**: Added `qtd_itens` calculation from `itensComCategorias` array
-  - **New Column**: Added `tiny_contact_id` to `sales` table for better traceability
-  - **Function Updated**: `criar_vendas_de_tiny_orders` now uses `qtd_itens` column and includes `tiny_contact_id`
-  - **Mapping**: `tiny_orders.cliente_id` maps to `sales.tiny_contact_id`
-  - **SQL Files Created**: `ADICIONAR_TINY_CONTACT_ID.sql`, `ATUALIZAR_FUNCAO_COM_CONTACT_ID.sql`
-- **2024-12-05**: Phase 5 - DUAL MONOCHROMATIC PALETTES with Animated Orbs:
-  - **Design Philosophy**: Two distinct monochromatic palettes per theme
-  - **Dark Theme**: Purple/Violet monocromatic palette (262deg hue) with subtle animated orbs
-    - Background: 262 20% 4% (deep purple-black)
-    - Cards/inputs: 262 18% 8% to 262 15% 16%
-    - Primary: 262 60% 65% (muted violet)
-    - Animated orbs: violet-500/20, purple-500/18, indigo-500/15
-  - **Light Theme**: Beige/Golden/Brown monocromatic palette (35-40deg hue)
-    - Background: 40 30% 96%
-    - Cards: 40 40% 97%
-    - Primary: 38 92% 50% (golden)
-    - Animated orbs: amber-500/15, orange-400/12, yellow-500/10
-  - **Animated Orbs Component**: `src/components/ui/animated-orbs.tsx`
-    - Floating blur orbs with framer-motion animations
-    - Different speeds (15s, 18s, 20s, 22s) for organic feel
-    - Applied to all pages: Auth, Admin, Loja, Colaboradora dashboards
-  - **Auth Page Enhanced**: Purple gradient icon, violet button, animated background orbs
-  - **Result**: Elegant, chic, minimalist, futuristic - subtle colors within each theme family
-- **2024-12-05**: Theme System + Auth Modernization:
-  - **Theme System**: ThemeProvider with dark/light toggle, localStorage persistence (dark as default)
-  - **Auth.tsx Fully Theme-Aware**: All colors replaced with semantic tokens
-  - **LojaDashboard Modularization**: 5 reusable components in `src/components/loja/`:
-    - `types.ts`: Shared TypeScript interfaces
-    - `StoreMetricsCards.tsx`: Store performance metrics
-    - `ColaboradoraPerformanceCards.tsx`: Collaborator performance cards
-    - `RankingDisplay.tsx`: Sales ranking display
-    - `WeeklyHistoryChart.tsx`: 7-day history chart
-- **2024-12-05**: Phase 3 UI/UX Modernization - Futuristic Design System:
-  - **New Design Tokens**: Violet/purple gradient palette, glassmorphism variables, glow shadows
-  - **Modern UI Components**:
-    - `glass-card.tsx`: Glassmorphism cards with framer-motion animations
-    - `animated-counter.tsx`: Animated number counting with currency support
-    - `gradient-background.tsx`: Animated backgrounds with floating orbs
-    - `shimmer-loader.tsx`: Modern skeleton loaders with shimmer effects
-    - `modern-stat-card.tsx`: Stat cards with progress tracking
-    - `page-transition.tsx`: Page transition animations (FadeIn, SlideIn, StaggerContainer)
-    - `modern-dashboard-layout.tsx`: Dashboard wrapper with header and sections
-    - `metric-hero-card.tsx`: Hero metric cards with trends and progress
-    - `celebration-effects.tsx`: Confetti, sparkles, pulse rings, success checkmarks
-  - **Modernized Pages**: Auth.tsx and Index.tsx with smooth animations and glassmorphism
-  - **Utility Classes**: `.glass`, `.glass-card`, `.gradient-text`, `.glow`, `.hover-lift`
-- **2024-12-05**: Enterprise Architecture Phase 2 - Dashboard Cleanup:
-  - **ColaboradoraDashboard**: Removed ~200 lines of duplicate fetch functions, migrated to React Query hooks
-  - **AdminDashboard**: Migrated to useAdminPendingAdiantamentos hook, removed manual fetch/polling
-  - **LojaDashboard**: Removed 8 wrapper functions (~60 lines), kept core WithStoreId functions
-  - **New Hooks Created**: 
-    - `use-loja.ts`: Store metrics, 7-day history, goals, rankings, benchmarks, collaborator performance
-    - `use-admin.ts`: Pending adiantamentos with 30s refetch
-  - All dashboards now use centralized React Query hooks from `src/hooks/queries/`
-- **2024-12-04**: Phase 1 Enterprise Modernization completed:
-  - Error Boundaries with page/section/component levels
-  - Skeleton loaders for all dashboards
-  - Lazy loading for heavy libraries (XLSX, jsPDF, Recharts, html2canvas)
-  - Code splitting reduced bundle from ~2.5MB to ~150KB main
-  - Prefetch system for intelligent route preloading
-  - Loading states with async action hooks
-- **2024-12-01**: Project migrated from Lovable to Replit environment
-- Configured Vite server to bind to 0.0.0.0:5000 for Replit compatibility
-- Set up "Start application" workflow
-
-## Performance Architecture
-- **Error Boundaries**: `src/components/ui/error-boundary.tsx` - Page, section, component levels with retry functionality
-- **Skeleton Loaders**: `src/components/ui/skeleton-loaders.tsx` - Dashboard-specific loading states
-- **Lazy Imports**: `src/lib/lazy-imports.ts` - Dynamic imports for XLSX, jsPDF with caching
-- **Lazy Charts**: `src/components/ui/lazy-chart.tsx` - Recharts components with Suspense
-- **Prefetch System**: `src/lib/prefetch.ts` - Route-based intelligent preloading
-- **Loading States**: `src/hooks/use-async-action.ts` - Async action management with toasts
-- **Virtual Table**: `src/components/ui/virtual-table.tsx` - Efficient rendering for large datasets
-- **All routes use lazy() with Suspense boundaries in App.tsx**
-
-## React Query Hooks Architecture
-Located in `src/hooks/queries/`:
-- **Types**: `types.ts` - Shared TypeScript interfaces for all entities
-- **Base Utilities**: `use-supabase-query.ts` - Query helpers and cache utilities
-- **Stores**: `use-stores.ts` - Store queries and settings
-- **Profiles**: `use-profiles.ts` - User profile queries and mutations
-- **Colaboradora**: `use-colaboradora.ts` - Dashboard data, KPIs, purchases, parcelas
-- **Sales**: `use-sales.ts` - Sales queries, stats, ranking, mutations
-- **Bonuses**: `use-bonuses.ts` - Bonus/goals queries with progress tracking
-
-### Query Keys Convention
-All query keys follow the pattern: `[QUERY_KEY, filters/params]`
-- `['profiles', { role, storeId, activeOnly }]`
-- `['sales', { storeId, colaboradoraId, dateRange }]`
-- `['bonuses', 'active', storeId]`
-
-### Cache Strategy
-- `staleTime`: 1-5 minutes depending on data volatility
-- `gcTime`: 5 minutes for garbage collection
-- Auto-invalidation on mutations
-
-## Database Schema
-- **Schema**: `sistemaretiradas` (all tables use this schema)
-- **Key Tables**:
-  - `stores`: Multi-store management with subscription plans
-  - `profiles`: User profiles with roles (ADMIN, COLABORADORA, LOJA)
-  - `sales`: Sales tracking with bonus calculations
-  - `bonuses`: Monthly bonus periods and calculations
-  - `cashback_*`: Cashback system (transactions, balance, settings, queue)
-  - `tiny_orders`, `tiny_contacts`: Synced data from Tiny ERP
-  - `subscription_*`: Subscription management and limits
-
-## Subscription System
-- **Starter**: 1 store, 5 collaborators, basic features
-- **Business**: 3 stores, 25 collaborators, advanced features
-- **Enterprise**: 7 stores, 80 collaborators, all features
-
-## Key Features
-1. **Tiny ERP Integration**: Automated order/contact sync with polling optimization
-2. **Cashback System**: Automatic cashback generation with WhatsApp queue processing
-3. **Sales Management**: Goal tracking, bonus calculations, performance reports
-4. **Multi-store Support**: Store-specific settings and data isolation
-5. **Real-time Sync**: PostgreSQL pg_cron jobs for scheduled synchronization
-
-## Supabase Edge Functions
-Located in `supabase/functions/`:
-- `sync-tiny-orders`: Sync orders from Tiny ERP (incremental + full sync)
-- `process-cashback-queue`: Process WhatsApp cashback notifications queue
-- `create-colaboradora`: Create new collaborator accounts
-- `create-dev-user`: Development user creation utility
-- `reset-colaboradora-password`: Password reset for collaborators
-- `request-password-reset`: Password recovery flow
-- `send-welcome-email`: Welcome email for new users
-- `send-password-reset-email`: Password reset email notifications
-- `seed-users`: Database seeding utility
-
-## Environment Variables
-Required Supabase secrets (configured in Supabase dashboard):
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `SUPABASE_ANON_KEY`
-- `DATABASE_URL` (PostgreSQL connection string)
-- `RESEND_API_KEY` (for email notifications)
-
-Frontend environment variables (create `.env` file):
-```
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
+Sistema de Retiradas is a comprehensive multi-tenant ERP/sales management SaaS system designed to streamline business operations. It features subscription-based licensing, integration with Tiny ERP for order and contact synchronization, a cashback system with WhatsApp notifications, and robust sales tracking with goals, bonuses, and reporting. The project aims to provide an elegant, chic, minimalist, and futuristic user experience, adhering to Brazilian labor law compliance for time clock management.
 
 ## User Preferences
 - Keep code clean and well-organized
@@ -206,16 +10,54 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 - Use TypeScript for type safety
 - Follow React best practices with hooks and functional components
 
-## Running the Project
-```bash
-npm install
-npm run dev
-```
-The application will run on http://localhost:5000
+## System Architecture
+The system is built with a modern web stack:
+- **Frontend**: React, TypeScript, Vite, TailwindCSS, and shadcn/ui for a modern and responsive user interface.
+- **Backend**: Supabase, leveraging PostgreSQL for the database and Edge Functions for serverless logic.
+- **Multi-tenancy**: Achieved through Row Level Security (RLS) policies within the `sistemaretiradas` PostgreSQL schema, ensuring data isolation for each tenant.
+- **UI/UX Design**: Employs a dual monochromatic palette theme system (dark with purple/violet, light with beige/golden/brown), animated orbs, glassmorphism, glow shadows, and modern UI components like animated counters, shimmer loaders, and page transitions for an engaging user experience.
+- **Performance Architecture**: Incorporates error boundaries, skeleton loaders, lazy loading for heavy libraries (XLSX, jsPDF, Recharts), a prefetch system for intelligent route preloading, and a virtual table for efficient large dataset rendering.
+- **State Management**: Utilizes React Query for data fetching, caching, and synchronization, with a structured approach to query keys and cache invalidation.
+- **Key Features**: Includes automated Tiny ERP integration, a robust cashback system with WhatsApp queue processing, comprehensive sales management with goal tracking and bonus calculations, and multi-store support.
+- **Time Clock System**: Features digital signature PIN for REP-P compliance, time record change requests, advanced reporting, and modular components, adhering to Brazilian labor law (CLT and Portaria 671/2021).
+- **Goal Redistribution System**: Frontend-only logic to dynamically redistribute store daily goals among working collaborators, ensuring 100% goal coverage.
+- **Subscription System**: Defines different tiers (Starter, Business, Enterprise) with varying limits on stores and collaborators and feature access.
 
-## Development Notes
-- All database operations use the `sistemaretiradas` schema
-- RLS policies enforce multi-tenant data isolation
-- Sync jobs run via pg_cron (every 1 minute incremental, various full syncs)
-- Cashback WhatsApp uses queue to avoid blocking operations
-- Phone normalization handles Brazilian format (55 + DDD + number)
+## External Dependencies
+- **Supabase**: Primary backend for database (PostgreSQL), authentication, and Edge Functions.
+- **Tiny ERP API**: Integrated for automated synchronization of orders and contacts.
+- **WhatsApp**: Used for cashback notifications, managed via an n8n webhook.
+- **Resend**: Utilized for sending email notifications (e.g., welcome emails, password resets).
+- **React Query**: A third-party library for data fetching and state management.
+- **XLSX, jsPDF, Recharts, html2canvas**: Libraries dynamically loaded for reporting and data visualization.
+- **Framer Motion**: Used for animations in UI components.
+
+## Recent Changes
+
+### 2024-12-08: Digital Signature PIN System (REP-P Compliance)
+- **Security Decision**: PIN de assinatura digital e DIFERENTE da senha de acesso ao sistema
+- **Complete SQL Schema**: `sql_migrations_archive/SQL_ASSINATURA_DIGITAL_COMPLETO.sql` with:
+  - `time_clock_signature_pins`: Table for storing hashed signature PINs (bcrypt)
+  - `time_clock_digital_signatures`: Table for storing each punch signature
+  - `time_clock_pin_audit_log`: Audit log for all PIN operations
+  - `set_signature_pin()`: RPC to create/update PIN with bcrypt hash
+  - `validate_signature_pin()`: RPC to validate PIN with attempt throttling (5 attempts, 15min lockout)
+  - `has_signature_pin()`: RPC to check if collaborator has PIN configured
+  - `admin_reset_signature_pin()`: RPC for admin to reset collaborator's PIN
+  - `generate_pin_reset_token()`: RPC to generate email reset token (expires 1h)
+  - `reset_pin_with_token()`: RPC to reset PIN using email token
+  - `get_pin_status()`: RPC to get PIN status for admin dashboard
+- **TimeClockRegister.tsx Enhanced**:
+  - Onboarding flow for first-time PIN setup
+  - PIN validation via Supabase RPC before punch recording
+  - Settings button to change PIN anytime
+  - "Esqueci meu PIN" (forgot PIN) flow with email reset
+  - Clear messaging that PIN is different from login password
+- **Netlify Functions for Email**:
+  - `send-pin-reset-email.js`: Sends reset token via Resend
+  - `request-pin-reset.js`: Generates token and triggers email
+- **Security Benefits**: Reduced blast radius, enables rotation, supports shared kiosks
+- **Portaria 671/2021 Compliance**: PIN-based digital signature for REP-P
+
+### Pending Deployments
+- Deploy `sql_migrations_archive/SQL_ASSINATURA_DIGITAL_COMPLETO.sql` to Supabase (requires pgcrypto extension)
