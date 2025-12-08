@@ -1410,6 +1410,7 @@ export default function LojaDashboard() {
         if (colaboradorasToUse.length > 0) {
             if (!goalsError && goalsData && goalsData.length > 0) {
                 console.log('[LojaDashboard] ✅ Metas individuais encontradas:', goalsData.length);
+                console.log('[LojaDashboard] 📊 Metas após redistribuição (se houver):');
                 goalsData.forEach((g, idx) => {
                     console.log(`[LojaDashboard]   ${idx + 1}. colaboradora_id: ${g.colaboradora_id}, meta: R$ ${g.meta_valor}, super_meta: R$ ${g.super_meta_valor || 0}`);
                 });
