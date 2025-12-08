@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Target, Zap, TrendingUp, Calendar, Gift } from "lucide-react";
-import { format, startOfWeek, endOfWeek, getWeek, getYear, addWeeks, eachDayOfInterval, isSameDay, subWeeks, startOfMonth } from "date-fns";
+import { format, startOfWeek, endOfWeek, getWeek, getYear, addWeeks, addDays, eachDayOfInterval, isSameDay, subWeeks, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/utils";
 
@@ -418,7 +418,7 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
 
             const { data: salesData } = await salesQuery
                 .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
-                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+                .lt("data_venda", format(addDays(weekRange.end, 1), "yyyy-MM-dd"));
 
             // Buscar informações de desativação das colaboradoras (se for loja)
             let deactivationMap = new Map<string, string | null>();
