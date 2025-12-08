@@ -15,7 +15,8 @@ import { WorkScheduleConfig } from './WorkScheduleConfig';
 import { HoursBalanceManagement } from './HoursBalanceManagement';
 import { TimeClockChangeRequests } from './TimeClockChangeRequests';
 import { TimeClockReports } from './TimeClockReports';
-import { Clock, Calendar, TrendingUp, FileEdit, BarChart3, AlertCircle } from 'lucide-react';
+import { TimeClockNotifications } from './TimeClockNotifications';
+import { Clock, Calendar, TrendingUp, FileEdit, BarChart3, AlertCircle, Bell } from 'lucide-react';
 
 interface TimeClockManagementProps {
   storeId?: string | null;
@@ -107,6 +108,10 @@ export function TimeClockManagement({ storeId: propStoreId, stores, showStoreSel
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="notificacoes" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[70px] flex items-center justify-center gap-1" data-testid="tab-notificacoes">
+              <Bell className="h-3 w-3" />
+              <span className="hidden sm:inline">Notificacoes</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="jornada">
@@ -127,6 +132,10 @@ export function TimeClockManagement({ storeId: propStoreId, stores, showStoreSel
               isAdmin 
               onCountChange={fetchPendingRequestsCount}
             />
+          </TabsContent>
+
+          <TabsContent value="notificacoes">
+            <TimeClockNotifications storeId={storeId} />
           </TabsContent>
         </Tabs>
       ) : (
