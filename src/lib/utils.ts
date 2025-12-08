@@ -35,3 +35,24 @@ export function formatCurrency(value: number | string | null | undefined, option
   
   return showSymbol ? `R$ ${formatted}` : formatted;
 }
+
+/**
+ * Alias curto para formatCurrency - formata valor em Reais brasileiros
+ * Usa formato brasileiro: R$ 1.234,56 (ponto para milhares, vírgula para centavos)
+ * @param value - Valor numérico
+ * @param decimals - Número de casas decimais (padrão: 2)
+ * @returns String formatada (ex: "R$ 1.234,56")
+ */
+export function formatBRL(value: number | string | null | undefined, decimals: number = 2): string {
+  return formatCurrency(value, { decimals, showSymbol: true });
+}
+
+/**
+ * Formata número no padrão brasileiro sem símbolo de moeda
+ * @param value - Valor numérico
+ * @param decimals - Número de casas decimais (padrão: 2)
+ * @returns String formatada (ex: "1.234,56")
+ */
+export function formatNumber(value: number | string | null | undefined, decimals: number = 2): string {
+  return formatCurrency(value, { decimals, showSymbol: false });
+}
