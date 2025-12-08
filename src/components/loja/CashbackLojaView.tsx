@@ -138,14 +138,20 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
   }, [profile, storeId]);
 
   const fetchData = async () => {
+    if (!storeId) {
+      console.warn('[CashbackLojaView] fetchData chamado sem storeId');
+      return;
+    }
+
     try {
       setLoading(true);
 
-      // Buscar TODAS as clientes
+      // Buscar clientes DESTA LOJA (filtrado por store_id para segurança multi-tenant)
       const { data: allClientes, error: clientesError } = await supabase
         .schema('sistemaretiradas')
         .from('tiny_contacts')
         .select('id, nome, cpf_cnpj, telefone, email, tags, data_nascimento')
+        .eq('store_id', storeId)
         .not('cpf_cnpj', 'is', null)
         .neq('cpf_cnpj', '')
         .order('nome');
@@ -153,15 +159,16 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
       if (clientesError) throw clientesError;
       setClientes(allClientes || []);
 
-      // Buscar saldos
+      // Buscar saldos DESTA LOJA
       const { data: balances, error: balancesError } = await supabase
         .schema('sistemaretiradas')
         .from('cashback_balance')
-        .select('*');
+        .select('*')
+        .eq('store_id', storeId);
 
       if (balancesError) throw balancesError;
 
-      // Buscar transações
+      // Buscar transações DESTA LOJA
       const { data: transactions, error: transactionsError } = await supabase
         .schema('sistemaretiradas')
         .from('cashback_transactions')
@@ -169,11 +176,12 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
           *,
           tiny_order:tiny_order_id (numero_pedido)
         `)
+        .eq('store_id', storeId)
         .order('created_at', { ascending: false });
 
       if (transactionsError) throw transactionsError;
 
-      // Buscar pedidos desta loja para calcular categoria
+      // Buscar pedidos DESTA LOJA para calcular categoria
       const parseMoney = (val: any): number => {
         if (typeof val === 'number') return val;
         if (!val) return 0;
@@ -185,11 +193,12 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
         return 0;
       };
 
-      // Buscar pedidos para calcular categoria
+      // Buscar pedidos DESTA LOJA para calcular categoria
       const { data: ordersData, error: ordersError } = await supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
-        .select('cliente_id, valor_total');
+        .select('cliente_id, valor_total')
+        .eq('store_id', storeId);
 
       if (ordersError) console.error('Erro ao buscar pedidos:', ordersError);
 

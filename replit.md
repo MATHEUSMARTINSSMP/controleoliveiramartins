@@ -138,6 +138,26 @@ The system is built with a modern web stack:
 - **send-cashback-whatsapp.js**: Refatorado para usar send-whatsapp-message centralizado
 - **Beneficio**: Admin de loja pode ativar WhatsApp sem precisar de numero proprio
 
+### 2024-12-08: Pre-Launch Security Audit and Fixes
+- **CashbackLojaView.tsx Security Fix**: Added store_id filtering to ALL Supabase queries
+  - `tiny_contacts.eq('store_id', storeId)` - prevents cross-tenant contact access
+  - `cashback_balance.eq('store_id', storeId)` - prevents cross-tenant balance access
+  - `cashback_transactions.eq('store_id', storeId)` - prevents cross-tenant transaction access
+  - `tiny_orders.eq('store_id', storeId)` - prevents cross-tenant order access
+- **RLS Verification Complete**: All major tables have proper Row Level Security policies:
+  - `stores`, `profiles`, `sales`, `goals`: Verified admin_id/store_id filtering
+  - `cashback_transactions`, `cashback_balance`: Verified store_id filtering
+  - `crm_contacts`, `crm_tasks`, `crm_commitments`: Verified store_id filtering
+  - `time_clock_records`, `time_clock_signature_pins`: Verified colaboradora_id filtering
+  - `whatsapp_credentials`: Verified customer_id filtering
+  - `wishlist_items`: Verified store_id filtering
+- **Mobile-First Verified**: All dashboards use sm: breakpoints, flex-wrap, responsive grids
+- **Data Isolation Confirmed**:
+  - ColaboradoraDashboard: Uses profile?.id and profile?.store_id with null-safe access
+  - LojaDashboard: All queries filter by store_id
+  - AdminDashboard: Shows all stores owned by admin (admin_id filter)
+  - Collaborators can see rankings (intentional for gamification) but not other stores' data
+
 ### Pending Configuration
 - Configure Netlify environment variables for email functions:
   - `RESEND_API_KEY` - API key from Resend
