@@ -11,6 +11,7 @@ import { TimeClockRegister } from './TimeClockRegister';
 import { TimeClockHistory } from './TimeClockHistory';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface TimeClockLojaViewProps {
   storeId?: string | null;
@@ -63,6 +64,8 @@ export function TimeClockLojaView({ storeId: propStoreId }: TimeClockLojaViewPro
     setAuthenticated(false);
     setColaboradoraId(null);
     setColaboradoraName('');
+    // Permitir que outro colaborador faça login
+    toast.success('Logout realizado. Outro colaborador pode fazer login.');
   };
 
   if (loading) {
@@ -87,10 +90,20 @@ export function TimeClockLojaView({ storeId: propStoreId }: TimeClockLojaViewPro
     );
   }
 
+  if (!storeId) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center text-muted-foreground">
+          Aguardando carregamento da loja...
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (!authenticated || !colaboradoraId) {
     return (
       <TimeClockAuth
-        storeId={storeId!}
+        storeId={storeId}
         onAuthSuccess={handleAuthSuccess}
       />
     );

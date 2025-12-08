@@ -34,6 +34,11 @@ export function TimeClockAuth({ storeId, onAuthSuccess, onCancel }: TimeClockAut
     try {
       setLoading(true);
 
+      if (!storeId) {
+        toast.error('Email, senha e storeId são obrigatórios');
+        return;
+      }
+
       // Usar função Netlify para verificar credenciais sem alterar sessão principal
       const response = await fetch('/.netlify/functions/verify-colaboradora-ponto', {
         method: 'POST',
@@ -43,7 +48,7 @@ export function TimeClockAuth({ storeId, onAuthSuccess, onCancel }: TimeClockAut
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           password: password,
-          store_id: storeId,
+          storeId: storeId, // ✅ Corrigido: usar storeId em vez de store_id
         }),
       });
 
