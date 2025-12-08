@@ -3306,9 +3306,9 @@ export default function LojaDashboard() {
                                         <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
                                             {goals ? (
                                                 <div className="space-y-4 w-full">
-                                                    <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {goals.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                    <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {goals.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                                     <p className="text-sm sm:text-base text-muted-foreground">
-                                                        Realizado: R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                        Realizado: R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </p>
                                                     <div className="space-y-3">
                                                         <div className="flex items-center gap-4 justify-between">
@@ -3320,7 +3320,7 @@ export default function LojaDashboard() {
                                                         {goals.super_meta_valor && (
                                                             <p className="text-sm sm:text-base text-muted-foreground flex items-center justify-center gap-1.5">
                                                                 <Trophy className="h-4 w-4" />
-                                                                <span>Super Meta: R$ {goals.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                                                <span>Super Meta: R$ {goals.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                                             </p>
                                                         )}
                                                     </div>
@@ -3344,7 +3344,7 @@ export default function LojaDashboard() {
                                         <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
                                             {goals ? (
                                                 <div className="space-y-4 w-full">
-                                                    <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {dailyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                    <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {dailyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                                     <div className="flex items-center gap-4 justify-between">
                                                         <Progress value={Math.min(dailyProgress, 100)} className="h-4 flex-1" />
                                                         <span className="text-base font-semibold text-primary whitespace-nowrap min-w-[50px] text-right">
@@ -3370,7 +3370,7 @@ export default function LojaDashboard() {
                                         </CardHeader>
                                         <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
                                             <div className="space-y-3 w-full">
-                                                <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {sales.reduce((sum, s) => sum + s.valor, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {sales.reduce((sum, s) => sum + s.valor, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                                 <p className="text-sm sm:text-base text-muted-foreground">{sales.length} {sales.length === 1 ? 'venda' : 'vendas'}</p>
                                             </div>
                                         </CardContent>
@@ -3387,7 +3387,7 @@ export default function LojaDashboard() {
                                             </CardHeader>
                                             <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
                                                 <div className="space-y-3 w-full">
-                                                    <p className="text-xl sm:text-3xl font-bold text-primary">R$ {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.valor, 0) / sales.length).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</p>
+                                                    <p className="text-xl sm:text-3xl font-bold text-primary">R$ {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.valor, 0) / sales.length).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0,00'}</p>
                                                     <div className="space-y-1">
                                                         <div className="flex items-center gap-3 justify-between">
                                                             <Progress
@@ -3396,7 +3396,7 @@ export default function LojaDashboard() {
                                                             />
                                                         </div>
                                                         <p className="text-xs sm:text-sm text-muted-foreground">
-                                                            Meta: R$ {metrics.meta_ticket_medio?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                            Meta: R$ {metrics.meta_ticket_medio?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -3435,7 +3435,7 @@ export default function LojaDashboard() {
                                                 <div className="space-y-3 w-full">
                                                     <p className="text-xl sm:text-3xl font-bold text-primary">
                                                         R$ {sales.length > 0 ?
-                                                            (sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) :
+                                                            (sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) :
                                                             '0,00'}
                                                     </p>
                                                     <div className="space-y-1">
@@ -3514,22 +3514,22 @@ export default function LojaDashboard() {
                                                                     <div className="space-y-2.5">
                                                                         <div className="flex items-center justify-between text-base">
                                                                             <span className="text-muted-foreground">Meta do Dia</span>
-                                                                            <span className="font-semibold">R$ {metaRedistribuida > 0 ? metaRedistribuida.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</span>
+                                                                            <span className="font-semibold">R$ {metaRedistribuida > 0 ? metaRedistribuida.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0,00'}</span>
                                                                         </div>
                                                                         {redistribuicaoExtra > 0 && (
                                                                             <p className="text-xs text-muted-foreground italic">
-                                                                                (+R$ {redistribuicaoExtra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} cobrindo {redistributedPerformance.totalFolga} colega(s))
+                                                                                (+R$ {redistribuicaoExtra.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} cobrindo {redistributedPerformance.totalFolga} colega(s))
                                                                             </p>
                                                                         )}
                                                                         <div className="flex items-center justify-between text-base">
                                                                             <span className="text-muted-foreground">Vendido:</span>
-                                                                            <span className="font-bold text-primary">R$ {perf.vendido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                                                            <span className="font-bold text-primary">R$ {perf.vendido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                                                         </div>
                                                                         {metaRedistribuida > 0 && (
                                                                             <div className="flex items-center justify-between text-base">
                                                                                 <span className="text-muted-foreground">Falta:</span>
                                                                                 <span className={`font-semibold ${perf.vendido >= metaRedistribuida ? 'text-status-ahead' : 'text-status-ontrack'}`}>
-                                                                                    R$ {Math.max(0, metaRedistribuida - perf.vendido).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                                    R$ {Math.max(0, metaRedistribuida - perf.vendido).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                                                 </span>
                                                                             </div>
                                                                         )}
@@ -4444,9 +4444,9 @@ export default function LojaDashboard() {
                                     <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
                                         {goals ? (
                                             <div className="space-y-4 w-full">
-                                                <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {goals.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {goals.meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                                 <p className="text-sm sm:text-base text-muted-foreground">
-                                                    Realizado: R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    Realizado: R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </p>
                                                 <div className="space-y-3">
                                                     <div className="flex items-center gap-4 justify-between">
@@ -4458,7 +4458,7 @@ export default function LojaDashboard() {
                                                     {goals.super_meta_valor && (
                                                         <p className="text-sm sm:text-base text-muted-foreground flex items-center justify-center gap-1.5">
                                                             <Trophy className="h-4 w-4" />
-                                                            <span>Super Meta: R$ {goals.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                                            <span>Super Meta: R$ {goals.super_meta_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                                         </p>
                                                     )}
                                                 </div>
@@ -4482,7 +4482,7 @@ export default function LojaDashboard() {
                                     <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
                                         {goals ? (
                                             <div className="space-y-4 w-full">
-                                                <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {dailyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {dailyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                                 <div className="flex items-center gap-4 justify-between">
                                                     <Progress value={Math.min(dailyProgress, 100)} className="h-4 flex-1" />
                                                     <span className="text-base font-semibold text-primary whitespace-nowrap min-w-[50px] text-right">
@@ -4508,7 +4508,7 @@ export default function LojaDashboard() {
                                     </CardHeader>
                                     <CardContent className="p-5 sm:p-8 pt-5 sm:pt-8 flex-1 flex flex-col items-center justify-center text-center">
                                         <div className="space-y-3 w-full">
-                                            <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {sales.reduce((sum, s) => sum + s.valor, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                            <p className="text-2xl sm:text-4xl font-bold text-primary">R$ {sales.reduce((sum, s) => sum + s.valor, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                             <p className="text-sm sm:text-base text-muted-foreground">{sales.length} {sales.length === 1 ? 'venda' : 'vendas'}</p>
                                         </div>
                                     </CardContent>
@@ -4525,7 +4525,7 @@ export default function LojaDashboard() {
                                         </CardHeader>
                                         <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
                                             <div className="space-y-3 w-full">
-                                                <p className="text-xl sm:text-3xl font-bold text-primary">R$ {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.valor, 0) / sales.length).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</p>
+                                                <p className="text-xl sm:text-3xl font-bold text-primary">R$ {sales.length > 0 ? (sales.reduce((sum, s) => sum + s.valor, 0) / sales.length).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0,00'}</p>
                                                 <div className="space-y-1">
                                                     <div className="flex items-center gap-3 justify-between">
                                                         <Progress
@@ -4534,7 +4534,7 @@ export default function LojaDashboard() {
                                                         />
                                                     </div>
                                                     <p className="text-xs sm:text-sm text-muted-foreground">
-                                                        Meta: R$ {metrics.meta_ticket_medio?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                        Meta: R$ {metrics.meta_ticket_medio?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </p>
                                                 </div>
                                             </div>
@@ -5182,7 +5182,7 @@ export default function LojaDashboard() {
                                                                 ));
                                                             })()}
                                                             <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-primary/5 z-10 min-w-[120px] text-right">
-                                                                R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                             </TableCell>
                                                         </TableRow>
                                                     </TableBody>
