@@ -501,7 +501,7 @@ export default function CustomerIntelligence() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid gap-4 md:grid-cols-3">
+                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
                         <div className="space-y-2">
                             <Label>Data Inicial</Label>
                             <Input
@@ -537,7 +537,7 @@ export default function CustomerIntelligence() {
 
             {/* Estatísticas Gerais */}
             {stats && (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium">Total de Clientes</CardTitle>
@@ -591,7 +591,7 @@ export default function CustomerIntelligence() {
                 </TabsList>
 
                 <TabsContent value="rankings" className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                         {/* Top Compradores */}
                         <Card>
                             <CardHeader>
@@ -766,7 +766,7 @@ export default function CustomerIntelligence() {
                 </TabsContent>
 
                 <TabsContent value="patterns" className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                         {/* Marcas Favoritas */}
                         <Card>
                             <CardHeader>

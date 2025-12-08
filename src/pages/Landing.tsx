@@ -436,7 +436,7 @@ export default function Landing() {
           </div>
 
           {/* Main Plans - Mobile Stack */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 max-w-5xl mx-auto mb-16">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8 max-w-5xl mx-auto mb-16">
             {plans.map((plan, i) => (
               <div
                 key={i}
@@ -500,7 +500,7 @@ export default function Landing() {
               <p className="text-sm sm:text-base text-slate-300">Adicione recursos conforme sua loja cresce</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 max-w-2xl mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8 max-w-2xl mx-auto">
               {addOns.map((addon, i) => (
                 <GlassCard key={i} className="text-center p-4 sm:p-6 min-h-[120px] flex flex-col justify-center" data-testid={`addon-${i}`}>
                   <h4 className="text-lg sm:text-xl font-bold mb-2">{addon.name}</h4>

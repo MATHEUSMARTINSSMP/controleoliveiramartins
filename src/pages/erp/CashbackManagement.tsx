@@ -1909,7 +1909,7 @@ export default function CashbackManagement() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Cashback Gerado</CardTitle>
@@ -1967,7 +1967,7 @@ export default function CashbackManagement() {
 
         {/* TAB 1: LANÇAR */}
         <TabsContent value="lancar" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Card Pontuar */}
             <Card>
               <CardHeader>
@@ -2847,7 +2847,7 @@ export default function CashbackManagement() {
             <CardContent>
               <div className="space-y-4">
                 {/* Filtros */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="space-y-2">
                     <Label>Tipo</Label>
                     <Select value={filterType} onValueChange={(v: any) => setFilterType(v)}>
@@ -3400,7 +3400,7 @@ export default function CashbackManagement() {
                   {/* Formulário de Bonificação */}
                   <div className="space-y-4">
                     <Label className="text-base font-semibold">Valor da Bonificação</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Valor por Cliente *</Label>
                         <Input
@@ -3529,7 +3529,7 @@ export default function CashbackManagement() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <Button
                         variant="outline"
                         onClick={() => exportarFormatoNormal('xlsx')}

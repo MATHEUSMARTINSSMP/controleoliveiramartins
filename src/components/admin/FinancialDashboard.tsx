@@ -193,7 +193,7 @@ export const FinancialDashboard = () => {
 
     return (
         <div className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                 <KPICard
                     title="Total Previsto"
                     value={formatCurrency(kpis.previsto)}
