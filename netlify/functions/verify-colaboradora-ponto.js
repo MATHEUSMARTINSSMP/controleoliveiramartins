@@ -109,21 +109,23 @@ exports.handler = async (event, context) => {
     console.log('[verify-colaboradora-ponto] Tamanho do storeId:', storeId?.length);
     
     // Primeiro, tentar buscar na tabela stores
+    // Usar RPC ou query direta sem RLS para garantir acesso
     const { data: storesList, error: listError } = await supabaseAdmin
       .schema('sistemaretiradas')
       .from('stores')
       .select('id, name, ponto_ativo, active')
-      .eq('id', storeId);
+      .eq('id', storeId)
+      .maybeSingle(); // Usar maybeSingle para evitar erro se não encontrar
 
-    console.log('[verify-colaboradora-ponto] Resultado da busca em stores (sem .single()):', {
-      encontrou: storesList?.length || 0,
+    console.log('[verify-colaboradora-ponto] Resultado da busca em stores:', {
+      encontrou: storesList ? 1 : 0,
       dados: storesList,
       erro: listError
     });
 
     // Se não encontrou na tabela stores, tentar buscar no perfil LOJA
-    let finalStore = null;
-    if (!storesList || storesList.length === 0) {
+    let finalStore = storesList || null;
+    if (!finalStore) {
       console.log('[verify-colaboradora-ponto] ⚠️ Loja não encontrada em stores, tentando buscar no perfil LOJA...');
       
       // Buscar perfil LOJA que tenha store_default igual ao storeId
@@ -142,31 +144,38 @@ exports.handler = async (event, context) => {
         erro: lojaProfileError
       });
 
-      // Se encontrou o perfil LOJA, buscar a loja na tabela stores usando o store_default
-      if (lojaProfile && lojaProfile.length > 0) {
-        const loja = lojaProfile[0];
-        const storeIdToSearch = loja.store_default || loja.store_id || storeId;
-        
-        console.log('[verify-colaboradora-ponto] Buscando loja na tabela stores com ID do perfil:', storeIdToSearch);
-        
-        const { data: storeFromProfile, error: storeFromProfileError } = await supabaseAdmin
-          .schema('sistemaretiradas')
-          .from('stores')
-          .select('id, name, ponto_ativo, active')
-          .eq('id', storeIdToSearch)
-          .maybeSingle();
+        // Se encontrou o perfil LOJA, criar objeto de loja a partir do perfil
+        // já que a loja pode não estar na tabela stores mas existe no perfil
+        if (lojaProfile && lojaProfile.length > 0) {
+          const loja = lojaProfile[0];
+          const storeIdToSearch = loja.store_default || loja.store_id || storeId;
+          
+          console.log('[verify-colaboradora-ponto] Tentando buscar loja na tabela stores com ID do perfil:', storeIdToSearch);
+          
+          // Tentar buscar na tabela stores novamente
+          const { data: storeFromProfile, error: storeFromProfileError } = await supabaseAdmin
+            .schema('sistemaretiradas')
+            .from('stores')
+            .select('id, name, ponto_ativo, active')
+            .eq('id', storeIdToSearch)
+            .maybeSingle();
 
-        if (storeFromProfile) {
-          finalStore = storeFromProfile;
-          console.log('[verify-colaboradora-ponto] ✅ Loja encontrada via perfil LOJA:', finalStore);
-        } else {
-          console.error('[verify-colaboradora-ponto] ❌ Loja não encontrada mesmo usando ID do perfil:', {
-            storeIdOriginal: storeId,
-            storeIdDoPerfil: storeIdToSearch,
-            erro: storeFromProfileError
-          });
+          if (storeFromProfile) {
+            finalStore = storeFromProfile;
+            console.log('[verify-colaboradora-ponto] ✅ Loja encontrada via perfil LOJA na tabela stores:', finalStore);
+          } else {
+            // Se não encontrou na tabela stores, criar objeto a partir do perfil
+            // Isso permite que o sistema funcione mesmo se a loja não estiver na tabela stores
+            console.log('[verify-colaboradora-ponto] ⚠️ Loja não encontrada em stores, usando dados do perfil LOJA');
+            finalStore = {
+              id: storeIdToSearch,
+              name: loja.name || 'Loja',
+              ponto_ativo: true, // Assumir ativo se não estiver na tabela
+              active: true,
+            };
+            console.log('[verify-colaboradora-ponto] ✅ Loja criada a partir do perfil:', finalStore);
+          }
         }
-      }
 
       // Se ainda não encontrou, listar todas as lojas para debug
       if (!finalStore) {
@@ -174,17 +183,22 @@ exports.handler = async (event, context) => {
         const { data: allStores, error: allStoresError } = await supabaseAdmin
           .schema('sistemaretiradas')
           .from('stores')
-          .select('id, name, active')
+          .select('id, name, active, ponto_ativo')
           .limit(10);
         
         console.log('[verify-colaboradora-ponto] Lojas disponíveis no banco:', {
           total: allStores?.length || 0,
-          lojas: allStores?.map(s => ({ id: s.id, name: s.name, active: s.active })),
+          lojas: allStores?.map(s => ({ id: s.id, name: s.name, active: s.active, ponto_ativo: s.ponto_ativo })),
           erro: allStoresError
         });
+
+        // Tentar encontrar a loja na lista retornada
+        const foundInList = allStores?.find(s => s.id === storeId);
+        if (foundInList) {
+          finalStore = foundInList;
+          console.log('[verify-colaboradora-ponto] ✅ Loja encontrada na lista completa:', finalStore);
+        }
       }
-    } else {
-      finalStore = storesList[0];
     }
 
     // Se ainda não encontrou, tentar com .single() na busca original
