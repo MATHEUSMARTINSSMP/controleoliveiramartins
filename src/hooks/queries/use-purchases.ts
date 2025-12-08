@@ -121,6 +121,12 @@ export function useCreatePurchase() {
       queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
       queryClient.invalidateQueries({ queryKey: ['relatorios'] });
       queryClient.invalidateQueries({ queryKey: ['colaboradora'] }); // For dashboard updates
+      
+      // Invalidate sales and daily revenue queries (for ERP integration)
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['kpis'] });
+      queryClient.invalidateQueries({ queryKey: ['loja'] }); // For store dashboard metrics
+      
       toast.success('Compra criada com sucesso!');
     },
     onError: (error: any) => {
