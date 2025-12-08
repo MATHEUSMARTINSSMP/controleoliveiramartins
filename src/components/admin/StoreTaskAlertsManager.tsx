@@ -777,17 +777,14 @@ export const StoreTaskAlertsManager = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="GLOBAL">Elevea (número global)</SelectItem>
-                    <SelectItem value="STORE">Número próprio da loja</SelectItem>
+                    <SelectItem value="GLOBAL">Elevea (numero global)</SelectItem>
+                    <SelectItem value="STORE">Numero proprio da loja</SelectItem>
                   </SelectContent>
                 </Select>
                 {formData.sender_type === 'STORE' && (
-                  <Input
-                    placeholder="Número da loja (ex: 5596981113307)"
-                    value={formData.sender_phone}
-                    onChange={(e) => setFormData({ ...formData, sender_phone: e.target.value })}
-                    data-testid="input-sender-phone"
-                  />
+                  <p className="text-sm text-muted-foreground">
+                    Sera usado o numero WhatsApp configurado para esta loja
+                  </p>
                 )}
               </div>
 
@@ -812,7 +809,7 @@ export const StoreTaskAlertsManager = () => {
                     <div key={index} className="flex gap-2 items-start">
                       <div className="flex-1 space-y-2">
                         <Input
-                          placeholder="Número (ex: 5596981113307)"
+                          placeholder="DDD + Numero (ex: 96981113307)"
                           value={recipient.phone}
                           onChange={(e) => updateRecipient(index, 'phone', e.target.value)}
                           data-testid={`input-recipient-phone-${index}`}
@@ -839,6 +836,9 @@ export const StoreTaskAlertsManager = () => {
                     </div>
                   ))}
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Informe apenas DDD + numero, sem codigo do pais (DDI)
+                </p>
               </div>
 
               <Separator />
