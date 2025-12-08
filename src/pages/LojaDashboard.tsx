@@ -217,13 +217,19 @@ export default function LojaDashboard() {
                             queryClient.refetchQueries({ queryKey: [QUERY_KEYS.goals] }),
                             queryClient.refetchQueries({ queryKey: [QUERY_KEYS.sales] }),
                             queryClient.refetchQueries({ queryKey: ['loja'] }),
+                            refetchColaboradorasPerformance(),
                         ]);
+                        
+                        // Aguardar um pouco para garantir que as queries foram atualizadas
+                        await new Promise(resolve => setTimeout(resolve, 800));
+                        
+                        // Limpar cache de fetchDataWithStoreId para forçar recarregamento
+                        lastFetchedStoreIdRef.current = null;
+                        isFetchingDataRef.current = false;
                         
                         // Recarregar dados da loja para atualizar performance
                         if (storeId && storeName) {
-                            setTimeout(() => {
-                                fetchDataWithStoreId(storeId, storeName);
-                            }, 500);
+                            await fetchDataWithStoreId(storeId, storeName);
                         }
                     }
                 } catch (err) {
@@ -3448,25 +3454,33 @@ export default function LojaDashboard() {
                                                             
                                                             if (redistributed) {
                                                                 // Invalidar todas as queries relacionadas para atualizar UI
-                                                                queryClient.invalidateQueries({ queryKey: ['goals'] });
-                                                                queryClient.invalidateQueries({ queryKey: ['sales'] });
+                                                                queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.goals] });
+                                                                queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.sales] });
                                                                 queryClient.invalidateQueries({ queryKey: ['loja'] });
                                                                 queryClient.invalidateQueries({ queryKey: ['colaboradora'] });
                                                                 
                                                                 // Recarregar folgas para atualizar estado local
                                                                 await refetchFolgas();
                                                                 
-                                                                // Aguardar um pouco para garantir que as queries foram invalidadas
-                                                                await new Promise(resolve => setTimeout(resolve, 500));
+                                                                // Forçar refetch das queries críticas primeiro
+                                                                await Promise.all([
+                                                                    queryClient.refetchQueries({ queryKey: [QUERY_KEYS.goals] }),
+                                                                    queryClient.refetchQueries({ queryKey: [QUERY_KEYS.sales] }),
+                                                                    queryClient.refetchQueries({ queryKey: ['loja'] }),
+                                                                    refetchColaboradorasPerformance(),
+                                                                ]);
+                                                                
+                                                                // Aguardar um pouco para garantir que as queries foram atualizadas
+                                                                await new Promise(resolve => setTimeout(resolve, 800));
+                                                                
+                                                                // Limpar cache de fetchDataWithStoreId para forçar recarregamento
+                                                                lastFetchedStoreIdRef.current = null;
+                                                                isFetchingDataRef.current = false;
                                                                 
                                                                 // Recarregar dados da loja para atualizar metas e performance
                                                                 if (storeId && storeName) {
                                                                     await fetchDataWithStoreId(storeId, storeName);
                                                                 }
-                                                                
-                                                                // Forçar refetch dos hooks React Query
-                                                                queryClient.refetchQueries({ queryKey: ['goals'] });
-                                                                queryClient.refetchQueries({ queryKey: ['sales'] });
                                                             }
                                                         }
                                                     } catch (error: any) {
