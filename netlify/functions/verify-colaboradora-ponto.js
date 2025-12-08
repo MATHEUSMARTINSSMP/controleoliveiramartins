@@ -269,10 +269,26 @@ exports.handler = async (event, context) => {
         .trim();
     };
 
-    const belongsToStore = 
-      profile.store_id === storeId || 
-      (profile.store_default && 
-       normalizeName(profile.store_default) === normalizeName(finalStore.name));
+    const storeIdMatch = profile.store_id === storeId;
+    const storeDefaultNormalized = profile.store_default ? normalizeName(profile.store_default) : null;
+    const lojaNameNormalized = normalizeName(finalStore.name);
+    const storeDefaultMatch = storeDefaultNormalized && storeDefaultNormalized === lojaNameNormalized;
+    
+    const belongsToStore = storeIdMatch || storeDefaultMatch;
+
+    console.log('[verify-colaboradora-ponto] Validação de pertencimento:', {
+      colaboradora_id: profile.id,
+      colaboradora_email: profile.email,
+      colaboradora_store_id: profile.store_id,
+      colaboradora_store_default: profile.store_default,
+      loja_id: storeId,
+      loja_name: finalStore.name,
+      store_id_match: storeIdMatch,
+      store_default_normalized: storeDefaultNormalized,
+      loja_name_normalized: lojaNameNormalized,
+      store_default_match: storeDefaultMatch,
+      belongs_to_store: belongsToStore,
+    });
 
     if (!belongsToStore) {
       return {
