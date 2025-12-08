@@ -183,7 +183,7 @@ const Colaboradores = () => {
         throw lojasError;
       }
 
-      // Buscar nomes das lojas
+      // Buscar nomes das lojas da tabela stores
       const { data: storesData } = await supabase
         .schema("sistemaretiradas")
         .from("stores")
@@ -192,10 +192,21 @@ const Colaboradores = () => {
 
       if (storesData && lojasData) {
         const storesMap = new Map(storesData.map(s => [s.id, s.name]));
-        const lojasComNomes = lojasData.map((loja: any) => ({
-          ...loja,
-          store_name: storesMap.get(loja.store_default || '') || loja.store_default || 'Não definido'
-        }));
+        // Criar mapeamento reverso: nome da loja -> ID
+        const storesNameToIdMap = new Map(storesData.map(s => [s.name, s.id]));
+        
+        const lojasComNomes = lojasData.map((loja: any) => {
+          const storeIdFromProfile = loja.store_default || loja.store_id;
+          const storeNameFromStores = storesMap.get(storeIdFromProfile || '');
+          
+          return {
+            ...loja,
+            store_name: storeNameFromStores || loja.store_default || loja.name || 'Não definido',
+            // Adicionar o nome real da loja da tabela stores para usar no Select
+            store_real_name: storeNameFromStores || null,
+            store_real_id: storeIdFromProfile || null,
+          };
+        });
         setLojas(lojasComNomes);
       } else {
         setLojas(lojasData || []);
@@ -213,19 +224,38 @@ const Colaboradores = () => {
       setSelectedId(colaboradora.id);
       
       // Buscar o valor correto para o Select
-      // Tentar encontrar uma loja que corresponda ao store_default da colaboradora
+      // Usar o nome real da loja da tabela stores, não o store_default do perfil
       let storeValue = colaboradora.store_default || "";
       
-      // Se temos lojas carregadas, verificar se o store_default corresponde a alguma loja
+      // Se temos lojas carregadas, buscar a loja que corresponde
       if (storeValue && lojas.length > 0) {
-        const matchingLoja = lojas.find(loja => {
+        // Primeiro tentar encontrar por store_default
+        let matchingLoja = lojas.find(loja => {
           const lojaValue = loja.store_default || loja.name || '';
           return lojaValue === storeValue || loja.name === storeValue;
         });
         
+        // Se não encontrou, tentar normalizar e comparar
+        if (!matchingLoja) {
+          const normalizeName = (name: string) => {
+            return name
+              .toLowerCase()
+              .replace(/[|,]/g, '')
+              .replace(/\s+/g, ' ')
+              .trim();
+          };
+          
+          const normalizedStoreValue = normalizeName(storeValue);
+          matchingLoja = lojas.find(loja => {
+            const lojaName = loja.store_name || loja.store_default || loja.name || '';
+            return normalizeName(lojaName) === normalizedStoreValue;
+          });
+        }
+        
         if (matchingLoja) {
-          // Usar o valor que está no Select (store_default ou name)
-          storeValue = matchingLoja.store_default || matchingLoja.name || storeValue;
+          // Usar o nome real da loja da tabela stores (store_real_name ou store_name)
+          // Isso garante que a busca na tabela stores funcione corretamente
+          storeValue = matchingLoja.store_real_name || matchingLoja.store_name || matchingLoja.store_default || matchingLoja.name || storeValue;
         }
       }
       
@@ -892,10 +922,11 @@ const Colaboradores = () => {
                   {lojas
                     .filter((loja) => loja.active !== false)
                     .map((loja) => {
-                      // Usar store_name se disponível, senão usar name
+                      // Usar store_name (nome real da tabela stores) se disponível
                       const displayName = loja.store_name || loja.name || 'Sem nome';
-                      // Usar store_default se disponível, senão usar name
-                      const storeValue = loja.store_default || loja.name || displayName;
+                      // Usar o nome real da loja da tabela stores como valor (não store_default do perfil)
+                      // Isso garante que a busca na tabela stores funcione corretamente
+                      const storeValue = loja.store_real_name || loja.store_name || loja.store_default || loja.name || displayName;
                       return (
                         <SelectItem key={loja.id} value={storeValue}>
                           {displayName}
