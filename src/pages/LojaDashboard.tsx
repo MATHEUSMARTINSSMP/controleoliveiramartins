@@ -191,11 +191,16 @@ export default function LojaDashboard() {
     const { redistributeGoalsForDate } = useGoalRedistribution({ storeId });
     
     // Redistribuir metas automaticamente quando folgas forem carregadas e houver folgas no dia
+    const hasRedistributedRef = useRef<Set<string>>(new Set());
     useEffect(() => {
         if (!storeId || loadingFolgas || !offDays) return;
         
         const folgasHoje = offDays.filter(f => f.off_date === todayStr);
-        if (folgasHoje.length > 0) {
+        const folgasKey = `${storeId}-${todayStr}`;
+        
+        // Evitar redistribuição múltipla para o mesmo dia/loja
+        if (folgasHoje.length > 0 && !hasRedistributedRef.current.has(folgasKey)) {
+            hasRedistributedRef.current.add(folgasKey);
             console.log(`[LojaDashboard] 🔄 Redistribuindo metas automaticamente para ${folgasHoje.length} folga(s) encontrada(s)`);
             (async () => {
                 try {
@@ -223,6 +228,8 @@ export default function LojaDashboard() {
                     }
                 } catch (err) {
                     console.error('[LojaDashboard] Erro ao redistribuir metas automaticamente:', err);
+                    // Remover da lista para permitir nova tentativa
+                    hasRedistributedRef.current.delete(folgasKey);
                 }
             })();
         }
