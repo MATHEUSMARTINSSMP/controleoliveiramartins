@@ -16,7 +16,6 @@ import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, 
 import { Switch } from "@/components/ui/switch";
 import { useFolgas } from "@/hooks/useFolgas";
 import { useGoalRedistribution } from "@/hooks/useGoalRedistribution";
-import { useRedistributedDailyGoal, getRedistributedGoalForColaboradora } from "@/hooks/useRedistributedDailyGoal";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -189,20 +188,83 @@ export default function LojaDashboard() {
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const { offDays, toggleFolga, isOnLeave, refetch: refetchFolgas, loading: loadingFolgas } = useFolgas({ storeId, date: todayStr });
     
-    const externalOffDays = useMemo(() => 
-        offDays.map(od => ({ colaboradora_id: od.colaboradora_id })), 
-        [offDays]
-    );
     const { redistributeGoalsForDate } = useGoalRedistribution({ storeId });
     
-    // Hook para cálculo de metas redistribuídas em tempo real (frontend only)
-    const { 
-        metaDiariaLoja, 
-        colaboradorasGoals: redistGoals, 
-        totalColaboradorasTrabalhando,
-        totalColaboradorasFolga,
-        refetch: refetchRedistGoals
-    } = useRedistributedDailyGoal({ storeId, date: todayStr, externalOffDays });
+    // REDISTRIBUIÇÃO DE METAS - PÓS-PROCESSAMENTO
+    // Calcula redistribuição baseada nas metas dinâmicas já calculadas em colaboradorasPerformance
+    const redistributedPerformance = useMemo(() => {
+        if (!colaboradorasPerformance || colaboradorasPerformance.length === 0) {
+            return { 
+                data: [], 
+                totalMetaDiariaOriginal: 0, 
+                totalMetaDiariaRedistribuida: 0,
+                totalTrabalhando: 0,
+                totalFolga: 0
+            };
+        }
+        
+        // Identificar quem está de folga hoje
+        const offColabIds = new Set(offDays.map(od => od.colaboradora_id));
+        
+        // Separar colaboradoras trabalhando vs folga
+        const working = colaboradorasPerformance.filter(p => !offColabIds.has(p.id));
+        const onLeave = colaboradorasPerformance.filter(p => offColabIds.has(p.id));
+        
+        // Somar meta das colaboradoras de folga
+        const totalMetaFolga = onLeave.reduce((sum, p) => sum + (p.metaDiaria || 0), 0);
+        
+        // Somar meta original total (para validação)
+        const totalMetaOriginal = colaboradorasPerformance.reduce((sum, p) => sum + (p.metaDiaria || 0), 0);
+        
+        // Calcular redistribuição para cada colaboradora trabalhando
+        const redistribuicaoPorColab = working.length > 0 ? totalMetaFolga / working.length : 0;
+        
+        // Criar array enriquecido com metas redistribuídas
+        const enrichedData = colaboradorasPerformance.map(perf => {
+            const isOnLeaveToday = offColabIds.has(perf.id);
+            
+            if (isOnLeaveToday) {
+                // Colaboradora de folga: meta redistribuída = 0
+                return {
+                    ...perf,
+                    metaDiariaRedistribuida: 0,
+                    redistribuicaoExtra: 0,
+                    isOnLeave: true
+                };
+            } else {
+                // Colaboradora trabalhando: recebe parte da meta redistribuída
+                return {
+                    ...perf,
+                    metaDiariaRedistribuida: (perf.metaDiaria || 0) + redistribuicaoPorColab,
+                    redistribuicaoExtra: redistribuicaoPorColab,
+                    isOnLeave: false
+                };
+            }
+        });
+        
+        // Somar meta redistribuída total (deve ser igual à original)
+        const totalMetaRedist = enrichedData
+            .filter(p => !p.isOnLeave)
+            .reduce((sum, p) => sum + (p.metaDiariaRedistribuida || 0), 0);
+        
+        console.log('[RedistribuicaoMetas] Resumo:', {
+            totalColaboradoras: colaboradorasPerformance.length,
+            trabalhando: working.length,
+            folga: onLeave.length,
+            metaFolgaSomada: totalMetaFolga,
+            redistribuicaoPorColab,
+            metaOriginalTotal: totalMetaOriginal,
+            metaRedistribuidaTotal: totalMetaRedist
+        });
+        
+        return {
+            data: enrichedData,
+            totalMetaDiariaOriginal: totalMetaOriginal,
+            totalMetaDiariaRedistribuida: totalMetaRedist,
+            totalTrabalhando: working.length,
+            totalFolga: onLeave.length
+        };
+    }, [colaboradorasPerformance, offDays]);
 
     useEffect(() => {
         if (salesData) {
@@ -3402,14 +3464,14 @@ export default function LojaDashboard() {
                                 )}
 
                                 {/* Planejamento do Dia - Cards por Vendedora */}
-                                {colaboradorasPerformance.length > 0 && (
+                                {redistributedPerformance.data.length > 0 && (
                                     <div className="w-full max-w-6xl mx-auto">
                                         <h2 className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8 text-center">Planejamento do Dia</h2>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 justify-items-center">
-                                            {colaboradorasPerformance.map((perf) => {
-                                                const isFolga = isOnLeave(perf.id, todayStr);
-                                                const redistGoal = getRedistributedGoalForColaboradora(perf.id, redistGoals);
-                                                const metaRedistribuida = redistGoal?.metaDiariaRedistribuida ?? perf.metaDiaria ?? 0;
+                                            {redistributedPerformance.data.map((perf) => {
+                                                const isFolga = perf.isOnLeave;
+                                                const metaRedistribuida = perf.metaDiariaRedistribuida ?? perf.metaDiaria ?? 0;
+                                                const redistribuicaoExtra = perf.redistribuicaoExtra ?? 0;
                                                 
                                                 const handleToggleFolga = async () => {
                                                     if (!storeId) {
@@ -3462,9 +3524,9 @@ export default function LojaDashboard() {
                                                                             <span className="text-muted-foreground">Meta do Dia</span>
                                                                             <span className="font-semibold">R$ {metaRedistribuida > 0 ? metaRedistribuida.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</span>
                                                                         </div>
-                                                                        {totalColaboradorasFolga > 0 && (
+                                                                        {redistribuicaoExtra > 0 && (
                                                                             <p className="text-xs text-muted-foreground italic">
-                                                                                Cobrindo {totalColaboradorasFolga} colega(s) de folga
+                                                                                (+R$ {redistribuicaoExtra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} cobrindo {redistributedPerformance.totalFolga} colega(s))
                                                                             </p>
                                                                         )}
                                                                         <div className="flex items-center justify-between text-base">
