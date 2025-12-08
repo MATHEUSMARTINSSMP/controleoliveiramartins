@@ -1,0 +1,127 @@
+A forma **correta e mais rápida** de descobrir **todos os Group IDs (ID dos grupos)** do seu WhatsApp usando **UAZAPI** é fazer **uma chamada na API `/list-groups`** da sua instância.
+
+Abaixo está o passo a passo claro.
+
+---
+
+# 1) Endpoint oficial para listar grupos
+
+Use:
+
+```
+GET /api/{instance_id}/list-groups?token={token}
+```
+
+• **instance_id** → ID da sua instância UAZAPI
+• **token** → Token da instância (o mesmo usado para enviar mensagens)
+
+Exemplo completo:
+
+```
+https://uazapi.com.br/api/12345/list-groups?token=SEU_TOKEN_AQUI
+```
+
+---
+
+# 2) O que a API retorna
+
+A resposta vem em JSON, mais ou menos assim:
+
+```json
+{
+  "status": "success",
+  "groups": [
+    {
+      "id": "1203630xxxxxxxx@g.us",
+      "subject": "Grupo da Loja",
+      "participants": 45
+    },
+    {
+      "id": "1203630yyyyyyyy@g.us",
+      "subject": "Equipe Vendas",
+      "participants": 12
+    }
+  ]
+}
+```
+
+O campo **`id`** é o **Group ID** que você precisa usar no n8n ou integrações.
+
+---
+
+# 3) Teste rápido pelo navegador
+
+Você pode simplesmente colar no navegador:
+
+```
+https://uazapi.com.br/api/{instance_id}/list-groups?token={token}
+```
+
+Se a instância estiver **conectada**, ele retorna na hora.
+
+---
+
+# 4) Teste pelo n8n
+
+Use um **HTTP Request**:
+
+* **Method:** GET
+* **URL:**
+
+```
+https://uazapi.com.br/api/{{ $json.instance_id }}/list-groups?token={{ $json.token }}
+```
+
+* **Response Format:** JSON
+
+Depois é só pegar o campo:
+
+```
+{{$json.groups[0].id}}
+```
+
+---
+
+# 5) Se der erro
+
+Os erros mais comuns:
+
+### a) Instância desconectada
+
+Você recebe algo como:
+
+```
+"error": "Instance not connected"
+```
+
+### b) Token errado
+
+Retorna:
+
+```
+"Invalid token"
+```
+
+### c) URL incorreta
+
+Certifique-se de usar exatamente:
+
+```
+/api/{instance_id}/list-groups
+```
+
+---
+
+# 6) Quer que eu configure isso no seu fluxo do n8n?
+
+Se quiser, posso montar:
+
+* Node HTTP pronto
+* Código para extrair automaticamente os IDs
+* Um dropdown dinâmico de grupos para você escolher dentro do fluxo
+
+Só me mandar sua estrutura atual do n8n.
+
+---
+
+Se quiser, posso testar AGORA com seu instance_id e token (você pode mascarar parte do token).

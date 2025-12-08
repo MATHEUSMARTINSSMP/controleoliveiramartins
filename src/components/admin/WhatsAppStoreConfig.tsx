@@ -105,6 +105,9 @@ export const WhatsAppStoreConfig = () => {
                 } : s)
             );
 
+            // Salvar status no Supabase para persistencia
+            await saveStatusToSupabase(store.slug, status.status, status.phoneNumber, status.qrCode);
+
             // Se nao e terminal, iniciar polling
             if (!isTerminalStatus(status.status)) {
                 setPollingStores(prev => new Set(prev).add(store.slug));
@@ -207,7 +210,7 @@ export const WhatsAppStoreConfig = () => {
                     } : s)
                 );
 
-                // Se atingiu status terminal, parar polling
+                // Se atingiu status terminal, parar polling e salvar no Supabase
                 if (isTerminalStatus(status.status)) {
                     clearInterval(pollInterval);
                     setPollingStores(prev => {
@@ -215,6 +218,19 @@ export const WhatsAppStoreConfig = () => {
                         newSet.delete(store.slug);
                         return newSet;
                     });
+
+                    // Salvar status final no Supabase para persistencia
+                    await supabase
+                        .schema('sistemaretiradas')
+                        .from('whatsapp_credentials')
+                        .update({
+                            uazapi_status: status.status,
+                            uazapi_phone_number: status.phoneNumber || null,
+                            uazapi_qr_code: null,
+                            updated_at: new Date().toISOString(),
+                        })
+                        .eq('customer_id', profile.email!)
+                        .eq('site_slug', store.slug);
 
                     if (status.connected) {
                         toast.success(`${store.name} conectado com sucesso!`);
@@ -351,6 +367,51 @@ export const WhatsAppStoreConfig = () => {
             });
             setLocalCredentials(initialLocal);
 
+            // Verificar status real via N8N para lojas com credenciais configuradas
+            const storesWithInstance = combined.filter(s => s.credentials?.uazapi_instance_id);
+            if (storesWithInstance.length > 0 && profile?.email) {
+                console.log('[fetchStoresAndCredentials] Verificando status de', storesWithInstance.length, 'lojas com credenciais...');
+                
+                for (const store of storesWithInstance) {
+                    try {
+                        const status = await fetchWhatsAppStatus({
+                            siteSlug: store.slug,
+                            customerId: profile.email,
+                        });
+                        
+                        // Atualizar estado local
+                        setStoresWithCredentials(prev =>
+                            prev.map(s => s.slug === store.slug ? {
+                                ...s,
+                                credentials: {
+                                    ...s.credentials,
+                                    uazapi_status: status.status,
+                                    uazapi_phone_number: status.phoneNumber || s.credentials?.uazapi_phone_number,
+                                } as WhatsAppCredential
+                            } : s)
+                        );
+                        
+                        // Salvar no Supabase se mudou
+                        if (status.status !== store.credentials?.uazapi_status) {
+                            await supabase
+                                .schema('sistemaretiradas')
+                                .from('whatsapp_credentials')
+                                .update({
+                                    uazapi_status: status.status,
+                                    uazapi_phone_number: status.phoneNumber || null,
+                                    updated_at: new Date().toISOString(),
+                                })
+                                .eq('customer_id', profile.email)
+                                .eq('site_slug', store.slug);
+                                
+                            console.log('[fetchStoresAndCredentials] Status atualizado para', store.slug, ':', status.status);
+                        }
+                    } catch (err) {
+                        console.error('[fetchStoresAndCredentials] Erro ao verificar status de', store.slug, ':', err);
+                    }
+                }
+            }
+
         } catch (error: any) {
             console.error('Erro ao buscar lojas:', error);
             toast.error('Erro ao carregar lojas');
@@ -367,6 +428,40 @@ export const WhatsAppStoreConfig = () => {
                 [field]: value
             }
         }));
+    };
+
+    const saveStatusToSupabase = async (slug: string, status: string, phoneNumber?: string | null, qrCode?: string | null) => {
+        if (!profile?.email) return;
+        
+        try {
+            const updateData: Record<string, any> = {
+                uazapi_status: status,
+                updated_at: new Date().toISOString(),
+            };
+            
+            if (phoneNumber) {
+                updateData.uazapi_phone_number = phoneNumber;
+            }
+            
+            if (qrCode !== undefined) {
+                updateData.uazapi_qr_code = qrCode;
+            }
+            
+            const { error } = await supabase
+                .schema('sistemaretiradas')
+                .from('whatsapp_credentials')
+                .update(updateData)
+                .eq('customer_id', profile.email)
+                .eq('site_slug', slug);
+                
+            if (error) {
+                console.error('[saveStatusToSupabase] Erro ao salvar status:', error);
+            } else {
+                console.log('[saveStatusToSupabase] Status salvo no Supabase:', { slug, status });
+            }
+        } catch (error) {
+            console.error('[saveStatusToSupabase] Erro:', error);
+        }
     };
 
     const updateStoreWhatsAppAtivo = async (storeId: string, whatsapp_ativo: boolean) => {
