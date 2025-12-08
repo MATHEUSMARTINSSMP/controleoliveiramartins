@@ -1553,11 +1553,13 @@ export default function LojaDashboard() {
                     ticketMedio: number;
                 }>;
 
-            // Filtro adicional: apenas colaboradoras com meta lançada (dupla verificação)
-            const performanceFiltered = performance.filter(p => p.meta > 0 && p.metaDiaria > 0);
+            // Filtro adicional: apenas colaboradoras com meta lançada
+            // IMPORTANTE: Não filtrar por metaDiaria > 0 porque colaboradoras de folga têm metaDiaria = 0
+            // mas ainda devem aparecer na lista para mostrar o status de folga
+            const performanceFiltered = performance.filter(p => p.meta > 0);
             console.log('[LojaDashboard] 📊 Performance filtrada:', performanceFiltered.length, 'colaboradoras');
             performanceFiltered.forEach((p, idx) => {
-                console.log(`[LojaDashboard]   ${idx + 1}. ${p.name}: meta=R$ ${p.meta}, vendido hoje=R$ ${p.vendido}, vendido mês=R$ ${p.vendidoMes}`);
+                console.log(`[LojaDashboard]   ${idx + 1}. ${p.name}: meta=R$ ${p.meta}, metaDiaria=R$ ${p.metaDiaria}, vendido hoje=R$ ${p.vendido}, vendido mês=R$ ${p.vendidoMes}`);
             });
             setColaboradorasPerformance(performanceFiltered);
         } else {
