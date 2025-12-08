@@ -23,6 +23,7 @@ import { CRMStoreConfig } from "@/components/admin/CRMStoreConfig";
 import { ModulesStoreConfig } from "@/components/admin/ModulesStoreConfig";
 import { CRMManagement } from "@/components/admin/CRMManagement";
 import { TimeClockManagement } from "@/components/timeclock/TimeClockManagement";
+import { DailyGoalCheckReports } from "@/components/admin/DailyGoalCheckReports";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -236,6 +237,7 @@ const AdminDashboard = () => {
               <CommercialDashboard />
               <StorePerformanceReports />
               <GoalsTracking />
+              <DailyGoalCheckReports />
             </TabsContent>
 
             <TabsContent value="gestao-pessoas" className="animate-fade-in space-y-4 sm:space-y-6">
