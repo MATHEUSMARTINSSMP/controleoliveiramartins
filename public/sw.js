@@ -1,5 +1,5 @@
 // Service Worker básico para PWA
-const CACHE_NAME = 'controle-oliveira-martins-v1';
+const CACHE_NAME = 'controle-oliveira-martins-v2'; // Atualizado para forçar refresh
 const urlsToCache = [
   '/',
   '/index.html',
@@ -38,16 +38,32 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - estratégia network-first com fallback para cache
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  
+  // NÃO cachear módulos JS dinâmicos (podem ter hash no nome e causar problemas)
+  if (url.pathname.includes('/assets/') && url.pathname.endsWith('.js')) {
+    // Para módulos JS, sempre buscar da rede primeiro
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => {
+          // Se falhar, tentar cache como último recurso
+          return caches.match(event.request);
+        })
+    );
+    return;
+  }
+  
+  // Para outros recursos, usar estratégia network-first
   event.respondWith(
     fetch(event.request)
       .then((response) => {
         // Clone da resposta
         const responseToCache = response.clone();
         
-        // Cache para recursos estáticos
-        if (event.request.url.includes('/static/') || 
-            event.request.url.includes('/assets/') ||
-            event.request.destination === 'image') {
+        // Cache apenas para recursos estáticos (não JS dinâmico)
+        if ((event.request.url.includes('/static/') || 
+            event.request.destination === 'image') &&
+            !event.request.url.includes('/assets/')) {
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);
           });
