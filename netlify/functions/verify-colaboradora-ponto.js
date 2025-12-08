@@ -108,74 +108,109 @@ exports.handler = async (event, context) => {
     console.log('[verify-colaboradora-ponto] Tipo do storeId:', typeof storeId);
     console.log('[verify-colaboradora-ponto] Tamanho do storeId:', storeId?.length);
     
-    // Primeiro, tentar buscar sem .single() para ver se encontra algo
+    // Primeiro, tentar buscar na tabela stores
     const { data: storesList, error: listError } = await supabaseAdmin
       .schema('sistemaretiradas')
       .from('stores')
       .select('id, name, ponto_ativo, active')
       .eq('id', storeId);
 
-    console.log('[verify-colaboradora-ponto] Resultado da busca (sem .single()):', {
+    console.log('[verify-colaboradora-ponto] Resultado da busca em stores (sem .single()):', {
       encontrou: storesList?.length || 0,
       dados: storesList,
       erro: listError
     });
 
-    // Se não encontrou, tentar buscar todas as lojas para debug
+    // Se não encontrou na tabela stores, tentar buscar no perfil LOJA
+    let finalStore = null;
     if (!storesList || storesList.length === 0) {
-      console.log('[verify-colaboradora-ponto] ⚠️ Loja não encontrada, buscando todas as lojas para debug...');
-      const { data: allStores, error: allStoresError } = await supabaseAdmin
-        .schema('sistemaretiradas')
-        .from('stores')
-        .select('id, name, active')
-        .limit(10);
+      console.log('[verify-colaboradora-ponto] ⚠️ Loja não encontrada em stores, tentando buscar no perfil LOJA...');
       
-      console.log('[verify-colaboradora-ponto] Lojas disponíveis no banco:', {
-        total: allStores?.length || 0,
-        lojas: allStores?.map(s => ({ id: s.id, name: s.name, active: s.active })),
-        erro: allStoresError
+      // Buscar perfil LOJA que tenha store_default igual ao storeId
+      const { data: lojaProfile, error: lojaProfileError } = await supabaseAdmin
+        .schema('sistemaretiradas')
+        .from('profiles')
+        .select('id, name, store_default, store_id')
+        .eq('role', 'LOJA')
+        .or(`store_default.eq.${storeId},store_id.eq.${storeId}`)
+        .eq('active', true)
+        .limit(1);
+
+      console.log('[verify-colaboradora-ponto] Resultado da busca em profiles (LOJA):', {
+        encontrou: lojaProfile?.length || 0,
+        dados: lojaProfile,
+        erro: lojaProfileError
       });
+
+      // Se encontrou o perfil LOJA, buscar a loja na tabela stores usando o store_default
+      if (lojaProfile && lojaProfile.length > 0) {
+        const loja = lojaProfile[0];
+        const storeIdToSearch = loja.store_default || loja.store_id || storeId;
+        
+        console.log('[verify-colaboradora-ponto] Buscando loja na tabela stores com ID do perfil:', storeIdToSearch);
+        
+        const { data: storeFromProfile, error: storeFromProfileError } = await supabaseAdmin
+          .schema('sistemaretiradas')
+          .from('stores')
+          .select('id, name, ponto_ativo, active')
+          .eq('id', storeIdToSearch)
+          .maybeSingle();
+
+        if (storeFromProfile) {
+          finalStore = storeFromProfile;
+          console.log('[verify-colaboradora-ponto] ✅ Loja encontrada via perfil LOJA:', finalStore);
+        } else {
+          console.error('[verify-colaboradora-ponto] ❌ Loja não encontrada mesmo usando ID do perfil:', {
+            storeIdOriginal: storeId,
+            storeIdDoPerfil: storeIdToSearch,
+            erro: storeFromProfileError
+          });
+        }
+      }
+
+      // Se ainda não encontrou, listar todas as lojas para debug
+      if (!finalStore) {
+        console.log('[verify-colaboradora-ponto] ⚠️ Loja não encontrada, buscando todas as lojas para debug...');
+        const { data: allStores, error: allStoresError } = await supabaseAdmin
+          .schema('sistemaretiradas')
+          .from('stores')
+          .select('id, name, active')
+          .limit(10);
+        
+        console.log('[verify-colaboradora-ponto] Lojas disponíveis no banco:', {
+          total: allStores?.length || 0,
+          lojas: allStores?.map(s => ({ id: s.id, name: s.name, active: s.active })),
+          erro: allStoresError
+        });
+      }
+    } else {
+      finalStore = storesList[0];
     }
 
-    // Agora tentar com .single()
-    const { data: store, error: storeError } = await supabaseAdmin
-      .schema('sistemaretiradas')
-      .from('stores')
-      .select('id, name, ponto_ativo, active')
-      .eq('id', storeId)
-      .single();
+    // Se ainda não encontrou, tentar com .single() na busca original
+    if (!finalStore) {
+      const { data: store, error: storeError } = await supabaseAdmin
+        .schema('sistemaretiradas')
+        .from('stores')
+        .select('id, name, ponto_ativo, active')
+        .eq('id', storeId)
+        .maybeSingle();
 
-    // Determinar qual loja usar (da query .single() ou da lista)
-    let finalStore = null;
-    
-    if (storeError) {
-      console.error('[verify-colaboradora-ponto] ❌ Erro ao buscar loja:', {
-        message: storeError.message,
-        code: storeError.code,
-        details: storeError.details,
-        hint: storeError.hint,
-        storeId: storeId
-      });
-      
-      // Se a loja foi encontrada na lista mas deu erro no .single(), usar a primeira
-      if (storesList && storesList.length > 0) {
-        console.log('[verify-colaboradora-ponto] ⚠️ Erro no .single() mas loja encontrada na lista, usando primeira:', storesList[0]);
-        finalStore = storesList[0];
-      } else {
-        return {
-          statusCode: 404,
-          headers: corsHeaders,
-          body: JSON.stringify({
-            error: 'Loja não encontrada',
-            details: storeError.message || `Nenhuma loja encontrada com ID: ${storeId}`,
-            code: storeError.code,
-          }),
-        };
+      if (storeError && storeError.code !== 'PGRST116') {
+        console.error('[verify-colaboradora-ponto] ❌ Erro ao buscar loja:', {
+          message: storeError.message,
+          code: storeError.code,
+          details: storeError.details,
+          hint: storeError.hint,
+          storeId: storeId
+        });
       }
-    } else if (store) {
-      finalStore = store;
-    } else if (storesList && storesList.length > 0) {
-      finalStore = storesList[0];
+
+      if (store) {
+        finalStore = store;
+      } else if (storesList && storesList.length > 0) {
+        finalStore = storesList[0];
+      }
     }
 
     if (!finalStore) {
