@@ -1426,15 +1426,43 @@ export default function LojaDashboard() {
                     }
 
                     if (goal) {
-                        // Calcular meta diária DINÂMICA
+                        // Verificar se colaboradora está de folga
+                        const isFolga = isOnLeave(colab.id, today);
+                        
+                        if (isFolga) {
+                            // Se está de folga, meta diária = 0
+                            return {
+                                id: colab.id,
+                                name: colab.name,
+                                vendido: vendidoHoje,
+                                vendidoMes,
+                                meta: Number(goal.meta_valor),
+                                metaDiaria: 0, // Meta diária = 0 para quem está de folga
+                                superMeta: Number(goal.super_meta_valor) || 0,
+                                percentual: 0,
+                                percentualMensal: Number(goal.meta_valor) > 0 ? (vendidoMes / Number(goal.meta_valor)) * 100 : 0,
+                                faltaMensal: Math.max(0, Number(goal.meta_valor) - vendidoMes),
+                                qtdVendas: qtdVendasHoje,
+                                qtdVendasMes,
+                                qtdPecas: qtdPecasHoje,
+                                qtdPecasMes,
+                                ticketMedio,
+                            };
+                        }
+                        
+                        // Calcular meta diária DINÂMICA (apenas para colaboradoras ativas)
                         const dailyWeights = goal.daily_weights || {};
-                        const metaDiaria = calculateDynamicDailyGoal(
+                        let metaDiaria = calculateDynamicDailyGoal(
                             Number(goal.meta_valor),
                             vendidoMes,
                             today,
                             Object.keys(dailyWeights).length > 0 ? dailyWeights : null,
                             daysInMonth
                         );
+                        
+                        // Aplicar redistribuição: se há colaboradoras de folga, adicionar parte redistribuída
+                        // A redistribuição já foi aplicada na meta mensal pelo hook useGoalRedistribution
+                        // então a meta diária calculada já inclui a parte redistribuída
 
                         // Progresso do dia
                         const progressoDia = metaDiaria > 0 ? (vendidoHoje / metaDiaria) * 100 : 0;
