@@ -140,8 +140,11 @@ export function useGoalRedistribution({ storeId }: UseGoalRedistributionOptions)
       const metaPorColaboradora = colaboradorasAtivas.length > 0 ? totalMetaRedistribuir / colaboradorasAtivas.length : 0;
       const superMetaPorColaboradora = colaboradorasAtivas.length > 0 ? totalSuperMetaRedistribuir / colaboradorasAtivas.length : 0;
 
-      // Atualizar metas mensais individuais das colaboradoras ativas
-      // Ajustar a meta mensal para que a meta diária calculada inclua a parte redistribuída
+      // IMPORTANTE: A redistribuição é apenas para o DIA, não altera a meta mensal diretamente
+      // Para que a redistribuição seja refletida no cálculo da meta diária (que é dinâmico),
+      // precisamos ajustar temporariamente a meta mensal proporcionalmente ao peso do dia
+      // Isso garante que quando calcular a meta diária (meta mensal * fator do dia),
+      // ela já inclua a parte redistribuída do dia
       let successCount = 0;
       for (const colab of colaboradorasAtivas) {
         try {
@@ -176,15 +179,16 @@ export function useGoalRedistribution({ storeId }: UseGoalRedistributionOptions)
             }
           }
 
-          // Ajustar meta mensal: adicionar a parte redistribuída convertida para mensal
-          // Se o dia tem peso X%, então a parte redistribuída deve aumentar a meta mensal proporcionalmente
+          // Ajustar meta mensal proporcionalmente para refletir a redistribuição do DIA
+          // Fórmula: ajuste mensal = parte redistribuída do dia / fator do dia
+          // Isso garante que: (meta mensal + ajuste) * fator do dia = meta diária original + parte redistribuída
           const ajusteMensal = metaPorColaboradora / fatorDia;
           const ajusteSuperMensal = superMetaPorColaboradora / fatorDia;
           
           const novaMetaMensal = Number(metaExistente.meta_valor) + ajusteMensal;
           const novaSuperMetaMensal = Number(metaExistente.super_meta_valor) + ajusteSuperMensal;
 
-          // Atualizar meta mensal
+          // Atualizar meta mensal (apenas para refletir a redistribuição do dia no cálculo dinâmico)
           const { error: updateError } = await supabase
             .schema('sistemaretiradas')
             .from('goals')
@@ -199,7 +203,7 @@ export function useGoalRedistribution({ storeId }: UseGoalRedistributionOptions)
             continue;
           }
 
-          console.log(`[useGoalRedistribution] ✅ Meta redistribuída para ${colab.name}: +R$ ${metaPorColaboradora.toFixed(2)} no dia`);
+          console.log(`[useGoalRedistribution] ✅ Meta do dia redistribuída para ${colab.name}: +R$ ${metaPorColaboradora.toFixed(2)} (ajuste mensal: +R$ ${ajusteMensal.toFixed(2)})`);
           successCount++;
         } catch (err: any) {
           console.error(`[useGoalRedistribution] Erro ao processar ${colab.name}:`, err);
