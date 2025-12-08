@@ -302,43 +302,67 @@ const Colaboradores = () => {
 
         // Buscar store_id dinamicamente da tabela stores
         if (formData.store) {
-          const { data: storeData } = await supabase
-            .schema("sistemaretiradas")
-            .from("stores")
-            .select("id, name")
-            .eq("active", true);
-
-          if (storeData) {
-            // Primeiro tentar match exato
-            let matchingStore = storeData.find(s => s.name === formData.store);
+          // Verificar se formData.store é um UUID (36 caracteres com hífens)
+          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(formData.store);
+          
+          let matchingStore = null;
+          
+          if (isUUID) {
+            // Se for UUID, buscar diretamente por ID
+            console.log('[Colaboradores] Buscando loja por UUID:', formData.store);
+            const { data: storeData } = await supabase
+              .schema("sistemaretiradas")
+              .from("stores")
+              .select("id, name")
+              .eq("id", formData.store)
+              .eq("active", true)
+              .single();
             
-            // Se não encontrou, tentar match normalizado (mais flexível)
-            if (!matchingStore) {
-              const normalizeName = (name: string) => {
-                return name
-                  .toLowerCase()
-                  .replace(/[|,]/g, '')
-                  .replace(/\s+/g, ' ')
-                  .trim();
-              };
-
-              const normalizedStoreName = normalizeName(formData.store);
-              matchingStore = storeData.find(s => {
-                const normalizedStore = normalizeName(s.name);
-                return normalizedStore === normalizedStoreName;
-              });
+            if (storeData) {
+              matchingStore = storeData;
             }
+          } else {
+            // Se for nome, buscar por nome
+            console.log('[Colaboradores] Buscando loja por nome:', formData.store);
+            const { data: storeData } = await supabase
+              .schema("sistemaretiradas")
+              .from("stores")
+              .select("id, name")
+              .eq("active", true);
 
-            if (matchingStore) {
-              updateData.store_id = matchingStore.id;
-              // Garantir que store_default seja o nome exato da loja
-              updateData.store_default = matchingStore.name;
-            } else {
-              console.warn('[Colaboradores] Loja não encontrada:', formData.store);
-              toast.error(`Loja "${formData.store}" não encontrada. Verifique o nome.`);
-              setIsSubmitting(false);
-              return;
+            if (storeData) {
+              // Primeiro tentar match exato
+              matchingStore = storeData.find(s => s.name === formData.store);
+              
+              // Se não encontrou, tentar match normalizado (mais flexível)
+              if (!matchingStore) {
+                const normalizeName = (name: string) => {
+                  return name
+                    .toLowerCase()
+                    .replace(/[|,]/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                };
+
+                const normalizedStoreName = normalizeName(formData.store);
+                matchingStore = storeData.find(s => {
+                  const normalizedStore = normalizeName(s.name);
+                  return normalizedStore === normalizedStoreName;
+                });
+              }
             }
+          }
+
+          if (matchingStore) {
+            updateData.store_id = matchingStore.id;
+            // Garantir que store_default seja o nome exato da loja
+            updateData.store_default = matchingStore.name;
+            console.log('[Colaboradores] ✅ Loja encontrada:', { id: matchingStore.id, name: matchingStore.name });
+          } else {
+            console.warn('[Colaboradores] Loja não encontrada:', formData.store, 'isUUID:', isUUID);
+            toast.error(`Loja "${formData.store}" não encontrada. Verifique o nome.`);
+            setIsSubmitting(false);
+            return;
           }
         }
 
