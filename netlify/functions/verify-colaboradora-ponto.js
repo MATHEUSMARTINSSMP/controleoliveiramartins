@@ -177,7 +177,7 @@ exports.handler = async (event, context) => {
           }
         }
 
-      // Se ainda não encontrou, listar todas as lojas para debug
+      // Se ainda não encontrou, listar todas as lojas para debug e tentar encontrar
       if (!finalStore) {
         console.log('[verify-colaboradora-ponto] ⚠️ Loja não encontrada, buscando todas as lojas para debug...');
         const { data: allStores, error: allStoresError } = await supabaseAdmin
@@ -197,6 +197,17 @@ exports.handler = async (event, context) => {
         if (foundInList) {
           finalStore = foundInList;
           console.log('[verify-colaboradora-ponto] ✅ Loja encontrada na lista completa:', finalStore);
+        } else if (lojaProfile && lojaProfile.length > 0) {
+          // Se ainda não encontrou mas tem perfil LOJA, usar o perfil como fallback
+          const loja = lojaProfile[0];
+          console.log('[verify-colaboradora-ponto] ⚠️ Usando perfil LOJA como fallback (loja pode não estar em stores)');
+          finalStore = {
+            id: storeId,
+            name: loja.name || 'Loja',
+            ponto_ativo: true, // Assumir ativo
+            active: true,
+          };
+          console.log('[verify-colaboradora-ponto] ✅ Loja criada a partir do perfil LOJA:', finalStore);
         }
       }
     }
