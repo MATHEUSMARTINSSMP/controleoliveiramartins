@@ -527,11 +527,20 @@ export const StoreTaskAlertsManager = () => {
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-4">
                 <div className="space-y-4">
+                  {store.total_envios_hoje >= 10 && (
+                    <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md mb-2">
+                      <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                      <p className="text-sm text-destructive">
+                        Limite diario atingido (10/10). Novos alertas serao enviados amanha.
+                      </p>
+                    </div>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleOpenDialog(store.id)}
                     className="w-full sm:w-auto gap-2"
+                    disabled={store.total_envios_hoje >= 10}
                     data-testid={`button-add-alert-${store.id}`}
                   >
                     <Plus className="h-4 w-4" />
@@ -696,6 +705,7 @@ export const StoreTaskAlertsManager = () => {
                     variant="outline" 
                     size="sm"
                     onClick={addCustomHorario}
+                    data-testid="button-add-custom-time"
                   >
                     Adicionar
                   </Button>
@@ -730,6 +740,7 @@ export const StoreTaskAlertsManager = () => {
                     variant="ghost"
                     size="sm"
                     onClick={() => setFormData({ ...formData, dias_semana: [1, 2, 3, 4, 5] })}
+                    data-testid="button-weekdays-mon-fri"
                   >
                     Seg-Sex
                   </Button>
@@ -738,6 +749,7 @@ export const StoreTaskAlertsManager = () => {
                     variant="ghost"
                     size="sm"
                     onClick={() => setFormData({ ...formData, dias_semana: [1, 2, 3, 4, 5, 6] })}
+                    data-testid="button-weekdays-mon-sat"
                   >
                     Seg-Sáb
                   </Button>
@@ -746,6 +758,7 @@ export const StoreTaskAlertsManager = () => {
                     variant="ghost"
                     size="sm"
                     onClick={() => setFormData({ ...formData, dias_semana: [1, 2, 3, 4, 5, 6, 7] })}
+                    data-testid="button-weekdays-all"
                   >
                     Todos
                   </Button>
@@ -788,6 +801,7 @@ export const StoreTaskAlertsManager = () => {
                     variant="ghost"
                     size="sm"
                     onClick={addRecipient}
+                    data-testid="button-add-recipient"
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     Adicionar
@@ -817,6 +831,7 @@ export const StoreTaskAlertsManager = () => {
                           size="icon"
                           onClick={() => removeRecipient(index)}
                           className="shrink-0"
+                          data-testid={`button-remove-recipient-${index}`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -841,7 +856,7 @@ export const StoreTaskAlertsManager = () => {
           </ScrollArea>
 
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving} data-testid="button-cancel-task">
               Cancelar
             </Button>
             <Button onClick={handleSave} disabled={saving} data-testid="button-save-task">
