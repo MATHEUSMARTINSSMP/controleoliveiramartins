@@ -59,11 +59,11 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Buscar perfil da colaboradora
+    // Buscar perfil da colaboradora (incluindo store_default para validação flexível)
     const { data: profile, error: profileError } = await supabaseAdmin
       .schema('sistemaretiradas')
       .from('profiles')
-      .select('id, name, email, role, store_id, active')
+      .select('id, name, email, role, store_id, store_default, active')
       .eq('id', authData.user.id)
       .single();
 
@@ -99,22 +99,11 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Verificar se pertence à loja
-    if (profile.store_id !== storeId) {
-      return {
-        statusCode: 403,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          error: 'Colaboradora não pertence a esta loja',
-        }),
-      };
-    }
-
-    // Verificar se o módulo de ponto está ativo para a loja
+    // Buscar dados da loja para validação flexível
     const { data: store, error: storeError } = await supabaseAdmin
       .schema('sistemaretiradas')
       .from('stores')
-      .select('ponto_ativo')
+      .select('id, name, ponto_ativo')
       .eq('id', storeId)
       .single();
 
@@ -124,6 +113,30 @@ exports.handler = async (event, context) => {
         headers: corsHeaders,
         body: JSON.stringify({
           error: 'Loja não encontrada',
+        }),
+      };
+    }
+
+    // Validação flexível: verificar se pertence à loja
+    // 1. Verificar se store_id corresponde
+    // 2. Se não, verificar se store_default corresponde ao nome da loja
+    const belongsToStore = 
+      profile.store_id === storeId || 
+      (profile.store_default && 
+       profile.store_default.toLowerCase().trim() === store.name.toLowerCase().trim());
+
+    if (!belongsToStore) {
+      return {
+        statusCode: 403,
+        headers: corsHeaders,
+        body: JSON.stringify({
+          error: 'Colaboradora não pertence a esta loja',
+          details: {
+            colaboradora_store_id: profile.store_id,
+            colaboradora_store_default: profile.store_default,
+            loja_id: storeId,
+            loja_name: store.name,
+          },
         }),
       };
     }
