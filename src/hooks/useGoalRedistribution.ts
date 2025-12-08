@@ -102,20 +102,66 @@ export function useGoalRedistribution({ storeId }: UseGoalRedistributionOptions)
       // Buscar semana de referência
       const semanaRef = `${getYear(startOfWeek(dataFolgaObj, { weekStartsOn: 1 }))}${getWeek(startOfWeek(dataFolgaObj, { weekStartsOn: 1 }), { weekStartsOn: 1 })}`;
 
-      // Atualizar metas individuais das colaboradoras ativas
+      // Buscar metas das colaboradoras de folga para redistribuir
+      const colaboradorasEmFolgaIds = Array.from(colaboradorasEmFolga);
+      let metaFolgaTotal = 0;
+      let superMetaFolgaTotal = 0;
+      
+      if (colaboradorasEmFolgaIds.length > 0) {
+        for (const colabFolgaId of colaboradorasEmFolgaIds) {
+          const { data: metaFolga } = await supabase
+            .schema('sistemaretiradas')
+            .from('goals')
+            .select('meta_valor, super_meta_valor, daily_weights')
+            .eq('store_id', storeId)
+            .eq('colaboradora_id', colabFolgaId)
+            .eq('mes_referencia', mesReferencia)
+            .eq('tipo', 'INDIVIDUAL')
+            .is('semana_referencia', null)
+            .maybeSingle();
+          
+          if (metaFolga) {
+            // Calcular meta diária da colaboradora de folga
+            let metaDiariaFolga = Number(metaFolga.meta_valor) / daysInMonth;
+            let superMetaDiariaFolga = Number(metaFolga.super_meta_valor) / daysInMonth;
+            
+            if (metaFolga.daily_weights && Object.keys(metaFolga.daily_weights).length > 0) {
+              const pesoDia = metaFolga.daily_weights[dataFolga] || 0;
+              if (pesoDia > 0) {
+                metaDiariaFolga = (Number(metaFolga.meta_valor) * pesoDia) / 100;
+                superMetaDiariaFolga = (Number(metaFolga.super_meta_valor) * pesoDia) / 100;
+              }
+            }
+            
+            metaFolgaTotal += metaDiariaFolga;
+            superMetaFolgaTotal += superMetaDiariaFolga;
+          }
+        }
+      }
+      
+      // Total a redistribuir = meta do dia da loja + metas das colaboradoras de folga
+      const totalMetaRedistribuir = metaDiaria + metaFolgaTotal;
+      const totalSuperMetaRedistribuir = superMetaDiaria + superMetaFolgaTotal;
+      
+      // Redistribuir entre as colaboradoras ativas
+      const metaPorColaboradora = colaboradorasAtivas.length > 0 ? totalMetaRedistribuir / colaboradorasAtivas.length : 0;
+      const superMetaPorColaboradora = colaboradorasAtivas.length > 0 ? totalSuperMetaRedistribuir / colaboradorasAtivas.length : 0;
+
+      // Atualizar metas mensais individuais das colaboradoras ativas
+      // Ajustar a meta mensal para que a meta diária calculada inclua a parte redistribuída
       let successCount = 0;
       for (const colab of colaboradorasAtivas) {
         try {
-          // Buscar meta semanal existente
+          // Buscar meta mensal individual
           const { data: metaExistente, error: metaExistenteError } = await supabase
             .schema('sistemaretiradas')
             .from('goals')
-            .select('id, meta_valor, super_meta_valor')
+            .select('id, meta_valor, super_meta_valor, daily_weights')
             .eq('store_id', storeId)
             .eq('colaboradora_id', colab.id)
             .eq('mes_referencia', mesReferencia)
             .eq('tipo', 'INDIVIDUAL')
-            .eq('semana_referencia', semanaRef)
+            .is('semana_referencia', null)
             .maybeSingle();
 
           if (metaExistenteError && metaExistenteError.code !== 'PGRST116') {
@@ -123,51 +169,44 @@ export function useGoalRedistribution({ storeId }: UseGoalRedistributionOptions)
             continue;
           }
 
-          // Calcular nova meta (somar a parte redistribuída)
-          const novaMeta = metaExistente 
-            ? Number(metaExistente.meta_valor) + metaPorColaboradora
-            : metaPorColaboradora;
-          
-          const novaSuperMeta = metaExistente
-            ? Number(metaExistente.super_meta_valor) + superMetaPorColaboradora
-            : superMetaPorColaboradora;
+          if (!metaExistente) {
+            console.warn(`[useGoalRedistribution] Meta mensal não encontrada para ${colab.name}`);
+            continue;
+          }
 
-          if (metaExistente) {
-            // Atualizar meta existente
-            const { error: updateError } = await supabase
-              .schema('sistemaretiradas')
-              .from('goals')
-              .update({
-                meta_valor: novaMeta,
-                super_meta_valor: novaSuperMeta
-              })
-              .eq('id', metaExistente.id);
-
-            if (updateError) {
-              console.error(`[useGoalRedistribution] Erro ao atualizar meta de ${colab.name}:`, updateError);
-              continue;
-            }
-          } else {
-            // Criar nova meta se não existir
-            const { error: insertError } = await supabase
-              .schema('sistemaretiradas')
-              .from('goals')
-              .insert([{
-                store_id: storeId,
-                colaboradora_id: colab.id,
-                mes_referencia: mesReferencia,
-                semana_referencia: semanaRef,
-                tipo: 'INDIVIDUAL',
-                meta_valor: novaMeta,
-                super_meta_valor: novaSuperMeta
-              }]);
-
-            if (insertError) {
-              console.error(`[useGoalRedistribution] Erro ao criar meta de ${colab.name}:`, insertError);
-              continue;
+          // Calcular fator de ajuste baseado em daily_weights
+          let fatorDia = 1 / daysInMonth; // Default: proporcional
+          if (metaExistente.daily_weights && Object.keys(metaExistente.daily_weights).length > 0) {
+            const pesoDia = metaExistente.daily_weights[dataFolga] || 0;
+            if (pesoDia > 0) {
+              fatorDia = pesoDia / 100;
             }
           }
 
+          // Ajustar meta mensal: adicionar a parte redistribuída convertida para mensal
+          // Se o dia tem peso X%, então a parte redistribuída deve aumentar a meta mensal proporcionalmente
+          const ajusteMensal = metaPorColaboradora / fatorDia;
+          const ajusteSuperMensal = superMetaPorColaboradora / fatorDia;
+          
+          const novaMetaMensal = Number(metaExistente.meta_valor) + ajusteMensal;
+          const novaSuperMetaMensal = Number(metaExistente.super_meta_valor) + ajusteSuperMensal;
+
+          // Atualizar meta mensal
+          const { error: updateError } = await supabase
+            .schema('sistemaretiradas')
+            .from('goals')
+            .update({
+              meta_valor: novaMetaMensal,
+              super_meta_valor: novaSuperMetaMensal
+            })
+            .eq('id', metaExistente.id);
+
+          if (updateError) {
+            console.error(`[useGoalRedistribution] Erro ao atualizar meta de ${colab.name}:`, updateError);
+            continue;
+          }
+
+          console.log(`[useGoalRedistribution] ✅ Meta redistribuída para ${colab.name}: +R$ ${metaPorColaboradora.toFixed(2)} no dia`);
           successCount++;
         } catch (err: any) {
           console.error(`[useGoalRedistribution] Erro ao processar ${colab.name}:`, err);
