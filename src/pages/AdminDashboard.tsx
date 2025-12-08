@@ -16,8 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CommercialDashboard } from "@/components/admin/CommercialDashboard";
 import { FinancialDashboard } from "@/components/admin/FinancialDashboard";
 import { StorePerformanceReports } from "@/components/admin/StorePerformanceReports";
-import { WhatsAppNotificationConfig } from "@/components/admin/WhatsAppNotificationConfig";
-import { WhatsAppStoreConfig } from "@/components/admin/WhatsAppStoreConfig";
+import { WhatsAppManagement } from "@/components/admin/WhatsAppManagement";
 import { GoalsTracking } from "@/components/admin/GoalsTracking";
 import { CashbackStoreConfig } from "@/components/admin/CashbackStoreConfig";
 import { CRMStoreConfig } from "@/components/admin/CRMStoreConfig";
@@ -387,31 +386,9 @@ const AdminDashboard = () => {
               {/* Separador */}
               <div className="border-t border-border my-6" />
 
-              {/* Seção 2: Configuração WhatsApp */}
+              {/* Seção 2: Central WhatsApp (Conexões + Destinatários + Alertas) */}
               <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <MessageSquare className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold">Configuração WhatsApp</h2>
-                </div>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Configure credenciais WhatsApp por loja para envio de mensagens automáticas. Cada loja pode ter seu próprio número.
-                </p>
-                <WhatsAppStoreConfig />
-              </div>
-
-              {/* Separador */}
-              <div className="border-t border-border my-6" />
-
-              {/* Seção 3: Notificações WhatsApp */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Bell className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold">Notificações WhatsApp</h2>
-                </div>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Configure destinatários e tipos de notificações que serão enviadas via WhatsApp (Vendas, Adiantamentos, Parabéns).
-                </p>
-                <WhatsAppNotificationConfig />
+                <WhatsAppManagement />
               </div>
 
               {/* Separador */}
