@@ -694,7 +694,7 @@ export const CommercialDashboard = () => {
                                 <YAxis 
                                     stroke="#6b7280"
                                     style={{ fontSize: '12px' }}
-                                    tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                                    tickFormatter={(value) => `R$ ${(value / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}k`}
                                 />
                                 <Tooltip 
                                     contentStyle={{
@@ -759,7 +759,7 @@ export const CommercialDashboard = () => {
                                 <YAxis 
                                     stroke="#6b7280"
                                     style={{ fontSize: '11px' }}
-                                    tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                                    tickFormatter={(value) => `R$ ${(value / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}k`}
                                 />
                                 <Tooltip 
                                     contentStyle={{
@@ -824,7 +824,7 @@ export const CommercialDashboard = () => {
                                     <div className="p-2 bg-primary/10 dark:bg-primary/5 rounded-lg">
                                         <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">Ticket Médio</div>
                                         <div className={`font-bold text-xs sm:text-sm ${getKPIColor(store.ticket_medio, bench?.ideal_ticket_medio)}`}>
-                                            R$ {store.ticket_medio.toFixed(0)}
+                                            {formatCurrency(store.ticket_medio, { decimals: 0 })}
                                         </div>
                                     </div>
                                     <div className="p-2 bg-primary/10 dark:bg-primary/5 rounded-lg">
@@ -836,7 +836,7 @@ export const CommercialDashboard = () => {
                                     <div className="p-2 bg-primary/10 dark:bg-primary/5 rounded-lg">
                                         <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">Preço Médio</div>
                                         <div className={`font-bold text-xs sm:text-sm ${getKPIColor(store.preco_medio, bench?.ideal_preco_medio)}`}>
-                                            R$ {store.preco_medio.toFixed(0)}
+                                            {formatCurrency(store.preco_medio, { decimals: 0 })}
                                         </div>
                                     </div>
                                 </div>

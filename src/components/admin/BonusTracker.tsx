@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Gift, TrendingUp, Users, AlertCircle, Medal, Trophy } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, getWeek, getYear, addWeeks } from "date-fns";
 import { validateBonusPreRequisitos } from "@/lib/bonusValidation";
+import { formatBRL } from "@/lib/utils";
 
 interface BonusData {
     id: string;
@@ -421,7 +422,7 @@ export function BonusTracker() {
                                             <p className="text-xs text-muted-foreground">
                                                 {bonus.valor_bonus_texto && bonus.valor_bonus_texto.trim() !== '' 
                                                     ? bonus.valor_bonus_texto 
-                                                    : (bonus.valor_bonus && bonus.valor_bonus > 0 ? `R$ ${bonus.valor_bonus.toFixed(2)}` : '')}
+                                                    : (bonus.valor_bonus && bonus.valor_bonus > 0 ? formatBRL(bonus.valor_bonus) : '')}
                                             </p>
                                         );
                                     }
@@ -507,7 +508,7 @@ export function BonusTracker() {
                                                     // Usar ticketMedio diretamente do objeto colabData
                                                     const ticketMedio = colabData.ticketMedio || 0;
                                                     console.log(`[BonusTracker] 🎯 TICKET_MEDIO DETECTADO - Bonus: "${bonus.nome}", Colab: ${colab.name}, ticketMedio: ${ticketMedio}, tipoCondicao: "${tipoCondicao}"`);
-                                                    return `R$ ${ticketMedio.toFixed(2)}`;
+                                                    return formatBRL(ticketMedio);
                                                 } else if (tipoCondicao === "PA" || tipoUpper.includes("PA")) {
                                                     // Usar pa diretamente do objeto colabData
                                                     const pa = colabData.pa || 0;
@@ -533,19 +534,19 @@ export function BonusTracker() {
                                                     if (bonusData.valor_bonus_texto_1) {
                                                         return bonusData.valor_bonus_texto_1;
                                                     } else if (bonusData.valor_bonus_1) {
-                                                        return `R$ ${bonusData.valor_bonus_1.toFixed(2)}`;
+                                                        return formatBRL(bonusData.valor_bonus_1);
                                                     }
                                                 } else if (position === 2) {
                                                     if (bonusData.valor_bonus_texto_2) {
                                                         return bonusData.valor_bonus_texto_2;
                                                     } else if (bonusData.valor_bonus_2) {
-                                                        return `R$ ${bonusData.valor_bonus_2.toFixed(2)}`;
+                                                        return formatBRL(bonusData.valor_bonus_2);
                                                     }
                                                 } else if (position === 3) {
                                                     if (bonusData.valor_bonus_texto_3) {
                                                         return bonusData.valor_bonus_texto_3;
                                                     } else if (bonusData.valor_bonus_3) {
-                                                        return `R$ ${bonusData.valor_bonus_3.toFixed(2)}`;
+                                                        return formatBRL(bonusData.valor_bonus_3);
                                                     }
                                                 }
                                                 
@@ -553,7 +554,7 @@ export function BonusTracker() {
                                                 if (bonus.valor_bonus_texto) {
                                                     return bonus.valor_bonus_texto;
                                                 } else if (bonus.valor_bonus && bonus.valor_bonus > 0) {
-                                                    return `R$ ${bonus.valor_bonus.toFixed(2)}`;
+                                                    return formatBRL(bonus.valor_bonus);
                                                 }
                                                 
                                                 return null;

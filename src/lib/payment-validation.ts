@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { formatBRL } from './utils';
 
 export const PAYMENT_METHOD_TYPES = ['CREDITO', 'DEBITO', 'DINHEIRO', 'PIX', 'BOLETO'] as const;
 
@@ -78,7 +79,7 @@ export function validateFormasPagamento(
   
   if (diferenca > 0.01) {
     errors.push(
-      `Soma das formas de pagamento (R$ ${soma.toFixed(2)}) difere do valor da venda (R$ ${valorVenda.toFixed(2)})`
+      `Soma das formas de pagamento (${formatBRL(soma)}) difere do valor da venda (${formatBRL(valorVenda)})`
     );
   }
 
@@ -89,9 +90,9 @@ export function validateFormasPagamento(
 }
 
 export function formatFormaPagamento(forma: FormaPagamento): string {
-  let texto = `${PAYMENT_METHOD_LABELS[forma.tipo]}: R$ ${forma.valor.toFixed(2)}`;
+  let texto = `${PAYMENT_METHOD_LABELS[forma.tipo]}: ${formatBRL(forma.valor)}`;
   if (forma.tipo === 'CREDITO' && forma.parcelas) {
-    texto += ` (${forma.parcelas}x de R$ ${(forma.valor / forma.parcelas).toFixed(2)})`;
+    texto += ` (${forma.parcelas}x de ${formatBRL(forma.valor / forma.parcelas)})`;
   }
   return texto;
 }

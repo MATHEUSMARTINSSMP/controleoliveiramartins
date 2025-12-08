@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, Fragment, lazy, Suspense, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { formatBRL } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -2767,9 +2768,9 @@ export default function LojaDashboard() {
                 data.colaboradoraName,
                 ...days.map(dayStr => {
                     const dayData = data.dailySales[dayStr] || { valor: 0 };
-                    return dayData.valor > 0 ? dayData.valor.toFixed(2) : '-';
+                    return dayData.valor > 0 ? dayData.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-';
                 }),
-                data.totalMes.toFixed(2)
+                data.totalMes.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
             ];
             rows.push(row);
         });
@@ -2777,8 +2778,8 @@ export default function LojaDashboard() {
         // Linha de total
         rows.push([
             'TOTAL DA LOJA',
-            ...days.map(dayStr => totalPorDia[dayStr] > 0 ? totalPorDia[dayStr].toFixed(2) : '-'),
-            monthlyRealizado.toFixed(2)
+            ...days.map(dayStr => totalPorDia[dayStr] > 0 ? totalPorDia[dayStr].toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'),
+            monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         ]);
 
         return { headers, rows, days };
@@ -3221,8 +3222,8 @@ export default function LojaDashboard() {
                                                                 <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                                                                 <span>
                                                                     {diferenca > 0
-                                                                        ? `Faltam R$ ${diferenca.toFixed(2)} para completar o valor total`
-                                                                        : `Valor excede o total em R$ ${Math.abs(diferenca).toFixed(2)}`
+                                                                        ? `Faltam ${formatBRL(diferenca)} para completar o valor total`
+                                                                        : `Valor excede o total em ${formatBRL(Math.abs(diferenca))}`
                                                                     }
                                                                 </span>
                                                             </div>
@@ -3445,7 +3446,7 @@ export default function LojaDashboard() {
                                                             />
                                                         </div>
                                                         <p className="text-xs sm:text-sm text-muted-foreground">
-                                                            Meta: R$ {metrics.meta_preco_medio_peca?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                            Meta: {formatBRL(metrics.meta_preco_medio_peca)}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -3609,18 +3610,18 @@ export default function LojaDashboard() {
                                                             <TableRow key={perf.id}>
                                                                 <TableCell className="font-medium text-xs sm:text-sm break-words">{perf.name}</TableCell>
                                                                 <TableCell className="text-xs sm:text-sm font-medium">
-                                                                    R$ {perf.vendido.toFixed(2)}
+                                                                    {formatBRL(perf.vendido)}
                                                                     {perf.vendidoMes > 0 && (
                                                                         <div className="text-[10px] text-muted-foreground mt-0.5">
-                                                                            Mês: R$ {perf.vendidoMes.toFixed(2)}
+                                                                            Mês: {formatBRL(perf.vendidoMes)}
                                                                         </div>
                                                                     )}
                                                                 </TableCell>
                                                                 <TableCell className="text-xs sm:text-sm hidden sm:table-cell">
-                                                                    R$ {perf.metaDiaria > 0 ? perf.metaDiaria.toFixed(2) : '0.00'}
+                                                                    {formatBRL(perf.metaDiaria)}
                                                                     {perf.meta > 0 && (
                                                                         <div className="text-[10px] text-muted-foreground mt-0.5">
-                                                                            Mensal: R$ {perf.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                            Mensal: {formatBRL(perf.meta)}
                                                                         </div>
                                                                     )}
                                                                 </TableCell>
@@ -3641,7 +3642,7 @@ export default function LojaDashboard() {
                                                                             </div>
                                                                             {perf.faltaMensal > 0 && (
                                                                                 <div className="text-[10px] text-status-ontrack mt-0.5">
-                                                                                    Falta: R$ {perf.faltaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                                    Falta: {formatBRL(perf.faltaMensal)}
                                                                                 </div>
                                                                             )}
                                                                         </>
@@ -3649,7 +3650,7 @@ export default function LojaDashboard() {
                                                                         <span className="text-muted-foreground">Sem meta</span>
                                                                     )}
                                                                 </TableCell>
-                                                                <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {perf.ticketMedio.toFixed(2)}</TableCell>
+                                                                <TableCell className="text-xs sm:text-sm hidden md:table-cell">{formatBRL(perf.ticketMedio)}</TableCell>
                                                                 <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
                                                                     {perf.qtdVendas > 0 ? (perf.qtdPecas / perf.qtdVendas).toFixed(1) : '0.0'}
                                                                 </TableCell>
@@ -3786,9 +3787,9 @@ export default function LojaDashboard() {
                                                                                 )}
                                                                             </div>
                                                                         </TableCell>
-                                                                        <TableCell className="text-xs sm:text-sm font-medium">R$ {sale.valor.toFixed(2)}</TableCell>
+                                                                        <TableCell className="text-xs sm:text-sm font-medium">{formatBRL(sale.valor)}</TableCell>
                                                                         <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{sale.qtd_pecas}</TableCell>
-                                                                        <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {sale.valor.toFixed(2)}</TableCell>
+                                                                        <TableCell className="text-xs sm:text-sm hidden md:table-cell">{formatBRL(sale.valor)}</TableCell>
                                                                         <TableCell>
                                                                             <div className="flex gap-1 sm:gap-2">
                                                                                 <Button variant="ghost" size="sm" onClick={() => handleEdit(sale)} className="h-8 w-8 p-0">
@@ -3889,7 +3890,7 @@ export default function LojaDashboard() {
                                                                     <span className="font-semibold text-sm break-words block">{item.name || 'Colaboradora'}</span>
                                                                     {perf && (
                                                                         <div className="text-[10px] text-muted-foreground mt-0.5 flex gap-2 flex-wrap">
-                                                                            <span>Ticket: R$ {perf.ticketMedio.toFixed(2)}</span>
+                                                                            <span>Ticket: {formatBRL(perf.ticketMedio)}</span>
                                                                             <span>PA: {(perf.qtdPecas / Math.max(perf.qtdVendasMes, 1)).toFixed(1)}</span>
                                                                         </div>
                                                                     )}
@@ -3897,7 +3898,7 @@ export default function LojaDashboard() {
                                                             </div>
                                                             <div className="text-right flex-shrink-0 ml-2">
                                                                 <p className="font-bold text-base sm:text-lg">
-                                                                    R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                    {formatBRL(item.total)}
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -3937,9 +3938,9 @@ export default function LojaDashboard() {
                                                                     {day.qtdVendas > 0 ? (day.qtdPecas / day.qtdVendas).toFixed(1) : '0.0'}
                                                                 </TableCell>
                                                                 <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
-                                                                    R$ {day.ticketMedio ? day.ticketMedio.toFixed(2) : (day.qtdVendas > 0 ? (day.total / day.qtdVendas).toFixed(2) : '0.00')}
+                                                                    {formatBRL(day.ticketMedio || (day.qtdVendas > 0 ? day.total / day.qtdVendas : 0))}
                                                                 </TableCell>
-                                                                <TableCell className="text-xs sm:text-sm font-medium">R$ {day.total.toFixed(2)}</TableCell>
+                                                                <TableCell className="text-xs sm:text-sm font-medium">{formatBRL(day.total)}</TableCell>
                                                             </TableRow>
                                                         ))}
                                                     </TableBody>
@@ -4045,12 +4046,12 @@ export default function LojaDashboard() {
                                                                                                     : 'text-muted-foreground'
                                                                                             }
                                                                     `}
-                                                                                        title={dayData.metaDiaria > 0 ? `Meta: R$ ${dayData.metaDiaria.toFixed(2)}` : ''}
+                                                                                        title={dayData.metaDiaria > 0 ? `Meta: ${formatBRL(dayData.metaDiaria)}` : ''}
                                                                                     >
                                                                                         {dayData.valor > 0 ? (
                                                                                             <span className="font-semibold">
-                                                                                                R$ {dayData.valor.toFixed(0)}
-                                                                                                {bateuMeta && ' ✓'}
+                                                                                                {formatBRL(dayData.valor, 0)}
+                                                                                                {bateuMeta && ' '}
                                                                                             </span>
                                                                                         ) : (
                                                                                             <span className="text-muted-foreground">-</span>
@@ -4059,7 +4060,7 @@ export default function LojaDashboard() {
                                                                                 );
                                                                             })}
                                                                             <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-background z-10 min-w-[120px] text-right">
-                                                                                R$ {data.totalMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                                {formatBRL(data.totalMes)}
                                                                             </TableCell>
                                                                         </TableRow>
                                                                     );
@@ -4099,7 +4100,7 @@ export default function LojaDashboard() {
                                                                             className="text-xs text-center font-bold text-primary"
                                                                         >
                                                                             {totalPorDia[dayStr] > 0 ? (
-                                                                                `R$ ${totalPorDia[dayStr].toFixed(0)}`
+                                                                                formatBRL(totalPorDia[dayStr], 0)
                                                                             ) : (
                                                                                 <span className="text-muted-foreground">-</span>
                                                                             )}
@@ -4108,7 +4109,7 @@ export default function LojaDashboard() {
                                                                 })()}
                                                                 <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-primary/5 z-10 min-w-[120px] text-right">
                                                                     {/* Usar monthlyRealizado que já inclui vendas de colaboradoras desativadas até a data de desativação */}
-                                                                    R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                    {formatBRL(monthlyRealizado)}
                                                                 </TableCell>
                                                             </TableRow>
                                                         </TableBody>
@@ -4364,8 +4365,8 @@ export default function LojaDashboard() {
                                                             <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                                                             <span>
                                                                 {diferenca > 0
-                                                                    ? `Faltam R$ ${diferenca.toFixed(2)} para completar o valor total`
-                                                                    : `Valor excede o total em R$ ${Math.abs(diferenca).toFixed(2)}`
+                                                                    ? `Faltam ${formatBRL(diferenca)} para completar o valor total`
+                                                                    : `Valor excede o total em ${formatBRL(Math.abs(diferenca))}`
                                                                 }
                                                             </span>
                                                         </div>
@@ -4571,9 +4572,9 @@ export default function LojaDashboard() {
                                         <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6 flex-1 flex flex-col items-center justify-center text-center">
                                             <div className="space-y-3 w-full">
                                                 <p className="text-xl sm:text-3xl font-bold text-primary">
-                                                    R$ {sales.length > 0 ?
-                                                        (sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) :
-                                                        '0,00'}
+                                                    {formatBRL(sales.length > 0 ?
+                                                        sales.reduce((sum, s) => sum + s.valor, 0) / sales.reduce((sum, s) => sum + s.qtd_pecas, 0) :
+                                                        0)}
                                                 </p>
                                                 <div className="space-y-1">
                                                     <div className="flex items-center gap-3 justify-between">
@@ -4583,7 +4584,7 @@ export default function LojaDashboard() {
                                                         />
                                                     </div>
                                                     <p className="text-xs sm:text-sm text-muted-foreground">
-                                                        Meta: R$ {metrics.meta_preco_medio_peca?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                        Meta: {formatBRL(metrics.meta_preco_medio_peca)}
                                                     </p>
                                                 </div>
                                             </div>
@@ -4606,17 +4607,17 @@ export default function LojaDashboard() {
                                                     <div className="space-y-2.5">
                                                         <div className="flex items-center justify-between text-base">
                                                             <span className="text-muted-foreground">Meta do Dia</span>
-                                                            <span className="font-semibold">R$ {perf.metaDiaria > 0 ? perf.metaDiaria.toFixed(2) : '0.00'}</span>
+                                                            <span className="font-semibold">{formatBRL(perf.metaDiaria)}</span>
                                                         </div>
                                                         <div className="flex items-center justify-between text-base">
                                                             <span className="text-muted-foreground">Vendido:</span>
-                                                            <span className="font-bold text-primary">R$ {perf.vendido.toFixed(2)}</span>
+                                                            <span className="font-bold text-primary">{formatBRL(perf.vendido)}</span>
                                                         </div>
                                                         {perf.metaDiaria > 0 && (
                                                             <div className="flex items-center justify-between text-base">
                                                                 <span className="text-muted-foreground">Falta:</span>
                                                                 <span className={`font-semibold ${perf.vendido >= perf.metaDiaria ? 'text-status-ahead' : 'text-status-ontrack'}`}>
-                                                                    R$ {Math.max(0, perf.metaDiaria - perf.vendido).toFixed(2)}
+                                                                    {formatBRL(Math.max(0, perf.metaDiaria - perf.vendido))}
                                                                 </span>
                                                             </div>
                                                         )}
@@ -4686,18 +4687,18 @@ export default function LojaDashboard() {
                                                         <TableRow key={perf.id}>
                                                             <TableCell className="font-medium text-xs sm:text-sm break-words">{perf.name}</TableCell>
                                                             <TableCell className="text-xs sm:text-sm font-medium">
-                                                                R$ {perf.vendido.toFixed(2)}
+                                                                {formatBRL(perf.vendido)}
                                                                 {perf.vendidoMes > 0 && (
                                                                     <div className="text-[10px] text-muted-foreground mt-0.5">
-                                                                        Mês: R$ {perf.vendidoMes.toFixed(2)}
+                                                                        Mês: {formatBRL(perf.vendidoMes)}
                                                                     </div>
                                                                 )}
                                                             </TableCell>
                                                             <TableCell className="text-xs sm:text-sm hidden sm:table-cell">
-                                                                R$ {perf.metaDiaria > 0 ? perf.metaDiaria.toFixed(2) : '0.00'}
+                                                                {formatBRL(perf.metaDiaria)}
                                                                 {perf.meta > 0 && (
                                                                     <div className="text-[10px] text-muted-foreground mt-0.5">
-                                                                        Mensal: R$ {perf.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                        Mensal: {formatBRL(perf.meta)}
                                                                     </div>
                                                                 )}
                                                             </TableCell>
@@ -4717,7 +4718,7 @@ export default function LojaDashboard() {
                                                                         </div>
                                                                         {perf.faltaMensal > 0 && (
                                                                             <div className="text-[10px] text-status-ontrack mt-0.5">
-                                                                                Falta: R$ {perf.faltaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                                Falta: {formatBRL(perf.faltaMensal)}
                                                                             </div>
                                                                         )}
                                                                     </>
@@ -4725,7 +4726,7 @@ export default function LojaDashboard() {
                                                                     <span className="text-muted-foreground">Sem meta</span>
                                                                 )}
                                                             </TableCell>
-                                                            <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {perf.ticketMedio.toFixed(2)}</TableCell>
+                                                            <TableCell className="text-xs sm:text-sm hidden md:table-cell">{formatBRL(perf.ticketMedio)}</TableCell>
                                                             <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
                                                                 {perf.qtdVendas > 0 ? (perf.qtdPecas / perf.qtdVendas).toFixed(1) : '0.0'}
                                                             </TableCell>
@@ -4862,9 +4863,9 @@ export default function LojaDashboard() {
                                                                             )}
                                                                         </div>
                                                                     </TableCell>
-                                                                    <TableCell className="text-xs sm:text-sm font-medium">R$ {sale.valor.toFixed(2)}</TableCell>
+                                                                    <TableCell className="text-xs sm:text-sm font-medium">{formatBRL(sale.valor)}</TableCell>
                                                                     <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{sale.qtd_pecas}</TableCell>
-                                                                    <TableCell className="text-xs sm:text-sm hidden md:table-cell">R$ {sale.valor.toFixed(2)}</TableCell>
+                                                                    <TableCell className="text-xs sm:text-sm hidden md:table-cell">{formatBRL(sale.valor)}</TableCell>
                                                                     <TableCell>
                                                                         <div className="flex gap-1 sm:gap-2">
                                                                             <Button variant="ghost" size="sm" onClick={() => handleEdit(sale)} className="h-8 w-8 p-0">
@@ -4965,7 +4966,7 @@ export default function LojaDashboard() {
                                                                 <span className="font-semibold text-sm break-words block">{item.name || 'Colaboradora'}</span>
                                                                 {perf && (
                                                                     <div className="text-[10px] text-muted-foreground mt-0.5 flex gap-2 flex-wrap">
-                                                                        <span>Ticket: R$ {perf.ticketMedio.toFixed(2)}</span>
+                                                                        <span>Ticket: {formatBRL(perf.ticketMedio)}</span>
                                                                         <span>PA: {(perf.qtdPecas / Math.max(perf.qtdVendasMes, 1)).toFixed(1)}</span>
                                                                     </div>
                                                                 )}
@@ -4973,7 +4974,7 @@ export default function LojaDashboard() {
                                                         </div>
                                                         <div className="text-right flex-shrink-0 ml-2">
                                                             <p className="font-bold text-base sm:text-lg">
-                                                                R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                {formatBRL(item.total)}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -5013,9 +5014,9 @@ export default function LojaDashboard() {
                                                                 {day.qtdVendas > 0 ? (day.qtdPecas / day.qtdVendas).toFixed(1) : '0.0'}
                                                             </TableCell>
                                                             <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
-                                                                R$ {day.ticketMedio ? day.ticketMedio.toFixed(2) : (day.qtdVendas > 0 ? (day.total / day.qtdVendas).toFixed(2) : '0.00')}
+                                                                {formatBRL(day.ticketMedio ? day.ticketMedio : (day.qtdVendas > 0 ? (day.total / day.qtdVendas) : 0))}
                                                             </TableCell>
-                                                            <TableCell className="text-xs sm:text-sm font-medium">R$ {day.total.toFixed(2)}</TableCell>
+                                                            <TableCell className="text-xs sm:text-sm font-medium">{formatBRL(day.total)}</TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>
@@ -5121,11 +5122,11 @@ export default function LojaDashboard() {
                                                                                                 : 'text-muted-foreground'
                                                                                         }
                                                                         `}
-                                                                                    title={dayData.metaDiaria > 0 ? `Meta: R$ ${dayData.metaDiaria.toFixed(2)}` : ''}
+                                                                                    title={dayData.metaDiaria > 0 ? `Meta: ${formatBRL(dayData.metaDiaria)}` : ''}
                                                                                 >
                                                                                     {dayData.valor > 0 ? (
                                                                                         <span className="font-semibold">
-                                                                                            R$ {dayData.valor.toFixed(0)}
+                                                                                            {formatBRL(dayData.valor, 0)}
                                                                                             {bateuMeta && ' ✓'}
                                                                                         </span>
                                                                                     ) : (
@@ -5135,7 +5136,7 @@ export default function LojaDashboard() {
                                                                             );
                                                                         })}
                                                                         <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-background z-10 min-w-[120px] text-right">
-                                                                            R$ {data.totalMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                            {formatBRL(data.totalMes)}
                                                                         </TableCell>
                                                                     </TableRow>
                                                                 );
@@ -5173,7 +5174,7 @@ export default function LojaDashboard() {
                                                                         className="text-xs text-center font-bold text-primary"
                                                                     >
                                                                         {totalPorDia[dayStr] > 0 ? (
-                                                                            `R$ ${totalPorDia[dayStr].toFixed(0)}`
+                                                                            formatBRL(totalPorDia[dayStr], 0)
                                                                         ) : (
                                                                             <span className="text-muted-foreground">-</span>
                                                                         )}

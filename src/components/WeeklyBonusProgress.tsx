@@ -429,7 +429,7 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
                                     <div className="flex items-center justify-between bg-card p-3 rounded-lg border border-border">
                                         <span className="text-sm sm:text-base font-semibold">{colab.colaboradoraName}</span>
                                         <span className="text-sm sm:text-base font-bold text-status-ahead">
-                                            Falta R$ {colab.faltaSuperMeta.toFixed(2)} para Super Meta Semanal
+                                            Falta {formatCurrency(colab.faltaSuperMeta)} para Super Meta Semanal
                                         </span>
                                     </div>
                                     {colab.preRequisitosReasonMeta && (
@@ -452,7 +452,7 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
                                 <div key={colab.colaboradoraId} className="flex items-center justify-between bg-card p-3 rounded-lg border border-border">
                                     <span className="text-sm sm:text-base font-semibold">{colab.colaboradoraName}</span>
                                     <span className="text-sm sm:text-base font-bold text-muted-foreground">
-                                        Falta R$ {colab.faltaMeta.toFixed(2)} para atingir a Meta Semanal
+                                        Falta {formatCurrency(colab.faltaMeta)} para atingir a Meta Semanal
                                     </span>
                                 </div>
                             ))}

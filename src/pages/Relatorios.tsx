@@ -911,7 +911,7 @@ const Relatorios = () => {
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="store_name" angle={-45} textAnchor="end" height={100} />
                             <YAxis />
-                            <Tooltip formatter={(value: any) => `R$ ${Number(value).toFixed(2)}`} />
+                            <Tooltip formatter={(value: any) => formatCurrency(Number(value))} />
                             <Legend />
                             <Bar dataKey="ticket_medio" fill="#8884d8" name="Real" />
                             <Bar dataKey="ideal_ticket_medio" fill="#82ca9d" name="Meta" />
@@ -951,7 +951,7 @@ const Relatorios = () => {
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="store_name" angle={-45} textAnchor="end" height={100} />
                             <YAxis />
-                            <Tooltip formatter={(value: any) => `R$ ${Number(value).toFixed(2)}`} />
+                            <Tooltip formatter={(value: any) => formatCurrency(Number(value))} />
                             <Legend />
                             <Bar dataKey="preco_medio" fill="#8884d8" name="Real" />
                             <Bar dataKey="ideal_preco_medio" fill="#82ca9d" name="Meta" />

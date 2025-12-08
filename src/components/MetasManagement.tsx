@@ -1,6 +1,7 @@
 import React, { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { formatBRL } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -125,7 +126,7 @@ const MetasManagementContent = () => {
     const [weeklyColabGoals, setWeeklyColabGoals] = useState<{ id: string, name: string, meta: number, superMeta: number }[]>([]);
     
     // Weekly goals advanced states (para cálculo com daily_weights)
-    const [monthlyGoal, setMonthlyGoal] = useState<{ meta_valor: number; super_meta_valor: number } | null>(null);
+    const [monthlyGoal, setMonthlyGoal] = useState<{ meta_valor: number; super_meta_valor: number; daily_weights?: Record<string, number> } | null>(null);
     const [suggestedWeeklyMeta, setSuggestedWeeklyMeta] = useState<number>(0);
     const [suggestedWeeklySuperMeta, setSuggestedWeeklySuperMeta] = useState<number>(0);
     const [colaboradorasAtivas, setColaboradorasAtivas] = useState<{ id: string; name: string; active: boolean }[]>([]);
@@ -750,8 +751,8 @@ const MetasManagementContent = () => {
                     });
                     
                     // Formatar prêmios
-                    const premioCheckpoint1Str = valorBonusTexto1 || (valorBonus1 && valorBonus1 > 0 ? `R$ ${valorBonus1.toFixed(2)}` : null);
-                    const premioCheckpointFinalStr = valorBonusTextoFinal || (valorBonusFinal && valorBonusFinal > 0 ? `R$ ${valorBonusFinal.toFixed(2)}` : null);
+                    const premioCheckpoint1Str = valorBonusTexto1 || (valorBonus1 && valorBonus1 > 0 ? formatBRL(valorBonus1) : null);
+                    const premioCheckpointFinalStr = valorBonusTextoFinal || (valorBonusFinal && valorBonusFinal > 0 ? formatBRL(valorBonusFinal) : null);
                     
                     // Enviar UMA mensagem consolidada para cada colaboradora
                     colaboradorasData.forEach((colab) => {
@@ -2376,10 +2377,10 @@ const MetasManagementContent = () => {
                                                             {metaValue > 0 && (
                                                                 <>
                                                                     <div className="text-[10px] text-primary font-medium">
-                                                                        R$ {dailyMeta.toFixed(0)}
+                                                                        {formatBRL(dailyMeta, 0)}
                                                                     </div>
                                                                     <div className="text-[10px] text-primary/80 font-medium">
-                                                                        R$ {dailySuperMeta.toFixed(0)}
+                                                                        {formatBRL(dailySuperMeta, 0)}
                                                                     </div>
                                                                 </>
                                                             )}

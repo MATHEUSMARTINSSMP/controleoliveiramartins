@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { formatBRL } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1348,7 +1349,7 @@ export default function BonusManagement() {
                                                 ? (bonus as any).valor_bonus_texto
                                                 : bonus.tipo === 'PERCENTUAL'
                                                     ? `${bonus.valor_bonus}%`
-                                                    : `R$ ${bonus.valor_bonus}`}
+                                                    : formatBRL(bonus.valor_bonus)}
                                         </span>
                                     </div>
                                     <div className="bg-muted p-2 rounded col-span-2">
@@ -1356,7 +1357,7 @@ export default function BonusManagement() {
                                         <span className="font-medium text-xs sm:text-sm">
                                             {bonus.tipo_condicao === 'PERCENTUAL_META' && bonus.meta_minima_percentual && `Atingir ${bonus.meta_minima_percentual}% da Meta`}
                                             {bonus.tipo_condicao === 'RANKING' && `Ficar em ${bonus.valor_condicao || bonus.meta_minima_percentual}º Lugar`}
-                                            {bonus.tipo_condicao === 'VALOR_FIXO_VENDAS' && bonus.vendas_minimas && `Vender R$ ${bonus.vendas_minimas}`}
+                                            {bonus.tipo_condicao === 'VALOR_FIXO_VENDAS' && bonus.vendas_minimas && `Vender ${formatBRL(bonus.vendas_minimas)}`}
                                             {bonus.tipo_condicao === 'META_SEMANAL' && `🎯 Atingir 100% da Gincana Semanal`}
                                             {bonus.tipo_condicao === 'SUPER_META_SEMANAL' && `🏆 Atingir 100% da Super Gincana Semanal (não cumulativo)`}
                                             {!bonus.tipo_condicao && bonus.meta_minima_percentual && `Atingir ${bonus.meta_minima_percentual}% da Meta`}

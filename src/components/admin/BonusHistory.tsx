@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Gift, Trophy, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
+import { formatBRL } from "@/lib/utils";
 
 interface BonusHistoryData {
     id: string;
@@ -135,7 +136,7 @@ export function BonusHistory() {
                                             </Badge>
                                         </div>
                                         <p className="text-xs text-muted-foreground mt-1">
-                                            {bonus.valor_bonus_texto || `R$ ${bonus.valor_bonus.toFixed(2)}`}
+                                            {bonus.valor_bonus_texto || formatBRL(bonus.valor_bonus)}
                                         </p>
                                         <p className="text-xs text-muted-foreground">
                                             Criado em {format(new Date(bonus.created_at), "dd/MM/yyyy")}
