@@ -40,19 +40,13 @@ exports.handler = async (event, context) => {
       throw updateError;
     }
 
-    console.log('Password updated successfully, invalidating sessions');
+    console.log('Password updated successfully');
 
-    // Sign out all sessions for this user to force re-login with new password
-    const { error: signOutError } = await supabaseAdmin.auth.admin.signOut(user_id);
-
-    if (signOutError) {
-      console.error('Error signing out user:', signOutError);
-      // Continue anyway - password was updated
-    } else {
-      console.log('Sessions invalidated successfully');
-    }
-
-    console.log('Sending email notification');
+    // Note: When password is updated, Supabase automatically invalidates all existing sessions
+    // No need to manually sign out - the old sessions will be invalid on next use
+    // Attempting to signOut with userId can cause JWT errors, so we skip it
+    
+    console.log('Sessions will be automatically invalidated on next login attempt, sending email notification');
 
     // Send notification email via Netlify Function
     try {
