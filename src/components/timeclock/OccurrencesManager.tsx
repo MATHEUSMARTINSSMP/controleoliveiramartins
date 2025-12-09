@@ -74,7 +74,7 @@ export function OccurrencesManager({ storeId, adminId }: OccurrencesManagerProps
       .from('profiles')
       .select('id, name')
       .eq('store_id', storeId)
-      .eq('role', 'colaboradora')
+      .ilike('role', 'colaboradora')
       .eq('active', true)
       .order('name');
 
@@ -193,7 +193,7 @@ export function OccurrencesManager({ storeId, adminId }: OccurrencesManagerProps
           status: 'rejeitado',
           aprovado_por: adminId,
           aprovado_em: new Date().toISOString(),
-          motivo_rejeicao: motivo,
+          motivo_rejeicao: motivo || 'Solicitação rejeitada pelo administrador',
         })
         .eq('id', id);
 
@@ -201,6 +201,7 @@ export function OccurrencesManager({ storeId, adminId }: OccurrencesManagerProps
 
       toast.success('Solicitação rejeitada');
       fetchPendingOccurrences();
+      fetchOccurrences();
     } catch (err: any) {
       toast.error('Erro ao rejeitar: ' + err.message);
     }
