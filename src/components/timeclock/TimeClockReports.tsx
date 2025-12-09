@@ -35,11 +35,13 @@ interface TimeClockRecord {
 interface WorkSchedule {
   id: string;
   colaboradora_id: string;
-  hora_entrada: string;
-  hora_intervalo_saida: string;
-  hora_intervalo_retorno: string;
-  hora_saida: string;
-  dias_semana: number[];
+  hora_entrada: string | null;
+  hora_intervalo_saida: string | null;
+  hora_intervalo_retorno: string | null;
+  hora_saida: string | null;
+  dias_semana: number[] | null;
+  carga_horaria_diaria: number | null;
+  tempo_intervalo_minutos: number | null;
   ativo: boolean;
 }
 
@@ -171,9 +173,11 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
     const { start, end } = getDateRange();
     const days = eachDayOfInterval({ start, end });
     
+    const workDays = schedule.dias_semana || [1, 2, 3, 4, 5, 6];
+    
     return days.map(day => {
       const dayOfWeek = day.getDay();
-      const isWorkDay = schedule.dias_semana.includes(dayOfWeek);
+      const isWorkDay = workDays.includes(dayOfWeek);
       
       const dayRecords = records.filter(r => 
         format(new Date(r.horario), 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd')
@@ -188,13 +192,21 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
       let horasEsperadas = 0;
 
       if (isWorkDay) {
-        const [entradaH, entradaM] = schedule.hora_entrada.split(':').map(Number);
-        const [saidaH, saidaM] = schedule.hora_saida.split(':').map(Number);
-        const [intervSaidaH, intervSaidaM] = schedule.hora_intervalo_saida.split(':').map(Number);
-        const [intervRetornoH, intervRetornoM] = schedule.hora_intervalo_retorno.split(':').map(Number);
-        
-        horasEsperadas = (saidaH * 60 + saidaM) - (entradaH * 60 + entradaM) - 
-          ((intervRetornoH * 60 + intervRetornoM) - (intervSaidaH * 60 + intervSaidaM));
+        if (schedule.carga_horaria_diaria) {
+          horasEsperadas = schedule.carga_horaria_diaria;
+        } else if (schedule.hora_entrada && schedule.hora_saida) {
+          const [entradaH, entradaM] = schedule.hora_entrada.split(':').map(Number);
+          const [saidaH, saidaM] = schedule.hora_saida.split(':').map(Number);
+          horasEsperadas = (saidaH * 60 + saidaM) - (entradaH * 60 + entradaM);
+          
+          if (schedule.hora_intervalo_saida && schedule.hora_intervalo_retorno) {
+            const [intervSaidaH, intervSaidaM] = schedule.hora_intervalo_saida.split(':').map(Number);
+            const [intervRetornoH, intervRetornoM] = schedule.hora_intervalo_retorno.split(':').map(Number);
+            horasEsperadas -= ((intervRetornoH * 60 + intervRetornoM) - (intervSaidaH * 60 + intervSaidaM));
+          } else if (schedule.tempo_intervalo_minutos) {
+            horasEsperadas -= schedule.tempo_intervalo_minutos;
+          }
+        }
       }
 
       if (entrada && saida) {
