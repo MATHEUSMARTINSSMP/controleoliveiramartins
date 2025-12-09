@@ -32,6 +32,7 @@ export function TimeClockLojaView({ storeId: propStoreId }: TimeClockLojaViewPro
   const [colaboradoraName, setColaboradoraName] = useState<string>('');
   const [pontoAtivo, setPontoAtivo] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
   useEffect(() => {
     if (storeId) {
@@ -123,6 +124,11 @@ export function TimeClockLojaView({ storeId: propStoreId }: TimeClockLojaViewPro
     );
   }
 
+  const handleRecordSuccess = () => {
+    // Incrementar a chave para forçar atualização do histórico
+    setHistoryRefreshKey(prev => prev + 1);
+  };
+
   return (
     <div className="space-y-4">
       <TimeClockRegister
@@ -130,6 +136,7 @@ export function TimeClockLojaView({ storeId: propStoreId }: TimeClockLojaViewPro
         colaboradoraId={colaboradoraId}
         colaboradoraName={colaboradoraName}
         onLogout={handleLogout}
+        onRecordSuccess={handleRecordSuccess}
       />
       {/* Histórico do dia */}
       <Card>
@@ -138,6 +145,7 @@ export function TimeClockLojaView({ storeId: propStoreId }: TimeClockLojaViewPro
         </CardHeader>
         <CardContent>
           <TimeClockHistory
+            key={historyRefreshKey}
             storeId={storeId!}
             colaboradoraId={colaboradoraId}
             showOnlyToday={true}

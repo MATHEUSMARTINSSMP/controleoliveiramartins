@@ -26,6 +26,7 @@ interface TimeClockRegisterProps {
   colaboradoraId: string;
   colaboradoraName: string;
   onLogout?: () => void;
+  onRecordSuccess?: () => void;
 }
 
 export function TimeClockRegister({
@@ -33,6 +34,7 @@ export function TimeClockRegister({
   colaboradoraId,
   colaboradoraName,
   onLogout,
+  onRecordSuccess,
 }: TimeClockRegisterProps) {
   const {
     lastRecord,
@@ -479,7 +481,13 @@ export function TimeClockRegister({
       setPendingAction(null);
       setPin('');
       
+      // Atualizar registros localmente primeiro
       await fetchRecords();
+      
+      // Notificar componente pai para atualizar histórico
+      if (onRecordSuccess) {
+        onRecordSuccess();
+      }
       
       toast.success('Ponto registrado com assinatura digital');
 

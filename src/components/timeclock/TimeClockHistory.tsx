@@ -48,6 +48,21 @@ export function TimeClockHistory({ storeId, colaboradoraId, showOnlyToday = fals
     }
   }, [storeId, colaboradoraId, startDate, endDate, fetchRecords, fetchHoursBalance]);
 
+  // Refetch automático a cada 10 segundos para atualização em tempo real
+  // Isso garante que mesmo sem refresh manual, os dados sejam atualizados
+  useEffect(() => {
+    if (!storeId || !colaboradoraId) return;
+
+    const interval = setInterval(() => {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      fetchRecords(start, end);
+      fetchHoursBalance();
+    }, 10000); // Atualizar a cada 10 segundos
+
+    return () => clearInterval(interval);
+  }, [storeId, colaboradoraId, startDate, endDate, fetchRecords, fetchHoursBalance]);
+
   const getRecordTypeLabel = (tipo: string) => {
     const labels: Record<string, string> = {
       ENTRADA: 'Entrada',
