@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
 
     // Send welcome email via Resend
     const emailResponse = await resend.emails.send({
-      from: "Dashboard de Compras <senhas@eleveaagencia.com.br>",
+      from: "Dashboard de Compras <senhas@eleveaone.com.br>",
       to: [email],
       subject: "Bem-vinda ao Dashboard de Compras!",
       html: `

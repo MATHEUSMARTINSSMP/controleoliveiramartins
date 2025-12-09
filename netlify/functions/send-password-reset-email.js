@@ -35,7 +35,7 @@ exports.handler = async (event, context) => {
 
     // Send password reset email via Resend
     const emailResponse = await resend.emails.send({
-      from: 'Dashboard de Compras <senhas@eleveaagencia.com.br>',
+      from: 'Dashboard de Compras <senhas@eleveaone.com.br>',
       to: [email],
       subject: 'Sua senha foi alterada - Dashboard de Compras',
       html: `

@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
 
     // Send password reset email via Resend
     const emailResponse = await resend.emails.send({
-      from: "Dashboard de Compras <senhas@eleveaagencia.com.br>",
+      from: "Dashboard de Compras <senhas@eleveaone.com.br>",
       to: [profile.email],
       subject: "Recuperação de Senha - Dashboard de Compras",
       html: `

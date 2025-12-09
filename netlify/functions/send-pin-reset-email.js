@@ -47,7 +47,7 @@ exports.handler = async (event, context) => {
     console.log('Sending PIN reset email to:', email);
 
     const emailResponse = await resend.emails.send({
-      from: 'EleveaOne <senhas@eleveaagencia.com.br>',
+      from: 'EleveaOne <senhas@eleveaone.com.br>',
       to: [email],
       subject: 'Codigo para Redefinir seu PIN de Assinatura Digital',
       html: `
