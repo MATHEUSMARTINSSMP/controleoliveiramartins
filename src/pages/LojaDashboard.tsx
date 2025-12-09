@@ -2251,24 +2251,33 @@ export default function LojaDashboard() {
                             const hoje = new Date();
                             const hojeStr = format(hoje, 'yyyy-MM-dd');
                             const valorVendaAtual = parseFloat(vendaData.valor) || 0;
+                            const saleIdAtual = insertedSale?.id;
 
                             const { data: vendasHoje, error: vendasHojeError } = await supabase
                                 .schema('sistemaretiradas')
                                 .from('sales')
-                                .select('valor')
+                                .select('id, valor')
                                 .eq('store_id', storeId)
                                 .gte('data_venda', `${hojeStr}T00:00:00`)
                                 .lte('data_venda', `${hojeStr}T23:59:59`);
 
-                            // ✅ IMPORTANTE: Calcular total do dia e ADICIONAR a venda atual sempre
+                            // ✅ CORREÇÃO: Calcular total do dia e verificar se a venda atual já está incluída
                             let totalDia = 0;
+                            let vendaAtualJaIncluida = false;
                             if (!vendasHojeError && vendasHoje) {
                                 totalDia = vendasHoje.reduce((sum: number, v: any) => sum + parseFloat(v.valor || 0), 0);
+                                // Verificar se a venda atual já está na lista pelo ID
+                                vendaAtualJaIncluida = vendasHoje.some((v: any) => v.id === saleIdAtual);
                             }
-                            // ✅ SEMPRE adicionar a venda atual ao total do dia (pode não estar na query ainda)
-                            totalDia = totalDia + valorVendaAtual;
+                            // ✅ Só adicionar a venda atual se ela NÃO estiver na query ainda
+                            if (!vendaAtualJaIncluida) {
+                                console.log('📱 [4/4] Venda atual NÃO estava na query, adicionando ao total...');
+                                totalDia = totalDia + valorVendaAtual;
+                            } else {
+                                console.log('📱 [4/4] Venda atual JÁ estava na query, não duplicando.');
+                            }
 
-                            // ✅ CORREÇÃO: Recalcular total do mês também, SEMPRE incluindo a venda recém-salva
+                            // ✅ CORREÇÃO: Recalcular total do mês também, verificando duplicatas
                             // Reutilizar a variável 'hoje' já declarada acima
                             const mesAtualISO = hoje.toISOString().slice(0, 7); // Formato: yyyy-MM
                             const primeiroDiaMes = `${mesAtualISO}-01T00:00:00`;
@@ -2278,37 +2287,37 @@ export default function LojaDashboard() {
                             const { data: vendasMes, error: vendasMesError } = await supabase
                                 .schema('sistemaretiradas')
                                 .from('sales')
-                                .select('valor')
+                                .select('id, valor')
                                 .eq('store_id', storeId)
                                 .gte('data_venda', primeiroDiaMes)
                                 .lte('data_venda', `${ultimoDiaMesISO}T23:59:59`);
 
-                            // ✅ IMPORTANTE: Calcular total do mês incluindo todas as vendas
+                            // ✅ CORREÇÃO: Calcular total do mês e verificar se a venda atual já está incluída
                             let totalMesAtualizado = 0;
+                            let vendaAtualJaIncluidaMes = false;
                             if (!vendasMesError && vendasMes) {
-                                // Filtrar duplicatas se necessário (comparing values might miss edge cases, but query should be fresh)
                                 totalMesAtualizado = vendasMes.reduce((sum: number, v: any) => sum + parseFloat(v.valor || 0), 0);
-
-                                // ✅ Se o total do mês for menor que o total do dia, significa que a query pode não ter incluído todas as vendas
-                                // Neste caso, usar o total do dia como base mínima (já que todas as vendas do dia são do mês)
-                                if (totalMesAtualizado < totalDia) {
-                                    console.warn('📱 [4/4] ⚠️ Total do mês menor que total do dia! Usando total do dia como base.');
-                                    totalMesAtualizado = totalDia;
+                                // Verificar se a venda atual já está na lista pelo ID
+                                vendaAtualJaIncluidaMes = vendasMes.some((v: any) => v.id === saleIdAtual);
+                                
+                                // ✅ Só adicionar a venda atual se ela NÃO estiver na query ainda
+                                if (!vendaAtualJaIncluidaMes) {
+                                    console.log('📱 [4/4] Venda atual NÃO estava na query mensal, adicionando ao total...');
+                                    totalMesAtualizado = totalMesAtualizado + valorVendaAtual;
+                                } else {
+                                    console.log('📱 [4/4] Venda atual JÁ estava na query mensal, não duplicando.');
                                 }
                             } else {
                                 // Se houver erro, usar o maior entre monthlyRealizado + venda atual OU total do dia
                                 totalMesAtualizado = Math.max((monthlyRealizado || 0) + valorVendaAtual, totalDia);
                             }
 
-                            // ✅ Se a venda atual não estiver incluída ainda, adicionar
-                            // (mas só se o total do mês for menor que o necessário)
-                            // Como já usamos totalDia como base mínima, não precisamos adicionar novamente
-
-                            console.log('📱 [4/4] Total do dia ANTES da venda atual:', (totalDia - valorVendaAtual).toFixed(2));
+                            console.log('📱 [4/4] === TOTAIS CALCULADOS ===');
                             console.log('📱 [4/4] Valor da venda atual:', valorVendaAtual.toFixed(2));
-                            console.log('📱 [4/4] Total do dia COM venda atual:', totalDia.toFixed(2));
-                            console.log('📱 [4/4] Total do mês ANTES da venda atual:', (totalMesAtualizado - valorVendaAtual).toFixed(2));
-                            console.log('📱 [4/4] Total do mês COM venda atual:', totalMesAtualizado.toFixed(2));
+                            console.log('📱 [4/4] Venda já incluída na query diária:', vendaAtualJaIncluida);
+                            console.log('📱 [4/4] Venda já incluída na query mensal:', vendaAtualJaIncluidaMes);
+                            console.log('📱 [4/4] Total do dia FINAL:', totalDia.toFixed(2));
+                            console.log('📱 [4/4] Total do mês FINAL:', totalMesAtualizado.toFixed(2));
 
                             console.log('📱 [4/4] Formatando mensagem...');
                             const { formatVendaMessage, sendWhatsAppMessage } = await import('@/lib/whatsapp');
