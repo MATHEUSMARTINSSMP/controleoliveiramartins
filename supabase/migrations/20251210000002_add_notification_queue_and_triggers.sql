@@ -144,6 +144,12 @@ BEGIN
 END;
 $$;
 
+-- Conceder permissões de execução para RPC (necessário para chamar via supabase.rpc)
+GRANT EXECUTE ON FUNCTION sistemaretiradas.process_store_task_alerts() TO authenticated;
+GRANT EXECUTE ON FUNCTION sistemaretiradas.process_store_task_alerts() TO anon;
+GRANT EXECUTE ON FUNCTION sistemaretiradas.reset_daily_sends() TO authenticated;
+GRANT EXECUTE ON FUNCTION sistemaretiradas.reset_daily_sends() TO anon;
+
 -- Comentários
 COMMENT ON TABLE sistemaretiradas.store_notification_queue IS 'Fila de mensagens de notificações aguardando envio via WhatsApp';
 COMMENT ON FUNCTION sistemaretiradas.process_store_task_alerts() IS 'Processa alertas e insere mensagens na fila para envio (chamado por cron job)';

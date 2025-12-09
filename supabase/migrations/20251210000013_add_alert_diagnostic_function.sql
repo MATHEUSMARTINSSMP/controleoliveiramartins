@@ -116,5 +116,9 @@ BEGIN
 END;
 $$;
 
+-- Conceder permissão de execução para usuários autenticados (necessário para RPC)
+GRANT EXECUTE ON FUNCTION sistemaretiradas.diagnosticar_sistema_alertas() TO authenticated;
+GRANT EXECUTE ON FUNCTION sistemaretiradas.diagnosticar_sistema_alertas() TO anon;
+
 COMMENT ON FUNCTION sistemaretiradas.diagnosticar_sistema_alertas() IS 'Diagnostica o sistema de alertas, retornando informações sobre status, contadores e alertas que deveriam ser disparados agora.';
 

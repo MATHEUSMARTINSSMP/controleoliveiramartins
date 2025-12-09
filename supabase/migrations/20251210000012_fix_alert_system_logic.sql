@@ -104,6 +104,10 @@ BEGIN
 END;
 $$;
 
+-- Conceder permissão de execução para usuários autenticados (necessário para RPC)
+GRANT EXECUTE ON FUNCTION sistemaretiradas.process_store_task_alerts() TO authenticated;
+GRANT EXECUTE ON FUNCTION sistemaretiradas.process_store_task_alerts() TO anon;
+
 -- Comentário atualizado
 COMMENT ON FUNCTION sistemaretiradas.process_store_task_alerts() IS 'Processa alertas e insere mensagens na fila para envio (chamado por cron job). CORRIGIDO: Compara apenas HH:MM e verifica duplicatas corretamente.';
 
