@@ -76,7 +76,7 @@ const DIAS_SEMANA = [
   { value: 4, label: 'Qui', fullLabel: 'Quinta' },
   { value: 5, label: 'Sex', fullLabel: 'Sexta' },
   { value: 6, label: 'Sáb', fullLabel: 'Sábado' },
-  { value: 7, label: 'Dom', fullLabel: 'Domingo' },
+  { value: 0, label: 'Dom', fullLabel: 'Domingo' },
 ];
 
 const HORARIOS_SUGERIDOS = [
@@ -471,7 +471,7 @@ export const StoreTaskAlertsManager = () => {
   const formatDias = (dias: number[]) => {
     if (!dias || dias.length === 0) return '-';
     if (dias.length === 7) return 'Todos os dias';
-    if (dias.length === 6 && !dias.includes(7)) return 'Seg a Sáb';
+    if (dias.length === 6 && !dias.includes(0)) return 'Seg a Sáb';
     if (dias.length === 5 && dias.every(d => d >= 1 && d <= 5)) return 'Seg a Sex';
     return dias.map(d => DIAS_SEMANA.find(ds => ds.value === d)?.label || d).join(', ');
   };
@@ -775,7 +775,7 @@ export const StoreTaskAlertsManager = () => {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => setFormData({ ...formData, dias_semana: [1, 2, 3, 4, 5, 6, 7] })}
+                    onClick={() => setFormData({ ...formData, dias_semana: [0, 1, 2, 3, 4, 5, 6] })}
                     data-testid="button-weekdays-all"
                   >
                     Todos
