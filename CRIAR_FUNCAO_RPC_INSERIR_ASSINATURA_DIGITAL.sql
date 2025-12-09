@@ -128,6 +128,14 @@ BEGIN
         );
     END IF;
     
+    -- Validar que p_password_hash não é NULL ANTES de verificar colunas
+    IF p_password_hash IS NULL OR p_password_hash = '' THEN
+        RETURN json_build_object(
+            'success', false,
+            'error', 'password_hash não pode ser NULL ou vazio. Recebido: ' || COALESCE(p_password_hash::text, 'NULL')
+        );
+    END IF;
+    
     -- Verificar qual coluna existe (signature_hash ou password_hash)
     SELECT EXISTS (
         SELECT 1 FROM information_schema.columns 
@@ -143,13 +151,9 @@ BEGIN
         AND column_name = 'password_hash'
     ) INTO v_has_password_hash;
     
-    -- Validar que p_password_hash não é NULL
-    IF p_password_hash IS NULL OR p_password_hash = '' THEN
-        RETURN json_build_object(
-            'success', false,
-            'error', 'password_hash não pode ser NULL ou vazio'
-        );
-    END IF;
+    -- Log para debug (usando RAISE NOTICE)
+    RAISE NOTICE 'Verificação de colunas: signature_hash=%, password_hash=%', v_has_signature_hash, v_has_password_hash;
+    RAISE NOTICE 'p_password_hash recebido: %', CASE WHEN p_password_hash IS NULL THEN 'NULL' ELSE substring(p_password_hash, 1, 20) || '...' END;
     
     -- Inserir assinatura digital usando a coluna correta
     IF v_has_signature_hash THEN
