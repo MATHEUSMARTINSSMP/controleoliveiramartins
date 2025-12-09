@@ -206,6 +206,61 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
 
   const handleTemplateSelect = (templateId: string) => {
     setSelectedTemplateId(templateId);
+    const template = templates.find(t => t.id === templateId);
+    if (template) {
+      const horasSugeridas = calcularHorariosSugeridos(
+        template.carga_horaria_diaria || 6,
+        template.tempo_intervalo_minutos || 60
+      );
+      setFormData(prev => ({
+        ...prev,
+        hora_entrada: horasSugeridas.entrada,
+        hora_intervalo_saida: horasSugeridas.saidaIntervalo,
+        hora_intervalo_retorno: horasSugeridas.retornoIntervalo,
+        hora_saida: horasSugeridas.saida,
+      }));
+    }
+  };
+
+  const calcularHorariosSugeridos = (cargaHoraria: number, intervaloMinutos: number) => {
+    const entradaHora = 8;
+    const entradaMinuto = 0;
+    
+    const metadeCarga = cargaHoraria / 2;
+    const horasManha = Math.floor(metadeCarga);
+    const minutosManha = Math.round((metadeCarga - horasManha) * 60);
+    
+    let saidaIntHora = entradaHora + horasManha;
+    let saidaIntMinuto = entradaMinuto + minutosManha;
+    if (saidaIntMinuto >= 60) {
+      saidaIntHora += 1;
+      saidaIntMinuto -= 60;
+    }
+    
+    let retornoIntHora = saidaIntHora;
+    let retornoIntMinuto = saidaIntMinuto + intervaloMinutos;
+    while (retornoIntMinuto >= 60) {
+      retornoIntHora += 1;
+      retornoIntMinuto -= 60;
+    }
+    
+    const horasTarde = cargaHoraria - metadeCarga;
+    let saidaHora = retornoIntHora + Math.floor(horasTarde);
+    let saidaMinuto = retornoIntMinuto + Math.round((horasTarde - Math.floor(horasTarde)) * 60);
+    if (saidaMinuto >= 60) {
+      saidaHora += 1;
+      saidaMinuto -= 60;
+    }
+    
+    const formatTime = (h: number, m: number) => 
+      `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    
+    return {
+      entrada: formatTime(entradaHora, entradaMinuto),
+      saidaIntervalo: formatTime(saidaIntHora, saidaIntMinuto),
+      retornoIntervalo: formatTime(retornoIntHora, retornoIntMinuto),
+      saida: formatTime(saidaHora, saidaMinuto),
+    };
   };
 
   const getSelectedTemplateInfo = () => {
