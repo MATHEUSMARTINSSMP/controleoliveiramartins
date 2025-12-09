@@ -13,7 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award, Download, FileSpreadsheet, FileText, Database, ChevronDown, ChevronRight, Loader2, Store, AlertTriangle, X } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award, Download, FileSpreadsheet, FileText, Database, ChevronDown, ChevronRight, Loader2, Store, AlertTriangle, X, RefreshCw } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Switch } from "@/components/ui/switch";
 import { useFolgas } from "@/hooks/useFolgas";
 import { useGoalRedistribution } from "@/hooks/useGoalRedistribution";
@@ -85,6 +86,13 @@ interface Colaboradora {
 export default function LojaDashboard() {
     const { profile, loading: authLoading, signOut } = useAuth();
     const navigate = useNavigate();
+    const isMobile = useIsMobile();
+    const [isReloading, setIsReloading] = useState(false);
+
+    const handleReloadData = () => {
+        setIsReloading(true);
+        window.location.reload();
+    };
 
     const [sales, setSales] = useState<Sale[]>([]);
     const [colaboradoras, setColaboradoras] = useState<Colaboradora[]>([]);
@@ -2980,6 +2988,18 @@ export default function LojaDashboard() {
                                     )}
                                 </TabsList>
                             </Tabs>
+                        )}
+                        {isMobile && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={handleReloadData}
+                                disabled={isReloading}
+                                title="Atualizar dados"
+                                data-testid="button-mobile-reload"
+                            >
+                                <RefreshCw className={`h-4 w-4 ${isReloading ? 'animate-spin' : ''}`} />
+                            </Button>
                         )}
                         <ThemeToggle />
                         <Button

@@ -639,8 +639,8 @@ export const StoreTaskAlertsManager = () => {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[85vh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Bell className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               {editingTask ? 'Editar Alerta' : 'Novo Alerta'}
@@ -650,7 +650,7 @@ export const StoreTaskAlertsManager = () => {
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 pr-4">
+          <ScrollArea className="flex-1 min-h-0 pr-4">
             <div className="space-y-6 py-4">
               <div className="space-y-2">
                 <Label htmlFor="nome">Nome da Tarefa *</Label>
@@ -855,7 +855,7 @@ export const StoreTaskAlertsManager = () => {
             </div>
           </ScrollArea>
 
-          <DialogFooter className="mt-4">
+          <DialogFooter className="shrink-0 pt-4 border-t mt-2">
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving} data-testid="button-cancel-task">
               Cancelar
             </Button>

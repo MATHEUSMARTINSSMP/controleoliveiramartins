@@ -4,7 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet } from "lucide-react";
+import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet, RefreshCw } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import ERPDashboard from "@/pages/erp/ERPDashboard";
 import CategoryReports from "@/pages/erp/CategoryReports";
@@ -34,11 +35,23 @@ import { motion } from "framer-motion";
 const AdminDashboard = () => {
   const { profile, signOut, loading } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [passwordDialog, setPasswordDialog] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [adminStores, setAdminStores] = useState<{ id: string; name: string }[]>([]);
+  const [isReloading, setIsReloading] = useState(false);
 
   const { data: pendingAdiantamentos = 0 } = useAdminPendingAdiantamentos();
+
+  const handleReloadData = async () => {
+    setIsReloading(true);
+    try {
+      await fetchAdminStores();
+      window.location.reload();
+    } finally {
+      setIsReloading(false);
+    }
+  };
 
   useEffect(() => {
     if (!loading) {
@@ -127,6 +140,18 @@ const AdminDashboard = () => {
             <h1 className="text-base sm:text-lg font-semibold">Dashboard Admin</h1>
           </div>
           <div className="flex items-center gap-2">
+            {isMobile && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleReloadData}
+                disabled={isReloading}
+                title="Atualizar dados"
+                data-testid="button-mobile-reload"
+              >
+                <RefreshCw className={`h-4 w-4 ${isReloading ? 'animate-spin' : ''}`} />
+              </Button>
+            )}
             {pendingAdiantamentos > 0 && (
               <Button
                 variant="outline"

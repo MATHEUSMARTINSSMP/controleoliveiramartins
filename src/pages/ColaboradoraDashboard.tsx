@@ -42,8 +42,10 @@ import {
   X,
   Trash2,
   Loader2,
-  Sparkles
+  Sparkles,
+  RefreshCw
 } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { format } from "date-fns";
@@ -57,6 +59,13 @@ import {
 const ColaboradoraDashboard = () => {
   const { profile, signOut, loading } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const [isReloading, setIsReloading] = useState(false);
+
+  const handleReloadData = () => {
+    setIsReloading(true);
+    window.location.reload();
+  };
 
   // React Query hooks
   const { data: kpis, isLoading: kpisLoading } = useColaboradoraKPIs(profile?.id);
@@ -284,6 +293,18 @@ const ColaboradoraDashboard = () => {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            {isMobile && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleReloadData}
+                disabled={isReloading}
+                title="Atualizar dados"
+                data-testid="button-mobile-reload"
+              >
+                <RefreshCw className={`h-4 w-4 ${isReloading ? 'animate-spin' : ''}`} />
+              </Button>
+            )}
             <ThemeToggle />
             <Button
               variant="ghost"
