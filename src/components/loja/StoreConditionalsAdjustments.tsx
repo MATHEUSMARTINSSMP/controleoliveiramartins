@@ -538,9 +538,6 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                 try {
                     const paymentStatusLabel = adjustmentForm.payment_status === 'PAGO' ? 'Pago' : 
                                               adjustmentForm.payment_status === 'PARCIAL' ? 'Parcial' : 'Não Pago';
-                    
-                    const paymentStatusLabel = adjustmentForm.payment_status === 'PAGO' ? 'Pago' : 
-                                              adjustmentForm.payment_status === 'PARCIAL' ? 'Parcial' : 'Não Pago';
                     const deliveryMethodLabel = adjustmentForm.delivery_method === 'CASA' ? 'Casa do Cliente' : 'Na Loja';
                     
                     let customerMessage = `Olá ${adjustmentForm.customer_name}! 👋\n\n` +
