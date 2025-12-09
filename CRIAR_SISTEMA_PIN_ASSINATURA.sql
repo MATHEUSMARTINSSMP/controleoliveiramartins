@@ -286,9 +286,10 @@ AS $$
 DECLARE
     v_pin_hash TEXT;
     v_is_valid BOOLEAN;
+    v_pin_id UUID;
 BEGIN
     -- Buscar hash do PIN da colaboradora
-    SELECT pin_hash INTO v_pin_hash
+    SELECT id, pin_hash INTO v_pin_id, v_pin_hash
     FROM sistemaretiradas.time_clock_pins
     WHERE colaboradora_id = p_colaboradora_id
     AND ativo = true;
@@ -297,11 +298,13 @@ BEGIN
     IF v_pin_hash IS NULL THEN
         RETURN json_build_object(
             'valid', false,
-            'error', 'PIN não cadastrado'
+            'error', 'PIN não cadastrado. Por favor, cadastre um PIN primeiro.'
         );
     END IF;
     
     -- Validar PIN usando crypt
+    -- IMPORTANTE: crypt compara o hash gerado com o hash armazenado
+    -- Se o PIN estiver correto, crypt(p_pin, v_pin_hash) retornará o mesmo hash
     v_is_valid := (v_pin_hash = crypt(p_pin, v_pin_hash));
     
     IF v_is_valid THEN
@@ -310,17 +313,21 @@ BEGIN
             'message', 'PIN válido'
         );
     ELSE
+        -- Log para debug (não expor informações sensíveis)
+        RAISE WARNING 'PIN inválido para colaboradora %', p_colaboradora_id;
         RETURN json_build_object(
             'valid', false,
-            'error', 'PIN inválido'
+            'error', 'PIN inválido. Verifique se digitou corretamente.'
         );
     END IF;
     
 EXCEPTION
     WHEN OTHERS THEN
+        -- Log do erro completo para debug
+        RAISE WARNING 'Erro ao validar PIN: %', SQLERRM;
         RETURN json_build_object(
             'valid', false,
-            'error', SQLERRM
+            'error', 'Erro ao validar PIN. Tente novamente.'
         );
 END;
 $$;
