@@ -359,14 +359,34 @@ Deno.serve(async (req) => {
 
         const percentualUsoMaximo = settings?.percentual_uso_maximo || 30.0
 
-        // 5. Buscar saldo atual do cliente
+        // 5. Buscar saldo atual do cliente (balance_disponivel + balance_pendente)
+        // ✅ CORREÇÃO: Buscar saldo mais recente e garantir que a transação atual está incluída
         const { data: saldo } = await supabase
           .from('cashback_balance')
-          .select('balance')
+          .select('balance, balance_disponivel, balance_pendente')
           .eq('cliente_id', item.cliente_id)
           .single()
 
-        const saldoAtual = saldo?.balance || 0
+        // ✅ CORREÇÃO: Calcular saldo total corretamente
+        // Se o saldo ainda não foi atualizado pelo trigger, calcular manualmente
+        let saldoAtual = 0
+        if (saldo) {
+          // Usar balance (que já é disponivel + pendente) ou somar os dois campos
+          saldoAtual = saldo.balance || ((saldo.balance_disponivel || 0) + (saldo.balance_pendente || 0))
+        }
+        
+        // ✅ FALLBACK: Se saldo é zero mas temos a transação, o saldo mínimo é o valor da transação
+        // Isso acontece quando o trigger do banco ainda não atualizou o cashback_balance
+        if (saldoAtual === 0 && transaction.amount > 0) {
+          console.log(`[ProcessCashbackQueue] ⚠️ Saldo zerado, usando valor da transação como fallback: ${transaction.amount}`)
+          saldoAtual = Number(transaction.amount)
+        } else if (saldoAtual > 0 && saldoAtual < Number(transaction.amount)) {
+          // Se saldo existe mas é menor que a transação, significa que não foi atualizado ainda
+          console.log(`[ProcessCashbackQueue] ⚠️ Saldo (${saldoAtual}) menor que transação (${transaction.amount}), ajustando...`)
+          saldoAtual = Math.max(saldoAtual, Number(transaction.amount))
+        }
+        
+        console.log(`[ProcessCashbackQueue] 💰 Saldo calculado: ${saldoAtual} (balance: ${saldo?.balance || 0}, disponivel: ${saldo?.balance_disponivel || 0}, pendente: ${saldo?.balance_pendente || 0})`)
 
         // 6. Formatar mensagem usando a mesma função do sistema
         const message = formatCashbackMessage({
