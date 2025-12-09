@@ -30,6 +30,7 @@ import {
     SelectValue
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
     Search,
     Plus,
@@ -64,6 +65,7 @@ interface Conditional {
     date_generated: string;
     date_return: string | null;
     status: 'GERADA' | 'PREPARANDO' | 'PRONTA' | 'ROTA_ENTREGA' | 'ENTREGUE' | 'PRONTA_RETIRADA' | 'ROTA_DEVOLUCAO' | 'EM_LOJA' | 'CLIENTE_AVISADA' | 'FINALIZADA';
+    notificar_cliente: boolean;
     created_at: string;
 }
 
@@ -84,6 +86,7 @@ interface Adjustment {
     delivery_method: 'LOJA' | 'CASA';
     delivery_address: string | null;
     observacao: string | null;
+    notificar_cliente: boolean;
     created_at: string;
 }
 
@@ -165,7 +168,8 @@ export const ConditionalsAdjustmentsManager = () => {
         products: [{ description: '', price: 0 }] as { description: string; price: number }[],
         date_generated: format(new Date(), 'yyyy-MM-dd'),
         date_return: '',
-        status: 'GERADA' as Conditional['status']
+        status: 'GERADA' as Conditional['status'],
+        notificar_cliente: false
     });
     
     // Estados para formulário de ajuste
@@ -183,7 +187,8 @@ export const ConditionalsAdjustmentsManager = () => {
         status: 'AJUSTE_GERADO' as Adjustment['status'],
         delivery_method: 'LOJA' as Adjustment['delivery_method'],
         delivery_address: '',
-        observacao: ''
+        observacao: '',
+        notificar_cliente: false
     });
 
     useEffect(() => {
@@ -227,7 +232,8 @@ export const ConditionalsAdjustmentsManager = () => {
                 products: [{ description: '', price: 0 }],
                 date_generated: format(new Date(), 'yyyy-MM-dd'),
                 date_return: '',
-                status: 'GERADA'
+                status: 'GERADA',
+                notificar_cliente: false
             });
         } else {
             setAdjustmentForm({
@@ -244,7 +250,8 @@ export const ConditionalsAdjustmentsManager = () => {
                 status: 'AJUSTE_GERADO',
                 delivery_method: 'LOJA',
                 delivery_address: '',
-                observacao: ''
+                observacao: '',
+                notificar_cliente: false
             });
         }
         
@@ -264,7 +271,8 @@ export const ConditionalsAdjustmentsManager = () => {
                 products: conditional.products.length > 0 ? conditional.products : [{ description: '', price: 0 }],
                 date_generated: conditional.date_generated,
                 date_return: conditional.date_return || '',
-                status: conditional.status
+                status: conditional.status,
+                notificar_cliente: conditional.notificar_cliente || false
             });
         } else {
             const adjustment = item as Adjustment;
@@ -282,7 +290,8 @@ export const ConditionalsAdjustmentsManager = () => {
                 status: adjustment.status,
                 delivery_method: adjustment.delivery_method,
                 delivery_address: adjustment.delivery_address || '',
-                observacao: adjustment.observacao || ''
+                observacao: adjustment.observacao || '',
+                notificar_cliente: adjustment.notificar_cliente || false
             });
         }
         
@@ -316,7 +325,8 @@ export const ConditionalsAdjustmentsManager = () => {
                 products: conditionalForm.products.filter(p => p.description),
                 date_generated: conditionalForm.date_generated,
                 date_return: conditionalForm.date_return || null,
-                status: conditionalForm.status
+                status: conditionalForm.status,
+                notificar_cliente: conditionalForm.notificar_cliente
             };
 
             const oldStatus = editingItem ? (editingItem as Conditional).status : null;
@@ -347,38 +357,42 @@ export const ConditionalsAdjustmentsManager = () => {
                     const statusLabel = CONDITIONAL_STATUS_LABELS[conditionalForm.status];
                     const productInfo = conditionalForm.products.map(p => p.description).join(', ');
 
-                    // 1. Enviar mensagem ao cliente
-                    try {
-                        let customerMessage = '';
-                        
-                        if (conditionalForm.status === 'GERADA') {
-                            const productsList = conditionalForm.products.map(p => `• ${p.description}`).join('\n');
-                            customerMessage = `Olá ${conditionalForm.customer_name}! 👋\n\n*Nova Condicional Gerada*\n\n*Produtos:*\n${productsList}\n\n*Data de Geração:* ${format(new Date(conditionalForm.date_generated), 'dd/MM/yyyy')}`;
-                            if (conditionalForm.date_return) {
-                                customerMessage += `\n*Data de Retorno:* ${format(new Date(conditionalForm.date_return), 'dd/MM/yyyy')}`;
+                    // 1. Enviar mensagem ao cliente APENAS se notificar_cliente estiver ativado
+                    if (conditionalForm.notificar_cliente && conditionalForm.customer_contact) {
+                        try {
+                            let customerMessage = '';
+                            
+                            if (conditionalForm.status === 'GERADA') {
+                                const productsList = conditionalForm.products
+                                    .map(p => `• ${p.description}${p.price > 0 ? ` - R$ ${p.price.toFixed(2)}` : ''}`)
+                                    .join('\n');
+                                customerMessage = `Olá ${conditionalForm.customer_name}! 👋\n\n*Nova Condicional Gerada*\n\n*Produtos:*\n${productsList}\n\n*Data de Geração:* ${format(new Date(conditionalForm.date_generated), 'dd/MM/yyyy')}`;
+                                if (conditionalForm.date_return) {
+                                    customerMessage += `\n*Data de Retorno:* ${format(new Date(conditionalForm.date_return), 'dd/MM/yyyy')}`;
+                                }
+                                if (conditionalForm.customer_address) {
+                                    customerMessage += `\n*Endereço:* ${conditionalForm.customer_address}`;
+                                }
+                                customerMessage += `\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne 📦`;
+                            } else {
+                                customerMessage = `Olá ${conditionalForm.customer_name}! 👋\n\nSua condicional foi atualizada para: *${statusLabel}*\n\nProdutos: ${productInfo}\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne 📦`;
                             }
-                            if (conditionalForm.customer_address) {
-                                customerMessage += `\n*Endereço:* ${conditionalForm.customer_address}`;
-                            }
-                            customerMessage += `\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne 📦`;
-                        } else {
-                            customerMessage = `Olá ${conditionalForm.customer_name}! 👋\n\nSua condicional foi atualizada para: *${statusLabel}*\n\nProdutos: ${productInfo}\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne 📦`;
-                        }
 
-                        const phone = conditionalForm.customer_contact.replace(/\D/g, '');
-                        if (phone.length >= 10) {
-                            const result = await sendWhatsAppMessage({
-                                phone: phone,
-                                message: customerMessage,
-                                store_id: storeIdToUse
-                            });
+                            const phone = conditionalForm.customer_contact.replace(/\D/g, '');
+                            if (phone.length >= 10) {
+                                const result = await sendWhatsAppMessage({
+                                    phone: phone,
+                                    message: customerMessage,
+                                    store_id: storeIdToUse
+                                });
 
-                            if (result.success) {
-                                console.log('✅ Mensagem enviada ao cliente');
+                                if (result.success) {
+                                    console.log('✅ Mensagem enviada ao cliente');
+                                }
                             }
+                        } catch (customerError) {
+                            console.error('Erro ao enviar mensagem ao cliente:', customerError);
                         }
-                    } catch (customerError) {
-                        console.error('Erro ao enviar mensagem ao cliente:', customerError);
                     }
 
                     // 2. Enviar notificação para números configurados
@@ -395,7 +409,9 @@ export const ConditionalsAdjustmentsManager = () => {
                             let adminMessage = '';
                             
                             if (conditionalForm.status === 'GERADA') {
-                                const productsList = conditionalForm.products.map(p => `• ${p.description}`).join('\n');
+                                const productsList = conditionalForm.products
+                                    .map(p => `• ${p.description}${p.price > 0 ? ` - R$ ${p.price.toFixed(2)}` : ''}`)
+                                    .join('\n');
                                 adminMessage = `🔔 *Nova Condicional Gerada*\n\n` +
                                     `*Cliente:* ${conditionalForm.customer_name}\n` +
                                     `*Contato:* ${conditionalForm.customer_contact}\n` +
@@ -479,7 +495,8 @@ export const ConditionalsAdjustmentsManager = () => {
                 status: adjustmentForm.status,
                 delivery_method: adjustmentForm.delivery_method,
                 delivery_address: adjustmentForm.delivery_method === 'CASA' ? adjustmentForm.delivery_address : null,
-                observacao: adjustmentForm.observacao || null
+                observacao: adjustmentForm.observacao || null,
+                notificar_cliente: adjustmentForm.notificar_cliente
             };
 
             const oldStatus = editingItem ? (editingItem as Adjustment).status : null;
@@ -509,47 +526,54 @@ export const ConditionalsAdjustmentsManager = () => {
                 try {
                     const statusLabel = ADJUSTMENT_STATUS_LABELS[adjustmentForm.status];
 
-                    // 1. Enviar mensagem ao cliente
-                    try {
-                        let customerMessage = '';
-                        
-                        if (adjustmentForm.status === 'AJUSTE_GERADO') {
-                            const paymentStatusLabel = adjustmentForm.payment_status === 'PAGO' ? 'Pago' : 
-                                                      adjustmentForm.payment_status === 'PARCIAL' ? 'Parcial' : 'Não Pago';
-                            customerMessage = `Olá ${adjustmentForm.customer_name}! 👋\n\n*Novo Ajuste Gerado*\n\n*Produto:* ${adjustmentForm.product}\n*Descrição do Ajuste:* ${adjustmentForm.adjustment_description}\n*Status Pagamento:* ${paymentStatusLabel}`;
-                            if (adjustmentForm.payment_amount > 0) {
-                                customerMessage += ` - R$ ${adjustmentForm.payment_amount.toFixed(2)}`;
+                    // 1. Enviar mensagem ao cliente APENAS se notificar_cliente estiver ativado
+                    if (adjustmentForm.notificar_cliente && adjustmentForm.customer_contact) {
+                        try {
+                            let customerMessage = '';
+                            
+                            if (adjustmentForm.status === 'AJUSTE_GERADO') {
+                                const paymentStatusLabel = adjustmentForm.payment_status === 'PAGO' ? 'Pago' : 
+                                                          adjustmentForm.payment_status === 'PARCIAL' ? 'Parcial' : 'Não Pago';
+                                const deliveryMethodLabel = adjustmentForm.delivery_method === 'CASA' ? 'Casa do Cliente' : 'Na Loja';
+                                customerMessage = `Olá ${adjustmentForm.customer_name}! 👋\n\n*Novo Ajuste Gerado*\n\n*Produto:* ${adjustmentForm.product}\n*Descrição do Ajuste:* ${adjustmentForm.adjustment_description}\n*Status Pagamento:* ${paymentStatusLabel}`;
+                                if (adjustmentForm.payment_amount > 0) {
+                                    customerMessage += ` - R$ ${adjustmentForm.payment_amount.toFixed(2)}`;
+                                }
+                                customerMessage += `\n*Data de Geração:* ${format(new Date(adjustmentForm.date_generated), 'dd/MM/yyyy')}`;
+                                if (adjustmentForm.date_seamstress) {
+                                    customerMessage += `\n*Data com Costureira:* ${format(new Date(adjustmentForm.date_seamstress), 'dd/MM/yyyy')}`;
+                                }
+                                if (adjustmentForm.date_delivery) {
+                                    const timeStr = adjustmentForm.time_delivery ? ` às ${adjustmentForm.time_delivery.substring(0, 5)}` : '';
+                                    customerMessage += `\n*Data de Entrega:* ${format(new Date(adjustmentForm.date_delivery), 'dd/MM/yyyy')}${timeStr}`;
+                                }
+                                customerMessage += `\n*Método de Entrega:* ${deliveryMethodLabel}`;
+                                if (adjustmentForm.delivery_method === 'CASA' && adjustmentForm.delivery_address) {
+                                    customerMessage += `\n*Endereço:* ${adjustmentForm.delivery_address}`;
+                                }
+                                if (adjustmentForm.observacao) {
+                                    customerMessage += `\n*Observação:* ${adjustmentForm.observacao}`;
+                                }
+                                customerMessage += `\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne ✂️`;
+                            } else {
+                                customerMessage = `Olá ${adjustmentForm.customer_name}! 👋\n\nSeu ajuste foi atualizado para: *${statusLabel}*\n\nProduto: ${adjustmentForm.product}\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne ✂️`;
                             }
-                            customerMessage += `\n*Data de Geração:* ${format(new Date(adjustmentForm.date_generated), 'dd/MM/yyyy')}`;
-                            if (adjustmentForm.date_seamstress) {
-                                customerMessage += `\n*Data com Costureira:* ${format(new Date(adjustmentForm.date_seamstress), 'dd/MM/yyyy')}`;
-                            }
-                            if (adjustmentForm.date_delivery) {
-                                const timeStr = adjustmentForm.time_delivery ? ` às ${adjustmentForm.time_delivery.substring(0, 5)}` : '';
-                                customerMessage += `\n*Data de Entrega:* ${format(new Date(adjustmentForm.date_delivery), 'dd/MM/yyyy')}${timeStr}`;
-                            }
-                            if (adjustmentForm.observacao) {
-                                customerMessage += `\n*Observação:* ${adjustmentForm.observacao}`;
-                            }
-                            customerMessage += `\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne ✂️`;
-                        } else {
-                            customerMessage = `Olá ${adjustmentForm.customer_name}! 👋\n\nSeu ajuste foi atualizado para: *${statusLabel}*\n\nProduto: ${adjustmentForm.product}\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne ✂️`;
-                        }
 
-                        const phone = adjustmentForm.customer_contact.replace(/\D/g, '');
-                        if (phone.length >= 10) {
-                            const result = await sendWhatsAppMessage({
-                                phone: phone,
-                                message: customerMessage,
-                                store_id: storeIdToUse
-                            });
+                            const phone = adjustmentForm.customer_contact.replace(/\D/g, '');
+                            if (phone.length >= 10) {
+                                const result = await sendWhatsAppMessage({
+                                    phone: phone,
+                                    message: customerMessage,
+                                    store_id: storeIdToUse
+                                });
 
-                            if (result.success) {
-                                console.log('✅ Mensagem enviada ao cliente');
+                                if (result.success) {
+                                    console.log('✅ Mensagem enviada ao cliente');
+                                }
                             }
+                        } catch (customerError) {
+                            console.error('Erro ao enviar mensagem ao cliente:', customerError);
                         }
-                    } catch (customerError) {
-                        console.error('Erro ao enviar mensagem ao cliente:', customerError);
                     }
 
                     // 2. Enviar notificação para números configurados
@@ -1145,6 +1169,19 @@ export const ConditionalsAdjustmentsManager = () => {
                                 </SelectContent>
                             </Select>
                         </div>
+                        <div className="flex items-center justify-between p-4 border rounded-lg">
+                            <div className="space-y-0.5">
+                                <Label htmlFor="notificar_cliente_conditional_admin">Notificar Cliente</Label>
+                                <p className="text-xs text-muted-foreground">
+                                    Enviar notificações WhatsApp ao cliente sobre mudanças de status desta condicional
+                                </p>
+                            </div>
+                            <Switch
+                                id="notificar_cliente_conditional_admin"
+                                checked={conditionalForm.notificar_cliente}
+                                onCheckedChange={(checked) => setConditionalForm({ ...conditionalForm, notificar_cliente: checked })}
+                            />
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
@@ -1321,6 +1358,19 @@ export const ConditionalsAdjustmentsManager = () => {
                                 onChange={(e) => setAdjustmentForm({ ...adjustmentForm, observacao: e.target.value })}
                                 rows={3}
                                 placeholder="Observações, notas ou informações adicionais sobre o ajuste..."
+                            />
+                        </div>
+                        <div className="flex items-center justify-between p-4 border rounded-lg">
+                            <div className="space-y-0.5">
+                                <Label htmlFor="notificar_cliente_adjustment_admin">Notificar Cliente</Label>
+                                <p className="text-xs text-muted-foreground">
+                                    Enviar notificações WhatsApp ao cliente sobre mudanças de status deste ajuste
+                                </p>
+                            </div>
+                            <Switch
+                                id="notificar_cliente_adjustment_admin"
+                                checked={adjustmentForm.notificar_cliente}
+                                onCheckedChange={(checked) => setAdjustmentForm({ ...adjustmentForm, notificar_cliente: checked })}
                             />
                         </div>
                     </div>

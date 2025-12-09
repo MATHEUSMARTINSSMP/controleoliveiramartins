@@ -30,6 +30,7 @@ import {
     SelectValue
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
     Search,
     Plus,
@@ -55,6 +56,7 @@ interface Conditional {
     date_generated: string;
     date_return: string | null;
     status: 'GERADA' | 'PREPARANDO' | 'PRONTA' | 'ROTA_ENTREGA' | 'ENTREGUE' | 'PRONTA_RETIRADA' | 'ROTA_DEVOLUCAO' | 'EM_LOJA' | 'CLIENTE_AVISADA' | 'FINALIZADA';
+    notificar_cliente: boolean;
     created_at: string;
 }
 
@@ -75,6 +77,7 @@ interface Adjustment {
     delivery_method: 'LOJA' | 'CASA';
     delivery_address: string | null;
     observacao: string | null;
+    notificar_cliente: boolean;
     created_at: string;
 }
 
@@ -166,7 +169,8 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
         products: [{ description: '', price: 0 }] as { description: string; price: number }[],
         date_generated: format(new Date(), 'yyyy-MM-dd'),
         date_return: '',
-        status: 'GERADA' as Conditional['status']
+        status: 'GERADA' as Conditional['status'],
+        notificar_cliente: false
     });
     
     // Estados para formulário de ajuste
@@ -184,7 +188,8 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
         status: 'AJUSTE_GERADO' as Adjustment['status'],
         delivery_method: 'LOJA' as Adjustment['delivery_method'],
         delivery_address: '',
-        observacao: ''
+        observacao: '',
+        notificar_cliente: false
     });
 
     useEffect(() => {
@@ -261,7 +266,8 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                 products: [{ description: '', price: 0 }],
                 date_generated: format(new Date(), 'yyyy-MM-dd'),
                 date_return: '',
-                status: 'GERADA'
+                status: 'GERADA',
+                notificar_cliente: false
             });
         } else {
             setAdjustmentForm({
@@ -278,7 +284,8 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                 status: 'AJUSTE_GERADO',
                 delivery_method: 'LOJA',
                 delivery_address: '',
-                observacao: ''
+                observacao: '',
+                notificar_cliente: false
             });
         }
         
@@ -298,7 +305,8 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                 products: conditional.products.length > 0 ? conditional.products : [{ description: '', price: 0 }],
                 date_generated: conditional.date_generated,
                 date_return: conditional.date_return || '',
-                status: conditional.status
+                status: conditional.status,
+                notificar_cliente: conditional.notificar_cliente || false
             });
         } else {
             const adjustment = item as Adjustment;
@@ -316,7 +324,8 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                 status: adjustment.status,
                 delivery_method: adjustment.delivery_method,
                 delivery_address: adjustment.delivery_address || '',
-                observacao: adjustment.observacao || ''
+                observacao: adjustment.observacao || '',
+                notificar_cliente: adjustment.notificar_cliente || false
             });
         }
         
@@ -344,8 +353,11 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                 products: conditionalForm.products.filter(p => p.description),
                 date_generated: conditionalForm.date_generated,
                 date_return: conditionalForm.date_return || null,
-                status: conditionalForm.status
+                status: conditionalForm.status,
+                notificar_cliente: conditionalForm.notificar_cliente
             };
+
+            let createdId: string | null = null;
 
             if (editingItem) {
                 const { error } = await supabase
@@ -357,13 +369,107 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                 if (error) throw error;
                 toast.success('Condicional atualizada com sucesso');
             } else {
-                const { error } = await supabase
+                const { data, error } = await supabase
                     .schema('sistemaretiradas')
                     .from('conditionals')
-                    .insert(dataToSave);
+                    .insert(dataToSave)
+                    .select('id')
+                    .single();
 
                 if (error) throw error;
+                createdId = data.id;
                 toast.success('Condicional criada com sucesso');
+            }
+
+            // Enviar mensagem ao cliente se notificar_cliente estiver ativado
+            if (conditionalForm.notificar_cliente && conditionalForm.customer_contact) {
+                try {
+                    const productsList = conditionalForm.products
+                        .filter(p => p.description)
+                        .map(p => `• ${p.description}${p.price > 0 ? ` - R$ ${p.price.toFixed(2)}` : ''}`)
+                        .join('\n');
+                    
+                    let customerMessage = `Olá ${conditionalForm.customer_name}! 👋\n\n` +
+                        `*Nova Condicional Gerada*\n\n` +
+                        `*Produtos:*\n${productsList}\n\n` +
+                        `*Data de Geração:* ${format(new Date(conditionalForm.date_generated), 'dd/MM/yyyy')}`;
+                    
+                    if (conditionalForm.date_return) {
+                        customerMessage += `\n*Data de Retorno:* ${format(new Date(conditionalForm.date_return), 'dd/MM/yyyy')}`;
+                    }
+                    
+                    if (conditionalForm.customer_address) {
+                        customerMessage += `\n*Endereço:* ${conditionalForm.customer_address}`;
+                    }
+                    
+                    customerMessage += `\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne 📦`;
+
+                    const phone = conditionalForm.customer_contact.replace(/\D/g, '');
+                    if (phone.length >= 10) {
+                        const result = await sendWhatsAppMessage({
+                            phone: phone,
+                            message: customerMessage,
+                            store_id: storeId
+                        });
+
+                        if (result.success) {
+                            console.log('✅ Mensagem enviada ao cliente');
+                        }
+                    }
+                } catch (msgError) {
+                    console.error('Erro ao enviar mensagem ao cliente:', msgError);
+                }
+            }
+
+            // Enviar notificação para números configurados (sempre, independente do toggle)
+            try {
+                const { data: notificationConfigs, error: configError } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('whatsapp_notification_config')
+                    .select('phone, name')
+                    .eq('notification_type', 'AJUSTES_CONDICIONAIS')
+                    .eq('store_id', storeId)
+                    .eq('active', true);
+
+                if (!configError && notificationConfigs && notificationConfigs.length > 0) {
+                    const productsList = conditionalForm.products
+                        .filter(p => p.description)
+                        .map(p => `• ${p.description}${p.price > 0 ? ` - R$ ${p.price.toFixed(2)}` : ''}`)
+                        .join('\n');
+                    
+                    let adminMessage = `🔔 *Nova Condicional Gerada*\n\n` +
+                        `*Cliente:* ${conditionalForm.customer_name}\n` +
+                        `*Contato:* ${conditionalForm.customer_contact}\n` +
+                        `*Produtos:*\n${productsList}\n` +
+                        `*Data de Geração:* ${format(new Date(conditionalForm.date_generated), 'dd/MM/yyyy')}`;
+                    
+                    if (conditionalForm.date_return) {
+                        adminMessage += `\n*Data de Retorno:* ${format(new Date(conditionalForm.date_return), 'dd/MM/yyyy')}`;
+                    }
+                    
+                    if (conditionalForm.customer_address) {
+                        adminMessage += `\n*Endereço:* ${conditionalForm.customer_address}`;
+                    }
+                    
+                    adminMessage += `\n\n*Status:* ${CONDITIONAL_STATUS_LABELS[conditionalForm.status]}\n*Data/Hora:* ${format(new Date(), 'dd/MM/yyyy HH:mm')}\n\nEleveaOne 📦`;
+
+                    const sendPromises = notificationConfigs.map(async (config) => {
+                        const normalizedPhone = config.phone.replace(/\D/g, '');
+                        if (normalizedPhone.length >= 10) {
+                            return await sendWhatsAppMessage({
+                                phone: normalizedPhone,
+                                message: adminMessage,
+                                store_id: storeId
+                            });
+                        }
+                        return { success: false, error: 'Número inválido' };
+                    });
+
+                    await Promise.all(sendPromises);
+                    console.log(`✅ Notificações enviadas para ${notificationConfigs.length} número(s) configurado(s)`);
+                }
+            } catch (notificationError) {
+                console.error('Erro ao enviar notificações configuradas:', notificationError);
             }
 
             setDialogOpen(false);
@@ -399,8 +505,11 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                 status: adjustmentForm.status,
                 delivery_method: adjustmentForm.delivery_method,
                 delivery_address: adjustmentForm.delivery_method === 'CASA' ? adjustmentForm.delivery_address : null,
-                observacao: adjustmentForm.observacao || null
+                observacao: adjustmentForm.observacao || null,
+                notificar_cliente: adjustmentForm.notificar_cliente
             };
+
+            let createdId: string | null = null;
 
             if (editingItem) {
                 const { error } = await supabase
@@ -412,13 +521,144 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                 if (error) throw error;
                 toast.success('Ajuste atualizado com sucesso');
             } else {
-                const { error } = await supabase
+                const { data, error } = await supabase
                     .schema('sistemaretiradas')
                     .from('adjustments')
-                    .insert(dataToSave);
+                    .insert(dataToSave)
+                    .select('id')
+                    .single();
 
                 if (error) throw error;
+                createdId = data.id;
                 toast.success('Ajuste criado com sucesso');
+            }
+
+            // Enviar mensagem ao cliente se notificar_cliente estiver ativado
+            if (adjustmentForm.notificar_cliente && adjustmentForm.customer_contact) {
+                try {
+                    const paymentStatusLabel = adjustmentForm.payment_status === 'PAGO' ? 'Pago' : 
+                                              adjustmentForm.payment_status === 'PARCIAL' ? 'Parcial' : 'Não Pago';
+                    
+                    const paymentStatusLabel = adjustmentForm.payment_status === 'PAGO' ? 'Pago' : 
+                                              adjustmentForm.payment_status === 'PARCIAL' ? 'Parcial' : 'Não Pago';
+                    const deliveryMethodLabel = adjustmentForm.delivery_method === 'CASA' ? 'Casa do Cliente' : 'Na Loja';
+                    
+                    let customerMessage = `Olá ${adjustmentForm.customer_name}! 👋\n\n` +
+                        `*Novo Ajuste Gerado*\n\n` +
+                        `*Produto:* ${adjustmentForm.product}\n` +
+                        `*Descrição do Ajuste:* ${adjustmentForm.adjustment_description}\n` +
+                        `*Status Pagamento:* ${paymentStatusLabel}`;
+                    
+                    if (adjustmentForm.payment_amount > 0) {
+                        customerMessage += ` - R$ ${adjustmentForm.payment_amount.toFixed(2)}`;
+                    }
+                    
+                    customerMessage += `\n*Data de Geração:* ${format(new Date(adjustmentForm.date_generated), 'dd/MM/yyyy')}`;
+                    
+                    if (adjustmentForm.date_seamstress) {
+                        customerMessage += `\n*Data com Costureira:* ${format(new Date(adjustmentForm.date_seamstress), 'dd/MM/yyyy')}`;
+                    }
+                    
+                    if (adjustmentForm.date_delivery) {
+                        const timeStr = adjustmentForm.time_delivery ? ` às ${adjustmentForm.time_delivery.substring(0, 5)}` : '';
+                        customerMessage += `\n*Data de Entrega:* ${format(new Date(adjustmentForm.date_delivery), 'dd/MM/yyyy')}${timeStr}`;
+                    }
+                    
+                    customerMessage += `\n*Método de Entrega:* ${deliveryMethodLabel}`;
+                    
+                    if (adjustmentForm.delivery_method === 'CASA' && adjustmentForm.delivery_address) {
+                        customerMessage += `\n*Endereço:* ${adjustmentForm.delivery_address}`;
+                    }
+                    
+                    if (adjustmentForm.observacao) {
+                        customerMessage += `\n*Observação:* ${adjustmentForm.observacao}`;
+                    }
+                    
+                    customerMessage += `\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne ✂️`;
+
+                    const phone = adjustmentForm.customer_contact.replace(/\D/g, '');
+                    if (phone.length >= 10) {
+                        const result = await sendWhatsAppMessage({
+                            phone: phone,
+                            message: customerMessage,
+                            store_id: storeId
+                        });
+
+                        if (result.success) {
+                            console.log('✅ Mensagem enviada ao cliente');
+                        }
+                    }
+                } catch (msgError) {
+                    console.error('Erro ao enviar mensagem ao cliente:', msgError);
+                }
+            }
+
+            // Enviar notificação para números configurados (sempre, independente do toggle)
+            try {
+                const { data: notificationConfigs, error: configError } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('whatsapp_notification_config')
+                    .select('phone, name')
+                    .eq('notification_type', 'AJUSTES_CONDICIONAIS')
+                    .eq('store_id', storeId)
+                    .eq('active', true);
+
+                if (!configError && notificationConfigs && notificationConfigs.length > 0) {
+                    const paymentStatusLabel = adjustmentForm.payment_status === 'PAGO' ? 'Pago' : 
+                                              adjustmentForm.payment_status === 'PARCIAL' ? 'Parcial' : 'Não Pago';
+                    const deliveryMethodLabel = adjustmentForm.delivery_method === 'CASA' ? 'Casa do Cliente' : 'Na Loja';
+                    
+                    let adminMessage = `🔔 *Novo Ajuste Gerado*\n\n` +
+                        `*Cliente:* ${adjustmentForm.customer_name}\n` +
+                        `*Contato:* ${adjustmentForm.customer_contact}\n` +
+                        `*Produto:* ${adjustmentForm.product}\n` +
+                        `*Descrição do Ajuste:* ${adjustmentForm.adjustment_description}\n` +
+                        `*Status Pagamento:* ${paymentStatusLabel}`;
+                    
+                    if (adjustmentForm.payment_amount > 0) {
+                        adminMessage += ` - R$ ${adjustmentForm.payment_amount.toFixed(2)}`;
+                    }
+                    
+                    adminMessage += `\n*Data Geração:* ${format(new Date(adjustmentForm.date_generated), 'dd/MM/yyyy')}`;
+                    
+                    if (adjustmentForm.date_seamstress) {
+                        adminMessage += `\n*Data Costureira:* ${format(new Date(adjustmentForm.date_seamstress), 'dd/MM/yyyy')}`;
+                    }
+                    
+                    if (adjustmentForm.date_delivery) {
+                        const timeStr = adjustmentForm.time_delivery ? ` às ${adjustmentForm.time_delivery.substring(0, 5)}` : '';
+                        adminMessage += `\n*Data Entrega:* ${format(new Date(adjustmentForm.date_delivery), 'dd/MM/yyyy')}${timeStr}`;
+                    }
+                    
+                    adminMessage += `\n*Método de Entrega:* ${deliveryMethodLabel}`;
+                    
+                    if (adjustmentForm.delivery_method === 'CASA' && adjustmentForm.delivery_address) {
+                        adminMessage += `\n*Endereço:* ${adjustmentForm.delivery_address}`;
+                    }
+                    
+                    if (adjustmentForm.observacao) {
+                        adminMessage += `\n*Observação:* ${adjustmentForm.observacao}`;
+                    }
+                    
+                    adminMessage += `\n\n*Status:* ${ADJUSTMENT_STATUS_LABELS[adjustmentForm.status]}\n*Data/Hora:* ${format(new Date(), 'dd/MM/yyyy HH:mm')}\n\nEleveaOne ✂️`;
+
+                    const sendPromises = notificationConfigs.map(async (config) => {
+                        const normalizedPhone = config.phone.replace(/\D/g, '');
+                        if (normalizedPhone.length >= 10) {
+                            return await sendWhatsAppMessage({
+                                phone: normalizedPhone,
+                                message: adminMessage,
+                                store_id: storeId
+                            });
+                        }
+                        return { success: false, error: 'Número inválido' };
+                    });
+
+                    await Promise.all(sendPromises);
+                    console.log(`✅ Notificações enviadas para ${notificationConfigs.length} número(s) configurado(s)`);
+                }
+            } catch (notificationError) {
+                console.error('Erro ao enviar notificações configuradas:', notificationError);
             }
 
             setDialogOpen(false);
@@ -459,15 +699,20 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
     ) => {
         try {
             const table = type === 'conditional' ? 'conditionals' : 'adjustments';
-            const { error } = await supabase
+            const { data: updatedItem, error } = await supabase
                 .schema('sistemaretiradas')
                 .from(table)
                 .update({ status: newStatus })
-                .eq('id', id);
+                .eq('id', id)
+                .select()
+                .single();
 
             if (error) throw error;
 
             toast.success('Status atualizado com sucesso');
+
+            // Buscar item atualizado com notificar_cliente
+            const currentItem = updatedItem as Conditional | Adjustment;
 
             // Enviar mensagens WhatsApp
             try {
@@ -481,63 +726,72 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
 
                 const tipoItem = type === 'conditional' ? 'Condicional' : 'Ajuste';
 
-                // 1. Enviar mensagem ao cliente
-                try {
-                    let customerMessage = '';
-                    
-                    if (type === 'conditional' && newStatus === 'GERADA') {
-                        const conditional = item as Conditional;
-                        const productsList = conditional.products.map(p => `• ${p.description}`).join('\n');
-                        customerMessage = `Olá ${conditional.customer_name}! 👋\n\n*Nova Condicional Gerada*\n\n*Produtos:*\n${productsList}\n\n*Data de Geração:* ${format(new Date(conditional.date_generated), 'dd/MM/yyyy')}`;
-                        if (conditional.date_return) {
-                            customerMessage += `\n*Data de Retorno:* ${format(new Date(conditional.date_return), 'dd/MM/yyyy')}`;
-                        }
-                        if (conditional.customer_address) {
-                            customerMessage += `\n*Endereço:* ${conditional.customer_address}`;
-                        }
-                        customerMessage += `\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne 📦`;
-                    } else if (type === 'conditional') {
-                        customerMessage = `Olá ${item.customer_name}! 👋\n\nSua condicional foi atualizada para: *${statusLabel}*\n\nProdutos: ${productInfo}\n\nQualquer dúvida, estamos à disposição!\n\n${item.store_id ? 'Loja' : 'Equipe'} EleveaOne 📦`;
-                    } else if (type === 'adjustment' && newStatus === 'AJUSTE_GERADO') {
-                        const adjustment = item as Adjustment;
-                        const paymentStatusLabel = adjustment.payment_status === 'PAGO' ? 'Pago' : 
-                                                  adjustment.payment_status === 'PARCIAL' ? 'Parcial' : 'Não Pago';
-                        customerMessage = `Olá ${adjustment.customer_name}! 👋\n\n*Novo Ajuste Gerado*\n\n*Produto:* ${adjustment.product}\n*Descrição do Ajuste:* ${adjustment.adjustment_description}\n*Status Pagamento:* ${paymentStatusLabel}`;
-                        if (adjustment.payment_amount > 0) {
-                            customerMessage += ` - R$ ${adjustment.payment_amount.toFixed(2)}`;
-                        }
-                        customerMessage += `\n*Data de Geração:* ${format(new Date(adjustment.date_generated), 'dd/MM/yyyy')}`;
-                        if (adjustment.date_seamstress) {
-                            customerMessage += `\n*Data com Costureira:* ${format(new Date(adjustment.date_seamstress), 'dd/MM/yyyy')}`;
-                        }
-                        if (adjustment.date_delivery) {
-                            const timeStr = adjustment.time_delivery ? ` às ${adjustment.time_delivery.substring(0, 5)}` : '';
-                            customerMessage += `\n*Data de Entrega:* ${format(new Date(adjustment.date_delivery), 'dd/MM/yyyy')}${timeStr}`;
-                        }
-                        if (adjustment.observacao) {
-                            customerMessage += `\n*Observação:* ${adjustment.observacao}`;
-                        }
-                        customerMessage += `\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne ✂️`;
-                    } else {
-                        customerMessage = `Olá ${item.customer_name}! 👋\n\nSeu ajuste foi atualizado para: *${statusLabel}*\n\nProduto: ${productInfo}\n\nQualquer dúvida, estamos à disposição!\n\n${item.store_id ? 'Loja' : 'Equipe'} EleveaOne ✂️`;
-                    }
-
-                    const phone = item.customer_contact.replace(/\D/g, '');
-                    if (phone.length >= 10) {
-                        const result = await sendWhatsAppMessage({
-                            phone: phone,
-                            message: customerMessage,
-                            store_id: storeId
-                        });
-
-                        if (result.success) {
-                            toast.success('Mensagem enviada ao cliente');
+                // 1. Enviar mensagem ao cliente APENAS se notificar_cliente estiver ativado
+                if (currentItem.notificar_cliente && currentItem.customer_contact) {
+                    try {
+                        let customerMessage = '';
+                        
+                        if (type === 'conditional' && newStatus === 'GERADA') {
+                            const conditional = item as Conditional;
+                            const productsList = conditional.products
+                                .map(p => `• ${p.description}${p.price > 0 ? ` - R$ ${p.price.toFixed(2)}` : ''}`)
+                                .join('\n');
+                            customerMessage = `Olá ${conditional.customer_name}! 👋\n\n*Nova Condicional Gerada*\n\n*Produtos:*\n${productsList}\n\n*Data de Geração:* ${format(new Date(conditional.date_generated), 'dd/MM/yyyy')}`;
+                            if (conditional.date_return) {
+                                customerMessage += `\n*Data de Retorno:* ${format(new Date(conditional.date_return), 'dd/MM/yyyy')}`;
+                            }
+                            if (conditional.customer_address) {
+                                customerMessage += `\n*Endereço:* ${conditional.customer_address}`;
+                            }
+                            customerMessage += `\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne 📦`;
+                        } else if (type === 'conditional') {
+                            customerMessage = `Olá ${item.customer_name}! 👋\n\nSua condicional foi atualizada para: *${statusLabel}*\n\nProdutos: ${productInfo}\n\nQualquer dúvida, estamos à disposição!\n\n${item.store_id ? 'Loja' : 'Equipe'} EleveaOne 📦`;
+                        } else if (type === 'adjustment' && newStatus === 'AJUSTE_GERADO') {
+                            const adjustment = item as Adjustment;
+                            const paymentStatusLabel = adjustment.payment_status === 'PAGO' ? 'Pago' : 
+                                                      adjustment.payment_status === 'PARCIAL' ? 'Parcial' : 'Não Pago';
+                            const deliveryMethodLabel = adjustment.delivery_method === 'CASA' ? 'Casa do Cliente' : 'Na Loja';
+                            customerMessage = `Olá ${adjustment.customer_name}! 👋\n\n*Novo Ajuste Gerado*\n\n*Produto:* ${adjustment.product}\n*Descrição do Ajuste:* ${adjustment.adjustment_description}\n*Status Pagamento:* ${paymentStatusLabel}`;
+                            if (adjustment.payment_amount > 0) {
+                                customerMessage += ` - R$ ${adjustment.payment_amount.toFixed(2)}`;
+                            }
+                            customerMessage += `\n*Data de Geração:* ${format(new Date(adjustment.date_generated), 'dd/MM/yyyy')}`;
+                            if (adjustment.date_seamstress) {
+                                customerMessage += `\n*Data com Costureira:* ${format(new Date(adjustment.date_seamstress), 'dd/MM/yyyy')}`;
+                            }
+                            if (adjustment.date_delivery) {
+                                const timeStr = adjustment.time_delivery ? ` às ${adjustment.time_delivery.substring(0, 5)}` : '';
+                                customerMessage += `\n*Data de Entrega:* ${format(new Date(adjustment.date_delivery), 'dd/MM/yyyy')}${timeStr}`;
+                            }
+                            customerMessage += `\n*Método de Entrega:* ${deliveryMethodLabel}`;
+                            if (adjustment.delivery_method === 'CASA' && adjustment.delivery_address) {
+                                customerMessage += `\n*Endereço:* ${adjustment.delivery_address}`;
+                            }
+                            if (adjustment.observacao) {
+                                customerMessage += `\n*Observação:* ${adjustment.observacao}`;
+                            }
+                            customerMessage += `\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne ✂️`;
                         } else {
-                            console.warn('Erro ao enviar mensagem ao cliente:', result.error);
+                            customerMessage = `Olá ${item.customer_name}! 👋\n\nSeu ajuste foi atualizado para: *${statusLabel}*\n\nProduto: ${productInfo}\n\nQualquer dúvida, estamos à disposição!\n\n${item.store_id ? 'Loja' : 'Equipe'} EleveaOne ✂️`;
                         }
+
+                        const phone = item.customer_contact.replace(/\D/g, '');
+                        if (phone.length >= 10) {
+                            const result = await sendWhatsAppMessage({
+                                phone: phone,
+                                message: customerMessage,
+                                store_id: storeId
+                            });
+
+                            if (result.success) {
+                                toast.success('Mensagem enviada ao cliente');
+                            } else {
+                                console.warn('Erro ao enviar mensagem ao cliente:', result.error);
+                            }
+                        }
+                    } catch (customerError) {
+                        console.error('Erro ao enviar mensagem ao cliente:', customerError);
                     }
-                } catch (customerError) {
-                    console.error('Erro ao enviar mensagem ao cliente:', customerError);
                 }
 
                 // 2. Enviar notificação para números configurados no Admin Dashboard
@@ -597,7 +851,9 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                             adminMessage += `\n\n*Status:* ${statusLabel}\n*Data/Hora:* ${format(new Date(), 'dd/MM/yyyy HH:mm')}\n\nEleveaOne ✂️`;
                         } else if (type === 'conditional' && newStatus === 'GERADA') {
                             const conditional = item as Conditional;
-                            const productsList = conditional.products.map(p => `• ${p.description}`).join('\n');
+                            const productsList = conditional.products
+                                .map(p => `• ${p.description}${p.price > 0 ? ` - R$ ${p.price.toFixed(2)}` : ''}`)
+                                .join('\n');
                             adminMessage = `🔔 *Nova Condicional Gerada*\n\n` +
                                 `*Cliente:* ${conditional.customer_name}\n` +
                                 `*Contato:* ${conditional.customer_contact}\n` +
@@ -1097,6 +1353,19 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                                 </SelectContent>
                             </Select>
                         </div>
+                        <div className="flex items-center justify-between p-4 border rounded-lg">
+                            <div className="space-y-0.5">
+                                <Label htmlFor="notificar_cliente_conditional">Notificar Cliente</Label>
+                                <p className="text-xs text-muted-foreground">
+                                    Enviar notificações WhatsApp ao cliente sobre mudanças de status
+                                </p>
+                            </div>
+                            <Switch
+                                id="notificar_cliente_conditional"
+                                checked={conditionalForm.notificar_cliente}
+                                onCheckedChange={(checked) => setConditionalForm({ ...conditionalForm, notificar_cliente: checked })}
+                            />
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
@@ -1273,6 +1542,19 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                                 onChange={(e) => setAdjustmentForm({ ...adjustmentForm, observacao: e.target.value })}
                                 rows={3}
                                 placeholder="Observações, notas ou informações adicionais sobre o ajuste..."
+                            />
+                        </div>
+                        <div className="flex items-center justify-between p-4 border rounded-lg">
+                            <div className="space-y-0.5">
+                                <Label htmlFor="notificar_cliente_adjustment">Notificar Cliente</Label>
+                                <p className="text-xs text-muted-foreground">
+                                    Enviar notificações WhatsApp ao cliente sobre mudanças de status deste ajuste
+                                </p>
+                            </div>
+                            <Switch
+                                id="notificar_cliente_adjustment"
+                                checked={adjustmentForm.notificar_cliente}
+                                onCheckedChange={(checked) => setAdjustmentForm({ ...adjustmentForm, notificar_cliente: checked })}
                             />
                         </div>
                     </div>
