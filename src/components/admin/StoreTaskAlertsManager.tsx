@@ -209,10 +209,20 @@ export const StoreTaskAlertsManager = () => {
 
     if (task) {
       setEditingTask(task);
+      // CORREÇÃO: Normalizar horários removendo segundos para compatibilidade com o formato do formulário
+      // Horários salvos podem vir como "14:30:00", mas o formulário usa "14:30"
+      const horariosNormalizados = (task.horarios || []).map(h => {
+        // Se o horário tem segundos (formato "HH:MM:SS"), remover os segundos
+        if (h.includes(':') && h.split(':').length === 3) {
+          return h.substring(0, 5); // Retorna apenas "HH:MM"
+        }
+        return h; // Já está no formato correto
+      });
+      
       setFormData({
         nome: task.nome || '',
         mensagem: task.mensagem || '',
-        horarios: task.horarios || [],
+        horarios: horariosNormalizados,
         dias_semana: task.dias_semana || [1, 2, 3, 4, 5, 6],
         sender_type: task.sender_type || 'GLOBAL',
         sender_phone: task.sender_phone || '',
@@ -431,21 +441,46 @@ export const StoreTaskAlertsManager = () => {
   };
 
   const toggleHorario = (horario: string) => {
-    setFormData(prev => ({
-      ...prev,
-      horarios: prev.horarios.includes(horario)
-        ? prev.horarios.filter(h => h !== horario)
-        : [...prev.horarios, horario].sort()
-    }));
+    // CORREÇÃO: Normalizar horário para formato "HH:MM" antes de comparar/adicionar
+    const horarioNormalizado = horario.substring(0, 5);
+    
+    setFormData(prev => {
+      // Verificar se já existe um horário com o mesmo HH:MM (ignorando segundos)
+      const horarioExiste = prev.horarios.some(h => h.substring(0, 5) === horarioNormalizado);
+      
+      if (horarioExiste) {
+        // Remover todos os horários que correspondem a este HH:MM
+        return {
+          ...prev,
+          horarios: prev.horarios.filter(h => h.substring(0, 5) !== horarioNormalizado).sort()
+        };
+      } else {
+        // Adicionar o horário normalizado
+        return {
+          ...prev,
+          horarios: [...prev.horarios, horarioNormalizado].sort()
+        };
+      }
+    });
   };
 
   const addCustomHorario = () => {
-    if (customHorario && !formData.horarios.includes(customHorario)) {
-      setFormData(prev => ({
-        ...prev,
-        horarios: [...prev.horarios, customHorario].sort()
-      }));
-      setCustomHorario('');
+    if (customHorario) {
+      // CORREÇÃO: Normalizar horário para formato "HH:MM" antes de adicionar
+      const horarioNormalizado = customHorario.substring(0, 5);
+      
+      // Verificar se já existe um horário com o mesmo HH:MM
+      const horarioExiste = formData.horarios.some(h => h.substring(0, 5) === horarioNormalizado);
+      
+      if (!horarioExiste) {
+        setFormData(prev => ({
+          ...prev,
+          horarios: [...prev.horarios, horarioNormalizado].sort()
+        }));
+        setCustomHorario('');
+      } else {
+        toast.error('Este horário já está selecionado');
+      }
     }
   };
 
@@ -845,17 +880,23 @@ export const StoreTaskAlertsManager = () => {
               <div className="space-y-3">
                 <Label>Horários de Envio *</Label>
                 <div className="flex flex-wrap gap-2">
-                  {HORARIOS_SUGERIDOS.map((h) => (
-                    <Badge
-                      key={h}
-                      variant={formData.horarios.includes(h) ? 'default' : 'outline'}
-                      className="cursor-pointer select-none"
-                      onClick={() => toggleHorario(h)}
-                      data-testid={`badge-time-${h}`}
-                    >
-                      {h.substring(0, 5)}
-                    </Badge>
-                  ))}
+                  {HORARIOS_SUGERIDOS.map((h) => {
+                    // CORREÇÃO: Comparar horários normalizados (apenas HH:MM) para funcionar mesmo se vierem com segundos
+                    const horarioNormalizado = h.substring(0, 5); // Garantir formato "HH:MM"
+                    const isSelected = formData.horarios.some(hor => hor.substring(0, 5) === horarioNormalizado);
+                    
+                    return (
+                      <Badge
+                        key={h}
+                        variant={isSelected ? 'default' : 'outline'}
+                        className="cursor-pointer select-none"
+                        onClick={() => toggleHorario(h)}
+                        data-testid={`badge-time-${h}`}
+                      >
+                        {horarioNormalizado}
+                      </Badge>
+                    );
+                  })}
                 </div>
                 <div className="flex gap-2">
                   <Input
