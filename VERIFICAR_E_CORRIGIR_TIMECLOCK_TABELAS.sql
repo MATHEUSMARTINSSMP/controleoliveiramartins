@@ -27,6 +27,8 @@ SELECT
 
 -- Verificar colunas de time_clock_digital_signatures (se existir)
 DO $$
+DECLARE
+    rec RECORD;
 BEGIN
     IF EXISTS (
         SELECT 1 FROM information_schema.tables 
@@ -51,9 +53,32 @@ BEGIN
             AND table_name = 'time_clock_digital_signatures'
             AND column_name = 'time_clock_record_id'
         ) THEN
-            RAISE WARNING '⚠️ Coluna time_clock_record_id NÃO EXISTE! Execute CRIAR_TABELA_TIMECLOCK_DIGITAL_SIGNATURES_CORRIGIDO.sql';
+            RAISE WARNING '⚠️ Coluna time_clock_record_id NÃO EXISTE! Execute CORRIGIR_COLUNAS_TIMECLOCK_DIGITAL_SIGNATURES.sql';
         ELSE
             RAISE NOTICE '✅ Coluna time_clock_record_id existe';
+        END IF;
+        
+        -- Verificar outras colunas importantes
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_schema = 'sistemaretiradas' 
+            AND table_name = 'time_clock_digital_signatures'
+            AND column_name = 'password_hash'
+        ) THEN
+            RAISE WARNING '⚠️ Coluna password_hash NÃO EXISTE! Execute CORRIGIR_COLUNAS_TIMECLOCK_DIGITAL_SIGNATURES.sql';
+        ELSE
+            RAISE NOTICE '✅ Coluna password_hash existe';
+        END IF;
+        
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_schema = 'sistemaretiradas' 
+            AND table_name = 'time_clock_digital_signatures'
+            AND column_name = 'device_info'
+        ) THEN
+            RAISE WARNING '⚠️ Coluna device_info NÃO EXISTE! Execute CORRIGIR_COLUNAS_TIMECLOCK_DIGITAL_SIGNATURES.sql';
+        ELSE
+            RAISE NOTICE '✅ Coluna device_info existe';
         END IF;
     END IF;
 END $$;
