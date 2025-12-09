@@ -42,12 +42,9 @@ interface WorkScheduleTemplate {
   admin_id: string;
   nome: string;
   descricao?: string | null;
-  hora_entrada: string;
-  hora_intervalo_saida: string;
-  hora_intervalo_retorno: string;
-  hora_saida: string;
+  carga_horaria_diaria: number;
+  tempo_intervalo_minutos: number;
   dias_semana: number[];
-  carga_horaria_diaria?: number | null;
   is_global: boolean;
   ativo: boolean;
 }
@@ -100,10 +97,8 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
   const [templateFormData, setTemplateFormData] = useState({
     nome: '',
     descricao: '',
-    hora_entrada: '08:00',
-    hora_intervalo_saida: '12:00',
-    hora_intervalo_retorno: '13:00',
-    hora_saida: '18:00',
+    carga_horaria_diaria: 6,
+    tempo_intervalo_minutos: 60,
     dias_semana: [1, 2, 3, 4, 5] as number[],
     ativo: true,
   });
@@ -217,13 +212,14 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
     if (template) {
       setFormData(prev => ({
         ...prev,
-        hora_entrada: template.hora_entrada?.substring(0, 5) || '08:00',
-        hora_intervalo_saida: template.hora_intervalo_saida?.substring(0, 5) || '12:00',
-        hora_intervalo_retorno: template.hora_intervalo_retorno?.substring(0, 5) || '13:00',
-        hora_saida: template.hora_saida?.substring(0, 5) || '18:00',
         dias_semana: template.dias_semana || [1, 2, 3, 4, 5],
       }));
     }
+  };
+
+  const getSelectedTemplateInfo = () => {
+    if (!selectedTemplateId) return null;
+    return templates.find(t => t.id === selectedTemplateId);
   };
 
   const handleModeChange = (mode: 'template' | 'custom') => {
@@ -383,10 +379,8 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
       setTemplateFormData({
         nome: template.nome || '',
         descricao: template.descricao || '',
-        hora_entrada: template.hora_entrada?.substring(0, 5) || '08:00',
-        hora_intervalo_saida: template.hora_intervalo_saida?.substring(0, 5) || '12:00',
-        hora_intervalo_retorno: template.hora_intervalo_retorno?.substring(0, 5) || '13:00',
-        hora_saida: template.hora_saida?.substring(0, 5) || '18:00',
+        carga_horaria_diaria: template.carga_horaria_diaria || 6,
+        tempo_intervalo_minutos: template.tempo_intervalo_minutos || 60,
         dias_semana: template.dias_semana || [1, 2, 3, 4, 5],
         ativo: template.ativo ?? true,
       });
@@ -395,10 +389,8 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
       setTemplateFormData({
         nome: '',
         descricao: '',
-        hora_entrada: '08:00',
-        hora_intervalo_saida: '12:00',
-        hora_intervalo_retorno: '13:00',
-        hora_saida: '18:00',
+        carga_horaria_diaria: 6,
+        tempo_intervalo_minutos: 60,
         dias_semana: [1, 2, 3, 4, 5],
         ativo: true,
       });
@@ -412,13 +404,13 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
       return;
     }
 
+    if (templateFormData.carga_horaria_diaria <= 0 || templateFormData.carga_horaria_diaria > 12) {
+      toast.error('Carga horária deve estar entre 1 e 12 horas');
+      return;
+    }
+
     try {
       setLoading(true);
-      const hora_entrada = `${templateFormData.hora_entrada}:00`;
-      const hora_intervalo_saida = `${templateFormData.hora_intervalo_saida}:00`;
-      const hora_intervalo_retorno = `${templateFormData.hora_intervalo_retorno}:00`;
-      const hora_saida = `${templateFormData.hora_saida}:00`;
-
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
         toast.error('Usuário não autenticado');
@@ -432,10 +424,8 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
           .update({
             nome: templateFormData.nome.trim(),
             descricao: templateFormData.descricao.trim() || null,
-            hora_entrada,
-            hora_intervalo_saida,
-            hora_intervalo_retorno,
-            hora_saida,
+            carga_horaria_diaria: templateFormData.carga_horaria_diaria,
+            tempo_intervalo_minutos: templateFormData.tempo_intervalo_minutos,
             dias_semana: templateFormData.dias_semana,
             ativo: templateFormData.ativo,
             updated_at: new Date().toISOString(),
@@ -452,10 +442,8 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
             admin_id: adminId || userData.user.id,
             nome: templateFormData.nome.trim(),
             descricao: templateFormData.descricao.trim() || null,
-            hora_entrada,
-            hora_intervalo_saida,
-            hora_intervalo_retorno,
-            hora_saida,
+            carga_horaria_diaria: templateFormData.carga_horaria_diaria,
+            tempo_intervalo_minutos: templateFormData.tempo_intervalo_minutos,
             dias_semana: templateFormData.dias_semana,
             is_global: true,
             ativo: templateFormData.ativo,
@@ -621,12 +609,7 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
                                     <div className="flex items-center gap-2">
                                       <span>{template.nome}</span>
                                       <span className="text-xs text-muted-foreground">
-                                        ({calculateHours(
-                                          template.hora_entrada?.substring(0, 5) || '08:00',
-                                          template.hora_intervalo_saida?.substring(0, 5) || '12:00',
-                                          template.hora_intervalo_retorno?.substring(0, 5) || '13:00',
-                                          template.hora_saida?.substring(0, 5) || '18:00'
-                                        )}h/dia)
+                                        ({template.carga_horaria_diaria || 6}h/dia, {template.tempo_intervalo_minutos || 60}min intervalo)
                                       </span>
                                     </div>
                                   </SelectItem>
@@ -639,6 +622,19 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
 
                       {(scheduleMode === 'custom' || selectedTemplateId) && (
                         <>
+                          {scheduleMode === 'template' && getSelectedTemplateInfo() && (
+                            <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                              <div className="text-sm font-medium mb-1">Template selecionado: {getSelectedTemplateInfo()?.nome}</div>
+                              <div className="text-sm text-muted-foreground">
+                                Carga esperada: <strong>{getSelectedTemplateInfo()?.carga_horaria_diaria || 6}h/dia</strong> | 
+                                Intervalo: <strong>{getSelectedTemplateInfo()?.tempo_intervalo_minutos || 60} minutos</strong>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-2">
+                                Defina os horários específicos abaixo. Você pode rotacionar os horários desde que a carga horária seja respeitada.
+                              </p>
+                            </div>
+                          )}
+
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <Label>Entrada *</Label>
@@ -646,7 +642,6 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
                                 type="time"
                                 value={formData.hora_entrada}
                                 onChange={(e) => setFormData(prev => ({ ...prev, hora_entrada: e.target.value }))}
-                                disabled={scheduleMode === 'template'}
                                 data-testid="input-hora-entrada"
                               />
                             </div>
@@ -656,7 +651,6 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
                                 type="time"
                                 value={formData.hora_intervalo_saida}
                                 onChange={(e) => setFormData(prev => ({ ...prev, hora_intervalo_saida: e.target.value }))}
-                                disabled={scheduleMode === 'template'}
                                 data-testid="input-hora-intervalo-saida"
                               />
                             </div>
@@ -666,7 +660,6 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
                                 type="time"
                                 value={formData.hora_intervalo_retorno}
                                 onChange={(e) => setFormData(prev => ({ ...prev, hora_intervalo_retorno: e.target.value }))}
-                                disabled={scheduleMode === 'template'}
                                 data-testid="input-hora-intervalo-retorno"
                               />
                             </div>
@@ -676,7 +669,6 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
                                 type="time"
                                 value={formData.hora_saida}
                                 onChange={(e) => setFormData(prev => ({ ...prev, hora_saida: e.target.value }))}
-                                disabled={scheduleMode === 'template'}
                                 data-testid="input-hora-saida"
                               />
                             </div>
@@ -691,7 +683,6 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
                                     id={`dia-${dia.value}`}
                                     checked={formData.dias_semana.includes(dia.value)}
                                     onCheckedChange={() => toggleDiaSemana(dia.value)}
-                                    disabled={scheduleMode === 'template'}
                                   />
                                   <Label htmlFor={`dia-${dia.value}`} className="cursor-pointer text-sm">
                                     {dia.short}
@@ -702,7 +693,7 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
                           </div>
 
                           <div className="p-3 bg-muted rounded-lg">
-                            <div className="text-sm text-muted-foreground">Carga horária diária</div>
+                            <div className="text-sm text-muted-foreground">Carga horária configurada</div>
                             <div className="text-lg font-semibold">
                               {calculateHours(
                                 formData.hora_entrada,
@@ -906,42 +897,43 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
 
                       <Separator />
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>Entrada *</Label>
+                          <Label>Carga Horária Diária (horas) *</Label>
                           <Input
-                            type="time"
-                            value={templateFormData.hora_entrada}
-                            onChange={(e) => setTemplateFormData(prev => ({ ...prev, hora_entrada: e.target.value }))}
-                            data-testid="input-template-entrada"
+                            type="number"
+                            min="1"
+                            max="12"
+                            step="0.5"
+                            value={templateFormData.carga_horaria_diaria}
+                            onChange={(e) => setTemplateFormData(prev => ({ ...prev, carga_horaria_diaria: parseFloat(e.target.value) || 6 }))}
+                            data-testid="input-template-carga-horaria"
                           />
+                          <p className="text-xs text-muted-foreground">
+                            Quantidade de horas de trabalho efetivo por dia (sem contar intervalo)
+                          </p>
                         </div>
                         <div className="space-y-2">
-                          <Label>Saída - Intervalo *</Label>
-                          <Input
-                            type="time"
-                            value={templateFormData.hora_intervalo_saida}
-                            onChange={(e) => setTemplateFormData(prev => ({ ...prev, hora_intervalo_saida: e.target.value }))}
-                            data-testid="input-template-intervalo-saida"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Retorno - Intervalo *</Label>
-                          <Input
-                            type="time"
-                            value={templateFormData.hora_intervalo_retorno}
-                            onChange={(e) => setTemplateFormData(prev => ({ ...prev, hora_intervalo_retorno: e.target.value }))}
-                            data-testid="input-template-intervalo-retorno"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Saída *</Label>
-                          <Input
-                            type="time"
-                            value={templateFormData.hora_saida}
-                            onChange={(e) => setTemplateFormData(prev => ({ ...prev, hora_saida: e.target.value }))}
-                            data-testid="input-template-saida"
-                          />
+                          <Label>Tempo de Intervalo (minutos) *</Label>
+                          <Select
+                            value={String(templateFormData.tempo_intervalo_minutos)}
+                            onValueChange={(v) => setTemplateFormData(prev => ({ ...prev, tempo_intervalo_minutos: parseInt(v) }))}
+                          >
+                            <SelectTrigger data-testid="select-template-intervalo">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="15">15 minutos</SelectItem>
+                              <SelectItem value="30">30 minutos</SelectItem>
+                              <SelectItem value="45">45 minutos</SelectItem>
+                              <SelectItem value="60">1 hora</SelectItem>
+                              <SelectItem value="90">1h30min</SelectItem>
+                              <SelectItem value="120">2 horas</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            Conforme CLT: 15min (4-6h), 1h+ (6h+)
+                          </p>
                         </div>
                       </div>
 
@@ -964,14 +956,17 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
                       </div>
 
                       <div className="p-3 bg-muted rounded-lg">
-                        <div className="text-sm text-muted-foreground">Carga horária diária</div>
-                        <div className="text-lg font-semibold">
-                          {calculateHours(
-                            templateFormData.hora_entrada,
-                            templateFormData.hora_intervalo_saida,
-                            templateFormData.hora_intervalo_retorno,
-                            templateFormData.hora_saida
-                          )}h
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <div className="text-sm text-muted-foreground">Carga horária diária</div>
+                            <div className="text-lg font-semibold">{templateFormData.carga_horaria_diaria}h</div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-muted-foreground">Tempo total na empresa</div>
+                            <div className="text-lg font-semibold">
+                              {(templateFormData.carga_horaria_diaria + templateFormData.tempo_intervalo_minutos / 60).toFixed(1)}h
+                            </div>
+                          </div>
                         </div>
                       </div>
 
@@ -1024,33 +1019,23 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
                               {template.ativo ? 'Ativo' : 'Inativo'}
                             </Badge>
                             <Badge variant="outline">
-                              {calculateHours(
-                                template.hora_entrada?.substring(0, 5) || '08:00',
-                                template.hora_intervalo_saida?.substring(0, 5) || '12:00',
-                                template.hora_intervalo_retorno?.substring(0, 5) || '13:00',
-                                template.hora_saida?.substring(0, 5) || '18:00'
-                              )}h/dia
+                              {template.carga_horaria_diaria || 6}h/dia
+                            </Badge>
+                            <Badge variant="outline">
+                              {template.tempo_intervalo_minutos || 60}min intervalo
                             </Badge>
                           </div>
                           {template.descricao && (
                             <p className="text-sm text-muted-foreground mb-2">{template.descricao}</p>
                           )}
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+                          <div className="grid grid-cols-2 gap-2 text-sm">
                             <div>
-                              <span className="text-muted-foreground">Entrada:</span>
-                              <div className="font-mono">{template.hora_entrada?.substring(0, 5) || '08:00'}</div>
+                              <span className="text-muted-foreground">Carga horária:</span>
+                              <div className="font-semibold">{template.carga_horaria_diaria || 6} horas/dia</div>
                             </div>
                             <div>
-                              <span className="text-muted-foreground">Saída Int.:</span>
-                              <div className="font-mono">{template.hora_intervalo_saida?.substring(0, 5) || '12:00'}</div>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Retorno Int.:</span>
-                              <div className="font-mono">{template.hora_intervalo_retorno?.substring(0, 5) || '13:00'}</div>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Saída:</span>
-                              <div className="font-mono">{template.hora_saida?.substring(0, 5) || '18:00'}</div>
+                              <span className="text-muted-foreground">Tempo de intervalo:</span>
+                              <div className="font-semibold">{template.tempo_intervalo_minutos || 60} minutos</div>
                             </div>
                           </div>
                           <div className="mt-2">

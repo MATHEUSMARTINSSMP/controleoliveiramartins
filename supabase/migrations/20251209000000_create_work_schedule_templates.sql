@@ -1,7 +1,7 @@
 -- ============================================================================
 -- MIGRAÇÃO: Criar tabela de templates de jornada global
 -- Data: 2025-12-09
--- Descrição: Templates de jornada que podem ser atribuídos a múltiplas colaboradoras
+-- Descrição: Templates de jornada flexíveis baseados em carga horária
 -- ============================================================================
 
 -- Criar tabela de templates de jornada
@@ -10,15 +10,15 @@ CREATE TABLE IF NOT EXISTS sistemaretiradas.work_schedule_templates (
     admin_id UUID NOT NULL REFERENCES sistemaretiradas.profiles(id) ON DELETE CASCADE,
     nome VARCHAR(100) NOT NULL,
     descricao TEXT,
-    hora_entrada TIME NOT NULL DEFAULT '08:00:00',
-    hora_intervalo_saida TIME NOT NULL DEFAULT '12:00:00',
-    hora_intervalo_retorno TIME NOT NULL DEFAULT '13:00:00',
-    hora_saida TIME NOT NULL DEFAULT '18:00:00',
+    -- Campos flexíveis (carga horária em vez de horários fixos)
+    carga_horaria_diaria NUMERIC(4,2) NOT NULL DEFAULT 8.0,
+    tempo_intervalo_minutos INTEGER NOT NULL DEFAULT 60,
     dias_semana INTEGER[] NOT NULL DEFAULT '{1,2,3,4,5}',
-    carga_horaria_diaria NUMERIC(4,2) GENERATED ALWAYS AS (
-        EXTRACT(EPOCH FROM (hora_intervalo_saida - hora_entrada)) / 3600 +
-        EXTRACT(EPOCH FROM (hora_saida - hora_intervalo_retorno)) / 3600
-    ) STORED,
+    -- Campos legados (mantidos para compatibilidade, mas opcionais)
+    hora_entrada TIME,
+    hora_intervalo_saida TIME,
+    hora_intervalo_retorno TIME,
+    hora_saida TIME,
     is_global BOOLEAN DEFAULT true,
     ativo BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -46,9 +46,10 @@ DROP POLICY IF EXISTS "Admin pode gerenciar seus templates de jornada" ON sistem
 DROP POLICY IF EXISTS "Colaboradoras podem ver templates ativos" ON sistemaretiradas.work_schedule_templates;
 DROP POLICY IF EXISTS "work_schedule_templates_admin_policy" ON sistemaretiradas.work_schedule_templates;
 DROP POLICY IF EXISTS "work_schedule_templates_read_policy" ON sistemaretiradas.work_schedule_templates;
+DROP POLICY IF EXISTS "work_schedule_templates_manage_own" ON sistemaretiradas.work_schedule_templates;
+DROP POLICY IF EXISTS "work_schedule_templates_colaboradora_read" ON sistemaretiradas.work_schedule_templates;
 
--- POLÍTICA 1: Admin pode gerenciar APENAS seus próprios templates (INSERT, UPDATE, DELETE)
--- Restrição: admin_id da row DEVE ser igual ao usuário autenticado
+-- POLÍTICA 1: Admin pode gerenciar APENAS seus próprios templates
 CREATE POLICY "work_schedule_templates_manage_own"
 ON sistemaretiradas.work_schedule_templates
 FOR ALL
@@ -57,7 +58,6 @@ USING (admin_id = auth.uid())
 WITH CHECK (admin_id = auth.uid());
 
 -- POLÍTICA 2: Colaboradoras podem VER templates ativos do admin da sua loja
--- Isso permite que colaboradoras vejam os templates disponíveis para atribuição
 CREATE POLICY "work_schedule_templates_colaboradora_read"
 ON sistemaretiradas.work_schedule_templates
 FOR SELECT
@@ -73,9 +73,7 @@ USING (
 );
 
 -- Comentários
-COMMENT ON TABLE sistemaretiradas.work_schedule_templates IS 'Templates de jornada de trabalho reutilizáveis';
-COMMENT ON COLUMN sistemaretiradas.work_schedule_templates.nome IS 'Nome do template (ex: 6x1 - 6h)';
+COMMENT ON TABLE sistemaretiradas.work_schedule_templates IS 'Templates flexíveis de jornada de trabalho baseados em carga horária';
+COMMENT ON COLUMN sistemaretiradas.work_schedule_templates.carga_horaria_diaria IS 'Carga horária diária em horas (ex: 6.0 para 6 horas)';
+COMMENT ON COLUMN sistemaretiradas.work_schedule_templates.tempo_intervalo_minutos IS 'Tempo de intervalo em minutos (ex: 60 para 1 hora)';
 COMMENT ON COLUMN sistemaretiradas.work_schedule_templates.dias_semana IS 'Dias da semana (0=Dom, 1=Seg, ..., 6=Sab)';
-COMMENT ON COLUMN sistemaretiradas.work_schedule_templates.is_global IS 'Se true, disponível para todas as lojas do admin';
-COMMENT ON COLUMN sistemaretiradas.colaboradora_work_schedules.template_id IS 'Referência ao template usado (null se customizado)';
-COMMENT ON COLUMN sistemaretiradas.colaboradora_work_schedules.is_custom IS 'true = jornada customizada, false = baseada em template';
