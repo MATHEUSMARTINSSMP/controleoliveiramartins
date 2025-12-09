@@ -74,12 +74,14 @@ export function OccurrencesManager({ storeId, adminId }: OccurrencesManagerProps
       .from('profiles')
       .select('id, name')
       .eq('store_id', storeId)
-      .ilike('role', 'colaboradora')
+      .eq('role', 'COLABORADORA')
       .eq('active', true)
       .order('name');
 
     if (!error && data) {
       setColaboradoras(data);
+    } else {
+      console.error('[OccurrencesManager] Erro ao buscar colaboradoras:', error);
     }
   };
 
