@@ -21,6 +21,10 @@ export interface TimeClockRecord {
   autorizado_por?: string | null;
   ip_address?: string | null;
   user_agent?: string | null;
+  lancamento_manual?: boolean;
+  lancado_por?: string | null;
+  alterado_em?: string | null;
+  alterado_por?: string | null;
   created_at: string;
   updated_at: string;
 }

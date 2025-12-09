@@ -422,11 +422,20 @@ export const StoreTaskAlertsManager = () => {
     }));
   };
 
-  const addRecipient = () => {
-    setFormData(prev => ({
-      ...prev,
-      recipients: [...prev.recipients, { phone: '', name: '', ativo: true }]
-    }));
+  const addRecipient = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    console.log('[StoreTaskAlertsManager] addRecipient chamado');
+    setFormData(prev => {
+      const newRecipients = [...prev.recipients, { phone: '', name: '', ativo: true }];
+      console.log('[StoreTaskAlertsManager] Novos recipients:', newRecipients);
+      return {
+        ...prev,
+        recipients: newRecipients
+      };
+    });
   };
 
   const removeRecipient = (index: number) => {
@@ -797,7 +806,11 @@ export const StoreTaskAlertsManager = () => {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={addRecipient}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      addRecipient(e);
+                    }}
                     data-testid="button-add-recipient"
                   >
                     <Plus className="h-4 w-4 mr-1" />

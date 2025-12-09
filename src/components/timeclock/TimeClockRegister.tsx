@@ -382,6 +382,54 @@ export function TimeClockRegister({
       
       console.log('[TimeClockRegister] ✅✅✅ PIN válido! Prosseguindo com registro...');
 
+      // Validações de negócio antes de registrar
+      const horarioRegistro = new Date();
+      const horarioISO = horarioRegistro.toISOString();
+      
+      // 1. Validar que não está registrando no futuro (mais de 5 minutos)
+      const cincoMinutosFuturo = new Date(horarioRegistro.getTime() + 5 * 60 * 1000);
+      if (horarioRegistro > cincoMinutosFuturo) {
+        setSignatureError('Não é possível registrar ponto no futuro. Verifique o horário do dispositivo.');
+        setProcessingSignature(false);
+        return;
+      }
+      
+      // 2. Validar que não está registrando muito no passado (mais de 1 ano)
+      const umAnoAtras = new Date(horarioRegistro.getTime() - 365 * 24 * 60 * 60 * 1000);
+      if (horarioRegistro < umAnoAtras) {
+        setSignatureError('Não é possível registrar ponto com mais de 1 ano de atraso.');
+        setProcessingSignature(false);
+        return;
+      }
+      
+      // 3. Validar limite de registros por dia (máximo 4)
+      try {
+        const hoje = new Date(horarioRegistro);
+        hoje.setHours(0, 0, 0, 0);
+        const amanha = new Date(hoje);
+        amanha.setDate(amanha.getDate() + 1);
+        
+        const { count, error: countError } = await supabase
+          .schema('sistemaretiradas')
+          .from('time_clock_records')
+          .select('*', { count: 'exact', head: true })
+          .eq('colaboradora_id', colaboradoraId)
+          .eq('store_id', storeId)
+          .gte('horario', hoje.toISOString())
+          .lt('horario', amanha.toISOString());
+        
+        if (countError) {
+          console.warn('[TimeClockRegister] Erro ao contar registros do dia:', countError);
+        } else if (count !== null && count >= 4) {
+          setSignatureError('Limite de 4 registros por dia atingido. Entre em contato com o administrador para lançamento manual.');
+          setProcessingSignature(false);
+          return;
+        }
+      } catch (countErr) {
+        console.warn('[TimeClockRegister] Erro ao validar limite de registros:', countErr);
+        // Continuar mesmo se der erro na validação (não bloquear)
+      }
+
       const signatureHash = await generateSignatureHash();
       console.log('[TimeClockRegister] 🔐 Signature hash gerado:', signatureHash ? `${signatureHash.substring(0, 20)}...` : 'NULL/UNDEFINED');
       
@@ -390,8 +438,6 @@ export function TimeClockRegister({
         setProcessingSignature(false);
         return;
       }
-      
-      const horarioRegistro = new Date().toISOString();
       
       const deviceInfo = {
         userAgent: navigator.userAgent,
@@ -409,9 +455,10 @@ export function TimeClockRegister({
           store_id: storeId,
           colaboradora_id: colaboradoraId,
           tipo_registro: pendingAction,
-          horario: horarioRegistro,
+          horario: horarioISO,
           observacao: observacao || null,
           user_agent: navigator.userAgent,
+          lancamento_manual: false, // Registro feito pela colaboradora
         })
         .select('id')
         .single();

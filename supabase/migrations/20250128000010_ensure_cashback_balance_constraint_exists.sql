@@ -63,3 +63,4 @@ END $$;
 COMMENT ON CONSTRAINT cashback_balance_unique_cliente ON sistemaretiradas.cashback_balance IS 'Garante que cada cliente tem apenas um registro de saldo de cashback';
 
 
+
