@@ -433,18 +433,20 @@ export const StoreTaskAlertsManager = () => {
       e.stopPropagation();
     }
     console.log('[StoreTaskAlertsManager] addRecipient chamado');
-    setFormData(prev => ({
-      ...prev,
-      recipients: [
-        ...prev.recipients,
-        {
-          phone: '',
-          name: '',
-          ativo: true,
-          tempId: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-        }
-      ]
-    }));
+    setFormData(prev => {
+      const newRecipient = {
+        phone: '',
+        name: '',
+        ativo: true,
+        tempId: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      };
+      const updatedRecipients = [...prev.recipients, newRecipient];
+      console.log('DEBUG: Adding recipient', { newRecipient });
+      return {
+        ...prev,
+        recipients: updatedRecipients
+      };
+    });
   };
 
   const removeRecipient = (index: number) => {
@@ -830,39 +832,43 @@ export const StoreTaskAlertsManager = () => {
                   {formData.recipients.length === 0 && (
                     <p className="text-sm text-muted-foreground">Nenhum destinatário adicionado</p>
                   )}
-                  {formData.recipients.map((recipient, index) => {
-                    const recipientKey = recipient.id || recipient.tempId || `recipient-${index}`;
-                    return (
-                      <div key={recipientKey} className="flex gap-2 items-start">
-                        <div className="flex-1 space-y-2">
-                          <Input
-                            placeholder="DDD + Numero (ex: 96981113307)"
-                            value={recipient.phone}
-                            onChange={(e) => updateRecipient(index, 'phone', e.target.value)}
-                            data-testid={`input-recipient-phone-${index}`}
-                          />
-                          <Input
-                            placeholder="Nome (opcional)"
-                            value={recipient.name || ''}
-                            onChange={(e) => updateRecipient(index, 'name', e.target.value)}
-                            data-testid={`input-recipient-name-${index}`}
-                          />
+                  {(() => { console.log('DEBUG: Rendering recipients list', formData.recipients); return null; })()}
+                  <div className="space-y-3 min-h-[50px] border border-dashed border-blue-300 p-2">
+                    {formData.recipients.map((recipient, index) => {
+                      const recipientKey = recipient.id || recipient.tempId || `recipient-${index}`;
+                      console.log(`DEBUG: Rendering recipient item ${index}`, recipient);
+                      return (
+                        <div key={recipientKey} className="flex gap-2 items-start border-2 border-red-500 p-2 rounded mb-2">
+                          <div className="flex-1 space-y-2">
+                            <Input
+                              placeholder="DDD + Numero (ex: 96981113307)"
+                              value={recipient.phone}
+                              onChange={(e) => updateRecipient(index, 'phone', e.target.value)}
+                              data-testid={`input-recipient-phone-${index}`}
+                            />
+                            <Input
+                              placeholder="Nome (opcional)"
+                              value={recipient.name || ''}
+                              onChange={(e) => updateRecipient(index, 'name', e.target.value)}
+                              data-testid={`input-recipient-name-${index}`}
+                            />
+                          </div>
+                          {formData.recipients.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeRecipient(index)}
+                              className="shrink-0"
+                              data-testid={`button-remove-recipient-${index}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
-                        {formData.recipients.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeRecipient(index)}
-                            className="shrink-0"
-                            data-testid={`button-remove-recipient-${index}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Informe apenas DDD + numero, sem codigo do pais (DDI)
