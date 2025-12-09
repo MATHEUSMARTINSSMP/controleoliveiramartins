@@ -22,7 +22,7 @@ interface NotificationRecipient {
 }
 
 interface NotificationConfig {
-  type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS';
+  type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS';
   label: string;
   description: string;
   recipients: NotificationRecipient[];
@@ -50,6 +50,12 @@ export const WhatsAppNotificationConfig = () => {
       type: 'PARABENS',
       label: 'Notificações de Parabéns',
       description: 'Envie mensagens de parabéns para a loja após cada venda',
+      recipients: []
+    },
+    {
+      type: 'AJUSTES_CONDICIONAIS',
+      label: 'Notificações de Ajustes & Condicionais',
+      description: 'Receba notificações quando houver mudança de status em ajustes ou condicionais',
       recipients: []
     }
   ]);
@@ -154,7 +160,7 @@ export const WhatsAppNotificationConfig = () => {
       // Agrupar por tipo de notificação e telefone
       // Agrupar registros com mesmo telefone e tipo, coletando todas as lojas
       const groupedByPhone = (data || []).reduce((acc, item) => {
-        const type = item.notification_type as 'VENDA' | 'ADIANTAMENTO' | 'PARABENS';
+        const type = item.notification_type as 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS';
         const normalizedPhone = normalizePhone(item.phone);
         const key = `${type}-${normalizedPhone}`;
         
@@ -185,7 +191,7 @@ export const WhatsAppNotificationConfig = () => {
       type GroupedValue = { phone: string; store_ids: string[]; ids: string[]; active: boolean };
       const grouped = Object.entries(groupedByPhone).reduce((acc, [key, val]) => {
         const value = val as GroupedValue;
-        const type = key.split('-')[0] as 'VENDA' | 'ADIANTAMENTO' | 'PARABENS';
+        const type = key.split('-')[0] as 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS';
         if (!acc[type]) {
           acc[type] = [];
         }

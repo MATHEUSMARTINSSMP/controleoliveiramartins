@@ -462,7 +462,7 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
 
             toast.success('Status atualizado com sucesso');
 
-            // Enviar mensagem WhatsApp ao cliente
+            // Enviar mensagens WhatsApp
             try {
                 const statusLabel = type === 'conditional' 
                     ? CONDITIONAL_STATUS_LABELS[newStatus as Conditional['status']]
@@ -472,26 +472,86 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                     ? (item as Conditional).products.map(p => p.description).join(', ')
                     : (item as Adjustment).product;
 
-                const message = type === 'conditional'
-                    ? `Olá ${item.customer_name}! 👋\n\nSua condicional foi atualizada para: *${statusLabel}*\n\nProdutos: ${productInfo}\n\nQualquer dúvida, estamos à disposição!\n\n${item.store_id ? 'Loja' : 'Equipe'} EleveaOne 📦`
-                    : `Olá ${item.customer_name}! 👋\n\nSeu ajuste foi atualizado para: *${statusLabel}*\n\nProduto: ${productInfo}\n\nQualquer dúvida, estamos à disposição!\n\n${item.store_id ? 'Loja' : 'Equipe'} EleveaOne ✂️`;
+                const tipoItem = type === 'conditional' ? 'Condicional' : 'Ajuste';
 
-                const phone = item.customer_contact.replace(/\D/g, '');
-                if (phone.length >= 10) {
-                    const result = await sendWhatsAppMessage({
-                        phone: phone,
-                        message: message,
-                        store_id: storeId
-                    });
+                // 1. Enviar mensagem ao cliente
+                try {
+                    const customerMessage = type === 'conditional'
+                        ? `Olá ${item.customer_name}! 👋\n\nSua condicional foi atualizada para: *${statusLabel}*\n\nProdutos: ${productInfo}\n\nQualquer dúvida, estamos à disposição!\n\n${item.store_id ? 'Loja' : 'Equipe'} EleveaOne 📦`
+                        : `Olá ${item.customer_name}! 👋\n\nSeu ajuste foi atualizado para: *${statusLabel}*\n\nProduto: ${productInfo}\n\nQualquer dúvida, estamos à disposição!\n\n${item.store_id ? 'Loja' : 'Equipe'} EleveaOne ✂️`;
 
-                    if (result.success) {
-                        toast.success('Mensagem enviada ao cliente');
-                    } else {
-                        console.warn('Erro ao enviar mensagem:', result.error);
+                    const phone = item.customer_contact.replace(/\D/g, '');
+                    if (phone.length >= 10) {
+                        const result = await sendWhatsAppMessage({
+                            phone: phone,
+                            message: customerMessage,
+                            store_id: storeId
+                        });
+
+                        if (result.success) {
+                            toast.success('Mensagem enviada ao cliente');
+                        } else {
+                            console.warn('Erro ao enviar mensagem ao cliente:', result.error);
+                        }
                     }
+                } catch (customerError) {
+                    console.error('Erro ao enviar mensagem ao cliente:', customerError);
+                }
+
+                // 2. Enviar notificação para números configurados no Admin Dashboard
+                try {
+                    const { data: notificationConfigs, error: configError } = await supabase
+                        .schema('sistemaretiradas')
+                        .from('whatsapp_notification_config')
+                        .select('phone, name')
+                        .eq('notification_type', 'AJUSTES_CONDICIONAIS')
+                        .eq('store_id', storeId)
+                        .eq('active', true);
+
+                    if (configError) {
+                        console.error('Erro ao buscar números de notificação:', configError);
+                    } else if (notificationConfigs && notificationConfigs.length > 0) {
+                        const adminMessage = `🔔 *Notificação de ${tipoItem}*\n\n` +
+                            `*Cliente:* ${item.customer_name}\n` +
+                            `*${type === 'conditional' ? 'Produtos' : 'Produto'}:* ${productInfo}\n` +
+                            `*Status atualizado para:* ${statusLabel}\n` +
+                            `*Data:* ${format(new Date(), 'dd/MM/yyyy HH:mm')}\n\n` +
+                            `EleveaOne 📦`;
+
+                        // Enviar para todos os números configurados
+                        const sendPromises = notificationConfigs.map(async (config) => {
+                            const normalizedPhone = config.phone.replace(/\D/g, '');
+                            if (normalizedPhone.length >= 10) {
+                                const result = await sendWhatsAppMessage({
+                                    phone: normalizedPhone,
+                                    message: adminMessage,
+                                    store_id: storeId
+                                });
+                                return { phone: normalizedPhone, success: result.success, error: result.error };
+                            }
+                            return { phone: normalizedPhone, success: false, error: 'Número inválido' };
+                        });
+
+                        const results = await Promise.all(sendPromises);
+                        const successCount = results.filter(r => r.success).length;
+                        
+                        if (successCount > 0) {
+                            console.log(`✅ ${successCount} notificação(ões) enviada(s) para números configurados`);
+                        }
+                        
+                        const failedResults = results.filter(r => !r.success);
+                        if (failedResults.length > 0) {
+                            console.warn('⚠️ Algumas notificações falharam:', failedResults);
+                        }
+                    } else {
+                        console.log('ℹ️ Nenhum número configurado para receber notificações de Ajustes & Condicionais');
+                    }
+                } catch (notificationError) {
+                    console.error('Erro ao enviar notificações configuradas:', notificationError);
+                    // Não falhar a atualização se o envio de notificação falhar
                 }
             } catch (msgError) {
-                console.error('Erro ao enviar mensagem WhatsApp:', msgError);
+                console.error('Erro ao enviar mensagens WhatsApp:', msgError);
                 // Não falhar a atualização se o envio de mensagem falhar
             }
 

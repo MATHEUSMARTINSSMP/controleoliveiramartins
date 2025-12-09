@@ -51,6 +51,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 // Types
 interface Conditional {
@@ -314,6 +315,9 @@ export const ConditionalsAdjustmentsManager = () => {
                 status: conditionalForm.status
             };
 
+            const oldStatus = editingItem ? (editingItem as Conditional).status : null;
+            const statusChanged = editingItem && oldStatus !== conditionalForm.status;
+
             if (editingItem) {
                 const { error } = await supabase
                     .schema('sistemaretiradas')
@@ -331,6 +335,73 @@ export const ConditionalsAdjustmentsManager = () => {
 
                 if (error) throw error;
                 toast.success('Condicional criada com sucesso');
+            }
+
+            // Enviar notificações se o status mudou
+            if (statusChanged || !editingItem) {
+                try {
+                    const statusLabel = CONDITIONAL_STATUS_LABELS[conditionalForm.status];
+                    const productInfo = conditionalForm.products.map(p => p.description).join(', ');
+
+                    // 1. Enviar mensagem ao cliente
+                    try {
+                        const customerMessage = `Olá ${conditionalForm.customer_name}! 👋\n\nSua condicional foi atualizada para: *${statusLabel}*\n\nProdutos: ${productInfo}\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne 📦`;
+
+                        const phone = conditionalForm.customer_contact.replace(/\D/g, '');
+                        if (phone.length >= 10) {
+                            const result = await sendWhatsAppMessage({
+                                phone: phone,
+                                message: customerMessage,
+                                store_id: storeIdToUse
+                            });
+
+                            if (result.success) {
+                                console.log('✅ Mensagem enviada ao cliente');
+                            }
+                        }
+                    } catch (customerError) {
+                        console.error('Erro ao enviar mensagem ao cliente:', customerError);
+                    }
+
+                    // 2. Enviar notificação para números configurados
+                    try {
+                        const { data: notificationConfigs, error: configError } = await supabase
+                            .schema('sistemaretiradas')
+                            .from('whatsapp_notification_config')
+                            .select('phone, name')
+                            .eq('notification_type', 'AJUSTES_CONDICIONAIS')
+                            .eq('store_id', storeIdToUse)
+                            .eq('active', true);
+
+                        if (!configError && notificationConfigs && notificationConfigs.length > 0) {
+                            const adminMessage = `🔔 *Notificação de Condicional*\n\n` +
+                                `*Cliente:* ${conditionalForm.customer_name}\n` +
+                                `*Produtos:* ${productInfo}\n` +
+                                `*Status atualizado para:* ${statusLabel}\n` +
+                                `*Data:* ${format(new Date(), 'dd/MM/yyyy HH:mm')}\n\n` +
+                                `EleveaOne 📦`;
+
+                            const sendPromises = notificationConfigs.map(async (config) => {
+                                const normalizedPhone = config.phone.replace(/\D/g, '');
+                                if (normalizedPhone.length >= 10) {
+                                    return await sendWhatsAppMessage({
+                                        phone: normalizedPhone,
+                                        message: adminMessage,
+                                        store_id: storeIdToUse
+                                    });
+                                }
+                                return { success: false, error: 'Número inválido' };
+                            });
+
+                            await Promise.all(sendPromises);
+                            console.log(`✅ Notificações enviadas para ${notificationConfigs.length} número(s) configurado(s)`);
+                        }
+                    } catch (notificationError) {
+                        console.error('Erro ao enviar notificações configuradas:', notificationError);
+                    }
+                } catch (msgError) {
+                    console.error('Erro ao enviar mensagens WhatsApp:', msgError);
+                }
             }
 
             setDialogOpen(false);
@@ -374,6 +445,9 @@ export const ConditionalsAdjustmentsManager = () => {
                 delivery_address: adjustmentForm.delivery_method === 'CASA' ? adjustmentForm.delivery_address : null
             };
 
+            const oldStatus = editingItem ? (editingItem as Adjustment).status : null;
+            const statusChanged = editingItem && oldStatus !== adjustmentForm.status;
+
             if (editingItem) {
                 const { error } = await supabase
                     .schema('sistemaretiradas')
@@ -391,6 +465,72 @@ export const ConditionalsAdjustmentsManager = () => {
 
                 if (error) throw error;
                 toast.success('Ajuste criado com sucesso');
+            }
+
+            // Enviar notificações se o status mudou
+            if (statusChanged || !editingItem) {
+                try {
+                    const statusLabel = ADJUSTMENT_STATUS_LABELS[adjustmentForm.status];
+
+                    // 1. Enviar mensagem ao cliente
+                    try {
+                        const customerMessage = `Olá ${adjustmentForm.customer_name}! 👋\n\nSeu ajuste foi atualizado para: *${statusLabel}*\n\nProduto: ${adjustmentForm.product}\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne ✂️`;
+
+                        const phone = adjustmentForm.customer_contact.replace(/\D/g, '');
+                        if (phone.length >= 10) {
+                            const result = await sendWhatsAppMessage({
+                                phone: phone,
+                                message: customerMessage,
+                                store_id: storeIdToUse
+                            });
+
+                            if (result.success) {
+                                console.log('✅ Mensagem enviada ao cliente');
+                            }
+                        }
+                    } catch (customerError) {
+                        console.error('Erro ao enviar mensagem ao cliente:', customerError);
+                    }
+
+                    // 2. Enviar notificação para números configurados
+                    try {
+                        const { data: notificationConfigs, error: configError } = await supabase
+                            .schema('sistemaretiradas')
+                            .from('whatsapp_notification_config')
+                            .select('phone, name')
+                            .eq('notification_type', 'AJUSTES_CONDICIONAIS')
+                            .eq('store_id', storeIdToUse)
+                            .eq('active', true);
+
+                        if (!configError && notificationConfigs && notificationConfigs.length > 0) {
+                            const adminMessage = `🔔 *Notificação de Ajuste*\n\n` +
+                                `*Cliente:* ${adjustmentForm.customer_name}\n` +
+                                `*Produto:* ${adjustmentForm.product}\n` +
+                                `*Status atualizado para:* ${statusLabel}\n` +
+                                `*Data:* ${format(new Date(), 'dd/MM/yyyy HH:mm')}\n\n` +
+                                `EleveaOne ✂️`;
+
+                            const sendPromises = notificationConfigs.map(async (config) => {
+                                const normalizedPhone = config.phone.replace(/\D/g, '');
+                                if (normalizedPhone.length >= 10) {
+                                    return await sendWhatsAppMessage({
+                                        phone: normalizedPhone,
+                                        message: adminMessage,
+                                        store_id: storeIdToUse
+                                    });
+                                }
+                                return { success: false, error: 'Número inválido' };
+                            });
+
+                            await Promise.all(sendPromises);
+                            console.log(`✅ Notificações enviadas para ${notificationConfigs.length} número(s) configurado(s)`);
+                        }
+                    } catch (notificationError) {
+                        console.error('Erro ao enviar notificações configuradas:', notificationError);
+                    }
+                } catch (msgError) {
+                    console.error('Erro ao enviar mensagens WhatsApp:', msgError);
+                }
             }
 
             setDialogOpen(false);

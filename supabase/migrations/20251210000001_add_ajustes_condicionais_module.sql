@@ -55,7 +55,7 @@ BEGIN
     
     UNION ALL
     
-    -- Buscar em ajustes
+    -- Buscar em ajustes (mostrar TODOS os ajustes, independente do status)
     SELECT 
         'AJUSTE'::TEXT as tipo,
         a.id,
@@ -67,7 +67,6 @@ BEGIN
         a.store_id
     FROM sistemaretiradas.adjustments a
     WHERE a.store_id = p_store_id
-    AND a.status != 'CLIENTE_RETIROU' -- Apenas ajustes ainda não retirados pelo cliente
     AND (
         p_search_term IS NULL 
         OR p_search_term = ''

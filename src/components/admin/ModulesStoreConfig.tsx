@@ -19,6 +19,7 @@ interface Store {
   wishlist_ativo: boolean;
   ponto_ativo: boolean;
   ajustes_condicionais_ativo: boolean;
+  whatsapp_notificacoes_ajustes_condicionais: string | null;
   daily_goal_check_ativo: boolean;
   daily_goal_check_valor_bonus: number | null;
   daily_goal_check_horario_limite: string | null;
