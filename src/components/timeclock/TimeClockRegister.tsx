@@ -410,18 +410,22 @@ export function TimeClockRegister({
         throw new Error(`Erro ao registrar ponto: ${recordError.message}`);
       }
 
-      const { error: signatureInsertError } = await supabase
-        .schema('sistemaretiradas')
-        .from('time_clock_digital_signatures')
-        .insert({
-          time_clock_record_id: recordData.id,
-          colaboradora_id: colaboradoraId,
-          store_id: storeId,
-          password_hash: signatureHash,
-          device_info: deviceInfo,
-          ip_address: null,
-          rep_identity: `REP-${storeId.substring(0, 8)}-${Date.now()}`,
-        });
+      // Usar função RPC para inserir assinatura digital (bypassa RLS com validação adequada)
+      console.log('[TimeClockRegister] Inserindo assinatura digital via RPC...');
+      const { data: signatureResult, error: signatureInsertError } = await supabase.rpc(
+        'insert_time_clock_digital_signature',
+        {
+          p_time_clock_record_id: recordData.id,
+          p_colaboradora_id: colaboradoraId,
+          p_store_id: storeId,
+          p_password_hash: signatureHash,
+          p_device_info: deviceInfo,
+          p_ip_address: null,
+          p_rep_identity: `REP-${storeId.substring(0, 8)}-${Date.now()}`,
+        }
+      );
+
+      console.log('[TimeClockRegister] Resposta RPC inserir assinatura:', { signatureResult, signatureInsertError });
 
       if (signatureInsertError) {
         console.error('[TimeClockRegister] Signature error:', signatureInsertError);
@@ -432,6 +436,17 @@ export function TimeClockRegister({
           .eq('id', recordData.id);
         
         throw new Error('Erro ao criar assinatura digital. Registro cancelado.');
+      }
+
+      if (!signatureResult?.success) {
+        console.error('[TimeClockRegister] Signature RPC retornou erro:', signatureResult);
+        await supabase
+          .schema('sistemaretiradas')
+          .from('time_clock_records')
+          .delete()
+          .eq('id', recordData.id);
+        
+        throw new Error(signatureResult?.error || 'Erro ao criar assinatura digital. Registro cancelado.');
       }
 
       setObservacao('');
