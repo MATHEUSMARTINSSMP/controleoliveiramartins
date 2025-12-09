@@ -71,13 +71,14 @@ interface Adjustment {
     date_seamstress: string | null;
     date_delivery: string | null;
     time_delivery: string | null;
-    status: 'GERADA' | 'PREPARANDO' | 'PRONTA' | 'ROTA_ENTREGA' | 'ENTREGUE' | 'PRONTA_RETIRADA' | 'ROTA_DEVOLUCAO' | 'EM_LOJA' | 'CLIENTE_AVISADA' | 'FINALIZADA';
+    status: 'AJUSTE_GERADO' | 'PRONTO_PARA_LEVAR' | 'ENTREGUE_COSTUREIRA' | 'RETIRADO_DA_COSTUREIRA' | 'AJUSTE_EM_LOJA' | 'CLIENTE_JA_AVISADA' | 'EM_ROTA_ENTREGA_CLIENTE' | 'CLIENTE_RETIROU';
     delivery_method: 'LOJA' | 'CASA';
     delivery_address: string | null;
     created_at: string;
 }
 
-const STATUS_COLORS = {
+// Cores para condicionais (mantém status antigos)
+const CONDITIONAL_STATUS_COLORS = {
     'GERADA': 'bg-gray-100 text-gray-800',
     'PREPARANDO': 'bg-blue-100 text-blue-800',
     'PRONTA': 'bg-purple-100 text-purple-800',
@@ -88,6 +89,27 @@ const STATUS_COLORS = {
     'EM_LOJA': 'bg-cyan-100 text-cyan-800',
     'CLIENTE_AVISADA': 'bg-pink-100 text-pink-800',
     'FINALIZADA': 'bg-slate-100 text-slate-800',
+};
+
+// Cores para ajustes (novos status)
+const ADJUSTMENT_STATUS_COLORS = {
+    'AJUSTE_GERADO': 'bg-gray-100 text-gray-800',
+    'PRONTO_PARA_LEVAR': 'bg-blue-100 text-blue-800',
+    'ENTREGUE_COSTUREIRA': 'bg-purple-100 text-purple-800',
+    'RETIRADO_DA_COSTUREIRA': 'bg-indigo-100 text-indigo-800',
+    'AJUSTE_EM_LOJA': 'bg-cyan-100 text-cyan-800',
+    'CLIENTE_JA_AVISADA': 'bg-pink-100 text-pink-800',
+    'EM_ROTA_ENTREGA_CLIENTE': 'bg-yellow-100 text-yellow-800',
+    'CLIENTE_RETIROU': 'bg-green-100 text-green-800',
+};
+
+// Função helper para obter cor baseado no tipo
+const getStatusColor = (status: string, tipo: 'conditional' | 'adjustment') => {
+    if (tipo === 'conditional') {
+        return CONDITIONAL_STATUS_COLORS[status as keyof typeof CONDITIONAL_STATUS_COLORS] || 'bg-gray-100 text-gray-800';
+    } else {
+        return ADJUSTMENT_STATUS_COLORS[status as keyof typeof ADJUSTMENT_STATUS_COLORS] || 'bg-gray-100 text-gray-800';
+    }
 };
 
 const CONDITIONAL_STATUS_LABELS = {
@@ -104,16 +126,14 @@ const CONDITIONAL_STATUS_LABELS = {
 };
 
 const ADJUSTMENT_STATUS_LABELS = {
-    'GERADA': 'Ajuste Gerado',
-    'PREPARANDO': 'Ajuste Sendo Preparado',
-    'PRONTA': 'Ajuste Pronto',
-    'ROTA_ENTREGA': 'Ajuste Em Rota de Entrega',
-    'ENTREGUE': 'Ajuste Entregue ao Cliente',
-    'PRONTA_RETIRADA': 'Ajuste Pronto para Retirada',
-    'ROTA_DEVOLUCAO': 'Ajuste Em Rota de Devolução',
-    'EM_LOJA': 'Ajuste em Loja',
-    'CLIENTE_AVISADA': 'Cliente Avisada',
-    'FINALIZADA': 'Finalizado',
+    'AJUSTE_GERADO': 'Ajuste Gerado',
+    'PRONTO_PARA_LEVAR': 'Pronto para Levar',
+    'ENTREGUE_COSTUREIRA': 'Entregue Costureira',
+    'RETIRADO_DA_COSTUREIRA': 'Retirado da Costureira',
+    'AJUSTE_EM_LOJA': 'Ajuste em Loja',
+    'CLIENTE_JA_AVISADA': 'Cliente Já Avisada',
+    'EM_ROTA_ENTREGA_CLIENTE': 'Em Rota de Entrega para Cliente',
+    'CLIENTE_RETIROU': 'Cliente Retirou',
 };
 
 interface StoreConditionalsAdjustmentsProps {
@@ -158,7 +178,7 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
         date_seamstress: '',
         date_delivery: '',
         time_delivery: '',
-        status: 'GERADA' as Adjustment['status'],
+        status: 'AJUSTE_GERADO' as Adjustment['status'],
         delivery_method: 'LOJA' as Adjustment['delivery_method'],
         delivery_address: ''
     });
@@ -251,7 +271,7 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                 date_seamstress: '',
                 date_delivery: '',
                 time_delivery: '',
-                status: 'GERADA',
+                status: 'AJUSTE_GERADO',
                 delivery_method: 'LOJA',
                 delivery_address: ''
             });
@@ -446,7 +466,7 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
             try {
                 const statusLabel = type === 'conditional' 
                     ? CONDITIONAL_STATUS_LABELS[newStatus as Conditional['status']]
-                    : ADJUSTMENT_STATUS_LABELS[newStatus as Adjustment['status']];
+                    : ADJUSTMENT_STATUS_LABELS[newStatus as keyof typeof ADJUSTMENT_STATUS_LABELS];
 
                 const productInfo = type === 'conditional'
                     ? (item as Conditional).products.map(p => p.description).join(', ')
@@ -664,7 +684,7 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                                                         value={item.status}
                                                         onValueChange={(newStatus) => handleStatusUpdate(item.id, 'adjustment', newStatus as Adjustment['status'], item)}
                                                     >
-                                                        <SelectTrigger className="w-[180px]">
+                                                        <SelectTrigger className="w-[200px]">
                                                             <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent>
@@ -768,8 +788,11 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Badge variant="secondary" className={STATUS_COLORS[item.status]}>
-                                                            {item.tipo === 'CONDICIONAL' ? CONDITIONAL_STATUS_LABELS[item.status] : ADJUSTMENT_STATUS_LABELS[item.status]}
+                                                        <Badge variant="secondary" className={item.tipo === 'CONDICIONAL' 
+                                                            ? CONDITIONAL_STATUS_COLORS[item.status as keyof typeof CONDITIONAL_STATUS_COLORS] || 'bg-gray-100 text-gray-800'
+                                                            : ADJUSTMENT_STATUS_COLORS[item.status as keyof typeof ADJUSTMENT_STATUS_COLORS] || 'bg-gray-100 text-gray-800'
+                                                        }>
+                                                            {item.tipo === 'CONDICIONAL' ? CONDITIONAL_STATUS_LABELS[item.status as keyof typeof CONDITIONAL_STATUS_LABELS] : ADJUSTMENT_STATUS_LABELS[item.status as keyof typeof ADJUSTMENT_STATUS_LABELS]}
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell>
