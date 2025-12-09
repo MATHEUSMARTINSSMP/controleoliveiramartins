@@ -33,16 +33,8 @@ import { Textarea } from "@/components/ui/textarea";
 import {
     Search,
     Plus,
-    Filter,
-    FileText,
-    Scissors,
-    Calendar,
-    MapPin,
-    CheckCircle,
-    XCircle,
-    Clock,
-    Truck,
     Package,
+    Scissors,
     Edit,
     Trash2,
     Loader2
@@ -50,7 +42,6 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
 // Types
 interface Conditional {
@@ -97,30 +88,31 @@ const STATUS_COLORS = {
 };
 
 const STATUS_LABELS = {
-    'GERADA': 'Gerada',
-    'PREPARANDO': 'Preparando',
-    'PRONTA': 'Pronta',
-    'ROTA_ENTREGA': 'Em Rota de Entrega',
-    'ENTREGUE': 'Entregue ao Cliente',
-    'PRONTA_RETIRADA': 'Pronta para Retirada',
-    'ROTA_DEVOLUCAO': 'Em Rota de Devolução',
+    'GERADA': 'Condicional Gerada',
+    'PREPARANDO': 'Condicional Sendo Preparada',
+    'PRONTA': 'Condicional Pronta',
+    'ROTA_ENTREGA': 'Condicional Em Rota de Entrega',
+    'ENTREGUE': 'Condicional Entregue para Cliente',
+    'PRONTA_RETIRADA': 'Condicional Pronta para Retirada',
+    'ROTA_DEVOLUCAO': 'Condicional Em Rota de Devolução',
     'FINALIZADA': 'Finalizada',
 };
 
-export const ConditionalsAdjustmentsManager = () => {
+interface StoreConditionalsAdjustmentsProps {
+    storeId: string;
+}
+
+export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjustmentsProps) => {
     const { profile } = useAuth();
     const [activeTab, setActiveTab] = useState("conditionals");
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
+    const [productSearchTerm, setProductSearchTerm] = useState("");
+    const [productSearchResults, setProductSearchResults] = useState<any[]>([]);
 
     const [conditionals, setConditionals] = useState<Conditional[]>([]);
     const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
-    const [productSearchResults, setProductSearchResults] = useState<any[]>([]);
-    const [productSearchTerm, setProductSearchTerm] = useState("");
-    const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
-    const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
-    
-    // Estados para dialogs
+
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<Conditional | Adjustment | null>(null);
     const [isConditional, setIsConditional] = useState(true);
@@ -154,31 +146,64 @@ export const ConditionalsAdjustmentsManager = () => {
     });
 
     useEffect(() => {
-        if (profile) {
-            if (profile.role === 'ADMIN') {
-                fetchStores();
-            }
+        if (storeId) {
             fetchData();
         }
-    }, [profile, activeTab]);
+    }, [storeId, activeTab]);
 
-    const fetchStores = async () => {
+    const fetchData = async () => {
+        setLoading(true);
         try {
-            const { data, error } = await supabase
-                .schema('sistemaretiradas')
-                .from('stores')
-                .select('id, name')
-                .eq('admin_id', profile?.id)
-                .eq('active', true)
-                .order('name');
-            
-            if (error) throw error;
-            setStores(data || []);
-            if (data && data.length > 0 && !selectedStoreId) {
-                setSelectedStoreId(data[0].id);
+            if (activeTab === "conditionals") {
+                const { data, error } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('conditionals')
+                    .select('*')
+                    .eq('store_id', storeId)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+                setConditionals(data || []);
+            } else if (activeTab === "adjustments") {
+                const { data, error } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('adjustments')
+                    .select('*')
+                    .eq('store_id', storeId)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+                setAdjustments(data || []);
             }
         } catch (error) {
-            console.error('Erro ao buscar lojas:', error);
+            console.error('Erro ao buscar dados:', error);
+            toast.error('Erro ao carregar dados');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const searchProducts = async () => {
+        if (!storeId) {
+            toast.error('Loja não identificada');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .rpc('search_products_out_of_store', {
+                    p_store_id: storeId,
+                    p_search_term: productSearchTerm || null
+                });
+
+            if (error) throw error;
+            setProductSearchResults(data || []);
+        } catch (error) {
+            console.error('Erro ao buscar produtos:', error);
+            toast.error('Erro ao buscar produtos');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -265,16 +290,10 @@ export const ConditionalsAdjustmentsManager = () => {
             return;
         }
 
-        const storeIdToUse = profile?.role === 'LOJA' ? profile.store_id : selectedStoreId;
-        if (!storeIdToUse) {
-            toast.error('Selecione uma loja');
-            return;
-        }
-
         setLoading(true);
         try {
             const dataToSave = {
-                store_id: storeIdToUse,
+                store_id: storeId,
                 customer_name: conditionalForm.customer_name,
                 customer_contact: conditionalForm.customer_contact,
                 customer_address: conditionalForm.customer_address || null,
@@ -319,16 +338,10 @@ export const ConditionalsAdjustmentsManager = () => {
             return;
         }
 
-        const storeIdToUse = profile?.role === 'LOJA' ? profile.store_id : selectedStoreId;
-        if (!storeIdToUse) {
-            toast.error('Selecione uma loja');
-            return;
-        }
-
         setLoading(true);
         try {
             const dataToSave = {
-                store_id: storeIdToUse,
+                store_id: storeId,
                 customer_name: adjustmentForm.customer_name,
                 customer_contact: adjustmentForm.customer_contact,
                 product: adjustmentForm.product,
@@ -376,7 +389,6 @@ export const ConditionalsAdjustmentsManager = () => {
     const handleDelete = async (id: string, type: 'conditional' | 'adjustment') => {
         if (!confirm('Tem certeza que deseja excluir este registro?')) return;
 
-        setLoading(true);
         try {
             const table = type === 'conditional' ? 'conditionals' : 'adjustments';
             const { error } = await supabase
@@ -388,73 +400,24 @@ export const ConditionalsAdjustmentsManager = () => {
             if (error) throw error;
             toast.success('Registro excluído com sucesso');
             fetchData();
-        } catch (error: any) {
+        } catch (error) {
             console.error('Erro ao excluir:', error);
-            toast.error(error.message || 'Erro ao excluir registro');
-        } finally {
-            setLoading(false);
+            toast.error('Erro ao excluir registro');
         }
     };
 
-    const searchProducts = async () => {
-        if (!selectedStoreId && profile?.role === 'ADMIN') {
-            toast.error('Selecione uma loja para buscar');
-            return;
-        }
+    // Filtrar dados baseado no searchTerm
+    const filteredConditionals = conditionals.filter(item =>
+        item.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.customer_contact.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.products.some(p => p.description.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
 
-        const storeIdToSearch = profile?.role === 'LOJA' ? profile.store_id : selectedStoreId;
-        if (!storeIdToSearch) {
-            toast.error('Loja não identificada');
-            return;
-        }
-
-        setLoading(true);
-        try {
-            const { data, error } = await supabase
-                .rpc('search_products_out_of_store', {
-                    p_store_id: storeIdToSearch,
-                    p_search_term: productSearchTerm || null
-                });
-
-            if (error) throw error;
-            setProductSearchResults(data || []);
-        } catch (error) {
-            console.error('Erro ao buscar produtos:', error);
-            toast.error('Erro ao buscar produtos');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            if (activeTab === "conditionals") {
-                const { data, error } = await supabase
-                    .schema('sistemaretiradas')
-                    .from('conditionals')
-                    .select('*')
-                    .order('created_at', { ascending: false });
-
-                if (error) throw error;
-                setConditionals(data || []);
-            } else {
-                const { data, error } = await supabase
-                    .schema('sistemaretiradas')
-                    .from('adjustments')
-                    .select('*')
-                    .order('created_at', { ascending: false });
-
-                if (error) throw error;
-                setAdjustments(data || []);
-            }
-        } catch (error) {
-            console.error('Erro ao buscar dados:', error);
-            toast.error('Erro ao carregar dados');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const filteredAdjustments = adjustments.filter(item =>
+        item.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.customer_contact.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.product.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -466,21 +429,13 @@ export const ConditionalsAdjustmentsManager = () => {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    {profile?.role === 'ADMIN' && stores.length > 0 && (
-                        <Select value={selectedStoreId || ''} onValueChange={setSelectedStoreId}>
-                            <SelectTrigger className="w-[200px]">
-                                <SelectValue placeholder="Selecione a loja" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {stores.map(store => (
-                                    <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
-                    <Button onClick={() => openCreateDialog(activeTab === "conditionals" ? "conditional" : "adjustment")}>
+                    <Button onClick={() => openCreateDialog('conditional')}>
                         <Plus className="mr-2 h-4 w-4" />
-                        Nova {activeTab === "conditionals" ? "Condicional" : "Solicitação de Ajuste"}
+                        Nova Condicional
+                    </Button>
+                    <Button onClick={() => openCreateDialog('adjustment')} variant="outline">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Novo Ajuste
                     </Button>
                 </div>
             </div>
@@ -512,9 +467,6 @@ export const ConditionalsAdjustmentsManager = () => {
                                 className="pl-8"
                             />
                         </div>
-                        <Button variant="outline" size="icon">
-                            <Filter className="h-4 w-4" />
-                        </Button>
                     </div>
                 )}
 
@@ -532,14 +484,20 @@ export const ConditionalsAdjustmentsManager = () => {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {conditionals.length === 0 ? (
+                                    {loading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="text-center py-8">
+                                                <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : filteredConditionals.length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                                                 Nenhuma condicional encontrada
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        conditionals.map((item) => (
+                                        filteredConditionals.map((item) => (
                                             <TableRow key={item.id}>
                                                 <TableCell>{format(new Date(item.date_generated), 'dd/MM/yyyy')}</TableCell>
                                                 <TableCell>
@@ -592,14 +550,20 @@ export const ConditionalsAdjustmentsManager = () => {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {adjustments.length === 0 ? (
+                                    {loading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="text-center py-8">
+                                                <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : filteredAdjustments.length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                                                 Nenhum ajuste encontrado
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        adjustments.map((item) => (
+                                        filteredAdjustments.map((item) => (
                                             <TableRow key={item.id}>
                                                 <TableCell>{format(new Date(item.date_generated), 'dd/MM/yyyy')}</TableCell>
                                                 <TableCell>
@@ -647,24 +611,6 @@ export const ConditionalsAdjustmentsManager = () => {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {profile?.role === 'ADMIN' && (
-                                <div className="space-y-2">
-                                    <Label>Loja</Label>
-                                    <Select value={selectedStoreId || ''} onValueChange={setSelectedStoreId}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Selecione uma loja" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {stores.map(store => (
-                                                <SelectItem key={store.id} value={store.id}>
-                                                    {store.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            )}
-                            
                             <div className="flex gap-2">
                                 <div className="relative flex-1">
                                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -750,7 +696,7 @@ export const ConditionalsAdjustmentsManager = () => {
                 </TabsContent>
             </Tabs>
 
-            {/* Dialog de Condicional */}
+            {/* Dialog de Condicional - Reutilizando estrutura do Admin */}
             <Dialog open={dialogOpen && isConditional} onOpenChange={setDialogOpen}>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
@@ -881,7 +827,7 @@ export const ConditionalsAdjustmentsManager = () => {
                 </DialogContent>
             </Dialog>
 
-            {/* Dialog de Ajuste */}
+            {/* Dialog de Ajuste - Reutilizando estrutura do Admin */}
             <Dialog open={dialogOpen && !isConditional} onOpenChange={setDialogOpen}>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
@@ -1052,4 +998,5 @@ export const ConditionalsAdjustmentsManager = () => {
     );
 };
 
-export default ConditionalsAdjustmentsManager;
+export default StoreConditionalsAdjustments;
+

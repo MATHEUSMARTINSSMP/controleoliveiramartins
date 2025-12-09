@@ -63,6 +63,7 @@ const CashbackLojaView = lazy(() => import("@/components/loja/CashbackLojaView")
 const CRMLojaView = lazy(() => import("@/components/loja/CRMLojaView"));
 const WishlistLojaView = lazy(() => import("@/components/loja/WishlistLojaView"));
 const TimeClockLojaView = lazy(() => import("@/components/timeclock/TimeClockLojaView").then(m => ({ default: m.TimeClockLojaView })));
+const StoreConditionalsAdjustments = lazy(() => import("@/components/loja/StoreConditionalsAdjustments").then(m => ({ default: m.StoreConditionalsAdjustments })));
 
 interface Sale {
     id: string;
@@ -107,7 +108,8 @@ export default function LojaDashboard() {
     const [crmAtivo, setCrmAtivo] = useState<boolean>(false);
     const [pontoAtivo, setPontoAtivo] = useState<boolean>(false);
     const [wishlistAtivo, setWishlistAtivo] = useState<boolean>(false);
-    const [activeView, setActiveView] = useState<'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto'>('metas');
+    const [ajustesCondicionaisAtivo, setAjustesCondicionaisAtivo] = useState<boolean>(false);
+    const [activeView, setActiveView] = useState<'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes'>('metas');
 
     const [formasPagamento, setFormasPagamento] = useState<FormaPagamentoType[]>([{
         tipo: 'DINHEIRO',
@@ -382,6 +384,7 @@ export default function LojaDashboard() {
                     crm: storeSettings.crm_ativo,
                     ponto: storeSettings.ponto_ativo,
                     wishlist: storeSettings.wishlist_ativo,
+                    ajustesCondicionais: storeSettings.ajustes_condicionais_ativo,
                     storeId: storeId,
                     cashbackType: typeof storeSettings.cashback_ativo,
                     crmType: typeof storeSettings.crm_ativo
@@ -392,12 +395,14 @@ export default function LojaDashboard() {
                 const crm = Boolean(storeSettings.crm_ativo);
                 const ponto = Boolean(storeSettings.ponto_ativo);
                 const wishlist = Boolean(storeSettings.wishlist_ativo);
+                const ajustesCondicionais = Boolean(storeSettings.ajustes_condicionais_ativo);
                 
                 console.log('[LojaDashboard] ✅ Valores booleanos calculados:', {
                     cashback,
                     crm,
                     ponto,
                     wishlist,
+                    ajustesCondicionais,
                     rawCashback: storeSettings.cashback_ativo,
                     rawCrm: storeSettings.crm_ativo
                 });
@@ -406,6 +411,7 @@ export default function LojaDashboard() {
                 setCrmAtivo(crm);
                 setPontoAtivo(ponto);
                 setWishlistAtivo(wishlist);
+                setAjustesCondicionaisAtivo(ajustesCondicionais);
                 
                 console.log('[LojaDashboard] ✅ Estados atualizados via storeSettings');
                 return;
@@ -418,7 +424,7 @@ export default function LojaDashboard() {
                     const { data, error } = await supabase
                         .schema('sistemaretiradas')
                         .from('stores')
-                        .select('cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo')
+                        .select('cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo, ajustes_condicionais_ativo')
                         .eq('id', storeId)
                         .maybeSingle(); // ✅ Usar maybeSingle() para evitar erro quando não encontrar
 
@@ -439,6 +445,7 @@ export default function LojaDashboard() {
                             crm: data.crm_ativo,
                             ponto: data.ponto_ativo,
                             wishlist: data.wishlist_ativo,
+                            ajustesCondicionais: data.ajustes_condicionais_ativo,
                             cashbackType: typeof data.cashback_ativo
                         });
                         
@@ -446,18 +453,21 @@ export default function LojaDashboard() {
                         const crm = data.crm_ativo === true;
                         const ponto = data.ponto_ativo === true;
                         const wishlist = data.wishlist_ativo === true;
+                        const ajustesCondicionais = data.ajustes_condicionais_ativo === true;
                         
                         console.log('[LojaDashboard] ✅ Setando módulos (fallback):', {
                             cashback,
                             crm,
                             ponto,
-                            wishlist
+                            wishlist,
+                            ajustesCondicionais
                         });
                         
                         setCashbackAtivo(cashback);
                         setCrmAtivo(crm);
                         setPontoAtivo(ponto);
                         setWishlistAtivo(wishlist);
+                        setAjustesCondicionaisAtivo(ajustesCondicionais);
                     } else {
                         console.warn('[LojaDashboard] ⚠️ data é null ou undefined no fallback');
                     }
@@ -2969,8 +2979,8 @@ export default function LojaDashboard() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo) && (
-                            <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto')}>
+                        {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo || ajustesCondicionaisAtivo) && (
+                            <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes')}>
                                 <TabsList className="flex flex-wrap h-auto gap-0.5 p-0.5">
                                     <TabsTrigger value="metas" className="text-[10px] sm:text-xs px-2 py-1 justify-center">
                                         Metas
@@ -2993,6 +3003,11 @@ export default function LojaDashboard() {
                                     {pontoAtivo && (
                                         <TabsTrigger value="ponto" className="text-[10px] sm:text-xs px-2 py-1 justify-center">
                                             Ponto
+                                        </TabsTrigger>
+                                    )}
+                                    {ajustesCondicionaisAtivo && (
+                                        <TabsTrigger value="ajustes" className="text-[10px] sm:text-xs px-2 py-1 justify-center">
+                                            Ajustes
                                         </TabsTrigger>
                                     )}
                                 </TabsList>
@@ -3033,13 +3048,13 @@ export default function LojaDashboard() {
                     {/* DEBUG: Log dos estados antes de renderizar */}
                     {process.env.NODE_ENV === 'development' && (
                         <div className="p-2 bg-muted rounded text-xs">
-                            <strong>DEBUG Módulos:</strong> cashback={String(cashbackAtivo)}, crm={String(crmAtivo)}, wishlist={String(wishlistAtivo)}, ponto={String(pontoAtivo)} | storeId={storeId || 'null'} | Condição: {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo) ? 'TRUE' : 'FALSE'}
+                            <strong>DEBUG Módulos:</strong> cashback={String(cashbackAtivo)}, crm={String(crmAtivo)}, wishlist={String(wishlistAtivo)}, ponto={String(pontoAtivo)}, ajustes={String(ajustesCondicionaisAtivo)} | storeId={storeId || 'null'} | Condição: {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo || ajustesCondicionaisAtivo) ? 'TRUE' : 'FALSE'}
                         </div>
                     )}
 
                     {/* Conteúdo Principal com Abas */}
-                    {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo) ? (
-                        <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto')} className="space-y-4">
+                    {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo || ajustesCondicionaisAtivo) ? (
+                        <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes')} className="space-y-4">
                             <TabsContent value="metas" className="space-y-4 sm:space-y-6">
                                 {/* Todo o conteúdo atual do dashboard de metas */}
                                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -4170,6 +4185,20 @@ export default function LojaDashboard() {
                                     <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
                                         {storeId ? (
                                             <TimeClockLojaView storeId={storeId} />
+                                        ) : (
+                                            <div className="flex items-center justify-center py-8 text-muted-foreground">
+                                                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                                                Carregando dados da loja...
+                                            </div>
+                                        )}
+                                    </Suspense>
+                                </TabsContent>
+                            )}
+                            {ajustesCondicionaisAtivo && (
+                                <TabsContent value="ajustes" className="space-y-4 sm:space-y-6">
+                                    <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                        {storeId ? (
+                                            <StoreConditionalsAdjustments storeId={storeId} />
                                         ) : (
                                             <div className="flex items-center justify-center py-8 text-muted-foreground">
                                                 <Loader2 className="h-6 w-6 animate-spin mr-2" />

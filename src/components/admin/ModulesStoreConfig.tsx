@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Gift, MessageSquare, Package, Info, Heart, Clock, ChevronDown, ChevronRight, Check, X, Target, Settings } from 'lucide-react';
+import { Loader2, Gift, MessageSquare, Package, Info, Heart, Clock, ChevronDown, ChevronRight, Check, X, Target, Settings, Scissors } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -18,6 +18,7 @@ interface Store {
   crm_ativo: boolean;
   wishlist_ativo: boolean;
   ponto_ativo: boolean;
+  ajustes_condicionais_ativo: boolean;
   daily_goal_check_ativo: boolean;
   daily_goal_check_valor_bonus: number | null;
   daily_goal_check_horario_limite: string | null;
@@ -25,11 +26,11 @@ interface Store {
 }
 
 interface ModuleInfo {
-  id: 'cashback' | 'crm' | 'erp' | 'wishlist' | 'ponto' | 'daily_goal_check';
+  id: 'cashback' | 'crm' | 'erp' | 'wishlist' | 'ponto' | 'ajustes_condicionais' | 'daily_goal_check';
   name: string;
   description: string;
   icon: React.ReactNode;
-  field: 'cashback_ativo' | 'crm_ativo' | 'wishlist_ativo' | 'ponto_ativo' | 'daily_goal_check_ativo';
+  field: 'cashback_ativo' | 'crm_ativo' | 'wishlist_ativo' | 'ponto_ativo' | 'ajustes_condicionais_ativo' | 'daily_goal_check_ativo';
   color: string;
   hasConfig?: boolean;
 }
@@ -66,6 +67,14 @@ const modules: ModuleInfo[] = [
     icon: <Clock className="h-5 w-5" />,
     field: 'ponto_ativo',
     color: 'text-orange-600 dark:text-orange-400'
+  },
+  {
+    id: 'ajustes_condicionais',
+    name: 'Ajustes & Condicionais',
+    description: 'Sistema para controlar peças que estão fora da loja. Condicionais: malas com produtos que clientes recebem para experimentar. Ajustes: peças para conserto ou ajustes.',
+    icon: <Scissors className="h-5 w-5" />,
+    field: 'ajustes_condicionais_ativo',
+    color: 'text-indigo-600 dark:text-indigo-400'
   },
   {
     id: 'erp',
@@ -110,7 +119,7 @@ export const ModulesStoreConfig = () => {
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, daily_goal_check_ativo, daily_goal_check_valor_bonus, daily_goal_check_horario_limite, active')
+        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, daily_goal_check_ativo, daily_goal_check_valor_bonus, daily_goal_check_horario_limite, active')
         .eq('active', true)
         .order('name');
 
@@ -367,6 +376,11 @@ export const ModulesStoreConfig = () => {
                         <Clock className="h-3.5 w-3.5" />
                         <span className="font-medium">Ponto</span>
                         {store.ponto_ativo ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                      </div>
+                      <div className={`flex items-center gap-1.5 px-2 py-1 rounded ${store.ajustes_condicionais_ativo ? 'bg-success/10 text-success' : 'text-muted-foreground'}`}>
+                        <Scissors className="h-3.5 w-3.5" />
+                        <span className="font-medium">Ajustes</span>
+                        {store.ajustes_condicionais_ativo ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                       </div>
                       <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-success/10 text-success">
                         <Package className="h-3.5 w-3.5" />

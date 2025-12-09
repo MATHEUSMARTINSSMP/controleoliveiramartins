@@ -25,6 +25,7 @@ import { ModulesStoreConfig } from "@/components/admin/ModulesStoreConfig";
 import { CRMManagement } from "@/components/admin/CRMManagement";
 import { TimeClockManagement } from "@/components/timeclock/TimeClockManagement";
 import { DailyGoalCheckReports } from "@/components/admin/DailyGoalCheckReports";
+import { ConditionalsAdjustmentsManager } from "@/components/admin/ConditionalsAdjustmentsManager";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -283,6 +284,11 @@ const AdminDashboard = () => {
                     <span className="hidden sm:inline">Ponto & Jornada</span>
                     <span className="sm:hidden">Ponto</span>
                   </TabsTrigger>
+                  <TabsTrigger value="ajustes-condicionais" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[70px] justify-center">
+                    <Package className="h-3 w-3 mr-1" />
+                    <span className="hidden sm:inline">Ajustes & Condicionais</span>
+                    <span className="sm:hidden">Ajustes</span>
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="financeiro" className="space-y-4">
@@ -342,6 +348,10 @@ const AdminDashboard = () => {
                     showStoreSelector={adminStores.length > 1}
                     storeId={adminStores.length === 1 ? adminStores[0]?.id : undefined}
                   />
+                </TabsContent>
+
+                <TabsContent value="ajustes-condicionais" className="space-y-4">
+                  <ConditionalsAdjustmentsManager />
                 </TabsContent>
               </Tabs>
             </TabsContent>
