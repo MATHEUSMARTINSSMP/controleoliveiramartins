@@ -381,6 +381,14 @@ export function TimeClockRegister({
       console.log('[TimeClockRegister] ✅✅✅ PIN válido! Prosseguindo com registro...');
 
       const signatureHash = await generateSignatureHash();
+      console.log('[TimeClockRegister] 🔐 Signature hash gerado:', signatureHash ? `${signatureHash.substring(0, 20)}...` : 'NULL/UNDEFINED');
+      
+      if (!signatureHash) {
+        setSignatureError('Erro ao gerar hash da assinatura digital');
+        setProcessingSignature(false);
+        return;
+      }
+      
       const horarioRegistro = new Date().toISOString();
       
       const deviceInfo = {
