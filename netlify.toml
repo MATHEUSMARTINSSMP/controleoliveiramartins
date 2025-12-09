@@ -24,10 +24,17 @@
   omit_paths = [
     "attached_assets/**",
     "sql_migrations_archive/**",
+    "dist/**",
     "*verificar*.js",
     "*test*.js",
     "*check*.js",
     "*varredura*.js",
     "*verify*.js",
     "processar-fila-whatsapp.js"
+  ]
+  
+  # Omit specific secret keys that are expected in build output
+  omit_keys = [
+    "SUPABASE_ANON_KEY",
+    "VITE_SUPABASE_ANON_KEY"
   ]
