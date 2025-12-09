@@ -567,7 +567,7 @@ export const ConditionalsAdjustmentsManager = () => {
                                                 </TableCell>
                                                 <TableCell>
                                                     <Badge variant="secondary" className={STATUS_COLORS[item.status]}>
-                                                        {STATUS_LABELS[item.status]}
+                                                        {CONDITIONAL_STATUS_LABELS[item.status]}
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell>
@@ -628,7 +628,7 @@ export const ConditionalsAdjustmentsManager = () => {
                                                 <TableCell>{item.product}</TableCell>
                                                 <TableCell>
                                                     <Badge variant="secondary" className={STATUS_COLORS[item.status]}>
-                                                        {STATUS_LABELS[item.status]}
+                                                        {ADJUSTMENT_STATUS_LABELS[item.status]}
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell>
@@ -744,7 +744,7 @@ export const ConditionalsAdjustmentsManager = () => {
                                                     </TableCell>
                                                     <TableCell>
                                                         <Badge variant="secondary" className={STATUS_COLORS[item.status]}>
-                                                            {STATUS_LABELS[item.status]}
+                                                            {item.tipo === 'CONDICIONAL' ? CONDITIONAL_STATUS_LABELS[item.status] : ADJUSTMENT_STATUS_LABELS[item.status]}
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell>
@@ -881,7 +881,7 @@ export const ConditionalsAdjustmentsManager = () => {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                                    {Object.entries(CONDITIONAL_STATUS_LABELS).map(([value, label]) => (
                                         <SelectItem key={value} value={value}>{label}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -982,7 +982,7 @@ export const ConditionalsAdjustmentsManager = () => {
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                                        {Object.entries(ADJUSTMENT_STATUS_LABELS).map(([value, label]) => (
                                             <SelectItem key={value} value={value}>{label}</SelectItem>
                                         ))}
                                     </SelectContent>
