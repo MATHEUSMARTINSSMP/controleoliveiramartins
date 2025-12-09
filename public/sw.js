@@ -1,5 +1,5 @@
 // Service Worker básico para PWA
-const CACHE_NAME = 'controle-oliveira-martins-v2'; // Atualizado para forçar refresh
+const CACHE_NAME = 'controle-oliveira-martins-v3'; // Atualizado para forçar refresh e limpar cache de módulos JS
 const urlsToCache = [
   '/',
   '/index.html',
@@ -46,9 +46,18 @@ self.addEventListener('fetch', (event) => {
   
   // NÃO interceptar módulos JS dinâmicos - deixar passar direto para a rede
   // Isso evita problemas com ServiceWorker interceptando módulos com hash
-  if (url.pathname.includes('/assets/') && 
-      (url.pathname.endsWith('.js') || url.pathname.match(/\.js\?/))) {
+  // Verificar tanto pathname quanto search params para capturar todos os casos
+  const isJSModule = 
+    url.pathname.includes('/assets/') && 
+    (url.pathname.endsWith('.js') || 
+     url.pathname.match(/\.js\?/) ||
+     url.search.includes('.js') ||
+     event.request.destination === 'script' ||
+     (event.request.mode === 'cors' && url.pathname.includes('/assets/')));
+  
+  if (isJSModule) {
     // Para módulos JS, não interceptar - deixar o navegador buscar normalmente
+    // Isso evita que o Service Worker retorne HTML (404) em vez de JS
     return;
   }
   
@@ -72,6 +81,7 @@ self.addEventListener('fetch', (event) => {
       })
       .catch(() => {
         // Fallback para cache se network falhar
+        // MAS NUNCA para módulos JS
         return caches.match(event.request)
           .then((response) => {
             if (response) {

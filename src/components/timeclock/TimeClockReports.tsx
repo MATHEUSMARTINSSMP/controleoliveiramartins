@@ -30,6 +30,12 @@ interface TimeClockRecord {
   tipo_registro: string;
   horario: string;
   observacao?: string;
+  lancamento_manual?: boolean;
+  lancado_por?: string;
+  assinatura_digital?: {
+    id: string;
+    assinado_em: string;
+  } | null;
 }
 
 interface WorkSchedule {
@@ -61,6 +67,14 @@ interface DailyReport {
   horasEsperadas: number;
   saldo: number;
   status: 'completo' | 'incompleto' | 'falta' | 'folga';
+  entradaManual?: boolean;
+  saidaIntervaloManual?: boolean;
+  entradaIntervaloManual?: boolean;
+  saidaManual?: boolean;
+  entradaAssinada?: boolean;
+  saidaIntervaloAssinada?: boolean;
+  entradaIntervaloAssinada?: boolean;
+  saidaAssinada?: boolean;
 }
 
 interface TimeClockReportsProps {
@@ -139,7 +153,13 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
         supabase
           .schema('sistemaretiradas')
           .from('time_clock_records')
-          .select('*')
+          .select(`
+            *,
+            assinaturas:time_clock_digital_signatures(
+              id,
+              assinado_em
+            )
+          `)
           .eq('store_id', storeId)
           .eq('colaboradora_id', selectedColaboradora)
           .gte('horario', start.toISOString())
@@ -157,7 +177,15 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
 
       if (recordsRes.error) throw recordsRes.error;
       
-      setRecords(recordsRes.data || []);
+      // Processar registros para incluir assinatura digital
+      const processedRecords = (recordsRes.data || []).map((record: any) => ({
+        ...record,
+        assinatura_digital: Array.isArray(record.assinaturas) && record.assinaturas.length > 0 
+          ? record.assinaturas[0] 
+          : null
+      }));
+      
+      setRecords(processedRecords);
       setSchedule(scheduleRes.data || null);
     } catch (err: any) {
       console.error('[TimeClockReports] Erro ao buscar dados:', err);
