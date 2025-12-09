@@ -1,19 +1,8 @@
 -- =====================================================
--- ADICIONAR MÓDULO AJUSTES & CONDICIONAIS
+-- ATUALIZAR FUNÇÃO DE BUSCA DE PRODUTOS
 -- =====================================================
+-- Atualiza a função para usar os novos status de ajuste
 
--- Adicionar campo para ativar/desativar módulo
-ALTER TABLE sistemaretiradas.stores
-ADD COLUMN IF NOT EXISTS ajustes_condicionais_ativo BOOLEAN DEFAULT false;
-
-COMMENT ON COLUMN sistemaretiradas.stores.ajustes_condicionais_ativo IS 'Ativa/desativa módulo de Ajustes & Condicionais para a loja';
-
--- Criar índice para busca de produtos em condicionais e ajustes
--- Isso será usado para buscar produtos que estão fora da loja
-CREATE INDEX IF NOT EXISTS idx_conditionals_products_gin ON sistemaretiradas.conditionals USING GIN (products);
-CREATE INDEX IF NOT EXISTS idx_adjustments_product_gin ON sistemaretiradas.adjustments USING GIN (to_tsvector('portuguese', product));
-
--- Função para buscar produtos fora da loja (em condicionais ou ajustes)
 CREATE OR REPLACE FUNCTION sistemaretiradas.search_products_out_of_store(
     p_store_id UUID,
     p_search_term TEXT DEFAULT NULL
@@ -55,7 +44,7 @@ BEGIN
     
     UNION ALL
     
-    -- Buscar em ajustes
+    -- Buscar em ajustes (usando novos status)
     SELECT 
         'AJUSTE'::TEXT as tipo,
         a.id,
@@ -78,5 +67,5 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION sistemaretiradas.search_products_out_of_store(UUID, TEXT) IS 'Busca produtos que estão fora da loja (em condicionais ou ajustes) com busca aproximada por termo';
+COMMENT ON FUNCTION sistemaretiradas.search_products_out_of_store(UUID, TEXT) IS 'Busca produtos que estão fora da loja (em condicionais ou ajustes) com busca aproximada por termo. Usa novos status de ajuste.';
 
