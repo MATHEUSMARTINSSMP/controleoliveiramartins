@@ -34,6 +34,8 @@ DECLARE
     v_colaboradora_store_id UUID;
     v_auth_user_id UUID;
     v_auth_user_role TEXT;
+    v_has_signature_hash BOOLEAN;
+    v_has_password_hash BOOLEAN;
 BEGIN
     -- Obter usuário autenticado
     v_auth_user_id := auth.uid();
@@ -127,76 +129,79 @@ BEGIN
     END IF;
     
     -- Verificar qual coluna existe (signature_hash ou password_hash)
-    DECLARE
-        v_has_signature_hash BOOLEAN;
-        v_has_password_hash BOOLEAN;
-    BEGIN
-        SELECT EXISTS (
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_schema = 'sistemaretiradas' 
-            AND table_name = 'time_clock_digital_signatures'
-            AND column_name = 'signature_hash'
-        ) INTO v_has_signature_hash;
-        
-        SELECT EXISTS (
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_schema = 'sistemaretiradas' 
-            AND table_name = 'time_clock_digital_signatures'
-            AND column_name = 'password_hash'
-        ) INTO v_has_password_hash;
-        
-        -- Inserir assinatura digital usando a coluna correta
-        IF v_has_signature_hash THEN
-            -- Usar signature_hash
-            INSERT INTO sistemaretiradas.time_clock_digital_signatures (
-                time_clock_record_id,
-                colaboradora_id,
-                store_id,
-                signature_hash,
-                device_info,
-                ip_address,
-                rep_identity,
-                created_at
-            ) VALUES (
-                p_time_clock_record_id,
-                p_colaboradora_id,
-                p_store_id,
-                p_password_hash,
-                p_device_info,
-                p_ip_address,
-                COALESCE(p_rep_identity, 'REP-' || substring(p_store_id::text, 1, 8) || '-' || extract(epoch from now())::bigint::text),
-                NOW()
-            )
-            RETURNING id INTO v_record_id;
-        ELSIF v_has_password_hash THEN
-            -- Usar password_hash
-            INSERT INTO sistemaretiradas.time_clock_digital_signatures (
-                time_clock_record_id,
-                colaboradora_id,
-                store_id,
-                password_hash,
-                device_info,
-                ip_address,
-                rep_identity,
-                created_at
-            ) VALUES (
-                p_time_clock_record_id,
-                p_colaboradora_id,
-                p_store_id,
-                p_password_hash,
-                p_device_info,
-                p_ip_address,
-                COALESCE(p_rep_identity, 'REP-' || substring(p_store_id::text, 1, 8) || '-' || extract(epoch from now())::bigint::text),
-                NOW()
-            )
-            RETURNING id INTO v_record_id;
-        ELSE
-            RETURN json_build_object(
-                'success', false,
-                'error', 'Coluna de hash não encontrada (nem signature_hash nem password_hash)'
-            );
-        END IF;
-    END;
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'sistemaretiradas' 
+        AND table_name = 'time_clock_digital_signatures'
+        AND column_name = 'signature_hash'
+    ) INTO v_has_signature_hash;
+    
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'sistemaretiradas' 
+        AND table_name = 'time_clock_digital_signatures'
+        AND column_name = 'password_hash'
+    ) INTO v_has_password_hash;
+    
+    -- Validar que p_password_hash não é NULL
+    IF p_password_hash IS NULL OR p_password_hash = '' THEN
+        RETURN json_build_object(
+            'success', false,
+            'error', 'password_hash não pode ser NULL ou vazio'
+        );
+    END IF;
+    
+    -- Inserir assinatura digital usando a coluna correta
+    IF v_has_signature_hash THEN
+        -- Usar signature_hash
+        INSERT INTO sistemaretiradas.time_clock_digital_signatures (
+            time_clock_record_id,
+            colaboradora_id,
+            store_id,
+            signature_hash,
+            device_info,
+            ip_address,
+            rep_identity,
+            created_at
+        ) VALUES (
+            p_time_clock_record_id,
+            p_colaboradora_id,
+            p_store_id,
+            p_password_hash,
+            p_device_info,
+            p_ip_address,
+            COALESCE(p_rep_identity, 'REP-' || substring(p_store_id::text, 1, 8) || '-' || extract(epoch from now())::bigint::text),
+            NOW()
+        )
+        RETURNING id INTO v_record_id;
+    ELSIF v_has_password_hash THEN
+        -- Usar password_hash
+        INSERT INTO sistemaretiradas.time_clock_digital_signatures (
+            time_clock_record_id,
+            colaboradora_id,
+            store_id,
+            password_hash,
+            device_info,
+            ip_address,
+            rep_identity,
+            created_at
+        ) VALUES (
+            p_time_clock_record_id,
+            p_colaboradora_id,
+            p_store_id,
+            p_password_hash,
+            p_device_info,
+            p_ip_address,
+            COALESCE(p_rep_identity, 'REP-' || substring(p_store_id::text, 1, 8) || '-' || extract(epoch from now())::bigint::text),
+            NOW()
+        )
+        RETURNING id INTO v_record_id;
+    ELSE
+        RETURN json_build_object(
+            'success', false,
+            'error', 'Coluna de hash não encontrada (nem signature_hash nem password_hash)'
+        );
+    END IF;
     
     RETURN json_build_object(
         'success', true,
