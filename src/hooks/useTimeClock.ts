@@ -29,11 +29,13 @@ export interface WorkSchedule {
   id: string;
   colaboradora_id: string;
   store_id: string;
-  hora_entrada: string; // TIME format "HH:mm:ss"
-  hora_intervalo_saida: string;
-  hora_intervalo_retorno: string;
-  hora_saida: string;
-  dias_semana: number[]; // [0=dom, 1=seg, ..., 6=sab]
+  hora_entrada: string | null; // TIME format "HH:mm:ss" - nullable for flexible schedules
+  hora_intervalo_saida: string | null;
+  hora_intervalo_retorno: string | null;
+  hora_saida: string | null;
+  dias_semana: number[] | null; // [0=dom, 1=seg, ..., 6=sab] - nullable for flexible schedules
+  carga_horaria_diaria: number | null; // minutes per day from workload template
+  tempo_intervalo_minutos: number | null; // break time in minutes
   ativo: boolean;
   data_inicio?: string | null;
   data_fim?: string | null;
