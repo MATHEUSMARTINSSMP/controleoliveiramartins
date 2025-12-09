@@ -301,22 +301,84 @@ export function TimeClockRegister({
     setSignatureError(null);
 
     try {
+      console.log('[TimeClockRegister] 🔐 Validando PIN para colaboradora:', colaboradoraId);
+      console.log('[TimeClockRegister] 📝 PIN digitado (tamanho):', pin.length, 'dígitos');
+      
+      // Verificar se o PIN existe antes de validar
+      const { data: hasPinData, error: hasPinError } = await supabase.rpc('has_signature_pin', {
+        p_colaboradora_id: colaboradoraId
+      });
+      
+      console.log('[TimeClockRegister] 🔍 PIN existe?', { hasPinData, hasPinError });
+      
+      if (hasPinError) {
+        console.error('[TimeClockRegister] ❌ Erro ao verificar se PIN existe:', hasPinError);
+      }
+      
       const { data: validationResult, error: validationError } = await supabase.rpc('validate_signature_pin', {
         p_colaboradora_id: colaboradoraId,
         p_pin: pin
-      }) as { data: Array<{ valido: boolean; mensagem: string; bloqueado: boolean }> | null; error: any };
+      });
+
+      console.log('[TimeClockRegister] 📦 Resposta completa da validação:', {
+        validationResult,
+        validationError,
+        tipoResult: typeof validationResult,
+        isArray: Array.isArray(validationResult),
+        keys: validationResult ? Object.keys(validationResult) : null
+      });
 
       if (validationError) {
-        throw new Error(validationError.message);
-      }
-
-      const result = validationResult?.[0];
-      
-      if (!result?.valido) {
-        setSignatureError(result?.mensagem || 'PIN invalido');
+        console.error('[TimeClockRegister] ❌ Erro na validação RPC:', {
+          message: validationError.message,
+          details: validationError.details,
+          hint: validationError.hint,
+          code: validationError.code
+        });
+        setSignatureError(validationError.message || 'Erro ao validar PIN');
         setProcessingSignature(false);
         return;
       }
+
+      // A função retorna um JSON, mas Supabase pode retornar como objeto direto ou string
+      let result: { valid?: boolean; error?: string; message?: string } | null = null;
+      
+      if (typeof validationResult === 'string') {
+        try {
+          result = JSON.parse(validationResult);
+        } catch (e) {
+          console.error('[TimeClockRegister] ❌ Erro ao fazer parse do JSON:', e);
+          setSignatureError('Erro ao processar resposta do servidor');
+          setProcessingSignature(false);
+          return;
+        }
+      } else if (typeof validationResult === 'object' && validationResult !== null) {
+        result = validationResult as { valid?: boolean; error?: string; message?: string };
+      } else {
+        console.error('[TimeClockRegister] ❌ Formato de resposta inesperado:', typeof validationResult);
+        setSignatureError('Formato de resposta inesperado do servidor');
+        setProcessingSignature(false);
+        return;
+      }
+      
+      console.log('[TimeClockRegister] ✅ Resultado processado:', result);
+      console.log('[TimeClockRegister] 🔍 Valid?', result?.valid);
+      
+      if (!result || result.valid !== true) {
+        const errorMsg = result?.error || result?.message || 'PIN inválido';
+        console.error('[TimeClockRegister] ❌ PIN inválido. Detalhes:', {
+          result,
+          errorMsg,
+          hasValid: result?.valid,
+          hasError: result?.error,
+          hasMessage: result?.message
+        });
+        setSignatureError(errorMsg);
+        setProcessingSignature(false);
+        return;
+      }
+      
+      console.log('[TimeClockRegister] ✅✅✅ PIN válido! Prosseguindo com registro...');
 
       const signatureHash = await generateSignatureHash();
       const horarioRegistro = new Date().toISOString();
