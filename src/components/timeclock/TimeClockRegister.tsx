@@ -420,20 +420,36 @@ export function TimeClockRegister({
 
       // Usar função RPC para inserir assinatura digital (bypassa RLS com validação adequada)
       console.log('[TimeClockRegister] Inserindo assinatura digital via RPC...');
+      
+      const rpcParams = {
+        p_time_clock_record_id: recordData.id,
+        p_colaboradora_id: colaboradoraId,
+        p_store_id: storeId,
+        p_password_hash: signatureHash,
+        p_device_info: deviceInfo,
+        p_ip_address: null,
+        p_rep_identity: `REP-${storeId.substring(0, 8)}-${Date.now()}`,
+      };
+      
+      console.log('[TimeClockRegister] 📤 Parâmetros RPC sendo enviados:', {
+        ...rpcParams,
+        p_password_hash: signatureHash ? `${signatureHash.substring(0, 20)}... (tamanho: ${signatureHash.length})` : 'NULL',
+        p_device_info: deviceInfo ? 'Object presente' : 'NULL',
+      });
+      
       const { data: signatureResult, error: signatureInsertError } = await supabase.rpc(
         'insert_time_clock_digital_signature',
-        {
-          p_time_clock_record_id: recordData.id,
-          p_colaboradora_id: colaboradoraId,
-          p_store_id: storeId,
-          p_password_hash: signatureHash,
-          p_device_info: deviceInfo,
-          p_ip_address: null,
-          p_rep_identity: `REP-${storeId.substring(0, 8)}-${Date.now()}`,
-        }
+        rpcParams
       );
 
-      console.log('[TimeClockRegister] Resposta RPC inserir assinatura:', { signatureResult, signatureInsertError });
+      console.log('[TimeClockRegister] 📥 Resposta RPC inserir assinatura:', { 
+        signatureResult, 
+        signatureInsertError,
+        success: signatureResult?.success,
+        error: signatureResult?.error,
+        tipoResult: typeof signatureResult,
+        isArray: Array.isArray(signatureResult)
+      });
 
       if (signatureInsertError) {
         console.error('[TimeClockRegister] Signature error:', signatureInsertError);
