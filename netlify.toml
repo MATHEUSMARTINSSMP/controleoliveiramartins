@@ -15,26 +15,9 @@
   NODE_VERSION = "18"
 
 # Secrets scanning configuration
-# Ignore test files and archives that may contain old secrets
-[build.processing]
-  skip_processing = false
-
-# Omit paths from secrets scanning
-[build.processing.secrets_scan]
-  omit_paths = [
-    "attached_assets/**",
-    "sql_migrations_archive/**",
-    "dist/**",
-    "*verificar*.js",
-    "*test*.js",
-    "*check*.js",
-    "*varredura*.js",
-    "*verify*.js",
-    "processar-fila-whatsapp.js"
-  ]
-  
-  # Omit specific secret keys that are expected in build output
-  omit_keys = [
-    "SUPABASE_ANON_KEY",
-    "VITE_SUPABASE_ANON_KEY"
-  ]
+# NOTA: Configure as seguintes variáveis de ambiente no Netlify Dashboard:
+# SECRETS_SCAN_OMIT_PATHS = "attached_assets/**,sql_migrations_archive/**,dist/**,*verificar*.js,*test*.js,*check*.js,*varredura*.js,*verify*.js,processar-fila-whatsapp.js"
+# SECRETS_SCAN_OMIT_KEYS = "SUPABASE_ANON_KEY,VITE_SUPABASE_ANON_KEY"
+# 
+# OU desabilite o secrets scanning completamente (não recomendado):
+# SECRETS_SCAN_ENABLED = "false"
