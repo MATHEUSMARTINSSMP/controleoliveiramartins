@@ -24,16 +24,17 @@ interface WorkSchedule {
   id: string;
   colaboradora_id: string;
   store_id: string;
-  hora_entrada: string;
-  hora_intervalo_saida: string;
-  hora_intervalo_retorno: string;
-  hora_saida: string;
-  dias_semana: number[];
+  hora_entrada: string | null;
+  hora_intervalo_saida: string | null;
+  hora_intervalo_retorno: string | null;
+  hora_saida: string | null;
+  dias_semana: number[] | null;
   ativo: boolean;
   data_inicio?: string | null;
   data_fim?: string | null;
   template_id?: string | null;
-  is_custom?: boolean;
+  carga_horaria_diaria?: number | null;
+  tempo_intervalo_minutos?: number | null;
   profiles?: { id: string; name: string };
 }
 
@@ -839,34 +840,52 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
                               </Badge>
                             )}
                           </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
-                            <div>
-                              <span className="text-muted-foreground">Entrada:</span>
-                              <div className="font-mono">{schedule.hora_entrada.substring(0, 5)}</div>
+                          {schedule.template_id && !schedule.hora_entrada ? (
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div>
+                                <span className="text-muted-foreground">Carga horária:</span>
+                                <div className="font-semibold">{schedule.carga_horaria_diaria || 6}h/dia</div>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Intervalo mínimo:</span>
+                                <div className="font-semibold">{schedule.tempo_intervalo_minutos || 60} min</div>
+                              </div>
+                              <div className="col-span-2">
+                                <span className="text-xs text-muted-foreground">Horários e dias flexíveis - validação por carga horária</span>
+                              </div>
                             </div>
-                            <div>
-                              <span className="text-muted-foreground">Saída Int.:</span>
-                              <div className="font-mono">{schedule.hora_intervalo_saida.substring(0, 5)}</div>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Retorno Int.:</span>
-                              <div className="font-mono">{schedule.hora_intervalo_retorno.substring(0, 5)}</div>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Saída:</span>
-                              <div className="font-mono">{schedule.hora_saida.substring(0, 5)}</div>
-                            </div>
-                          </div>
-                          <div className="mt-2">
-                            <span className="text-sm text-muted-foreground">Dias: </span>
-                            <div className="inline-flex gap-1 flex-wrap">
-                              {schedule.dias_semana.map((dia) => (
-                                <Badge key={dia} variant="outline" className="text-xs">
-                                  {DIAS_SEMANA.find(d => d.value === dia)?.short}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
+                          ) : (
+                            <>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+                                <div>
+                                  <span className="text-muted-foreground">Entrada:</span>
+                                  <div className="font-mono">{schedule.hora_entrada?.substring(0, 5) || '--:--'}</div>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Saída Int.:</span>
+                                  <div className="font-mono">{schedule.hora_intervalo_saida?.substring(0, 5) || '--:--'}</div>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Retorno Int.:</span>
+                                  <div className="font-mono">{schedule.hora_intervalo_retorno?.substring(0, 5) || '--:--'}</div>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Saída:</span>
+                                  <div className="font-mono">{schedule.hora_saida?.substring(0, 5) || '--:--'}</div>
+                                </div>
+                              </div>
+                              <div className="mt-2">
+                                <span className="text-sm text-muted-foreground">Dias: </span>
+                                <div className="inline-flex gap-1 flex-wrap">
+                                  {(schedule.dias_semana || []).map((dia) => (
+                                    <Badge key={dia} variant="outline" className="text-xs">
+                                      {DIAS_SEMANA.find(d => d.value === dia)?.short}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
                         <div className="flex gap-2 ml-4">
                           <Button
