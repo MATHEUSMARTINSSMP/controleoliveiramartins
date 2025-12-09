@@ -23,16 +23,21 @@
     Content-Type = "application/javascript; charset=utf-8"
     Cache-Control = "public, max-age=31536000, immutable"
 
-# Redirecionamento para SPA - apenas para HTML
+# Redirecionamento para SPA - apenas para HTML (não aplicar para arquivos estáticos)
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
   force = false
+  # Não aplicar para arquivos estáticos e JS
   conditions = {Role = ["admin"], Country = ["!*"]}
-  # Não aplicar para arquivos estáticos
-  [[redirects.exceptions]]
-    paths = ["/assets/*", "/static/*", "/*.js", "/*.css", "/*.png", "/*.jpg", "/*.svg", "/*.ico", "/*.json", "/sw.js", "/manifest.json"]
+  
+# Garantir que arquivos JS não sejam redirecionados
+[[redirects]]
+  from = "/assets/*.js"
+  to = "/assets/:splat.js"
+  status = 200
+  force = false
 
 # Secrets scanning configuration
 # ⚠️ IMPORTANTE: O Netlify detecta VITE_SUPABASE_PUBLISHABLE_KEY no build (isso é NORMAL e ESPERADO)
