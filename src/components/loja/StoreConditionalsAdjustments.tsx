@@ -42,6 +42,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
+import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 // Types
 interface Conditional {
@@ -53,7 +54,7 @@ interface Conditional {
     products: { description: string; price: number }[];
     date_generated: string;
     date_return: string | null;
-    status: 'GERADA' | 'PREPARANDO' | 'PRONTA' | 'ROTA_ENTREGA' | 'ENTREGUE' | 'PRONTA_RETIRADA' | 'ROTA_DEVOLUCAO' | 'FINALIZADA';
+    status: 'GERADA' | 'PREPARANDO' | 'PRONTA' | 'ROTA_ENTREGA' | 'ENTREGUE' | 'PRONTA_RETIRADA' | 'ROTA_DEVOLUCAO' | 'EM_LOJA' | 'CLIENTE_AVISADA' | 'FINALIZADA';
     created_at: string;
 }
 
@@ -70,7 +71,7 @@ interface Adjustment {
     date_seamstress: string | null;
     date_delivery: string | null;
     time_delivery: string | null;
-    status: 'GERADA' | 'PREPARANDO' | 'PRONTA' | 'ROTA_ENTREGA' | 'ENTREGUE' | 'PRONTA_RETIRADA' | 'ROTA_DEVOLUCAO' | 'FINALIZADA';
+    status: 'GERADA' | 'PREPARANDO' | 'PRONTA' | 'ROTA_ENTREGA' | 'ENTREGUE' | 'PRONTA_RETIRADA' | 'ROTA_DEVOLUCAO' | 'EM_LOJA' | 'CLIENTE_AVISADA' | 'FINALIZADA';
     delivery_method: 'LOJA' | 'CASA';
     delivery_address: string | null;
     created_at: string;
@@ -84,10 +85,12 @@ const STATUS_COLORS = {
     'ENTREGUE': 'bg-green-100 text-green-800',
     'PRONTA_RETIRADA': 'bg-indigo-100 text-indigo-800',
     'ROTA_DEVOLUCAO': 'bg-orange-100 text-orange-800',
+    'EM_LOJA': 'bg-cyan-100 text-cyan-800',
+    'CLIENTE_AVISADA': 'bg-pink-100 text-pink-800',
     'FINALIZADA': 'bg-slate-100 text-slate-800',
 };
 
-const STATUS_LABELS = {
+const CONDITIONAL_STATUS_LABELS = {
     'GERADA': 'Condicional Gerada',
     'PREPARANDO': 'Condicional Sendo Preparada',
     'PRONTA': 'Condicional Pronta',
@@ -95,7 +98,22 @@ const STATUS_LABELS = {
     'ENTREGUE': 'Condicional Entregue para Cliente',
     'PRONTA_RETIRADA': 'Condicional Pronta para Retirada',
     'ROTA_DEVOLUCAO': 'Condicional Em Rota de Devolução',
+    'EM_LOJA': 'Condicional em Loja',
+    'CLIENTE_AVISADA': 'Cliente Avisada',
     'FINALIZADA': 'Finalizada',
+};
+
+const ADJUSTMENT_STATUS_LABELS = {
+    'GERADA': 'Ajuste Gerado',
+    'PREPARANDO': 'Ajuste Sendo Preparado',
+    'PRONTA': 'Ajuste Pronto',
+    'ROTA_ENTREGA': 'Ajuste Em Rota de Entrega',
+    'ENTREGUE': 'Ajuste Entregue ao Cliente',
+    'PRONTA_RETIRADA': 'Ajuste Pronto para Retirada',
+    'ROTA_DEVOLUCAO': 'Ajuste Em Rota de Devolução',
+    'EM_LOJA': 'Ajuste em Loja',
+    'CLIENTE_AVISADA': 'Cliente Avisada',
+    'FINALIZADA': 'Finalizado',
 };
 
 interface StoreConditionalsAdjustmentsProps {
@@ -406,6 +424,64 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
         }
     };
 
+    const handleStatusUpdate = async (
+        id: string,
+        type: 'conditional' | 'adjustment',
+        newStatus: Conditional['status'] | Adjustment['status'],
+        item: Conditional | Adjustment
+    ) => {
+        try {
+            const table = type === 'conditional' ? 'conditionals' : 'adjustments';
+            const { error } = await supabase
+                .schema('sistemaretiradas')
+                .from(table)
+                .update({ status: newStatus })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            toast.success('Status atualizado com sucesso');
+
+            // Enviar mensagem WhatsApp ao cliente
+            try {
+                const statusLabel = type === 'conditional' 
+                    ? CONDITIONAL_STATUS_LABELS[newStatus as Conditional['status']]
+                    : ADJUSTMENT_STATUS_LABELS[newStatus as Adjustment['status']];
+
+                const productInfo = type === 'conditional'
+                    ? (item as Conditional).products.map(p => p.description).join(', ')
+                    : (item as Adjustment).product;
+
+                const message = type === 'conditional'
+                    ? `Olá ${item.customer_name}! 👋\n\nSua condicional foi atualizada para: *${statusLabel}*\n\nProdutos: ${productInfo}\n\nQualquer dúvida, estamos à disposição!\n\n${item.store_id ? 'Loja' : 'Equipe'} EleveaOne 📦`
+                    : `Olá ${item.customer_name}! 👋\n\nSeu ajuste foi atualizado para: *${statusLabel}*\n\nProduto: ${productInfo}\n\nQualquer dúvida, estamos à disposição!\n\n${item.store_id ? 'Loja' : 'Equipe'} EleveaOne ✂️`;
+
+                const phone = item.customer_contact.replace(/\D/g, '');
+                if (phone.length >= 10) {
+                    const result = await sendWhatsAppMessage({
+                        phone: phone,
+                        message: message,
+                        store_id: storeId
+                    });
+
+                    if (result.success) {
+                        toast.success('Mensagem enviada ao cliente');
+                    } else {
+                        console.warn('Erro ao enviar mensagem:', result.error);
+                    }
+                }
+            } catch (msgError) {
+                console.error('Erro ao enviar mensagem WhatsApp:', msgError);
+                // Não falhar a atualização se o envio de mensagem falhar
+            }
+
+            fetchData();
+        } catch (error: any) {
+            console.error('Erro ao atualizar status:', error);
+            toast.error(error.message || 'Erro ao atualizar status');
+        }
+    };
+
     // Filtrar dados baseado no searchTerm
     const filteredConditionals = conditionals.filter(item =>
         item.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -507,9 +583,19 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge variant="secondary" className={STATUS_COLORS[item.status]}>
-                                                        {STATUS_LABELS[item.status]}
-                                                    </Badge>
+                                                    <Select
+                                                        value={item.status}
+                                                        onValueChange={(newStatus) => handleStatusUpdate(item.id, 'conditional', newStatus as Conditional['status'], item)}
+                                                    >
+                                                        <SelectTrigger className="w-[180px]">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {Object.entries(CONDITIONAL_STATUS_LABELS).map(([value, label]) => (
+                                                                <SelectItem key={value} value={value}>{label}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
                                                 </TableCell>
                                                 <TableCell>
                                                     <span className="text-sm text-muted-foreground">
@@ -574,9 +660,19 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                                                 </TableCell>
                                                 <TableCell>{item.product}</TableCell>
                                                 <TableCell>
-                                                    <Badge variant="secondary" className={STATUS_COLORS[item.status]}>
-                                                        {STATUS_LABELS[item.status]}
-                                                    </Badge>
+                                                    <Select
+                                                        value={item.status}
+                                                        onValueChange={(newStatus) => handleStatusUpdate(item.id, 'adjustment', newStatus as Adjustment['status'], item)}
+                                                    >
+                                                        <SelectTrigger className="w-[180px]">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {Object.entries(ADJUSTMENT_STATUS_LABELS).map(([value, label]) => (
+                                                                <SelectItem key={value} value={value}>{label}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
                                                 </TableCell>
                                                 <TableCell>
                                                     <Badge variant={item.payment_status === 'PAGO' ? 'default' : 'outline'}>
@@ -673,7 +769,7 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                                                     </TableCell>
                                                     <TableCell>
                                                         <Badge variant="secondary" className={STATUS_COLORS[item.status]}>
-                                                            {STATUS_LABELS[item.status]}
+                                                            {item.tipo === 'CONDICIONAL' ? CONDITIONAL_STATUS_LABELS[item.status] : ADJUSTMENT_STATUS_LABELS[item.status]}
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell>

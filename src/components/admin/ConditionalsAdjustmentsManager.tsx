@@ -62,7 +62,7 @@ interface Conditional {
     products: { description: string; price: number }[];
     date_generated: string;
     date_return: string | null;
-    status: 'GERADA' | 'PREPARANDO' | 'PRONTA' | 'ROTA_ENTREGA' | 'ENTREGUE' | 'PRONTA_RETIRADA' | 'ROTA_DEVOLUCAO' | 'FINALIZADA';
+    status: 'GERADA' | 'PREPARANDO' | 'PRONTA' | 'ROTA_ENTREGA' | 'ENTREGUE' | 'PRONTA_RETIRADA' | 'ROTA_DEVOLUCAO' | 'EM_LOJA' | 'CLIENTE_AVISADA' | 'FINALIZADA';
     created_at: string;
 }
 
@@ -79,7 +79,7 @@ interface Adjustment {
     date_seamstress: string | null;
     date_delivery: string | null;
     time_delivery: string | null;
-    status: 'GERADA' | 'PREPARANDO' | 'PRONTA' | 'ROTA_ENTREGA' | 'ENTREGUE' | 'PRONTA_RETIRADA' | 'ROTA_DEVOLUCAO' | 'FINALIZADA';
+    status: 'GERADA' | 'PREPARANDO' | 'PRONTA' | 'ROTA_ENTREGA' | 'ENTREGUE' | 'PRONTA_RETIRADA' | 'ROTA_DEVOLUCAO' | 'EM_LOJA' | 'CLIENTE_AVISADA' | 'FINALIZADA';
     delivery_method: 'LOJA' | 'CASA';
     delivery_address: string | null;
     created_at: string;
@@ -93,18 +93,35 @@ const STATUS_COLORS = {
     'ENTREGUE': 'bg-green-100 text-green-800',
     'PRONTA_RETIRADA': 'bg-indigo-100 text-indigo-800',
     'ROTA_DEVOLUCAO': 'bg-orange-100 text-orange-800',
+    'EM_LOJA': 'bg-cyan-100 text-cyan-800',
+    'CLIENTE_AVISADA': 'bg-pink-100 text-pink-800',
     'FINALIZADA': 'bg-slate-100 text-slate-800',
 };
 
-const STATUS_LABELS = {
-    'GERADA': 'Gerada',
-    'PREPARANDO': 'Preparando',
-    'PRONTA': 'Pronta',
-    'ROTA_ENTREGA': 'Em Rota de Entrega',
-    'ENTREGUE': 'Entregue ao Cliente',
-    'PRONTA_RETIRADA': 'Pronta para Retirada',
-    'ROTA_DEVOLUCAO': 'Em Rota de Devolução',
+const CONDITIONAL_STATUS_LABELS = {
+    'GERADA': 'Condicional Gerada',
+    'PREPARANDO': 'Condicional Sendo Preparada',
+    'PRONTA': 'Condicional Pronta',
+    'ROTA_ENTREGA': 'Condicional Em Rota de Entrega',
+    'ENTREGUE': 'Condicional Entregue para Cliente',
+    'PRONTA_RETIRADA': 'Condicional Pronta para Retirada',
+    'ROTA_DEVOLUCAO': 'Condicional Em Rota de Devolução',
+    'EM_LOJA': 'Condicional em Loja',
+    'CLIENTE_AVISADA': 'Cliente Avisada',
     'FINALIZADA': 'Finalizada',
+};
+
+const ADJUSTMENT_STATUS_LABELS = {
+    'GERADA': 'Ajuste Gerado',
+    'PREPARANDO': 'Ajuste Sendo Preparado',
+    'PRONTA': 'Ajuste Pronto',
+    'ROTA_ENTREGA': 'Ajuste Em Rota de Entrega',
+    'ENTREGUE': 'Ajuste Entregue ao Cliente',
+    'PRONTA_RETIRADA': 'Ajuste Pronto para Retirada',
+    'ROTA_DEVOLUCAO': 'Ajuste Em Rota de Devolução',
+    'EM_LOJA': 'Ajuste em Loja',
+    'CLIENTE_AVISADA': 'Cliente Avisada',
+    'FINALIZADA': 'Finalizado',
 };
 
 export const ConditionalsAdjustmentsManager = () => {
