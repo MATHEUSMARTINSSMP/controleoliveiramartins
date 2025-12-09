@@ -155,7 +155,7 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
           .from('time_clock_records')
           .select(`
             *,
-            assinaturas:time_clock_digital_signatures!time_clock_digital_signatures_time_clock_record_id_fkey(
+            assinaturas:time_clock_digital_signatures(
               id,
               assinado_em
             )
