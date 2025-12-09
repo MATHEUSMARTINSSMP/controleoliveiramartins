@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
           <li><strong>Email:</strong> ${email}</li>
           <li><strong>Senha:</strong> ${password}</li>
         </ul>
-        <p>Por favor, faça login em: <a href="https://controleinterno.netlify.app/auth">Dashboard de Compras</a></p>
+        <p>Por favor, faça login em: <a href="https://eleveaone.com.br/auth">Dashboard de Compras</a></p>
         <p>Recomendamos que você altere sua senha após o primeiro login.</p>
         <br>
         <p>Atenciosamente,<br>Equipe Dashboard de Compras</p>

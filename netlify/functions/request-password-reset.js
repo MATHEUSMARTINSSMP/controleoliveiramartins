@@ -269,7 +269,7 @@ exports.handler = async (event, context) => {
           <p>Sua senha foi resetada conforme solicitado.</p>
           <p>Sua nova senha temporária é:</p>
           <p><strong style="font-size: 18px; color: #2563eb;">${tempPassword}</strong></p>
-          <p>Faça login em: <a href="https://controleinterno.netlify.app/auth">Dashboard de Compras</a></p>
+          <p>Faça login em: <a href="https://eleveaone.com.br/auth">Dashboard de Compras</a></p>
           <p><strong>Importante:</strong> Por favor, altere sua senha após fazer login.</p>
           <br>
           <p>Se você não solicitou esta alteração, entre em contato com o administrador imediatamente.</p>

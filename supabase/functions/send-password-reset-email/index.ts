@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
         <p>Sua senha do Dashboard de Compras foi alterada pelo administrador.</p>
         <p>Sua nova senha temporária é:</p>
         <p><strong>${new_password}</strong></p>
-        <p>Por favor, faça login em: <a href="https://controleinterno.netlify.app/auth">Dashboard de Compras</a></p>
+        <p>Por favor, faça login em: <a href="https://eleveaone.com.br/auth">Dashboard de Compras</a></p>
         <p>Recomendamos fortemente que você altere sua senha após fazer login.</p>
         <br>
         <p>Atenciosamente,<br>Equipe Dashboard de Compras</p>
