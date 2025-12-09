@@ -1,5 +1,5 @@
 // Service Worker básico para PWA
-const CACHE_NAME = 'controle-oliveira-martins-v3'; // Atualizado para forçar refresh e limpar cache de módulos JS
+const CACHE_NAME = 'controle-oliveira-martins-v4'; // Atualizado para forçar refresh e limpar cache de módulos JS
 const urlsToCache = [
   '/',
   '/index.html',
@@ -48,16 +48,18 @@ self.addEventListener('fetch', (event) => {
   // Isso evita problemas com ServiceWorker interceptando módulos com hash
   // Verificar tanto pathname quanto search params para capturar todos os casos
   const isJSModule = 
-    url.pathname.includes('/assets/') && 
-    (url.pathname.endsWith('.js') || 
-     url.pathname.match(/\.js\?/) ||
-     url.search.includes('.js') ||
-     event.request.destination === 'script' ||
-     (event.request.mode === 'cors' && url.pathname.includes('/assets/')));
+    (url.pathname.includes('/assets/') && url.pathname.endsWith('.js')) ||
+    (url.pathname.includes('/assets/') && url.pathname.match(/\.js/)) ||
+    url.pathname.match(/\.js$/) ||
+    event.request.destination === 'script' ||
+    event.request.destination === 'worker' ||
+    (event.request.headers.get('accept') && event.request.headers.get('accept').includes('application/javascript')) ||
+    (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/javascript'));
   
   if (isJSModule) {
-    // Para módulos JS, não interceptar - deixar o navegador buscar normalmente
+    // Para módulos JS, NUNCA interceptar - deixar o navegador buscar diretamente da rede
     // Isso evita que o Service Worker retorne HTML (404) em vez de JS
+    event.respondWith(fetch(event.request));
     return;
   }
   

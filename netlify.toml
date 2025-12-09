@@ -16,6 +16,24 @@
   # Desabilitar secrets scanning - VITE_SUPABASE_PUBLISHABLE_KEY é chave pública e DEVE estar no build
   SECRETS_SCAN_ENABLED = "false"
 
+# Headers para garantir MIME types corretos
+[[headers]]
+  for = "/assets/*.js"
+  [headers.values]
+    Content-Type = "application/javascript; charset=utf-8"
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Redirecionamento para SPA - apenas para HTML
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false
+  conditions = {Role = ["admin"], Country = ["!*"]}
+  # Não aplicar para arquivos estáticos
+  [[redirects.exceptions]]
+    paths = ["/assets/*", "/static/*", "/*.js", "/*.css", "/*.png", "/*.jpg", "/*.svg", "/*.ico", "/*.json", "/sw.js", "/manifest.json"]
+
 # Secrets scanning configuration
 # ⚠️ IMPORTANTE: O Netlify detecta VITE_SUPABASE_PUBLISHABLE_KEY no build (isso é NORMAL e ESPERADO)
 # A chave é PÚBLICA e DEVE estar no bundle do frontend para funcionar.
