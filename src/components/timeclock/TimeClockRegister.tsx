@@ -19,6 +19,7 @@ import { Clock, LogIn, LogOut, Coffee, ArrowRight, Fingerprint, Shield, Loader2,
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { calculateDailyBalance, formatMinutesToHours } from '@/lib/hoursBalance';
 
 interface TimeClockRegisterProps {
   storeId: string;
@@ -373,12 +374,23 @@ export function TimeClockRegister({
 
       setObservacao('');
       setSignatureDialogOpen(false);
+      const registeredAction = pendingAction;
       setPendingAction(null);
       setPin('');
       
       await fetchRecords();
       
       toast.success('Ponto registrado com assinatura digital');
+
+      if (registeredAction === 'SAIDA') {
+        const result = await calculateDailyBalance(colaboradoraId, storeId, new Date());
+        if (result.success) {
+          const color = result.saldoMinutos >= 0 ? 'text-emerald-600' : 'text-rose-600';
+          toast.info(`Banco de horas: ${result.message}`, {
+            duration: 5000,
+          });
+        }
+      }
 
     } catch (err: any) {
       console.error('[TimeClockRegister] Erro ao registrar ponto:', err);
