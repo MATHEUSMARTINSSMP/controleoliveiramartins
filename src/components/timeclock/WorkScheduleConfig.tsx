@@ -44,7 +44,6 @@ interface WorkScheduleTemplate {
   descricao?: string | null;
   carga_horaria_diaria: number;
   tempo_intervalo_minutos: number;
-  dias_semana: number[];
   is_global: boolean;
   ativo: boolean;
 }
@@ -99,7 +98,6 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
     descricao: '',
     carga_horaria_diaria: 6,
     tempo_intervalo_minutos: 60,
-    dias_semana: [1, 2, 3, 4, 5] as number[],
     ativo: true,
   });
 
@@ -208,13 +206,6 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
 
   const handleTemplateSelect = (templateId: string) => {
     setSelectedTemplateId(templateId);
-    const template = templates.find(t => t.id === templateId);
-    if (template) {
-      setFormData(prev => ({
-        ...prev,
-        dias_semana: template.dias_semana || [1, 2, 3, 4, 5],
-      }));
-    }
   };
 
   const getSelectedTemplateInfo = () => {
@@ -342,24 +333,14 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
     }
   };
 
-  const toggleDiaSemana = (dia: number, isTemplate: boolean = false) => {
-    if (isTemplate) {
-      setTemplateFormData(prev => {
-        if (prev.dias_semana.includes(dia)) {
-          return { ...prev, dias_semana: prev.dias_semana.filter(d => d !== dia) };
-        } else {
-          return { ...prev, dias_semana: [...prev.dias_semana, dia].sort() };
-        }
-      });
-    } else {
-      setFormData(prev => {
-        if (prev.dias_semana.includes(dia)) {
-          return { ...prev, dias_semana: prev.dias_semana.filter(d => d !== dia) };
-        } else {
-          return { ...prev, dias_semana: [...prev.dias_semana, dia].sort() };
-        }
-      });
-    }
+  const toggleDiaSemana = (dia: number) => {
+    setFormData(prev => {
+      if (prev.dias_semana.includes(dia)) {
+        return { ...prev, dias_semana: prev.dias_semana.filter(d => d !== dia) };
+      } else {
+        return { ...prev, dias_semana: [...prev.dias_semana, dia].sort() };
+      }
+    });
   };
 
   const getColaboradoraName = (colaboradoraId: string) => {
@@ -381,7 +362,6 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
         descricao: template.descricao || '',
         carga_horaria_diaria: template.carga_horaria_diaria || 6,
         tempo_intervalo_minutos: template.tempo_intervalo_minutos || 60,
-        dias_semana: template.dias_semana || [1, 2, 3, 4, 5],
         ativo: template.ativo ?? true,
       });
     } else {
@@ -391,7 +371,6 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
         descricao: '',
         carga_horaria_diaria: 6,
         tempo_intervalo_minutos: 60,
-        dias_semana: [1, 2, 3, 4, 5],
         ativo: true,
       });
     }
@@ -426,7 +405,6 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
             descricao: templateFormData.descricao.trim() || null,
             carga_horaria_diaria: templateFormData.carga_horaria_diaria,
             tempo_intervalo_minutos: templateFormData.tempo_intervalo_minutos,
-            dias_semana: templateFormData.dias_semana,
             ativo: templateFormData.ativo,
             updated_at: new Date().toISOString(),
           })
@@ -444,7 +422,6 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
             descricao: templateFormData.descricao.trim() || null,
             carga_horaria_diaria: templateFormData.carga_horaria_diaria,
             tempo_intervalo_minutos: templateFormData.tempo_intervalo_minutos,
-            dias_semana: templateFormData.dias_semana,
             is_global: true,
             ativo: templateFormData.ativo,
           });
@@ -937,24 +914,6 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label>Dias da Semana *</Label>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          {DIAS_SEMANA.map((dia) => (
-                            <div key={dia.value} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`template-dia-${dia.value}`}
-                                checked={templateFormData.dias_semana.includes(dia.value)}
-                                onCheckedChange={() => toggleDiaSemana(dia.value, true)}
-                              />
-                              <Label htmlFor={`template-dia-${dia.value}`} className="cursor-pointer text-sm">
-                                {dia.short}
-                              </Label>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
                       <div className="p-3 bg-muted rounded-lg">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
@@ -1036,16 +995,6 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
                             <div>
                               <span className="text-muted-foreground">Tempo de intervalo:</span>
                               <div className="font-semibold">{template.tempo_intervalo_minutos || 60} minutos</div>
-                            </div>
-                          </div>
-                          <div className="mt-2">
-                            <span className="text-sm text-muted-foreground">Dias: </span>
-                            <div className="inline-flex gap-1 flex-wrap">
-                              {(template.dias_semana || []).map((dia) => (
-                                <Badge key={dia} variant="outline" className="text-xs">
-                                  {DIAS_SEMANA.find(d => d.value === dia)?.short}
-                                </Badge>
-                              ))}
                             </div>
                           </div>
                         </div>

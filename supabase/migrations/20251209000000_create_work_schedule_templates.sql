@@ -2,6 +2,7 @@
 -- MIGRAÇÃO: Criar tabela de templates de jornada global
 -- Data: 2025-12-09
 -- Descrição: Templates de jornada flexíveis baseados em carga horária
+-- Horários e dias são definidos ao atribuir à colaboradora
 -- ============================================================================
 
 -- Criar tabela de templates de jornada
@@ -10,15 +11,9 @@ CREATE TABLE IF NOT EXISTS sistemaretiradas.work_schedule_templates (
     admin_id UUID NOT NULL REFERENCES sistemaretiradas.profiles(id) ON DELETE CASCADE,
     nome VARCHAR(100) NOT NULL,
     descricao TEXT,
-    -- Campos flexíveis (carga horária em vez de horários fixos)
-    carga_horaria_diaria NUMERIC(4,2) NOT NULL DEFAULT 8.0,
+    -- Campos flexíveis (apenas carga horária e intervalo)
+    carga_horaria_diaria NUMERIC(4,2) NOT NULL DEFAULT 6.0,
     tempo_intervalo_minutos INTEGER NOT NULL DEFAULT 60,
-    dias_semana INTEGER[] NOT NULL DEFAULT '{1,2,3,4,5}',
-    -- Campos legados (mantidos para compatibilidade, mas opcionais)
-    hora_entrada TIME,
-    hora_intervalo_saida TIME,
-    hora_intervalo_retorno TIME,
-    hora_saida TIME,
     is_global BOOLEAN DEFAULT true,
     ativo BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -73,7 +68,6 @@ USING (
 );
 
 -- Comentários
-COMMENT ON TABLE sistemaretiradas.work_schedule_templates IS 'Templates flexíveis de jornada de trabalho baseados em carga horária';
+COMMENT ON TABLE sistemaretiradas.work_schedule_templates IS 'Templates flexíveis de jornada - apenas carga horária e intervalo, horários/dias definidos por colaboradora';
 COMMENT ON COLUMN sistemaretiradas.work_schedule_templates.carga_horaria_diaria IS 'Carga horária diária em horas (ex: 6.0 para 6 horas)';
 COMMENT ON COLUMN sistemaretiradas.work_schedule_templates.tempo_intervalo_minutos IS 'Tempo de intervalo em minutos (ex: 60 para 1 hora)';
-COMMENT ON COLUMN sistemaretiradas.work_schedule_templates.dias_semana IS 'Dias da semana (0=Dom, 1=Seg, ..., 6=Sab)';
