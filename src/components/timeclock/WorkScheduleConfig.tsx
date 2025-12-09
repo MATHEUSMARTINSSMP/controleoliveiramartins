@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Clock, Plus, Edit, Trash2, Globe, UserCheck, Copy } from 'lucide-react';
 import { toast } from 'sonner';
+import { HoursBalanceView } from './HoursBalanceView';
 
 interface WorkSchedule {
   id: string;
@@ -542,7 +543,7 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
   return (
     <div className="space-y-4">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-2">
+        <TabsList className="grid grid-cols-3">
           <TabsTrigger value="schedules" className="flex items-center gap-2" data-testid="tab-schedules">
             <UserCheck className="h-4 w-4" />
             <span className="hidden sm:inline">Jornadas</span>
@@ -550,6 +551,10 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
           <TabsTrigger value="templates" className="flex items-center gap-2" data-testid="tab-templates">
             <Globe className="h-4 w-4" />
             <span className="hidden sm:inline">Templates Globais</span>
+          </TabsTrigger>
+          <TabsTrigger value="banco-horas" className="flex items-center gap-2" data-testid="tab-banco-horas">
+            <Clock className="h-4 w-4" />
+            <span className="hidden sm:inline">Banco de Horas</span>
           </TabsTrigger>
         </TabsList>
 
@@ -1113,6 +1118,10 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="banco-horas" className="mt-4">
+          <HoursBalanceView storeId={storeId} isAdmin={true} />
         </TabsContent>
       </Tabs>
     </div>

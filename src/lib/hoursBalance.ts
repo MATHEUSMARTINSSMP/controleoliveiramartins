@@ -149,7 +149,7 @@ export function formatMinutesToHours(minutos: number): string {
   const horas = Math.floor(absMinutos / 60);
   const mins = absMinutos % 60;
   const sinal = minutos < 0 ? '-' : '+';
-  return `${sinal}${horas}h${mins.toString().padStart(2, '0')}min`;
+  return `${sinal}${horas.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
 }
 
 export async function getMonthlyBalance(
