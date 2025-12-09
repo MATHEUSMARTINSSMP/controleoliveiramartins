@@ -433,20 +433,18 @@ export const StoreTaskAlertsManager = () => {
       e.stopPropagation();
     }
     console.log('[StoreTaskAlertsManager] addRecipient chamado');
-    setFormData(prev => {
-      const newRecipient = {
-        phone: '',
-        name: '',
-        ativo: true,
-        tempId: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      };
-      const updatedRecipients = [...prev.recipients, newRecipient];
-      console.log('DEBUG: Adding recipient', { newRecipient });
-      return {
-        ...prev,
-        recipients: updatedRecipients
-      };
-    });
+    setFormData(prev => ({
+      ...prev,
+      recipients: [
+        ...prev.recipients,
+        {
+          phone: '',
+          name: '',
+          ativo: true,
+          tempId: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        }
+      ]
+    }));
   };
 
   const removeRecipient = (index: number) => {
@@ -670,7 +668,7 @@ export const StoreTaskAlertsManager = () => {
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 min-h-0 pr-4">
+          <div className="flex-1 overflow-y-auto pr-4 min-h-0">
             <div className="space-y-6 py-4">
               <div className="space-y-2">
                 <Label htmlFor="nome">Nome da Tarefa *</Label>
@@ -829,16 +827,11 @@ export const StoreTaskAlertsManager = () => {
                   </Button>
                 </div>
                 <div className="space-y-3">
-                  {formData.recipients.length === 0 && (
-                    <p className="text-sm text-muted-foreground">Nenhum destinatário adicionado</p>
-                  )}
-                  {(() => { console.log('DEBUG: Rendering recipients list', formData.recipients); return null; })()}
-                  <div className="space-y-3 min-h-[50px] border border-dashed border-blue-300 p-2">
+                  <div className="space-y-3">
                     {formData.recipients.map((recipient, index) => {
                       const recipientKey = recipient.id || recipient.tempId || `recipient-${index}`;
-                      console.log(`DEBUG: Rendering recipient item ${index}`, recipient);
                       return (
-                        <div key={recipientKey} className="flex gap-2 items-start border-2 border-red-500 p-2 rounded mb-2">
+                        <div key={recipientKey} className="flex gap-2 items-start">
                           <div className="flex-1 space-y-2">
                             <Input
                               placeholder="DDD + Numero (ex: 96981113307)"
@@ -887,7 +880,8 @@ export const StoreTaskAlertsManager = () => {
                 <Label htmlFor="ativo">Alerta ativo</Label>
               </div>
             </div>
-          </ScrollArea>
+          </div>
+
 
           <DialogFooter className="shrink-0 pt-4 border-t mt-2">
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving} data-testid="button-cancel-task">
@@ -909,7 +903,7 @@ export const StoreTaskAlertsManager = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 };
 
