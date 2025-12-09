@@ -23,19 +23,11 @@
     Content-Type = "application/javascript; charset=utf-8"
     Cache-Control = "public, max-age=31536000, immutable"
 
-# Redirecionamento para SPA - apenas para HTML (não aplicar para arquivos estáticos)
+# Redirecionamento para SPA - apenas para HTML
+# O Netlify automaticamente não redireciona arquivos estáticos (JS, CSS, imagens, etc)
 [[redirects]]
   from = "/*"
   to = "/index.html"
-  status = 200
-  force = false
-  # Não aplicar para arquivos estáticos e JS
-  conditions = {Role = ["admin"], Country = ["!*"]}
-  
-# Garantir que arquivos JS não sejam redirecionados
-[[redirects]]
-  from = "/assets/*.js"
-  to = "/assets/:splat.js"
   status = 200
   force = false
 
