@@ -80,7 +80,7 @@ export function useStoreSettings(storeId: string | null | undefined) {
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, name, cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo')
+        .select('id, name, cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo, ajustes_condicionais_ativo')
         .eq('id', storeId)
         .maybeSingle(); // ✅ Usar maybeSingle() para evitar erro quando não encontrar
 
