@@ -1023,7 +1023,13 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
                           <div>
                             <div className="text-sm text-muted-foreground">Tempo total na empresa</div>
                             <div className="text-lg font-semibold">
-                              {(templateFormData.carga_horaria_diaria + templateFormData.tempo_intervalo_minutos / 60).toFixed(1)}h
+                              {(() => {
+                                const totalHoras = templateFormData.carga_horaria_diaria;
+                                const totalMinutos = templateFormData.tempo_intervalo_minutos;
+                                const horas = Math.floor(totalHoras);
+                                const minutos = totalMinutos;
+                                return `${horas}:${minutos.toString().padStart(2, '0')}`;
+                              })()}
                             </div>
                           </div>
                         </div>

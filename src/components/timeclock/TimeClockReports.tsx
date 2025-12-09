@@ -193,7 +193,8 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
 
       if (isWorkDay) {
         if (schedule.carga_horaria_diaria) {
-          horasEsperadas = schedule.carga_horaria_diaria;
+          // carga_horaria_diaria está em HORAS, converter para MINUTOS
+          horasEsperadas = schedule.carga_horaria_diaria * 60;
         } else if (schedule.hora_entrada && schedule.hora_saida) {
           const [entradaH, entradaM] = schedule.hora_entrada.split(':').map(Number);
           const [saidaH, saidaM] = schedule.hora_saida.split(':').map(Number);
