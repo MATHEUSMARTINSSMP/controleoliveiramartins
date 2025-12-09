@@ -17,11 +17,21 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  supabase_url TEXT := 'https://ljcqoxpevrckwwsctxhb.supabase.co';
+  supabase_url TEXT;
   service_role_key TEXT;
   response_status INT;
   response_body TEXT;
 BEGIN
+  -- Buscar URL do Supabase da tabela de configuração
+  SELECT value INTO supabase_url
+  FROM sistemaretiradas.app_config
+  WHERE key = 'supabase_url'
+  LIMIT 1;
+  
+  IF supabase_url IS NULL OR supabase_url = '' THEN
+    RAISE EXCEPTION 'Supabase URL não configurada. Execute: INSERT INTO sistemaretiradas.app_config (key, value) VALUES (''supabase_url'', ''SUA_URL_AQUI'');';
+  END IF;
+  
   -- Buscar Service Role Key da tabela de configuração
   SELECT value INTO service_role_key
   FROM sistemaretiradas.app_config

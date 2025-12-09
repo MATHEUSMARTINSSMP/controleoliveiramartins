@@ -45,17 +45,8 @@ BEGIN
     LIMIT 1;
     
     IF v_url IS NULL OR v_url = '' THEN
-        INSERT INTO sistemaretiradas.app_config (key, value, description)
-        VALUES (
-            'supabase_url',
-            'https://kktsbnrnlnzyofupegjc.supabase.co',
-            'URL do projeto Supabase para Edge Functions'
-        )
-        ON CONFLICT (key) DO UPDATE SET
-            value = EXCLUDED.value,
-            updated_at = NOW();
-        
-        RAISE NOTICE '✅ Configuração supabase_url adicionada/atualizada';
+        RAISE WARNING '❌ ATENÇÃO: supabase_url não configurada!';
+        RAISE WARNING '   Execute: INSERT INTO sistemaretiradas.app_config (key, value, description) VALUES (''supabase_url'', ''SUA_URL_AQUI'', ''URL do projeto Supabase para Edge Functions'');';
     END IF;
     
     -- Verificar Service Role Key
@@ -97,9 +88,9 @@ BEGIN
   WHERE key = 'supabase_service_role_key'
   LIMIT 1;
   
-  -- Fallback para URL
+  -- Validar que URL está configurada
   IF supabase_url IS NULL OR supabase_url = '' THEN
-    supabase_url := 'https://kktsbnrnlnzyofupegjc.supabase.co';
+    RAISE EXCEPTION 'Supabase URL não configurada. Execute: INSERT INTO sistemaretiradas.app_config (key, value) VALUES (''supabase_url'', ''SUA_URL_AQUI'');';
   END IF;
   
   -- Validar Service Role Key

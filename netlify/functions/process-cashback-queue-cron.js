@@ -6,8 +6,12 @@
  * A Edge Function usa a mesma lógica de envio WhatsApp que já existe
  */
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://kktsbnrnlnzyofupegjc.supabase.co';
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl) {
+    throw new Error('Missing SUPABASE_URL or VITE_SUPABASE_URL environment variable');
+}
 
 if (!supabaseServiceKey) {
     throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY environment variable');

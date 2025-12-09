@@ -31,9 +31,9 @@ BEGIN
   WHERE key = 'supabase_service_role_key'
   LIMIT 1;
   
-  -- Fallback: usar valores padrão se não estiverem configurados
+  -- Validar que URL está configurada
   IF supabase_url IS NULL OR supabase_url = '' THEN
-    supabase_url := 'https://kktsbnrnlnzyofupegjc.supabase.co';
+    RAISE EXCEPTION 'Supabase URL não configurada. Execute: INSERT INTO sistemaretiradas.app_config (key, value) VALUES (''supabase_url'', ''SUA_URL_AQUI'');';
   END IF;
   
   IF service_role_key IS NULL OR service_role_key = '' THEN
@@ -153,4 +153,5 @@ ORDER BY jobname;
 SELECT 
     'VERIFICAÇÃO FINAL' as status,
     'Execute DIAGNOSTICAR_SYNC_ERP.sql para verificar se tudo está funcionando' as proximo_passo;
+
 

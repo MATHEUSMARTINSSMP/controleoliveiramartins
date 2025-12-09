@@ -49,8 +49,18 @@ BEGIN
         );
     END IF;
 
-    -- URL da Edge Function
-    v_url := 'https://kktsbnrnlnzyofupegjc.supabase.co/functions/v1/process-cashback-queue';
+    -- URL da Edge Function (buscar de app_config ou usar variável de ambiente)
+    SELECT value INTO v_url FROM sistemaretiradas.app_config WHERE key = 'supabase_url' LIMIT 1;
+    
+    IF v_url IS NULL OR v_url = '' THEN
+        -- Tentar usar variável de ambiente do Supabase (disponível em Edge Functions)
+        v_url := current_setting('app.supabase_url', true);
+        IF v_url IS NULL OR v_url = '' THEN
+            RAISE EXCEPTION 'Supabase URL não configurada. Configure em app_config ou como variável de ambiente.';
+        END IF;
+    END IF;
+    
+    v_url := v_url || '/functions/v1/process-cashback-queue';
 
     -- Tentar chamar via http extension (requer extensão http)
     BEGIN
