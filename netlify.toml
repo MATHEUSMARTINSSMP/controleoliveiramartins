@@ -15,9 +15,18 @@
   NODE_VERSION = "18"
 
 # Secrets scanning configuration
-# NOTA: Configure as seguintes variáveis de ambiente no Netlify Dashboard:
-# SECRETS_SCAN_OMIT_PATHS = "attached_assets/**,sql_migrations_archive/**,dist/**,*verificar*.js,*test*.js,*check*.js,*varredura*.js,*verify*.js,processar-fila-whatsapp.js"
-# SECRETS_SCAN_OMIT_KEYS = "SUPABASE_ANON_KEY,VITE_SUPABASE_ANON_KEY"
-# 
-# OU desabilite o secrets scanning completamente (não recomendado):
+# ⚠️ IMPORTANTE: O Netlify detecta VITE_SUPABASE_PUBLISHABLE_KEY no build (isso é NORMAL e ESPERADO)
+# A chave é PÚBLICA e DEVE estar no bundle do frontend para funcionar.
+#
+# Para resolver o erro de build, configure estas variáveis de ambiente no Netlify Dashboard:
+# https://app.netlify.com/sites/eleveaone/configuration/env
+#
+# Opção 1 (Recomendado): Ignorar chaves específicas
+# SECRETS_SCAN_OMIT_KEYS = "SUPABASE_ANON_KEY,VITE_SUPABASE_ANON_KEY,VITE_SUPABASE_PUBLISHABLE_KEY"
+# SECRETS_SCAN_OMIT_PATHS = "dist/**"
+#
+# Opção 2: Executar o script automático
+# bash configurar-netlify-secrets.sh
+#
+# Opção 3 (Não recomendado): Desabilitar completamente
 # SECRETS_SCAN_ENABLED = "false"
