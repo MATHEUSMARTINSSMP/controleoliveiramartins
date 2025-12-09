@@ -56,8 +56,9 @@ DECLARE
 BEGIN
     -- CORREÇÃO: Converter para horário de Brasília (UTC-3)
     -- Os horários configurados são sempre em horário de Brasília
-    -- NOW() retorna timestamp com timezone, então convertemos para America/Sao_Paulo
-    v_current_timestamp_brasilia := (NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'America/Sao_Paulo';
+    -- NOW() retorna TIMESTAMPTZ (com timezone), então convertemos diretamente para America/Sao_Paulo
+    -- A sintaxe correta: NOW() AT TIME ZONE 'America/Sao_Paulo' retorna timestamp sem timezone no horário local
+    v_current_timestamp_brasilia := NOW() AT TIME ZONE 'America/Sao_Paulo';
     v_current_time := v_current_timestamp_brasilia::TIME;
     v_current_day := EXTRACT(DOW FROM v_current_timestamp_brasilia::DATE);
     
