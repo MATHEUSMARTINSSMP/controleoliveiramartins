@@ -183,6 +183,9 @@ export const StoreTaskAlertsManager = () => {
               }))
           }));
 
+        // CORREÇÃO: O limite é de 10 mensagens POR DIA, não por semana
+        // Cada alerta envia mensagens apenas nos horários configurados, independente dos dias
+        // O total_envios_hoje já está correto (soma dos envios_hoje de cada alerta)
         const totalEnvios = storeTasks.reduce((sum, t) => sum + (t.envios_hoje || 0), 0);
 
         return {
@@ -258,6 +261,34 @@ export const StoreTaskAlertsManager = () => {
     const validRecipients = formData.recipients.filter(r => r.phone.trim());
     if (validRecipients.length === 0) {
       toast.error('Adicione pelo menos um destinatário');
+      return;
+    }
+
+    // CORREÇÃO: Validar limite ANTES de salvar
+    // O limite é de 10 mensagens POR DIA, não por semana
+    // Cada alerta envia mensagens apenas nos horários configurados (ex: 2 horários = 2 mensagens/dia)
+    // Não devemos multiplicar por dias da semana
+    const currentStore = storesWithTasks.find(s => s.id === selectedStoreId);
+    const mensagensAtuais = currentStore?.total_envios_hoje || 0;
+    
+    // Calcular quantas mensagens este alerta adicionará POR DIA
+    // CORREÇÃO: Contar apenas os horários, não multiplicar por dias
+    const mensagensNovoAlerta = formData.horarios.length * validRecipients.length;
+    
+    // Se estiver editando, remover as mensagens do alerta antigo
+    let mensagensAlertaAntigo = 0;
+    if (editingTask) {
+      // Contar mensagens do alerta antigo (horários × destinatários)
+      const recipientsAntigos = editingTask.recipients.filter(r => r.ativo).length;
+      mensagensAlertaAntigo = (editingTask.horarios?.length || 0) * recipientsAntigos;
+    }
+    
+    // Calcular total após adicionar/atualizar este alerta
+    const totalAposAlteracao = mensagensAtuais - mensagensAlertaAntigo + mensagensNovoAlerta;
+    
+    if (totalAposAlteracao > 10) {
+      toast.error(`Limite de 10 mensagens por dia por loja ultrapassado. Mensagens atuais: ${mensagensAtuais}, tentando adicionar: ${mensagensNovoAlerta}`);
+      setSaving(false);
       return;
     }
 
@@ -476,6 +507,104 @@ export const StoreTaskAlertsManager = () => {
     return dias.map(d => DIAS_SEMANA.find(ds => ds.value === d)?.label || d).join(', ');
   };
 
+  const handleTestAlertSystem = async () => {
+    try {
+      setSaving(true);
+      toast.info('🧪 Testando sistema de alertas...');
+
+      // 1. Chamar função de diagnóstico
+      const { data: diagnosticData, error: diagnosticError } = await supabase.rpc(
+        'diagnosticar_sistema_alertas'
+      );
+      
+      const diagnostic = diagnosticData as any;
+
+      if (diagnosticError) {
+        console.error('Erro no diagnóstico:', diagnosticError);
+        toast.error('Erro ao diagnosticar: ' + diagnosticError.message);
+        return;
+      }
+
+      console.log('📊 Diagnóstico:', diagnostic);
+
+      // 2. Tentar processar alertas manualmente
+      const { data: processData, error: processError } = await supabase.rpc(
+        'process_store_task_alerts'
+      );
+      
+      const processResult = processData as any;
+
+      if (processError) {
+        console.error('Erro ao processar:', processError);
+        toast.error('Erro ao processar alertas: ' + processError.message);
+        return;
+      }
+
+      console.log('⚙️ Resultado do processamento:', processResult);
+
+      // 3. Buscar informações da fila
+      const { data: queueItems, error: queueError } = await supabase
+        .schema('sistemaretiradas')
+        .from('store_notification_queue')
+        .select('*')
+        .eq('status', 'PENDING')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (queueError) {
+        console.error('Erro ao buscar fila:', queueError);
+      }
+
+      // 4. Mostrar resultados
+      const messages = [];
+      messages.push(`🕐 Hora atual (Brasília): ${diagnostic?.current_hour_minute || 'N/A'}`);
+      messages.push(`📅 Dia da semana: ${diagnostic?.current_day_name || 'N/A'} (${diagnostic?.current_day || 'N/A'})`);
+      messages.push(`✅ Alertas ativos: ${diagnostic?.active_alerts_count || 0}`);
+      messages.push(`📤 Mensagens na fila: ${diagnostic?.pending_queue_count || 0}`);
+      messages.push(`✅ Enviadas hoje: ${diagnostic?.sent_today_count || 0}`);
+      messages.push(`❌ Falhadas hoje: ${diagnostic?.failed_today_count || 0}`);
+      
+      if (diagnostic?.alerts_that_should_trigger_now) {
+        const alertsNow = diagnostic.alerts_that_should_trigger_now;
+        if (Array.isArray(alertsNow) && alertsNow.length > 0) {
+          messages.push(`\n🚨 Alertas que deveriam disparar AGORA (${alertsNow.length}):`);
+          alertsNow.forEach((alert: any) => {
+            messages.push(`  • ${alert.alert_name} - ${alert.store_name} (${alert.recipients_count} destinatários)`);
+          });
+        } else {
+          messages.push(`\n⚠️ Nenhum alerta configurado para disparar agora`);
+        }
+      }
+
+      if (processResult?.queued_count > 0) {
+        messages.push(`\n✅ ${processResult.queued_count} mensagem(ns) inserida(s) na fila`);
+      }
+
+      if (queueItems && queueItems.length > 0) {
+        messages.push(`\n📋 Últimas mensagens na fila:`);
+        queueItems.slice(0, 5).forEach((item: any) => {
+          messages.push(`  • ${item.phone} - ${item.status}`);
+        });
+      }
+
+      toast.success(
+        <div className="space-y-1">
+          <div className="font-bold">Resultado do Teste:</div>
+          <div className="text-xs whitespace-pre-wrap">{messages.join('\n')}</div>
+        </div>,
+        { duration: 10000 }
+      );
+
+      // Atualizar dados
+      fetchStoresAndTasks();
+    } catch (error: any) {
+      console.error('Erro ao testar:', error);
+      toast.error('Erro ao testar sistema: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -490,7 +619,7 @@ export const StoreTaskAlertsManager = () => {
   }
 
   return (
-    <div className="space-y-6">
+      <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
@@ -501,6 +630,24 @@ export const StoreTaskAlertsManager = () => {
             Configure tarefas programadas para envio via WhatsApp (limite: 10/dia por loja)
           </p>
         </div>
+        <Button
+          variant="outline"
+          onClick={handleTestAlertSystem}
+          disabled={saving || loading}
+          className="gap-2"
+        >
+          {saving ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Testando...
+            </>
+          ) : (
+            <>
+              <Settings className="h-4 w-4" />
+              Testar Sistema
+            </>
+          )}
+        </Button>
       </div>
 
       {storesWithTasks.length === 0 ? (

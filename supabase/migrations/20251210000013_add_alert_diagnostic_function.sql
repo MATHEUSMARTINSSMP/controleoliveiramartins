@@ -13,6 +13,7 @@ DECLARE
     v_current_time TIME;
     v_current_day INTEGER;
     v_current_hour_minute TEXT;
+    v_current_timestamp_brasilia TIMESTAMPTZ;
     v_active_alerts_count INTEGER;
     v_pending_queue_count INTEGER;
     v_sent_today_count INTEGER;
@@ -20,10 +21,12 @@ DECLARE
     v_stores_with_whatsapp INTEGER;
     v_cron_job_exists BOOLEAN;
 BEGIN
-    -- Obter informações atuais
-    v_current_time := CURRENT_TIME;
-    v_current_day := EXTRACT(DOW FROM CURRENT_DATE);
-    v_current_hour_minute := TO_CHAR(CURRENT_TIME, 'HH24:MI');
+    -- CORREÇÃO: Converter para horário de Brasília (UTC-3)
+    -- Os horários configurados são sempre em horário de Brasília
+    v_current_timestamp_brasilia := (NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'America/Sao_Paulo';
+    v_current_time := v_current_timestamp_brasilia::TIME;
+    v_current_day := EXTRACT(DOW FROM v_current_timestamp_brasilia::DATE);
+    v_current_hour_minute := TO_CHAR(v_current_time, 'HH24:MI');
     
     -- Contar alertas ativos
     SELECT COUNT(*) INTO v_active_alerts_count
