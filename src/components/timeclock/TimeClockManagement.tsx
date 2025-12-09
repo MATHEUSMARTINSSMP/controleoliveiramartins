@@ -16,7 +16,8 @@ import { HoursBalanceManagement } from './HoursBalanceManagement';
 import { TimeClockChangeRequests } from './TimeClockChangeRequests';
 import { TimeClockReports } from './TimeClockReports';
 import { TimeClockNotifications } from './TimeClockNotifications';
-import { Clock, Calendar, TrendingUp, FileEdit, BarChart3, AlertCircle, Bell } from 'lucide-react';
+import { ManualTimeClockEntry } from './ManualTimeClockEntry';
+import { Clock, Calendar, TrendingUp, FileEdit, BarChart3, AlertCircle, Bell, UserPlus } from 'lucide-react';
 
 interface TimeClockManagementProps {
   storeId?: string | null;
@@ -112,6 +113,10 @@ export function TimeClockManagement({ storeId: propStoreId, stores, showStoreSel
               <Bell className="h-3 w-3" />
               <span className="hidden sm:inline">Notificacoes</span>
             </TabsTrigger>
+            <TabsTrigger value="lancamento-manual" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[70px] flex items-center justify-center gap-1" data-testid="tab-lancamento-manual">
+              <UserPlus className="h-3 w-3" />
+              <span className="hidden sm:inline">Lançamento</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="jornada">
@@ -136,6 +141,10 @@ export function TimeClockManagement({ storeId: propStoreId, stores, showStoreSel
 
           <TabsContent value="notificacoes">
             <TimeClockNotifications storeId={storeId} />
+          </TabsContent>
+
+          <TabsContent value="lancamento-manual">
+            <ManualTimeClockEntry storeId={storeId} />
           </TabsContent>
         </Tabs>
       ) : (

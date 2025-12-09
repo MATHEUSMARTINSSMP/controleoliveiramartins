@@ -155,7 +155,7 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
           .from('time_clock_records')
           .select(`
             *,
-            assinaturas:time_clock_digital_signatures(
+            assinaturas:time_clock_digital_signatures!time_clock_digital_signatures_time_clock_record_id_fkey(
               id,
               assinado_em
             )
@@ -215,6 +215,18 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
       const saidaIntervalo = dayRecords.find(r => r.tipo_registro === 'SAIDA_INTERVALO');
       const entradaIntervalo = dayRecords.find(r => r.tipo_registro === 'ENTRADA_INTERVALO');
       const saida = dayRecords.find(r => r.tipo_registro === 'SAIDA');
+      
+      // Verificar se são lançamentos manuais
+      const entradaManual = entrada?.lancamento_manual || false;
+      const saidaIntervaloManual = saidaIntervalo?.lancamento_manual || false;
+      const entradaIntervaloManual = entradaIntervalo?.lancamento_manual || false;
+      const saidaManual = saida?.lancamento_manual || false;
+      
+      // Verificar se têm assinatura digital
+      const entradaAssinada = entrada?.assinatura_digital !== null && entrada?.assinatura_digital !== undefined;
+      const saidaIntervaloAssinada = saidaIntervalo?.assinatura_digital !== null && saidaIntervalo?.assinatura_digital !== undefined;
+      const entradaIntervaloAssinada = entradaIntervalo?.assinatura_digital !== null && entradaIntervalo?.assinatura_digital !== undefined;
+      const saidaAssinada = saida?.assinatura_digital !== null && saida?.assinatura_digital !== undefined;
 
       let horasTrabalhadas = 0;
       let horasEsperadas = 0;
@@ -272,6 +284,14 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
         horasEsperadas,
         saldo: horasTrabalhadas - horasEsperadas,
         status,
+        entradaManual,
+        saidaIntervaloManual,
+        entradaIntervaloManual,
+        saidaManual,
+        entradaAssinada,
+        saidaIntervaloAssinada,
+        entradaIntervaloAssinada,
+        saidaAssinada,
       } as DailyReport;
     });
   }, [records, schedule, reportType, selectedMonth, weekStart, customStart, customEnd]);
@@ -347,6 +367,22 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
     toast.success('Relatorio exportado com sucesso');
   };
 
+  const formatTimeWithIndicators = (time: string | undefined, isManual: boolean, isSigned: boolean) => {
+    if (!time) return '-';
+    let result = time;
+    const indicators: string[] = [];
+    if (isManual) {
+      indicators.push('(M)');
+    }
+    if (isSigned) {
+      indicators.push('✓');
+    }
+    if (indicators.length > 0) {
+      result += ' ' + indicators.join(' ');
+    }
+    return result;
+  };
+
   const handleExportPDF = () => {
     if (dailyReports.length === 0) {
       toast.error('Nao ha dados para exportar');
@@ -356,41 +392,83 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
     const colaboradora = colaboradoras.find(c => c.id === selectedColaboradora);
     const { start, end } = getDateRange();
     
-    const doc = new jsPDF('landscape');
+    // Formato RETRATO (portrait) para caber um mês inteiro
+    const doc = new jsPDF('portrait', 'mm', 'a4');
     
+    // Cabeçalho
     doc.setFontSize(16);
-    doc.text('RELATORIO DE PONTO', 14, 20);
+    doc.text('RELATORIO DE PONTO', 14, 15);
     doc.setFontSize(10);
-    doc.text(`Colaboradora: ${colaboradora?.name || 'N/A'}`, 14, 28);
-    doc.text(`Periodo: ${format(start, 'dd/MM/yyyy')} a ${format(end, 'dd/MM/yyyy')}`, 14, 34);
+    doc.text(`Colaboradora: ${colaboradora?.name || 'N/A'}`, 14, 22);
+    doc.text(`Periodo: ${format(start, 'dd/MM/yyyy')} a ${format(end, 'dd/MM/yyyy')}`, 14, 28);
+    
+    // Legenda
+    doc.setFontSize(8);
+    doc.text('Legenda: (Manual) = Lançamento manual pelo admin | ✓ Assinado = Assinatura digital confirmada', 14, 34);
 
-    const tableData = dailyReports.map(d => [
-      format(d.date, 'dd/MM/yyyy'),
-      d.dayOfWeek.substring(0, 3),
-      d.entrada || '-',
-      d.saidaIntervalo || '-',
-      d.entradaIntervalo || '-',
-      d.saida || '-',
-      formatMinutes(d.horasTrabalhadas),
-      formatMinutes(d.horasEsperadas),
-      formatMinutes(d.saldo),
-      d.status.toUpperCase(),
-    ]);
+    // Preparar dados da tabela com indicadores
+    const tableData = dailyReports.map(d => {
+      const entradaStr = formatTimeWithIndicators(d.entrada, d.entradaManual || false, d.entradaAssinada || false);
+      const saidaIntStr = formatTimeWithIndicators(d.saidaIntervalo, d.saidaIntervaloManual || false, d.saidaIntervaloAssinada || false);
+      const entradaIntStr = formatTimeWithIndicators(d.entradaIntervalo, d.entradaIntervaloManual || false, d.entradaIntervaloAssinada || false);
+      const saidaStr = formatTimeWithIndicators(d.saida, d.saidaManual || false, d.saidaAssinada || false);
+      
+      return [
+        format(d.date, 'dd/MM'),
+        d.dayOfWeek.substring(0, 3).toUpperCase(),
+        entradaStr,
+        saidaIntStr,
+        entradaIntStr,
+        saidaStr,
+        formatMinutes(d.horasTrabalhadas),
+        formatMinutes(d.horasEsperadas),
+        formatMinutes(d.saldo),
+        d.status.toUpperCase(),
+      ];
+    });
 
+    // Configurar tabela compacta para caber um mês inteiro
     autoTable(doc, {
       head: [['Data', 'Dia', 'Entrada', 'S. Int.', 'R. Int.', 'Saida', 'Trab.', 'Esp.', 'Saldo', 'Status']],
       body: tableData,
       startY: 40,
       theme: 'striped',
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [100, 100, 100] },
+      styles: { 
+        fontSize: 7,
+        cellPadding: 1.5,
+        lineWidth: 0.1,
+      },
+      headStyles: { 
+        fillColor: [100, 100, 100],
+        fontSize: 7,
+        fontStyle: 'bold',
+      },
+      columnStyles: {
+        0: { cellWidth: 18 }, // Data
+        1: { cellWidth: 15 }, // Dia
+        2: { cellWidth: 25 }, // Entrada
+        3: { cellWidth: 20 }, // S. Int.
+        4: { cellWidth: 20 }, // R. Int.
+        5: { cellWidth: 25 }, // Saida
+        6: { cellWidth: 20 }, // Trab.
+        7: { cellWidth: 20 }, // Esp.
+        8: { cellWidth: 20 }, // Saldo
+        9: { cellWidth: 20 }, // Status
+      },
+      margin: { top: 40, left: 14, right: 14 },
+      tableWidth: 'auto',
     });
 
-    const finalY = (doc as any).lastAutoTable.finalY + 10;
-    doc.setFontSize(10);
+    const finalY = (doc as any).lastAutoTable.finalY + 8;
+    doc.setFontSize(9);
     doc.text(`Total Trabalhado: ${formatMinutes(totals.totalTrabalhado)}`, 14, finalY);
-    doc.text(`Total Esperado: ${formatMinutes(totals.totalEsperado)}`, 14, finalY + 6);
-    doc.text(`Saldo: ${formatMinutes(totals.saldo)}`, 14, finalY + 12);
+    doc.text(`Total Esperado: ${formatMinutes(totals.totalEsperado)}`, 14, finalY + 5);
+    doc.text(`Saldo: ${formatMinutes(totals.saldo)}`, 14, finalY + 10);
+    
+    // Rodapé com informações de conformidade
+    doc.setFontSize(7);
+    const pageHeight = doc.internal.pageSize.height;
+    doc.text('Conforme Portaria 671/2021 (REP-P) - Assinatura digital obrigatória para validade legal', 14, pageHeight - 10);
 
     doc.save(`ponto_${colaboradora?.name || 'colaboradora'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     toast.success('PDF exportado com sucesso');
@@ -584,10 +662,50 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
                         <TableCell className="capitalize text-xs">
                           {report.dayOfWeek.substring(0, 3)}
                         </TableCell>
-                        <TableCell>{report.entrada || '-'}</TableCell>
-                        <TableCell className="hidden sm:table-cell">{report.saidaIntervalo || '-'}</TableCell>
-                        <TableCell className="hidden sm:table-cell">{report.entradaIntervalo || '-'}</TableCell>
-                        <TableCell>{report.saida || '-'}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-0.5">
+                            {report.entrada || '-'}
+                            {report.entradaManual && (
+                              <span className="text-[10px] text-amber-600">(Manual)</span>
+                            )}
+                            {report.entradaAssinada && (
+                              <span className="text-[10px] text-emerald-600">✓ Assinado</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          <div className="flex flex-col gap-0.5">
+                            {report.saidaIntervalo || '-'}
+                            {report.saidaIntervaloManual && (
+                              <span className="text-[10px] text-amber-600">(Manual)</span>
+                            )}
+                            {report.saidaIntervaloAssinada && (
+                              <span className="text-[10px] text-emerald-600">✓ Assinado</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          <div className="flex flex-col gap-0.5">
+                            {report.entradaIntervalo || '-'}
+                            {report.entradaIntervaloManual && (
+                              <span className="text-[10px] text-amber-600">(Manual)</span>
+                            )}
+                            {report.entradaIntervaloAssinada && (
+                              <span className="text-[10px] text-emerald-600">✓ Assinado</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-0.5">
+                            {report.saida || '-'}
+                            {report.saidaManual && (
+                              <span className="text-[10px] text-amber-600">(Manual)</span>
+                            )}
+                            {report.saidaAssinada && (
+                              <span className="text-[10px] text-emerald-600">✓ Assinado</span>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>{formatMinutes(report.horasTrabalhadas)}</TableCell>
                         <TableCell className="hidden md:table-cell">{formatMinutes(report.horasEsperadas)}</TableCell>
                         <TableCell className={report.saldo >= 0 ? 'text-emerald-600' : 'text-destructive'}>
