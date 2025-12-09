@@ -11,13 +11,18 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Clock, Calendar, Download, FileSpreadsheet, FileText } from 'lucide-react';
+import { Loader2, Clock, Calendar, Download, FileSpreadsheet, FileText, FileEdit } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TimeClockHistoryProps {
   storeId: string;
@@ -38,6 +43,13 @@ export function TimeClockHistory({ storeId, colaboradoraId, showOnlyToday = fals
   const [endDate, setEndDate] = useState<string>(
     format(new Date(), 'yyyy-MM-dd')
   );
+  
+  // Estados para solicitação de alteração
+  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<any>(null);
+  const [newDateTime, setNewDateTime] = useState<string>('');
+  const [motivo, setMotivo] = useState<string>('');
+  const [submittingRequest, setSubmittingRequest] = useState(false);
 
   useEffect(() => {
     if (storeId && colaboradoraId) {
@@ -319,6 +331,7 @@ export function TimeClockHistory({ storeId, colaboradoraId, showOnlyToday = fals
                     <TableHead>Horário</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Observação</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -338,6 +351,22 @@ export function TimeClockHistory({ storeId, colaboradoraId, showOnlyToday = fals
                       <TableCell className="max-w-xs truncate">
                         {record.observacao || '-'}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedRecord(record);
+                            const recordDate = new Date(record.horario);
+                            setNewDateTime(format(recordDate, "yyyy-MM-dd'T'HH:mm"));
+                            setMotivo('');
+                            setRequestDialogOpen(true);
+                          }}
+                        >
+                          <FileEdit className="h-3 w-3 mr-1" />
+                          Solicitar Alteração
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -346,6 +375,135 @@ export function TimeClockHistory({ storeId, colaboradoraId, showOnlyToday = fals
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog de Solicitação de Alteração */}
+      <Dialog open={requestDialogOpen} onOpenChange={setRequestDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Solicitar Alteração de Registro</DialogTitle>
+            <DialogDescription>
+              Solicite a alteração do horário de um registro. A solicitação será analisada pelo administrador.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedRecord && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Tipo de Registro</p>
+                  <p className="font-medium">{getRecordTypeLabel(selectedRecord.tipo_registro)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Horário Atual</p>
+                  <p className="font-medium text-destructive">
+                    {format(new Date(selectedRecord.horario), 'dd/MM/yyyy HH:mm:ss')}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="newDateTime">Novo Horário *</Label>
+                <Input
+                  id="newDateTime"
+                  type="datetime-local"
+                  value={newDateTime}
+                  onChange={(e) => setNewDateTime(e.target.value)}
+                  disabled={submittingRequest}
+                  required
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Selecione a data e hora corretas para este registro
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="motivo">Motivo da Solicitação *</Label>
+                <Textarea
+                  id="motivo"
+                  value={motivo}
+                  onChange={(e) => setMotivo(e.target.value)}
+                  placeholder="Ex: Esqueci de bater o ponto pela manhã, cheguei às 8h mas registrei às 9h..."
+                  disabled={submittingRequest}
+                  rows={4}
+                  required
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Descreva o motivo da alteração solicitada
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRequestDialogOpen(false);
+                setSelectedRecord(null);
+                setNewDateTime('');
+                setMotivo('');
+              }}
+              disabled={submittingRequest}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!selectedRecord || !newDateTime || !motivo.trim()) {
+                  toast.error('Preencha todos os campos obrigatórios');
+                  return;
+                }
+
+                try {
+                  setSubmittingRequest(true);
+
+                  const newDateTimeISO = new Date(newDateTime).toISOString();
+
+                  const { error } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('time_clock_change_requests')
+                    .insert({
+                      store_id: storeId,
+                      colaboradora_id: colaboradoraId,
+                      registro_original_id: selectedRecord.id,
+                      tipo_registro_original: selectedRecord.tipo_registro,
+                      horario_original: selectedRecord.horario,
+                      horario_solicitado: newDateTimeISO,
+                      motivo: motivo.trim(),
+                      status: 'PENDENTE',
+                    });
+
+                  if (error) throw error;
+
+                  toast.success('Solicitação de alteração enviada com sucesso! Aguarde a análise do administrador.');
+                  setRequestDialogOpen(false);
+                  setSelectedRecord(null);
+                  setNewDateTime('');
+                  setMotivo('');
+                } catch (err: any) {
+                  console.error('[TimeClockHistory] Erro ao criar solicitação:', err);
+                  toast.error('Erro ao enviar solicitação: ' + (err.message || 'Erro desconhecido'));
+                } finally {
+                  setSubmittingRequest(false);
+                }
+              }}
+              disabled={submittingRequest || !newDateTime || !motivo.trim()}
+            >
+              {submittingRequest ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <FileEdit className="mr-2 h-4 w-4" />
+                  Enviar Solicitação
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
