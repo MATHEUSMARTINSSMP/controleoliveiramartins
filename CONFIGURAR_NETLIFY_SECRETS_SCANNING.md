@@ -2,9 +2,55 @@
 
 ## ⚠️ Problema
 
-O Netlify está detectando `SUPABASE_ANON_KEY` no build output e falhando o deploy.
+O Netlify está detectando `SUPABASE_ANON_KEY` no build output (`dist/assets/`) e falhando o deploy.
 
-## ✅ Solução
+**IMPORTANTE:** `SUPABASE_ANON_KEY` é uma **chave pública** e é **esperada** no build output do frontend. Não representa risco de segurança.
+
+## ✅ Solução Rápida (Recomendada)
+
+### Opção 1: Via Netlify Dashboard (Mais Fácil)
+
+1. Acesse: **https://app.netlify.com/sites/eleveaone/configuration/env**
+2. Clique em **Add a variable**
+3. Adicione as seguintes variáveis:
+
+**Variável 1:**
+- **Key:** `SECRETS_SCAN_OMIT_KEYS`
+- **Value:** `SUPABASE_ANON_KEY,VITE_SUPABASE_ANON_KEY`
+- **Scopes:** ✅ Production, ✅ Deploy Previews, ✅ Branch Deploys
+
+**Variável 2 (Opcional):**
+- **Key:** `SECRETS_SCAN_OMIT_PATHS`
+- **Value:** `attached_assets/**,sql_migrations_archive/**,dist/**,*verificar*.js,*test*.js,*check*.js,*varredura*.js,*verify*.js,processar-fila-whatsapp.js`
+- **Scopes:** ✅ Production, ✅ Deploy Previews, ✅ Branch Deploys
+
+4. Clique em **Save**
+5. Vá em **Deploys** > **Trigger deploy** > **Deploy site**
+
+### Opção 2: Via Netlify CLI
+
+```bash
+# Instalar Netlify CLI (se não tiver)
+npm install -g netlify-cli
+
+# Fazer login
+netlify login
+
+# Configurar variáveis
+netlify env:set SECRETS_SCAN_OMIT_KEYS "SUPABASE_ANON_KEY,VITE_SUPABASE_ANON_KEY"
+netlify env:set SECRETS_SCAN_OMIT_PATHS "attached_assets/**,sql_migrations_archive/**,dist/**,*verificar*.js,*test*.js,*check*.js,*varredura*.js,*verify*.js,processar-fila-whatsapp.js"
+```
+
+### Opção 3: Desabilitar Secrets Scanning (Não Recomendado)
+
+Se preferir desabilitar completamente:
+
+- **Key:** `SECRETS_SCAN_ENABLED`
+- **Value:** `false`
+
+⚠️ **ATENÇÃO:** Isso desabilita a proteção contra secrets. Use apenas se necessário.
+
+## 📋 Passo a Passo Detalhado
 
 Configure as seguintes variáveis de ambiente no **Netlify Dashboard**:
 
