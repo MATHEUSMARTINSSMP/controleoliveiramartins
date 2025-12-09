@@ -94,7 +94,7 @@ exports.handler = async (event, context) => {
     console.log('Token generated, sending email to:', targetEmail);
 
     // Send email with token
-    const netlifyUrl = process.env.NETLIFY_URL || process.env.DEPLOY_PRIME_URL || 'https://controleinterno.netlify.app';
+    const netlifyUrl = process.env.NETLIFY_URL || process.env.DEPLOY_PRIME_URL || 'https://eleveaone.com.br';
     
     const emailResponse = await fetch(`${netlifyUrl}/.netlify/functions/send-pin-reset-email`, {
       method: 'POST',

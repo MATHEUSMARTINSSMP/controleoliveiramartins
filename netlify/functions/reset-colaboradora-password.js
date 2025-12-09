@@ -54,7 +54,7 @@ exports.handler = async (event, context) => {
       const netlifyUrl =
         process.env.NETLIFY_URL ||
         process.env.DEPLOY_PRIME_URL ||
-        'https://controleinterno.netlify.app';
+        'https://eleveaone.com.br';
       const emailResponse = await fetch(`${netlifyUrl}/.netlify/functions/send-password-reset-email`, {
         method: 'POST',
         headers: {

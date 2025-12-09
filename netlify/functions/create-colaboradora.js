@@ -248,7 +248,7 @@ exports.handler = async (event, context) => {
 
     // STEP 5: Send welcome email (non-blocking)
     try {
-      const netlifyUrl = process.env.NETLIFY_URL || process.env.DEPLOY_PRIME_URL || 'https://controleinterno.netlify.app';
+      const netlifyUrl = process.env.NETLIFY_URL || process.env.DEPLOY_PRIME_URL || 'https://eleveaone.com.br';
       await fetch(`${netlifyUrl}/.netlify/functions/send-welcome-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
