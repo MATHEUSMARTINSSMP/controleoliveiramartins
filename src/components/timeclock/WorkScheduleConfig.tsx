@@ -333,7 +333,6 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
             data_inicio: formData.data_inicio || null,
             data_fim: formData.data_fim || null,
             template_id: isTemplateMode ? selectedTemplateId : null,
-            is_custom: !isTemplateMode,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingSchedule.id);
@@ -361,7 +360,6 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
             data_inicio: formData.data_inicio || null,
             data_fim: formData.data_fim || null,
             template_id: isTemplateMode ? selectedTemplateId : null,
-            is_custom: !isTemplateMode,
           });
 
         if (error) throw error;
