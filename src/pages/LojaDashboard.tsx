@@ -3046,7 +3046,7 @@ export default function LojaDashboard() {
                 >
 
                     {/* DEBUG: Log dos estados antes de renderizar */}
-                    {process.env.NODE_ENV === 'development' && (
+                    {import.meta.env.DEV && (
                         <div className="p-2 bg-muted rounded text-xs">
                             <strong>DEBUG Módulos:</strong> cashback={String(cashbackAtivo)}, crm={String(crmAtivo)}, wishlist={String(wishlistAtivo)}, ponto={String(pontoAtivo)}, ajustes={String(ajustesCondicionaisAtivo)} | storeId={storeId || 'null'} | Condição: {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo || ajustesCondicionaisAtivo) ? 'TRUE' : 'FALSE'}
                         </div>
