@@ -291,10 +291,27 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
 
     try {
       setLoading(true);
-      const hora_entrada = `${formData.hora_entrada}:00`;
-      const hora_intervalo_saida = `${formData.hora_intervalo_saida}:00`;
-      const hora_intervalo_retorno = `${formData.hora_intervalo_retorno}:00`;
-      const hora_saida = `${formData.hora_saida}:00`;
+      
+      const isTemplateMode = scheduleMode === 'template';
+      const template = isTemplateMode ? getSelectedTemplateInfo() : null;
+      
+      const scheduleData = isTemplateMode ? {
+        hora_entrada: null,
+        hora_intervalo_saida: null,
+        hora_intervalo_retorno: null,
+        hora_saida: null,
+        dias_semana: null,
+        carga_horaria_diaria: template?.carga_horaria_diaria || 6,
+        tempo_intervalo_minutos: template?.tempo_intervalo_minutos || 60,
+      } : {
+        hora_entrada: `${formData.hora_entrada}:00`,
+        hora_intervalo_saida: `${formData.hora_intervalo_saida}:00`,
+        hora_intervalo_retorno: `${formData.hora_intervalo_retorno}:00`,
+        hora_saida: `${formData.hora_saida}:00`,
+        dias_semana: formData.dias_semana,
+        carga_horaria_diaria: null,
+        tempo_intervalo_minutos: null,
+      };
 
       if (editingSchedule) {
         if (formData.ativo && !editingSchedule.ativo) {
@@ -311,16 +328,12 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
           .schema('sistemaretiradas')
           .from('colaboradora_work_schedules')
           .update({
-            hora_entrada,
-            hora_intervalo_saida,
-            hora_intervalo_retorno,
-            hora_saida,
-            dias_semana: formData.dias_semana,
+            ...scheduleData,
             ativo: formData.ativo,
             data_inicio: formData.data_inicio || null,
             data_fim: formData.data_fim || null,
-            template_id: scheduleMode === 'template' ? selectedTemplateId : null,
-            is_custom: scheduleMode === 'custom',
+            template_id: isTemplateMode ? selectedTemplateId : null,
+            is_custom: !isTemplateMode,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingSchedule.id);
@@ -343,16 +356,12 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
           .insert({
             colaboradora_id: selectedColaboradora,
             store_id: storeId,
-            hora_entrada,
-            hora_intervalo_saida,
-            hora_intervalo_retorno,
-            hora_saida,
-            dias_semana: formData.dias_semana,
+            ...scheduleData,
             ativo: formData.ativo,
             data_inicio: formData.data_inicio || null,
             data_fim: formData.data_fim || null,
-            template_id: scheduleMode === 'template' ? selectedTemplateId : null,
-            is_custom: scheduleMode === 'custom',
+            template_id: isTemplateMode ? selectedTemplateId : null,
+            is_custom: !isTemplateMode,
           });
 
         if (error) throw error;
@@ -652,21 +661,30 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
                         </div>
                       )}
 
-                      {(scheduleMode === 'custom' || selectedTemplateId) && (
-                        <>
-                          {scheduleMode === 'template' && getSelectedTemplateInfo() && (
-                            <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
-                              <div className="text-sm font-medium mb-1">Template selecionado: {getSelectedTemplateInfo()?.nome}</div>
-                              <div className="text-sm text-muted-foreground">
-                                Carga esperada: <strong>{getSelectedTemplateInfo()?.carga_horaria_diaria || 6}h/dia</strong> | 
-                                Intervalo: <strong>{getSelectedTemplateInfo()?.tempo_intervalo_minutos || 60} minutos</strong>
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-2">
-                                Defina os horários específicos abaixo. Você pode rotacionar os horários desde que a carga horária seja respeitada.
-                              </p>
+                      {scheduleMode === 'template' && selectedTemplateId && (
+                        <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Globe className="h-5 w-5 text-primary" />
+                            <div className="text-sm font-medium">Template: {getSelectedTemplateInfo()?.nome}</div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="text-muted-foreground">Carga horária:</span>
+                              <div className="font-semibold text-lg">{getSelectedTemplateInfo()?.carga_horaria_diaria || 6}h/dia</div>
                             </div>
-                          )}
+                            <div>
+                              <span className="text-muted-foreground">Intervalo mínimo:</span>
+                              <div className="font-semibold text-lg">{getSelectedTemplateInfo()?.tempo_intervalo_minutos || 60} min</div>
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground bg-background/50 p-2 rounded">
+                            Os horários e dias de trabalho são flexíveis. O sistema validará apenas se a colaboradora cumpriu a carga horária diária esperada com base nos registros de ponto.
+                          </p>
+                        </div>
+                      )}
 
+                      {scheduleMode === 'custom' && (
+                        <>
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <Label>Entrada *</Label>
