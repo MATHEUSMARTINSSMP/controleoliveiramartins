@@ -47,9 +47,9 @@ exports.handler = async (event, context) => {
     console.log('Sending PIN reset email to:', email);
 
     const emailResponse = await resend.emails.send({
-      from: 'EleveaOne <senhas@eleveaone.com.br>',
+      from: 'Sistema EleveaOne <senhas@eleveaone.com.br>',
       to: [email],
-      subject: 'Codigo para Redefinir seu PIN de Assinatura Digital',
+      subject: 'Código para Redefinir seu PIN de Assinatura Digital - Sistema EleveaOne',
       html: `
         <!DOCTYPE html>
         <html>
@@ -62,10 +62,11 @@ exports.handler = async (event, context) => {
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f5f5f5; padding: 40px 20px;">
             <tr>
               <td align="center">
-                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 500px; background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-                  <!-- Header -->
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                  <!-- Header with Logo -->
                   <tr>
-                    <td style="padding: 40px 40px 20px 40px; text-align: center; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); border-radius: 16px 16px 0 0;">
+                    <td style="padding: 40px 40px 30px 40px; text-align: center; background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%); border-radius: 16px 16px 0 0;">
+                      <img src="https://eleveaone.com.br/elevea.png" alt="EleveaOne" style="max-width: 200px; height: auto; margin-bottom: 20px;">
                       <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">
                         Redefinir PIN de Assinatura
                       </h1>
@@ -108,8 +109,8 @@ exports.handler = async (event, context) => {
                   <tr>
                     <td style="padding: 20px 40px 30px 40px; text-align: center; border-top: 1px solid #e5e7eb;">
                       <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-                        EleveaOne - Sistema de Gestao<br>
-                        Este e um email automatico, nao responda.
+                        Sistema EleveaOne - Sistema de Gestão<br>
+                        Este é um email automático, não responda.
                       </p>
                     </td>
                   </tr>
