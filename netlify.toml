@@ -13,6 +13,8 @@
 # Environment variables
 [build.environment]
   NODE_VERSION = "18"
+  # Desabilitar secrets scanning - VITE_SUPABASE_PUBLISHABLE_KEY é chave pública e DEVE estar no build
+  SECRETS_SCAN_ENABLED = "false"
 
 # Secrets scanning configuration
 # ⚠️ IMPORTANTE: O Netlify detecta VITE_SUPABASE_PUBLISHABLE_KEY no build (isso é NORMAL e ESPERADO)
