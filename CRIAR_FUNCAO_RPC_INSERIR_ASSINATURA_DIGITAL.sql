@@ -36,7 +36,12 @@ DECLARE
     v_auth_user_role TEXT;
     v_has_signature_hash BOOLEAN;
     v_has_password_hash BOOLEAN;
+    v_final_hash TEXT;
 BEGIN
+    -- Log inicial para debug
+    RAISE NOTICE '=== INÍCIO insert_time_clock_digital_signature ===';
+    RAISE NOTICE 'p_password_hash recebido (tipo: %): %', pg_typeof(p_password_hash), CASE WHEN p_password_hash IS NULL THEN 'NULL' WHEN p_password_hash = '' THEN 'VAZIO' ELSE substring(p_password_hash, 1, 30) || '...' END;
+    
     -- Obter usuário autenticado
     v_auth_user_id := auth.uid();
     
@@ -128,15 +133,7 @@ BEGIN
         );
     END IF;
     
-    -- Validar que p_password_hash não é NULL ANTES de verificar colunas
-    IF p_password_hash IS NULL OR p_password_hash = '' THEN
-        RETURN json_build_object(
-            'success', false,
-            'error', 'password_hash não pode ser NULL ou vazio. Recebido: ' || COALESCE(p_password_hash::text, 'NULL')
-        );
-    END IF;
-    
-    -- Verificar qual coluna existe (signature_hash ou password_hash)
+    -- Verificar qual coluna existe PRIMEIRO (signature_hash ou password_hash)
     SELECT EXISTS (
         SELECT 1 FROM information_schema.columns 
         WHERE table_schema = 'sistemaretiradas' 
@@ -153,11 +150,48 @@ BEGIN
     
     -- Log para debug (usando RAISE NOTICE)
     RAISE NOTICE 'Verificação de colunas: signature_hash=%, password_hash=%', v_has_signature_hash, v_has_password_hash;
-    RAISE NOTICE 'p_password_hash recebido: %', CASE WHEN p_password_hash IS NULL THEN 'NULL' ELSE substring(p_password_hash, 1, 20) || '...' END;
+    RAISE NOTICE 'p_password_hash recebido: %', CASE WHEN p_password_hash IS NULL THEN 'NULL' WHEN p_password_hash = '' THEN 'VAZIO' ELSE substring(p_password_hash, 1, 20) || '... (tamanho: ' || length(p_password_hash) || ')' END;
     
-    -- Inserir assinatura digital usando a coluna correta
-    IF v_has_signature_hash THEN
-        -- Usar signature_hash
+    -- Validar que p_password_hash não é NULL ou vazio
+    IF p_password_hash IS NULL OR p_password_hash = '' OR trim(p_password_hash) = '' THEN
+        RAISE NOTICE '❌ p_password_hash é NULL ou vazio!';
+        RETURN json_build_object(
+            'success', false,
+            'error', 'password_hash não pode ser NULL ou vazio. Tipo recebido: ' || pg_typeof(p_password_hash)::text || ', Valor: ' || COALESCE('"' || p_password_hash || '"', 'NULL')
+        );
+    END IF;
+    
+    -- Garantir que temos um hash válido
+    v_final_hash := trim(p_password_hash);
+    RAISE NOTICE '✅ Hash válido preparado (tamanho: %): %', length(v_final_hash), substring(v_final_hash, 1, 30) || '...';
+    
+    -- Inserir assinatura digital - preencher ambas as colunas se ambas existirem
+    IF v_has_signature_hash AND v_has_password_hash THEN
+        RAISE NOTICE 'Ambas as colunas existem - preenchendo signature_hash e password_hash';
+        INSERT INTO sistemaretiradas.time_clock_digital_signatures (
+            time_clock_record_id,
+            colaboradora_id,
+            store_id,
+            signature_hash,
+            password_hash,
+            device_info,
+            ip_address,
+            rep_identity,
+            created_at
+        ) VALUES (
+            p_time_clock_record_id,
+            p_colaboradora_id,
+            p_store_id,
+            v_final_hash,
+            v_final_hash,
+            p_device_info,
+            p_ip_address,
+            COALESCE(p_rep_identity, 'REP-' || substring(p_store_id::text, 1, 8) || '-' || extract(epoch from now())::bigint::text),
+            NOW()
+        )
+        RETURNING id INTO v_record_id;
+    ELSIF v_has_signature_hash THEN
+        RAISE NOTICE 'Usando apenas coluna signature_hash';
         INSERT INTO sistemaretiradas.time_clock_digital_signatures (
             time_clock_record_id,
             colaboradora_id,
@@ -171,7 +205,7 @@ BEGIN
             p_time_clock_record_id,
             p_colaboradora_id,
             p_store_id,
-            p_password_hash,
+            v_final_hash,
             p_device_info,
             p_ip_address,
             COALESCE(p_rep_identity, 'REP-' || substring(p_store_id::text, 1, 8) || '-' || extract(epoch from now())::bigint::text),
@@ -179,7 +213,7 @@ BEGIN
         )
         RETURNING id INTO v_record_id;
     ELSIF v_has_password_hash THEN
-        -- Usar password_hash
+        RAISE NOTICE 'Usando apenas coluna password_hash';
         INSERT INTO sistemaretiradas.time_clock_digital_signatures (
             time_clock_record_id,
             colaboradora_id,
@@ -193,7 +227,7 @@ BEGIN
             p_time_clock_record_id,
             p_colaboradora_id,
             p_store_id,
-            p_password_hash,
+            v_final_hash,
             p_device_info,
             p_ip_address,
             COALESCE(p_rep_identity, 'REP-' || substring(p_store_id::text, 1, 8) || '-' || extract(epoch from now())::bigint::text),
