@@ -134,13 +134,15 @@ WHERE jobname LIKE '%sync%'
 ORDER BY jobname;
 
 -- 7. GARANTIR QUE AS CONFIGURAÇÕES ESTÃO PRESENTES
-INSERT INTO sistemaretiradas.app_config (key, value, description)
-VALUES 
-    ('supabase_url', 'https://kktsbnrnlnzyofupegjc.supabase.co', 'URL do projeto Supabase'),
-    ('supabase_service_role_key', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrdHNibnJubG56eW9mdXBlZ2pjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDc5NTAyNiwiZXhwIjoyMDc2MzcxMDI2fQ.C4bs65teQiC4cQNgRfFjDmmT27dCkEoS_H3eQFmdl3s', 'Service Role Key do Supabase')
-ON CONFLICT (key) DO UPDATE 
-SET value = EXCLUDED.value,
-    updated_at = NOW();
+-- NOTA: Configure as variáveis de ambiente SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY
+-- ao invés de hardcodar valores aqui
+-- INSERT INTO sistemaretiradas.app_config (key, value, description)
+-- VALUES 
+--     ('supabase_url', '${SUPABASE_URL}', 'URL do projeto Supabase'),
+--     ('supabase_service_role_key', '${SUPABASE_SERVICE_ROLE_KEY}', 'Service Role Key do Supabase')
+-- ON CONFLICT (key) DO UPDATE 
+-- SET value = EXCLUDED.value,
+--     updated_at = NOW();
 
 -- 8. TESTAR A FUNÇÃO MANUALMENTE (OPCIONAL - DESCOMENTE PARA TESTAR)
 -- SELECT sistemaretiradas.chamar_sync_tiny_orders('incremental_1min');

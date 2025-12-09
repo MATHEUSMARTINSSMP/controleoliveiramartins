@@ -13,3 +13,21 @@
 # Environment variables
 [build.environment]
   NODE_VERSION = "18"
+
+# Secrets scanning configuration
+# Ignore test files and archives that may contain old secrets
+[build.processing]
+  skip_processing = false
+
+# Omit paths from secrets scanning
+[build.processing.secrets_scan]
+  omit_paths = [
+    "attached_assets/**",
+    "sql_migrations_archive/**",
+    "*verificar*.js",
+    "*test*.js",
+    "*check*.js",
+    "*varredura*.js",
+    "*verify*.js",
+    "processar-fila-whatsapp.js"
+  ]

@@ -34,3 +34,14 @@ dist-ssr
 *_debug.js
 *_test_secret.js
 *_with_secret.js
+
+# Test/verification scripts (may contain secrets in logs)
+*verificar*.js
+*test*.js
+*check*.js
+*varredura*.js
+*verify*.js
+processar-fila-whatsapp.js
+
+# Attached assets (may contain sensitive data)
+attached_assets/
