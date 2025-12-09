@@ -13,7 +13,8 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      "@assets": path.resolve(__dirname, "./attached_assets"),
+      // @assets removido - attached_assets foi removido do repositório
+      // "@assets": path.resolve(__dirname, "./attached_assets"),
     },
   },
   build: {
