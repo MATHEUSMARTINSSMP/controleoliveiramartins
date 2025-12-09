@@ -48,18 +48,33 @@ self.addEventListener('fetch', (event) => {
   // Isso evita problemas com ServiceWorker interceptando módulos com hash
   // Verificar tanto pathname quanto search params para capturar todos os casos
   const isJSModule = 
-    (url.pathname.includes('/assets/') && url.pathname.endsWith('.js')) ||
-    (url.pathname.includes('/assets/') && url.pathname.match(/\.js/)) ||
-    url.pathname.match(/\.js$/) ||
+    url.pathname.includes('/assets/') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.match(/\.js(\?|$)/) ||
     event.request.destination === 'script' ||
     event.request.destination === 'worker' ||
-    (event.request.headers.get('accept') && event.request.headers.get('accept').includes('application/javascript')) ||
-    (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/javascript'));
+    (event.request.headers.get('accept') && (
+      event.request.headers.get('accept').includes('application/javascript') ||
+      event.request.headers.get('accept').includes('text/javascript') ||
+      event.request.headers.get('accept').includes('*/*')
+    ));
   
   if (isJSModule) {
     // Para módulos JS, NUNCA interceptar - deixar o navegador buscar diretamente da rede
     // Isso evita que o Service Worker retorne HTML (404) em vez de JS
-    event.respondWith(fetch(event.request));
+    // Usar fetch direto SEM passar pelo cache do Service Worker
+    event.respondWith(
+      fetch(event.request, {
+        cache: 'no-store', // Não usar cache do Service Worker
+        credentials: 'same-origin'
+      }).catch(() => {
+        // Se falhar, retornar erro em vez de HTML
+        return new Response('Module not found', { 
+          status: 404, 
+          headers: { 'Content-Type': 'text/plain' } 
+        });
+      })
+    );
     return;
   }
   
