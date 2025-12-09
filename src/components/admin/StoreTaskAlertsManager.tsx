@@ -13,16 +13,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { 
-  Bell, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Clock, 
-  Calendar, 
-  Phone, 
-  Send, 
-  Loader2, 
+import {
+  Bell,
+  Plus,
+  Edit,
+  Trash2,
+  Clock,
+  Calendar,
+  Phone,
+  Send,
+  Loader2,
   AlertTriangle,
   Store,
   MessageSquare,
@@ -80,7 +80,7 @@ const DIAS_SEMANA = [
 ];
 
 const HORARIOS_SUGERIDOS = [
-  '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', 
+  '09:00', '10:00', '11:00', '12:00', '13:00', '14:00',
   '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'
 ];
 
@@ -89,11 +89,11 @@ export const StoreTaskAlertsManager = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [storesWithTasks, setStoresWithTasks] = useState<StoreWithTasks[]>([]);
-  
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<StoreTask | null>(null);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
-  
+
   const [formData, setFormData] = useState({
     nome: '',
     mensagem: '',
@@ -104,7 +104,7 @@ export const StoreTaskAlertsManager = () => {
     ativo: true,
     recipients: [{ phone: '', name: '', ativo: true, tempId: `temp-initial-${Date.now()}` }] as TaskRecipient[],
   });
-  
+
   const [customHorario, setCustomHorario] = useState('');
 
   useEffect(() => {
@@ -115,7 +115,7 @@ export const StoreTaskAlertsManager = () => {
 
   const fetchStoresAndTasks = async () => {
     if (!profile) return;
-    
+
     setLoading(true);
     try {
       const { data: stores, error: storesError } = await supabase
@@ -135,7 +135,7 @@ export const StoreTaskAlertsManager = () => {
       }
 
       const storeIds = stores.map(s => s.id);
-      
+
       const { data: tasks, error: tasksError } = await supabase
         .schema('sistemaretiradas')
         .from('store_notifications')
@@ -149,14 +149,14 @@ export const StoreTaskAlertsManager = () => {
 
       const taskIds = (tasks || []).map(t => t.id);
       let recipients: any[] = [];
-      
+
       if (taskIds.length > 0) {
         const { data: recipientsData, error: recipientsError } = await supabase
           .schema('sistemaretiradas')
           .from('store_notification_recipients')
           .select('*')
           .in('notification_id', taskIds);
-        
+
         if (recipientsError) {
           console.error('Erro ao buscar destinatários:', recipientsError);
         } else {
@@ -182,9 +182,9 @@ export const StoreTaskAlertsManager = () => {
                 ativo: r.ativo
               }))
           }));
-        
+
         const totalEnvios = storeTasks.reduce((sum, t) => sum + (t.envios_hoje || 0), 0);
-        
+
         return {
           ...store,
           tasks: storeTasks,
@@ -203,7 +203,7 @@ export const StoreTaskAlertsManager = () => {
 
   const handleOpenDialog = (storeId: string, task?: StoreTask) => {
     setSelectedStoreId(storeId);
-    
+
     if (task) {
       setEditingTask(task);
       setFormData({
@@ -214,8 +214,8 @@ export const StoreTaskAlertsManager = () => {
         sender_type: task.sender_type || 'GLOBAL',
         sender_phone: task.sender_phone || '',
         ativo: task.ativo,
-        recipients: task.recipients.length > 0 
-          ? task.recipients 
+        recipients: task.recipients.length > 0
+          ? task.recipients
           : [{ phone: '', name: '', ativo: true }],
       });
     } else {
@@ -228,10 +228,10 @@ export const StoreTaskAlertsManager = () => {
         sender_type: 'GLOBAL',
         sender_phone: '',
         ativo: true,
-        recipients: [{ phone: '', name: '', ativo: true }],
+        recipients: [{ phone: '', name: '', ativo: true, tempId: `temp-initial-${Date.now()}` }],
       });
     }
-    
+
     setDialogOpen(true);
   };
 
@@ -254,7 +254,7 @@ export const StoreTaskAlertsManager = () => {
       toast.error('Selecione pelo menos um dia da semana');
       return;
     }
-    
+
     const validRecipients = formData.recipients.filter(r => r.phone.trim());
     if (validRecipients.length === 0) {
       toast.error('Adicione pelo menos um destinatário');
@@ -365,10 +365,10 @@ export const StoreTaskAlertsManager = () => {
 
       if (error) throw error;
 
-      setStoresWithTasks(prev => 
+      setStoresWithTasks(prev =>
         prev.map(store => ({
           ...store,
-          tasks: store.tasks.map(t => 
+          tasks: store.tasks.map(t =>
             t.id === task.id ? { ...t, ativo: !t.ativo } : t
           )
         }))
@@ -390,7 +390,11 @@ export const StoreTaskAlertsManager = () => {
       sender_type: task.sender_type,
       sender_phone: task.sender_phone || '',
       ativo: true,
-      recipients: task.recipients.map(r => ({ ...r, id: undefined })),
+      recipients: task.recipients.map(r => ({
+        ...r,
+        id: undefined,
+        tempId: `temp-copy-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      })),
     });
     setDialogOpen(true);
   };
@@ -429,22 +433,18 @@ export const StoreTaskAlertsManager = () => {
       e.stopPropagation();
     }
     console.log('[StoreTaskAlertsManager] addRecipient chamado');
-    setFormData(prev => {
-      const newRecipient: TaskRecipient = { 
-        phone: '', 
-        name: '', 
-        ativo: true,
-        tempId: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      };
-      const newRecipients = [...prev.recipients, newRecipient];
-      console.log('[StoreTaskAlertsManager] Novos recipients:', newRecipients);
-      const newFormData = {
-        ...prev,
-        recipients: newRecipients
-      };
-      console.log('[StoreTaskAlertsManager] Novo formData completo:', newFormData);
-      return newFormData;
-    });
+    setFormData(prev => ({
+      ...prev,
+      recipients: [
+        ...prev.recipients,
+        {
+          phone: '',
+          name: '',
+          ativo: true,
+          tempId: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        }
+      ]
+    }));
   };
 
   const removeRecipient = (index: number) => {
@@ -457,7 +457,7 @@ export const StoreTaskAlertsManager = () => {
   const updateRecipient = (index: number, field: 'phone' | 'name', value: string) => {
     setFormData(prev => ({
       ...prev,
-      recipients: prev.recipients.map((r, i) => 
+      recipients: prev.recipients.map((r, i) =>
         i === index ? { ...r, [field]: value } : r
       )
     }));
@@ -514,8 +514,8 @@ export const StoreTaskAlertsManager = () => {
       ) : (
         <Accordion type="multiple" defaultValue={storesWithTasks.map(s => s.id)} className="space-y-4">
           {storesWithTasks.map((store) => (
-            <AccordionItem 
-              key={store.id} 
+            <AccordionItem
+              key={store.id}
               value={store.id}
               className="border rounded-lg overflow-hidden bg-card"
             >
@@ -529,7 +529,7 @@ export const StoreTaskAlertsManager = () => {
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge 
+                    <Badge
                       variant={store.total_envios_hoje >= 10 ? 'destructive' : 'outline'}
                       className="text-xs"
                     >
@@ -669,7 +669,7 @@ export const StoreTaskAlertsManager = () => {
           </DialogHeader>
 
           <ScrollArea className="flex-1 min-h-0 pr-4">
-            <div className="space-y-6 py-4" key={`form-content-${formData.recipients.length}`}>
+            <div className="space-y-6 py-4">
               <div className="space-y-2">
                 <Label htmlFor="nome">Nome da Tarefa *</Label>
                 <Input
@@ -718,9 +718,9 @@ export const StoreTaskAlertsManager = () => {
                     className="w-32"
                     data-testid="input-custom-time"
                   />
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+                  <Button
+                    type="button"
+                    variant="outline"
                     size="sm"
                     onClick={addCustomHorario}
                     data-testid="button-add-custom-time"
@@ -832,7 +832,6 @@ export const StoreTaskAlertsManager = () => {
                   )}
                   {formData.recipients.map((recipient, index) => {
                     const recipientKey = recipient.id || recipient.tempId || `recipient-${index}`;
-                    console.log(`[StoreTaskAlertsManager] Renderizando recipient ${index} (key: ${recipientKey}):`, recipient);
                     return (
                       <div key={recipientKey} className="flex gap-2 items-start">
                         <div className="flex-1 space-y-2">
