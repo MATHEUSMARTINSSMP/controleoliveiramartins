@@ -906,7 +906,7 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                                    {Object.entries(CONDITIONAL_STATUS_LABELS).map(([value, label]) => (
                                         <SelectItem key={value} value={value}>{label}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -1007,7 +1007,7 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                                        {Object.entries(ADJUSTMENT_STATUS_LABELS).map(([value, label]) => (
                                             <SelectItem key={value} value={value}>{label}</SelectItem>
                                         ))}
                                     </SelectContent>
