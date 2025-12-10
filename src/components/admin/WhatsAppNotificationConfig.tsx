@@ -22,7 +22,7 @@ interface NotificationRecipient {
 }
 
 interface NotificationConfig {
-  type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS';
+  type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS' | 'CONTROLE_PONTO';
   label: string;
   description: string;
   recipients: NotificationRecipient[];
@@ -56,6 +56,12 @@ export const WhatsAppNotificationConfig = () => {
       type: 'AJUSTES_CONDICIONAIS',
       label: 'Notificações de Ajustes & Condicionais',
       description: 'Receba notificações quando houver mudança de status em ajustes ou condicionais',
+      recipients: []
+    },
+    {
+      type: 'CONTROLE_PONTO',
+      label: 'Notificações de Controle de Ponto',
+      description: 'Receba notificações a cada registro de ponto (entrada, saída, intervalos)',
       recipients: []
     }
   ]);
@@ -160,7 +166,7 @@ export const WhatsAppNotificationConfig = () => {
       // Agrupar por tipo de notificação e telefone
       // Agrupar registros com mesmo telefone e tipo, coletando todas as lojas
       const groupedByPhone = (data || []).reduce((acc, item) => {
-        const type = item.notification_type as 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS';
+        const type = item.notification_type as 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS' | 'CONTROLE_PONTO';
         const normalizedPhone = normalizePhone(item.phone);
         const key = `${type}-${normalizedPhone}`;
         
@@ -191,7 +197,7 @@ export const WhatsAppNotificationConfig = () => {
       type GroupedValue = { phone: string; store_ids: string[]; ids: string[]; active: boolean };
       const grouped = Object.entries(groupedByPhone).reduce((acc, [key, val]) => {
         const value = val as GroupedValue;
-        const type = key.split('-')[0] as 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS';
+        const type = key.split('-')[0] as 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS' | 'CONTROLE_PONTO';
         if (!acc[type]) {
           acc[type] = [];
         }
@@ -207,6 +213,8 @@ export const WhatsAppNotificationConfig = () => {
         VENDA: grouped['VENDA']?.length || 0,
         ADIANTAMENTO: grouped['ADIANTAMENTO']?.length || 0,
         PARABENS: grouped['PARABENS']?.length || 0,
+        AJUSTES_CONDICIONAIS: grouped['AJUSTES_CONDICIONAIS']?.length || 0,
+        CONTROLE_PONTO: grouped['CONTROLE_PONTO']?.length || 0,
       });
 
       // Atualizar configs com dados do banco
@@ -227,7 +235,7 @@ export const WhatsAppNotificationConfig = () => {
     }
   };
 
-  const addRecipient = (type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS') => {
+  const addRecipient = (type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS' | 'CONTROLE_PONTO') => {
     setConfigs(prev => prev.map(config => {
       if (config.type === type) {
         return {
@@ -239,7 +247,7 @@ export const WhatsAppNotificationConfig = () => {
     }));
   };
 
-  const removeRecipient = (type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS', index: number) => {
+  const removeRecipient = (type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS' | 'CONTROLE_PONTO', index: number) => {
     setConfigs(prev => prev.map(config => {
       if (config.type === type) {
         const newRecipients = [...config.recipients];
@@ -251,7 +259,7 @@ export const WhatsAppNotificationConfig = () => {
   };
 
   const updateRecipientPhone = (
-    type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS',
+    type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS' | 'CONTROLE_PONTO',
     index: number,
     value: string
   ) => {
@@ -266,7 +274,7 @@ export const WhatsAppNotificationConfig = () => {
   };
 
   const toggleStoreSelection = (
-    type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS',
+    type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS' | 'CONTROLE_PONTO',
     index: number,
     storeId: string
   ) => {
