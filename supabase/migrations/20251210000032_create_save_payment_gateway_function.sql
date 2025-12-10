@@ -19,17 +19,28 @@ RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
+DECLARE
+    v_user_email TEXT;
 BEGIN
-    -- Verificar se é dev@dev.com (via auth.users)
+    -- Verificar se é dev@dev.com ou admin (via auth.users)
     -- Ou permitir apenas service_role
     IF auth.role() != 'service_role' THEN
-        -- Verificar se é o usuário dev
-        IF NOT EXISTS (
-            SELECT 1 FROM auth.users
-            WHERE id = auth.uid()
-            AND email = 'dev@dev.com'
-        ) THEN
-            RAISE EXCEPTION 'Acesso negado. Apenas dev autorizado.';
+        -- Buscar email do usuário atual
+        SELECT email INTO v_user_email
+        FROM auth.users
+        WHERE id = auth.uid();
+        
+        -- Permitir se for dev@dev.com ou se for admin (qualquer admin pode configurar)
+        -- Verificar se é admin através da tabela profiles
+        IF v_user_email != 'dev@dev.com' THEN
+            -- Verificar se é admin
+            IF NOT EXISTS (
+                SELECT 1 FROM sistemaretiradas.profiles
+                WHERE id = auth.uid()
+                AND role = 'ADMIN'
+            ) THEN
+                RAISE EXCEPTION 'Acesso negado. Apenas administradores podem configurar gateways.';
+            END IF;
         END IF;
     END IF;
 

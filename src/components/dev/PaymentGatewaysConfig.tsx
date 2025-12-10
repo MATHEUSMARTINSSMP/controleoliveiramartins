@@ -101,17 +101,21 @@ export const PaymentGatewaysConfig = () => {
 
       setGateways(gatewaysData);
 
-      // Inicializar formData
-      const initialFormData: Record<string, any> = {};
-      gatewaysData.forEach(gw => {
-        initialFormData[gw.id] = {
-          api_key: gw.api_key || '',
-          api_secret: gw.api_secret || '',
-          webhook_secret: gw.webhook_secret || '',
-          is_active: gw.is_active || false,
-        };
+      // Inicializar formData (preservar valores existentes se já estiverem preenchidos)
+      setFormData(prev => {
+        const newFormData: Record<string, any> = {};
+        gatewaysData.forEach(gw => {
+          // Preservar valores existentes se já estiverem no formData (não vazios)
+          const existing = prev[gw.id];
+          newFormData[gw.id] = {
+            api_key: (existing?.api_key && existing.api_key !== '') ? existing.api_key : (gw.api_key || ''),
+            api_secret: (existing?.api_secret && existing.api_secret !== '') ? existing.api_secret : (gw.api_secret || ''),
+            webhook_secret: (existing?.webhook_secret && existing.webhook_secret !== '') ? existing.webhook_secret : (gw.webhook_secret || ''),
+            is_active: existing?.is_active !== undefined ? existing.is_active : (gw.is_active || false),
+          };
+        });
+        return newFormData;
       });
-      setFormData(initialFormData);
     } catch (error: any) {
       console.error('[PaymentGatewaysConfig] Erro ao buscar gateways:', error);
       toast.error('Erro ao carregar configurações de gateways');
@@ -131,15 +135,16 @@ export const PaymentGatewaysConfig = () => {
 
       // Salvar via RPC function (tem SECURITY DEFINER)
       try {
+        console.log('[PaymentGatewaysConfig] Salvando gateway:', gatewayId);
         const { data: result, error } = await supabase.rpc('save_payment_gateway', {
           p_id: gatewayId,
           p_name: gatewayId,
           p_display_name: PAYMENT_GATEWAYS.find(g => g.value === gatewayId)?.label || gatewayId,
           p_is_active: data.is_active,
           p_webhook_url: `${WEBHOOK_ENDPOINT}?gateway=${gatewayId}`,
-          p_api_key: data.api_key || null,
-          p_api_secret: data.api_secret || null,
-          p_webhook_secret: data.webhook_secret || null,
+          p_api_key: data.api_key && data.api_key.trim() !== '' ? data.api_key.trim() : null,
+          p_api_secret: data.api_secret && data.api_secret.trim() !== '' ? data.api_secret.trim() : null,
+          p_webhook_secret: data.webhook_secret && data.webhook_secret.trim() !== '' ? data.webhook_secret.trim() : null,
           p_metadata: null,
         });
 
@@ -168,7 +173,30 @@ export const PaymentGatewaysConfig = () => {
         }
 
         toast.success(`Configuração de ${PAYMENT_GATEWAYS.find(g => g.value === gatewayId)?.label} salva com sucesso!`);
+        
+        // Atualizar gateways localmente primeiro (para manter os dados salvos)
+        setGateways(prev => prev.map(gw => 
+          gw.id === gatewayId 
+            ? { 
+                ...gw, 
+                api_key: data.api_key || null,
+                api_secret: data.api_secret || null,
+                webhook_secret: data.webhook_secret || null,
+                is_active: data.is_active,
+                updated_at: new Date().toISOString()
+              }
+            : gw
+        ));
+        
+        // Recarregar dados do banco para garantir sincronização
         await fetchGateways();
+        
+        // Garantir que os dados salvos permaneçam no formData após recarregar
+        // (fetchGateways pode ter sobrescrito, então restaurar os valores salvos)
+        setFormData(prev => ({
+          ...prev,
+          [gatewayId]: data // Manter os dados que acabaram de ser salvos
+        }));
       } catch (err: any) {
         // Se a tabela não existir, salvar em localStorage como fallback
         if (err.code === '42P01') {
