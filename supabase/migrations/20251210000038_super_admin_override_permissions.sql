@@ -74,10 +74,25 @@ BEGIN
   END IF;
   
   -- Atualizar is_active do usuário (SOBRESCREVE qualquer verificação de billing)
-  UPDATE sistemaretiradas.profiles
-  SET is_active = p_active,
-      updated_at = NOW()
-  WHERE id = p_target_user_id;
+  -- Nota: updated_at pode não existir, então verificamos antes
+  DO $$
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_schema = 'sistemaretiradas' 
+      AND table_name = 'profiles' 
+      AND column_name = 'updated_at'
+    ) THEN
+      UPDATE sistemaretiradas.profiles
+      SET is_active = p_active,
+          updated_at = NOW()
+      WHERE id = p_target_user_id;
+    ELSE
+      UPDATE sistemaretiradas.profiles
+      SET is_active = p_active
+      WHERE id = p_target_user_id;
+    END IF;
+  END $$;
   
   RETURN json_build_object(
     'success', true,
@@ -193,10 +208,25 @@ BEGIN
   END IF;
   
   -- Atualizar active da loja (SOBRESCREVE qualquer verificação)
-  UPDATE sistemaretiradas.stores
-  SET active = p_active,
-      updated_at = NOW()
-  WHERE id = p_store_id;
+  -- Nota: updated_at pode não existir, então verificamos antes
+  DO $$
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_schema = 'sistemaretiradas' 
+      AND table_name = 'stores' 
+      AND column_name = 'updated_at'
+    ) THEN
+      UPDATE sistemaretiradas.stores
+      SET active = p_active,
+          updated_at = NOW()
+      WHERE id = p_store_id;
+    ELSE
+      UPDATE sistemaretiradas.stores
+      SET active = p_active
+      WHERE id = p_store_id;
+    END IF;
+  END $$;
   
   RETURN json_build_object(
     'success', true,
@@ -258,10 +288,22 @@ BEGIN
   
   -- Se pagamento foi marcado como pago, reativar admin imediatamente
   IF p_payment_status = 'PAID' AND p_status = 'ACTIVE' THEN
-    UPDATE sistemaretiradas.profiles
-    SET is_active = TRUE,
-        updated_at = NOW()
-    WHERE id = p_target_admin_id AND role = 'ADMIN';
+    -- Nota: updated_at pode não existir, então verificamos antes
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_schema = 'sistemaretiradas' 
+      AND table_name = 'profiles' 
+      AND column_name = 'updated_at'
+    ) THEN
+      UPDATE sistemaretiradas.profiles
+      SET is_active = TRUE,
+          updated_at = NOW()
+      WHERE id = p_target_admin_id AND role = 'ADMIN';
+    ELSE
+      UPDATE sistemaretiradas.profiles
+      SET is_active = TRUE
+      WHERE id = p_target_admin_id AND role = 'ADMIN';
+    END IF;
   END IF;
   
   RETURN json_build_object(
