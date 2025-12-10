@@ -402,14 +402,33 @@ async function findCollaboratorByVendedor(
 
     const normalizedCPF = normalizeCPF(vendedorCompleto.cpf);
 
-    // Buscar colaboradoras da loja
-    const { data: colaboradoras, error } = await supabase
+    // ✅ CORREÇÃO: Buscar nome da loja para poder buscar colaboradoras por store_default também
+    // Muitas colaboradoras estão vinculadas por nome (store_default), não por UUID (store_id)
+    const { data: storeData } = await supabase
+      .schema('sistemaretiradas')
+      .from('stores')
+      .select('id, name')
+      .eq('id', storeId)
+      .maybeSingle();
+
+    const storeName = storeData?.name || null;
+
+    // Buscar colaboradoras da loja (por UUID OU por nome)
+    let colaboradorasQuery = supabase
       .schema('sistemaretiradas')
       .from('profiles')
-      .select('id, name, email, cpf, store_id')
+      .select('id, name, email, cpf, store_id, store_default')
       .eq('role', 'COLABORADORA')
-      .eq('is_active', true)
-      .eq('store_id', storeId);
+      .eq('is_active', true);
+
+    // Buscar por store_id (UUID) OU por store_default (nome)
+    if (storeName) {
+      colaboradorasQuery = colaboradorasQuery.or(`store_id.eq.${storeId},store_default.eq.${storeName}`);
+    } else {
+      colaboradorasQuery = colaboradorasQuery.eq('store_id', storeId);
+    }
+
+    const { data: colaboradoras, error } = await colaboradorasQuery;
 
     if (error) {
       console.error(`[SyncTiny] ❌ Erro ao buscar colaboradoras:`, error);

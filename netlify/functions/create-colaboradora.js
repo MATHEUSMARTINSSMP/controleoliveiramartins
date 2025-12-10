@@ -168,27 +168,49 @@ exports.handler = async (event, context) => {
     // STEP 2: Create/update profile with EXACT same ID
     console.log('[create-colaboradora] Step 2: Creating profile with ID:', userData.user.id);
 
-    // Buscar store_id automaticamente se não foi fornecido
-    let finalStoreId = store_id;
-    if (!finalStoreId && store_default) {
-      console.log('[create-colaboradora] store_id não fornecido, buscando automaticamente pelo store_default:', store_default);
+    // ✅ MELHORIA CRÍTICA: SEMPRE garantir mapeamento correto de loja
+    // Buscar loja para garantir que AMBOS store_id (UUID) e store_default (nome) estejam corretos
+    let finalStoreId = null;
+    let finalStoreDefault = store_default;
+    
+    // Normalizar nome para busca flexível
+    const normalizeName = (name) => {
+      return name
+        .toLowerCase()
+        .replace(/[|,]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
 
-      // Normalizar nome para busca flexível
-      const normalizeName = (name) => {
-        return name
-          .toLowerCase()
-          .replace(/[|,]/g, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-      };
+    // Buscar todas as lojas ativas
+    const { data: storesData, error: storesError } = await supabaseAdmin
+      .schema('sistemaretiradas')
+      .from('stores')
+      .select('id, name')
+      .eq('is_active', true); // ✅ Usar is_active ao invés de active
 
-      const { data: storesData, error: storesError } = await supabaseAdmin
-        .schema('sistemaretiradas')
-        .from('stores')
-        .select('id, name')
-        .eq('active', true);
+    if (storesError) {
+      console.error('[create-colaboradora] ❌ Erro ao buscar lojas:', storesError);
+      throw new Error('Erro ao buscar lojas: ' + storesError.message);
+    }
 
-      if (!storesError && storesData && storesData.length > 0) {
+    if (!storesData || storesData.length === 0) {
+      throw new Error('Nenhuma loja ativa encontrada no sistema. Contate o administrador.');
+    }
+
+    // ✅ CASO 1: Se store_id foi fornecido, validar e buscar nome correto
+    if (store_id) {
+      const storeById = storesData.find(s => s.id === store_id);
+      if (storeById) {
+        finalStoreId = storeById.id;
+        finalStoreDefault = storeById.name; // ✅ Sempre usar o nome correto da loja
+        console.log('[create-colaboradora] ✅ Loja validada por UUID:', {
+          id: finalStoreId,
+          name: finalStoreDefault
+        });
+      } else {
+        console.warn('[create-colaboradora] ⚠️ store_id fornecido não encontrado, tentando buscar por nome...');
+        // Fallback: buscar por nome
         const normalizedStoreName = normalizeName(store_default);
         const matchingStore = storesData.find(s => {
           const normalizedStore = normalizeName(s.name);
@@ -197,16 +219,45 @@ exports.handler = async (event, context) => {
             normalizedStore.includes(normalizedStoreName) ||
             normalizedStoreName.includes(normalizedStore);
         });
-
         if (matchingStore) {
           finalStoreId = matchingStore.id;
-          console.log('[create-colaboradora] ✅ store_id encontrado automaticamente:', finalStoreId, 'para loja:', matchingStore.name);
-        } else {
-          console.warn('[create-colaboradora] ⚠️ Nenhuma loja encontrada para store_default:', store_default);
+          finalStoreDefault = matchingStore.name;
+          console.log('[create-colaboradora] ✅ Loja encontrada por nome (fallback):', {
+            id: finalStoreId,
+            name: finalStoreDefault
+          });
         }
-      } else if (storesError) {
-        console.error('[create-colaboradora] ❌ Erro ao buscar lojas:', storesError);
       }
+    }
+
+    // ✅ CASO 2: Se store_id NÃO foi fornecido, buscar pelo nome (store_default)
+    if (!finalStoreId && store_default) {
+      console.log('[create-colaboradora] Buscando loja por nome:', store_default);
+      const normalizedStoreName = normalizeName(store_default);
+      const matchingStore = storesData.find(s => {
+        const normalizedStore = normalizeName(s.name);
+        return normalizedStore === normalizedStoreName ||
+          s.name === store_default ||
+          normalizedStore.includes(normalizedStoreName) ||
+          normalizedStoreName.includes(normalizedStore);
+      });
+
+      if (matchingStore) {
+        finalStoreId = matchingStore.id;
+        finalStoreDefault = matchingStore.name; // ✅ Sempre usar o nome exato da loja no banco
+        console.log('[create-colaboradora] ✅ Loja encontrada e mapeada:', {
+          id: finalStoreId,
+          name: finalStoreDefault,
+          original_name_provided: store_default
+        });
+      } else {
+        throw new Error(`Loja "${store_default}" não encontrada. Verifique o nome da loja e tente novamente.`);
+      }
+    }
+
+    // ✅ VALIDAÇÃO FINAL: Garantir que temos ambos os dados
+    if (!finalStoreId || !finalStoreDefault) {
+      throw new Error('Não foi possível determinar a loja. Verifique se store_id ou store_default foram fornecidos corretamente.');
     }
 
     const profilePayload = {
@@ -216,19 +267,17 @@ exports.handler = async (event, context) => {
       cpf: cpf,
       limite_total: parseFloat(limite_total),
       limite_mensal: parseFloat(limite_mensal),
-      store_default: store_default,
+      store_default: finalStoreDefault, // ✅ Nome exato da loja
+      store_id: finalStoreId, // ✅ UUID da loja - SEMPRE preenchido
       whatsapp: normalizedWhatsapp, // WhatsApp normalizado (apenas números)
       role: 'COLABORADORA',
-      active: true,
+      is_active: true, // ✅ Usar is_active ao invés de active
     };
 
-    // Add store_id se encontrado (fornecido ou buscado automaticamente)
-    if (finalStoreId) {
-      profilePayload.store_id = finalStoreId;
-      console.log('[create-colaboradora] ✅ Salvando profile com store_id:', finalStoreId);
-    } else {
-      console.warn('[create-colaboradora] ⚠️ Profile será criado SEM store_id (store_default:', store_default, ')');
-    }
+    console.log('[create-colaboradora] ✅ Profile será criado com mapeamento completo:', {
+      store_id: finalStoreId,
+      store_default: finalStoreDefault
+    });
 
     const { data: profileData, error: profileError } = await supabaseAdmin
       .schema('sistemaretiradas')

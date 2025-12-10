@@ -121,7 +121,7 @@ export function useStoreSales(storeId: string | null | undefined, filterDate?: s
           observacoes,
           tiny_order_id,
           forma_pagamento,
-          colaboradora:profiles(colaboradora_id)(name)
+          colaboradora:profiles!sales_colaboradora_id_fkey(name)
         `)
         .eq('store_id', storeId)
         .gte('data_venda', `${dateFilter}T00:00:00`)
@@ -428,7 +428,7 @@ export function useStoreRankingTop3(storeId: string | null | undefined) {
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('sales')
-        .select('colaboradora_id, valor, profiles!colaboradora_id(name)')
+        .select('colaboradora_id, valor, profiles!sales_colaboradora_id_fkey(name)')
         .eq('store_id', storeId)
         .gte('data_venda', weekStart.toISOString());
 
@@ -470,7 +470,7 @@ export function useStoreMonthlyRanking(storeId: string | null | undefined) {
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('sales')
-        .select('colaboradora_id, valor, profiles!colaboradora_id(name)')
+        .select('colaboradora_id, valor, profiles!sales_colaboradora_id_fkey(name)')
         .eq('store_id', storeId)
         .gte('data_venda', `${startOfMonth}T00:00:00`);
 

@@ -1659,7 +1659,7 @@ export default function LojaDashboard() {
             .select(`
                 colaboradora_id,
                 valor,
-                profiles!inner(name)
+                profiles!sales_colaboradora_id_fkey(name)
             `)
             .eq('store_id', currentStoreId)
             .gte('data_venda', `${today}T00:00:00`);
@@ -1703,7 +1703,7 @@ export default function LojaDashboard() {
                 colaboradora_id,
                 valor,
                 qtd_pecas,
-                profiles!inner(name)
+                profiles!sales_colaboradora_id_fkey(name)
             `)
             .eq('store_id', currentStoreId)
             .gte('data_venda', `${startOfMonth}T00:00:00`);
