@@ -701,6 +701,7 @@ const NovaCompra = () => {
         </AlertDialog>
       </div>
     </div>
+    </BillingAccessGuard>
   );
 };
 
