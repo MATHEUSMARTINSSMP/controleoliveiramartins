@@ -93,9 +93,6 @@ interface Contact {
 }
 
 export const StoreTaskAlertsManager = () => {
-  // LOG INICIAL ABSOLUTO - ANTES DE TUDO
-  console.log('🚨🚨🚨 [StoreTaskAlertsManager] FUNÇÃO INICIADA 🚨🚨🚨');
-  
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -105,8 +102,6 @@ export const StoreTaskAlertsManager = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<StoreTask | null>(null);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
-  
-  console.log('✅ [StoreTaskAlertsManager] Estados declarados, profile:', profile ? 'existe' : 'null');
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -122,14 +117,8 @@ export const StoreTaskAlertsManager = () => {
   const [customHorario, setCustomHorario] = useState('');
 
   useEffect(() => {
-    console.log('🚀 [StoreTaskAlertsManager] Componente montado');
-    console.log('🚀 [StoreTaskAlertsManager] profile:', profile ? { id: profile.id, role: profile.role } : 'null');
-    
     if (profile && profile.role === 'ADMIN') {
-      console.log('✅ [StoreTaskAlertsManager] Iniciando fetchStoresAndTasks...');
       fetchStoresAndTasks();
-    } else {
-      console.warn('⚠️ [StoreTaskAlertsManager] Profile não é ADMIN ou não existe');
     }
   }, [profile]);
 
@@ -673,7 +662,6 @@ export const StoreTaskAlertsManager = () => {
       e.preventDefault();
       e.stopPropagation();
     }
-    console.log('[StoreTaskAlertsManager] addRecipient chamado');
     setFormData(prev => ({
       ...prev,
       recipients: [
@@ -921,12 +909,7 @@ export const StoreTaskAlertsManager = () => {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      alert(`TESTE: Clicou no botão! store.id = ${store.id}`);
-                      console.log('🔘 [BUTTON CLICK] Novo Alerta - store.id:', store.id);
-                      console.log('🔘 [BUTTON CLICK] store completo:', { id: store.id, name: store.name });
-                      console.log('🔘 [BUTTON CLICK] Chamando handleOpenDialog...');
                       handleOpenDialog(store.id);
-                      console.log('🔘 [BUTTON CLICK] handleOpenDialog chamado');
                     }}
                     className="w-full sm:w-auto gap-2"
                     disabled={store.total_envios_hoje >= 10}
