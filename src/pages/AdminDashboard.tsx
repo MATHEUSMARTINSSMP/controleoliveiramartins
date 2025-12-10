@@ -67,7 +67,7 @@ const AdminDashboard = () => {
         console.warn("[AdminDashboard] Acesso bloqueado por billing:", billingStatus.reason);
       }
     }
-  }, [profile, loading, billingStatus, navigate]);, [profile, loading, navigate]);
+  }, [profile, loading, billingStatus, navigate]);
 
   useEffect(() => {
     if (profile?.id) {
