@@ -142,20 +142,7 @@ const AdminDashboard = () => {
   return (
     <div className="page-container">
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b relative">
-        {/* Banner de Aviso de Billing */}
-        {billingStatus && billingStatus.access_level !== "FULL" && (
-          <div className={`w-full px-4 py-2 text-center text-sm font-medium ${
-            billingStatus.access_level === "BLOCKED" 
-              ? "bg-red-500/20 text-red-600 dark:text-red-400 border-b border-red-500/30" 
-              : billingStatus.access_level === "READ_ONLY"
-              ? "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border-b border-yellow-500/30"
-              : "bg-orange-500/20 text-orange-600 dark:text-orange-400 border-b border-orange-500/30"
-          }`}>
-            <AlertTriangle className="h-4 w-4 inline mr-2" />
-            {billingStatus.message}
-            {billingStatus.days_overdue && ` (${billingStatus.days_overdue} dia(s) de atraso)`}
-          </div>
-        )}
+        {/* Banner de Aviso de Billing - Removido conforme solicitado */}
         <div className="container mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
           <div className="min-w-0">
             <h1 className="text-base sm:text-lg font-semibold">Dashboard Admin</h1>

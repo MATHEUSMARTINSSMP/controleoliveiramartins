@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -531,20 +531,63 @@ export const CRMManagement = () => {
       return;
     }
 
+    // Determinar store_id: usar selectedStore se não for 'all', senão usar primeira loja do admin
+    let storeIdToUse: string | null = null;
+    
+    if (selectedStore !== 'all') {
+      storeIdToUse = selectedStore;
+    } else if (stores.length > 0) {
+      // Se 'all' está selecionado, usar a primeira loja do admin
+      storeIdToUse = stores[0].id;
+    } else {
+      // Se não há lojas, buscar lojas do admin
+      try {
+        const { data: adminStores, error: storesError } = await supabase
+          .schema('sistemaretiradas')
+          .from('stores')
+          .select('id')
+          .eq('admin_id', profile?.id)
+          .limit(1);
+        
+        if (storesError) throw storesError;
+        
+        if (!adminStores || adminStores.length === 0) {
+          toast.error('Você precisa ter pelo menos uma loja cadastrada para criar contatos');
+          return;
+        }
+        
+        storeIdToUse = adminStores[0].id;
+      } catch (err) {
+        console.error('Erro ao buscar lojas:', err);
+        toast.error('Erro ao buscar lojas do administrador');
+        return;
+      }
+    }
+
+    if (!storeIdToUse) {
+      toast.error('Não foi possível determinar a loja para vincular o contato');
+      return;
+    }
+
     try {
       setSaving(true);
+
+      const contactData = {
+        ...formData,
+        store_id: storeIdToUse,
+      };
 
       if (editingId) {
         const { error } = await supabase
           .schema('sistemaretiradas')
           .from('crm_contacts')
-          .update(formData)
+          .update(contactData)
           .eq('id', editingId);
 
         if (error) throw error;
 
         setContacts(prev =>
-          prev.map(c => c.id === editingId ? { ...c, ...formData } : c)
+          prev.map(c => c.id === editingId ? { ...c, ...contactData } : c)
         );
 
         toast.success('Contato atualizado!');
@@ -552,7 +595,7 @@ export const CRMManagement = () => {
         const { data, error } = await supabase
           .schema('sistemaretiradas')
           .from('crm_contacts')
-          .insert([formData])
+          .insert([contactData])
           .select();
 
         if (error) throw error;
@@ -566,7 +609,7 @@ export const CRMManagement = () => {
       resetContactForm();
     } catch (error: any) {
       console.error('Erro ao salvar contato:', error);
-      toast.error('Erro ao salvar contato');
+      toast.error(`Erro ao salvar contato: ${error.message || 'Erro desconhecido'}`);
     } finally {
       setSaving(false);
     }
@@ -796,6 +839,9 @@ export const CRMManagement = () => {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Adicionar Tarefa</DialogTitle>
+                    <DialogDescription>
+                      Crie uma nova tarefa para acompanhamento no CRM
+                    </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>
@@ -949,6 +995,9 @@ export const CRMManagement = () => {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>{editingId ? 'Editar' : 'Novo'} Contato CRM</DialogTitle>
+                    <DialogDescription>
+                      {editingId ? 'Atualize as informações do contato' : 'Adicione um novo contato ao CRM'}
+                    </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>
