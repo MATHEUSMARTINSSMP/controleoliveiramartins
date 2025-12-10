@@ -472,17 +472,6 @@ export const StoreTaskAlertsManager = () => {
     // Calcular total após adicionar/atualizar
     const totalAposAlteracao = mensagensAtuais + mensagensNovoAlerta;
     
-    console.log('[handleSave] Cálculo de limite:', {
-      hoje,
-      diaSemana: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][hoje],
-      mensagensAtuais,
-      mensagensNovoAlerta,
-      totalAposAlteracao,
-      editingTaskId: editingTask?.id,
-      tasksCount: currentStore.tasks.length,
-      tasksAtivasHoje: currentStore.tasks.filter(t => t.ativo && t.dias_semana?.includes(hoje)).length
-    });
-    
     if (totalAposAlteracao > 10) {
       toast.error(`Limite de 10 mensagens por dia por loja ultrapassado. Mensagens que serão enviadas hoje: ${mensagensAtuais}, tentando adicionar: ${mensagensNovoAlerta}`);
       setSaving(false);
