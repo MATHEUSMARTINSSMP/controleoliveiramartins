@@ -4,6 +4,10 @@
 -- O limite é de 10 mensagens POR DIA DA SEMANA, não no total
 -- Esta função valida cada dia separadamente
 
+-- REMOVER QUALQUER FUNÇÃO ANTIGA QUE VALIDA LIMITE TOTAL
+DROP FUNCTION IF EXISTS sistemaretiradas.validate_store_notification_limit() CASCADE;
+DROP TRIGGER IF EXISTS trigger_validate_store_notification_limit ON sistemaretiradas.store_notifications;
+
 CREATE OR REPLACE FUNCTION sistemaretiradas.validate_store_notification_limit()
 RETURNS TRIGGER
 LANGUAGE plpgsql
