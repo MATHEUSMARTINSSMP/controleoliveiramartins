@@ -99,6 +99,7 @@ export const CRMManagement = () => {
     telefone: '',
     data_nascimento: '',
     observacoes: '',
+    store_id: '',
   });
 
   const [taskForm, setTaskForm] = useState({
@@ -531,41 +532,8 @@ export const CRMManagement = () => {
       return;
     }
 
-    // Determinar store_id: usar selectedStore se não for 'all', senão usar primeira loja do admin
-    let storeIdToUse: string | null = null;
-    
-    if (selectedStore !== 'all') {
-      storeIdToUse = selectedStore;
-    } else if (stores.length > 0) {
-      // Se 'all' está selecionado, usar a primeira loja do admin
-      storeIdToUse = stores[0].id;
-    } else {
-      // Se não há lojas, buscar lojas do admin
-      try {
-        const { data: adminStores, error: storesError } = await supabase
-          .schema('sistemaretiradas')
-          .from('stores')
-          .select('id')
-          .eq('admin_id', profile?.id)
-          .limit(1);
-        
-        if (storesError) throw storesError;
-        
-        if (!adminStores || adminStores.length === 0) {
-          toast.error('Você precisa ter pelo menos uma loja cadastrada para criar contatos');
-          return;
-        }
-        
-        storeIdToUse = adminStores[0].id;
-      } catch (err) {
-        console.error('Erro ao buscar lojas:', err);
-        toast.error('Erro ao buscar lojas do administrador');
-        return;
-      }
-    }
-
-    if (!storeIdToUse) {
-      toast.error('Não foi possível determinar a loja para vincular o contato');
+    if (!formData.store_id) {
+      toast.error('Selecione uma loja para vincular o contato');
       return;
     }
 
@@ -573,8 +541,12 @@ export const CRMManagement = () => {
       setSaving(true);
 
       const contactData = {
-        ...formData,
-        store_id: storeIdToUse,
+        nome: formData.nome,
+        email: formData.email || null,
+        telefone: formData.telefone || null,
+        data_nascimento: formData.data_nascimento || null,
+        observacoes: formData.observacoes || null,
+        store_id: formData.store_id,
       };
 
       if (editingId) {
@@ -642,6 +614,7 @@ export const CRMManagement = () => {
       telefone: contact.telefone || '',
       data_nascimento: contact.data_nascimento || '',
       observacoes: contact.observacoes || '',
+      store_id: contact.store_id || '',
     });
     setEditingId(contact.id);
     setContactDialogOpen(true);
@@ -654,6 +627,7 @@ export const CRMManagement = () => {
       telefone: '',
       data_nascimento: '',
       observacoes: '',
+      store_id: selectedStore !== 'all' ? selectedStore : (stores.length > 0 ? stores[0].id : ''),
     });
     setEditingId(null);
   };
@@ -983,7 +957,13 @@ export const CRMManagement = () => {
               <CardTitle>Contatos CRM ({contacts.length} total)</CardTitle>
               <Dialog open={contactDialogOpen} onOpenChange={(open) => {
                 setContactDialogOpen(open);
-                if (!open) resetContactForm();
+                if (!open) {
+                  resetContactForm();
+                } else {
+                  // Ao abrir, pré-selecionar loja baseada no filtro
+                  const defaultStoreId = selectedStore !== 'all' ? selectedStore : (stores.length > 0 ? stores[0].id : '');
+                  setFormData(prev => ({ ...prev, store_id: defaultStoreId }));
+                }
               }}>
                 <DialogTrigger asChild>
                   <Button size="sm" className="bg-gradient-to-r from-primary to-accent">
@@ -1034,6 +1014,30 @@ export const CRMManagement = () => {
                       />
                     </div>
                     <div>
+                      <Label>Loja *</Label>
+                      {stores.length === 0 ? (
+                        <div className="text-sm text-muted-foreground p-2 border rounded">
+                          Carregando lojas...
+                        </div>
+                      ) : (
+                        <Select
+                          value={formData.store_id}
+                          onValueChange={(value) => setFormData({ ...formData, store_id: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione uma loja" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {stores.map(store => (
+                              <SelectItem key={store.id} value={store.id}>
+                                {store.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                    <div>
                       <Label>Observações</Label>
                       <Textarea
                         placeholder="Informações adicionais..."
@@ -1065,6 +1069,7 @@ export const CRMManagement = () => {
                       <TableHead className="text-xs">Nome</TableHead>
                       <TableHead className="text-xs hidden sm:table-cell">Email</TableHead>
                       <TableHead className="text-xs hidden md:table-cell">Telefone</TableHead>
+                      <TableHead className="text-xs hidden lg:table-cell">Loja</TableHead>
                       <TableHead className="text-xs text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1074,6 +1079,9 @@ export const CRMManagement = () => {
                         <TableCell className="text-xs sm:text-sm font-medium">{contact.nome}</TableCell>
                         <TableCell className="text-xs hidden sm:table-cell text-muted-foreground truncate">{contact.email || '-'}</TableCell>
                         <TableCell className="text-xs hidden md:table-cell text-muted-foreground">{contact.telefone || '-'}</TableCell>
+                        <TableCell className="text-xs hidden lg:table-cell text-muted-foreground">
+                          <Badge variant="outline">{contact.storeName || 'N/A'}</Badge>
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-1 justify-end">
                             <Button
