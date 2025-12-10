@@ -44,6 +44,7 @@ CREATE TRIGGER trigger_update_payment_gateways_updated_at
     EXECUTE FUNCTION sistemaretiradas.update_payment_gateways_updated_at();
 
 -- RLS: Apenas dev@dev.com ou service_role pode acessar
+-- CORRIGIDO: Usa profiles.email em vez de auth.users.email para evitar erro de permissão
 ALTER TABLE sistemaretiradas.payment_gateways ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Dev can manage payment gateways" ON sistemaretiradas.payment_gateways;
@@ -52,7 +53,7 @@ CREATE POLICY "Dev can manage payment gateways" ON sistemaretiradas.payment_gate
         auth.role() = 'service_role'
         OR
         EXISTS (
-            SELECT 1 FROM auth.users
+            SELECT 1 FROM sistemaretiradas.profiles
             WHERE id = auth.uid()
             AND email = 'dev@dev.com'
         )
