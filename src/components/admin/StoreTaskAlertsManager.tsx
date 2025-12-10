@@ -253,13 +253,39 @@ export const StoreTaskAlertsManager = () => {
 
       // CRÍTICO: Buscar apenas contatos da loja selecionada
       // Filtra EXCLUSIVAMENTE por store_id
-      const { data: contacts, error } = await supabase
+      // Tentar primeiro a tabela 'contacts', depois 'crm_contacts'
+      let contacts: any[] = [];
+      let error: any = null;
+      
+      // Tentar tabela 'contacts' primeiro
+      const { data: contactsData, error: contactsError } = await supabase
         .schema('sistemaretiradas')
         .from('contacts')
         .select('id, store_id, nome, telefone, email')
         .eq('store_id', storeId) // FILTRO CRÍTICO: apenas desta loja
         .not('telefone', 'is', null)
         .order('nome', { ascending: true });
+      
+      if (contactsError && contactsError.code === '42P01') {
+        // Tabela contacts não existe, tentar crm_contacts
+        const { data: crmContactsData, error: crmContactsError } = await supabase
+          .schema('sistemaretiradas')
+          .from('crm_contacts')
+          .select('id, store_id, nome, telefone, email')
+          .eq('store_id', storeId) // FILTRO CRÍTICO: apenas desta loja
+          .not('telefone', 'is', null)
+          .order('nome', { ascending: true });
+        
+        if (!crmContactsError && crmContactsData) {
+          contacts = crmContactsData;
+        } else {
+          error = crmContactsError;
+        }
+      } else if (contactsError) {
+        error = contactsError;
+      } else {
+        contacts = contactsData || [];
+      }
 
       if (error) {
         console.error('Erro ao buscar contatos:', error);
