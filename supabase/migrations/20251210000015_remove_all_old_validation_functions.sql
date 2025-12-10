@@ -13,11 +13,6 @@ DROP TRIGGER IF EXISTS trigger_validate_store_notification_limit ON sistemaretir
 DROP FUNCTION IF EXISTS sistemaretiradas.validate_store_notification_limit_after_recipient_change() CASCADE;
 DROP FUNCTION IF EXISTS sistemaretiradas.validate_store_notification_limit() CASCADE;
 
--- CRÍTICO: Remover função antiga que pode ter sido criada manualmente
--- Esta função tem assinatura diferente: validate_notification_limit(uuid, time[], integer[])
-DROP FUNCTION IF EXISTS sistemaretiradas.validate_notification_limit(uuid, time without time zone[], integer[]) CASCADE;
-DROP FUNCTION IF EXISTS sistemaretiradas.validate_notification_limit CASCADE;
-
 -- Verificar se há outras funções com nomes similares que possam ter sido criadas manualmente
 DO $$
 DECLARE
