@@ -1024,7 +1024,6 @@ const SuperAdmin = () => {
                             />
                           </div>
                           {store.erp_ativo !== undefined && (
-                          {store.erp_ativo !== undefined && (
                             <div className="flex items-center justify-between p-3 border rounded-lg">
                               <Label>ERP</Label>
                               <Switch
@@ -1034,7 +1033,6 @@ const SuperAdmin = () => {
                                 }
                               />
                             </div>
-                          )}
                           )}
                           <div className="flex items-center justify-between p-3 border rounded-lg">
                             <Label>Check Meta</Label>
