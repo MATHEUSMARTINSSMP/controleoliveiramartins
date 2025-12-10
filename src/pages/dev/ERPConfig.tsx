@@ -16,6 +16,7 @@ import { getERPAuthorizationUrl, testERPConnection } from "@/lib/erpIntegrations
 import { syncTinyOrders, syncTinyContacts } from "@/lib/erp/syncTiny";
 import { WhatsAppGlobalConfig } from "@/components/dev/WhatsAppGlobalConfig";
 import { PaymentGatewaysConfig } from "@/components/dev/PaymentGatewaysConfig";
+import { WebhookTester } from "@/components/admin/WebhookTester";
 
 interface Store {
   id: string;
@@ -566,7 +567,7 @@ const ERPConfig = () => {
         </div>
 
         <Tabs defaultValue="erp" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="erp" className="gap-2" data-testid="tab-dev-erp">
               <Package className="h-4 w-4" />
               Integracao ERP
@@ -579,6 +580,10 @@ const ERPConfig = () => {
               <Key className="h-4 w-4" />
               Gateways de Pagamento
             </TabsTrigger>
+            <TabsTrigger value="webhook" className="gap-2" data-testid="tab-dev-webhook">
+              <TestTube className="h-4 w-4" />
+              Teste de Webhook
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="whatsapp" className="space-y-6">
@@ -587,6 +592,10 @@ const ERPConfig = () => {
 
           <TabsContent value="payment" className="space-y-6">
             <PaymentGatewaysConfig />
+          </TabsContent>
+
+          <TabsContent value="webhook" className="space-y-6">
+            <WebhookTester />
           </TabsContent>
 
           <TabsContent value="erp" className="space-y-6">

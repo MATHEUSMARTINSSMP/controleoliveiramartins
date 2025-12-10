@@ -27,6 +27,7 @@ import { TimeClockManagement } from "@/components/timeclock/TimeClockManagement"
 import { DailyGoalCheckReports } from "@/components/admin/DailyGoalCheckReports";
 import { ConditionalsAdjustmentsManager } from "@/components/admin/ConditionalsAdjustmentsManager";
 import { BillingManagement } from "@/components/admin/BillingManagement";
+import { BillingEventsDashboard } from "@/components/admin/BillingEventsDashboard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -436,7 +437,18 @@ const AdminDashboard = () => {
                   Gerencie sua assinatura, visualize histórico de pagamentos e registre pagamentos manuais.
                   Esta seção permanece acessível mesmo em caso de atraso no pagamento.
                 </p>
-                <BillingManagement />
+                <Tabs defaultValue="subscription" className="w-full">
+                  <TabsList>
+                    <TabsTrigger value="subscription">Assinatura</TabsTrigger>
+                    <TabsTrigger value="events">Eventos de Webhook</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="subscription">
+                    <BillingManagement />
+                  </TabsContent>
+                  <TabsContent value="events">
+                    <BillingEventsDashboard />
+                  </TabsContent>
+                </Tabs>
               </div>
 
               {/* Separador */}
