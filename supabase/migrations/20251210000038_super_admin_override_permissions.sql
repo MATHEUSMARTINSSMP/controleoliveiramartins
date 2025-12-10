@@ -5,18 +5,33 @@
 -- e possa ativar/desativar qualquer coisa, independente de billing
 
 -- Função para verificar se usuário é Super Admin
+-- Esta função verifica se o usuário autenticado (auth.uid()) é Super Admin
 CREATE OR REPLACE FUNCTION sistemaretiradas.is_super_admin(p_user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
 STABLE
+SET search_path = sistemaretiradas, public
 AS $$
 DECLARE
   v_is_super_admin BOOLEAN;
+  v_current_user_id UUID;
 BEGIN
+  -- Verificar se há um usuário autenticado
+  v_current_user_id := auth.uid();
+  
+  -- Se não há usuário autenticado, retornar FALSE
+  IF v_current_user_id IS NULL THEN
+    RETURN FALSE;
+  END IF;
+  
+  -- Verificar se o usuário passado como parâmetro é o mesmo que está autenticado
+  -- E se é Super Admin
   SELECT COALESCE(is_super_admin, FALSE) INTO v_is_super_admin
   FROM sistemaretiradas.profiles
-  WHERE id = p_user_id AND role = 'ADMIN';
+  WHERE id = p_user_id 
+    AND id = v_current_user_id 
+    AND role = 'ADMIN';
   
   RETURN COALESCE(v_is_super_admin, FALSE);
 END;
@@ -33,10 +48,24 @@ CREATE OR REPLACE FUNCTION sistemaretiradas.super_admin_toggle_user_active(
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = sistemaretiradas, public
 AS $$
 DECLARE
   v_is_super BOOLEAN;
+  v_current_user_id UUID;
 BEGIN
+  -- Verificar usuário autenticado
+  v_current_user_id := auth.uid();
+  
+  IF v_current_user_id IS NULL THEN
+    RAISE EXCEPTION 'Usuário não autenticado';
+  END IF;
+  
+  -- Verificar se o ID passado corresponde ao usuário autenticado
+  IF p_super_admin_id != v_current_user_id THEN
+    RAISE EXCEPTION 'ID do Super Admin não corresponde ao usuário autenticado';
+  END IF;
+  
   -- Verificar se quem está chamando é Super Admin
   SELECT sistemaretiradas.is_super_admin(p_super_admin_id) INTO v_is_super;
   
@@ -71,11 +100,25 @@ CREATE OR REPLACE FUNCTION sistemaretiradas.super_admin_toggle_store_module(
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = sistemaretiradas, public
 AS $$
 DECLARE
   v_is_super BOOLEAN;
   v_column_name TEXT;
+  v_current_user_id UUID;
 BEGIN
+  -- Verificar usuário autenticado
+  v_current_user_id := auth.uid();
+  
+  IF v_current_user_id IS NULL THEN
+    RAISE EXCEPTION 'Usuário não autenticado';
+  END IF;
+  
+  -- Verificar se o ID passado corresponde ao usuário autenticado
+  IF p_super_admin_id != v_current_user_id THEN
+    RAISE EXCEPTION 'ID do Super Admin não corresponde ao usuário autenticado';
+  END IF;
+  
   -- Verificar se quem está chamando é Super Admin
   SELECT sistemaretiradas.is_super_admin(p_super_admin_id) INTO v_is_super;
   
@@ -124,10 +167,24 @@ CREATE OR REPLACE FUNCTION sistemaretiradas.super_admin_toggle_store_active(
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = sistemaretiradas, public
 AS $$
 DECLARE
   v_is_super BOOLEAN;
+  v_current_user_id UUID;
 BEGIN
+  -- Verificar usuário autenticado
+  v_current_user_id := auth.uid();
+  
+  IF v_current_user_id IS NULL THEN
+    RAISE EXCEPTION 'Usuário não autenticado';
+  END IF;
+  
+  -- Verificar se o ID passado corresponde ao usuário autenticado
+  IF p_super_admin_id != v_current_user_id THEN
+    RAISE EXCEPTION 'ID do Super Admin não corresponde ao usuário autenticado';
+  END IF;
+  
   -- Verificar se quem está chamando é Super Admin
   SELECT sistemaretiradas.is_super_admin(p_super_admin_id) INTO v_is_super;
   
@@ -164,10 +221,24 @@ CREATE OR REPLACE FUNCTION sistemaretiradas.super_admin_update_billing_status(
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = sistemaretiradas, public
 AS $$
 DECLARE
   v_is_super BOOLEAN;
+  v_current_user_id UUID;
 BEGIN
+  -- Verificar usuário autenticado
+  v_current_user_id := auth.uid();
+  
+  IF v_current_user_id IS NULL THEN
+    RAISE EXCEPTION 'Usuário não autenticado';
+  END IF;
+  
+  -- Verificar se o ID passado corresponde ao usuário autenticado
+  IF p_super_admin_id != v_current_user_id THEN
+    RAISE EXCEPTION 'ID do Super Admin não corresponde ao usuário autenticado';
+  END IF;
+  
   -- Verificar se quem está chamando é Super Admin
   SELECT sistemaretiradas.is_super_admin(p_super_admin_id) INTO v_is_super;
   
@@ -213,24 +284,28 @@ GRANT EXECUTE ON FUNCTION sistemaretiradas.super_admin_toggle_store_active(UUID,
 GRANT EXECUTE ON FUNCTION sistemaretiradas.super_admin_update_billing_status(UUID, UUID, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ) TO authenticated;
 
 -- RLS Policies para permitir Super Admin fazer qualquer alteração
--- Nota: RLS já deve estar configurado, mas vamos garantir que Super Admin tenha acesso total
+-- Nota: Como as funções são SECURITY DEFINER, elas já têm permissões elevadas
+-- As RLS policies aqui são apenas uma camada extra de segurança
+-- As funções RPC verificam internamente se o usuário é Super Admin
 
 -- Policy para Super Admin atualizar qualquer profile
+-- Usando função auxiliar para evitar problemas com auth.uid() em SECURITY DEFINER
 DROP POLICY IF EXISTS "Super Admin can update any profile" ON sistemaretiradas.profiles;
 CREATE POLICY "Super Admin can update any profile" ON sistemaretiradas.profiles
   FOR UPDATE
   TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM sistemaretiradas.profiles
-      WHERE id = auth.uid() AND is_super_admin = TRUE
-    )
+    -- Verificar se o usuário autenticado é Super Admin
+    COALESCE(
+      (SELECT is_super_admin FROM sistemaretiradas.profiles WHERE id = auth.uid()),
+      FALSE
+    ) = TRUE
   )
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM sistemaretiradas.profiles
-      WHERE id = auth.uid() AND is_super_admin = TRUE
-    )
+    COALESCE(
+      (SELECT is_super_admin FROM sistemaretiradas.profiles WHERE id = auth.uid()),
+      FALSE
+    ) = TRUE
   );
 
 -- Policy para Super Admin atualizar qualquer store
@@ -239,16 +314,16 @@ CREATE POLICY "Super Admin can update any store" ON sistemaretiradas.stores
   FOR UPDATE
   TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM sistemaretiradas.profiles
-      WHERE id = auth.uid() AND is_super_admin = TRUE
-    )
+    COALESCE(
+      (SELECT is_super_admin FROM sistemaretiradas.profiles WHERE id = auth.uid()),
+      FALSE
+    ) = TRUE
   )
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM sistemaretiradas.profiles
-      WHERE id = auth.uid() AND is_super_admin = TRUE
-    )
+    COALESCE(
+      (SELECT is_super_admin FROM sistemaretiradas.profiles WHERE id = auth.uid()),
+      FALSE
+    ) = TRUE
   );
 
 -- Policy para Super Admin atualizar qualquer subscription
@@ -257,15 +332,15 @@ CREATE POLICY "Super Admin can update any subscription" ON sistemaretiradas.admi
   FOR UPDATE
   TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM sistemaretiradas.profiles
-      WHERE id = auth.uid() AND is_super_admin = TRUE
-    )
+    COALESCE(
+      (SELECT is_super_admin FROM sistemaretiradas.profiles WHERE id = auth.uid()),
+      FALSE
+    ) = TRUE
   )
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM sistemaretiradas.profiles
-      WHERE id = auth.uid() AND is_super_admin = TRUE
-    )
+    COALESCE(
+      (SELECT is_super_admin FROM sistemaretiradas.profiles WHERE id = auth.uid()),
+      FALSE
+    ) = TRUE
   );
 
