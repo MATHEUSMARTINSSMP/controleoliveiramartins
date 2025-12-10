@@ -408,7 +408,7 @@ async function findCollaboratorByVendedor(
       .from('profiles')
       .select('id, name, email, cpf, store_id')
       .eq('role', 'COLABORADORA')
-      .eq('active', true)
+      .eq('is_active', true)
       .eq('store_id', storeId);
 
     if (error) {
