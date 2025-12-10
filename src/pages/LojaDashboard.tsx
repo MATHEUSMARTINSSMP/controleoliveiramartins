@@ -817,7 +817,7 @@ export default function LojaDashboard() {
             // Criar mapa de datas de desativação
             const deactivationMap = new Map<string, string | null>();
             colaboradorasInfo?.forEach((colab: any) => {
-                if (!colab.active && colab.updated_at) {
+                if (!colab.is_active && colab.updated_at) {
                     deactivationMap.set(colab.id, format(new Date(colab.updated_at), 'yyyy-MM-dd'));
                 }
             });

@@ -426,12 +426,12 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                 const { data: colaboradorasInfo } = await supabase
                     .schema("sistemaretiradas")
                     .from("profiles")
-                    .select("id, active, updated_at")
+                    .select("id, is_active, updated_at")
                     .eq("role", "COLABORADORA")
                     .eq("store_id", storeId);
                 
                 colaboradorasInfo?.forEach((colab: any) => {
-                    if (!colab.active && colab.updated_at) {
+                    if (!colab.is_active && colab.updated_at) {
                         deactivationMap.set(colab.id, format(new Date(colab.updated_at), "yyyy-MM-dd"));
                     }
                 });
