@@ -236,18 +236,39 @@ export const StoreTaskAlertsManager = () => {
 
     setLoadingContacts(true);
     try {
+      // CRÍTICO: Verificar primeiro se a loja pertence ao admin logado
+      const { data: store } = await supabase
+        .schema('sistemaretiradas')
+        .from('stores')
+        .select('id, admin_id')
+        .eq('id', storeId)
+        .eq('admin_id', profile.id)
+        .single();
+
+      if (!store) {
+        console.error('Loja não encontrada ou não pertence ao admin');
+        setAvailableContacts([]);
+        return;
+      }
+
       // CRÍTICO: Buscar apenas contatos da loja selecionada
-      // E garantir que a loja pertence ao admin logado
+      // Filtra EXCLUSIVAMENTE por store_id
       const { data: contacts, error } = await supabase
         .schema('sistemaretiradas')
         .from('contacts')
         .select('id, store_id, nome, telefone, email')
-        .eq('store_id', storeId)
+        .eq('store_id', storeId) // FILTRO CRÍTICO: apenas desta loja
         .not('telefone', 'is', null)
         .order('nome', { ascending: true });
 
       if (error) {
         console.error('Erro ao buscar contatos:', error);
+        // Se a tabela não existe, apenas logar (não mostrar erro para usuário)
+        if (error.code === '42P01') {
+          console.warn('Tabela contacts não encontrada');
+          setAvailableContacts([]);
+          return;
+        }
         toast.error('Erro ao carregar contatos');
         return;
       }
@@ -255,7 +276,7 @@ export const StoreTaskAlertsManager = () => {
       setAvailableContacts(contacts || []);
     } catch (error: any) {
       console.error('Erro ao buscar contatos:', error);
-      toast.error('Erro ao carregar contatos');
+      setAvailableContacts([]);
     } finally {
       setLoadingContacts(false);
     }
