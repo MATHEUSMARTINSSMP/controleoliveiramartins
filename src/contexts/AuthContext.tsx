@@ -11,6 +11,7 @@ interface Profile {
   store_default: string | null;
   store_id: string | null;
   active: boolean;
+  is_super_admin?: boolean; // Indica se é Super Admin (dono do sistema)
   tenant_schema?: string | null; // Schema do tenant (opcional, para multi-tenancy)
 }
 

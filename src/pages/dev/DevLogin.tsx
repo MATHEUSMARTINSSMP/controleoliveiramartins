@@ -33,17 +33,10 @@ const DevLogin = () => {
 
       if (error) throw error;
 
-      // Verificar se é o usuário dev@dev.com
-      if (data.user?.email !== "dev@dev.com") {
-        await supabase.auth.signOut();
-        toast.error("Acesso restrito. Apenas usuário dev@dev.com autorizado.");
-        return;
-      }
-
       // Aguardar um pouco para o AuthContext processar
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Verificar se o profile existe e é ADMIN
+      // Verificar se o profile existe e é Super Admin
       const { data: profile, error: profileError } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
@@ -64,16 +57,16 @@ const DevLogin = () => {
         return;
       }
 
-      // Verificar se é ADMIN
-      if (profile.role !== "ADMIN") {
+      // Verificar se é Super Admin
+      if (!profile.is_super_admin) {
         await supabase.auth.signOut();
-        toast.error("Acesso negado. Perfil não tem permissão de ADMIN.");
+        toast.error("Acesso restrito. Apenas Super Admin autorizado.");
         return;
       }
 
-      // Redirecionar para painel dev
+      // Redirecionar para painel super admin
       toast.success("Login realizado com sucesso!");
-      navigate("/dev/erp-config", { replace: true });
+      navigate("/dev/superadm", { replace: true });
     } catch (error: any) {
       console.error("Erro no login:", error);
       toast.error(error.message || "Erro ao fazer login");
@@ -103,7 +96,7 @@ const DevLogin = () => {
               <Input
                 id="email"
                 type="email"
-                placeholder="dev@dev.com"
+                placeholder="email@exemplo.com"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 disabled={loading}
@@ -144,7 +137,7 @@ const DevLogin = () => {
           </form>
           <div className="mt-4 text-center">
             <p className="text-xs text-slate-500">
-              Apenas usuário dev@dev.com tem acesso
+              Apenas Super Admin tem acesso
             </p>
           </div>
         </CardContent>

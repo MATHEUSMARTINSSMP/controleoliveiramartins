@@ -67,9 +67,9 @@ const ERPConfig = () => {
       return;
     }
 
-    // Verificar se é o usuário dev@dev.com
-    if (profile.email !== "dev@dev.com") {
-      toast.error("Acesso restrito. Apenas usuário dev autorizado.");
+    // Verificar se é Super Admin
+    if (!profile.is_super_admin) {
+      toast.error("Acesso restrito. Apenas Super Admin autorizado.");
       navigate("/dev/login", { replace: true });
       return;
     }

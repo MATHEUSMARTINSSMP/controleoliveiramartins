@@ -22,18 +22,16 @@ AS $$
 DECLARE
     v_user_email TEXT;
 BEGIN
-    -- Verificar se é dev@dev.com (via profiles para evitar erro de permissão)
+    -- Verificar se é Super Admin (via profiles para evitar erro de permissão)
     -- Ou permitir apenas service_role
     IF auth.role() != 'service_role' THEN
-        -- Buscar email do usuário via profiles (tem permissão)
-        SELECT email INTO v_user_email
-        FROM sistemaretiradas.profiles
-        WHERE id = auth.uid()
-        LIMIT 1;
-        
-        -- Verificar se é o usuário dev
-        IF v_user_email != 'dev@dev.com' THEN
-            RAISE EXCEPTION 'Acesso negado. Apenas dev@dev.com autorizado.';
+        -- Verificar se é Super Admin
+        IF NOT EXISTS (
+            SELECT 1 FROM sistemaretiradas.profiles
+            WHERE id = auth.uid()
+            AND is_super_admin = TRUE
+        ) THEN
+            RAISE EXCEPTION 'Acesso negado. Apenas Super Admin autorizado.';
         END IF;
     END IF;
 

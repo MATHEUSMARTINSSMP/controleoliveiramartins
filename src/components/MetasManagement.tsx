@@ -155,15 +155,15 @@ const MetasManagementContent = () => {
     function getWeekRange(weekRef: string): { start: Date; end: Date } {
         // Suporta ambos os formatos: WWYYYY (novo) e YYYYWW (antigo - para migração)
         let week: number, year: number;
-
+        
         if (!weekRef || weekRef.length !== 6) {
             throw new Error(`Formato de semana_referencia inválido: ${weekRef} (deve ter 6 caracteres)`);
         }
-
+        
         // Verificar se é formato antigo (YYYYWW) ou novo (WWYYYY)
         const firstTwo = parseInt(weekRef.substring(0, 2));
         const firstFour = parseInt(weekRef.substring(0, 4));
-
+        
         // Se começa com 20xx (2000-2099), é formato antigo YYYYWW
         if (firstTwo === 20 && firstFour >= 2000 && firstFour <= 2099) {
             // Formato antigo YYYYWW
@@ -176,26 +176,26 @@ const MetasManagementContent = () => {
         } else {
             throw new Error(`Formato de semana_referencia inválido: ${weekRef} (não é YYYYWW nem WWYYYY)`);
         }
-
+        
         // Validar valores
         if (isNaN(week) || isNaN(year)) {
             throw new Error(`Formato de semana_referencia inválido: ${weekRef} (valores não numéricos)`);
         }
-
+        
         if (week < 1 || week > 53) {
             throw new Error(`Formato de semana_referencia inválido: ${weekRef} (semana ${week} fora do range 1-53)`);
         }
-
+        
         if (year < 2000 || year > 2100) {
             throw new Error(`Formato de semana_referencia inválido: ${weekRef} (ano ${year} fora do range 2000-2100)`);
         }
-
+        
         // Get first Monday of the year
         const jan1 = new Date(year, 0, 1);
         const firstMonday = startOfWeek(jan1, { weekStartsOn: 1 });
         const weekStart = addWeeks(firstMonday, week - 1);
         const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-
+        
         return { start: weekStart, end: weekEnd };
     }
 
@@ -1181,7 +1181,7 @@ const MetasManagementContent = () => {
         // Suporta ambos os formatos para migração
         const parseWeekRef = (ref: string): { year: number; week: number } => {
             if (ref.length !== 6) return { year: 0, week: 0 };
-
+            
             const firstTwo = parseInt(ref.substring(0, 2));
             if (firstTwo > 50) {
                 // Formato antigo YYYYWW
@@ -1197,10 +1197,10 @@ const MetasManagementContent = () => {
                 };
             }
         };
-
+        
         const aParsed = parseWeekRef(a);
         const bParsed = parseWeekRef(b);
-
+        
         // Ordenar por ano primeiro, depois por semana
         if (aParsed.year !== bParsed.year) {
             return bParsed.year - aParsed.year; // Mais recente primeiro
@@ -1233,8 +1233,8 @@ const MetasManagementContent = () => {
                 // Ordenar cada grupo por semana (mais recente primeiro)
                 groupedByStore.forEach((goals, storeId) => {
                     goals.sort((a: any, b: any) =>
-                        sortWeekRef(a.semana_referencia || "", b.semana_referencia || "")
-                    );
+                    sortWeekRef(a.semana_referencia || "", b.semana_referencia || "")
+                );
                 });
                 
                 // Ordenar lojas alfabeticamente e juntar tudo
@@ -1417,9 +1417,9 @@ const MetasManagementContent = () => {
                 return { ...c, meta: 0, superMeta: 0 };
             }
             return {
-                ...c,
-                meta: parseFloat(individualMeta.toFixed(2)),
-                superMeta: parseFloat(individualSuperMeta.toFixed(2))
+            ...c,
+            meta: parseFloat(individualMeta.toFixed(2)),
+            superMeta: parseFloat(individualSuperMeta.toFixed(2))
             };
         }));
     };
@@ -1503,8 +1503,8 @@ const MetasManagementContent = () => {
                     .from("goals")
                     .update(storePayload)
                     .eq("id", existingStoreGoal.id)
-                    .select()
-                    .single();
+                .select()
+                .single();
                 if (error) {
                     console.error("Erro ao atualizar meta da loja:", error);
                     throw error;
@@ -1529,21 +1529,21 @@ const MetasManagementContent = () => {
             const individualPayloads = colabGoals
                 .filter(c => c.recebeMeta) // Filtrar apenas as que recebem meta
                 .map(c => ({
-                    tipo: "INDIVIDUAL",
-                    mes_referencia: mesReferencia,
-                    store_id: selectedStore,
-                    colaboradora_id: c.id,
-                    meta_valor: c.meta,
-                    super_meta_valor: c.superMeta,
-                    ativo: true,
-                    daily_weights: dailyWeights // Inherit weights
-                }));
+                tipo: "INDIVIDUAL",
+                mes_referencia: mesReferencia,
+                store_id: selectedStore,
+                colaboradora_id: c.id,
+                meta_valor: c.meta,
+                super_meta_valor: c.superMeta,
+                ativo: true,
+                daily_weights: dailyWeights // Inherit weights
+            }));
 
             // Para metas individuais, fazer UPDATE ou INSERT individualmente
             for (const payload of individualPayloads) {
                 const { data: existingGoal } = await supabase
                     .schema("sistemaretiradas")
-                    .from("goals")
+                .from("goals")
                     .select("id")
                     .eq("store_id", payload.store_id)
                     .eq("mes_referencia", payload.mes_referencia)
@@ -1629,8 +1629,8 @@ const MetasManagementContent = () => {
 
         if (storeGoal) {
             // Editando meta existente
-            setMetaLoja(storeGoal.meta_valor.toString());
-            setSuperMetaLoja(storeGoal.super_meta_valor.toString());
+        setMetaLoja(storeGoal.meta_valor.toString());
+        setSuperMetaLoja(storeGoal.super_meta_valor.toString());
             // Complete weights for all days in month (fix missing days like day 31)
             const completedWeights = completeWeightsForMonth(storeGoal.daily_weights || {}, month);
             setDailyWeights(completedWeights);
@@ -1779,7 +1779,7 @@ const MetasManagementContent = () => {
 
             const totalMeta = colabGoalsData.reduce((sum, c) => sum + c.meta, 0);
             const totalSuper = colabGoalsData.reduce((sum, c) => sum + c.superMeta, 0);
-
+            
             setWeeklyMetaValor(totalMeta.toFixed(2));
             setWeeklySuperMetaValor(totalSuper.toFixed(2));
         } else {
@@ -1848,7 +1848,7 @@ const MetasManagementContent = () => {
                         <Plus className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                         <span className="hidden sm:inline">Nova Distribuição Mensal</span>
                         <span className="sm:hidden">Nova Mensal</span>
-                    </Button>
+                </Button>
                 ) : (
                     <Button onClick={() => { resetWeeklyForm(); setWeeklyDialogOpen(true); }} className="bg-primary hover:bg-primary/90 text-xs sm:text-sm w-full sm:w-auto" size="sm">
                         <Plus className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
@@ -1873,16 +1873,16 @@ const MetasManagementContent = () => {
 
                 {/* Mensal Tab */}
                 <TabsContent value="mensal" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
-                    {/* Filters */}
+            {/* Filters */}
                     <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 bg-card p-3 sm:p-4 rounded-lg border shadow-sm">
                         <div className="w-full sm:w-48">
                             <Label className="text-xs sm:text-sm">Filtrar por Loja</Label>
-                            <Select value={storeFilter} onValueChange={setStoreFilter}>
+                    <Select value={storeFilter} onValueChange={setStoreFilter}>
                                 <SelectTrigger className="text-xs sm:text-sm">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="ALL">Todas</SelectItem>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ALL">Todas</SelectItem>
                                     {stores.map(s => (
                                         <SelectItem key={s.id} value={s.id}>
                                             <div className="flex items-center gap-2">
@@ -1891,94 +1891,94 @@ const MetasManagementContent = () => {
                                             </div>
                                         </SelectItem>
                                     ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        </SelectContent>
+                    </Select>
+                </div>
                         <div className="w-full sm:w-48">
                             <Label className="text-xs sm:text-sm">Mês</Label>
-                            <Input
-                                value={monthFilter}
-                                onChange={e => setMonthFilter(e.target.value)}
+                            <Input 
+                                value={monthFilter} 
+                                onChange={e => setMonthFilter(e.target.value)} 
                                 placeholder="YYYYMM"
                                 className="text-xs sm:text-sm"
                             />
-                        </div>
-                    </div>
+                </div>
+            </div>
 
-                    {/* Goals List */}
-                    <div className="space-y-6">
-                        {Object.entries(
-                            goals
-                                .filter(g => storeFilter === 'ALL' || g.store_id === storeFilter)
-                                .filter(g => g.mes_referencia.includes(monthFilter))
-                                .reduce((acc, goal) => {
-                                    const key = `${goal.store_id}-${goal.mes_referencia}`;
-                                    if (!acc[key]) acc[key] = { store: goal.stores, month: goal.mes_referencia, storeGoal: null, individuals: [] };
+            {/* Goals List */}
+            <div className="space-y-6">
+                {Object.entries(
+                    goals
+                        .filter(g => storeFilter === 'ALL' || g.store_id === storeFilter)
+                        .filter(g => g.mes_referencia.includes(monthFilter))
+                        .reduce((acc, goal) => {
+                            const key = `${goal.store_id}-${goal.mes_referencia}`;
+                            if (!acc[key]) acc[key] = { store: goal.stores, month: goal.mes_referencia, storeGoal: null, individuals: [] };
 
-                                    if (goal.tipo === 'MENSAL') acc[key].storeGoal = goal;
-                                    else if (goal.tipo === 'INDIVIDUAL') acc[key].individuals.push(goal);
+                            if (goal.tipo === 'MENSAL') acc[key].storeGoal = goal;
+                            else if (goal.tipo === 'INDIVIDUAL') acc[key].individuals.push(goal);
 
-                                    return acc;
-                                }, {} as Record<string, any>)
-                        ).map(([key, group]: [string, any]) => (
-                            <Card key={key} className="overflow-hidden border-l-4 border-l-primary">
-                                <div className="p-3 sm:p-4 bg-muted/30 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 border-b">
-                                    <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
-                                        <StoreLogo storeId={group.storeGoal?.store_id || group.individuals[0]?.store_id} className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" />
-                                        <div className="min-w-0 flex-1">
-                                            <h3 className="font-bold text-base sm:text-lg truncate">{group.store?.name || 'Loja Desconhecida'}</h3>
-                                            <p className="text-xs sm:text-sm text-muted-foreground">Referência: {group.month}</p>
-                                        </div>
-                                    </div>
+                            return acc;
+                        }, {} as Record<string, any>)
+                ).map(([key, group]: [string, any]) => (
+                    <Card key={key} className="overflow-hidden border-l-4 border-l-primary">
+                        <div className="p-3 sm:p-4 bg-muted/30 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 border-b">
+                            <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+                                <StoreLogo storeId={group.storeGoal?.store_id || group.individuals[0]?.store_id} className="w-12 h-12 sm:w-16 sm:h-16 object-contain flex-shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="font-bold text-base sm:text-lg truncate">{group.store?.name || 'Loja Desconhecida'}</h3>
+                                    <p className="text-xs sm:text-sm text-muted-foreground">Referência: {group.month}</p>
+                                </div>
+                            </div>
 
-                                    <div className="flex items-center gap-3 sm:gap-6 w-full sm:w-auto">
-                                        <div className="text-right flex-1 sm:flex-initial">
-                                            <p className="text-xs text-muted-foreground hidden sm:block">Meta da Loja</p>
-                                            <p className="font-bold text-sm sm:text-lg">R$ {group.storeGoal?.meta_valor?.toLocaleString('pt-BR') || '0,00'}</p>
-                                        </div>
-                                        <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3 sm:gap-6 w-full sm:w-auto">
+                                <div className="text-right flex-1 sm:flex-initial">
+                                    <p className="text-xs text-muted-foreground hidden sm:block">Meta da Loja</p>
+                                    <p className="font-bold text-sm sm:text-lg">R$ {group.storeGoal?.meta_valor?.toLocaleString('pt-BR') || '0,00'}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
                                             <Button variant="outline" size="sm" onClick={() => handleEdit(group.storeGoal?.store_id || group.individuals[0]?.store_id, group.month)} className="flex-shrink-0 text-xs sm:text-sm">
-                                                <Edit className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-                                                <span className="hidden sm:inline">Editar</span>
-                                            </Button>
-                                            <Button
-                                                variant="destructive"
-                                                size="sm"
-                                                onClick={() => handleDelete(group.storeGoal?.store_id || group.individuals[0]?.store_id, group.month)}
-                                                className="flex-shrink-0 text-xs sm:text-sm"
-                                            >
-                                                <Trash className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-                                                <span className="hidden sm:inline">Excluir</span>
-                                            </Button>
+                                        <Edit className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                                        <span className="hidden sm:inline">Editar</span>
+                                    </Button>
+                                    <Button 
+                                        variant="destructive" 
+                                        size="sm" 
+                                        onClick={() => handleDelete(group.storeGoal?.store_id || group.individuals[0]?.store_id, group.month)} 
+                                        className="flex-shrink-0 text-xs sm:text-sm"
+                                    >
+                                        <Trash className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                                        <span className="hidden sm:inline">Excluir</span>
+                                </Button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-3 sm:p-4 bg-card">
+                            <h4 className="text-[10px] sm:text-xs font-semibold mb-3 text-muted-foreground flex items-center gap-2 uppercase tracking-wider">
+                                <UserCheck className="h-3 w-3 sm:h-4 sm:w-4" />
+                                Metas Individuais
+                            </h4>
+                            <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                                {group.individuals.map((ind: any) => (
+                                    <div key={ind.id} className="flex justify-between items-center p-2 sm:p-3 rounded-lg border bg-background hover:bg-muted/20 transition-colors">
+                                        <span className="font-medium text-xs sm:text-sm truncate flex-1 min-w-0 mr-2">{ind.profiles?.name}</span>
+                                        <div className="text-right flex-shrink-0">
+                                            <div className="font-bold text-xs sm:text-sm">R$ {ind.meta_valor.toLocaleString('pt-BR')}</div>
+                                                    <div className="text-[10px] sm:text-xs text-primary/80 font-medium">Super: R$ {ind.super_meta_valor.toLocaleString('pt-BR')}</div>
                                         </div>
                                     </div>
-                                </div>
-
-                                <div className="p-3 sm:p-4 bg-card">
-                                    <h4 className="text-[10px] sm:text-xs font-semibold mb-3 text-muted-foreground flex items-center gap-2 uppercase tracking-wider">
-                                        <UserCheck className="h-3 w-3 sm:h-4 sm:w-4" />
-                                        Metas Individuais
-                                    </h4>
-                                    <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                                        {group.individuals.map((ind: any) => (
-                                            <div key={ind.id} className="flex justify-between items-center p-2 sm:p-3 rounded-lg border bg-background hover:bg-muted/20 transition-colors">
-                                                <span className="font-medium text-xs sm:text-sm truncate flex-1 min-w-0 mr-2">{ind.profiles?.name}</span>
-                                                <div className="text-right flex-shrink-0">
-                                                    <div className="font-bold text-xs sm:text-sm">R$ {ind.meta_valor.toLocaleString('pt-BR')}</div>
-                                                    <div className="text-[10px] sm:text-xs text-primary/80 font-medium">Super: R$ {ind.super_meta_valor.toLocaleString('pt-BR')}</div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {group.individuals.length === 0 && (
-                                            <div className="col-span-full text-center py-4 text-muted-foreground text-sm italic">
-                                                Nenhuma meta individual definida.
-                                            </div>
-                                        )}
+                                ))}
+                                {group.individuals.length === 0 && (
+                                    <div className="col-span-full text-center py-4 text-muted-foreground text-sm italic">
+                                        Nenhuma meta individual definida.
                                     </div>
-                                </div>
-                            </Card>
-                        ))}
-                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </Card>
+                ))}
+            </div>
                 </TabsContent>
 
                 {/* Semanal Tab */}
@@ -2036,19 +2036,19 @@ const MetasManagementContent = () => {
                                     {/* Semanas da Loja */}
                                     <div className="space-y-3 pl-4 sm:pl-6">
                                         {semanasOrdenadas.map(([semanaKey, group]: [string, any]) => {
-                                            let weekRange;
-                                            try {
-                                                weekRange = getWeekRange(group.semana_referencia || "");
-                                            } catch (err: any) {
-                                                weekRange = { start: new Date(), end: new Date() };
-                                            }
-                                            const isCurrentWeek = group.semana_referencia === getCurrentWeekRef();
-                                            const totalMeta = group.goals.reduce((sum: number, g: any) => sum + g.meta_valor, 0);
-                                            const totalSuper = group.goals.reduce((sum: number, g: any) => sum + g.super_meta_valor, 0);
+                            let weekRange;
+                            try {
+                                weekRange = getWeekRange(group.semana_referencia || "");
+                            } catch (err: any) {
+                                weekRange = { start: new Date(), end: new Date() };
+                            }
+                            const isCurrentWeek = group.semana_referencia === getCurrentWeekRef();
+                            const totalMeta = group.goals.reduce((sum: number, g: any) => sum + g.meta_valor, 0);
+                            const totalSuper = group.goals.reduce((sum: number, g: any) => sum + g.super_meta_valor, 0);
                                             const colabsCount = new Set(group.goals.map((g: any) => g.colaboradora_id).filter((id: any) => id != null)).size;
-
-                                            return (
-                                                <Card
+                            
+                            return (
+                                <Card 
                                                     key={semanaKey}
                                                     className={`overflow-hidden shadow-md hover:shadow-lg transition-all border-l-4 ${
                                                         isCurrentWeek 
@@ -2060,29 +2060,29 @@ const MetasManagementContent = () => {
                                                         <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
                                                             <div className="min-w-0 flex-1">
                                                                 <h3 className="font-bold text-base sm:text-lg truncate">
-                                                                    {format(weekRange.start, "dd/MM", { locale: ptBR })} a {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
+                                                    {format(weekRange.start, "dd/MM", { locale: ptBR })} a {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
                                                                 </h3>
                                                                 <p className="text-xs sm:text-sm text-muted-foreground">
                                                                     Semana {group.semana_referencia?.substring(0, 2)}/{group.semana_referencia?.substring(2, 6)}
-                                                                </p>
-                                                            </div>
-                                                            {isCurrentWeek && (
-                                                                <Badge className="bg-primary text-primary-foreground text-xs">Semana Atual</Badge>
-                                                            )}
-                                                        </div>
+                                                </p>
+                                            </div>
+                                            {isCurrentWeek && (
+                                                <Badge className="bg-primary text-primary-foreground text-xs">Semana Atual</Badge>
+                                            )}
+                                        </div>
                                                         <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto">
-                                                            <div className="text-left sm:text-right flex-1 sm:flex-initial">
+                                            <div className="text-left sm:text-right flex-1 sm:flex-initial">
                                                                 <p className="text-xs text-muted-foreground">Total ({colabsCount} colaboradora{colabsCount > 1 ? 's' : ''})</p>
-                                                                <p className="font-bold text-sm sm:text-lg text-primary">R$ {totalMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                <p className="font-bold text-sm sm:text-lg text-primary">R$ {totalMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                                                 <p className="text-xs text-primary/80 font-medium">Super: R$ {totalSuper.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                                            </div>
-                                                            <Button variant="outline" size="sm" onClick={() => handleEditWeekly(group.goals[0])} className="flex-shrink-0">
-                                                                <Edit className="h-4 w-4 mr-1 sm:mr-2" />
-                                                                <span className="hidden sm:inline">Editar</span>
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                </Card>
+                                            </div>
+                                            <Button variant="outline" size="sm" onClick={() => handleEditWeekly(group.goals[0])} className="flex-shrink-0">
+                                                <Edit className="h-4 w-4 mr-1 sm:mr-2" />
+                                                <span className="hidden sm:inline">Editar</span>
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </Card>
                                             );
                                         })}
                                     </div>
@@ -2347,46 +2347,46 @@ const MetasManagementContent = () => {
                                                     return <div key={date} className="p-3" />; // Empty cell
                                                 }
 
-                                                const metaValue = parseFloat(metaLoja || "0");
-                                                const superMetaValue = parseFloat(superMetaLoja || "0");
-                                                const dailyMeta = (metaValue * weight) / 100;
-                                                const dailySuperMeta = (superMetaValue * weight) / 100;
-                                                const isFirstHalf = dayNum <= 15;
+                                            const metaValue = parseFloat(metaLoja || "0");
+                                            const superMetaValue = parseFloat(superMetaLoja || "0");
+                                            const dailyMeta = (metaValue * weight) / 100;
+                                            const dailySuperMeta = (superMetaValue * weight) / 100;
+                                            const isFirstHalf = dayNum <= 15;
 
-                                                return (
-                                                    <div
-                                                        key={date}
-                                                        className={`p-3 rounded-lg border-2 transition-all hover:shadow-md ${isFirstHalf
+                                            return (
+                                                <div
+                                                    key={date}
+                                                    className={`p-3 rounded-lg border-2 transition-all hover:shadow-md ${isFirstHalf
                                                             ? 'bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30 dark:border-primary/40'
                                                             : 'bg-gradient-to-br from-muted/50 to-muted/30 border-border'
-                                                            }`}
-                                                    >
-                                                        <div className="text-center space-y-1">
-                                                            <div className="text-sm font-bold text-foreground">{dayNum}</div>
-                                                            <Input
-                                                                type="number"
-                                                                step="0.1"
-                                                                value={weight}
-                                                                onChange={e => {
-                                                                    const val = parseFloat(e.target.value) || 0;
-                                                                    const rounded = Math.round(val * 10) / 10; // Round to 1 decimal
-                                                                    setDailyWeights(prev => ({ ...prev, [date]: rounded }));
-                                                                }}
-                                                                className="h-7 text-xs p-1 text-center font-semibold border-2"
-                                                            />
-                                                            {metaValue > 0 && (
-                                                                <>
+                                                        }`}
+                                                >
+                                                    <div className="text-center space-y-1">
+                                                        <div className="text-sm font-bold text-foreground">{dayNum}</div>
+                                                        <Input
+                                                            type="number"
+                                                            step="0.1"
+                                                            value={weight}
+                                                            onChange={e => {
+                                                                const val = parseFloat(e.target.value) || 0;
+                                                                const rounded = Math.round(val * 10) / 10; // Round to 1 decimal
+                                                                setDailyWeights(prev => ({ ...prev, [date]: rounded }));
+                                                            }}
+                                                            className="h-7 text-xs p-1 text-center font-semibold border-2"
+                                                        />
+                                                        {metaValue > 0 && (
+                                                            <>
                                                                     <div className="text-[10px] text-primary font-medium">
                                                                         {formatBRL(dailyMeta, 0)}
-                                                                    </div>
+                                                                </div>
                                                                     <div className="text-[10px] text-primary/80 font-medium">
                                                                         {formatBRL(dailySuperMeta, 0)}
-                                                                    </div>
-                                                                </>
-                                                            )}
-                                                        </div>
+                                                                </div>
+                                                            </>
+                                                        )}
                                                     </div>
-                                                );
+                                                </div>
+                                            );
                                             });
                                         })()}
                                     </div>
@@ -2472,7 +2472,7 @@ const MetasManagementContent = () => {
 
                         {/* 2. Seleção de Colaboradoras */}
                         {selectedStore && (
-                            <div>
+                        <div>
                                 <div className="flex items-center justify-between mb-3">
                                     <Label className="text-xs sm:text-sm font-semibold block">
                                         2. Escolher Colaboradoras que Participarão da Gincana *
@@ -2552,14 +2552,14 @@ const MetasManagementContent = () => {
                                 </SelectTrigger>
                                 <SelectContent>
                                     {getWeekOptions().map((option) => (
-                                        <SelectItem key={option.value} value={option.value} className="text-xs sm:text-sm">
+                                            <SelectItem key={option.value} value={option.value} className="text-xs sm:text-sm">
                                             {option.label}
-                                        </SelectItem>
+                                            </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </div>
-
+                        
                         {/* 4. Sugestões Automáticas */}
                         {selectedStore && selectedWeek && monthlyGoal && (
                             <div className="space-y-3 sm:space-y-4">
@@ -2609,16 +2609,16 @@ const MetasManagementContent = () => {
                                 </Card>
 
                                 <div className="space-y-2">
-                                    <Button
+                            <Button
                                         onClick={handleStartCustomizing}
-                                        variant="outline"
+                                variant="outline"
                                         className="w-full text-xs sm:text-sm border-2"
-                                        size="sm"
+                                size="sm"
                                         disabled={colaboradorasAtivas.filter(c => c.active).length === 0 || loadingSuggestions}
-                                    >
+                            >
                                         <Calculator className="mr-2 h-4 w-4" />
                                         Personalizar Metas
-                                    </Button>
+                            </Button>
                                     <p className="text-xs text-muted-foreground text-center">
                                         💡 As sugestões serão aplicadas automaticamente ao salvar. Clique em "Personalizar Metas" se quiser ajustar valores individuais.
                                     </p>
@@ -2650,27 +2650,27 @@ const MetasManagementContent = () => {
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                             <div>
                                                 <Label className="text-xs sm:text-sm">Meta (R$) *</Label>
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
+                                <Input
+                                    type="number"
+                                    step="0.01"
                                                     value={customMetaEqual}
                                                     onChange={(e) => setCustomMetaEqual(e.target.value)}
-                                                    placeholder="Ex: 10000.00"
-                                                    className="text-xs sm:text-sm"
-                                                />
-                                            </div>
+                                    placeholder="Ex: 10000.00"
+                                    className="text-xs sm:text-sm"
+                                />
+                            </div>
                                             <div>
                                                 <Label className="text-xs sm:text-sm">Super Meta (R$) *</Label>
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
+                                <Input
+                                    type="number"
+                                    step="0.01"
                                                     value={customSuperMetaEqual}
                                                     onChange={(e) => setCustomSuperMetaEqual(e.target.value)}
-                                                    placeholder="Ex: 12000.00"
-                                                    className="text-xs sm:text-sm"
-                                                />
-                                            </div>
-                                        </div>
+                                    placeholder="Ex: 12000.00"
+                                    className="text-xs sm:text-sm"
+                                />
+                            </div>
+                        </div>
                                         <p className="text-xs text-muted-foreground text-center">
                                             💡 Os valores serão aplicados automaticamente ao salvar a gincana.
                                         </p>
@@ -2681,18 +2681,18 @@ const MetasManagementContent = () => {
                                     <CardHeader className="pb-3">
                                         <div className="flex items-center justify-between flex-wrap gap-2">
                                             <CardTitle className="text-sm">Personalizar Meta Individual por Colaboradora</CardTitle>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
                                                 onClick={applyEqualToAll}
                                                 disabled={!customMetaEqual || !customSuperMetaEqual}
                                                 className="text-xs"
-                                            >
-                                                <Calculator className="h-3 w-3 mr-1" />
+                                    >
+                                        <Calculator className="h-3 w-3 mr-1" />
                                                 Usar Valores Iguais
-                                            </Button>
-                                        </div>
+                                    </Button>
+                                </div>
                                     </CardHeader>
                                     <CardContent className="space-y-2">
                                         <ScrollArea className="h-[250px] sm:h-[300px]">
@@ -2705,40 +2705,40 @@ const MetasManagementContent = () => {
                                                             <div key={colab.id} className="p-3 rounded-lg border bg-background">
                                                                 <div className="mb-2">
                                                                     <p className="text-xs sm:text-sm font-semibold">{colab.name}</p>
-                                                                </div>
+                                    </div>
                                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                                                     <div>
                                                                         <Label className="text-xs">Meta (R$)</Label>
-                                                                        <Input
-                                                                            type="number"
-                                                                            step="0.01"
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
                                                                             value={customMeta?.meta || 0}
                                                                             onChange={(e) => updateIndividualMeta(colab.id, 'meta', e.target.value)}
                                                                             className="text-xs sm:text-sm h-8"
-                                                                        />
-                                                                    </div>
+                                                />
+                                            </div>
                                                                     <div>
                                                                         <Label className="text-xs">Super Meta (R$)</Label>
-                                                                        <Input
-                                                                            type="number"
-                                                                            step="0.01"
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
                                                                             value={customMeta?.superMeta || 0}
                                                                             onChange={(e) => updateIndividualMeta(colab.id, 'superMeta', e.target.value)}
                                                                             className="text-xs sm:text-sm h-8"
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
+                                                />
+                                            </div>
+                                        </div>
+                                        </div>
                                                         );
                                                     })}
-                                            </div>
+                                    </div>
                                         </ScrollArea>
                                         <p className="text-xs text-muted-foreground text-center">
                                             💡 As metas individuais serão aplicadas automaticamente ao salvar a gincana.
                                         </p>
                                     </CardContent>
                                 </Card>
-                            </div>
+                                </div>
                         )}
 
                         {/* 5. Prêmios da Gincana */}
@@ -2765,7 +2765,7 @@ const MetasManagementContent = () => {
                                                 <SelectItem value="FISICO">Prêmio Físico</SelectItem>
                                             </SelectContent>
                                         </Select>
-                                    </div>
+                            </div>
                                     <div>
                                         <Label className="text-xs sm:text-sm">
                                             {isPremioFisicoCheckpoint1 ? "Descrição do Prêmio" : "Valor do Prêmio (R$)"}
@@ -2848,19 +2848,19 @@ const MetasManagementContent = () => {
                                 </Button>
                             )}
                             <div className="flex gap-2 ml-auto">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => {
-                                        setWeeklyDialogOpen(false);
-                                        resetWeeklyForm();
-                                    }}
-                                    className="w-full sm:w-auto text-xs sm:text-sm"
-                                    size="sm"
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                    setWeeklyDialogOpen(false);
+                                    resetWeeklyForm();
+                                }}
+                                className="w-full sm:w-auto text-xs sm:text-sm"
+                                size="sm"
                                     disabled={savingWeeklyGoal}
-                                >
-                                    Cancelar
-                                </Button>
+                            >
+                                Cancelar
+                            </Button>
                                 <Button
                                     type="button"
                                     onClick={handleSaveWeeklyGoal}
@@ -2875,11 +2875,11 @@ const MetasManagementContent = () => {
                                         </>
                                     ) : (
                                         <>
-                                            <Save className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                                <Save className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                                             Salvar Gincana Semanal
                                         </>
                                     )}
-                                </Button>
+                            </Button>
                             </div>
                         </div>
                     </div>

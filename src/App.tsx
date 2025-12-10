@@ -31,6 +31,7 @@ const BonusManagement = lazy(() => import("./components/BonusManagement"));
 const BenchmarksManagement = lazy(() => import("./pages/BenchmarksManagement"));
 const ERPIntegrationsConfig = lazy(() => import("./pages/ERPIntegrationsConfig"));
 const ERPConfig = lazy(() => import("./pages/dev/ERPConfig"));
+const SuperAdmin = lazy(() => import("./pages/dev/SuperAdmin"));
 const DevLogin = lazy(() => import("./pages/dev/DevLogin"));
 const ERPLogin = lazy(() => import("./pages/erp/ERPLogin"));
 const ERPDashboard = lazy(() => import("./pages/erp/ERPDashboard"));
@@ -99,6 +100,7 @@ const App = () => (
               
               <Route path="/dev/login" element={<Suspense fallback={<PageLoader />}><DevLogin /></Suspense>} />
               <Route path="/dev/erp-config" element={<Suspense fallback={<PageLoader />}><ERPConfig /></Suspense>} />
+              <Route path="/dev/superadm" element={<Suspense fallback={<PageLoader />}><SuperAdmin /></Suspense>} />
               
               <Route path="/erp/login" element={<Suspense fallback={<PageLoader />}><ERPLogin /></Suspense>} />
               <Route path="/erp/dashboard" element={<Suspense fallback={<PageLoader />}><ERPDashboard /></Suspense>} />

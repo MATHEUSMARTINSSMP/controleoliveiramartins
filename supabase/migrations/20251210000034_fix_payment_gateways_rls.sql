@@ -9,8 +9,7 @@
 DROP POLICY IF EXISTS "Dev can manage payment gateways" ON sistemaretiradas.payment_gateways;
 DROP POLICY IF EXISTS "Admins can manage payment gateways" ON sistemaretiradas.payment_gateways;
 
--- Política restrita: Apenas dev@dev.com ou service_role
--- CORRIGIDO: Usa profiles.email em vez de auth.users.email
+-- Política restrita: Apenas Super Admin ou service_role
 CREATE POLICY "Dev can manage payment gateways" ON sistemaretiradas.payment_gateways
     FOR ALL USING (
         auth.role() = 'service_role'
@@ -18,9 +17,9 @@ CREATE POLICY "Dev can manage payment gateways" ON sistemaretiradas.payment_gate
         EXISTS (
             SELECT 1 FROM sistemaretiradas.profiles
             WHERE id = auth.uid()
-            AND email = 'dev@dev.com'
+            AND is_super_admin = TRUE
         )
     );
 
-COMMENT ON POLICY "Dev can manage payment gateways" ON sistemaretiradas.payment_gateways IS 'Apenas dev@dev.com ou service_role pode gerenciar gateways de pagamento (usa profiles.email)';
+COMMENT ON POLICY "Dev can manage payment gateways" ON sistemaretiradas.payment_gateways IS 'Apenas Super Admin (is_super_admin = TRUE) ou service_role pode gerenciar gateways de pagamento';
 
