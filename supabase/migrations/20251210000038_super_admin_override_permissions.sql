@@ -247,13 +247,13 @@ BEGIN
   END IF;
   
   -- Atualizar subscription (SOBRESCREVE verificação automática)
+  -- Nota: updated_at pode não existir, então não incluímos
   UPDATE sistemaretiradas.admin_subscriptions
   SET 
     status = p_status,
     payment_status = p_payment_status,
     current_period_end = COALESCE(p_current_period_end, current_period_end),
-    last_payment_date = COALESCE(p_last_payment_date, last_payment_date),
-    updated_at = NOW()
+    last_payment_date = COALESCE(p_last_payment_date, last_payment_date)
   WHERE admin_id = p_target_admin_id;
   
   -- Se pagamento foi marcado como pago, reativar admin imediatamente
