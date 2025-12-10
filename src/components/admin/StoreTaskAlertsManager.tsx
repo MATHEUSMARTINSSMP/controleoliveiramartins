@@ -229,11 +229,19 @@ export const StoreTaskAlertsManager = () => {
 
   // Buscar contatos da loja selecionada
   const fetchContactsForStore = async (storeId: string) => {
+    console.log('🔍 [fetchContactsForStore] ====== INICIADO ======');
     console.log('🔍 [fetchContactsForStore] storeId recebido:', storeId);
-    console.log('🔍 [fetchContactsForStore] profile.id:', profile?.id);
+    console.log('🔍 [fetchContactsForStore] Tipo do storeId:', typeof storeId);
+    console.log('🔍 [fetchContactsForStore] profile:', profile ? { id: profile.id, role: profile.role } : 'null');
     
-    if (!profile || !storeId) {
-      console.warn('⚠️ [fetchContactsForStore] profile ou storeId ausente');
+    if (!profile) {
+      console.error('❌ [fetchContactsForStore] profile é null!');
+      setAvailableContacts([]);
+      return;
+    }
+    
+    if (!storeId) {
+      console.error('❌ [fetchContactsForStore] storeId é null ou undefined!');
       setAvailableContacts([]);
       return;
     }
@@ -340,18 +348,22 @@ export const StoreTaskAlertsManager = () => {
   };
 
   const handleOpenDialog = (storeId: string, task?: StoreTask) => {
-    console.log('🔍 [handleOpenDialog] storeId recebido:', storeId);
+    console.log('🔍 [handleOpenDialog] INICIADO - storeId recebido:', storeId);
     console.log('🔍 [handleOpenDialog] task:', task ? task.id : 'novo alerta');
+    console.log('🔍 [handleOpenDialog] Tipo do storeId:', typeof storeId);
+    
+    if (!storeId) {
+      console.error('❌ [handleOpenDialog] storeId é null ou undefined!');
+      toast.error('Erro: ID da loja não identificado');
+      return;
+    }
     
     setSelectedStoreId(storeId);
+    console.log('✅ [handleOpenDialog] selectedStoreId atualizado:', storeId);
     
     // CRÍTICO: Buscar contatos quando selecionar uma loja
-    if (storeId) {
-      console.log('🔍 [handleOpenDialog] Chamando fetchContactsForStore com storeId:', storeId);
-      fetchContactsForStore(storeId);
-    } else {
-      console.warn('⚠️ [handleOpenDialog] storeId é null ou undefined!');
-    }
+    console.log('🔍 [handleOpenDialog] Chamando fetchContactsForStore com storeId:', storeId);
+    fetchContactsForStore(storeId);
 
     if (task) {
       setEditingTask(task);
@@ -952,7 +964,10 @@ export const StoreTaskAlertsManager = () => {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleOpenDialog(store.id, task)}
+                                  onClick={() => {
+                                    console.log('🔘 [BUTTON CLICK] Editar Alerta - store.id:', store.id, 'task.id:', task.id);
+                                    handleOpenDialog(store.id, task);
+                                  }}
                                   data-testid={`button-edit-alert-${task.id}`}
                                 >
                                   <Edit className="h-4 w-4 mr-1" />
