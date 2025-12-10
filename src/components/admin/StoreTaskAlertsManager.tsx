@@ -830,20 +830,6 @@ export const StoreTaskAlertsManager = () => {
 
   return (
     <div className="space-y-6">
-      {/* TESTE CRÍTICO: Botão fora de tudo para verificar se eventos funcionam */}
-      <div className="p-4 bg-yellow-200 dark:bg-yellow-900 border-2 border-yellow-500 rounded">
-        <p className="font-bold mb-2">TESTE DE DEBUG:</p>
-        <Button
-          onClick={() => {
-            alert('TESTE: Botão de teste funcionou!');
-            console.log('✅✅✅ BOTÃO DE TESTE CLICADO ✅✅✅');
-          }}
-          className="bg-red-500 text-white"
-        >
-          CLIQUE AQUI PARA TESTAR
-        </Button>
-      </div>
-      
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
