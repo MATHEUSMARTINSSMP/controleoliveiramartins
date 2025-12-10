@@ -971,10 +971,7 @@ export const StoreTaskAlertsManager = () => {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => {
-                                    console.log('🔘 [BUTTON CLICK] Editar Alerta - store.id:', store.id, 'task.id:', task.id);
-                                    handleOpenDialog(store.id, task);
-                                  }}
+                                  onClick={() => handleOpenDialog(store.id, task)}
                                   data-testid={`button-edit-alert-${task.id}`}
                                 >
                                   <Edit className="h-4 w-4 mr-1" />
