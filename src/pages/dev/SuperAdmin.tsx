@@ -132,7 +132,6 @@ const SuperAdmin = () => {
   const [storeFormData, setStoreFormData] = useState({
     name: "",
     site_slug: "",
-    email: "",
     active: true,
   });
 
@@ -1251,16 +1250,6 @@ const SuperAdmin = () => {
                     setStoreFormData({ ...storeFormData, site_slug: e.target.value })
                   }
                   placeholder="exemplo-loja"
-                />
-              </div>
-              <div>
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={storeFormData.email}
-                  onChange={(e) =>
-                    setStoreFormData({ ...storeFormData, email: e.target.value })
-                  }
                 />
               </div>
               <div className="flex items-center justify-between">
