@@ -58,7 +58,8 @@ interface AdminUser {
   email: string;
   name: string;
   role: string;
-  active: boolean;
+  active: boolean; // Alias para is_active (compatibilidade)
+  is_active?: boolean; // Campo real do banco
   created_at: string;
   last_sign_in_at: string | null;
   login_count?: number;
@@ -335,7 +336,6 @@ const SuperAdmin = () => {
           id,
           name,
           site_slug,
-          email,
           active,
           admin_id,
           cashback_ativo,
@@ -381,7 +381,7 @@ const SuperAdmin = () => {
           current_period_end,
           last_payment_date,
           next_payment_date,
-          payment_gateway,
+          payment_gateway_id,
           profiles!admin_subscriptions_admin_id_fkey(id, email, name),
           subscription_plans!admin_subscriptions_plan_id_fkey(id, name)
         `)
@@ -453,16 +453,28 @@ const SuperAdmin = () => {
   };
 
   const handleUpdateStore = async () => {
-    if (!selectedStore) return;
+    if (!selectedStore || !profile?.id) return;
 
     try {
+      // Se está alterando active, usar função RPC do Super Admin
+      if (storeFormData.active !== selectedStore.active) {
+        const { data, error: toggleError } = await supabase
+          .rpc('super_admin_toggle_store_active', {
+            p_super_admin_id: profile.id,
+            p_store_id: selectedStore.id,
+            p_active: storeFormData.active
+          });
+
+        if (toggleError) throw toggleError;
+      }
+
+      // Atualizar outros campos normalmente
       const { error } = await supabase
         .schema("sistemaretiradas")
         .from("stores")
         .update({
           name: storeFormData.name,
           site_slug: storeFormData.site_slug,
-          email: storeFormData.email,
           active: storeFormData.active,
         })
         .eq("id", selectedStore.id);
@@ -474,7 +486,7 @@ const SuperAdmin = () => {
       fetchStores();
     } catch (error: any) {
       console.error("Erro ao atualizar loja:", error);
-      toast.error(`Erro ao atualizar loja: ${error.message}`);
+      toast.error(`Erro ao atualizar loja: ${error.message || 'Erro desconhecido'}`);
     }
   };
 
@@ -483,72 +495,80 @@ const SuperAdmin = () => {
     module: string,
     currentValue: boolean
   ) => {
+    if (!profile?.id) {
+      toast.error("Erro: Perfil não encontrado");
+      return;
+    }
+
     try {
-      const { error } = await supabase
-        .schema("sistemaretiradas")
-        .from("stores")
-        .update({ [`${module}_ativo`]: !currentValue })
-        .eq("id", storeId);
+      // Usar função RPC que verifica Super Admin e sobrescreve billing
+      const { data, error } = await supabase
+        .rpc('super_admin_toggle_store_module', {
+          p_super_admin_id: profile.id,
+          p_store_id: storeId,
+          p_module_name: module,
+          p_active: !currentValue
+        });
 
       if (error) throw error;
 
-      toast.success(`Módulo ${module} ${!currentValue ? "ativado" : "desativado"}!`);
+      toast.success(`Módulo ${module} ${!currentValue ? "ativado" : "desativado"} com sucesso!`);
       fetchStores();
     } catch (error: any) {
       console.error("Erro ao alterar módulo:", error);
-      toast.error(`Erro ao alterar módulo: ${error.message}`);
+      toast.error(`Erro ao alterar módulo: ${error.message || 'Erro desconhecido'}`);
     }
   };
 
   const handleUpdateSubscription = async () => {
-    if (!selectedSubscription) return;
+    if (!selectedSubscription || !profile?.id) return;
 
     try {
-      const updateData: any = {
-        status: subscriptionFormData.status,
-        payment_status: subscriptionFormData.payment_status,
-      };
-
-      if (subscriptionFormData.current_period_end) {
-        updateData.current_period_end = subscriptionFormData.current_period_end;
-      }
-
-      if (subscriptionFormData.last_payment_date) {
-        updateData.last_payment_date = subscriptionFormData.last_payment_date;
-      }
-
-      const { error } = await supabase
-        .schema("sistemaretiradas")
-        .from("admin_subscriptions")
-        .update(updateData)
-        .eq("id", selectedSubscription.id);
+      // Usar função RPC do Super Admin que sobrescreve verificação automática
+      const { data, error } = await supabase
+        .rpc('super_admin_update_billing_status', {
+          p_super_admin_id: profile.id,
+          p_target_admin_id: selectedSubscription.admin_id,
+          p_status: subscriptionFormData.status,
+          p_payment_status: subscriptionFormData.payment_status,
+          p_current_period_end: subscriptionFormData.current_period_end || null,
+          p_last_payment_date: subscriptionFormData.last_payment_date || null
+        });
 
       if (error) throw error;
 
-      toast.success("Assinatura atualizada com sucesso!");
+      toast.success("Assinatura atualizada com sucesso! Status de billing sobrescrito.");
       setSubscriptionDialogOpen(false);
       fetchSubscriptions();
+      fetchUsers(); // Atualizar lista de usuários também
     } catch (error: any) {
       console.error("Erro ao atualizar assinatura:", error);
-      toast.error(`Erro ao atualizar assinatura: ${error.message}`);
+      toast.error(`Erro ao atualizar assinatura: ${error.message || 'Erro desconhecido'}`);
     }
   };
 
   const handleToggleUserActive = async (userId: string, currentActive: boolean) => {
+    if (!profile?.id) {
+      toast.error("Erro: Perfil não encontrado");
+      return;
+    }
+
     try {
-      const { error } = await supabase
-        .schema("sistemaretiradas")
-        .from("profiles")
-        .update({ active: !currentActive })
-        .eq("id", userId);
+      // Usar função RPC que verifica Super Admin e sobrescreve billing
+      const { data, error } = await supabase
+        .rpc('super_admin_toggle_user_active', {
+          p_super_admin_id: profile.id,
+          p_target_user_id: userId,
+          p_active: !currentActive
+        });
 
       if (error) throw error;
 
-      toast.success(`Usuário ${!currentActive ? "ativado" : "desativado"}!`);
+      toast.success(`Usuário ${!currentActive ? "ativado" : "desativado"} com sucesso!`);
       fetchUsers();
     } catch (error: any) {
       console.error("Erro ao alterar status do usuário:", error);
-      toast.error(`Erro: ${error.message}`);
+      toast.error(`Erro: ${error.message || 'Erro desconhecido'}`);
     }
   };
 
@@ -580,10 +600,11 @@ const SuperAdmin = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
             <TabsTrigger value="users">Usuários</TabsTrigger>
             <TabsTrigger value="stores">Lojas</TabsTrigger>
+            <TabsTrigger value="colaboradoras">Colaboradoras</TabsTrigger>
             <TabsTrigger value="subscriptions">Assinaturas</TabsTrigger>
             <TabsTrigger value="modules">Módulos</TabsTrigger>
             <TabsTrigger value="system">Sistema</TabsTrigger>
@@ -1037,14 +1058,120 @@ const SuperAdmin = () => {
             </Card>
           </TabsContent>
 
+          {/* COLABORADORAS */}
+          <TabsContent value="colaboradoras" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Gestão de Colaboradoras</CardTitle>
+                <CardDescription>
+                  Gerencie todas as colaboradoras do sistema
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {stores.map((store) => {
+                    const storeColaboradoras = users.filter(
+                      (u) => u.role === "COLABORADORA" && (u as any).store_id === store.id
+                    );
+                    return (
+                      <Card key={store.id}>
+                        <CardHeader>
+                          <CardTitle className="text-lg">{store.name}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          {storeColaboradoras.length > 0 ? (
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Nome</TableHead>
+                                  <TableHead>Email</TableHead>
+                                  <TableHead>Status</TableHead>
+                                  <TableHead>Ações</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {storeColaboradoras.map((colab) => (
+                                  <TableRow key={colab.id}>
+                                    <TableCell>{colab.name}</TableCell>
+                                    <TableCell>{colab.email}</TableCell>
+                                    <TableCell>
+                                      <Badge variant={colab.active ? "default" : "secondary"}>
+                                        {colab.active ? "Ativa" : "Inativa"}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleToggleUserActive(colab.id, colab.active)}
+                                      >
+                                        {colab.active ? "Desativar" : "Ativar"}
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              Nenhuma colaboradora cadastrada nesta loja
+                            </p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* SISTEMA */}
           <TabsContent value="system" className="space-y-6">
-            <Tabs defaultValue="whatsapp" className="w-full">
+            <Tabs defaultValue="erp" className="w-full">
               <TabsList>
+                <TabsTrigger value="erp">Configuração ERP</TabsTrigger>
                 <TabsTrigger value="whatsapp">WhatsApp Global</TabsTrigger>
                 <TabsTrigger value="gateways">Gateways de Pagamento</TabsTrigger>
                 <TabsTrigger value="webhook">Webhook Tester</TabsTrigger>
               </TabsList>
+              <TabsContent value="erp">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Configuração de ERP</CardTitle>
+                    <CardDescription>
+                      Configure as integrações de ERP para cada loja
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {stores.map((store) => (
+                        <Card key={store.id}>
+                          <CardHeader>
+                            <CardTitle className="text-lg">{store.name}</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <Label>ERP Ativo</Label>
+                                <Switch
+                                  checked={store.erp_ativo}
+                                  onCheckedChange={() =>
+                                    handleToggleStoreModule(store.id, "erp", store.erp_ativo)
+                                  }
+                                />
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                Ative ou desative a integração de ERP para esta loja
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
               <TabsContent value="whatsapp">
                 <WhatsAppGlobalConfig />
               </TabsContent>

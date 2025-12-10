@@ -415,7 +415,7 @@ BEGIN
         gateway_response = EXCLUDED.gateway_response
     RETURNING id INTO v_payment_id;
     
-    -- Se pagamento bem-sucedido, atualizar subscription
+    -- Se pagamento bem-sucedido, atualizar subscription E reativar admin
     IF p_status = 'SUCCEEDED' THEN
         UPDATE sistemaretiradas.admin_subscriptions
         SET 
@@ -427,6 +427,11 @@ BEGIN
             next_payment_date = p_period_end,
             updated_at = NOW()
         WHERE id = p_subscription_id;
+        
+        -- REATIVAR ADMIN IMEDIATAMENTE quando pagamento é bem-sucedido
+        UPDATE sistemaretiradas.profiles
+        SET is_active = TRUE
+        WHERE id = v_subscription.admin_id AND role = 'ADMIN';
     END IF;
     
     RETURN json_build_object(
@@ -516,7 +521,7 @@ BEGIN
     )
     RETURNING id INTO v_payment_id;
     
-    -- Atualizar subscription
+    -- Atualizar subscription E reativar admin
     UPDATE sistemaretiradas.admin_subscriptions
     SET 
         payment_status = 'PAID',
@@ -527,6 +532,11 @@ BEGIN
         next_payment_date = p_period_end,
         updated_at = NOW()
     WHERE id = v_subscription.id;
+    
+    -- REATIVAR ADMIN IMEDIATAMENTE quando pagamento manual é registrado
+    UPDATE sistemaretiradas.profiles
+    SET is_active = TRUE
+    WHERE id = p_admin_id AND role = 'ADMIN';
     
     RETURN json_build_object(
         'success', true,

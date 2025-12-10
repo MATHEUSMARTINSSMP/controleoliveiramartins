@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { formatBRL } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -358,10 +358,34 @@ export default function LojaDashboard() {
             return;
         }
 
-        // Se for LOJA, precisa identificar o store_id correto (apenas uma vez)
-        if (profile.role === 'LOJA' && !isIdentifyingStoreRef.current) {
-            isIdentifyingStoreRef.current = true;
-            identifyStore();
+        // Verificar se o admin da loja está ativo
+        if (profile.role === 'LOJA' && profile.store_id) {
+            // Buscar admin da loja e verificar se está ativo
+            supabase
+                .schema('sistemaretiradas')
+                .from('stores')
+                .select('admin_id, profiles!stores_admin_id_fkey(id, is_active)')
+                .eq('id', profile.store_id)
+                .single()
+                .then(({ data: storeData, error: storeError }) => {
+                    if (storeError) {
+                        console.error('Erro ao verificar admin da loja:', storeError);
+                        return;
+                    }
+                    
+                    const adminIsActive = storeData?.profiles?.is_active !== false;
+                    if (!adminIsActive) {
+                        // Admin desativado - bloquear acesso
+                        console.warn('⚠️ Admin da loja está desativado - bloqueando acesso');
+                        return;
+                    }
+                    
+                    // Admin ativo - continuar normalmente
+                    if (!isIdentifyingStoreRef.current) {
+                        isIdentifyingStoreRef.current = true;
+                        identifyStore();
+                    }
+                });
         } else if (profile.role === 'ADMIN') {
             // ADMIN não precisa carregar dados de loja específica aqui
             setLoading(false);
@@ -2952,6 +2976,66 @@ export default function LojaDashboard() {
     const precoMedioPeca = formData.valor && formData.qtd_pecas
         ? (parseFloat(formData.valor) / parseInt(formData.qtd_pecas)).toFixed(2)
         : "0,00";
+
+    // Estado para verificar se o admin está ativo
+    const [adminBlocked, setAdminBlocked] = useState(false);
+
+    // Verificar se o admin está ativo quando a loja for identificada
+    useEffect(() => {
+        if (!storeId || !profile || profile.role !== 'LOJA') return;
+
+        const checkAdminStatus = async () => {
+            try {
+                const { data: storeData, error } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('stores')
+                    .select('admin_id, profiles!stores_admin_id_fkey(id, is_active, name, email)')
+                    .eq('id', storeId)
+                    .single();
+
+                if (error) {
+                    console.error('Erro ao verificar admin:', error);
+                    return;
+                }
+
+                const adminIsActive = storeData?.profiles?.is_active !== false;
+                if (!adminIsActive) {
+                    setAdminBlocked(true);
+                    console.warn('⚠️ Admin da loja está desativado - bloqueando acesso');
+                } else {
+                    setAdminBlocked(false);
+                }
+            } catch (error) {
+                console.error('Erro ao verificar status do admin:', error);
+            }
+        };
+
+        checkAdminStatus();
+    }, [storeId, profile]);
+
+    // Mostrar tela de bloqueio se o admin estiver desativado
+    if (adminBlocked) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-background p-4">
+                <Card className="w-full max-w-md">
+                    <CardHeader className="text-center">
+                        <CardTitle className="text-2xl mb-2">Acesso Bloqueado</CardTitle>
+                        <CardDescription>
+                            Entre em contato com seu administrador. Página desativada.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="text-center">
+                        <p className="text-sm text-muted-foreground mb-4">
+                            Esta conta foi desativada pelo administrador do sistema.
+                        </p>
+                        <Button onClick={() => signOut()} variant="outline" className="w-full">
+                            Sair
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     if (loading) {
         return (

@@ -62,6 +62,20 @@ interface CRMCommitment {
   status: "AGENDADO" | "CONCLUÍDO" | "CANCELADO" | "FALTANDO";
 }
 
+// Interface unificada para "Próximas Tarefas"
+interface UnifiedTask {
+  id: string;
+  type: "TAREFA" | "POS_VENDA" | "ANIVERSARIO" | "COMPROMISSO" | "CASHBACK";
+  categoria: string;
+  cliente_nome: string | null;
+  cliente_whatsapp: string | null;
+  data: string; // Data/hora da tarefa
+  prioridade?: "ALTA" | "MÉDIA" | "BAIXA";
+  observacao: string | null;
+  status?: string;
+  originalData: CRMTask | PostSale | Birthday | CRMCommitment; // Dados originais para ações
+}
+
 interface CRMLojaViewProps {
   storeId: string | null;
 }
@@ -74,6 +88,8 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
   const [birthdays, setBirthdays] = useState<Birthday[]>([]);
   const [postSales, setPostSales] = useState<PostSale[]>([]);
   const [commitments, setCommitments] = useState<CRMCommitment[]>([]);
+  const [unifiedTasks, setUnifiedTasks] = useState<UnifiedTask[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("TODAS");
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [commitmentDialogOpen, setCommitmentDialogOpen] = useState(false);
   const [taskEditDialogOpen, setTaskEditDialogOpen] = useState(false);
@@ -114,7 +130,8 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
         fetchFutureTasks(),
         fetchBirthdays(),
         fetchPostSales(),
-        fetchCommitments()
+        fetchCommitments(),
+        fetchUnifiedTasks()
       ]);
     } catch (error) {
       console.error('Erro ao buscar dados CRM:', error);
@@ -160,6 +177,18 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
     }
   };
 
+  // Função para obter categoria da tarefa (deve estar antes de fetchUnifiedTasks)
+  const getTaskCategory = (task: CRMTask) => {
+    if (task.description) {
+      if (task.description.includes('Aniversário')) return 'Aniversário';
+      if (task.description.includes('Pós-Venda')) return 'Pós-Venda';
+      if (task.description.includes('Personalizada')) return 'Personalizada';
+      if (task.description.includes('Cashback') || task.title?.includes('Cashback')) return 'Cashback';
+    }
+    if (task.title?.includes('Cashback')) return 'Cashback';
+    return 'Personalizada';
+  };
+
   const fetchFutureTasks = async () => {
     if (!storeId) {
       console.warn('[CRMLojaView] fetchFutureTasks chamado sem storeId');
@@ -168,8 +197,11 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
 
     try {
       const todayEnd = endOfDay(new Date()).toISOString();
+      const thirtyDaysLater = new Date();
+      thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
+      const thirtyDaysLaterEnd = endOfDay(thirtyDaysLater).toISOString();
 
-      // ✅ Buscar tarefas futuras (próximos dias, status PENDENTE)
+      // ✅ Buscar tarefas futuras (próximos 30 dias, status PENDENTE)
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('crm_tasks')
@@ -177,8 +209,8 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
         .eq('store_id', storeId)
         .eq('status', 'PENDENTE')
         .gt('due_date', todayEnd) // Tarefas após hoje
-        .order('due_date', { ascending: true })
-        .limit(100); // Limitar a 100 tarefas futuras
+        .lte('due_date', thirtyDaysLaterEnd) // Até 30 dias
+        .order('due_date', { ascending: true });
 
       if (error) {
         console.error('[CRMLojaView] Erro ao buscar tarefas futuras:', error);
@@ -192,6 +224,193 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
     } catch (error: any) {
       console.error('[CRMLojaView] Erro inesperado ao buscar tarefas futuras:', error);
       setFutureTasks([]);
+    }
+  };
+
+  // Função para buscar e unificar todas as tarefas dos próximos 30 dias
+  const fetchUnifiedTasks = async () => {
+    if (!storeId) return;
+
+    try {
+      const todayEnd = endOfDay(new Date()).toISOString();
+      const thirtyDaysLater = new Date();
+      thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
+      const thirtyDaysLaterEnd = endOfDay(thirtyDaysLater).toISOString();
+
+      const unified: UnifiedTask[] = [];
+
+      // 1. Tarefas (crm_tasks) - próximos 30 dias
+      const { data: tasksData } = await supabase
+        .schema('sistemaretiradas')
+        .from('crm_tasks')
+        .select('*')
+        .eq('store_id', storeId)
+        .eq('status', 'PENDENTE')
+        .gt('due_date', todayEnd)
+        .lte('due_date', thirtyDaysLaterEnd)
+        .order('due_date', { ascending: true });
+
+      if (tasksData) {
+        tasksData.forEach((task) => {
+          const isCashback = task.description?.includes('Cashback') || task.title?.includes('Cashback');
+          unified.push({
+            id: task.id,
+            type: isCashback ? "CASHBACK" : "TAREFA",
+            categoria: getTaskCategory(task),
+            cliente_nome: task.cliente_nome,
+            cliente_whatsapp: task.cliente_whatsapp,
+            data: task.due_date,
+            prioridade: task.priority,
+            observacao: task.title,
+            status: task.status,
+            originalData: task
+          });
+        });
+      }
+
+      // 2. Pós-vendas (crm_post_sales) - próximos 30 dias
+      const { data: postSalesData } = await supabase
+        .schema('sistemaretiradas')
+        .from('crm_post_sales')
+        .select('*')
+        .eq('store_id', storeId)
+        .eq('status', 'AGENDADA')
+        .gt('scheduled_follow_up', todayEnd)
+        .lte('scheduled_follow_up', thirtyDaysLaterEnd)
+        .order('scheduled_follow_up', { ascending: true });
+
+      if (postSalesData) {
+        postSalesData.forEach((ps) => {
+          unified.push({
+            id: ps.id,
+            type: "POS_VENDA",
+            categoria: "Pós-Venda",
+            cliente_nome: ps.cliente_nome,
+            cliente_whatsapp: null,
+            data: ps.scheduled_follow_up,
+            observacao: ps.details || `Follow-up de venda realizada em ${format(parseISO(ps.sale_date), "dd/MM/yyyy")}`,
+            status: ps.status,
+            originalData: ps
+          });
+        });
+      }
+
+      // 3. Aniversários (crm_contacts + tiny_contacts) - próximos 30 dias
+      const today = new Date();
+      const contactsPromises = [];
+
+      // Buscar de crm_contacts
+      const { data: crmContacts } = await supabase
+        .schema('sistemaretiradas')
+        .from('crm_contacts')
+        .select('id, nome, telefone, data_nascimento')
+        .eq('store_id', storeId)
+        .not('data_nascimento', 'is', null);
+
+      if (crmContacts) {
+        crmContacts.forEach((contact) => {
+          if (!contact.data_nascimento) return;
+          const birthDate = parseISO(contact.data_nascimento);
+          const thisYearBirthday = new Date(today.getFullYear(), birthDate.getMonth(), birthDate.getDate());
+          const nextYearBirthday = new Date(today.getFullYear() + 1, birthDate.getMonth(), birthDate.getDate());
+          
+          let birthdayDate = thisYearBirthday;
+          if (thisYearBirthday < today) {
+            birthdayDate = nextYearBirthday;
+          }
+
+          if (birthdayDate <= thirtyDaysLater) {
+            unified.push({
+              id: `birthday-${contact.id}-${birthdayDate.getTime()}`,
+              type: "ANIVERSARIO",
+              categoria: "Aniversário",
+              cliente_nome: contact.nome,
+              cliente_whatsapp: contact.telefone,
+              data: birthdayDate.toISOString(),
+              observacao: `Aniversário de ${contact.nome}`,
+              originalData: { ...contact, data_nascimento: birthdayDate.toISOString() } as Birthday
+            });
+          }
+        });
+      }
+
+      // Buscar de tiny_contacts
+      try {
+        const { data: tinyContacts } = await supabase
+          .schema('sistemaretiradas')
+          .from('tiny_contacts')
+          .select('id, nome, telefone, data_nascimento')
+          .eq('store_id', storeId)
+          .not('data_nascimento', 'is', null);
+
+        if (tinyContacts) {
+          tinyContacts.forEach((contact) => {
+            if (!contact.data_nascimento) return;
+            const birthDate = parseISO(contact.data_nascimento);
+            const thisYearBirthday = new Date(today.getFullYear(), birthDate.getMonth(), birthDate.getDate());
+            const nextYearBirthday = new Date(today.getFullYear() + 1, birthDate.getMonth(), birthDate.getDate());
+            
+            let birthdayDate = thisYearBirthday;
+            if (thisYearBirthday < today) {
+              birthdayDate = nextYearBirthday;
+            }
+
+            if (birthdayDate <= thirtyDaysLater) {
+              unified.push({
+                id: `birthday-tiny-${contact.id}-${birthdayDate.getTime()}`,
+                type: "ANIVERSARIO",
+                categoria: "Aniversário",
+                cliente_nome: contact.nome,
+                cliente_whatsapp: contact.telefone,
+                data: birthdayDate.toISOString(),
+                observacao: `Aniversário de ${contact.nome}`,
+                originalData: { ...contact, data_nascimento: birthdayDate.toISOString() } as Birthday
+              });
+            }
+          });
+        }
+      } catch (e) {
+        console.log('Não foi possível buscar aniversários de tiny_contacts');
+      }
+
+      // 4. Compromissos (crm_commitments) - próximos 30 dias
+      const { data: commitmentsData } = await supabase
+        .schema('sistemaretiradas')
+        .from('crm_commitments')
+        .select('*')
+        .eq('store_id', storeId)
+        .in('status', ['AGENDADO'])
+        .gt('scheduled_date', todayEnd)
+        .lte('scheduled_date', thirtyDaysLaterEnd)
+        .order('scheduled_date', { ascending: true });
+
+      if (commitmentsData) {
+        commitmentsData.forEach((comp) => {
+          unified.push({
+            id: comp.id,
+            type: "COMPROMISSO",
+            categoria: comp.type,
+            cliente_nome: comp.cliente_nome,
+            cliente_whatsapp: null,
+            data: comp.scheduled_date,
+            observacao: comp.notes || `Compromisso: ${comp.type}`,
+            status: comp.status,
+            originalData: comp
+          });
+        });
+      }
+
+      // Ordenar por data
+      unified.sort((a, b) => {
+        const dateA = new Date(a.data).getTime();
+        const dateB = new Date(b.data).getTime();
+        return dateA - dateB;
+      });
+
+      setUnifiedTasks(unified);
+    } catch (error: any) {
+      console.error('[CRMLojaView] Erro ao buscar tarefas unificadas:', error);
+      setUnifiedTasks([]);
     }
   };
 
@@ -707,15 +926,6 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
     );
   }
 
-  // Função para obter categoria da tarefa
-  const getTaskCategory = (task: CRMTask) => {
-    if (task.description) {
-      if (task.description.includes('Aniversário')) return 'Aniversário';
-      if (task.description.includes('Pós-Venda')) return 'Pós-Venda';
-      if (task.description.includes('Personalizada')) return 'Personalizada';
-    }
-    return 'Personalizada';
-  };
 
   return (
     <div className="space-y-6">
@@ -1013,7 +1223,7 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
         </CardContent>
       </Card>
 
-          {/* COMPROMISSOS DE CRM */}
+          {/* COMPROMISSOS DE HOJE */}
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -1125,142 +1335,178 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
         </TabsContent>
 
         <TabsContent value="proximas" className="space-y-6">
-          {/* PRÓXIMAS TAREFAS - LISTA COMPLETA */}
+          {/* PRÓXIMAS TAREFAS - LISTA COMPLETA UNIFICADA */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Próximas Tarefas ({futureTasks.length})
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Próximas Tarefas ({unifiedTasks.filter(t => selectedCategory === "TODAS" || t.type === selectedCategory || t.categoria === selectedCategory).length})
+                </CardTitle>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filtrar por categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TODAS">Todas as Categorias</SelectItem>
+                    <SelectItem value="TAREFA">Tarefas</SelectItem>
+                    <SelectItem value="POS_VENDA">Pós-Venda</SelectItem>
+                    <SelectItem value="ANIVERSARIO">Aniversários</SelectItem>
+                    <SelectItem value="COMPROMISSO">Compromissos</SelectItem>
+                    <SelectItem value="CASHBACK">Cashback</SelectItem>
+                    <SelectItem value="Personalizada">Personalizadas</SelectItem>
+                    <SelectItem value="Pós-Venda">Pós-Vendas</SelectItem>
+                    <SelectItem value="Aniversário">Aniversários</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </CardHeader>
             <CardContent>
-              {futureTasks.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs">Categoria</TableHead>
-                        <TableHead className="text-xs">Cliente</TableHead>
-                        <TableHead className="text-xs">Telefone</TableHead>
-                        <TableHead className="text-xs">Data/Hora</TableHead>
-                        <TableHead className="text-xs">Prioridade</TableHead>
-                        <TableHead className="text-xs">Observação</TableHead>
-                        <TableHead className="text-xs">Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {futureTasks.map((task) => {
-                        const urgency = getTaskUrgency(task.due_date);
-                        const category = getTaskCategory(task);
-                        let informacoesCliente = '';
-                        
-                        // Processar informações do cliente
-                        if (task.informacoes_cliente) {
-                          try {
-                            const info = JSON.parse(task.informacoes_cliente);
-                            const parts = [];
-                            if (info.ocasiao) parts.push(`Ocasião: ${info.ocasiao}`);
-                            if (info.ajuste) parts.push(`Ajuste: ${info.ajuste}`);
-                            informacoesCliente = parts.join(' | ');
-                          } catch {
-                            informacoesCliente = task.informacoes_cliente;
-                          }
-                        }
+              {(() => {
+                const filteredTasks = unifiedTasks.filter(t => {
+                  if (selectedCategory === "TODAS") return true;
+                  if (selectedCategory === t.type) return true;
+                  if (selectedCategory === t.categoria) return true;
+                  return false;
+                });
 
-                        return (
-                          <TableRow key={task.id}>
-                            <TableCell className="text-xs">
-                              <Badge variant="outline" className="text-xs">
-                                {category}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-xs font-medium">
-                              {task.cliente_nome}
-                            </TableCell>
-                            <TableCell className="text-xs">
-                              {task.cliente_whatsapp ? (
-                                <div className="flex items-center gap-1">
-                                  <Phone className="h-3 w-3" />
-                                  <a
-                                    href={whatsappLink(task.cliente_whatsapp, '')}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-primary hover:underline"
-                                  >
-                                    {task.cliente_whatsapp}
-                                  </a>
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-xs">
-                              <div className="flex flex-col">
-                                <span>{format(parseISO(task.due_date), "dd/MM/yyyy")}</span>
-                                <span className="text-muted-foreground">
-                                  {format(parseISO(task.due_date), "HH:mm")}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-xs">
-                              <Badge
-                                variant={
-                                  task.priority === "ALTA"
-                                    ? "destructive"
-                                    : task.priority === "MÉDIA"
-                                    ? "default"
-                                    : "secondary"
-                                }
-                                className="text-xs"
-                              >
-                                {task.priority}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-xs max-w-xs">
-                              <div className="space-y-1">
-                                <p className="truncate" title={task.title}>
-                                  {task.title}
-                                </p>
-                                {informacoesCliente && (
-                                  <p className="text-muted-foreground text-xs truncate" title={informacoesCliente}>
-                                    {informacoesCliente}
-                                  </p>
+                return filteredTasks.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Categoria</TableHead>
+                          <TableHead className="text-xs">Cliente</TableHead>
+                          <TableHead className="text-xs">Telefone</TableHead>
+                          <TableHead className="text-xs">Data/Hora</TableHead>
+                          <TableHead className="text-xs">Prioridade</TableHead>
+                          <TableHead className="text-xs">Observação</TableHead>
+                          <TableHead className="text-xs">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredTasks.map((task) => {
+                          const getCategoryBadge = () => {
+                            const categoryMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+                              "TAREFA": { label: task.categoria, variant: "outline" },
+                              "POS_VENDA": { label: "Pós-Venda", variant: "default" },
+                              "ANIVERSARIO": { label: "Aniversário", variant: "secondary" },
+                              "COMPROMISSO": { label: task.categoria, variant: "outline" },
+                              "CASHBACK": { label: "Cashback", variant: "default" }
+                            };
+                            return categoryMap[task.type] || { label: task.categoria, variant: "outline" };
+                          };
+
+                          const categoryBadge = getCategoryBadge();
+
+                          return (
+                            <TableRow key={task.id}>
+                              <TableCell className="text-xs">
+                                <Badge variant={categoryBadge.variant} className="text-xs">
+                                  {categoryBadge.label}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-xs font-medium">
+                                {task.cliente_nome || "-"}
+                              </TableCell>
+                              <TableCell className="text-xs">
+                                {task.cliente_whatsapp ? (
+                                  <div className="flex items-center gap-1">
+                                    <Phone className="h-3 w-3" />
+                                    <a
+                                      href={whatsappLink(task.cliente_whatsapp, '')}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-primary hover:underline"
+                                    >
+                                      {task.cliente_whatsapp}
+                                    </a>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
                                 )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleOpenTaskEdit(task)}
-                                  className="h-7 w-7 p-0"
-                                  title="Editar tarefa"
-                                >
-                                  <Edit className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleCompleteTask(task.id)}
-                                  className="h-7 w-7 p-0"
-                                  title="Marcar como concluída"
-                                >
-                                  <CheckCircle2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-sm text-muted-foreground">Nenhuma tarefa futura agendada</p>
-                </div>
-              )}
+                              </TableCell>
+                              <TableCell className="text-xs">
+                                <div className="flex flex-col">
+                                  <span>{format(parseISO(task.data), "dd/MM/yyyy")}</span>
+                                  <span className="text-muted-foreground">
+                                    {format(parseISO(task.data), "HH:mm")}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-xs">
+                                {task.prioridade ? (
+                                  <Badge
+                                    variant={
+                                      task.prioridade === "ALTA"
+                                        ? "destructive"
+                                        : task.prioridade === "MÉDIA"
+                                        ? "default"
+                                        : "secondary"
+                                    }
+                                    className="text-xs"
+                                  >
+                                    {task.prioridade}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs max-w-xs">
+                                <p className="truncate" title={task.observacao || ""}>
+                                  {task.observacao || "-"}
+                                </p>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  {task.type === "TAREFA" || task.type === "CASHBACK" ? (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          const originalTask = task.originalData as CRMTask;
+                                          handleOpenTaskEdit(originalTask);
+                                        }}
+                                        className="h-7 w-7 p-0"
+                                        title="Editar tarefa"
+                                      >
+                                        <Edit className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          const originalTask = task.originalData as CRMTask;
+                                          handleCompleteTask(originalTask.id);
+                                        }}
+                                        className="h-7 w-7 p-0"
+                                        title="Marcar como concluída"
+                                      >
+                                        <CheckCircle2 className="h-3 w-3" />
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">-</span>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-muted-foreground">
+                      {selectedCategory === "TODAS" 
+                        ? "Nenhuma tarefa agendada para os próximos 30 dias" 
+                        : `Nenhuma tarefa encontrada na categoria "${selectedCategory}"`}
+                    </p>
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>

@@ -25,6 +25,13 @@
 
 # Redirecionamento para SPA - apenas para HTML
 # O Netlify automaticamente não redireciona arquivos estáticos (JS, CSS, imagens, etc)
+# Mas vamos garantir que arquivos estáticos não sejam redirecionados
+[[redirects]]
+  from = "/assets/*"
+  to = "/assets/:splat"
+  status = 200
+  force = true
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

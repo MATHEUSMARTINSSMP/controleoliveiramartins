@@ -141,6 +141,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       console.log("[AuthContext] ✅ PROFILE FOUND! Role:", data.role, "Name:", data.name);
 
+      // Verificar se o perfil está ativo (is_active)
+      const isActive = data.is_active !== false; // Default true se não existir
+      if (!isActive && data.role === 'ADMIN') {
+        console.warn("[AuthContext] ⚠️ Admin desativado (is_active = false)");
+        // Não definir profile para bloquear acesso
+        setProfile(null);
+        setLoading(false);
+        isFetchingProfileRef.current = false;
+        currentUserIdRef.current = null;
+        lastLoadedUserIdRef.current = null;
+        if (safetyTimeoutRef.current) {
+          clearTimeout(safetyTimeoutRef.current);
+          safetyTimeoutRef.current = null;
+        }
+        return;
+      }
+
       // Set profile and clear timeout
       if (safetyTimeoutRef.current) {
         clearTimeout(safetyTimeoutRef.current);
@@ -162,15 +179,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const { data: billingData, error: billingError } = await supabase
             .rpc('check_admin_access', { p_admin_id: userId });
           
-          if (!billingError && billingData) {
-            const billing = billingData as BillingStatus;
-            setBillingStatus(billing);
+          if (!billingError && billingData && billingData.length > 0) {
+            const billing = billingData[0] as any;
+            // Garantir que access_level está presente
+            const billingStatus: BillingStatus = {
+              has_access: billing.has_access !== false,
+              reason: billing.reason || 'UNKNOWN',
+              message: billing.message || 'Status de pagamento desconhecido',
+              days_overdue: billing.days_overdue || 0,
+              access_level: billing.access_level || (billing.has_access ? 'FULL' : 'BLOCKED')
+            };
+            setBillingStatus(billingStatus);
             
-            // Se não tem acesso, bloquear login
-            if (!billing.has_access) {
-              console.warn("[AuthContext] ⚠️ Admin sem acesso devido a billing:", billing.reason);
-              // Não fazer signOut automático aqui, apenas marcar o status
-              // O componente pode usar isso para mostrar mensagem apropriada
+            // PROGRESSÃO DE RESTRIÇÕES:
+            // - FULL (0-1 dia): Acesso completo
+            // - WARNING (2 dias): Acesso completo com aviso visual
+            // - READ_ONLY (3-6 dias): Acesso somente leitura (is_active = true, mas bloqueia ações)
+            // - BLOCKED (7+ dias): Bloqueio total (is_active = false, exceto aba billing)
+            
+            // Se está bloqueado (7+ dias), não permitir login (exceto para acessar aba billing)
+            if (billingStatus.access_level === 'BLOCKED') {
+              console.warn("[AuthContext] ⚠️ Admin bloqueado devido a billing (7+ dias):", billingStatus.reason);
+              // Para BLOCKED, ainda permitir login mas mostrar mensagem de bloqueio
+              // O componente BillingAccessGuard vai bloquear ações, mas permite acessar aba billing
+              // Não bloquear completamente aqui, apenas marcar o status
+            } else if (!billingStatus.has_access && billingStatus.access_level !== 'BLOCKED') {
+              // Outros casos sem acesso (sem assinatura, etc)
+              console.warn("[AuthContext] ⚠️ Admin sem acesso devido a billing:", billingStatus.reason);
+              setProfile(null);
+              setLoading(false);
+              isFetchingProfileRef.current = false;
+              currentUserIdRef.current = null;
+              lastLoadedUserIdRef.current = null;
+              if (safetyTimeoutRef.current) {
+                clearTimeout(safetyTimeoutRef.current);
+                safetyTimeoutRef.current = null;
+              }
+              return;
             }
           }
         } catch (billingCheckError) {
