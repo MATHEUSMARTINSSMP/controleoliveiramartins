@@ -19,10 +19,19 @@ interface WhatsAppManagementProps {
 }
 
 export const WhatsAppManagement = ({ defaultTab = "conexoes" }: WhatsAppManagementProps) => {
+  console.log('📱 [WhatsAppManagement] Componente renderizado!');
+  console.log('📱 [WhatsAppManagement] defaultTab:', defaultTab);
+  
   const [activeTab, setActiveTab] = useState(defaultTab);
+  
+  console.log('📱 [WhatsAppManagement] activeTab:', activeTab);
 
   return (
     <div className="space-y-6">
+      {/* TESTE: Banner vermelho para confirmar renderização */}
+      <div className="p-4 bg-red-600 text-white font-bold text-xl rounded-lg border-4 border-yellow-400">
+        🔴 SE VOCÊ ESTÁ VENDO ISSO, WhatsAppManagement ESTÁ FUNCIONANDO 🔴
+      </div>
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
           <MessageSquare className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 dark:text-green-400" />
@@ -111,6 +120,7 @@ export const WhatsAppManagement = ({ defaultTab = "conexoes" }: WhatsAppManageme
                 </CardDescription>
               </CardHeader>
               <CardContent className="px-0">
+                {console.log('📱 [WhatsAppManagement] Renderizando StoreTaskAlertsManager dentro da aba alertas')}
                 <StoreTaskAlertsManager />
               </CardContent>
             </Card>
