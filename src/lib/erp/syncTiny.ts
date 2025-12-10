@@ -2081,10 +2081,12 @@ export async function syncTinyOrders(
         pedidosComTelefone.forEach(pedido => {
           const key = pedido.cliente_cpf_cnpj || pedido.cliente_nome || '';
           if (key && pedido.cliente_telefone) {
+            // ✅ NORMALIZAR: Remover todos os caracteres não numéricos
+            const telefoneNormalizado = String(pedido.cliente_telefone).replace(/\D/g, '');
             const existing = telefonesPorCliente.get(key);
             if (!existing || (pedido.data_pedido && (!existing.data || pedido.data_pedido > existing.data))) {
               telefonesPorCliente.set(key, {
-                telefone: pedido.cliente_telefone,
+                telefone: telefoneNormalizado,
                 data: pedido.data_pedido || ''
               });
             }
@@ -2803,10 +2805,12 @@ export async function syncTinyContacts(
         pedidosComTelefone.forEach(pedido => {
           const key = pedido.cliente_cpf_cnpj || pedido.cliente_nome || '';
           if (key && pedido.cliente_telefone) {
+            // ✅ NORMALIZAR: Remover todos os caracteres não numéricos
+            const telefoneNormalizado = String(pedido.cliente_telefone).replace(/\D/g, '');
             const existing = telefonesPorCliente.get(key);
             if (!existing || (pedido.data_pedido && (!existing.data || pedido.data_pedido > existing.data))) {
               telefonesPorCliente.set(key, {
-                telefone: pedido.cliente_telefone,
+                telefone: telefoneNormalizado,
                 data: pedido.data_pedido || ''
               });
             }
