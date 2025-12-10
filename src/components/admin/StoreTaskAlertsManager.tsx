@@ -828,23 +828,8 @@ export const StoreTaskAlertsManager = () => {
     );
   }
 
-  // LOG INICIAL PARA VERIFICAR SE ESTÁ SENDO RENDERIZADO
-  console.log('🎨 [StoreTaskAlertsManager] RENDERIZANDO COMPONENTE');
-  console.log('🎨 [StoreTaskAlertsManager] storesWithTasks.length:', storesWithTasks.length);
-  console.log('🎨 [StoreTaskAlertsManager] dialogOpen:', dialogOpen);
-  console.log('🎨 [StoreTaskAlertsManager] selectedStoreId:', selectedStoreId);
-  
-  // TESTE CRÍTICO: Renderizar algo visível SEMPRE
-  if (typeof window !== 'undefined') {
-    console.log('✅ [StoreTaskAlertsManager] window existe, componente está no browser');
-  }
-
   return (
     <div className="space-y-6">
-      {/* TESTE CRÍTICO: Texto visível SEMPRE */}
-      <div className="p-4 bg-red-500 text-white font-bold text-lg rounded">
-        ⚠️ SE VOCÊ ESTÁ VENDO ISSO, O COMPONENTE ESTÁ FUNCIONANDO ⚠️
-      </div>
       {/* TESTE CRÍTICO: Botão fora de tudo para verificar se eventos funcionam */}
       <div className="p-4 bg-yellow-200 dark:bg-yellow-900 border-2 border-yellow-500 rounded">
         <p className="font-bold mb-2">TESTE DE DEBUG:</p>
