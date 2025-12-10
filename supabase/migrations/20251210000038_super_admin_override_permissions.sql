@@ -158,8 +158,19 @@ BEGIN
   END IF;
   
   -- Atualizar módulo (SOBRESCREVE qualquer verificação de billing)
-  EXECUTE format('UPDATE sistemaretiradas.stores SET %I = $1, updated_at = NOW() WHERE id = $2', v_column_name)
-  USING p_active, p_store_id;
+  -- Nota: updated_at pode não existir, então verificamos antes
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'sistemaretiradas' 
+    AND table_name = 'stores' 
+    AND column_name = 'updated_at'
+  ) THEN
+    EXECUTE format('UPDATE sistemaretiradas.stores SET %I = $1, updated_at = NOW() WHERE id = $2', v_column_name)
+    USING p_active, p_store_id;
+  ELSE
+    EXECUTE format('UPDATE sistemaretiradas.stores SET %I = $1 WHERE id = $2', v_column_name)
+    USING p_active, p_store_id;
+  END IF;
   
   RETURN json_build_object(
     'success', true,
