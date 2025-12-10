@@ -229,7 +229,11 @@ export const StoreTaskAlertsManager = () => {
 
   // Buscar contatos da loja selecionada
   const fetchContactsForStore = async (storeId: string) => {
+    console.log('🔍 [fetchContactsForStore] storeId recebido:', storeId);
+    console.log('🔍 [fetchContactsForStore] profile.id:', profile?.id);
+    
     if (!profile || !storeId) {
+      console.warn('⚠️ [fetchContactsForStore] profile ou storeId ausente');
       setAvailableContacts([]);
       return;
     }
@@ -237,19 +241,30 @@ export const StoreTaskAlertsManager = () => {
     setLoadingContacts(true);
     try {
       // CRÍTICO: Verificar primeiro se a loja pertence ao admin logado
-      const { data: store } = await supabase
+      console.log('🔍 [fetchContactsForStore] Buscando loja no banco...');
+      const { data: store, error: storeError } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, admin_id')
+        .select('id, admin_id, name')
         .eq('id', storeId)
         .eq('admin_id', profile.id)
         .single();
 
-      if (!store) {
-        console.error('Loja não encontrada ou não pertence ao admin');
+      if (storeError) {
+        console.error('❌ [fetchContactsForStore] Erro ao buscar loja:', storeError);
         setAvailableContacts([]);
         return;
       }
+
+      if (!store) {
+        console.error('❌ [fetchContactsForStore] Loja não encontrada ou não pertence ao admin');
+        console.error('❌ [fetchContactsForStore] storeId buscado:', storeId);
+        console.error('❌ [fetchContactsForStore] admin_id buscado:', profile.id);
+        setAvailableContacts([]);
+        return;
+      }
+
+      console.log('✅ [fetchContactsForStore] Loja encontrada:', store.name, 'ID:', store.id);
 
       // CRÍTICO: Buscar apenas contatos da loja selecionada
       // Filtra EXCLUSIVAMENTE por store_id
@@ -258,6 +273,7 @@ export const StoreTaskAlertsManager = () => {
       let error: any = null;
       
       // Tentar tabela 'contacts' primeiro
+      console.log('🔍 [fetchContactsForStore] Buscando contatos da tabela contacts para store_id:', storeId);
       const { data: contactsData, error: contactsError } = await supabase
         .schema('sistemaretiradas')
         .from('contacts')
@@ -266,8 +282,16 @@ export const StoreTaskAlertsManager = () => {
         .not('telefone', 'is', null)
         .order('nome', { ascending: true });
       
+      console.log('📊 [fetchContactsForStore] Resultado contacts:', {
+        encontrados: contactsData?.length || 0,
+        error: contactsError?.code,
+        message: contactsError?.message
+      });
+      
       if (contactsError && contactsError.code === '42P01') {
+        console.log('⚠️ [fetchContactsForStore] Tabela contacts não existe, tentando crm_contacts...');
         // Tabela contacts não existe, tentar crm_contacts
+        console.log('🔍 [fetchContactsForStore] Buscando contatos da tabela crm_contacts para store_id:', storeId);
         const { data: crmContactsData, error: crmContactsError } = await supabase
           .schema('sistemaretiradas')
           .from('crm_contacts')
@@ -275,6 +299,12 @@ export const StoreTaskAlertsManager = () => {
           .eq('store_id', storeId) // FILTRO CRÍTICO: apenas desta loja
           .not('telefone', 'is', null)
           .order('nome', { ascending: true });
+        
+        console.log('📊 [fetchContactsForStore] Resultado crm_contacts:', {
+          encontrados: crmContactsData?.length || 0,
+          error: crmContactsError?.code,
+          message: crmContactsError?.message
+        });
         
         if (!crmContactsError && crmContactsData) {
           contacts = crmContactsData;
@@ -299,9 +329,10 @@ export const StoreTaskAlertsManager = () => {
         return;
       }
 
+      console.log('✅ [fetchContactsForStore] Total de contatos encontrados:', contacts.length);
       setAvailableContacts(contacts || []);
     } catch (error: any) {
-      console.error('Erro ao buscar contatos:', error);
+      console.error('❌ [fetchContactsForStore] Erro ao buscar contatos:', error);
       setAvailableContacts([]);
     } finally {
       setLoadingContacts(false);
@@ -309,10 +340,18 @@ export const StoreTaskAlertsManager = () => {
   };
 
   const handleOpenDialog = (storeId: string, task?: StoreTask) => {
+    console.log('🔍 [handleOpenDialog] storeId recebido:', storeId);
+    console.log('🔍 [handleOpenDialog] task:', task ? task.id : 'novo alerta');
+    
     setSelectedStoreId(storeId);
     
     // CRÍTICO: Buscar contatos quando selecionar uma loja
-    fetchContactsForStore(storeId);
+    if (storeId) {
+      console.log('🔍 [handleOpenDialog] Chamando fetchContactsForStore com storeId:', storeId);
+      fetchContactsForStore(storeId);
+    } else {
+      console.warn('⚠️ [handleOpenDialog] storeId é null ou undefined!');
+    }
 
     if (task) {
       setEditingTask(task);
