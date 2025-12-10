@@ -1465,12 +1465,14 @@ export async function syncTinyOrders(
 
           // Se encontrou telefone no pedido mas não no cliente, adicionar ao objeto cliente
           if (telefoneDoPedido && !pedido.cliente.telefone && !pedido.cliente.celular) {
-            console.log(`[SyncTiny] 📞 Telefone encontrado no pedido: ${telefoneDoPedido.substring(0, 15)}...`);
+            // ✅ NORMALIZAR: Remover todos os caracteres não numéricos
+            const telefoneNormalizado = String(telefoneDoPedido).replace(/\D/g, '');
+            console.log(`[SyncTiny] 📞 Telefone encontrado no pedido: ${telefoneNormalizado.substring(0, 15)}...`);
             // Priorizar celular sobre telefone fixo
-            if (telefoneDoPedido.length >= 10) { // Celular geralmente tem 10+ dígitos
-              pedido.cliente.celular = telefoneDoPedido;
+            if (telefoneNormalizado.length >= 10) { // Celular geralmente tem 10+ dígitos
+              pedido.cliente.celular = telefoneNormalizado;
             } else {
-              pedido.cliente.telefone = telefoneDoPedido;
+              pedido.cliente.telefone = telefoneNormalizado;
             }
           }
 
@@ -1684,7 +1686,8 @@ export async function syncTinyOrders(
               || pedido.telefoneCliente
               || pedido.celularCliente
               || null;
-            return telefone;
+            // ✅ NORMALIZAR: Remover todos os caracteres não numéricos
+            return telefone ? String(telefone).replace(/\D/g, '') : null;
           })(),
           // ✅ REMOVIDO: cliente_email (agora em tiny_contacts via FK)
           // Para obter email: fazer JOIN com tiny_contacts usando cliente_id
