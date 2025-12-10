@@ -57,7 +57,7 @@ export const PaymentGatewaysConfig = () => {
       setLoading(true);
       // Buscar gateways da tabela payment_gateways (se existir)
       // Por enquanto, vamos criar a estrutura baseada nos gateways suportados
-      const gatewaysData: PaymentGateway[] = PAYMENT_GATEWAYS.map(gw => ({
+      let gatewaysData: PaymentGateway[] = PAYMENT_GATEWAYS.map(gw => ({
         id: gw.value,
         name: gw.value,
         display_name: gw.label,
@@ -86,6 +86,11 @@ export const PaymentGatewaysConfig = () => {
             const saved = savedMap.get(gw.id);
             return saved ? { ...gw, ...saved } : gw;
           });
+          console.log('[PaymentGatewaysConfig] Gateways carregados do banco:', gatewaysData.map(g => ({
+            id: g.id,
+            is_active: g.is_active,
+            tem_webhook_secret: !!g.webhook_secret
+          })));
         } else if (error && error.code !== '42P01') {
           // Erro diferente de "tabela não existe"
           console.error('[PaymentGatewaysConfig] Erro ao buscar gateways:', error);
@@ -101,19 +106,21 @@ export const PaymentGatewaysConfig = () => {
 
       setGateways(gatewaysData);
 
-      // Inicializar formData (preservar valores existentes se já estiverem preenchidos)
+      // Inicializar formData (priorizar dados do banco)
       setFormData(prev => {
         const newFormData: Record<string, any> = {};
         gatewaysData.forEach(gw => {
-          // Preservar valores existentes se já estiverem no formData (não vazios)
           const existing = prev[gw.id];
+          // Prioridade: dados do banco > dados existentes no formData (se não vazios)
           newFormData[gw.id] = {
-            api_key: (existing?.api_key && existing.api_key !== '') ? existing.api_key : (gw.api_key || ''),
-            api_secret: (existing?.api_secret && existing.api_secret !== '') ? existing.api_secret : (gw.api_secret || ''),
-            webhook_secret: (existing?.webhook_secret && existing.webhook_secret !== '') ? existing.webhook_secret : (gw.webhook_secret || ''),
-            is_active: existing?.is_active !== undefined ? existing.is_active : (gw.is_active || false),
+            api_key: (gw.api_key && gw.api_key.trim() !== '') ? gw.api_key : (existing?.api_key && existing.api_key.trim() !== '' ? existing.api_key : ''),
+            api_secret: (gw.api_secret && gw.api_secret.trim() !== '') ? gw.api_secret : (existing?.api_secret && existing.api_secret.trim() !== '' ? existing.api_secret : ''),
+            webhook_secret: (gw.webhook_secret && gw.webhook_secret.trim() !== '') ? gw.webhook_secret : (existing?.webhook_secret && existing.webhook_secret.trim() !== '' ? existing.webhook_secret : ''),
+            // CRÍTICO: is_active sempre vem do banco (não preservar do formData)
+            is_active: gw.is_active !== undefined ? gw.is_active : false,
           };
         });
+        console.log('[PaymentGatewaysConfig] FormData inicializado:', newFormData);
         return newFormData;
       });
     } catch (error: any) {
@@ -187,6 +194,27 @@ export const PaymentGatewaysConfig = () => {
           console.log('[PaymentGatewaysConfig] Salvo via RPC com sucesso:', result);
         }
 
+        // Verificar se foi salvo no banco antes de recarregar
+        console.log('[PaymentGatewaysConfig] Verificando se foi salvo no banco...');
+        const { data: verifyData, error: verifyError } = await supabase
+          .schema('sistemaretiradas')
+          .from('payment_gateways')
+          .select('*')
+          .eq('id', gatewayId)
+          .single();
+        
+        if (verifyError) {
+          console.error('[PaymentGatewaysConfig] Erro ao verificar dados salvos:', verifyError);
+          toast.error(`Erro ao verificar salvamento: ${verifyError.message}`);
+        } else {
+          console.log('[PaymentGatewaysConfig] ✅ Dados confirmados no banco:', {
+            id: verifyData.id,
+            webhook_secret: verifyData.webhook_secret ? `${verifyData.webhook_secret.substring(0, 4)}...` : 'null',
+            is_active: verifyData.is_active,
+            updated_at: verifyData.updated_at
+          });
+        }
+        
         toast.success(`Configuração de ${PAYMENT_GATEWAYS.find(g => g.value === gatewayId)?.label} salva com sucesso!`);
         
         // Atualizar gateways localmente primeiro (para manter os dados salvos)
