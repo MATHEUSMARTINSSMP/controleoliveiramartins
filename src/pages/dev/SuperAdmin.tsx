@@ -342,7 +342,6 @@ const SuperAdmin = () => {
           wishlist_ativo,
           ponto_ativo,
           ajustes_condicionais_ativo,
-          erp_ativo,
           check_meta_ativo,
           created_at,
           profiles!stores_admin_id_fkey(id, name, email)
@@ -380,7 +379,6 @@ const SuperAdmin = () => {
           current_period_end,
           last_payment_date,
           next_payment_date,
-          payment_gateway,
           profiles!admin_subscriptions_admin_id_fkey(id, email, name),
           subscription_plans!admin_subscriptions_plan_id_fkey(id, name)
         `)
@@ -1153,15 +1151,17 @@ const SuperAdmin = () => {
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-4">
-                              <div className="flex items-center justify-between">
-                                <Label>ERP Ativo</Label>
-                                <Switch
-                                  checked={store.erp_ativo}
-                                  onCheckedChange={() =>
-                                    handleToggleStoreModule(store.id, "erp", store.erp_ativo)
-                                  }
-                                />
-                              </div>
+                              {store.erp_ativo !== undefined && (
+                                <div className="flex items-center justify-between">
+                                  <Label>ERP Ativo</Label>
+                                  <Switch
+                                    checked={store.erp_ativo}
+                                    onCheckedChange={() =>
+                                      handleToggleStoreModule(store.id, "erp", store.erp_ativo)
+                                    }
+                                  />
+                                </div>
+                              )}
                               <p className="text-sm text-muted-foreground">
                                 Ative ou desative a integração de ERP para esta loja
                               </p>
