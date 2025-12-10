@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet, RefreshCw } from "lucide-react";
+import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet, RefreshCw, AlertTriangle, Plus } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import ERPDashboard from "@/pages/erp/ERPDashboard";
@@ -26,6 +26,7 @@ import { CRMManagement } from "@/components/admin/CRMManagement";
 import { TimeClockManagement } from "@/components/timeclock/TimeClockManagement";
 import { DailyGoalCheckReports } from "@/components/admin/DailyGoalCheckReports";
 import { ConditionalsAdjustmentsManager } from "@/components/admin/ConditionalsAdjustmentsManager";
+import { BillingManagement } from "@/components/admin/BillingManagement";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,7 +35,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { motion } from "framer-motion";
 
 const AdminDashboard = () => {
-  const { profile, signOut, loading } = useAuth();
+  const { profile, signOut, loading, billingStatus } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [passwordDialog, setPasswordDialog] = useState(false);
@@ -60,9 +61,12 @@ const AdminDashboard = () => {
         navigate("/");
       } else if (profile.role !== "ADMIN") {
         navigate("/me");
+      } else if (billingStatus && !billingStatus.has_access) {
+        // Billing bloqueado - usuário pode ver mensagem mas acesso limitado
+        console.warn("[AdminDashboard] Acesso bloqueado por billing:", billingStatus.reason);
       }
     }
-  }, [profile, loading, navigate]);
+  }, [profile, loading, billingStatus, navigate]);, [profile, loading, navigate]);
 
   useEffect(() => {
     if (profile?.id) {
@@ -136,6 +140,20 @@ const AdminDashboard = () => {
   return (
     <div className="page-container">
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b relative">
+        {/* Banner de Aviso de Billing */}
+        {billingStatus && billingStatus.access_level !== "FULL" && (
+          <div className={`w-full px-4 py-2 text-center text-sm font-medium ${
+            billingStatus.access_level === "BLOCKED" 
+              ? "bg-red-500/20 text-red-600 dark:text-red-400 border-b border-red-500/30" 
+              : billingStatus.access_level === "READ_ONLY"
+              ? "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border-b border-yellow-500/30"
+              : "bg-orange-500/20 text-orange-600 dark:text-orange-400 border-b border-orange-500/30"
+          }`}>
+            <AlertTriangle className="h-4 w-4 inline mr-2" />
+            {billingStatus.message}
+            {billingStatus.days_overdue && ` (${billingStatus.days_overdue} dia(s) de atraso)`}
+          </div>
+        )}
         <div className="container mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
           <div className="min-w-0">
             <h1 className="text-base sm:text-lg font-semibold">Dashboard Admin</h1>
@@ -408,25 +426,45 @@ const AdminDashboard = () => {
             </TabsContent>
 
             <TabsContent value="configuracoes" className="animate-fade-in space-y-6 sm:space-y-8">
-              {/* Seção 1: Módulos do Sistema */}
+              {/* Seção 3: Pagamentos e Billing - SEMPRE ACESSÍVEL */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Package className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold">Módulos do Sistema</h2>
+                  <Wallet className="h-5 w-5 text-primary" />
+                  <h2 className="text-lg font-semibold">Pagamentos e Assinatura</h2>
                 </div>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Ative ou desative os módulos disponíveis para cada loja. Cada módulo oferece funcionalidades específicas.
+                  Gerencie sua assinatura, visualize histórico de pagamentos e registre pagamentos manuais.
+                  Esta seção permanece acessível mesmo em caso de atraso no pagamento.
                 </p>
-                <ModulesStoreConfig />
+                <BillingManagement />
               </div>
 
               {/* Separador */}
               <div className="border-t border-border my-6" />
 
+              {/* Seção 1: Módulos do Sistema */}
+              <BillingAccessGuard allowReadOnly>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Package className="h-5 w-5 text-primary" />
+                    <h2 className="text-lg font-semibold">Módulos do Sistema</h2>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Ative ou desative os módulos disponíveis para cada loja. Cada módulo oferece funcionalidades específicas.
+                  </p>
+                  <ModulesStoreConfig />
+                </div>
+              </BillingAccessGuard>
+
+              {/* Separador */}
+              <div className="border-t border-border my-6" />
+
               {/* Seção 2: Central WhatsApp (Conexões + Destinatários + Alertas) */}
-              <div className="space-y-4">
-                <WhatsAppManagement />
-              </div>
+              <BillingAccessGuard allowReadOnly>
+                <div className="space-y-4">
+                  <WhatsAppManagement />
+                </div>
+              </BillingAccessGuard>
 
               {/* Separador */}
               <div className="border-t border-border my-6" />

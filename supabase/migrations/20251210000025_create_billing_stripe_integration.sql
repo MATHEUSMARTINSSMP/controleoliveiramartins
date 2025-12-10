@@ -108,7 +108,7 @@ COMMENT ON COLUMN sistemaretiradas.billing_events.payment_gateway IS 'Gateway qu
 COMMENT ON COLUMN sistemaretiradas.billing_events.external_event_id IS 'ID do evento no gateway externo';
 
 -- =====================================================
--- 4. FUNÇÃO: Verificar se admin tem acesso ativo (com suspensão gradual)
+-- 4. FUNÇÃO: Verificar se admin tem acesso ativo
 -- =====================================================
 CREATE OR REPLACE FUNCTION sistemaretiradas.check_admin_access(p_admin_id UUID)
 RETURNS JSON
@@ -120,10 +120,7 @@ DECLARE
     v_subscription sistemaretiradas.admin_subscriptions;
     v_result JSON;
     v_has_access BOOLEAN := false;
-    v_access_level TEXT := 'FULL'; -- FULL, WARNING, READ_ONLY, BLOCKED
     v_reason TEXT;
-    v_days_overdue INTEGER := 0;
-    v_message TEXT;
 BEGIN
     -- Buscar subscription ativa
     SELECT * INTO v_subscription
@@ -136,99 +133,64 @@ BEGIN
     IF v_subscription IS NULL THEN
         v_result := json_build_object(
             'has_access', false,
-            'access_level', 'BLOCKED',
             'reason', 'NO_SUBSCRIPTION',
-            'message', 'Nenhuma assinatura encontrada',
-            'days_overdue', 0
+            'message', 'Nenhuma assinatura encontrada'
         );
         RETURN v_result;
     END IF;
     
-    -- Verificar status cancelado
+    -- Verificar status
     IF v_subscription.status = 'CANCELLED' THEN
         v_result := json_build_object(
             'has_access', false,
-            'access_level', 'BLOCKED',
             'reason', 'CANCELLED',
             'message', 'Assinatura cancelada',
-            'canceled_at', v_subscription.canceled_at,
-            'days_overdue', 0
+            'canceled_at', v_subscription.canceled_at
         );
         RETURN v_result;
     END IF;
     
-    -- Se está pago e ativo, acesso completo
-    IF v_subscription.payment_status = 'PAID' AND v_subscription.status = 'ACTIVE' THEN
-        -- Verificar se não está expirado
-        IF v_subscription.current_period_end IS NULL OR v_subscription.current_period_end > NOW() THEN
-            v_result := json_build_object(
-                'has_access', true,
-                'access_level', 'FULL',
-                'reason', 'ACTIVE',
-                'message', 'Acesso ativo',
-                'status', v_subscription.status,
-                'payment_status', v_subscription.payment_status,
-                'current_period_end', v_subscription.current_period_end,
-                'next_payment_date', v_subscription.next_payment_date,
-                'days_overdue', 0
-            );
-            RETURN v_result;
-        END IF;
+    -- Verificar pagamento
+    IF v_subscription.payment_status = 'UNPAID' OR v_subscription.payment_status = 'PAST_DUE' THEN
+        v_result := json_build_object(
+            'has_access', false,
+            'reason', 'PAYMENT_REQUIRED',
+            'message', 'Pagamento pendente',
+            'payment_status', v_subscription.payment_status,
+            'next_payment_date', v_subscription.next_payment_date
+        );
+        RETURN v_result;
     END IF;
     
-    -- Calcular dias de atraso
-    IF v_subscription.current_period_end IS NOT NULL THEN
-        v_days_overdue := GREATEST(0, EXTRACT(DAY FROM (NOW() - v_subscription.current_period_end))::INTEGER);
+    -- Verificar se está expirado
+    IF v_subscription.current_period_end IS NOT NULL 
+       AND v_subscription.current_period_end < NOW() 
+       AND v_subscription.payment_status != 'TRIAL' THEN
+        v_result := json_build_object(
+            'has_access', false,
+            'reason', 'EXPIRED',
+            'message', 'Período de assinatura expirado',
+            'current_period_end', v_subscription.current_period_end
+        );
+        RETURN v_result;
     END IF;
     
-    -- Sistema de suspensão gradual:
-    -- - 0-1 dias: Acesso completo (grace period)
-    -- - 2 dias: Aviso visual (WARNING)
-    -- - 3-6 dias: Modo somente leitura (READ_ONLY)
-    -- - 7+ dias: Bloqueado (BLOCKED)
-    
-    IF v_days_overdue >= 7 THEN
-        v_access_level := 'BLOCKED';
-        v_has_access := false;
-        v_reason := 'PAYMENT_OVERDUE_7_DAYS';
-        v_message := 'Acesso bloqueado devido a atraso de 7+ dias no pagamento';
-    ELSIF v_days_overdue >= 3 THEN
-        v_access_level := 'READ_ONLY';
-        v_has_access := true; -- Ainda tem acesso, mas somente leitura
-        v_reason := 'PAYMENT_OVERDUE_3_DAYS';
-        v_message := 'Acesso em modo somente leitura (3+ dias de atraso). Não é possível criar ou editar registros.';
-    ELSIF v_days_overdue >= 2 THEN
-        v_access_level := 'WARNING';
-        v_has_access := true;
-        v_reason := 'PAYMENT_OVERDUE_2_DAYS';
-        v_message := 'Aviso: Pagamento em atraso há ' || v_days_overdue || ' dia(s)';
-    ELSE
-        -- 0-1 dias: ainda permite acesso completo (grace period)
-        v_access_level := 'FULL';
-        v_has_access := true;
-        v_reason := 'ACTIVE_GRACE_PERIOD';
-        v_message := 'Acesso ativo (período de tolerância)';
-    END IF;
-    
-    -- Construir resultado
+    -- Tudo OK
     v_result := json_build_object(
-        'has_access', v_has_access,
-        'access_level', v_access_level,
-        'reason', v_reason,
-        'message', v_message,
-        'days_overdue', v_days_overdue,
+        'has_access', true,
+        'reason', 'ACTIVE',
+        'message', 'Acesso ativo',
         'status', v_subscription.status,
         'payment_status', v_subscription.payment_status,
         'current_period_end', v_subscription.current_period_end,
-        'next_payment_date', v_subscription.next_payment_date,
-        'last_payment_date', v_subscription.last_payment_date
+        'next_payment_date', v_subscription.next_payment_date
     );
     
     RETURN v_result;
 END;
 $$;
 
-COMMENT ON FUNCTION sistemaretiradas.check_admin_access IS 'Verifica acesso do admin com suspensão gradual: FULL (0-1 dias), WARNING (2 dias), READ_ONLY (3-6 dias), BLOCKED (7+ dias)';
+COMMENT ON FUNCTION sistemaretiradas.check_admin_access IS 'Verifica se admin tem acesso ativo ao sistema baseado no status de pagamento';
 
 -- =====================================================
 -- 5. FUNÇÃO: Atualizar status de subscription baseado em gateway externo

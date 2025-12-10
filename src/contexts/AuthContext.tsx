@@ -14,11 +14,24 @@ interface Profile {
   tenant_schema?: string | null; // Schema do tenant (opcional, para multi-tenancy)
 }
 
+interface BillingStatus {
+  has_access: boolean;
+  access_level: 'FULL' | 'WARNING' | 'READ_ONLY' | 'BLOCKED';
+  reason: string;
+  message: string;
+  days_overdue?: number;
+  payment_status?: string;
+  next_payment_date?: string;
+  current_period_end?: string;
+  last_payment_date?: string;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  billingStatus: BillingStatus | null;
   signOut: () => Promise<void>;
 }
 
@@ -28,6 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const isFetchingProfileRef = useRef(false);
   const currentUserIdRef = useRef<string | null>(null);
@@ -140,6 +154,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         tenant_schema: 'sistemaretiradas', // Default para compatibilidade
       } as Profile;
       setProfile(profileData);
+      
+      // Verificar billing status se for ADMIN
+      if (data.role === 'ADMIN') {
+        try {
+          const { data: billingData, error: billingError } = await supabase
+            .rpc('check_admin_access', { p_admin_id: userId });
+          
+          if (!billingError && billingData) {
+            const billing = billingData as BillingStatus;
+            setBillingStatus(billing);
+            
+            // Se não tem acesso, bloquear login
+            if (!billing.has_access) {
+              console.warn("[AuthContext] ⚠️ Admin sem acesso devido a billing:", billing.reason);
+              // Não fazer signOut automático aqui, apenas marcar o status
+              // O componente pode usar isso para mostrar mensagem apropriada
+            }
+          }
+        } catch (billingCheckError) {
+          console.error("[AuthContext] Error checking billing status:", billingCheckError);
+          // Em caso de erro, permitir acesso (fail-safe)
+          setBillingStatus({
+            has_access: true,
+            reason: 'CHECK_ERROR',
+            message: 'Erro ao verificar billing, acesso permitido temporariamente'
+          });
+        }
+      } else {
+        // Para LOJA e COLABORADORA, sempre permitir acesso (billing é só para ADMIN)
+        setBillingStatus({
+          has_access: true,
+          reason: 'NOT_ADMIN',
+          message: 'Acesso liberado'
+        });
+      }
+      
       setLoading(false);
     } catch (error) {
       console.error("[AuthContext] Error in fetchProfile:", error);
@@ -293,7 +343,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signOut }}>
+    <AuthContext.Provider value={{ user, session, profile, billingStatus, loading, signOut }}>
       {children}
     </AuthContext.Provider>
   );
