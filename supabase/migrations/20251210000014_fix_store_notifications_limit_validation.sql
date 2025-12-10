@@ -23,24 +23,34 @@ BEGIN
         RETURN NEW;
     END IF;
     
-    -- Contar recipients ativos do novo alerta
-    SELECT COUNT(*) INTO v_recipients_count
-    FROM sistemaretiradas.store_notification_recipients
-    WHERE notification_id = NEW.id
-    AND ativo = true
-    AND phone IS NOT NULL
-    AND phone != '';
-    
-    -- Se não tem recipients, não precisa validar
-    IF v_recipients_count = 0 THEN
-        RETURN NEW;
-    END IF
-    
     -- Contar horários do novo alerta
     v_horarios_count := array_length(NEW.horarios, 1);
     IF v_horarios_count IS NULL OR v_horarios_count = 0 THEN
         RETURN NEW;
     END IF
+    
+    -- Contar recipients ativos do novo alerta
+    -- CRÍTICO: No INSERT, o notification_id ainda não existe, então precisamos contar depois
+    -- No UPDATE, podemos contar agora
+    IF TG_OP = 'UPDATE' THEN
+        SELECT COUNT(*) INTO v_recipients_count
+        FROM sistemaretiradas.store_notification_recipients
+        WHERE notification_id = NEW.id
+        AND ativo = true
+        AND phone IS NOT NULL
+        AND phone != '';
+        
+        -- Se não tem recipients, não precisa validar
+        IF v_recipients_count = 0 THEN
+            RETURN NEW;
+        END IF;
+    ELSE
+        -- No INSERT, não podemos contar recipients ainda (serão inseridos depois)
+        -- Vamos usar um valor padrão baseado no campo numero_whatsapp se existir
+        -- Mas por segurança, vamos validar com 1 recipient mínimo
+        -- A validação real será feita no frontend antes de inserir
+        v_recipients_count := 1; -- Valor conservador para validação
+    END IF;
     
     -- Mensagens que o novo alerta adicionará por dia
     v_mensagens_novo_alerta := v_horarios_count * v_recipients_count;
