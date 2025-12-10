@@ -79,7 +79,7 @@ interface StoreData {
   crm_ativo: boolean;
   wishlist_ativo: boolean;
   ponto_ativo: boolean;
-  ajustes_ativo: boolean;
+  ajustes_condicionais_ativo: boolean;
   erp_ativo: boolean;
   check_meta_ativo: boolean;
   created_at: string;
@@ -1015,12 +1015,12 @@ const SuperAdmin = () => {
                           <div className="flex items-center justify-between p-3 border rounded-lg">
                             <Label>Ajustes</Label>
                             <Switch
-                              checked={store.ajustes_ativo}
+                              checked={store.ajustes_condicionais_ativo}
                               onCheckedChange={() =>
                                 handleToggleStoreModule(
                                   store.id,
                                   "ajustes",
-                                  store.ajustes_ativo
+                                  store.ajustes_condicionais_ativo
                                 )
                               }
                             />
