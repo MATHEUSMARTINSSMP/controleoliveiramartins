@@ -1399,6 +1399,7 @@ export const CRMManagement = () => {
                   </div>
                 </DialogContent>
               </Dialog>
+              </div>
             </div>
           </CardHeader>
           <CardContent>

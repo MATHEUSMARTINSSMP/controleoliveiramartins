@@ -60,26 +60,6 @@ export function TimeClockLojaView({ storeId: propStoreId }: TimeClockLojaViewPro
     }
   }, [storeId, checkPontoAtivo]);
 
-  const checkPontoAtivo = async () => {
-    if (!storeId) return;
-
-    try {
-      const { data, error } = await supabase
-        .schema('sistemaretiradas')
-        .from('stores')
-        .select('ponto_ativo')
-        .eq('id', storeId)
-        .single();
-
-      if (error) throw error;
-      setPontoAtivo(data?.ponto_ativo || false);
-    } catch (err: any) {
-      console.error('[TimeClockLojaView] Erro ao verificar módulo:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleAuthSuccess = useCallback((id: string, name: string) => {
     setColaboradoraId(id);
     setColaboradoraName(name);
