@@ -118,8 +118,14 @@ export const StoreTaskAlertsManager = () => {
   const [customHorario, setCustomHorario] = useState('');
 
   useEffect(() => {
+    console.log('🚀 [StoreTaskAlertsManager] Componente montado');
+    console.log('🚀 [StoreTaskAlertsManager] profile:', profile ? { id: profile.id, role: profile.role } : 'null');
+    
     if (profile && profile.role === 'ADMIN') {
+      console.log('✅ [StoreTaskAlertsManager] Iniciando fetchStoresAndTasks...');
       fetchStoresAndTasks();
+    } else {
+      console.warn('⚠️ [StoreTaskAlertsManager] Profile não é ADMIN ou não existe');
     }
   }, [profile]);
 
