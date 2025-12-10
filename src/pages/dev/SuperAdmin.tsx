@@ -46,7 +46,8 @@ import {
   Shield,
   Database,
   ExternalLink,
-  Plus
+  Plus,
+  Search
 } from "lucide-react";
 import { toast } from "sonner";
 import { WhatsAppGlobalConfig } from "@/components/dev/WhatsAppGlobalConfig";
