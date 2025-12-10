@@ -3,7 +3,7 @@
  * Integra autenticação, registro e histórico
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useStoreData } from '@/hooks/useStoreData';
 import { TimeClockAuth } from './TimeClockAuth';
@@ -12,6 +12,7 @@ import { TimeClockHistory } from './TimeClockHistory';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 interface TimeClockLojaViewProps {
   storeId?: string | null;
@@ -19,13 +20,10 @@ interface TimeClockLojaViewProps {
 
 export function TimeClockLojaView({ storeId: propStoreId }: TimeClockLojaViewProps) {
   const { storeId: contextStoreId } = useStoreData();
-  const storeId = propStoreId || contextStoreId;
+  const navigate = useNavigate();
   
-  console.log('[TimeClockLojaView] storeId:', { 
-    propStoreId: propStoreId ? propStoreId.substring(0, 8) + '...' : 'null',
-    contextStoreId: contextStoreId ? contextStoreId.substring(0, 8) + '...' : 'null',
-    finalStoreId: storeId ? storeId.substring(0, 8) + '...' : 'null'
-  });
+  // Memoizar storeId para evitar re-renders desnecessários
+  const storeId = useMemo(() => propStoreId || contextStoreId, [propStoreId, contextStoreId]);
   
   const [authenticated, setAuthenticated] = useState(false);
   const [colaboradoraId, setColaboradoraId] = useState<string | null>(null);
@@ -34,14 +32,33 @@ export function TimeClockLojaView({ storeId: propStoreId }: TimeClockLojaViewPro
   const [loading, setLoading] = useState(true);
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
+  const checkPontoAtivo = useCallback(async () => {
+    if (!storeId) return;
+
+    try {
+      const { data, error } = await supabase
+        .schema('sistemaretiradas')
+        .from('stores')
+        .select('ponto_ativo')
+        .eq('id', storeId)
+        .single();
+
+      if (error) throw error;
+      setPontoAtivo(data?.ponto_ativo || false);
+    } catch (err: any) {
+      console.error('[TimeClockLojaView] Erro ao verificar módulo:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [storeId]);
+
   useEffect(() => {
     if (storeId) {
       checkPontoAtivo();
     } else {
-      console.warn('[TimeClockLojaView] ⚠️ storeId não disponível');
       setLoading(false);
     }
-  }, [storeId]);
+  }, [storeId, checkPontoAtivo]);
 
   const checkPontoAtivo = async () => {
     if (!storeId) return;
@@ -63,20 +80,25 @@ export function TimeClockLojaView({ storeId: propStoreId }: TimeClockLojaViewPro
     }
   };
 
-  const handleAuthSuccess = (id: string, name: string) => {
+  const handleAuthSuccess = useCallback((id: string, name: string) => {
     setColaboradoraId(id);
     setColaboradoraName(name);
     setAuthenticated(true);
-  };
+  }, []);
 
-  const handleLogout = () => {
+  const handleCancel = useCallback(() => {
+    // Voltar para o dashboard da loja (não colaboradora)
+    navigate('/loja', { replace: true });
+  }, [navigate]);
+
+  const handleLogout = useCallback(() => {
     // Não fazer logout da sessão principal, apenas limpar estado local
     setAuthenticated(false);
     setColaboradoraId(null);
     setColaboradoraName('');
     // Permitir que outro colaborador faça login
     toast.success('Logout realizado. Outro colaborador pode fazer login.');
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -115,11 +137,11 @@ export function TimeClockLojaView({ storeId: propStoreId }: TimeClockLojaViewPro
   }
 
   if (!authenticated || !colaboradoraId) {
-    console.log('[TimeClockLojaView] Renderizando TimeClockAuth com storeId:', storeId.substring(0, 8) + '...');
     return (
       <TimeClockAuth
         storeId={storeId}
         onAuthSuccess={handleAuthSuccess}
+        onCancel={handleCancel}
       />
     );
   }

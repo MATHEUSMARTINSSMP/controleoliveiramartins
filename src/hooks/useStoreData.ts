@@ -3,7 +3,7 @@
  * Compatível com a estrutura modular do sistema
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -18,17 +18,25 @@ export function useStoreData(): UseStoreDataReturn {
   const [storeId, setStoreId] = useState<string | null>(null);
   const [storeName, setStoreName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const hasIdentifiedRef = useRef(false);
 
   useEffect(() => {
     const identifyStore = async () => {
       if (!profile) {
         setLoading(false);
+        hasIdentifiedRef.current = false;
+        return;
+      }
+
+      // Evitar múltiplas execuções desnecessárias
+      if (hasIdentifiedRef.current && storeId && profile.id) {
         return;
       }
 
       try {
         // Primeiro, tentar usar store_id se disponível
         let targetStoreId = profile.store_id;
+        let foundStoreName: string | null = null;
 
         // Se não tiver store_id, tentar usar store_default como UUID
         if (!targetStoreId && profile.store_default) {
@@ -82,7 +90,7 @@ export function useStoreData(): UseStoreDataReturn {
 
               if (matchingStore) {
                 targetStoreId = matchingStore.id;
-                setStoreName(matchingStore.name);
+                foundStoreName = matchingStore.name;
               }
             }
           }
@@ -90,7 +98,7 @@ export function useStoreData(): UseStoreDataReturn {
 
         if (targetStoreId) {
           // Buscar nome da loja se ainda não tiver
-          if (!storeName) {
+          if (!foundStoreName) {
             const { data: storeData } = await supabase
               .schema("sistemaretiradas")
               .from("stores")
@@ -99,11 +107,15 @@ export function useStoreData(): UseStoreDataReturn {
               .single();
 
             if (storeData) {
-              setStoreName(storeData.name);
+              foundStoreName = storeData.name;
             }
           }
 
           setStoreId(targetStoreId);
+          if (foundStoreName) {
+            setStoreName(foundStoreName);
+          }
+          hasIdentifiedRef.current = true;
         }
       } catch (error: any) {
         console.error("Erro ao identificar loja:", error);
@@ -113,7 +125,7 @@ export function useStoreData(): UseStoreDataReturn {
     };
 
     identifyStore();
-  }, [profile, storeName]);
+  }, [profile]);
 
   return {
     storeId,

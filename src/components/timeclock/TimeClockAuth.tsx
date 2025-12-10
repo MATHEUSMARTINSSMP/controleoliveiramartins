@@ -19,10 +19,6 @@ interface TimeClockAuthProps {
 }
 
 export function TimeClockAuth({ storeId, onAuthSuccess, onCancel }: TimeClockAuthProps) {
-  // Log para debug
-  useEffect(() => {
-    console.log('[TimeClockAuth] Componente montado com storeId:', storeId ? storeId.substring(0, 8) + '...' : 'null');
-  }, [storeId]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,11 +40,6 @@ export function TimeClockAuth({ storeId, onAuthSuccess, onCancel }: TimeClockAut
         return;
       }
 
-      console.log('[TimeClockAuth] Tentando login com:', { 
-        email: email.trim().toLowerCase(), 
-        storeId: storeId.substring(0, 8) + '...' 
-      });
-
       // Usar função Netlify para verificar credenciais sem alterar sessão principal
       const response = await fetch('/.netlify/functions/verify-colaboradora-ponto', {
         method: 'POST',
@@ -58,18 +49,11 @@ export function TimeClockAuth({ storeId, onAuthSuccess, onCancel }: TimeClockAut
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           password: password,
-          storeId: storeId, // ✅ Corrigido: usar storeId em vez de store_id
+          storeId: storeId,
         }),
       });
 
       const data = await response.json();
-
-      console.log('[TimeClockAuth] Resposta da função:', { 
-        ok: response.ok, 
-        status: response.status,
-        error: data.error,
-        success: data.success 
-      });
 
       if (!response.ok) {
         throw new Error(data.error || 'Erro ao verificar credenciais');
