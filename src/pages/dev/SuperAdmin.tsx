@@ -44,7 +44,9 @@ import {
   Building2,
   UserCog,
   Shield,
-  Database
+  Database,
+  ExternalLink,
+  Plus
 } from "lucide-react";
 import { toast } from "sonner";
 import { WhatsAppGlobalConfig } from "@/components/dev/WhatsAppGlobalConfig";
@@ -120,6 +122,7 @@ const SuperAdmin = () => {
 
   // Users Management
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [colaboradoras, setColaboradoras] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
@@ -169,6 +172,7 @@ const SuperAdmin = () => {
       await Promise.all([
         fetchStats(),
         fetchUsers(),
+        fetchColaboradoras(),
         fetchStores(),
         fetchSubscriptions(),
       ]);
@@ -323,6 +327,33 @@ const SuperAdmin = () => {
     } catch (error) {
       console.error("Erro ao buscar usuários:", error);
       toast.error("Erro ao buscar usuários");
+    }
+  };
+
+  const fetchColaboradoras = async () => {
+    try {
+      const { data, error } = await supabase
+        .schema("sistemaretiradas")
+        .from("profiles")
+        .select(`
+          id,
+          email,
+          name,
+          role,
+          is_active,
+          store_id,
+          store_default,
+          created_at
+        `)
+        .eq("role", "COLABORADORA")
+        .order("name");
+
+      if (error) throw error;
+
+      setColaboradoras(data || []);
+    } catch (error) {
+      console.error("Erro ao buscar colaboradoras:", error);
+      toast.error("Erro ao buscar colaboradoras");
     }
   };
 
@@ -785,7 +816,7 @@ const SuperAdmin = () => {
                               {store.site_slug || "-"}
                             </code>
                           </TableCell>
-                          <TableCell>{store.email || "-"}</TableCell>
+                          <TableCell>{store.admin_email || "-"}</TableCell>
                           <TableCell>
                             <div className="text-sm">
                               <div>{store.admin_name || "-"}</div>
@@ -1067,11 +1098,11 @@ const SuperAdmin = () => {
               <CardContent>
                 <div className="space-y-4">
                   {stores.map((store) => {
-                    const storeColaboradoras = users.filter(
-                      (u) => u.role === "COLABORADORA" && (u as any).store_id === store.id
+                    const storeColaboradoras = colaboradoras.filter(
+                      (colab) => (colab.store_id === store.id || colab.store_default === store.id)
                     ).map(colab => ({
                       ...colab,
-                      active: (colab as any).is_active ?? colab.active ?? true
+                      active: colab.is_active ?? true
                     }));
                     return (
                       <Card key={store.id}>
