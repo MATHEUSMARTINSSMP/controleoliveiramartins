@@ -1252,8 +1252,9 @@ const SuperAdmin = () => {
                           )}
                         </CardContent>
                       </Card>
-                    );
-                  })}
+                      );
+                    })
+                    .filter(Boolean)}
                 </div>
               </CardContent>
             </Card>
