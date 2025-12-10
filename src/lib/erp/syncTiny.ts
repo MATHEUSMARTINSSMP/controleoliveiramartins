@@ -2505,7 +2505,8 @@ async function syncTinyContact(
         || null;
 
       if (celularDireto && String(celularDireto).trim() !== '') {
-        const celularLimpo = String(celularDireto).trim();
+        // ✅ NORMALIZAR: Remover todos os caracteres não numéricos
+        const celularLimpo = String(celularDireto).replace(/\D/g, '');
         console.log(`[SyncTiny] ✅ Telefone encontrado (CELULAR DIRETO): ${celularLimpo.substring(0, 15)}...`);
         return celularLimpo;
       }
@@ -2522,7 +2523,8 @@ async function syncTinyContact(
             || null;
 
           if (celularContato && String(celularContato).trim() !== '') {
-            const celularLimpo = String(celularContato).trim();
+            // ✅ NORMALIZAR: Remover todos os caracteres não numéricos
+            const celularLimpo = String(celularContato).replace(/\D/g, '');
             console.log(`[SyncTiny] ✅ Telefone encontrado (CELULAR EM CONTATOS[]): ${celularLimpo.substring(0, 15)}...`);
             return celularLimpo;
           }
@@ -2537,7 +2539,8 @@ async function syncTinyContact(
             || null;
 
           if (telefoneContato && String(telefoneContato).trim() !== '') {
-            const telefoneLimpo = String(telefoneContato).trim();
+            // ✅ NORMALIZAR: Remover todos os caracteres não numéricos
+            const telefoneLimpo = String(telefoneContato).replace(/\D/g, '');
             console.log(`[SyncTiny] ✅ Telefone encontrado (FIXO EM CONTATOS[]): ${telefoneLimpo.substring(0, 15)}...`);
             return telefoneLimpo;
           }
@@ -2553,7 +2556,8 @@ async function syncTinyContact(
         || null;
 
       if (telefoneFixo && String(telefoneFixo).trim() !== '') {
-        const telefoneLimpo = String(telefoneFixo).trim();
+        // ✅ NORMALIZAR: Remover todos os caracteres não numéricos
+        const telefoneLimpo = String(telefoneFixo).replace(/\D/g, '');
         console.log(`[SyncTiny] ✅ Telefone encontrado (FIXO DIRETO): ${telefoneLimpo.substring(0, 15)}...`);
         return telefoneLimpo;
       }
@@ -2568,7 +2572,8 @@ async function syncTinyContact(
         || null;
 
       if (telefoneExtras && String(telefoneExtras).trim() !== '') {
-        const telefoneLimpo = String(telefoneExtras).trim();
+        // ✅ NORMALIZAR: Remover todos os caracteres não numéricos
+        const telefoneLimpo = String(telefoneExtras).replace(/\D/g, '');
         console.log(`[SyncTiny] ✅ Telefone encontrado (DADOS_EXTRAS): ${telefoneLimpo.substring(0, 15)}...`);
         return telefoneLimpo;
       }
