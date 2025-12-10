@@ -183,15 +183,28 @@ export const StoreTaskAlertsManager = () => {
               }))
           }));
 
-        // CORREÇÃO: O limite é de 10 mensagens POR DIA, não por semana
-        // Cada alerta envia mensagens apenas nos horários configurados, independente dos dias
-        // O total_envios_hoje já está correto (soma dos envios_hoje de cada alerta)
-        const totalEnvios = storeTasks.reduce((sum, t) => sum + (t.envios_hoje || 0), 0);
+        // CORREÇÃO: Calcular quantas mensagens serão enviadas HOJE
+        // Deve considerar apenas alertas ativos que incluem hoje no dias_semana
+        // Cálculo: horários × destinatários ativos, apenas para alertas que enviam hoje
+        const hoje = new Date().getDay(); // 0=domingo, 6=sábado
+        const mensagensHoje = storeTasks
+          .filter(task => {
+            // Filtrar apenas alertas ativos que incluem hoje
+            if (!task.ativo) return false;
+            if (!task.dias_semana || task.dias_semana.length === 0) return false;
+            return task.dias_semana.includes(hoje);
+          })
+          .reduce((sum, task) => {
+            // Para cada alerta: horários × destinatários ativos
+            const horariosCount = (task.horarios || []).length;
+            const recipientsAtivos = (task.recipients || []).filter(r => r.ativo).length;
+            return sum + (horariosCount * recipientsAtivos);
+          }, 0);
 
         return {
           ...store,
           tasks: storeTasks,
-          total_envios_hoje: totalEnvios
+          total_envios_hoje: mensagensHoje
         };
       });
 
@@ -274,30 +287,37 @@ export const StoreTaskAlertsManager = () => {
       return;
     }
 
-    // CORREÇÃO: Validar limite ANTES de salvar
-    // O limite é de 10 mensagens POR DIA, não por semana
-    // Cada alerta envia mensagens apenas nos horários configurados (ex: 2 horários = 2 mensagens/dia)
-    // Não devemos multiplicar por dias da semana
+    // CORREÇÃO: Validar limite considerando apenas mensagens que serão enviadas HOJE
+    // O limite é de 10 mensagens POR DIA, considerando apenas alertas ativos que incluem hoje
+    const hoje = new Date().getDay(); // 0=domingo, 6=sábado
     const currentStore = storesWithTasks.find(s => s.id === selectedStoreId);
-    const mensagensAtuais = currentStore?.total_envios_hoje || 0;
     
-    // Calcular quantas mensagens este alerta adicionará POR DIA
-    // CORREÇÃO: Contar apenas os horários, não multiplicar por dias
-    const mensagensNovoAlerta = formData.horarios.length * validRecipients.length;
+    // Calcular mensagens atuais (apenas alertas ativos que incluem hoje)
+    const mensagensAtuais = (currentStore?.tasks || [])
+      .filter(task => {
+        // Considerar apenas alertas ativos que incluem hoje (exceto o que está sendo editado)
+        if (!task.ativo) return false;
+        if (editingTask && task.id === editingTask.id) return false; // Excluir o alerta sendo editado
+        if (!task.dias_semana || task.dias_semana.length === 0) return false;
+        return task.dias_semana.includes(hoje);
+      })
+      .reduce((sum, task) => {
+        const horariosCount = (task.horarios || []).length;
+        const recipientsAtivos = (task.recipients || []).filter(r => r.ativo).length;
+        return sum + (horariosCount * recipientsAtivos);
+      }, 0);
     
-    // Se estiver editando, remover as mensagens do alerta antigo
-    let mensagensAlertaAntigo = 0;
-    if (editingTask) {
-      // Contar mensagens do alerta antigo (horários × destinatários)
-      const recipientsAntigos = editingTask.recipients.filter(r => r.ativo).length;
-      mensagensAlertaAntigo = (editingTask.horarios?.length || 0) * recipientsAntigos;
+    // Calcular mensagens do novo alerta (apenas se incluir hoje)
+    let mensagensNovoAlerta = 0;
+    if (formData.dias_semana.includes(hoje) && formData.ativo) {
+      mensagensNovoAlerta = formData.horarios.length * validRecipients.length;
     }
     
-    // Calcular total após adicionar/atualizar este alerta
-    const totalAposAlteracao = mensagensAtuais - mensagensAlertaAntigo + mensagensNovoAlerta;
+    // Calcular total após adicionar/atualizar
+    const totalAposAlteracao = mensagensAtuais + mensagensNovoAlerta;
     
     if (totalAposAlteracao > 10) {
-      toast.error(`Limite de 10 mensagens por dia por loja ultrapassado. Mensagens atuais: ${mensagensAtuais}, tentando adicionar: ${mensagensNovoAlerta}`);
+      toast.error(`Limite de 10 mensagens por dia por loja ultrapassado. Mensagens que serão enviadas hoje: ${mensagensAtuais}, tentando adicionar: ${mensagensNovoAlerta}`);
       setSaving(false);
       return;
     }
