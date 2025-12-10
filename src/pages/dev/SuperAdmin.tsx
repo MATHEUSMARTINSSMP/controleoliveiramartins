@@ -80,8 +80,8 @@ interface StoreData {
   wishlist_ativo: boolean;
   ponto_ativo: boolean;
   ajustes_condicionais_ativo: boolean;
-  erp_ativo: boolean;
-  check_meta_ativo: boolean;
+  erp_ativo?: boolean; // Opcional - pode não existir em todas as instalações
+  check_meta_ativo?: boolean; // Opcional - pode não existir em todas as instalações
   created_at: string;
 }
 
