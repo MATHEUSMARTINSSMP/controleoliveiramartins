@@ -93,16 +93,20 @@ interface Contact {
 }
 
 export const StoreTaskAlertsManager = () => {
+  // LOG INICIAL ABSOLUTO - ANTES DE TUDO
+  console.log('🚨🚨🚨 [StoreTaskAlertsManager] FUNÇÃO INICIADA 🚨🚨🚨');
+  
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [storesWithTasks, setStoresWithTasks] = useState<StoreWithTasks[]>([]);
   const [availableContacts, setAvailableContacts] = useState<Contact[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(false);
-
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<StoreTask | null>(null);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  
+  console.log('✅ [StoreTaskAlertsManager] Estados declarados, profile:', profile ? 'existe' : 'null');
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -831,7 +835,21 @@ export const StoreTaskAlertsManager = () => {
   console.log('🎨 [StoreTaskAlertsManager] selectedStoreId:', selectedStoreId);
 
   return (
-    <div className="space-y-6">
+      <div className="space-y-6">
+      {/* TESTE CRÍTICO: Botão fora de tudo para verificar se eventos funcionam */}
+      <div className="p-4 bg-yellow-200 dark:bg-yellow-900 border-2 border-yellow-500 rounded">
+        <p className="font-bold mb-2">TESTE DE DEBUG:</p>
+        <Button
+          onClick={() => {
+            alert('TESTE: Botão de teste funcionou!');
+            console.log('✅✅✅ BOTÃO DE TESTE CLICADO ✅✅✅');
+          }}
+          className="bg-red-500 text-white"
+        >
+          CLIQUE AQUI PARA TESTAR
+        </Button>
+      </div>
+      
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
@@ -844,7 +862,12 @@ export const StoreTaskAlertsManager = () => {
         </div>
         <Button
           variant="outline"
-          onClick={handleTestAlertSystem}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🔧 [TESTAR SISTEMA] Botão clicado!');
+            handleTestAlertSystem();
+          }}
           disabled={saving || loading}
           className="gap-2"
         >
