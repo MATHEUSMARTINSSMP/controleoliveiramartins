@@ -1023,15 +1023,17 @@ const SuperAdmin = () => {
                               }
                             />
                           </div>
-                          <div className="flex items-center justify-between p-3 border rounded-lg">
-                            <Label>ERP</Label>
-                            <Switch
-                              checked={store.erp_ativo}
-                              onCheckedChange={() =>
-                                handleToggleStoreModule(store.id, "erp", store.erp_ativo)
-                              }
-                            />
-                          </div>
+                          {store.erp_ativo !== undefined && (
+                            <div className="flex items-center justify-between p-3 border rounded-lg">
+                              <Label>ERP</Label>
+                              <Switch
+                                checked={store.erp_ativo}
+                                onCheckedChange={() =>
+                                  handleToggleStoreModule(store.id, "erp", store.erp_ativo)
+                                }
+                              />
+                            </div>
+                          )}
                           <div className="flex items-center justify-between p-3 border rounded-lg">
                             <Label>Check Meta</Label>
                             <Switch
