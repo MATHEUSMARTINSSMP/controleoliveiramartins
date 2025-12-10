@@ -54,6 +54,7 @@ import { PaymentGatewaysConfig } from "@/components/dev/PaymentGatewaysConfig";
 import { WebhookTester } from "@/components/admin/WebhookTester";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import ERPConfigSuperAdmin from "@/components/dev/ERPConfigSuperAdmin";
 
 interface AdminUser {
   id: string;
@@ -1167,43 +1168,7 @@ const SuperAdmin = () => {
                 <TabsTrigger value="webhook">Webhook Tester</TabsTrigger>
               </TabsList>
               <TabsContent value="erp">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Configuração de ERP</CardTitle>
-                    <CardDescription>
-                      Configure as integrações de ERP para cada loja
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {stores.map((store) => (
-                        <Card key={store.id}>
-                          <CardHeader>
-                            <CardTitle className="text-lg">{store.name}</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-4">
-                              {store.erp_ativo !== undefined && (
-                                <div className="flex items-center justify-between">
-                                  <Label>ERP Ativo</Label>
-                                  <Switch
-                                    checked={store.erp_ativo}
-                                    onCheckedChange={() =>
-                                      handleToggleStoreModule(store.id, "erp", store.erp_ativo)
-                                    }
-                                  />
-                                </div>
-                              )}
-                              <p className="text-sm text-muted-foreground">
-                                Ative ou desative a integração de ERP para esta loja
-                              </p>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                <ERPConfigSuperAdmin stores={stores} />
               </TabsContent>
               <TabsContent value="whatsapp">
                 <WhatsAppGlobalConfig />
