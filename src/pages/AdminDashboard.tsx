@@ -28,6 +28,7 @@ import { DailyGoalCheckReports } from "@/components/admin/DailyGoalCheckReports"
 import { ConditionalsAdjustmentsManager } from "@/components/admin/ConditionalsAdjustmentsManager";
 import { BillingManagement } from "@/components/admin/BillingManagement";
 import { BillingEventsDashboard } from "@/components/admin/BillingEventsDashboard";
+import { BillingAccessGuard } from "@/components/BillingAccessGuard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
