@@ -151,6 +151,12 @@ const SuperAdmin = () => {
     last_payment_date: "",
   });
 
+  // Filtros de busca
+  const [userSearchFilter, setUserSearchFilter] = useState("");
+  const [storeSearchFilter, setStoreSearchFilter] = useState("");
+  const [colaboradoraSearchFilter, setColaboradoraSearchFilter] = useState("");
+  const [subscriptionSearchFilter, setSubscriptionSearchFilter] = useState("");
+
   useEffect(() => {
     if (authLoading) return;
 
@@ -721,6 +727,17 @@ const SuperAdmin = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="mb-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por nome, email ou role..."
+                      value={userSearchFilter}
+                      onChange={(e) => setUserSearchFilter(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -735,7 +752,17 @@ const SuperAdmin = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {users.map((user) => (
+                      {users
+                        .filter((user) => {
+                          if (!userSearchFilter) return true;
+                          const search = userSearchFilter.toLowerCase();
+                          return (
+                            user.email?.toLowerCase().includes(search) ||
+                            user.name?.toLowerCase().includes(search) ||
+                            user.role?.toLowerCase().includes(search)
+                          );
+                        })
+                        .map((user) => (
                         <TableRow key={user.id}>
                           <TableCell className="font-medium">{user.email}</TableCell>
                           <TableCell>{user.name || "-"}</TableCell>
@@ -797,6 +824,17 @@ const SuperAdmin = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="mb-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por nome, site slug, email do admin ou nome do admin..."
+                      value={storeSearchFilter}
+                      onChange={(e) => setStoreSearchFilter(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -810,7 +848,18 @@ const SuperAdmin = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {stores.map((store) => (
+                      {stores
+                        .filter((store) => {
+                          if (!storeSearchFilter) return true;
+                          const search = storeSearchFilter.toLowerCase();
+                          return (
+                            store.name?.toLowerCase().includes(search) ||
+                            store.site_slug?.toLowerCase().includes(search) ||
+                            store.admin_email?.toLowerCase().includes(search) ||
+                            store.admin_name?.toLowerCase().includes(search)
+                          );
+                        })
+                        .map((store) => (
                         <TableRow key={store.id}>
                           <TableCell className="font-medium">{store.name}</TableCell>
                           <TableCell>
@@ -868,6 +917,17 @@ const SuperAdmin = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="mb-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por admin, email, status, payment_status ou plano..."
+                      value={subscriptionSearchFilter}
+                      onChange={(e) => setSubscriptionSearchFilter(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -882,7 +942,19 @@ const SuperAdmin = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {subscriptions.map((sub) => (
+                      {subscriptions
+                        .filter((sub) => {
+                          if (!subscriptionSearchFilter) return true;
+                          const search = subscriptionSearchFilter.toLowerCase();
+                          return (
+                            sub.admin_name?.toLowerCase().includes(search) ||
+                            sub.admin_email?.toLowerCase().includes(search) ||
+                            sub.status?.toLowerCase().includes(search) ||
+                            sub.payment_status?.toLowerCase().includes(search) ||
+                            sub.plan_name?.toLowerCase().includes(search)
+                          );
+                        })
+                        .map((sub) => (
                         <TableRow key={sub.id}>
                           <TableCell>
                             <div>
@@ -1098,14 +1170,41 @@ const SuperAdmin = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="mb-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por nome, email ou loja..."
+                      value={colaboradoraSearchFilter}
+                      onChange={(e) => setColaboradoraSearchFilter(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
                 <div className="space-y-4">
                   {stores.map((store) => {
                     const storeColaboradoras = colaboradoras.filter(
                       (colab) => (colab.store_id === store.id || colab.store_default === store.id)
-                    ).map(colab => ({
+                    )
+                    .filter((colab) => {
+                      if (!colaboradoraSearchFilter) return true;
+                      const search = colaboradoraSearchFilter.toLowerCase();
+                      return (
+                        colab.name?.toLowerCase().includes(search) ||
+                        colab.email?.toLowerCase().includes(search) ||
+                        store.name?.toLowerCase().includes(search)
+                      );
+                    })
+                    .map(colab => ({
                       ...colab,
                       active: colab.is_active ?? true
                     }));
+                    
+                    // Se tem filtro e não há colaboradoras nesta loja, não mostrar o card
+                    if (colaboradoraSearchFilter && storeColaboradoras.length === 0) {
+                      return null;
+                    }
+                    
                     return (
                       <Card key={store.id}>
                         <CardHeader>
