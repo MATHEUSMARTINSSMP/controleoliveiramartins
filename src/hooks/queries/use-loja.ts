@@ -121,7 +121,7 @@ export function useStoreSales(storeId: string | null | undefined, filterDate?: s
           observacoes,
           tiny_order_id,
           forma_pagamento,
-          colaboradora:profiles!left(colaboradora_id)(name)
+          colaboradora:profiles(colaboradora_id)(name)
         `)
         .eq('store_id', storeId)
         .gte('data_venda', `${dateFilter}T00:00:00`)
