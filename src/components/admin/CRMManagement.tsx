@@ -1324,6 +1324,14 @@ export const CRMManagement = () => {
                       />
                     </div>
                     <div>
+                      <Label>CPF</Label>
+                      <Input
+                        placeholder="000.000.000-00"
+                        value={formData.cpf || ''}
+                        onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+                      />
+                    </div>
+                    <div>
                       <Label>Email</Label>
                       <Input
                         type="email"
