@@ -74,25 +74,10 @@ BEGIN
   END IF;
   
   -- Atualizar is_active do usuário (SOBRESCREVE qualquer verificação de billing)
-  -- Nota: updated_at pode não existir, então verificamos antes
-  DO $$
-  BEGIN
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns 
-      WHERE table_schema = 'sistemaretiradas' 
-      AND table_name = 'profiles' 
-      AND column_name = 'updated_at'
-    ) THEN
-      UPDATE sistemaretiradas.profiles
-      SET is_active = p_active,
-          updated_at = NOW()
-      WHERE id = p_target_user_id;
-    ELSE
-      UPDATE sistemaretiradas.profiles
-      SET is_active = p_active
-      WHERE id = p_target_user_id;
-    END IF;
-  END $$;
+  -- Nota: updated_at pode não existir, então não incluímos
+  UPDATE sistemaretiradas.profiles
+  SET is_active = p_active
+  WHERE id = p_target_user_id;
   
   RETURN json_build_object(
     'success', true,
