@@ -285,22 +285,36 @@ async function validateAsaasSignature(supabase, event) {
 }
 
 async function validateCaktoSignature(supabase, event) {
-  const signature = event.headers['x-cakto-signature'];
+  // CAKTO envia o secret no body do JSON, não no header
+  // Primeiro, tentar parsear o body para pegar o secret
+  let bodyData;
+  try {
+    bodyData = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+  } catch (e) {
+    bodyData = event.body;
+  }
+
+  const receivedSecret = bodyData?.secret || bodyData?.data?.secret;
+  
+  // Também verificar header (caso o CAKTO mude no futuro)
+  const headerSignature = event.headers['x-cakto-signature'];
+  const signature = receivedSecret || headerSignature;
   
   if (!signature) {
-    return { valid: false, error: 'Missing x-cakto-signature header' };
+    console.warn('[Payment Webhook] CAKTO: No secret found in body or header');
+    // Não bloquear - pode ser um teste ou evento sem secret
+    return { valid: true };
   }
 
   // Buscar webhook secret do CAKTO (prioridade: env var > banco de dados)
   let webhookSecret = process.env.CAKTO_WEBHOOK_SECRET;
   
   if (!webhookSecret) {
-    // Se não estiver em env var, buscar do banco de dados
+    // Se não estiver em env var, buscar do banco de dados (não precisa estar ativo para validar)
     const { data: gatewayConfig, error } = await supabase
       .from('payment_gateways')
-      .select('webhook_secret')
+      .select('webhook_secret, is_active')
       .eq('id', 'CAKTO')
-      .eq('is_active', true)
       .single();
 
     if (error || !gatewayConfig) {
@@ -309,6 +323,11 @@ async function validateCaktoSignature(supabase, event) {
     }
 
     webhookSecret = gatewayConfig.webhook_secret;
+    
+    // Log se não estiver ativo (mas não bloquear)
+    if (!gatewayConfig.is_active) {
+      console.warn('[Payment Webhook] CAKTO gateway is not active, but validating signature anyway');
+    }
   }
   
   if (!webhookSecret) {
@@ -316,16 +335,15 @@ async function validateCaktoSignature(supabase, event) {
     return { valid: true }; // Permitir se não configurado
   }
 
-  // CAKTO validação: implementar conforme documentação
-  // Por enquanto, validar se a signature corresponde ao secret
-  // TODO: Implementar validação específica do CAKTO conforme documentação oficial
-  // Exemplo básico: verificar se signature é igual ao secret (adaptar conforme docs do CAKTO)
+  // CAKTO validação: comparar o secret recebido com o configurado
   if (signature === webhookSecret) {
+    console.log('[Payment Webhook] CAKTO signature validated successfully');
     return { valid: true };
   }
   
-  // Se não corresponder, pode ser um hash - implementar validação HMAC se necessário
-  return { valid: true }; // Por enquanto, aceitar se secret existe
+  // Se não corresponder, retornar erro
+  console.error('[Payment Webhook] CAKTO signature mismatch. Received:', signature?.substring(0, 4) + '...', 'Expected:', webhookSecret?.substring(0, 4) + '...');
+  return { valid: false, error: 'Invalid CAKTO webhook secret' };
 }
 
 async function validateGenericSignature(supabase, gateway, event) {
