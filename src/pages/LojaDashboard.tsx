@@ -844,8 +844,19 @@ export default function LojaDashboard() {
                     totalMes += Number(sale.valor || 0);
                 });
             }
-            setMonthlyRealizado(totalMes);
-            setMonthlyProgress((totalMes / Number(data.meta_valor)) * 100);
+            
+            // Usar o valor calculado localmente apenas se não houver dados do React Query
+            // O React Query (useStoreMonthlyProgress) já calcula corretamente todas as vendas
+            // Mas precisamos considerar colaboradoras desativadas para o cálculo da meta dinâmica
+            // Por isso mantemos o totalMes local para a meta diária dinâmica
+            // Mas não sobrescrevemos o monthlyRealizado se já temos dados do React Query
+            
+            // O monthlyRealizado será atualizado pelo useEffect que observa monthlyProgressData
+            // Apenas definimos aqui se não tivermos dados ainda
+            if (!monthlyProgressData) {
+                setMonthlyRealizado(totalMes);
+                setMonthlyProgress((totalMes / Number(data.meta_valor)) * 100);
+            }
 
             // Calcular meta diária DINÂMICA
             const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
