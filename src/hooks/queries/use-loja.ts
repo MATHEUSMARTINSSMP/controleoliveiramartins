@@ -458,39 +458,91 @@ export function useStoreRankingTop3(storeId: string | null | undefined) {
   });
 }
 
-export function useStoreMonthlyRanking(storeId: string | null | undefined) {
+export function useStoreMonthlyRanking(storeId: string | null | undefined, storeName?: string | null) {
   const mesAtual = format(new Date(), 'yyyyMM');
   const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
 
   return useQuery({
-    queryKey: [QUERY_KEYS.sales, 'ranking-monthly', storeId, mesAtual],
+    queryKey: [QUERY_KEYS.sales, 'ranking-monthly', storeId, storeName, mesAtual],
     queryFn: async (): Promise<RankingItem[]> => {
       if (!storeId) return [];
 
-      const { data, error } = await supabase
+      // ✅ CORREÇÃO: Usar mesma lógica robusta de useStoreColaboradoras
+      // Estratégia 1: Buscar colaboradoras por store_id (UUID)
+      let colaboradorasQuery = supabase
+        .schema('sistemaretiradas')
+        .from('profiles')
+        .select('id, name, store_id, store_default')
+        .eq('role', 'COLABORADORA')
+        .eq('is_active', true)
+        .eq('store_id', storeId);
+
+      const { data: colaboradorasPorId, error: errorPorId } = await colaboradorasQuery;
+
+      // Estratégia 2: Se não encontrou por UUID, buscar por nome (store_default)
+      let colaboradorasPorNome: any[] = [];
+      if ((!colaboradorasPorId || colaboradorasPorId.length === 0) && storeName) {
+        const { data: dataPorNome } = await supabase
+          .schema('sistemaretiradas')
+          .from('profiles')
+          .select('id, name, store_id, store_default')
+          .eq('role', 'COLABORADORA')
+          .eq('is_active', true)
+          .eq('store_default', storeName);
+        colaboradorasPorNome = dataPorNome || [];
+      }
+
+      // Combinar resultados únicos
+      const colaboradorasMap = new Map<string, any>();
+      (colaboradorasPorId || []).forEach((colab: any) => {
+        colaboradorasMap.set(colab.id, colab);
+      });
+      colaboradorasPorNome.forEach((colab: any) => {
+        if (!colaboradorasMap.has(colab.id)) {
+          colaboradorasMap.set(colab.id, colab);
+        }
+      });
+
+      const colaboradoras = Array.from(colaboradorasMap.values());
+
+      if (colaboradoras.length === 0) return [];
+
+      // Criar mapa inicial com todas as colaboradoras (total = 0)
+      const rankingMap = new Map<string, { name: string; total: number }>();
+      colaboradoras.forEach((colab: any) => {
+        rankingMap.set(colab.id, {
+          name: colab.name,
+          total: 0,
+        });
+      });
+
+      // Buscar TODAS as vendas do mês
+      const { data: salesData, error: salesError } = await supabase
         .schema('sistemaretiradas')
         .from('sales')
-        .select('colaboradora_id, valor, profiles!sales_colaboradora_id_fkey(name)')
+        .select('colaboradora_id, valor')
         .eq('store_id', storeId)
         .gte('data_venda', `${startOfMonth}T00:00:00`);
 
-      if (error) throw error;
+      if (salesError) throw salesError;
 
-      const grouped = (data || []).reduce((acc: Record<string, { name: string; total: number }>, sale: any) => {
-        const id = sale.colaboradora_id;
-        if (!acc[id]) {
-          acc[id] = { name: sale.profiles?.name || 'Desconhecido', total: 0 };
-        }
-        acc[id].total += Number(sale.valor || 0);
-        return acc;
-      }, {});
+      // Agregar vendas às colaboradoras
+      if (salesData) {
+        salesData.forEach((sale: any) => {
+          if (sale.colaboradora_id && rankingMap.has(sale.colaboradora_id)) {
+            const colab = rankingMap.get(sale.colaboradora_id)!;
+            colab.total += Number(sale.valor || 0);
+          }
+        });
+      }
 
-      return Object.entries(grouped)
-        .sort(([, a], [, b]) => (b as { total: number }).total - (a as { total: number }).total)
+      // Converter para array, ordenar por total (descendente) e incluir TODAS as colaboradoras
+      return Array.from(rankingMap.entries())
+        .sort(([, a], [, b]) => b.total - a.total)
         .map(([id, info], index) => ({
           colaboradoraId: id,
-          colaboradoraName: (info as { name: string; total: number }).name,
-          total: (info as { name: string; total: number }).total,
+          colaboradoraName: info.name,
+          total: info.total,
           position: index + 1,
         }));
     },

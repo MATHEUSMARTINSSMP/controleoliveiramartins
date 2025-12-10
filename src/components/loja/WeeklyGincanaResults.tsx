@@ -118,7 +118,7 @@ export default function WeeklyGincanaResults({
             let query = supabase
                 .schema("sistemaretiradas")
                 .from("goals")
-                .select("*, profiles (name)")
+                .select("*, profiles!goals_colaboradora_id_fkey(name)")
                 .eq("store_id", storeId)
                 .eq("tipo", "SEMANAL")
                 .not("semana_referencia", "is", null)
@@ -214,7 +214,7 @@ export default function WeeklyGincanaResults({
             let goalsQuery = supabase
                 .schema("sistemaretiradas")
                 .from("goals")
-                .select("*, profiles (name)")
+                .select("*, profiles!goals_colaboradora_id_fkey(name)")
                 .eq("store_id", storeId)
                 .eq("semana_referencia", weekRef)
                 .eq("tipo", "SEMANAL")

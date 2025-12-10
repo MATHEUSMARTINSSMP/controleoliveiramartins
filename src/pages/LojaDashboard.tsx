@@ -187,7 +187,7 @@ export default function LojaDashboard() {
     const { data: rankingTop3Data = [] } = useStoreRankingTop3(storeId);
 
     // Hook para ranking mensal
-    const { data: rankingMonthlyData = [] } = useStoreMonthlyRanking(storeId);
+    const { data: rankingMonthlyData = [] } = useStoreMonthlyRanking(storeId, storeName);
 
     // Hook para performance das colaboradoras
     const { data: colaboradorasPerformanceData = [], refetch: refetchColaboradorasPerformance } = useStoreColaboradorasPerformance(
@@ -1328,7 +1328,7 @@ export default function LojaDashboard() {
                 fetchMetricsWithStoreId(currentStoreId),
                 fetchColaboradorasPerformanceWithStoreId(currentStoreId, currentStoreName || storeName || undefined),
                 fetchRankingTop3WithStoreId(currentStoreId),
-                fetchMonthlyRankingWithStoreId(currentStoreId),
+                fetchMonthlyRankingWithStoreId(currentStoreId, currentStoreName || storeName),
                 fetch7DayHistoryWithStoreId(currentStoreId),
                 fetchMonthlyDataByDayWithStoreId(currentStoreId)
             ]);
@@ -1690,48 +1690,119 @@ export default function LojaDashboard() {
         }
     };
 
-    const fetchMonthlyRankingWithStoreId = async (currentStoreId: string) => {
+    const fetchMonthlyRankingWithStoreId = async (currentStoreId: string, currentStoreName?: string | null) => {
         if (!currentStoreId) return;
 
         const mesAtual = format(new Date(), 'yyyyMM');
         const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
 
-        const { data: salesData, error } = await supabase
+        // ✅ CORREÇÃO: Usar mesma lógica de fetchColaboradorasWithStoreId para garantir busca correta
+        const storeNameToUse = currentStoreName || storeName;
+
+        console.log('[LojaDashboard] 📊 Buscando ranking mensal...');
+        console.log('[LojaDashboard]   storeId:', currentStoreId);
+        console.log('[LojaDashboard]   storeName:', storeNameToUse || 'NULL');
+
+        // Estratégia 1: Buscar colaboradoras por store_id (UUID)
+        let colaboradorasQuery = supabase
+            .schema("sistemaretiradas")
+            .from('profiles')
+            .select('id, name, store_id, store_default')
+            .eq('role', 'COLABORADORA')
+            .eq('is_active', true)
+            .eq('store_id', currentStoreId);
+
+        const { data: colaboradorasPorId, error: errorPorId } = await colaboradorasQuery;
+
+        // Estratégia 2: Se não encontrou por UUID, buscar por nome (store_default)
+        let colaboradorasPorNome: any[] = [];
+        if ((!colaboradorasPorId || colaboradorasPorNome.length === 0) && storeNameToUse) {
+            const { data: dataPorNome } = await supabase
+                .schema("sistemaretiradas")
+                .from('profiles')
+                .select('id, name, store_id, store_default')
+                .eq('role', 'COLABORADORA')
+                .eq('is_active', true)
+                .eq('store_default', storeNameToUse);
+            colaboradorasPorNome = dataPorNome || [];
+        }
+
+        // Combinar resultados únicos
+        const colaboradorasMap = new Map<string, any>();
+        (colaboradorasPorId || []).forEach((colab: any) => {
+            colaboradorasMap.set(colab.id, colab);
+        });
+        colaboradorasPorNome.forEach((colab: any) => {
+            if (!colaboradorasMap.has(colab.id)) {
+                colaboradorasMap.set(colab.id, colab);
+            }
+        });
+
+        const colaboradoras = Array.from(colaboradorasMap.values());
+
+        console.log('[LojaDashboard] ✅ Colaboradoras encontradas:', colaboradoras.length);
+        console.log('[LojaDashboard]   IDs:', colaboradoras.map((c: any) => c.id));
+
+        if (colaboradoras.length === 0) {
+            console.warn('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada para o ranking mensal');
+            setRankingMonthly([]);
+            return;
+        }
+
+        // Criar mapa inicial com todas as colaboradoras (total = 0)
+        const rankingMap = new Map<string, any>();
+        colaboradoras.forEach((colab: any) => {
+            rankingMap.set(colab.id, {
+                colaboradora_id: colab.id,
+                name: colab.name,
+                total: 0,
+                qtdVendas: 0,
+                qtdPecas: 0
+            });
+        });
+
+        // Buscar TODAS as vendas do mês (incluindo vendas sem colaboradora_id para debug)
+        const { data: salesData, error: salesError } = await supabase
             .schema("sistemaretiradas")
             .from('sales')
-            .select(`
-                colaboradora_id,
-                valor,
-                qtd_pecas,
-                profiles!sales_colaboradora_id_fkey(name)
-            `)
+            .select('colaboradora_id, valor, qtd_pecas')
             .eq('store_id', currentStoreId)
             .gte('data_venda', `${startOfMonth}T00:00:00`);
 
-        if (!error && salesData) {
-            const grouped = salesData.reduce((acc: any, sale: any) => {
-                const id = sale.colaboradora_id;
-                if (!acc[id]) {
-                    acc[id] = {
-                        colaboradora_id: id,
-                        name: sale.profiles.name,
-                        total: 0,
-                        qtdVendas: 0,
-                        qtdPecas: 0
-                    };
-                }
-                acc[id].total += Number(sale.valor);
-                acc[id].qtdVendas += 1;
-                acc[id].qtdPecas += Number(sale.qtd_pecas);
-                return acc;
-            }, {});
-
-            const ranking = Object.values(grouped)
-                .sort((a: any, b: any) => b.total - a.total)
-                .slice(0, 2); // Apenas Top 2 para Ouro e Prata
-
-            setRankingMonthly(ranking as any[]);
+        if (salesError) {
+            console.error('[LojaDashboard] ❌ Erro ao buscar vendas:', salesError);
+            // Continuar mesmo com erro, usando apenas colaboradoras sem vendas
         }
+
+        console.log('[LojaDashboard] 📊 Vendas encontradas:', salesData?.length || 0);
+        console.log('[LojaDashboard]   Vendas com colaboradora_id:', salesData?.filter((s: any) => s.colaboradora_id).length || 0);
+
+        // Agregar vendas às colaboradoras
+        if (salesData) {
+            salesData.forEach((sale: any) => {
+                if (sale.colaboradora_id) {
+                    if (rankingMap.has(sale.colaboradora_id)) {
+                        const colab = rankingMap.get(sale.colaboradora_id)!;
+                        colab.total += Number(sale.valor || 0);
+                        colab.qtdVendas += 1;
+                        colab.qtdPecas += Number(sale.qtd_pecas || 0);
+                    } else {
+                        console.warn('[LojaDashboard] ⚠️ Venda de colaboradora não encontrada no mapa:', sale.colaboradora_id);
+                    }
+                } else {
+                    console.warn('[LojaDashboard] ⚠️ Venda sem colaboradora_id encontrada:', sale);
+                }
+            });
+        }
+
+        // Converter para array, ordenar por total (descendente) e incluir TODAS as colaboradoras
+        const ranking = Array.from(rankingMap.values())
+            .sort((a: any, b: any) => b.total - a.total);
+
+        console.log('[LojaDashboard] ✅ Ranking mensal calculado:', ranking.length, 'colaboradoras');
+        console.log('[LojaDashboard]   Top 3:', ranking.slice(0, 3).map((r: any) => ({ nome: r.name, total: r.total })));
+
+        setRankingMonthly(ranking as any[]);
     };
 
     // Atualizar vendas quando o filtro de data mudar
@@ -2494,7 +2565,7 @@ export default function LojaDashboard() {
                 fetchColaboradorasPerformanceWithStoreId(storeId, storeName || undefined),
                 fetchGoalsWithStoreId(storeId),
                 fetchRankingTop3WithStoreId(storeId),
-                fetchMonthlyRankingWithStoreId(storeId),
+                fetchMonthlyRankingWithStoreId(storeId, storeName || undefined),
                 fetch7DayHistoryWithStoreId(storeId),
                 fetchMonthlyDataByDayWithStoreId(storeId)
             ]);
