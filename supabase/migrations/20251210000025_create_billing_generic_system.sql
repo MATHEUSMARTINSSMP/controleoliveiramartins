@@ -27,7 +27,20 @@ ADD COLUMN IF NOT EXISTS billing_document TEXT, -- CPF/CNPJ
 ADD COLUMN IF NOT EXISTS gateway_metadata JSONB, -- Metadados específicos do gateway
 
 -- Constraints para garantir unicidade por gateway
-ADD CONSTRAINT IF NOT EXISTS admin_subscriptions_external_unique UNIQUE (payment_gateway, external_subscription_id) WHERE external_subscription_id IS NOT NULL;
+-- Nota: ADD CONSTRAINT IF NOT EXISTS não é suportado, então verificamos antes
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'admin_subscriptions_external_unique'
+    AND conrelid = 'sistemaretiradas.admin_subscriptions'::regclass
+  ) THEN
+    ALTER TABLE sistemaretiradas.admin_subscriptions
+    ADD CONSTRAINT admin_subscriptions_external_unique 
+    UNIQUE (payment_gateway, external_subscription_id) 
+    WHERE external_subscription_id IS NOT NULL;
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_admin_subscriptions_payment_gateway ON sistemaretiradas.admin_subscriptions(payment_gateway);
 CREATE INDEX IF NOT EXISTS idx_admin_subscriptions_external_customer ON sistemaretiradas.admin_subscriptions(external_customer_id);
