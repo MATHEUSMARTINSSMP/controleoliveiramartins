@@ -26,7 +26,7 @@ interface Sale {
 interface Colaboradora {
   id: string;
   name: string;
-  active: boolean;
+  is_active: boolean;
 }
 
 interface StoreGoals {
@@ -152,9 +152,9 @@ export function useStoreColaboradoras(storeId: string | null | undefined, storeN
       let { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('profiles')
-        .select('id, name, active, store_id, store_default')
+        .select('id, name, is_active, store_id, store_default')
         .eq('role', 'COLABORADORA')
-        .eq('active', true)
+        .eq('is_active', true)
         .eq('store_id', storeId)
         .order('name');
 
@@ -177,9 +177,9 @@ export function useStoreColaboradoras(storeId: string | null | undefined, storeN
         const { data: dataByName, error: errorByName } = await supabase
           .schema('sistemaretiradas')
           .from('profiles')
-          .select('id, name, active, store_id, store_default')
+          .select('id, name, is_active, store_id, store_default')
           .eq('role', 'COLABORADORA')
-          .eq('active', true)
+          .eq('is_active', true)
           .ilike('store_default', `%${storeName}%`)
           .order('name');
 
@@ -196,9 +196,9 @@ export function useStoreColaboradoras(storeId: string | null | undefined, storeN
       const { data: allColabs } = await supabase
         .schema('sistemaretiradas')
         .from('profiles')
-        .select('id, name, active, store_id, store_default')
+        .select('id, name, is_active, store_id, store_default')
         .eq('role', 'COLABORADORA')
-        .eq('active', true)
+        .eq('is_active', true)
         .order('name');
 
       console.log('[useStoreColaboradoras] Total de colaboradoras ativas no sistema:', allColabs?.length || 0);

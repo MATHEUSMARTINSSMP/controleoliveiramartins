@@ -172,7 +172,7 @@ export async function checkAndCreateWeeklyTrophiesForAllColaboradoras(
       .from("profiles")
       .select("id")
       .eq("role", "COLABORADORA")
-      .eq("active", true)
+      .eq("is_active", true)
       .eq("store_id", storeId);
 
     if (colabError) {

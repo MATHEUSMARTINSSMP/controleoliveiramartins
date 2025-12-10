@@ -810,7 +810,7 @@ export default function LojaDashboard() {
             const { data: colaboradorasInfo } = await supabase
                 .schema("sistemaretiradas")
                 .from('profiles')
-                .select('id, active, updated_at')
+                .select('id, is_active, updated_at')
                 .eq('role', 'COLABORADORA')
                 .eq('store_id', currentStoreId);
 
@@ -975,20 +975,20 @@ export default function LojaDashboard() {
         const { data: colaboradorasData, error: colaboradorasError } = await supabase
             .schema("sistemaretiradas")
             .from('profiles')
-            .select('id, name, active, updated_at')
+            .select('id, name, is_active, updated_at')
             .eq('role', 'COLABORADORA')
             .eq('store_id', currentStoreId)
             .order('name', { ascending: true });
 
         // Log para debug
         if (colaboradorasData) {
-            const ativas = colaboradorasData.filter(c => c.active).length;
-            const desativadas = colaboradorasData.filter(c => !c.active).length;
+            const ativas = colaboradorasData.filter(c => c.is_active).length;
+            const desativadas = colaboradorasData.filter(c => !c.is_active).length;
             console.log('[LojaDashboard] 📊 Colaboradoras encontradas:', {
                 total: colaboradorasData.length,
                 ativas,
                 desativadas,
-                desativadas_lista: colaboradorasData.filter(c => !c.active).map(c => ({ id: c.id, name: c.name, updated_at: c.updated_at }))
+                desativadas_lista: colaboradorasData.filter(c => !c.is_active).map(c => ({ id: c.id, name: c.name, updated_at: c.updated_at }))
             });
         }
 
@@ -1065,7 +1065,7 @@ export default function LojaDashboard() {
                 dailySales: {},
                 totalMes: 0
             };
-            console.log(`[LojaDashboard] 🔄 Inicializando colaboradora ${colab.active ? 'ATIVA' : 'DESATIVADA'} "${colab.name}" (id: ${colab.id})`);
+            console.log(`[LojaDashboard] 🔄 Inicializando colaboradora ${colab.is_active ? 'ATIVA' : 'DESATIVADA'} "${colab.name}" (id: ${colab.id})`);
         });
 
         // Criar mapa de colaboradoras com data de desativação
@@ -1074,8 +1074,8 @@ export default function LojaDashboard() {
                 c.id,
                 {
                     name: c.name,
-                    active: c.active,
-                    deactivationDate: c.active ? null : (c.updated_at ? format(new Date(c.updated_at), 'yyyy-MM-dd') : null)
+                    active: c.is_active,
+                    deactivationDate: c.is_active ? null : (c.updated_at ? format(new Date(c.updated_at), 'yyyy-MM-dd') : null)
                 }
             ])
         );
@@ -1228,7 +1228,7 @@ export default function LojaDashboard() {
             return {
                 colaboradoraId: colab.id,
                 colaboradoraName: colab.name,
-                active: colab.active,
+                active: colab.is_active,
                 ...data
             };
         });
@@ -1244,7 +1244,7 @@ export default function LojaDashboard() {
             }
 
             // Se for colaboradora ativa, sempre incluir
-            if (colab.active) {
+            if (colab.is_active) {
                 console.log(`[LojaDashboard] ✅ Colaboradora ATIVA "${item.colaboradoraName}" incluída no calendário`);
                 return true;
             }
@@ -1265,8 +1265,8 @@ export default function LojaDashboard() {
 
         console.log('[LojaDashboard] ✅ Dados mensais processados:', resultFiltered.length, 'colaboradoras');
         console.log('[LojaDashboard] 📊 Breakdown:');
-        const ativasCount = resultFiltered.filter(r => colaboradorasData.find(c => c.id === r.colaboradoraId)?.active).length;
-        const desativadasCount = resultFiltered.filter(r => !colaboradorasData.find(c => c.id === r.colaboradoraId)?.active).length;
+        const ativasCount = resultFiltered.filter(r => colaboradorasData.find(c => c.id === r.colaboradoraId)?.is_active).length;
+        const desativadasCount = resultFiltered.filter(r => !colaboradorasData.find(c => c.id === r.colaboradoraId)?.is_active).length;
         console.log('[LojaDashboard]   - Ativas:', ativasCount);
         console.log('[LojaDashboard]   - Desativadas:', desativadasCount);
         resultFiltered.forEach((item, idx) => {
@@ -1388,9 +1388,9 @@ export default function LojaDashboard() {
             const { data: colabsData, error: colabsError } = await supabase
                 .schema("sistemaretiradas")
                 .from('profiles')
-                .select('id, name, active, store_id, store_default')
+                .select('id, name, is_active, store_id, store_default')
                 .eq('role', 'COLABORADORA')
-                .eq('active', true)
+                .eq('is_active', true)
                 .eq('store_id', currentStoreId)
                 .order('name');
 
@@ -1484,7 +1484,7 @@ export default function LojaDashboard() {
                 // Filtrar colaboradoras desativadas e sem meta ANTES de processar
                 .filter(colab => {
                     // Garantir que colaboradora está ativa
-                    if (!colab.active) {
+                    if (!colab.is_active) {
                         console.log(`[LojaDashboard] ⏭️ Colaboradora desativada "${colab.name}" excluída do Planejamento do Dia`);
                         return false;
                     }
@@ -1887,9 +1887,9 @@ export default function LojaDashboard() {
             let { data, error } = await supabase
                 .schema("sistemaretiradas")
                 .from('profiles')
-                .select('id, name, active, store_id, store_default')
+                .select('id, name, is_active, store_id, store_default')
                 .eq('role', 'COLABORADORA')
-                .eq('active', true)
+                .eq('is_active', true)
                 .eq('store_id', currentStoreId)
                 .order('name');
 
@@ -1924,9 +1924,9 @@ export default function LojaDashboard() {
                 const { data: allColabs, error: allError } = await supabase
                     .schema("sistemaretiradas")
                     .from('profiles')
-                    .select('id, name, active, store_id, store_default, role')
+                    .select('id, name, is_active, store_id, store_default, role')
                     .eq('role', 'COLABORADORA')
-                    .eq('active', true)
+                    .eq('is_active', true)
                     .order('name');
 
                 if (allError) {
