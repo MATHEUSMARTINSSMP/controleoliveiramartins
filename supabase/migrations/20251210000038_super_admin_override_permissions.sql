@@ -132,7 +132,7 @@ BEGIN
     WHEN 'crm' THEN 'crm_ativo'
     WHEN 'wishlist' THEN 'wishlist_ativo'
     WHEN 'ponto' THEN 'ponto_ativo'
-    WHEN 'ajustes' THEN 'ajustes_ativo'
+    WHEN 'ajustes' THEN 'ajustes_condicionais_ativo'
     WHEN 'erp' THEN 'erp_ativo'
     WHEN 'check_meta' THEN 'check_meta_ativo'
     ELSE NULL
