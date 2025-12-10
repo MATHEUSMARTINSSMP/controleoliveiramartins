@@ -135,7 +135,13 @@ export const PaymentGatewaysConfig = () => {
 
       // Salvar via RPC function (tem SECURITY DEFINER)
       try {
-        console.log('[PaymentGatewaysConfig] Salvando gateway:', gatewayId);
+        console.log('[PaymentGatewaysConfig] Salvando gateway:', gatewayId, {
+          api_key: data.api_key ? `${data.api_key.substring(0, 4)}...` : 'null',
+          api_secret: data.api_secret ? '***' : 'null',
+          webhook_secret: data.webhook_secret ? `${data.webhook_secret.substring(0, 4)}...` : 'null',
+          is_active: data.is_active
+        });
+
         const { data: result, error } = await supabase.rpc('save_payment_gateway', {
           p_id: gatewayId,
           p_name: gatewayId,
@@ -149,10 +155,12 @@ export const PaymentGatewaysConfig = () => {
         });
 
         if (error) {
+          console.error('[PaymentGatewaysConfig] Erro ao salvar via RPC:', error);
           // Se erro de permissão, tentar upsert direto (pode funcionar se RLS permitir)
-          if (error.code === '42501' || error.message.includes('permission') || error.message.includes('negado')) {
+          if (error.code === '42501' || error.message.includes('permission') || error.message.includes('negado') || error.message.includes('Acesso negado')) {
+            console.log('[PaymentGatewaysConfig] Tentando upsert direto como fallback...');
             // Tentar upsert direto como fallback
-            const { error: upsertError } = await supabase
+            const { data: upsertData, error: upsertError } = await supabase
               .schema('sistemaretiradas')
               .from('payment_gateways')
               .upsert({
@@ -161,15 +169,22 @@ export const PaymentGatewaysConfig = () => {
                 display_name: PAYMENT_GATEWAYS.find(g => g.value === gatewayId)?.label || gatewayId,
                 is_active: data.is_active,
                 webhook_url: `${WEBHOOK_ENDPOINT}?gateway=${gatewayId}`,
-                api_key: data.api_key || null,
-                api_secret: data.api_secret || null,
-                webhook_secret: data.webhook_secret || null,
-              }, { onConflict: 'id' });
+                api_key: data.api_key && data.api_key.trim() !== '' ? data.api_key.trim() : null,
+                api_secret: data.api_secret && data.api_secret.trim() !== '' ? data.api_secret.trim() : null,
+                webhook_secret: data.webhook_secret && data.webhook_secret.trim() !== '' ? data.webhook_secret.trim() : null,
+              }, { onConflict: 'id' })
+              .select();
 
-            if (upsertError) throw upsertError;
+            if (upsertError) {
+              console.error('[PaymentGatewaysConfig] Erro no upsert direto:', upsertError);
+              throw upsertError;
+            }
+            console.log('[PaymentGatewaysConfig] Salvo via upsert direto:', upsertData);
           } else {
             throw error;
           }
+        } else {
+          console.log('[PaymentGatewaysConfig] Salvo via RPC com sucesso:', result);
         }
 
         toast.success(`Configuração de ${PAYMENT_GATEWAYS.find(g => g.value === gatewayId)?.label} salva com sucesso!`);
