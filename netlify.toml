@@ -24,14 +24,59 @@
     Cache-Control = "public, max-age=31536000, immutable"
 
 # Redirecionamento para SPA - apenas para HTML
-# O Netlify automaticamente não redireciona arquivos estáticos (JS, CSS, imagens, etc)
-# Mas vamos garantir que arquivos estáticos não sejam redirecionados
+# IMPORTANTE: Garantir que arquivos estáticos (JS, CSS, imagens, etc) NÃO sejam redirecionados
+# Isso previne o erro "SyntaxError: expected expression, got '<'"
 [[redirects]]
   from = "/assets/*"
   to = "/assets/:splat"
   status = 200
   force = true
 
+# Excluir explicitamente arquivos estáticos do redirecionamento SPA
+[[redirects]]
+  from = "/*.js"
+  to = "/:splat.js"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*.css"
+  to = "/:splat.css"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*.json"
+  to = "/:splat.json"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*.png"
+  to = "/:splat.png"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*.jpg"
+  to = "/:splat.jpg"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*.svg"
+  to = "/:splat.svg"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*.ico"
+  to = "/:splat.ico"
+  status = 200
+  force = true
+
+# Redirecionamento SPA - apenas para rotas que não são arquivos estáticos
+# O Netlify automaticamente não redireciona arquivos estáticos, mas garantimos explicitamente
 [[redirects]]
   from = "/*"
   to = "/index.html"
