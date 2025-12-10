@@ -915,7 +915,16 @@ export const StoreTaskAlertsManager = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleOpenDialog(store.id)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      alert(`TESTE: Clicou no botão! store.id = ${store.id}`);
+                      console.log('🔘 [BUTTON CLICK] Novo Alerta - store.id:', store.id);
+                      console.log('🔘 [BUTTON CLICK] store completo:', { id: store.id, name: store.name });
+                      console.log('🔘 [BUTTON CLICK] Chamando handleOpenDialog...');
+                      handleOpenDialog(store.id);
+                      console.log('🔘 [BUTTON CLICK] handleOpenDialog chamado');
+                    }}
                     className="w-full sm:w-auto gap-2"
                     disabled={store.total_envios_hoje >= 10}
                     data-testid={`button-add-alert-${store.id}`}
