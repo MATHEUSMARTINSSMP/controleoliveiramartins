@@ -1828,7 +1828,7 @@ export default function LojaDashboard() {
             .from('sales')
             .select(`
         *,
-        colaboradora:profiles(colaboradora_id)(name)
+        colaboradora:profiles!sales_colaboradora_id_fkey(name)
       `)
             .eq('store_id', currentStoreId)
             .gte('data_venda', startOfDay)
