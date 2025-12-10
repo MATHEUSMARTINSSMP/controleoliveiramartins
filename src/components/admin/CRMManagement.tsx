@@ -10,9 +10,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Plus, Trash2, Edit, Loader2, Phone, Mail, Calendar, Clock, Gift, CheckCircle2 } from 'lucide-react';
+import { MessageSquare, Plus, Trash2, Edit, Loader2, Phone, Mail, Calendar, Clock, Gift, CheckCircle2, Upload, Download, FileSpreadsheet, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
+import * as XLSX from 'xlsx';
+import { normalizeCPF } from '@/lib/cpf';
 
 interface CRMTask {
   id: string;
@@ -57,6 +59,7 @@ interface CRMContact {
   nome: string;
   email?: string;
   telefone?: string;
+  cpf?: string;
   data_nascimento?: string;
   observacoes?: string;
   store_id?: string;
@@ -91,12 +94,20 @@ export const CRMManagement = () => {
 
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importStoreId, setImportStoreId] = useState<string>('');
+  const [importResults, setImportResults] = useState<{
+    success: number;
+    errors: Array<{ row: number; nome: string; error: string }>;
+  } | null>(null);
 
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
     telefone: '',
+    cpf: '',
     data_nascimento: '',
     observacoes: '',
     store_id: '',
@@ -225,6 +236,7 @@ export const CRMManagement = () => {
             nome: c.nome,
             email: c.email || undefined,
             telefone: c.telefone || undefined,
+            cpf: c.cpf || undefined,
             data_nascimento: c.data_nascimento || undefined,
             observacoes: c.observacoes || undefined,
             store_id: c.store_id,
@@ -544,6 +556,7 @@ export const CRMManagement = () => {
         nome: formData.nome,
         email: formData.email || null,
         telefone: formData.telefone || null,
+        cpf: formData.cpf ? normalizeCPF(formData.cpf) : null,
         data_nascimento: formData.data_nascimento || null,
         observacoes: formData.observacoes || null,
         store_id: formData.store_id,
@@ -607,11 +620,232 @@ export const CRMManagement = () => {
     }
   };
 
+  // Função para gerar arquivo modelo XLS
+  const generateTemplateFile = () => {
+    const templateData = [
+      {
+        'NOME': 'João Silva',
+        'CPF': '12345678901',
+        'CELULAR': '11999999999',
+        'EMAIL': 'joao@email.com',
+        'DATA_NASCIMENTO': '1990-01-15',
+        'OBSERVACOES': 'Cliente preferencial'
+      },
+      {
+        'NOME': 'Maria Santos',
+        'CPF': '98765432100',
+        'CELULAR': '11988888888',
+        'EMAIL': 'maria@email.com',
+        'DATA_NASCIMENTO': '1985-05-20',
+        'OBSERVACOES': ''
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
+
+    // Ajustar largura das colunas
+    const colWidths = [
+      { wch: 20 }, // NOME
+      { wch: 15 }, // CPF
+      { wch: 15 }, // CELULAR
+      { wch: 25 }, // EMAIL
+      { wch: 18 }, // DATA_NASCIMENTO
+      { wch: 30 }  // OBSERVACOES
+    ];
+    ws['!cols'] = colWidths;
+
+    XLSX.writeFile(wb, 'modelo_importacao_clientes.xlsx');
+    toast.success('Arquivo modelo baixado com sucesso!');
+  };
+
+  // Função para normalizar telefone
+  const normalizePhone = (phone: string): string => {
+    if (!phone) return '';
+    return phone.replace(/[^\d]/g, '');
+  };
+
+  // Função para validar CPF
+  const validateCPF = (cpf: string): boolean => {
+    const normalized = normalizeCPF(cpf);
+    if (normalized.length !== 11) return false;
+    
+    // Verificar se todos os dígitos são iguais
+    if (/^(\d)\1{10}$/.test(normalized)) return false;
+    
+    // Validar dígitos verificadores
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+      sum += parseInt(normalized.charAt(i)) * (10 - i);
+    }
+    let digit = 11 - (sum % 11);
+    if (digit >= 10) digit = 0;
+    if (digit !== parseInt(normalized.charAt(9))) return false;
+    
+    sum = 0;
+    for (let i = 0; i < 10; i++) {
+      sum += parseInt(normalized.charAt(i)) * (11 - i);
+    }
+    digit = 11 - (sum % 11);
+    if (digit >= 10) digit = 0;
+    if (digit !== parseInt(normalized.charAt(10))) return false;
+    
+    return true;
+  };
+
+  // Função para processar arquivo de importação
+  const handleFileImport = async (file: File) => {
+    if (!importStoreId) {
+      toast.error('Selecione uma loja antes de importar');
+      return;
+    }
+
+    setImporting(true);
+    setImportResults(null);
+
+    try {
+      const fileData = await file.arrayBuffer();
+      const workbook = XLSX.read(fileData, { type: 'array' });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(firstSheet) as any[];
+
+      const errors: Array<{ row: number; nome: string; error: string }> = [];
+      const successContacts: any[] = [];
+      const cpfSet = new Set<string>();
+
+      // Buscar CPFs existentes no banco
+      const { data: existingContacts } = await supabase
+        .schema('sistemaretiradas')
+        .from('crm_contacts')
+        .select('cpf')
+        .not('cpf', 'is', null);
+
+      const existingCpfs = new Set(
+        (existingContacts || [])
+          .map(c => normalizeCPF(c.cpf || ''))
+          .filter(cpf => cpf.length === 11)
+      );
+
+      for (let i = 0; i < jsonData.length; i++) {
+        const row = jsonData[i];
+        const rowNum = i + 2; // +2 porque começa na linha 2 (linha 1 é cabeçalho)
+
+        const nome = String(row.NOME || row.nome || '').trim();
+        const cpfRaw = String(row.CPF || row.cpf || '').trim();
+        const celularRaw = String(row.CELULAR || row.celular || row.TELEFONE || row.telefone || '').trim();
+        const email = String(row.EMAIL || row.email || '').trim();
+        const dataNasc = String(row.DATA_NASCIMENTO || row.data_nascimento || '').trim();
+        const observacoes = String(row.OBSERVACOES || row.observacoes || '').trim();
+
+        // Validar campos obrigatórios
+        if (!nome) {
+          errors.push({ row: rowNum, nome: nome || 'Sem nome', error: 'Campo NOME é obrigatório' });
+          continue;
+        }
+
+        if (!cpfRaw) {
+          errors.push({ row: rowNum, nome, error: 'Campo CPF é obrigatório' });
+          continue;
+        }
+
+        const cpfNormalized = normalizeCPF(cpfRaw);
+        if (cpfNormalized.length !== 11) {
+          errors.push({ row: rowNum, nome, error: 'CPF inválido (deve ter 11 dígitos)' });
+          continue;
+        }
+
+        if (!validateCPF(cpfNormalized)) {
+          errors.push({ row: rowNum, nome, error: 'CPF inválido (dígitos verificadores incorretos)' });
+          continue;
+        }
+
+        // Verificar duplicado no arquivo
+        if (cpfSet.has(cpfNormalized)) {
+          errors.push({ row: rowNum, nome, error: 'CPF duplicado no arquivo' });
+          continue;
+        }
+        cpfSet.add(cpfNormalized);
+
+        // Verificar duplicado no banco
+        if (existingCpfs.has(cpfNormalized)) {
+          errors.push({ row: rowNum, nome, error: 'CPF já existe no sistema (duplicado)' });
+          continue;
+        }
+
+        if (!celularRaw) {
+          errors.push({ row: rowNum, nome, error: 'Campo CELULAR é obrigatório' });
+          continue;
+        }
+
+        const telefoneNormalized = normalizePhone(celularRaw);
+        if (telefoneNormalized.length < 10 || telefoneNormalized.length > 11) {
+          errors.push({ row: rowNum, nome, error: 'CELULAR inválido (deve ter 10 ou 11 dígitos)' });
+          continue;
+        }
+
+        // Validar data de nascimento se fornecida
+        let dataNascimento = null;
+        if (dataNasc) {
+          const date = new Date(dataNasc);
+          if (isNaN(date.getTime())) {
+            errors.push({ row: rowNum, nome, error: 'DATA_NASCIMENTO inválida (formato: YYYY-MM-DD)' });
+            continue;
+          }
+          dataNascimento = format(date, 'yyyy-MM-dd');
+        }
+
+        successContacts.push({
+          nome,
+          cpf: cpfNormalized,
+          telefone: telefoneNormalized,
+          email: email || null,
+          data_nascimento: dataNascimento,
+          observacoes: observacoes || null,
+          store_id: importStoreId,
+        });
+      }
+
+      // Inserir contatos válidos em lote
+      if (successContacts.length > 0) {
+        const { error: insertError } = await supabase
+          .schema('sistemaretiradas')
+          .from('crm_contacts')
+          .insert(successContacts);
+
+        if (insertError) {
+          throw insertError;
+        }
+      }
+
+      setImportResults({
+        success: successContacts.length,
+        errors,
+      });
+
+      if (successContacts.length > 0) {
+        toast.success(`${successContacts.length} cliente(s) importado(s) com sucesso!`);
+        // Recarregar contatos
+        await fetchAllData();
+      }
+
+      if (errors.length > 0) {
+        toast.warning(`${errors.length} erro(s) encontrado(s). Verifique o relatório.`);
+      }
+    } catch (error: any) {
+      console.error('Erro ao importar:', error);
+      toast.error(`Erro ao importar: ${error.message || 'Erro desconhecido'}`);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const handleEditContact = (contact: CRMContact) => {
     setFormData({
       nome: contact.nome,
       email: contact.email || '',
       telefone: contact.telefone || '',
+      cpf: contact.cpf || '',
       data_nascimento: contact.data_nascimento || '',
       observacoes: contact.observacoes || '',
       store_id: contact.store_id || '',
@@ -625,6 +859,7 @@ export const CRMManagement = () => {
       nome: '',
       email: '',
       telefone: '',
+      cpf: '',
       data_nascimento: '',
       observacoes: '',
       store_id: selectedStore !== 'all' ? selectedStore : (stores.length > 0 ? stores[0].id : ''),
@@ -953,9 +1188,109 @@ export const CRMManagement = () => {
       {activeTab === 'contacts' && (
         <Card>
           <CardHeader className="pb-3">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-2">
               <CardTitle>Contatos CRM ({contacts.length} total)</CardTitle>
-              <Dialog open={contactDialogOpen} onOpenChange={(open) => {
+              <div className="flex gap-2">
+                <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline">
+                      <Upload className="h-4 w-4 mr-2" />
+                      <span className="hidden sm:inline">Importar</span>
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Importar Clientes</DialogTitle>
+                      <DialogDescription>
+                        Importe uma lista de clientes a partir de um arquivo Excel (.xlsx ou .xls)
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Loja *</Label>
+                        <Select value={importStoreId} onValueChange={setImportStoreId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione uma loja" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {stores.map(store => (
+                              <SelectItem key={store.id} value={store.id}>
+                                {store.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={generateTemplateFile}
+                          className="flex-1"
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Baixar Modelo
+                        </Button>
+                        <div className="flex-1">
+                          <Input
+                            type="file"
+                            accept=".xlsx,.xls"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                handleFileImport(file);
+                              }
+                            }}
+                            disabled={importing || !importStoreId}
+                            className="cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                      {importing && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Processando importação...
+                        </div>
+                      )}
+                      {importResults && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-green-600">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span className="font-medium">{importResults.success} cliente(s) importado(s) com sucesso</span>
+                          </div>
+                          {importResults.errors.length > 0 && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 text-red-600">
+                                <AlertCircle className="h-4 w-4" />
+                                <span className="font-medium">{importResults.errors.length} erro(s) encontrado(s):</span>
+                              </div>
+                              <div className="max-h-60 overflow-y-auto border rounded p-2">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead className="w-16">Linha</TableHead>
+                                      <TableHead>Nome</TableHead>
+                                      <TableHead>Erro</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {importResults.errors.map((error, idx) => (
+                                      <TableRow key={idx}>
+                                        <TableCell className="font-mono text-xs">{error.row}</TableCell>
+                                        <TableCell className="text-sm">{error.nome || '-'}</TableCell>
+                                        <TableCell className="text-sm text-red-600">{error.error}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                <Dialog open={contactDialogOpen} onOpenChange={(open) => {
                 setContactDialogOpen(open);
                 if (!open) {
                   resetContactForm();
