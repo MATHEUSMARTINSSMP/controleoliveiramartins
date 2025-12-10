@@ -1182,30 +1182,31 @@ const SuperAdmin = () => {
                   </div>
                 </div>
                 <div className="space-y-4">
-                  {stores.map((store) => {
-                    const storeColaboradoras = colaboradoras.filter(
-                      (colab) => (colab.store_id === store.id || colab.store_default === store.id)
-                    )
-                    .filter((colab) => {
-                      if (!colaboradoraSearchFilter) return true;
-                      const search = colaboradoraSearchFilter.toLowerCase();
+                  {stores
+                    .map((store) => {
+                      const storeColaboradoras = colaboradoras.filter(
+                        (colab) => (colab.store_id === store.id || colab.store_default === store.id)
+                      )
+                      .filter((colab) => {
+                        if (!colaboradoraSearchFilter) return true;
+                        const search = colaboradoraSearchFilter.toLowerCase();
+                        return (
+                          colab.name?.toLowerCase().includes(search) ||
+                          colab.email?.toLowerCase().includes(search) ||
+                          store.name?.toLowerCase().includes(search)
+                        );
+                      })
+                      .map(colab => ({
+                        ...colab,
+                        active: colab.is_active ?? true
+                      }));
+                      
+                      // Se tem filtro e não há colaboradoras nesta loja, não mostrar o card
+                      if (colaboradoraSearchFilter && storeColaboradoras.length === 0) {
+                        return null;
+                      }
+                      
                       return (
-                        colab.name?.toLowerCase().includes(search) ||
-                        colab.email?.toLowerCase().includes(search) ||
-                        store.name?.toLowerCase().includes(search)
-                      );
-                    })
-                    .map(colab => ({
-                      ...colab,
-                      active: colab.is_active ?? true
-                    }));
-                    
-                    // Se tem filtro e não há colaboradoras nesta loja, não mostrar o card
-                    if (colaboradoraSearchFilter && storeColaboradoras.length === 0) {
-                      return null;
-                    }
-                    
-                    return (
                       <Card key={store.id}>
                         <CardHeader>
                           <CardTitle className="text-lg">{store.name}</CardTitle>
