@@ -4,19 +4,19 @@
  * Processa eventos de webhook de qualquer gateway de pagamento
  * Endpoint: /.netlify/functions/payment-webhook
  * 
- * Suporta múltiplos gateways: Stripe, Mercado Pago, PagSeguro, Asaas, etc
+ * Suporta múltiplos gateways: Stripe, Mercado Pago, PagSeguro, Asaas, CAKTO, etc
  * 
  * Configurar webhook no gateway de pagamento apontando para:
  * https://eleveaone.com.br/.netlify/functions/payment-webhook
  * 
  * Query params opcionais:
- * ?gateway=STRIPE (ou MERCADO_PAGO, PAGSEGURO, ASAAS, etc)
+ * ?gateway=STRIPE (ou MERCADO_PAGO, PAGSEGURO, ASAAS, CAKTO, etc)
  */
 
 const { createClient } = require('@supabase/supabase-js');
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, stripe-signature, x-signature, x-asaas-signature',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, stripe-signature, x-signature, x-asaas-signature, x-cakto-signature',
 };
 
 exports.handler = async (event, context) => {
@@ -102,6 +102,9 @@ exports.handler = async (event, context) => {
       case 'ASAAS':
         result = await handleAsaasEvent(supabase, eventData);
         break;
+      case 'CAKTO':
+        result = await handleCaktoEvent(supabase, eventData);
+        break;
       default:
         // Handler genérico - tenta extrair dados comuns
         result = await handleGenericEvent(supabase, gateway, eventData);
@@ -151,6 +154,25 @@ async function handlePagSeguroEvent(supabase, event) {
 async function handleAsaasEvent(supabase, event) {
   // Implementação específica do Asaas (se necessário)
   return await handleGenericEvent(supabase, 'ASAAS', event);
+}
+
+async function handleCaktoEvent(supabase, event) {
+  console.log('[Payment Webhook] Processing CAKTO event');
+  
+  // CAKTO pode ter estrutura específica - adaptar conforme documentação
+  // Por enquanto, usa handler genérico que extrai dados comuns
+  // TODO: Implementar lógica específica do CAKTO se necessário
+  
+  // Exemplo de extração específica do CAKTO (adaptar conforme documentação real)
+  const caktoEvent = event.data || event;
+  
+  // CAKTO pode usar campos como:
+  // - subscription_id ou subscriptionId
+  // - payment_id ou paymentId
+  // - status ou paymentStatus
+  // - amount ou value
+  
+  return await handleGenericEvent(supabase, 'CAKTO', event);
 }
 
 async function handleGenericEvent(supabase, gateway, eventData) {

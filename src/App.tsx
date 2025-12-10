@@ -42,6 +42,7 @@ const Seed = lazy(() => import("./pages/Seed"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const Landing = lazy(() => import("./pages/Landing"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -82,6 +83,7 @@ const App = () => (
               <Route path="/landingteste" element={<Suspense fallback={<PageLoader />}><LandingPage /></Suspense>} />
               <Route path="/seed" element={<Suspense fallback={<PageLoader />}><Seed /></Suspense>} />
               <Route path="/forgot-password" element={<Suspense fallback={<PageLoader />}><ForgotPassword /></Suspense>} />
+              <Route path="/obrigado" element={<Suspense fallback={<PageLoader />}><Onboarding /></Suspense>} />
               
               <Route path="/admin" element={<Suspense fallback={<SkeletonAdminDashboard />}><AdminDashboard /></Suspense>} />
               <Route path="/admin/nova-compra" element={<Suspense fallback={<PageLoader />}><NovaCompra /></Suspense>} />

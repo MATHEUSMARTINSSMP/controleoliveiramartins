@@ -20,7 +20,8 @@ interface Store {
 }
 
 interface WhatsAppCredential {
-    customer_id: string;
+    admin_id: string | null; // UUID do admin (profile.id) - usar este campo
+    customer_id: string | null; // DEPRECADO: mantido para compatibilidade
     site_slug: string;
     uazapi_instance_id: string | null;
     uazapi_token: string | null;
@@ -229,7 +230,7 @@ export const WhatsAppStoreConfig = () => {
                             uazapi_qr_code: null,
                             updated_at: new Date().toISOString(),
                         })
-                        .eq('customer_id', profile.email!)
+                        .eq('admin_id', profile.id)
                         .eq('site_slug', store.slug);
 
                     if (status.connected) {
@@ -335,7 +336,7 @@ export const WhatsAppStoreConfig = () => {
                 .schema('sistemaretiradas')
                 .from('whatsapp_credentials')
                 .select('*')
-                .eq('customer_id', profile.email)
+                .eq('admin_id', profile.id)
                 .in('site_slug', slugs);
 
             if (credError) {
@@ -409,7 +410,7 @@ export const WhatsAppStoreConfig = () => {
                         if (hasStatusChange || hasNewInstanceId || hasNewPhone) {
                             // Usar UPSERT para criar registro se nao existir
                             const upsertData: Record<string, any> = {
-                                customer_id: profile.email,
+                                admin_id: profile.id,
                                 site_slug: store.slug,
                                 uazapi_status: status.status,
                                 updated_at: new Date().toISOString(),
@@ -427,7 +428,7 @@ export const WhatsAppStoreConfig = () => {
                                 .schema('sistemaretiradas')
                                 .from('whatsapp_credentials')
                                 .upsert(upsertData, {
-                                    onConflict: 'customer_id,site_slug'
+                                    onConflict: 'admin_id,site_slug'
                                 });
                                 
                             console.log('[fetchStoresAndCredentials] Status salvo no Supabase para', store.slug, ':', status.status);
@@ -483,7 +484,7 @@ export const WhatsAppStoreConfig = () => {
                 .schema('sistemaretiradas')
                 .from('whatsapp_credentials')
                 .update(updateData)
-                .eq('customer_id', profile.email)
+                .eq('admin_id', profile.id)
                 .eq('site_slug', slug);
                 
             if (error) {
@@ -516,7 +517,7 @@ export const WhatsAppStoreConfig = () => {
     };
 
     const handleSave = async (store: StoreWithCredentials) => {
-        if (!profile?.email) return;
+        if (!profile?.id) return;
 
         setSaving(store.id);
         try {
@@ -526,7 +527,7 @@ export const WhatsAppStoreConfig = () => {
                 .schema('sistemaretiradas')
                 .from('whatsapp_credentials')
                 .upsert({
-                    customer_id: profile.email,
+                    admin_id: profile.id,
                     site_slug: store.slug,
                     uazapi_token: local.uazapi_token || null,
                     uazapi_instance_id: local.uazapi_instance_id || null,
@@ -535,7 +536,7 @@ export const WhatsAppStoreConfig = () => {
                     uazapi_status: local.uazapi_token ? 'configured' : 'disconnected',
                     status: 'active',
                 }, {
-                    onConflict: 'customer_id,site_slug'
+                    onConflict: 'admin_id,site_slug'
                 });
 
             if (error) throw error;

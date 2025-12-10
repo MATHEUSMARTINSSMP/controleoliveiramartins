@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { getERPAuthorizationUrl, testERPConnection } from "@/lib/erpIntegrations";
 import { syncTinyOrders, syncTinyContacts } from "@/lib/erp/syncTiny";
 import { WhatsAppGlobalConfig } from "@/components/dev/WhatsAppGlobalConfig";
+import { PaymentGatewaysConfig } from "@/components/dev/PaymentGatewaysConfig";
 
 interface Store {
   id: string;
@@ -565,7 +566,7 @@ const ERPConfig = () => {
         </div>
 
         <Tabs defaultValue="erp" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="erp" className="gap-2" data-testid="tab-dev-erp">
               <Package className="h-4 w-4" />
               Integracao ERP
@@ -574,10 +575,18 @@ const ERPConfig = () => {
               <MessageSquare className="h-4 w-4" />
               WhatsApp Global
             </TabsTrigger>
+            <TabsTrigger value="payment" className="gap-2" data-testid="tab-dev-payment">
+              <Key className="h-4 w-4" />
+              Gateways de Pagamento
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="whatsapp" className="space-y-6">
             <WhatsAppGlobalConfig />
+          </TabsContent>
+
+          <TabsContent value="payment" className="space-y-6">
+            <PaymentGatewaysConfig />
           </TabsContent>
 
           <TabsContent value="erp" className="space-y-6">

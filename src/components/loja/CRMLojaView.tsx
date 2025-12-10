@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MessageSquare, Plus, Calendar, Gift, Phone, Clock, Loader2, CheckCircle2, Edit, XCircle } from "lucide-react";
 import { format, startOfDay, endOfDay, isToday, parseISO, differenceInMinutes, differenceInHours, isPast, isFuture } from "date-fns";
 import { toast } from "sonner";
@@ -18,6 +19,7 @@ import { AlertCircle, Bell } from "lucide-react";
 interface CRMTask {
   id: string;
   title: string;
+  description: string | null;
   cliente_nome: string | null;
   cliente_id: string | null;
   cliente_whatsapp: string | null;
@@ -68,6 +70,7 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<CRMTask[]>([]);
+  const [futureTasks, setFutureTasks] = useState<CRMTask[]>([]);
   const [birthdays, setBirthdays] = useState<Birthday[]>([]);
   const [postSales, setPostSales] = useState<PostSale[]>([]);
   const [commitments, setCommitments] = useState<CRMCommitment[]>([]);
@@ -108,6 +111,7 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
     try {
       await Promise.all([
         fetchTasks(),
+        fetchFutureTasks(),
         fetchBirthdays(),
         fetchPostSales(),
         fetchCommitments()
@@ -153,6 +157,41 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
     } catch (error: any) {
       console.error('[CRMLojaView] Erro inesperado ao buscar tarefas:', error);
       setTasks([]);
+    }
+  };
+
+  const fetchFutureTasks = async () => {
+    if (!storeId) {
+      console.warn('[CRMLojaView] fetchFutureTasks chamado sem storeId');
+      return;
+    }
+
+    try {
+      const todayEnd = endOfDay(new Date()).toISOString();
+
+      // ✅ Buscar tarefas futuras (próximos dias, status PENDENTE)
+      const { data, error } = await supabase
+        .schema('sistemaretiradas')
+        .from('crm_tasks')
+        .select('*')
+        .eq('store_id', storeId)
+        .eq('status', 'PENDENTE')
+        .gt('due_date', todayEnd) // Tarefas após hoje
+        .order('due_date', { ascending: true })
+        .limit(100); // Limitar a 100 tarefas futuras
+
+      if (error) {
+        console.error('[CRMLojaView] Erro ao buscar tarefas futuras:', error);
+        if (error.code !== 'PGRST116') {
+          console.warn('[CRMLojaView] Erro ao buscar tarefas futuras (não crítico):', error.message);
+        }
+        setFutureTasks([]);
+        return;
+      }
+      setFutureTasks(data || []);
+    } catch (error: any) {
+      console.error('[CRMLojaView] Erro inesperado ao buscar tarefas futuras:', error);
+      setFutureTasks([]);
     }
   };
 
@@ -345,7 +384,7 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
         dueDate: "", 
         priority: "MÉDIA" 
       });
-      await fetchTasks();
+      await Promise.all([fetchTasks(), fetchFutureTasks()]);
     } catch (error: any) {
       console.error('[CRMLojaView] Erro inesperado ao adicionar tarefa:', error);
       toast.error(`Erro inesperado: ${error.message || 'Tente novamente'}`);
@@ -387,7 +426,7 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
       }
 
       toast.success('Tarefa concluída!');
-      await fetchTasks();
+      await Promise.all([fetchTasks(), fetchFutureTasks()]);
     } catch (error: any) {
       console.error('[CRMLojaView] Erro inesperado ao concluir tarefa:', error);
       toast.error(`Erro inesperado: ${error.message || 'Tente novamente'}`);
@@ -535,7 +574,7 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
       toast.success('Tarefa atualizada com sucesso!');
       setTaskEditDialogOpen(false);
       setSelectedTask(null);
-      await fetchTasks();
+      await Promise.all([fetchTasks(), fetchFutureTasks()]);
     } catch (error: any) {
       console.error('[CRMLojaView] Erro inesperado ao atualizar tarefa:', error);
       toast.error('Erro ao atualizar tarefa');
@@ -668,10 +707,33 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
     );
   }
 
+  // Função para obter categoria da tarefa
+  const getTaskCategory = (task: CRMTask) => {
+    if (task.description) {
+      if (task.description.includes('Aniversário')) return 'Aniversário';
+      if (task.description.includes('Pós-Venda')) return 'Pós-Venda';
+      if (task.description.includes('Personalizada')) return 'Personalizada';
+    }
+    return 'Personalizada';
+  };
+
   return (
     <div className="space-y-6">
-      {/* TAREFAS DO DIA */}
-      <Card>
+      <Tabs defaultValue="hoje" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="hoje">
+            <Clock className="h-4 w-4 mr-2" />
+            Hoje
+          </TabsTrigger>
+          <TabsTrigger value="proximas">
+            <Calendar className="h-4 w-4 mr-2" />
+            Próximas Tarefas
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="hoje" className="space-y-6">
+          {/* TAREFAS DO DIA */}
+          <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
@@ -951,14 +1013,14 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
         </CardContent>
       </Card>
 
-      {/* COMPROMISSOS DE CRM */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Compromissos de Hoje ({commitments.length})
-            </CardTitle>
+          {/* COMPROMISSOS DE CRM */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Compromissos de Hoje ({commitments.length})
+                </CardTitle>
             <Dialog open={commitmentDialogOpen} onOpenChange={setCommitmentDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" variant="outline">
@@ -1056,10 +1118,153 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
               })}
             </div>
           ) : (
-            <p className="text-center text-sm text-muted-foreground py-4">Nenhum compromisso agendado para hoje</p>
-          )}
-        </CardContent>
-      </Card>
+                <p className="text-center text-sm text-muted-foreground py-4">Nenhum compromisso agendado para hoje</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="proximas" className="space-y-6">
+          {/* PRÓXIMAS TAREFAS - LISTA COMPLETA */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Próximas Tarefas ({futureTasks.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {futureTasks.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Categoria</TableHead>
+                        <TableHead className="text-xs">Cliente</TableHead>
+                        <TableHead className="text-xs">Telefone</TableHead>
+                        <TableHead className="text-xs">Data/Hora</TableHead>
+                        <TableHead className="text-xs">Prioridade</TableHead>
+                        <TableHead className="text-xs">Observação</TableHead>
+                        <TableHead className="text-xs">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {futureTasks.map((task) => {
+                        const urgency = getTaskUrgency(task.due_date);
+                        const category = getTaskCategory(task);
+                        let informacoesCliente = '';
+                        
+                        // Processar informações do cliente
+                        if (task.informacoes_cliente) {
+                          try {
+                            const info = JSON.parse(task.informacoes_cliente);
+                            const parts = [];
+                            if (info.ocasiao) parts.push(`Ocasião: ${info.ocasiao}`);
+                            if (info.ajuste) parts.push(`Ajuste: ${info.ajuste}`);
+                            informacoesCliente = parts.join(' | ');
+                          } catch {
+                            informacoesCliente = task.informacoes_cliente;
+                          }
+                        }
+
+                        return (
+                          <TableRow key={task.id}>
+                            <TableCell className="text-xs">
+                              <Badge variant="outline" className="text-xs">
+                                {category}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-xs font-medium">
+                              {task.cliente_nome}
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              {task.cliente_whatsapp ? (
+                                <div className="flex items-center gap-1">
+                                  <Phone className="h-3 w-3" />
+                                  <a
+                                    href={whatsappLink(task.cliente_whatsapp, '')}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-primary hover:underline"
+                                  >
+                                    {task.cliente_whatsapp}
+                                  </a>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              <div className="flex flex-col">
+                                <span>{format(parseISO(task.due_date), "dd/MM/yyyy")}</span>
+                                <span className="text-muted-foreground">
+                                  {format(parseISO(task.due_date), "HH:mm")}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              <Badge
+                                variant={
+                                  task.priority === "ALTA"
+                                    ? "destructive"
+                                    : task.priority === "MÉDIA"
+                                    ? "default"
+                                    : "secondary"
+                                }
+                                className="text-xs"
+                              >
+                                {task.priority}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-xs max-w-xs">
+                              <div className="space-y-1">
+                                <p className="truncate" title={task.title}>
+                                  {task.title}
+                                </p>
+                                {informacoesCliente && (
+                                  <p className="text-muted-foreground text-xs truncate" title={informacoesCliente}>
+                                    {informacoesCliente}
+                                  </p>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleOpenTaskEdit(task)}
+                                  className="h-7 w-7 p-0"
+                                  title="Editar tarefa"
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleCompleteTask(task.id)}
+                                  className="h-7 w-7 p-0"
+                                  title="Marcar como concluída"
+                                >
+                                  <CheckCircle2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-sm text-muted-foreground">Nenhuma tarefa futura agendada</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Dialog de Edição de Tarefa */}
       <Dialog open={taskEditDialogOpen} onOpenChange={setTaskEditDialogOpen}>
