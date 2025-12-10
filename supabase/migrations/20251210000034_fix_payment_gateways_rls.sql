@@ -1,9 +1,8 @@
 -- =====================================================
 -- GARANTIR RLS DA TABELA payment_gateways
 -- =====================================================
--- Apenas dev@dev.com ou service_role pode acessar
+-- Apenas Super Admin (is_super_admin = TRUE) ou service_role pode acessar
 -- Esta migração garante que a política está correta
--- CORRIGIDO: Usa profiles em vez de auth.users para evitar erro de permissão
 
 -- Remover políticas antigas
 DROP POLICY IF EXISTS "Dev can manage payment gateways" ON sistemaretiradas.payment_gateways;

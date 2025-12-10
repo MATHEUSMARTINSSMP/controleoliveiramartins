@@ -256,22 +256,29 @@ const SuperAdmin = () => {
 
       // Buscar dados de auth.users para last_sign_in_at via Netlify Function
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Não autenticado');
-
-      const { data: authUsersData, error: authUsersError } = await fetch(
-        '/.netlify/functions/admin-list-users',
-        {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
+      let authUsers: any[] = [];
+      
+      if (session) {
+        try {
+          const response = await fetch(
+            '/.netlify/functions/admin-list-users',
+            {
+              headers: {
+                Authorization: `Bearer ${session.access_token}`,
+              },
+            }
+          );
+          
+          if (response.ok) {
+            const authUsersData = await response.json();
+            authUsers = authUsersData?.users || [];
+          } else {
+            console.warn('Erro ao buscar usuários auth:', await response.text());
+          }
+        } catch (error) {
+          console.warn('Erro ao buscar usuários auth:', error);
         }
-      ).then((res) => res.json());
-
-      if (authUsersError) {
-        console.warn('Erro ao buscar usuários auth:', authUsersError);
       }
-
-      const authUsers = authUsersData?.users || [];
 
       // Contar lojas e colaboradoras por admin
       const usersWithStats = await Promise.all(
@@ -300,12 +307,12 @@ const SuperAdmin = () => {
               ).data?.map((s) => s.id) || []
             );
 
-          const authUser = authUsers?.users.find((u) => u.id === profile.id);
+          const authUser = authUsers.find((u: any) => u.id === profile.id);
 
           return {
             ...profile,
             last_sign_in_at: authUser?.last_sign_in_at || null,
-            login_count: authUser?.aud?.login_count || 0,
+            login_count: authUser ? 1 : 0, // Simplificado - pode ser melhorado com tracking de logins
             stores_count: storesCount || 0,
             colaboradoras_count: colaboradorasCount || 0,
           };

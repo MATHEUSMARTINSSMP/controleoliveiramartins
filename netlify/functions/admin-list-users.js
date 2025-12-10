@@ -72,7 +72,7 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ users: users.users }),
+      body: JSON.stringify({ users: users.users || [] }),
     };
   } catch (error) {
     console.error('Error:', error);
