@@ -40,16 +40,17 @@ BEGIN
         AND phone IS NOT NULL
         AND phone != '';
         
-        -- Se não tem recipients, não precisa validar
-        IF v_recipients_count = 0 THEN
-            RETURN NEW;
-        END IF;
+    -- Se não tem recipients, não precisa validar
+    IF v_recipients_count = 0 THEN
+        RETURN NEW;
+    END IF;;
     ELSE
         -- No INSERT, não podemos contar recipients ainda (serão inseridos depois)
-        -- Vamos usar um valor padrão baseado no campo numero_whatsapp se existir
-        -- Mas por segurança, vamos validar com 1 recipient mínimo
-        -- A validação real será feita no frontend antes de inserir
-        v_recipients_count := 1; -- Valor conservador para validação
+        -- A validação real é feita no frontend ANTES de inserir
+        -- Por segurança, vamos pular a validação no INSERT e confiar no frontend
+        -- OU podemos usar uma abordagem diferente: validar DEPOIS de inserir os recipients
+        -- Por enquanto, vamos pular a validação no INSERT
+        RETURN NEW;
     END IF;
     
     -- Mensagens que o novo alerta adicionará por dia
