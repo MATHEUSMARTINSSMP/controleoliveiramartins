@@ -811,7 +811,6 @@ const SuperAdmin = () => {
                                 setStoreFormData({
                                   name: store.name,
                                   site_slug: store.site_slug || "",
-                                  email: store.email || "",
                                   active: store.active,
                                 });
                                 setStoreDialogOpen(true);
