@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,6 +68,7 @@ interface Store {
 }
 
 export const CRMManagement = () => {
+  const { profile } = useAuth();
   const [stores, setStores] = useState<Store[]>([]);
   const [tasks, setTasks] = useState<CRMTask[]>([]);
   const [birthdays, setBirthdays] = useState<Birthday[]>([]);
@@ -112,48 +114,130 @@ export const CRMManagement = () => {
 
   useEffect(() => {
     // Recarregar dados quando o filtro de loja mudar
+    console.log('📋 [CRMManagement] useEffect - selectedStore mudou para:', selectedStore);
     if (!loading) {
       fetchAllData();
     }
   }, [selectedStore]);
+  
+  useEffect(() => {
+    // Recarregar dados quando profile mudar
+    console.log('📋 [CRMManagement] useEffect - profile mudou:', profile?.id);
+    if (profile && !loading) {
+      fetchAllData();
+    }
+  }, [profile]);
 
   const fetchAllData = async () => {
     try {
       setLoading(true);
+      
+      console.log('📋 [CRMManagement] fetchAllData iniciado');
+      console.log('📋 [CRMManagement] profile.id (admin_id):', profile?.id);
+      console.log('📋 [CRMManagement] selectedStore:', selectedStore);
 
-      // Buscar lojas
-      const { data: storesData } = await supabase
+      // Buscar lojas FILTRADAS PELO ADMIN_ID
+      const { data: storesData, error: storesError } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, name')
-        .eq('active', true)
-        .order('name');
+        .select('id, name, admin_id')
+        .eq('active', true);
+      
+      console.log('📋 [CRMManagement] Todas as lojas encontradas:', storesData?.length || 0);
+      
+      // FILTRO CRÍTICO: apenas lojas do admin logado
+      const adminStores = storesData?.filter(store => store.admin_id === profile?.id) || [];
+      
+      console.log('📋 [CRMManagement] Lojas do admin:', adminStores.length);
+      console.log('📋 [CRMManagement] IDs das lojas do admin:', adminStores.map(s => s.id));
+      
+      if (adminStores) setStores(adminStores.map(s => ({ id: s.id, name: s.name })));
 
-      if (storesData) setStores(storesData);
-
-      // Buscar contatos
+      // Buscar contatos da tabela 'contacts' (PRIORIDADE) ou 'crm_contacts' (FALLBACK)
       try {
-        const query = supabase
+        let contactsData: any[] = [];
+        
+        // Tentar tabela 'contacts' primeiro
+        console.log('📋 [CRMManagement] Buscando contatos da tabela contacts...');
+        const { data: contactsDataPrimary, error: contactsErrorPrimary } = await supabase
           .schema('sistemaretiradas')
-          .from('crm_contacts')
-          .select('*, stores(name)')
-          .order('nome');
-
-        // Aplicar filtro de loja se selecionado
+          .from('contacts')
+          .select('*, stores(name, admin_id)')
+          .order('nome', { ascending: true });
+        
+        console.log('📋 [CRMManagement] Resultado contacts:', {
+          encontrados: contactsDataPrimary?.length || 0,
+          error: contactsErrorPrimary?.code,
+          message: contactsErrorPrimary?.message
+        });
+        
+        if (contactsErrorPrimary && contactsErrorPrimary.code === '42P01') {
+          // Tabela contacts não existe, tentar crm_contacts
+          console.log('📋 [CRMManagement] Tabela contacts não existe, tentando crm_contacts...');
+          const { data: contactsDataFallback, error: contactsErrorFallback } = await supabase
+            .schema('sistemaretiradas')
+            .from('crm_contacts')
+            .select('*, stores(name, admin_id)')
+            .order('nome', { ascending: true });
+          
+          console.log('📋 [CRMManagement] Resultado crm_contacts:', {
+            encontrados: contactsDataFallback?.length || 0,
+            error: contactsErrorFallback?.code
+          });
+          
+          if (!contactsErrorFallback && contactsDataFallback) {
+            contactsData = contactsDataFallback;
+          }
+        } else if (!contactsErrorPrimary && contactsDataPrimary) {
+          contactsData = contactsDataPrimary;
+        }
+        
+        // FILTRO CRÍTICO 1: Apenas contatos de lojas do admin logado
+        const adminStoreIds = new Set(adminStores.map(s => s.id));
+        contactsData = contactsData.filter((c: any) => {
+          const contactStoreId = c.store_id;
+          const isAdminStore = contactStoreId && adminStoreIds.has(contactStoreId);
+          
+          // Verificar também se o store.admin_id está correto
+          const storeAdminId = c.stores?.admin_id;
+          const isCorrectAdmin = storeAdminId === profile?.id;
+          
+          return isAdminStore || isCorrectAdmin;
+        });
+        
+        console.log('📋 [CRMManagement] Contatos após filtro de admin:', contactsData.length);
+        
+        // FILTRO CRÍTICO 2: Aplicar filtro de loja se selecionado
         if (selectedStore !== 'all') {
-          query.eq('store_id', selectedStore);
+          const beforeFilter = contactsData.length;
+          contactsData = contactsData.filter((c: any) => c.store_id === selectedStore);
+          console.log('📋 [CRMManagement] Contatos após filtro de loja:', {
+            antes: beforeFilter,
+            depois: contactsData.length,
+            loja_selecionada: selectedStore
+          });
         }
 
-        const { data: contactsData } = await query;
-
-        if (contactsData) {
+        if (contactsData.length > 0) {
           setContacts(contactsData.map((c: any) => ({
-            ...c,
+            id: c.id,
+            nome: c.nome,
+            email: c.email || undefined,
+            telefone: c.telefone || undefined,
+            data_nascimento: c.data_nascimento || undefined,
+            observacoes: c.observacoes || undefined,
+            store_id: c.store_id,
             storeName: c.stores?.name
           })));
+          
+          console.log('📋 [CRMManagement] Contatos setados no state:', contactsData.length);
+        } else {
+          console.log('📋 [CRMManagement] Nenhum contato encontrado após filtros');
+          setContacts([]);
         }
       } catch (e) {
-        console.log('Tabela crm_contacts não existe ainda');
+        console.error('📋 [CRMManagement] Erro ao buscar contatos:', e);
+        console.log('Tabela contacts/crm_contacts não existe ainda ou erro ao buscar');
       }
 
       // Buscar tarefas
@@ -624,7 +708,13 @@ export const CRMManagement = () => {
               </CardDescription>
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
-              <Select value={selectedStore} onValueChange={setSelectedStore}>
+              <Select 
+                value={selectedStore} 
+                onValueChange={(value) => {
+                  console.log('📋 [CRMManagement] Select de loja mudou para:', value);
+                  setSelectedStore(value);
+                }}
+              >
                 <SelectTrigger className="w-full sm:w-48">
                   <SelectValue />
                 </SelectTrigger>
