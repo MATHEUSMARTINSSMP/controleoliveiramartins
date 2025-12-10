@@ -255,12 +255,34 @@ const ERPConfigSuperAdmin = ({ stores }: ERPConfigSuperAdminProps) => {
 
   const handleConnect = async (storeId: string) => {
     const integration = integrations[storeId];
+    const storeFormData = formData[storeId];
+    
+    // Se não tem integração salva, precisa salvar primeiro
     if (!integration) {
+      if (!storeFormData?.client_id || !storeFormData?.client_secret) {
+        toast.error("Configure e salve as credenciais primeiro");
+        return;
+      }
+      // Salvar primeiro, depois conectar
+      await handleSave(storeId);
+      // Aguardar um pouco para a integração ser salva
+      await new Promise(resolve => setTimeout(resolve, 500));
+      // Buscar integração atualizada
+      await fetchIntegration(storeId);
+      const updatedIntegration = integrations[storeId];
+      if (!updatedIntegration) {
+        toast.error("Erro ao salvar integração. Tente novamente.");
+        return;
+      }
+    }
+
+    const finalIntegration = integration || integrations[storeId];
+    if (!finalIntegration) {
       toast.error("Configure as credenciais primeiro");
       return;
     }
 
-    if (!integration.client_id || !integration.client_secret) {
+    if (!finalIntegration.client_id || !finalIntegration.client_secret) {
       toast.error("Client ID e Client Secret são obrigatórios");
       return;
     }
