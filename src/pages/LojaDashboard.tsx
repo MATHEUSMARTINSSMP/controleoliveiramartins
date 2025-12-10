@@ -1893,7 +1893,7 @@ export default function LojaDashboard() {
             console.log('[LojaDashboard] 📡 Executando query Supabase:');
             console.log('[LojaDashboard]   Schema: sistemaretiradas');
             console.log('[LojaDashboard]   Table: profiles');
-            console.log('[LojaDashboard]   Filters: role=COLABORADORA, active=true, store_id=' + currentStoreId);
+            console.log('[LojaDashboard]   Filters: role=COLABORADORA, is_active=true, store_id=' + currentStoreId);
 
             let { data, error } = await supabase
                 .schema("sistemaretiradas")
