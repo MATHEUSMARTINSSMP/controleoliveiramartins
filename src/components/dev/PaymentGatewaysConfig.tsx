@@ -91,9 +91,16 @@ export const PaymentGatewaysConfig = () => {
             is_active: g.is_active,
             tem_webhook_secret: !!g.webhook_secret
           })));
-        } else if (error && error.code !== '42P01') {
-          // Erro diferente de "tabela não existe"
-          console.error('[PaymentGatewaysConfig] Erro ao buscar gateways:', error);
+        } else if (error) {
+          // Se erro de permissão, continuar com dados padrão (não quebrar a página)
+          if (error.code === '42501' || error.message?.includes('permission')) {
+            console.warn('[PaymentGatewaysConfig] Erro de permissão ao buscar gateways (continuando com dados padrão):', error.message);
+            // Continuar com gatewaysData padrão (não quebrar a página)
+          } else if (error.code !== '42P01') {
+            // Erro diferente de "tabela não existe"
+            console.error('[PaymentGatewaysConfig] Erro ao buscar gateways:', error);
+            toast.error('Erro ao carregar configurações. Algumas funcionalidades podem não estar disponíveis.');
+          }
         }
       } catch (err: any) {
         // Tabela pode não existir ainda - usar estrutura padrão
