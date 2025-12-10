@@ -342,7 +342,6 @@ const SuperAdmin = () => {
           wishlist_ativo,
           ponto_ativo,
           ajustes_condicionais_ativo,
-          check_meta_ativo,
           created_at,
           profiles!stores_admin_id_fkey(id, name, email)
         `)
