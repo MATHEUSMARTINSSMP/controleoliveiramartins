@@ -51,13 +51,25 @@ exports.handler = async (event, context) => {
     });
 
     // Validar assinatura antes de processar (segurança crítica)
+    console.log('[Payment Webhook] Validating signature for gateway:', gateway);
     const validationResult = await validateWebhookSignature(supabase, gateway, event);
+    console.log('[Payment Webhook] Validation result:', {
+      valid: validationResult.valid,
+      error: validationResult.error,
+      gateway: gateway
+    });
+    
     if (!validationResult.valid) {
       console.error('[Payment Webhook] Signature validation failed:', validationResult.error);
       return {
         statusCode: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Invalid signature', details: validationResult.error }),
+        body: JSON.stringify({ 
+          error: 'Invalid signature', 
+          details: validationResult.error,
+          gateway: gateway,
+          hint: 'Check if webhook_secret matches the secret sent by CAKTO'
+        }),
       };
     }
 
