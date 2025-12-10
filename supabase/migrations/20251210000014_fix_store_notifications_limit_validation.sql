@@ -40,10 +40,10 @@ BEGIN
         AND phone IS NOT NULL
         AND phone != '';
         
-    -- Se não tem recipients, não precisa validar
-    IF v_recipients_count = 0 THEN
-        RETURN NEW;
-    END IF;;
+        -- Se não tem recipients, não precisa validar
+        IF v_recipients_count = 0 THEN
+            RETURN NEW;
+        END IF;
     ELSE
         -- No INSERT, não podemos contar recipients ainda (serão inseridos depois)
         -- A validação será feita por um trigger nos recipients após inserção
