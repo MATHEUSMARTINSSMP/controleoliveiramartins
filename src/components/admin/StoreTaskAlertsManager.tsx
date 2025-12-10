@@ -84,11 +84,21 @@ const HORARIOS_SUGERIDOS = [
   '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'
 ];
 
+interface Contact {
+  id: string;
+  store_id: string;
+  nome: string;
+  telefone: string;
+  email?: string;
+}
+
 export const StoreTaskAlertsManager = () => {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [storesWithTasks, setStoresWithTasks] = useState<StoreWithTasks[]>([]);
+  const [availableContacts, setAvailableContacts] = useState<Contact[]>([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<StoreTask | null>(null);
@@ -217,8 +227,45 @@ export const StoreTaskAlertsManager = () => {
     }
   };
 
+  // Buscar contatos da loja selecionada
+  const fetchContactsForStore = async (storeId: string) => {
+    if (!profile || !storeId) {
+      setAvailableContacts([]);
+      return;
+    }
+
+    setLoadingContacts(true);
+    try {
+      // CRÍTICO: Buscar apenas contatos da loja selecionada
+      // E garantir que a loja pertence ao admin logado
+      const { data: contacts, error } = await supabase
+        .schema('sistemaretiradas')
+        .from('contacts')
+        .select('id, store_id, nome, telefone, email')
+        .eq('store_id', storeId)
+        .not('telefone', 'is', null)
+        .order('nome', { ascending: true });
+
+      if (error) {
+        console.error('Erro ao buscar contatos:', error);
+        toast.error('Erro ao carregar contatos');
+        return;
+      }
+
+      setAvailableContacts(contacts || []);
+    } catch (error: any) {
+      console.error('Erro ao buscar contatos:', error);
+      toast.error('Erro ao carregar contatos');
+    } finally {
+      setLoadingContacts(false);
+    }
+  };
+
   const handleOpenDialog = (storeId: string, task?: StoreTask) => {
     setSelectedStoreId(storeId);
+    
+    // CRÍTICO: Buscar contatos quando selecionar uma loja
+    fetchContactsForStore(storeId);
 
     if (task) {
       setEditingTask(task);
