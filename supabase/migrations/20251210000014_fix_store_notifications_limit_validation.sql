@@ -27,7 +27,7 @@ BEGIN
     v_horarios_count := array_length(NEW.horarios, 1);
     IF v_horarios_count IS NULL OR v_horarios_count = 0 THEN
         RETURN NEW;
-    END IF
+    END IF;
     
     -- Contar recipients ativos do novo alerta
     -- CRÍTICO: No INSERT, o notification_id ainda não existe, então precisamos contar depois
