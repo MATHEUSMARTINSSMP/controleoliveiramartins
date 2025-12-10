@@ -443,11 +443,31 @@ export const StoreTaskAlertsManager = () => {
     const diasDoNovoAlerta = formData.dias_semana;
     const recipientsAtivosNovo = validRecipients.filter(r => r.ativo && r.phone && r.phone.trim()).length;
     const mensagensPorHorarioNovo = formData.ativo ? recipientsAtivosNovo : 0;
+    const mensagensNovasPorDia = formData.ativo ? (formData.horarios.length * mensagensPorHorarioNovo) : 0;
+    
+    console.log('[handleSave] DEBUG VALIDAÇÃO:', {
+      diasDoNovoAlerta,
+      horarios: formData.horarios,
+      recipientsAtivosNovo,
+      mensagensNovasPorDia,
+      ativo: formData.ativo,
+      editingTaskId: editingTask?.id,
+      totalTasks: currentStore.tasks.length,
+      tasks: currentStore.tasks.map(t => ({
+        id: t.id,
+        nome: t.nome,
+        ativo: t.ativo,
+        dias_semana: t.dias_semana,
+        horarios: t.horarios,
+        recipients: t.recipients.length,
+        recipientsAtivos: t.recipients.filter(r => r.ativo && r.phone && r.phone.trim()).length
+      }))
+    });
     
     // Verificar cada dia da semana
     for (const diaSemana of diasDoNovoAlerta) {
       // Calcular mensagens atuais neste dia específico (excluindo o alerta sendo editado)
-      const mensagensNesteDia = (currentStore.tasks || [])
+      const tasksNesteDia = (currentStore.tasks || [])
         .filter(task => {
           // Considerar apenas alertas ativos que incluem este dia
           if (!task.ativo) return false;
@@ -456,26 +476,28 @@ export const StoreTaskAlertsManager = () => {
           if (!task.dias_semana || task.dias_semana.length === 0) return false;
           // Verificar se o alerta inclui este dia específico
           return task.dias_semana.includes(diaSemana);
-        })
-        .reduce((sum, task) => {
-          const horariosCount = (task.horarios || []).length;
-          // CRÍTICO: Contar apenas recipients ATIVOS com telefone válido
-          const recipientsAtivos = (task.recipients || []).filter(r => r.ativo && r.phone && r.phone.trim()).length;
-          return sum + (horariosCount * recipientsAtivos);
-        }, 0);
+        });
       
-      // Calcular mensagens que o novo alerta adicionará neste dia
-      const mensagensNovasNesteDia = formData.ativo ? (formData.horarios.length * mensagensPorHorarioNovo) : 0;
+      const mensagensNesteDia = tasksNesteDia.reduce((sum, task) => {
+        const horariosCount = (task.horarios || []).length;
+        // CRÍTICO: Contar apenas recipients ATIVOS com telefone válido
+        const recipientsAtivos = (task.recipients || []).filter(r => r.ativo && r.phone && r.phone.trim()).length;
+        const mensagensDestaTask = horariosCount * recipientsAtivos;
+        console.log(`[handleSave] Dia ${diaSemana} - Task "${task.nome}": ${horariosCount} horários × ${recipientsAtivos} recipients = ${mensagensDestaTask} mensagens`);
+        return sum + mensagensDestaTask;
+      }, 0);
       
       // Total neste dia após adicionar/atualizar
-      const totalNesteDia = mensagensNesteDia + mensagensNovasNesteDia;
+      const totalNesteDia = mensagensNesteDia + mensagensNovasPorDia;
       
       // Nome do dia para mensagem de erro
       const nomesDias = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
       const nomeDia = nomesDias[diaSemana] || `Dia ${diaSemana}`;
       
+      console.log(`[handleSave] Dia ${nomeDia} (${diaSemana}): ${mensagensNesteDia} atuais + ${mensagensNovasPorDia} novas = ${totalNesteDia} total`);
+      
       if (totalNesteDia > 10) {
-        toast.error(`Limite de 10 mensagens por dia ultrapassado na ${nomeDia}. Mensagens atuais: ${mensagensNesteDia}, tentando adicionar: ${mensagensNovasNesteDia} (total: ${totalNesteDia})`);
+        toast.error(`Limite de 10 mensagens por dia ultrapassado na ${nomeDia}. Mensagens atuais: ${mensagensNesteDia}, tentando adicionar: ${mensagensNovasPorDia} (total: ${totalNesteDia})`);
         setSaving(false);
         return;
       }
