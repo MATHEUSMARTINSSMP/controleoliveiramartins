@@ -93,7 +93,7 @@ export function BonusTracker() {
               profiles!inner(id, name, store_id)
             `)
                         .eq("bonus_id", bonus.id)
-                        .eq("active", true);
+                        .eq("is_active", true);
 
                     if (!colabData || colabData.length === 0) {
                         return {

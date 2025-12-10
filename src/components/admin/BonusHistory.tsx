@@ -62,7 +62,7 @@ export function BonusHistory() {
               profiles!bonus_collaborators_colaboradora_id_fkey(id, name)
             `)
                         .eq("bonus_id", bonus.id)
-                        .eq("active", true);
+                        .eq("is_active", true);
 
                     const winners = colabData?.map((c: any) => ({
                         id: c.colaboradora_id,

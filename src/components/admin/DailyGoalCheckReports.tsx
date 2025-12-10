@@ -96,7 +96,7 @@ export const DailyGoalCheckReports = () => {
           .schema('sistemaretiradas')
           .from('profiles')
           .select('id, name, store_id')
-          .eq('active', true)
+          .eq('is_active', true)
           .eq('role', 'COLABORADORA')
           .order('name')
       ]);

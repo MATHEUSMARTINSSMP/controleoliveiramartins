@@ -49,7 +49,7 @@ export function WeeklyGoalsTracker() {
                 .from("profiles")
                 .select("id, name, store_id")
                 .eq("role", "COLABORADORA")
-                .eq("active", true);
+                .eq("is_active", true);
 
             if (colabsError) throw colabsError;
 

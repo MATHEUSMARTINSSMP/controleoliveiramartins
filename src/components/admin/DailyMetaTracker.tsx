@@ -36,7 +36,7 @@ export function DailyMetaTracker() {
             .schema("sistemaretiradas")
             .from("stores")
             .select("id, name")
-            .eq("active", true)
+            .eq("is_active", true)
             .order("name");
 
         if (data) setStores(data);

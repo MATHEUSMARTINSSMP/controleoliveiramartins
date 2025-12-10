@@ -354,7 +354,7 @@ export const StorePerformanceReports = () => {
                 .select('id, name')
                 .eq('role', 'COLABORADORA')
                 .eq('store_id', selectedStoreForVendedores)
-                .eq('active', true)
+                .eq('is_active', true)
                 .order('name', { ascending: true });
 
             if (colabError) throw colabError;
