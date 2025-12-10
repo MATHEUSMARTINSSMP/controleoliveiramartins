@@ -123,11 +123,15 @@ COMMENT ON COLUMN sistemaretiradas.billing_events.external_event_id IS 'ID do ev
 -- =====================================================
 -- 4. FUNÇÃO: Verificar se admin tem acesso ativo (com suspensão gradual)
 -- =====================================================
+-- NOTA: Esta função foi substituída pela versão em 20251210000037_create_billing_auto_check.sql
+-- Mantida apenas para compatibilidade, mas será sobrescrita pela migração 37
+-- A versão nova retorna TABLE em vez de JSON
 CREATE OR REPLACE FUNCTION sistemaretiradas.check_admin_access(p_admin_id UUID)
 RETURNS JSON
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
+SET search_path = sistemaretiradas, public
 AS $$
 DECLARE
     v_subscription sistemaretiradas.admin_subscriptions;
@@ -254,6 +258,7 @@ CREATE OR REPLACE FUNCTION sistemaretiradas.update_subscription_from_gateway(
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = sistemaretiradas, public
 AS $$
 DECLARE
     v_subscription sistemaretiradas.admin_subscriptions;
@@ -378,6 +383,7 @@ CREATE OR REPLACE FUNCTION sistemaretiradas.record_payment(
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = sistemaretiradas, public
 AS $$
 DECLARE
     v_subscription sistemaretiradas.admin_subscriptions;

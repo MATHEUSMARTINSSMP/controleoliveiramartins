@@ -19,6 +19,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = sistemaretiradas, public
 AS $$
 DECLARE
   v_subscription RECORD;
@@ -141,6 +142,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = sistemaretiradas, public
 AS $$
 DECLARE
   v_admin RECORD;
@@ -172,6 +174,7 @@ CREATE OR REPLACE FUNCTION sistemaretiradas.chamar_verificacao_billing_diaria()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = sistemaretiradas, public
 AS $$
 BEGIN
   PERFORM sistemaretiradas.check_all_admins_billing_status();
@@ -209,6 +212,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = sistemaretiradas, public
 AS $$
 BEGIN
   -- Usar a nova função que também atualiza is_active
@@ -240,6 +244,7 @@ RETURNS BOOLEAN
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
+SET search_path = sistemaretiradas, public
 AS $$
 DECLARE
     v_access RECORD;
@@ -262,6 +267,7 @@ RETURNS BOOLEAN
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
+SET search_path = sistemaretiradas, public
 AS $$
 DECLARE
     v_access RECORD;

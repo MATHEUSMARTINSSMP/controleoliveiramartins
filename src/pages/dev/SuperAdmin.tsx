@@ -71,7 +71,6 @@ interface StoreData {
   id: string;
   name: string;
   site_slug: string;
-  email: string;
   active: boolean;
   admin_id: string;
   admin_name?: string;
@@ -245,7 +244,7 @@ const SuperAdmin = () => {
           email,
           name,
           role,
-          active,
+          is_active,
           created_at,
           store_id,
           store_default
@@ -312,6 +311,7 @@ const SuperAdmin = () => {
 
           return {
             ...profile,
+            active: profile.is_active ?? true, // Mapear is_active para active (compatibilidade)
             last_sign_in_at: authUser?.last_sign_in_at || null,
             login_count: authUser ? 1 : 0, // Simplificado - pode ser melhorado com tracking de logins
             stores_count: storesCount || 0,
@@ -1072,7 +1072,10 @@ const SuperAdmin = () => {
                   {stores.map((store) => {
                     const storeColaboradoras = users.filter(
                       (u) => u.role === "COLABORADORA" && (u as any).store_id === store.id
-                    );
+                    ).map(colab => ({
+                      ...colab,
+                      active: (colab as any).is_active ?? colab.active ?? true
+                    }));
                     return (
                       <Card key={store.id}>
                         <CardHeader>
