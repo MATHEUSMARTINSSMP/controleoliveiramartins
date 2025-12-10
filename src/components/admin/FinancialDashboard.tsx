@@ -100,7 +100,7 @@ export const FinancialDashboard = () => {
                 .from("profiles")
                 .select("id, name, limite_total, limite_mensal")
                 .eq("role", "COLABORADORA")
-                .eq("active", true);
+                .eq("is_active", true);
 
             if (error) {
                 console.error('Error fetching profiles:', error);

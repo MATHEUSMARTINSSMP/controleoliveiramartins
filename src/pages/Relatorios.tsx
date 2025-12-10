@@ -113,7 +113,7 @@ const Relatorios = () => {
         .from("profiles")
         .select("id, name")
         .eq("role", "COLABORADORA")
-        .eq("active", true);
+        .eq("is_active", true);
       
       if (colabData) setColaboradoras(colabData);
 

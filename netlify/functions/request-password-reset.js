@@ -200,10 +200,10 @@ exports.handler = async (event, context) => {
     }
 
     const profile = profiles[0];
-    console.log('User found:', profile.email, 'ID:', profile.id, 'Active:', profile.active);
+    console.log('User found:', profile.email, 'ID:', profile.id, 'Active:', profile.is_active);
 
-    // Check if user is active (if active field exists and is false, skip)
-    if (profile.active === false) {
+    // Check if user is active (if is_active field exists and is false, skip)
+    if (profile.is_active === false) {
       console.log('User is inactive:', profile.email);
       return {
         statusCode: 403,
