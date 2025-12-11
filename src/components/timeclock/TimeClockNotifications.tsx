@@ -292,25 +292,34 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
     const globalConnected = globalWhatsApp?.uazapi_status === 'connected';
     const useGlobal = config.use_global_whatsapp ?? false;
 
-    // Se escolheu usar global e global está conectado, usar global
+    // Determinar qual está selecionado e qual está disponível
+    const hasBoth = storeConnected && globalConnected;
+    const hasStore = storeConnected;
+    const hasGlobal = globalConnected;
+
+    // Se escolheu usar global e global está conectado
     if (useGlobal && globalConnected) {
       return {
         type: 'global',
         connected: true,
         phone: globalWhatsApp?.uazapi_phone_number,
         label: 'WhatsApp Global (Elevea)',
-        canChoose: storeConnected, // Pode escolher se loja também está conectada
+        canChoose: hasBoth, // Pode escolher se ambos estão conectados
+        hasStore,
+        hasGlobal,
       };
     }
     
-    // Se escolheu usar loja e loja está conectada, usar loja
+    // Se escolheu usar loja e loja está conectada
     if (!useGlobal && storeConnected) {
       return {
         type: 'store',
         connected: true,
         phone: storeWhatsApp?.uazapi_phone_number,
         label: 'WhatsApp da Loja',
-        canChoose: globalConnected, // Pode escolher se global também está conectada
+        canChoose: hasBoth, // Pode escolher se ambos estão conectados
+        hasStore,
+        hasGlobal,
       };
     }
     
@@ -321,7 +330,9 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
         connected: true,
         phone: storeWhatsApp?.uazapi_phone_number,
         label: 'WhatsApp da Loja',
-        canChoose: globalConnected,
+        canChoose: hasBoth,
+        hasStore,
+        hasGlobal,
       };
     } else if (globalConnected) {
       return {
@@ -330,6 +341,8 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
         phone: globalWhatsApp?.uazapi_phone_number,
         label: 'WhatsApp Global (Elevea)',
         canChoose: false,
+        hasStore: false,
+        hasGlobal: true,
       };
     } else {
       return {
@@ -338,6 +351,8 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
         phone: null,
         label: 'Nenhum WhatsApp conectado',
         canChoose: false,
+        hasStore: false,
+        hasGlobal: false,
       };
     }
   };
@@ -370,67 +385,141 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="font-medium text-sm">Remetente:</span>
-                {whatsAppStatus.connected ? (
+          {/* Seção de Seleção de WhatsApp */}
+          <div className="space-y-4">
+            <div>
+              <Label className="text-base font-medium mb-2 block">WhatsApp Remetente</Label>
+              <p className="text-sm text-muted-foreground mb-4">
+                Escolha qual WhatsApp será usado para enviar as notificações de ponto
+              </p>
+            </div>
+
+            {/* Opções de WhatsApp */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Opção: WhatsApp da Loja (Personalizado) */}
+              <div
+                className={`relative p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  !config.use_global_whatsapp && whatsAppStatus.hasStore
+                    ? 'border-primary bg-primary/5'
+                    : whatsAppStatus.hasStore
+                    ? 'border-muted hover:border-primary/50'
+                    : 'border-muted opacity-50 cursor-not-allowed'
+                }`}
+                onClick={() => {
+                  if (whatsAppStatus.hasStore) {
+                    setConfig(prev => ({ ...prev, use_global_whatsapp: false }));
+                  }
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`mt-0.5 ${!config.use_global_whatsapp && whatsAppStatus.hasStore ? 'text-primary' : 'text-muted-foreground'}`}>
+                    <Phone className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-sm">WhatsApp Personalizado</span>
+                      {!config.use_global_whatsapp && whatsAppStatus.hasStore && (
+                        <Badge className="bg-primary text-primary-foreground text-xs">Selecionado</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      WhatsApp específico da loja
+                    </p>
+                    {whatsAppStatus.hasStore ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-xs">
+                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                          <span className="text-green-600 font-medium">Conectado</span>
+                        </div>
+                        {storeWhatsApp?.uazapi_phone_number && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Phone className="h-3 w-3" />
+                            <span>{storeWhatsApp.uazapi_phone_number}</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div className="h-2 w-2 rounded-full bg-gray-400"></div>
+                        <span>Não conectado</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Opção: WhatsApp Global */}
+              <div
+                className={`relative p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  config.use_global_whatsapp && whatsAppStatus.hasGlobal
+                    ? 'border-primary bg-primary/5'
+                    : whatsAppStatus.hasGlobal
+                    ? 'border-muted hover:border-primary/50'
+                    : 'border-muted opacity-50 cursor-not-allowed'
+                }`}
+                onClick={() => {
+                  if (whatsAppStatus.hasGlobal) {
+                    setConfig(prev => ({ ...prev, use_global_whatsapp: true }));
+                  }
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`mt-0.5 ${config.use_global_whatsapp && whatsAppStatus.hasGlobal ? 'text-primary' : 'text-muted-foreground'}`}>
+                    <Globe className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-sm">WhatsApp Global</span>
+                      {config.use_global_whatsapp && whatsAppStatus.hasGlobal && (
+                        <Badge className="bg-primary text-primary-foreground text-xs">Selecionado</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      WhatsApp compartilhado (Elevea)
+                    </p>
+                    {whatsAppStatus.hasGlobal ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-xs">
+                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                          <span className="text-green-600 font-medium">Conectado</span>
+                        </div>
+                        {globalWhatsApp?.uazapi_phone_number && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Phone className="h-3 w-3" />
+                            <span>{globalWhatsApp.uazapi_phone_number}</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div className="h-2 w-2 rounded-full bg-gray-400"></div>
+                        <span>Não conectado</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Resumo do WhatsApp Selecionado */}
+            {whatsAppStatus.connected && (
+              <div className="p-3 rounded-lg bg-muted/50 border">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">Usando:</span>
                   <Badge className="bg-green-500 text-white text-xs">
                     {whatsAppStatus.type === 'global' && <Globe className="h-3 w-3 mr-1" />}
+                    {whatsAppStatus.type === 'store' && <Phone className="h-3 w-3 mr-1" />}
                     {whatsAppStatus.label}
                   </Badge>
-                ) : (
-                  <Badge variant="destructive" className="text-xs">
-                    {whatsAppStatus.label}
-                  </Badge>
-                )}
+                  {whatsAppStatus.phone && (
+                    <>
+                      <span className="text-muted-foreground">•</span>
+                      <span className="text-xs text-muted-foreground">{whatsAppStatus.phone}</span>
+                    </>
+                  )}
+                </div>
               </div>
-              {whatsAppStatus.phone && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                  <Phone className="h-3 w-3" />
-                  <span>{whatsAppStatus.phone}</span>
-                </div>
-              )}
-              {whatsAppStatus.canChoose && (
-                <div className="mt-2">
-                  <Label className="text-xs text-muted-foreground mb-1 block">
-                    Escolher WhatsApp:
-                  </Label>
-                  <Select
-                    value={config.use_global_whatsapp ? 'global' : 'store'}
-                    onValueChange={(value) => setConfig(prev => ({ ...prev, use_global_whatsapp: value === 'global' }))}
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="store">
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-3 w-3" />
-                          <span>WhatsApp da Loja</span>
-                          {storeWhatsApp?.uazapi_phone_number && (
-                            <span className="text-xs text-muted-foreground">
-                              ({storeWhatsApp.uazapi_phone_number})
-                            </span>
-                          )}
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="global">
-                        <div className="flex items-center gap-2">
-                          <Globe className="h-3 w-3" />
-                          <span>WhatsApp Global</span>
-                          {globalWhatsApp?.uazapi_phone_number && (
-                            <span className="text-xs text-muted-foreground">
-                              ({globalWhatsApp.uazapi_phone_number})
-                            </span>
-                          )}
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           {!whatsAppStatus.connected && (
