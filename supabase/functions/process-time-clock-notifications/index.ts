@@ -22,7 +22,7 @@ async function sendWhatsAppMessage(
         phone,
         message,
         store_id: storeId,
-        ...(useGlobalWhatsApp !== undefined && { use_global_whatsapp: useGlobalWhatsApp }),
+        use_global_whatsapp: useGlobalWhatsApp ?? false,
       }),
     })
 
