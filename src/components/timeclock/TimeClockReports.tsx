@@ -395,18 +395,28 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
     // Formato RETRATO (portrait) para caber um mês inteiro
     const doc = new jsPDF('portrait', 'mm', 'a4');
     
-    // Cabeçalho
-    doc.setFontSize(16);
-    doc.text('RELATORIO DE PONTO', 14, 15);
-    doc.setFontSize(10);
-    doc.text(`Colaboradora: ${colaboradora?.name || 'N/A'}`, 14, 22);
-    doc.text(`Periodo: ${format(start, 'dd/MM/yyyy')} a ${format(end, 'dd/MM/yyyy')}`, 14, 28);
+    // Margens: 10mm de cada lado (padrão A4)
+    const marginLeft = 10;
+    const marginRight = 10;
+    const marginTop = 10;
+    const marginBottom = 10;
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
+    const usableWidth = pageWidth - marginLeft - marginRight;
+    const usableHeight = pageHeight - marginTop - marginBottom;
     
-    // Legenda
-    doc.setFontSize(8);
-    doc.text('Legenda: (Manual) = Lançamento manual pelo admin | ✓ Assinado = Assinatura digital confirmada', 14, 34);
+    // Cabeçalho compacto
+    doc.setFontSize(14);
+    doc.text('RELATORIO DE PONTO', marginLeft, marginTop + 5);
+    doc.setFontSize(9);
+    doc.text(`Colaboradora: ${colaboradora?.name || 'N/A'}`, marginLeft, marginTop + 10);
+    doc.text(`Periodo: ${format(start, 'dd/MM/yyyy')} a ${format(end, 'dd/MM/yyyy')}`, marginLeft, marginTop + 14);
+    
+    // Legenda compacta em duas linhas
+    doc.setFontSize(7);
+    doc.text('Legenda: (M) = Manual | ✓ = Assinado', marginLeft, marginTop + 18);
 
-    // Preparar dados da tabela com indicadores
+    // Preparar dados da tabela com indicadores compactos
     const tableData = dailyReports.map(d => {
       const entradaStr = formatTimeWithIndicators(d.entrada, d.entradaManual || false, d.entradaAssinada || false);
       const saidaIntStr = formatTimeWithIndicators(d.saidaIntervalo, d.saidaIntervaloManual || false, d.saidaIntervaloAssinada || false);
@@ -416,59 +426,66 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
       return [
         format(d.date, 'dd/MM'),
         d.dayOfWeek.substring(0, 3).toUpperCase(),
-        entradaStr,
-        saidaIntStr,
-        entradaIntStr,
-        saidaStr,
+        entradaStr.length > 8 ? entradaStr.substring(0, 7) + '..' : entradaStr,
+        saidaIntStr.length > 8 ? saidaIntStr.substring(0, 7) + '..' : saidaIntStr,
+        entradaIntStr.length > 8 ? entradaIntStr.substring(0, 7) + '..' : entradaIntStr,
+        saidaStr.length > 8 ? saidaStr.substring(0, 7) + '..' : saidaStr,
         formatMinutes(d.horasTrabalhadas),
         formatMinutes(d.horasEsperadas),
         formatMinutes(d.saldo),
-        d.status.toUpperCase(),
+        d.status.substring(0, 4).toUpperCase(),
       ];
     });
 
-    // Configurar tabela compacta para caber um mês inteiro
+    // Configurar tabela otimizada para A4
     autoTable(doc, {
-      head: [['Data', 'Dia', 'Entrada', 'S. Int.', 'R. Int.', 'Saida', 'Trab.', 'Esp.', 'Saldo', 'Status']],
+      head: [['Data', 'Dia', 'Entrada', 'S.Int.', 'R.Int.', 'Saida', 'Trab.', 'Esp.', 'Saldo', 'Status']],
       body: tableData,
-      startY: 40,
+      startY: marginTop + 22,
       theme: 'striped',
       styles: { 
-        fontSize: 7,
-        cellPadding: 1.5,
+        fontSize: 6.5,
+        cellPadding: 1,
         lineWidth: 0.1,
+        halign: 'center',
       },
       headStyles: { 
         fillColor: [100, 100, 100],
-        fontSize: 7,
+        fontSize: 6.5,
         fontStyle: 'bold',
+        cellPadding: 1.5,
+        halign: 'center',
       },
       columnStyles: {
-        0: { cellWidth: 18 }, // Data
-        1: { cellWidth: 15 }, // Dia
-        2: { cellWidth: 25 }, // Entrada
-        3: { cellWidth: 20 }, // S. Int.
-        4: { cellWidth: 20 }, // R. Int.
-        5: { cellWidth: 25 }, // Saida
-        6: { cellWidth: 20 }, // Trab.
-        7: { cellWidth: 20 }, // Esp.
-        8: { cellWidth: 20 }, // Saldo
-        9: { cellWidth: 20 }, // Status
+        0: { cellWidth: 12, halign: 'center' }, // Data
+        1: { cellWidth: 12, halign: 'center' }, // Dia
+        2: { cellWidth: 18, halign: 'center' }, // Entrada
+        3: { cellWidth: 15, halign: 'center' }, // S. Int.
+        4: { cellWidth: 15, halign: 'center' }, // R. Int.
+        5: { cellWidth: 18, halign: 'center' }, // Saida
+        6: { cellWidth: 16, halign: 'center' }, // Trab.
+        7: { cellWidth: 16, halign: 'center' }, // Esp.
+        8: { cellWidth: 16, halign: 'center' }, // Saldo
+        9: { cellWidth: 15, halign: 'center' }, // Status
       },
-      margin: { top: 40, left: 14, right: 14 },
-      tableWidth: 'auto',
+      margin: { top: marginTop + 22, left: marginLeft, right: marginRight, bottom: marginBottom + 20 },
+      tableWidth: usableWidth,
+      showHead: 'everyPage',
+      pageBreak: 'auto',
+      rowPageBreak: 'avoid',
     });
 
-    const finalY = (doc as any).lastAutoTable.finalY + 8;
-    doc.setFontSize(9);
-    doc.text(`Total Trabalhado: ${formatMinutes(totals.totalTrabalhado)}`, 14, finalY);
-    doc.text(`Total Esperado: ${formatMinutes(totals.totalEsperado)}`, 14, finalY + 5);
-    doc.text(`Saldo: ${formatMinutes(totals.saldo)}`, 14, finalY + 10);
+    // Totais após a tabela
+    const finalY = (doc as any).lastAutoTable.finalY || (pageHeight - marginBottom - 15);
+    doc.setFontSize(8);
+    doc.text(`Total Trabalhado: ${formatMinutes(totals.totalTrabalhado)}`, marginLeft, finalY + 5);
+    doc.text(`Total Esperado: ${formatMinutes(totals.totalEsperado)}`, marginLeft, finalY + 9);
+    doc.text(`Saldo: ${formatMinutes(totals.saldo)}`, marginLeft, finalY + 13);
     
     // Rodapé com informações de conformidade
-    doc.setFontSize(7);
-    const pageHeight = doc.internal.pageSize.height;
-    doc.text('Conforme Portaria 671/2021 (REP-P) - Assinatura digital obrigatória para validade legal', 14, pageHeight - 10);
+    doc.setFontSize(6);
+    const footerY = pageHeight - marginBottom;
+    doc.text('Conforme Portaria 671/2021 (REP-P) - Assinatura digital obrigatória para validade legal', marginLeft, footerY);
 
     doc.save(`ponto_${colaboradora?.name || 'colaboradora'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     toast.success('PDF exportado com sucesso');
