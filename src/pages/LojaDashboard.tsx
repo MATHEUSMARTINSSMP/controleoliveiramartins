@@ -54,6 +54,7 @@ import {
 } from "@/hooks/queries";
 import { QUERY_KEYS } from "@/hooks/queries/types";
 
+// Lazy imports com tratamento de erro
 const WeeklyGoalProgress = lazy(() => import("@/components/WeeklyGoalProgress"));
 const WeeklyBonusProgress = lazy(() => import("@/components/WeeklyBonusProgress"));
 const WeeklyGincanaResults = lazy(() => import("@/components/loja/WeeklyGincanaResults"));
