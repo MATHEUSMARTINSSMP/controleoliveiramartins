@@ -476,11 +476,20 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
     });
 
     // Totais após a tabela
-    const finalY = (doc as any).lastAutoTable.finalY || (pageHeight - marginBottom - 15);
+    const finalY = (doc as any).lastAutoTable.finalY || (pageHeight - marginBottom - 20);
     doc.setFontSize(8);
     doc.text(`Total Trabalhado: ${formatMinutes(totals.totalTrabalhado)}`, marginLeft, finalY + 5);
     doc.text(`Total Esperado: ${formatMinutes(totals.totalEsperado)}`, marginLeft, finalY + 9);
     doc.text(`Saldo: ${formatMinutes(totals.saldo)}`, marginLeft, finalY + 13);
+    
+    // Campo de assinatura
+    const signatureY = finalY + 20;
+    doc.setFontSize(8);
+    doc.text('Assinatura:', marginLeft, signatureY);
+    doc.setLineWidth(0.5);
+    doc.line(marginLeft + 25, signatureY - 2, marginLeft + 80, signatureY - 2);
+    doc.setFontSize(7);
+    doc.text('Assinado digitalmente', marginLeft, signatureY + 6);
     
     // Rodapé com informações de conformidade
     doc.setFontSize(6);
