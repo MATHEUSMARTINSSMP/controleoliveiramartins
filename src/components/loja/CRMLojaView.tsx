@@ -152,6 +152,7 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
       const todayEnd = endOfDay(new Date()).toISOString();
 
       // ✅ Buscar tarefas do dia E tarefas atrasadas (status PENDENTE)
+      // ✅ Filtrar tarefas de pós-venda (elas vêm de crm_post_sales, não de crm_tasks)
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('crm_tasks')
@@ -159,6 +160,7 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
         .eq('store_id', storeId)
         .eq('status', 'PENDENTE')
         .lte('due_date', todayEnd) // Tarefas até o final de hoje (inclui atrasadas)
+        .not('title', 'ilike', 'Pós-venda:%') // Excluir tarefas de pós-venda
         .order('due_date', { ascending: true });
 
       if (error) {
