@@ -152,33 +152,64 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
           const storeSlug = generateSlug(storeData.name);
 
           // Buscar WhatsApp da loja (não global)
-          const { data: storeWa } = await supabase
+          const { data: storeWa, error: storeWaError } = await supabase
             .schema('sistemaretiradas')
             .from('whatsapp_credentials')
             .select('id, uazapi_status, uazapi_phone_number, is_global, status')
             .eq('customer_id', adminProfile.email)
             .eq('site_slug', storeSlug)
-            .eq('status', 'active')
             .eq('is_global', false)
             .maybeSingle();
 
+          console.log('[TimeClockNotifications] WhatsApp da Loja encontrado:', {
+            found: !!storeWa,
+            error: storeWaError,
+            searchParams: {
+              customer_id: adminProfile.email,
+              site_slug: storeSlug,
+            },
+            data: storeWa ? {
+              id: storeWa.id,
+              uazapi_status: storeWa.uazapi_status,
+              uazapi_phone_number: storeWa.uazapi_phone_number,
+              is_global: storeWa.is_global,
+              status: storeWa.status,
+            } : null,
+          });
+
           if (storeWa) {
             setStoreWhatsApp(storeWa);
+          } else if (storeWaError) {
+            console.error('[TimeClockNotifications] Erro ao buscar WhatsApp da Loja:', storeWaError);
           }
         }
       }
 
       // Buscar WhatsApp Global (sempre verificar, mesmo sem loja)
       // ✅ Não filtrar por status - apenas verificar is_global (mesma lógica do Super Admin)
-      const { data: globalWa } = await supabase
+      const { data: globalWa, error: globalError } = await supabase
         .schema('sistemaretiradas')
         .from('whatsapp_credentials')
         .select('id, uazapi_status, uazapi_phone_number, is_global, status')
         .eq('is_global', true)
         .maybeSingle();
 
+      console.log('[TimeClockNotifications] WhatsApp Global encontrado:', {
+        found: !!globalWa,
+        error: globalError,
+        data: globalWa ? {
+          id: globalWa.id,
+          uazapi_status: globalWa.uazapi_status,
+          uazapi_phone_number: globalWa.uazapi_phone_number,
+          is_global: globalWa.is_global,
+          status: globalWa.status,
+        } : null,
+      });
+
       if (globalWa) {
         setGlobalWhatsApp(globalWa);
+      } else if (globalError) {
+        console.error('[TimeClockNotifications] Erro ao buscar WhatsApp Global:', globalError);
       }
     } catch (err) {
       console.error('[TimeClockNotifications] Erro ao buscar WhatsApp:', err);
@@ -288,9 +319,27 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
   };
 
   const getWhatsAppStatus = () => {
+    // ✅ Debug: verificar valores reais
+    console.log('[TimeClockNotifications] getWhatsAppStatus:', {
+      storeWhatsApp: storeWhatsApp ? {
+        uazapi_status: storeWhatsApp.uazapi_status,
+        phone: storeWhatsApp.uazapi_phone_number,
+      } : null,
+      globalWhatsApp: globalWhatsApp ? {
+        uazapi_status: globalWhatsApp.uazapi_status,
+        phone: globalWhatsApp.uazapi_phone_number,
+      } : null,
+    });
+
     const storeConnected = storeWhatsApp?.uazapi_status === 'connected';
     const globalConnected = globalWhatsApp?.uazapi_status === 'connected';
     const useGlobal = config.use_global_whatsapp ?? false;
+    
+    console.log('[TimeClockNotifications] Status de conexão:', {
+      storeConnected,
+      globalConnected,
+      useGlobal,
+    });
 
     // Determinar qual está selecionado e qual está disponível
     const hasBoth = storeConnected && globalConnected;
