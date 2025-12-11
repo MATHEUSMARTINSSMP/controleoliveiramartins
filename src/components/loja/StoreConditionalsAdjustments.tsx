@@ -254,8 +254,25 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
             );
             
             // ✅ GARANTIR: filtrar novamente apenas colaboradoras ativas (segurança extra)
-            const colaboradorasAtivas = uniqueColaboradoras.filter(colab => colab);
-            setColaboradoras(colaboradorasAtivas);
+            // Buscar dados completos para verificar is_active
+            if (uniqueColaboradoras.length > 0) {
+                const colaboradoraIds = uniqueColaboradoras.map(c => c.id);
+                const { data: colaboradorasCompletas } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('profiles')
+                    .select('id, name, is_active')
+                    .in('id', colaboradoraIds)
+                    .eq('role', 'COLABORADORA');
+                
+                // Filtrar apenas as que estão realmente ativas
+                const colaboradorasAtivas = (colaboradorasCompletas || [])
+                    .filter(colab => colab.is_active === true || colab.is_active === 'true' || colab.is_active === 1)
+                    .map(colab => ({ id: colab.id, name: colab.name }));
+                
+                setColaboradoras(colaboradorasAtivas);
+            } else {
+                setColaboradoras([]);
+            }
         } catch (error) {
             console.error('Erro ao buscar colaboradoras:', error);
             setColaboradoras([]);
