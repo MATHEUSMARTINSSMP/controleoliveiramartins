@@ -272,36 +272,44 @@ export function useTimeClock({
     if (!colaboradoraId || !storeId) return;
 
     try {
+      // Usar maybeSingle() para não retornar erro quando não existe registro
       const { data, error: fetchError } = await supabase
         .schema('sistemaretiradas')
         .from('time_clock_hours_balance')
         .select('*')
         .eq('colaboradora_id', colaboradoraId)
         .eq('store_id', storeId)
-        .single();
+        .maybeSingle();
 
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        // Se não existe, criar registro inicial
-        if (fetchError.code === 'PGRST116') {
-          const { data: newBalance, error: createError } = await supabase
-            .schema('sistemaretiradas')
-            .from('time_clock_hours_balance')
-            .insert({
-              colaboradora_id: colaboradoraId,
-              store_id: storeId,
-              saldo_minutos: 0,
-            })
-            .select()
-            .single();
-
-          if (createError) throw createError;
-          setHoursBalance(newBalance);
-          return;
-        }
+      if (fetchError) {
+        console.error('[useTimeClock] Erro ao buscar banco de horas:', fetchError);
         throw fetchError;
       }
 
-      setHoursBalance(data || null);
+      // Se não existe registro, criar um inicial
+      if (!data) {
+        console.log('[useTimeClock] Registro de banco de horas não encontrado, criando inicial...');
+        const { data: newBalance, error: createError } = await supabase
+          .schema('sistemaretiradas')
+          .from('time_clock_hours_balance')
+          .insert({
+            colaboradora_id: colaboradoraId,
+            store_id: storeId,
+            saldo_minutos: 0,
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('[useTimeClock] Erro ao criar registro inicial:', createError);
+          throw createError;
+        }
+
+        setHoursBalance(newBalance);
+        return;
+      }
+
+      setHoursBalance(data);
     } catch (err: any) {
       console.error('[useTimeClock] Erro ao buscar banco de horas:', err);
       setError(err.message || 'Erro ao buscar banco de horas');

@@ -48,8 +48,8 @@ export function HoursBalanceView({ storeId, colaboradoraId, isAdmin = false }: H
       .from('profiles')
       .select('id, name')
       .eq('store_id', storeId)
-      .eq('role', 'colaboradora')
-      .eq('active', true)
+      .eq('role', 'COLABORADORA')
+      .eq('is_active', true)
       .order('name');
 
     if (!error && data) {

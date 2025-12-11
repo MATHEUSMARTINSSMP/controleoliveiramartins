@@ -120,7 +120,7 @@ export function WorkScheduleConfig({ storeId, adminId }: WorkScheduleConfigProps
         .select('id, name')
         .eq('store_id', storeId)
         .eq('role', 'COLABORADORA')
-        .eq('active', true)
+        .eq('is_active', true)
         .order('name');
 
       if (error) throw error;
