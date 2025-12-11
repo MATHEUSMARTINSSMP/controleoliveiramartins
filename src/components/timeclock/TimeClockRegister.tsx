@@ -104,7 +104,7 @@ export function TimeClockRegister({
 
   const getBrasiliaTime = () => {
     return new Intl.DateTimeFormat('pt-BR', {
-      timeZone: 'America/Sao_Paulo',
+      timeZone: 'America/Belem', // Belém - UTC-3
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
@@ -113,7 +113,7 @@ export function TimeClockRegister({
 
   const getBrasiliaDate = () => {
     return new Intl.DateTimeFormat('pt-BR', {
-      timeZone: 'America/Sao_Paulo',
+      timeZone: 'America/Belem', // Belém - UTC-3
       weekday: 'long',
       day: '2-digit',
       month: 'long',

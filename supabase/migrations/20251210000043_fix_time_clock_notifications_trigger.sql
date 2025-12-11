@@ -85,8 +85,8 @@ BEGIN
         ELSE NEW.tipo_registro
     END;
     
-    -- Formatar horário (Brasília) - formato melhorado
-    v_horario_formatado := TO_CHAR(NEW.horario AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY às HH24:MI');
+    -- Formatar horário (Belém - UTC-3) - formato melhorado
+    v_horario_formatado := TO_CHAR(NEW.horario AT TIME ZONE 'UTC' AT TIME ZONE 'America/Belem', 'DD/MM/YYYY às HH24:MI');
     
     -- Montar mensagem com formatação melhorada e mais legível
     v_message := '🕐 *REGISTRO DE PONTO*\n';

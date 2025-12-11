@@ -1,5 +1,5 @@
 -- =====================================================
--- MELHORAR FORMATAÇÃO DAS MENSAGENS DE NOTIFICAÇÃO DE PONTO
+-- CORRIGIR TIMEZONE PARA BELÉM (UTC-3) NAS NOTIFICAÇÕES DE PONTO
 -- =====================================================
 
 CREATE OR REPLACE FUNCTION sistemaretiradas.send_time_clock_notification()
@@ -135,5 +135,5 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION sistemaretiradas.send_time_clock_notification() IS 'Adiciona notificação de ponto à fila com mensagem formatada - Versão melhorada com formatação aprimorada e mais legível';
+COMMENT ON FUNCTION sistemaretiradas.send_time_clock_notification() IS 'Adiciona notificação de ponto à fila com mensagem formatada - Timezone corrigido para Belém (UTC-3)';
 
