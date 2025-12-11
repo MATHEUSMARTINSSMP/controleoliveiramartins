@@ -12,7 +12,7 @@ const TimeClockHistory = lazy(() =>
   import('@/components/timeclock/TimeClockHistory').then(m => ({ default: m.TimeClockHistory }))
 );
 const TimeClockHoursBalance = lazy(() => 
-  import('@/components/timeclock/TimeClockHoursBalance').then(m => ({ default: m.TimeClockHoursBalance }))
+  import('@/components/timeclock/TimeClockHoursBalance')
 );
 const TimeClockReports = lazy(() => 
   import('@/components/timeclock/TimeClockReports').then(m => ({ default: m.TimeClockReports }))
@@ -24,6 +24,17 @@ interface ColaboradoraTimeClockTabProps {
 }
 
 export function ColaboradoraTimeClockTab({ storeId, colaboradoraId }: ColaboradoraTimeClockTabProps) {
+  // Validação para evitar renderização com valores inválidos
+  if (!storeId || !colaboradoraId) {
+    return (
+      <Card>
+        <CardContent className="py-8 flex justify-center">
+          <p className="text-muted-foreground">Dados inválidos para exibir ponto</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center py-8">

@@ -48,7 +48,8 @@ function TimeClockHoursBalance({ storeId, colaboradoraId }: TimeClockHoursBalanc
     if (storeId && colaboradoraId) {
       fetchData();
     }
-  }, [storeId, colaboradoraId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeId, colaboradoraId]); // Removidas dependências para evitar loops
 
   const fetchData = async () => {
     setLoading(true);

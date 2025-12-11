@@ -998,13 +998,13 @@ const ColaboradoraDashboard = () => {
           </TabsContent>
 
           {/* ABA PONTO */}
-          {pontoAtivo && storeId && profile?.id && (
+          {pontoAtivo && storeId && profile?.id ? (
             <TabsContent value="ponto" className="space-y-4">
               <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
                 <ColaboradoraTimeClockTab storeId={storeId} colaboradoraId={profile.id} />
               </Suspense>
             </TabsContent>
-          )}
+          ) : null}
         </Tabs>
         </motion.div>
       </main>
