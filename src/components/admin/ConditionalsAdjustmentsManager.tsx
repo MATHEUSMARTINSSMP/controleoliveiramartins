@@ -215,6 +215,18 @@ export const ConditionalsAdjustmentsManager = () => {
         if (!selectedStoreId) return;
         
         try {
+            // Buscar colaboradoras ativas do store_id
+            const { data: dataByStoreId, error: errorByStoreId } = await supabase
+                .schema('sistemaretiradas')
+                .from('profiles')
+                .select('id, name')
+                .eq('role', 'COLABORADORA')
+                .eq('is_active', true) // ✅ FILTRO: apenas colaboradoras ATIVAS
+                .eq('store_id', selectedStoreId)
+                .order('name');
+            
+            if (errorByStoreId) throw errorByStoreId;
+            
             // Buscar nome da loja para usar no store_default
             const { data: storeData } = await supabase
                 .schema('sistemaretiradas')
@@ -225,27 +237,31 @@ export const ConditionalsAdjustmentsManager = () => {
             
             const storeName = storeData?.name || null;
             
-            // Buscar colaboradoras ativas do store_id OU store_default
-            let query = supabase
-                .schema('sistemaretiradas')
-                .from('profiles')
-                .select('id, name')
-                .eq('role', 'COLABORADORA')
-                .eq('is_active', true); // ✅ FILTRO: apenas colaboradoras ATIVAS
-            
-            // Filtrar por store_id OU store_default (se tiver nome da loja)
+            // Buscar colaboradoras por store_default (se tiver nome da loja)
+            let dataByStoreDefault: any[] = [];
             if (storeName) {
-                query = query.or(`store_id.eq.${selectedStoreId},store_default.eq.${storeName}`);
-            } else {
-                query = query.eq('store_id', selectedStoreId);
+                const { data, error } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('profiles')
+                    .select('id, name')
+                    .eq('role', 'COLABORADORA')
+                    .eq('is_active', true) // ✅ FILTRO: apenas colaboradoras ATIVAS
+                    .eq('store_default', storeName)
+                    .order('name');
+                
+                if (!error && data) {
+                    dataByStoreDefault = data;
+                }
             }
             
-            const { data, error } = await query.order('name');
-            
-            if (error) throw error;
+            // Combinar resultados e remover duplicatas
+            const allColaboradoras = [...(dataByStoreId || []), ...dataByStoreDefault];
+            const uniqueColaboradoras = Array.from(
+                new Map(allColaboradoras.map(colab => [colab.id, colab])).values()
+            );
             
             // ✅ GARANTIR: filtrar novamente apenas colaboradoras ativas (segurança extra)
-            const colaboradorasAtivas = (data || []).filter(colab => colab);
+            const colaboradorasAtivas = uniqueColaboradoras.filter(colab => colab);
             setColaboradoras(colaboradorasAtivas);
         } catch (error) {
             console.error('Erro ao buscar colaboradoras:', error);
