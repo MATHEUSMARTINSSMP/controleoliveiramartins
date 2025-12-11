@@ -4,7 +4,7 @@
  * Usa fallback global quando a loja nao tem WhatsApp proprio
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface TimeClockNotificationsProps {
   storeId: string;
@@ -61,6 +62,7 @@ interface WhatsAppCredential {
 }
 
 export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps) {
+  const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<NotificationConfig>({
@@ -79,11 +81,15 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
   const [globalWhatsApp, setGlobalWhatsApp] = useState<WhatsAppCredential | null>(null);
 
   useEffect(() => {
-    if (storeId) {
-      fetchConfig();
-      fetchWhatsAppCredentials();
+    if (storeId && profile) {
+      const loadData = async () => {
+        await fetchConfig();
+        await fetchRecipients(); // Buscar destinatários após config (sobrescreve recipient_phones)
+        await fetchWhatsAppCredentials();
+      };
+      loadData();
     }
-  }, [storeId]);
+  }, [storeId, profile]);
 
   const fetchConfig = async () => {
     setLoading(true);
@@ -100,7 +106,7 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
       }
 
       if (data) {
-        setConfig({
+        setConfig(prev => ({
           id: data.id,
           store_id: data.store_id,
           notifications_enabled: data.notifications_enabled ?? false,
@@ -109,9 +115,9 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
           notify_change_requests: data.notify_change_requests ?? true,
           notify_request_approved: data.notify_request_approved ?? true,
           notify_request_rejected: data.notify_request_rejected ?? true,
-          recipient_phones: data.recipient_phones || [],
+          recipient_phones: prev.recipient_phones.length > 0 ? prev.recipient_phones : (data.recipient_phones || []), // Preservar se já foi carregado por fetchRecipients
           use_global_whatsapp: data.use_global_whatsapp ?? false,
-        });
+        }));
       }
     } catch (err) {
       console.error('[TimeClockNotifications] Erro:', err);
@@ -221,7 +227,42 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
     }
   };
 
+  const fetchRecipients = async () => {
+    if (!profile || !storeId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .schema('sistemaretiradas')
+        .from('whatsapp_notification_config')
+        .select('phone, active')
+        .eq('admin_id', profile.id)
+        .eq('notification_type', 'CONTROLE_PONTO')
+        .eq('store_id', storeId)
+        .eq('active', true);
+
+      if (error) {
+        console.error('[TimeClockNotifications] Erro ao buscar destinatários:', error);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const phones = data.map(item => item.phone).filter(Boolean) as string[];
+        setConfig(prev => ({
+          ...prev,
+          recipient_phones: phones,
+        }));
+      }
+    } catch (err) {
+      console.error('[TimeClockNotifications] Erro ao buscar destinatários:', err);
+    }
+  };
+
   const handleSave = async () => {
+    if (!profile) {
+      toast.error('Usuário não autenticado');
+      return;
+    }
+
     if (config.notifications_enabled && config.recipient_phones.length === 0) {
       toast.error('Adicione pelo menos um numero de telefone');
       return;
@@ -229,6 +270,7 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
 
     setSaving(true);
     try {
+      // 1. Salvar configuração principal em time_clock_notification_config
       const payload = {
         store_id: storeId,
         notifications_enabled: config.notifications_enabled,
@@ -261,6 +303,54 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
         if (error) throw error;
         if (data) {
           setConfig(prev => ({ ...prev, id: data.id }));
+        }
+      }
+
+      // 2. Salvar destinatários em whatsapp_notification_config
+      // Buscar destinatários existentes para esta loja
+      const { data: existingRecipients } = await supabase
+        .schema('sistemaretiradas')
+        .from('whatsapp_notification_config')
+        .select('id, phone')
+        .eq('admin_id', profile.id)
+        .eq('notification_type', 'CONTROLE_PONTO')
+        .eq('store_id', storeId);
+
+      const existingPhones = new Set((existingRecipients || []).map(r => r.phone));
+      const currentPhones = new Set(config.recipient_phones);
+
+      // Remover destinatários que não estão mais na lista
+      const toDelete = (existingRecipients || [])
+        .filter(r => !currentPhones.has(r.phone))
+        .map(r => r.id);
+
+      if (toDelete.length > 0) {
+        await supabase
+          .schema('sistemaretiradas')
+          .from('whatsapp_notification_config')
+          .delete()
+          .in('id', toDelete);
+      }
+
+      // Adicionar novos destinatários
+      const toInsert = config.recipient_phones
+        .filter(phone => !existingPhones.has(phone))
+        .map(phone => ({
+          admin_id: profile.id,
+          notification_type: 'CONTROLE_PONTO' as const,
+          phone: phone,
+          store_id: storeId,
+          active: true,
+        }));
+
+      if (toInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .schema('sistemaretiradas')
+          .from('whatsapp_notification_config')
+          .insert(toInsert);
+
+        if (insertError && insertError.code !== '23505') { // Ignorar erro de duplicata
+          throw insertError;
         }
       }
 
@@ -323,28 +413,11 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
     return phone;
   };
 
-  const getWhatsAppStatus = () => {
-    // ✅ Debug: verificar valores reais
-    console.log('[TimeClockNotifications] getWhatsAppStatus:', {
-      storeWhatsApp: storeWhatsApp ? {
-        uazapi_status: storeWhatsApp.uazapi_status,
-        phone: storeWhatsApp.uazapi_phone_number,
-      } : null,
-      globalWhatsApp: globalWhatsApp ? {
-        uazapi_status: globalWhatsApp.uazapi_status,
-        phone: globalWhatsApp.uazapi_phone_number,
-      } : null,
-    });
-
+  // ✅ Otimização: usar useMemo para evitar recálculos desnecessários
+  const getWhatsAppStatus = useCallback(() => {
     const storeConnected = storeWhatsApp?.uazapi_status === 'connected';
     const globalConnected = globalWhatsApp?.uazapi_status === 'connected';
     const useGlobal = config.use_global_whatsapp ?? false;
-    
-    console.log('[TimeClockNotifications] Status de conexão:', {
-      storeConnected,
-      globalConnected,
-      useGlobal,
-    });
 
     // Determinar qual está selecionado e qual está disponível
     const hasBoth = storeConnected && globalConnected;
@@ -409,9 +482,10 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
         hasGlobal: false,
       };
     }
-  };
+  }, [storeWhatsApp, globalWhatsApp, config.use_global_whatsapp]);
 
-  const whatsAppStatus = getWhatsAppStatus();
+  // ✅ Otimização: memoizar resultado para evitar recálculos
+  const whatsAppStatus = useMemo(() => getWhatsAppStatus(), [getWhatsAppStatus]);
 
   if (loading) {
     return (
