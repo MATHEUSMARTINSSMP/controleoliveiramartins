@@ -63,7 +63,7 @@ const CashbackLojaView = lazy(() => import("@/components/loja/CashbackLojaView")
 const CRMLojaView = lazy(() => import("@/components/loja/CRMLojaView"));
 const WishlistLojaView = lazy(() => import("@/components/loja/WishlistLojaView"));
 const TimeClockLojaView = lazy(() => import("@/components/timeclock/TimeClockLojaView").then(m => ({ default: m.TimeClockLojaView })));
-const StoreConditionalsAdjustments = lazy(() => import("@/components/loja/StoreConditionalsAdjustments").then(m => ({ default: m.StoreConditionalsAdjustments })));
+const StoreConditionalsAdjustments = lazy(() => import("@/components/loja/StoreConditionalsAdjustments"));
 
 interface Sale {
     id: string;
