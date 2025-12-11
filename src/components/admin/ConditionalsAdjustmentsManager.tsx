@@ -143,7 +143,7 @@ const ADJUSTMENT_STATUS_LABELS = {
     'AJUSTE_ENTREGUE': 'Ajuste Entregue',
 };
 
-export const ConditionalsAdjustmentsManager = () => {
+export function ConditionalsAdjustmentsManager() {
     const { profile } = useAuth();
     const [activeTab, setActiveTab] = useState("conditionals");
     const [loading, setLoading] = useState(true);
@@ -1496,4 +1496,3 @@ export const ConditionalsAdjustmentsManager = () => {
     );
 };
 
-export default ConditionalsAdjustmentsManager;

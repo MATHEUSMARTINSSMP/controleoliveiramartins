@@ -18,7 +18,7 @@ interface WhatsAppManagementProps {
   defaultTab?: string;
 }
 
-export const WhatsAppManagement = ({ defaultTab = "conexoes" }: WhatsAppManagementProps) => {
+export function WhatsAppManagement({ defaultTab = "conexoes" }: WhatsAppManagementProps) {
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   return (
@@ -121,4 +121,3 @@ export const WhatsAppManagement = ({ defaultTab = "conexoes" }: WhatsAppManageme
   );
 };
 
-export default WhatsAppManagement;
