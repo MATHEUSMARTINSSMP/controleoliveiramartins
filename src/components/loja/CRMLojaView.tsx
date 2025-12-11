@@ -902,21 +902,20 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
     );
   };
 
-  // Separar tarefas atrasadas das tarefas do dia
+  // Separar tarefas atrasadas das tarefas do dia (usando timezone de Belém)
   const hoje = new Date();
   const hojeStart = startOfDay(hoje);
+  const hojeEnd = endOfDay(hoje);
   
   const tarefasAtrasadas = tasks.filter(t => {
     const dueDate = parseISO(t.due_date);
-    return dueDate < hojeStart;
+    return dueDate < hojeStart && t.status === "PENDENTE";
   });
   
   const tarefasDoDia = tasks.filter(t => {
     const dueDate = parseISO(t.due_date);
-    return dueDate >= hojeStart && dueDate <= endOfDay(hoje);
+    return dueDate >= hojeStart && dueDate <= hojeEnd && t.status === "PENDENTE";
   });
-  
-  const pendingTasks = tasks.filter(t => t.status === "PENDENTE");
 
   if (loading) {
     return (
@@ -948,7 +947,7 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
-              Tarefas do Dia ({pendingTasks.length})
+              Tarefas do Dia ({tarefasDoDia.length})
             </CardTitle>
             <Dialog open={taskDialogOpen} onOpenChange={setTaskDialogOpen}>
               <DialogTrigger asChild>
@@ -1073,11 +1072,13 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
         <CardContent>
           {/* TAREFAS ATRASADAS */}
           {tarefasAtrasadas.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-3 flex items-center gap-2">
-                <AlertCircle className="h-4 w-4" />
-                Tarefas Atrasadas ({tarefasAtrasadas.length})
-              </h3>
+            <div className="mb-6 pb-6 border-b">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                <h3 className="text-sm font-semibold text-red-600 dark:text-red-400">
+                  Tarefas Atrasadas ({tarefasAtrasadas.length})
+                </h3>
+              </div>
               <div className="space-y-2">
                 {tarefasAtrasadas.map((task) => (
                   <TaskCard
@@ -1095,9 +1096,6 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
           {/* TAREFAS DO DIA */}
           {tarefasDoDia.length > 0 ? (
             <div className="space-y-2">
-              {tarefasAtrasadas.length > 0 && (
-                <h3 className="text-sm font-semibold mb-3">Tarefas de Hoje ({tarefasDoDia.length})</h3>
-              )}
               {tarefasDoDia.map((task) => (
                 <TaskCard
                   key={task.id}
@@ -1109,8 +1107,10 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
               ))}
             </div>
           ) : tarefasAtrasadas.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-4">Nenhuma tarefa pendente hoje</p>
-          ) : null}
+            <p className="text-center text-sm text-muted-foreground py-4">Nenhuma tarefa pendente para hoje</p>
+          ) : (
+            <p className="text-center text-sm text-muted-foreground py-4">Nenhuma tarefa para hoje</p>
+          )}
         </CardContent>
       </Card>
 
@@ -1181,45 +1181,65 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
         </CardContent>
       </Card>
 
-      {/* PÓS-VENDAS AGENDADAS */}
+      {/* PÓS-VENDAS AGENDADAS - FILTRAR SÓ AS QUE ESTÃO PRÓXIMAS */}
       <Card>
         <CardHeader>
-          <CardTitle>Mensagens de Pós-Venda ({postSales.length})</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Mensagens de Pós-Venda Agendadas ({postSales.filter(ps => {
+              const followUpDate = parseISO(ps.scheduled_follow_up);
+              const hojeInicio = startOfDay(new Date());
+              const proximos7Dias = new Date();
+              proximos7Dias.setDate(proximos7Dias.getDate() + 7);
+              return followUpDate >= hojeInicio && followUpDate <= proximos7Dias;
+            }).length})
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          {postSales.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">Cliente</TableHead>
-                    <TableHead className="text-xs">Data Venda</TableHead>
-                    <TableHead className="text-xs">Follow-up</TableHead>
-                    <TableHead className="text-xs">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {postSales.map((ps) => (
-                    <TableRow key={ps.id}>
-                      <TableCell className="text-xs font-medium">{ps.cliente_nome}</TableCell>
-                      <TableCell className="text-xs">{format(parseISO(ps.sale_date), "dd/MM/yyyy")}</TableCell>
-                      <TableCell className="text-xs">{format(parseISO(ps.scheduled_follow_up), "dd/MM/yyyy")}</TableCell>
-                      <TableCell>
-                        <Badge variant={ps.status === "AGENDADA" ? "default" : "secondary"} className="text-xs">
-                          {ps.status}
-                        </Badge>
-                      </TableCell>
+          {(() => {
+            // Filtrar pós-vendas dos próximos 7 dias
+            const postSalesProximas = postSales.filter(ps => {
+              const followUpDate = parseISO(ps.scheduled_follow_up);
+              const hojeInicio = startOfDay(new Date());
+              const proximos7Dias = new Date();
+              proximos7Dias.setDate(proximos7Dias.getDate() + 7);
+              return followUpDate >= hojeInicio && followUpDate <= proximos7Dias;
+            });
+
+            return postSalesProximas.length > 0 ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Cliente</TableHead>
+                      <TableHead className="text-xs">Data Venda</TableHead>
+                      <TableHead className="text-xs">Follow-up</TableHead>
+                      <TableHead className="text-xs">Status</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="text-center py-6">
-              <p className="text-sm text-muted-foreground">Nenhuma pós-venda agendada</p>
-              <p className="text-xs text-muted-foreground mt-2">Pós-vendas serão criadas automaticamente após registrar vendas</p>
-            </div>
-          )}
+                  </TableHeader>
+                  <TableBody>
+                    {postSalesProximas.map((ps) => (
+                      <TableRow key={ps.id}>
+                        <TableCell className="text-xs font-medium">{ps.cliente_nome}</TableCell>
+                        <TableCell className="text-xs">{format(parseISO(ps.sale_date), "dd/MM/yyyy")}</TableCell>
+                        <TableCell className="text-xs">{format(parseISO(ps.scheduled_follow_up), "dd/MM/yyyy")}</TableCell>
+                        <TableCell>
+                          <Badge variant={ps.status === "AGENDADA" ? "default" : "secondary"} className="text-xs">
+                            {ps.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <p className="text-sm text-muted-foreground">Nenhuma pós-venda agendada para os próximos 7 dias</p>
+                <p className="text-xs text-muted-foreground mt-2">Pós-vendas serão criadas automaticamente após registrar vendas</p>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
