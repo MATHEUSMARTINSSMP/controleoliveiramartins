@@ -82,7 +82,7 @@ const NovaCompra = () => {
   }, [profile, authLoading, navigate]);
 
   const fetchStores = async () => {
-    const { data } = await supabase.schema("sistemaretiradas").from("stores").select("id, name").eq("active", true);
+    const { data } = await supabase.schema("sistemaretiradas").from("stores").select("id, name").order("name");
     if (data) setStores(data);
   };
 

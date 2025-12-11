@@ -16,11 +16,10 @@ export function useStores(options?: { activeOnly?: boolean }) {
       let query = supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, name, active, subscription_plan');
+        .select('id, name, subscription_plan');
 
-      if (activeOnly) {
-        query = query.eq('active', true);
-      }
+      // Removido filtro de active - a tabela stores não tem essa coluna
+      // Se necessário filtrar por status, usar outra coluna ou remover o filtro
 
       const { data, error } = await query.order('name');
       if (error) throw error;
