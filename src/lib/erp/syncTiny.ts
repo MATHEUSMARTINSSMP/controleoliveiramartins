@@ -414,24 +414,47 @@ async function findCollaboratorByVendedor(
     const storeName = storeData?.name || null;
 
     // Buscar colaboradoras da loja (por UUID OU por nome)
-    let colaboradorasQuery = supabase
+    // ✅ CORREÇÃO: Separar queries para evitar erro de parsing com caracteres especiais no nome
+    
+    // Estratégia 1: Buscar por store_id (UUID)
+    const { data: colaboradorasPorId, error: errorPorId } = await supabase
       .schema('sistemaretiradas')
       .from('profiles')
       .select('id, name, email, cpf, store_id, store_default')
       .eq('role', 'COLABORADORA')
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .eq('store_id', storeId);
 
-    // Buscar por store_id (UUID) OU por store_default (nome)
-    if (storeName) {
-      colaboradorasQuery = colaboradorasQuery.or(`store_id.eq.${storeId},store_default.eq.${storeName}`);
-    } else {
-      colaboradorasQuery = colaboradorasQuery.eq('store_id', storeId);
+    if (errorPorId) {
+      console.error(`[SyncTiny] ❌ Erro ao buscar colaboradoras por store_id:`, errorPorId);
     }
 
-    const { data: colaboradoras, error } = await colaboradorasQuery;
+    // Estratégia 2: Buscar por store_default (nome) se tiver nome da loja
+    let colaboradorasPorNome: any[] = [];
+    if (storeName) {
+      const { data: dataPorNome, error: errorPorNome } = await supabase
+        .schema('sistemaretiradas')
+        .from('profiles')
+        .select('id, name, email, cpf, store_id, store_default')
+        .eq('role', 'COLABORADORA')
+        .eq('is_active', true)
+        .eq('store_default', storeName);
 
-    if (error) {
-      console.error(`[SyncTiny] ❌ Erro ao buscar colaboradoras:`, error);
+      if (errorPorNome) {
+        console.error(`[SyncTiny] ❌ Erro ao buscar colaboradoras por store_default:`, errorPorNome);
+      } else {
+        colaboradorasPorNome = dataPorNome || [];
+      }
+    }
+
+    // Combinar resultados e remover duplicatas
+    const allColaboradoras = [...(colaboradorasPorId || []), ...colaboradorasPorNome];
+    const colaboradoras = Array.from(
+      new Map(allColaboradoras.map(colab => [colab.id, colab])).values()
+    );
+
+    if (colaboradoras.length === 0) {
+      console.log(`[SyncTiny] ⚠️ Nenhuma colaboradora encontrada para a loja ${storeId}`);
       return null;
     }
 
