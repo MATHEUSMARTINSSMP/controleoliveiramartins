@@ -270,7 +270,7 @@ function TimeClockHoursBalance({ storeId, colaboradoraId }: TimeClockHoursBalanc
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {hoursBalance ? (
+          {hoursBalance && typeof hoursBalance.saldo_minutos === 'number' ? (
             <div className="text-center">
               <div className={`text-4xl font-bold mb-2 ${hoursBalance.saldo_minutos >= 0 ? 'text-success' : 'text-destructive'}`}>
                 {formatHoursBalance(hoursBalance.saldo_minutos)}
@@ -292,7 +292,7 @@ function TimeClockHoursBalance({ storeId, colaboradoraId }: TimeClockHoursBalanc
         </CardContent>
       </Card>
 
-      {calculationDetails && (
+      {calculationDetails && typeof calculationDetails.jornadaEsperada === 'number' && typeof calculationDetails.jornadaRealizada === 'number' && typeof calculationDetails.diferenca === 'number' ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Cálculo do Mês Atual</CardTitle>
@@ -326,7 +326,7 @@ function TimeClockHoursBalance({ storeId, colaboradoraId }: TimeClockHoursBalanc
             </div>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
       <Card>
         <CardHeader>
