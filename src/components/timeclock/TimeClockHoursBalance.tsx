@@ -54,6 +54,27 @@ function TimeClockHoursBalance({ storeId, colaboradoraId }: TimeClockHoursBalanc
     jornadaRealizada: number;
     diferenca: number;
   } | null>(null);
+  
+  // Calcular saldo total incluindo ajustes
+  const totalBalance = useMemo(() => {
+    if (!hoursBalance || typeof hoursBalance.saldo_minutos !== 'number') {
+      return 0;
+    }
+    
+    // Saldo base da tabela time_clock_hours_balance
+    let saldoTotal = hoursBalance.saldo_minutos;
+    
+    // Somar ajustes manuais
+    adjustments.forEach(adj => {
+      if (adj.tipo === 'CREDITO') {
+        saldoTotal += adj.minutos;
+      } else if (adj.tipo === 'DEBITO') {
+        saldoTotal -= adj.minutos;
+      }
+    });
+    
+    return saldoTotal;
+  }, [hoursBalance, adjustments]);
 
   useEffect(() => {
     if (storeId && colaboradoraId) {
@@ -272,15 +293,20 @@ function TimeClockHoursBalance({ storeId, colaboradoraId }: TimeClockHoursBalanc
         <CardContent>
           {hoursBalance && typeof hoursBalance.saldo_minutos === 'number' ? (
             <div className="text-center">
-              <div className={`text-4xl font-bold mb-2 ${hoursBalance.saldo_minutos >= 0 ? 'text-success' : 'text-destructive'}`}>
-                {formatHoursBalance(hoursBalance.saldo_minutos)}
+              <div className={`text-4xl font-bold mb-2 ${totalBalance >= 0 ? 'text-success' : 'text-destructive'}`}>
+                {formatHoursBalance(totalBalance)}
               </div>
               <p className="text-sm text-muted-foreground">
-                {hoursBalance.saldo_minutos >= 0 ? 'Crédito' : 'Débito'}
+                {totalBalance >= 0 ? 'Crédito' : 'Débito'}
               </p>
               {hoursBalance.ultimo_calculo_em && (
                 <p className="text-xs text-muted-foreground mt-2">
                   Último cálculo: {format(new Date(hoursBalance.ultimo_calculo_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </p>
+              )}
+              {adjustments.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Inclui {adjustments.length} ajuste{adjustments.length > 1 ? 's' : ''} manual{adjustments.length > 1 ? 'is' : ''}
                 </p>
               )}
             </div>
