@@ -4,33 +4,57 @@
 -- Cole estes comandos no SQL Editor do Supabase para configurar tudo
 
 -- =====================================================
--- 1. CONFIGURAR CRON JOB (CHAMA EDGE FUNCTION)
+-- 1. VERIFICAR SE pg_net ESTÁ HABILITADO (OBRIGATÓRIO)
 -- =====================================================
--- Remover job antigo se existir
-SELECT cron.unschedule('process-time-clock-notifications') 
-WHERE EXISTS (
-    SELECT 1 FROM cron.job WHERE jobname = 'process-time-clock-notifications'
-);
+-- Execute primeiro se não estiver habilitado:
+-- CREATE EXTENSION IF NOT EXISTS pg_net;
 
--- Criar novo job que chama a Edge Function via HTTP
-SELECT cron.schedule(
-    'process-time-clock-notifications',
-    '* * * * *',  -- A cada minuto
-    $$
-    SELECT
-        net.http_post(
-            url := 'https://kktsbnrnlnzyofupegjc.supabase.co/functions/v1/process-time-clock-notifications',
-            headers := jsonb_build_object(
-                'Content-Type', 'application/json',
-                'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrdHNibnJubG56eW9mdXBlZ2pjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDc5NTAyNiwiZXhwIjoyMDc2MzcxMDI2fQ.C4bs65teQiC4cQNgRfFjDmmT27dCkEoS_H3eQFmdl3s'
-            ),
-            body := '{}'::jsonb
-        ) AS request_id;
-    $$
-);
+SELECT 
+    CASE 
+        WHEN EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_net') 
+        THEN '✅ pg_net está habilitado'
+        ELSE '❌ pg_net NÃO está habilitado - Execute: CREATE EXTENSION IF NOT EXISTS pg_net;'
+    END as status_pg_net;
 
 -- =====================================================
--- 2. VERIFICAR SE O JOB FOI CRIADO
+-- 2. CONFIGURAR CRON JOB (CHAMA EDGE FUNCTION)
+-- =====================================================
+-- Remover job antigo se existir e criar novo
+DO $$
+BEGIN
+    -- Remover job antigo se existir
+    IF EXISTS (
+        SELECT 1 FROM cron.job WHERE jobname = 'process-time-clock-notifications'
+    ) THEN
+        PERFORM cron.unschedule('process-time-clock-notifications');
+        RAISE NOTICE '✅ Cron job antigo removido';
+    END IF;
+    
+    -- Verificar se pg_net está habilitado
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_net') THEN
+        -- Criar novo job que chama a Edge Function via HTTP
+        PERFORM cron.schedule(
+            'process-time-clock-notifications',
+            '* * * * *',  -- A cada minuto
+            $cron$
+            SELECT
+                net.http_post(
+                    url := 'https://kktsbnrnlnzyofupegjc.supabase.co/functions/v1/process-time-clock-notifications',
+                    headers := jsonb_build_object(
+                        'Content-Type', 'application/json'
+                    ),
+                    body := '{}'::jsonb
+                ) AS request_id;
+            $cron$
+        );
+        RAISE NOTICE '✅ Cron job criado com sucesso';
+    ELSE
+        RAISE EXCEPTION '❌ pg_net não está habilitado. Execute primeiro: CREATE EXTENSION IF NOT EXISTS pg_net;';
+    END IF;
+END $$;
+
+-- =====================================================
+-- 3. VERIFICAR SE O JOB FOI CRIADO
 -- =====================================================
 SELECT 
     jobid,
@@ -42,7 +66,7 @@ FROM cron.job
 WHERE jobname = 'process-time-clock-notifications';
 
 -- =====================================================
--- 3. REATIVAR NOTIFICAÇÕES FALHADAS (ERRO ANTIGO)
+-- 4. REATIVAR NOTIFICAÇÕES FALHADAS (ERRO ANTIGO)
 -- =====================================================
 UPDATE sistemaretiradas.time_clock_notification_queue
 SET status = 'PENDING',
@@ -58,7 +82,7 @@ FROM sistemaretiradas.time_clock_notification_queue
 WHERE status = 'PENDING';
 
 -- =====================================================
--- 4. VERIFICAR NOTIFICAÇÕES PENDENTES
+-- 5. VERIFICAR NOTIFICAÇÕES PENDENTES
 -- =====================================================
 SELECT 
     id,
@@ -75,7 +99,7 @@ ORDER BY created_at ASC
 LIMIT 10;
 
 -- =====================================================
--- 5. VERIFICAR CONFIGURAÇÕES DE NOTIFICAÇÃO ATIVAS
+-- 6. VERIFICAR CONFIGURAÇÕES DE NOTIFICAÇÃO ATIVAS
 -- =====================================================
 SELECT 
     wnc.id,
@@ -94,7 +118,7 @@ AND wnc.active = true
 ORDER BY wnc.created_at DESC;
 
 -- =====================================================
--- 6. ESTATÍSTICAS DAS NOTIFICAÇÕES (ÚLTIMAS 24H)
+-- 7. ESTATÍSTICAS DAS NOTIFICAÇÕES (ÚLTIMAS 24H)
 -- =====================================================
 SELECT 
     status,
@@ -107,7 +131,7 @@ GROUP BY status
 ORDER BY status;
 
 -- =====================================================
--- 7. VER ÚLTIMAS EXECUÇÕES DO CRON JOB
+-- 8. VER ÚLTIMAS EXECUÇÕES DO CRON JOB
 -- =====================================================
 SELECT 
     runid,
@@ -124,10 +148,8 @@ ORDER BY start_time DESC
 LIMIT 10;
 
 -- =====================================================
--- 8. VERIFICAR SE pg_net ESTÁ HABILITADO
+-- 9. HABILITAR pg_net (SE NECESSÁRIO)
 -- =====================================================
-SELECT * FROM pg_extension WHERE extname = 'pg_net';
-
--- Se não estiver habilitado, execute:
+-- Execute apenas se o passo 1 mostrar que pg_net não está habilitado:
 -- CREATE EXTENSION IF NOT EXISTS pg_net;
 

@@ -2,3 +2,6 @@ project_id = "ljcqoxpevrckwwsctxhb"
 
 [functions.seed-users]
 verify_jwt = false
+
+[functions.process-time-clock-notifications]
+verify_jwt = false

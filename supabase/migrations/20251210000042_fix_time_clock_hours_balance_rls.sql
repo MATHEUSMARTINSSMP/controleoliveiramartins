@@ -75,20 +75,10 @@ USING (
     -- LOJA pode ver saldos das colaboradoras da sua loja
     (EXISTS (
         SELECT 1 FROM sistemaretiradas.profiles p_loja
-        JOIN sistemaretiradas.stores s ON (
-            s.id = p_loja.store_id 
-            OR s.admin_id = (SELECT admin_id FROM sistemaretiradas.stores WHERE id = p_loja.store_id LIMIT 1)
-        )
         WHERE p_loja.id = auth.uid()
           AND p_loja.role = 'LOJA'
           AND p_loja.is_active = true
-          AND (
-              time_clock_hours_balance.store_id = s.id
-              OR time_clock_hours_balance.store_id IN (
-                  SELECT id FROM sistemaretiradas.stores 
-                  WHERE admin_id = (SELECT admin_id FROM sistemaretiradas.stores WHERE id = p_loja.store_id LIMIT 1)
-              )
-          )
+          AND time_clock_hours_balance.store_id = p_loja.store_id
     ))
     OR
     -- Admin pode ver saldos da sua loja
