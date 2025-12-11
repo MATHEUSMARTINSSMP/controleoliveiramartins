@@ -2865,6 +2865,7 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
             body: JSON.stringify({
               phone,
               message,
+              store_id: storeId, // ✅ Passar store_id para usar WhatsApp da loja se disponível, Global como fallback
             }),
           });
 

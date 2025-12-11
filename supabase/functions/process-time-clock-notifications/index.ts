@@ -8,7 +8,7 @@ const corsHeaders = {
 async function sendWhatsAppMessage(
   phone: string,
   message: string,
-  storeId: string | undefined,
+  storeId: string,
   netlifyUrl: string,
   useGlobalWhatsApp?: boolean
 ): Promise<{ success: boolean; error?: string }> {
@@ -21,7 +21,7 @@ async function sendWhatsAppMessage(
       body: JSON.stringify({
         phone,
         message,
-        ...(storeId && { store_id: storeId }),
+        store_id: storeId,
         ...(useGlobalWhatsApp !== undefined && { use_global_whatsapp: useGlobalWhatsApp }),
       }),
     })
@@ -146,13 +146,15 @@ Deno.serve(async (req) => {
 
         const useGlobalWhatsApp = configsMap.get(item.store_id) ?? false
         
-        // Se escolheu usar Global, não passar store_id (mesma lógica da notificação de venda)
-        const storeIdToUse = useGlobalWhatsApp ? undefined : item.store_id
+        // ✅ SEMPRE passar store_id para permitir usar WhatsApp da loja se disponível
+        // A função send-whatsapp-message já tem a lógica:
+        // - Se use_global_whatsapp=true → usa Global diretamente
+        // - Se use_global_whatsapp=false → tenta loja primeiro, depois Global como fallback
         
         const sendResult = await sendWhatsAppMessage(
           item.phone,
           item.message,
-          storeIdToUse,
+          item.store_id,
           netlifyUrl,
           useGlobalWhatsApp
         )
