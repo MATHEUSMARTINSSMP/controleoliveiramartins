@@ -941,13 +941,13 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
         </TabsList>
 
         <TabsContent value="hoje" className="space-y-6">
-          {/* TAREFAS DO DIA */}
+          {/* AGENDAMENTOS DE HOJE (Tarefas + Compromissos) */}
           <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
-              Tarefas do Dia ({tarefasDoDia.length})
+              Agendamentos de Hoje ({tarefasDoDia.length + commitments.length})
             </CardTitle>
             <Dialog open={taskDialogOpen} onOpenChange={setTaskDialogOpen}>
               <DialogTrigger asChild>
@@ -1094,7 +1094,7 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
           )}
 
           {/* TAREFAS DO DIA */}
-          {tarefasDoDia.length > 0 ? (
+          {tarefasDoDia.length > 0 && (
             <div className="space-y-2">
               {tarefasDoDia.map((task) => (
                 <TaskCard
@@ -1106,10 +1106,50 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
                 />
               ))}
             </div>
-          ) : tarefasAtrasadas.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-4">Nenhuma tarefa pendente para hoje</p>
-          ) : (
-            <p className="text-center text-sm text-muted-foreground py-4">Nenhuma tarefa para hoje</p>
+          )}
+
+          {/* COMPROMISSOS DE HOJE */}
+          {commitments.length > 0 && (
+            <div className={`space-y-2 ${tarefasDoDia.length > 0 ? 'mt-4 pt-4 border-t' : ''}`}>
+              {commitments.map((comp) => {
+                const urgency = getCommitmentUrgency(comp.scheduled_date);
+                return (
+                  <div 
+                    key={comp.id} 
+                    className={`flex items-start justify-between p-3 rounded-lg border ${
+                      urgency.level === 'overdue' ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800' :
+                      urgency.level === 'urgent' ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800' :
+                      urgency.level === 'soon' ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800' :
+                      'bg-muted/50'
+                    }`}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-medium text-sm">{comp.cliente_nome}</p>
+                        <Badge variant="outline" className="text-xs">Compromisso</Badge>
+                        {urgency.label && (
+                          <Badge variant={urgency.level === 'overdue' ? 'destructive' : 'secondary'} className="text-xs">
+                            {urgency.level === 'overdue' && <AlertCircle className="h-3 w-3 mr-1" />}
+                            {urgency.label}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {comp.type} • {format(parseISO(comp.scheduled_date), "dd/MM/yyyy HH:mm")}
+                      </p>
+                      {comp.notes && (
+                        <p className="text-xs text-muted-foreground mt-1">{comp.notes}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Mensagem quando não há nada */}
+          {tarefasAtrasadas.length === 0 && tarefasDoDia.length === 0 && commitments.length === 0 && (
+            <p className="text-center text-sm text-muted-foreground py-4">Nenhum agendamento para hoje</p>
           )}
         </CardContent>
       </Card>
@@ -1243,19 +1283,13 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
         </CardContent>
       </Card>
 
-          {/* COMPROMISSOS DE HOJE */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Compromissos de Hoje ({commitments.length})
-                </CardTitle>
+          {/* Botão para agendar compromisso (movido para dentro do card de agendamentos) */}
+          <div className="flex justify-end mt-2">
             <Dialog open={commitmentDialogOpen} onOpenChange={setCommitmentDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" variant="outline">
                   <Plus className="h-4 w-4 mr-2" />
-                  Agendar
+                  Agendar Compromisso
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -1310,48 +1344,6 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
               </DialogContent>
             </Dialog>
           </div>
-        </CardHeader>
-        <CardContent>
-          {commitments.length > 0 ? (
-            <div className="space-y-2">
-              {commitments.map((comp) => {
-                const urgency = getCommitmentUrgency(comp.scheduled_date);
-                return (
-                  <div 
-                    key={comp.id} 
-                    className={`flex items-start justify-between p-3 rounded-lg border ${
-                      urgency.level === 'overdue' ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800' :
-                      urgency.level === 'urgent' ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800' :
-                      urgency.level === 'soon' ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800' :
-                      'bg-muted/50'
-                    }`}
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-medium text-sm">{comp.cliente_nome}</p>
-                        {urgency.label && (
-                          <Badge variant={urgency.level === 'overdue' ? 'destructive' : 'secondary'} className="text-xs">
-                            {urgency.level === 'overdue' && <AlertCircle className="h-3 w-3 mr-1" />}
-                            {urgency.label}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {comp.type} • {format(parseISO(comp.scheduled_date), "dd/MM/yyyy HH:mm")}
-                      </p>
-                      {comp.notes && (
-                        <p className="text-xs text-muted-foreground mt-1">{comp.notes}</p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-                <p className="text-center text-sm text-muted-foreground py-4">Nenhum compromisso agendado para hoje</p>
-              )}
-            </CardContent>
-          </Card>
         </TabsContent>
 
         <TabsContent value="proximas" className="space-y-6">
@@ -1375,8 +1367,6 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
                     <SelectItem value="COMPROMISSO">Compromissos</SelectItem>
                     <SelectItem value="CASHBACK">Cashback</SelectItem>
                     <SelectItem value="Personalizada">Personalizadas</SelectItem>
-                    <SelectItem value="Pós-Venda">Pós-Vendas</SelectItem>
-                    <SelectItem value="Aniversário">Aniversários</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
