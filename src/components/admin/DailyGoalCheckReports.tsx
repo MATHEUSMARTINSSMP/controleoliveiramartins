@@ -59,7 +59,7 @@ interface SummaryData {
   avgCheckTime: string;
 }
 
-export const DailyGoalCheckReports = () => {
+export function DailyGoalCheckReports() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<'xlsx' | 'pdf' | null>(null);
   const [checks, setChecks] = useState<DailyCheck[]>([]);
@@ -733,6 +733,4 @@ export const DailyGoalCheckReports = () => {
       </Card>
     </div>
   );
-};
-
-export default DailyGoalCheckReports;
+}
