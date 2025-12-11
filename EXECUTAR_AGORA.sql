@@ -40,7 +40,7 @@ BEGIN
         PERFORM cron.schedule(
             'process-time-clock-notifications',
             '* * * * *',  -- A cada minuto
-            $$
+            $cron$
             SELECT
                 net.http_post(
                     url := 'https://kktsbnrnlnzyofupegjc.supabase.co/functions/v1/process-time-clock-notifications',
@@ -50,7 +50,7 @@ BEGIN
                     ),
                     body := '{}'::jsonb
                 ) AS request_id;
-            $$
+            $cron$
         );
         RAISE NOTICE '✅ Cron job atualizado com header de autenticação';
     ELSE
