@@ -29,7 +29,7 @@ interface HoursAdjustment {
   created_at: string;
 }
 
-export function TimeClockHoursBalance({ storeId, colaboradoraId }: TimeClockHoursBalanceProps) {
+function TimeClockHoursBalance({ storeId, colaboradoraId }: TimeClockHoursBalanceProps) {
   const { hoursBalance, workSchedule, fetchHoursBalance, fetchWorkSchedule } = useTimeClock({
     storeId,
     colaboradoraId,
@@ -342,4 +342,6 @@ export function TimeClockHoursBalance({ storeId, colaboradoraId }: TimeClockHour
     </div>
   );
 }
+
+export default TimeClockHoursBalance;
 

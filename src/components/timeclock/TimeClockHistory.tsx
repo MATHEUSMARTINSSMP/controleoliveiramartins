@@ -58,22 +58,11 @@ export function TimeClockHistory({ storeId, colaboradoraId, showOnlyToday = fals
       fetchRecords(start, end);
       fetchHoursBalance();
     }
-  }, [storeId, colaboradoraId, startDate, endDate, fetchRecords, fetchHoursBalance]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeId, colaboradoraId, startDate, endDate]); // Removidas dependências para evitar refresh constante
 
-  // Refetch automático a cada 10 segundos para atualização em tempo real
-  // Isso garante que mesmo sem refresh manual, os dados sejam atualizados
-  useEffect(() => {
-    if (!storeId || !colaboradoraId) return;
-
-    const interval = setInterval(() => {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      fetchRecords(start, end);
-      fetchHoursBalance();
-    }, 10000); // Atualizar a cada 10 segundos
-
-    return () => clearInterval(interval);
-  }, [storeId, colaboradoraId, startDate, endDate, fetchRecords, fetchHoursBalance]);
+  // Removido refetch automático - atualização deve ser em background via trigger no banco
+  // O banco de horas será atualizado automaticamente quando novos registros forem criados
 
   const getRecordTypeLabel = (tipo: string) => {
     const labels: Record<string, string> = {

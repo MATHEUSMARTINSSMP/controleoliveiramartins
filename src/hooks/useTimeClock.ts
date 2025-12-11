@@ -357,7 +357,7 @@ export function useTimeClock({
     }
   }, [storeId, colaboradoraId]);
 
-  // Auto-fetch
+  // Auto-fetch - apenas uma vez quando storeId/colaboradoraId mudam
   useEffect(() => {
     if (autoFetch && storeId && colaboradoraId) {
       fetchLastRecord();
@@ -365,7 +365,8 @@ export function useTimeClock({
       fetchHoursBalance();
       fetchRecords();
     }
-  }, [autoFetch, storeId, colaboradoraId, fetchLastRecord, fetchWorkSchedule, fetchHoursBalance, fetchRecords]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoFetch, storeId, colaboradoraId]); // Removidas dependências das funções para evitar refresh constante
 
   return {
     records,
