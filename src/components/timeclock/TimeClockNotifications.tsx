@@ -47,6 +47,7 @@ interface NotificationConfig {
   notify_request_approved: boolean;
   notify_request_rejected: boolean;
   recipient_phones: string[];
+  use_global_whatsapp?: boolean;  // Se true, usa WhatsApp Global mesmo quando loja tem próprio
 }
 
 interface WhatsAppCredential {
@@ -68,6 +69,7 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
     notify_request_approved: true,
     notify_request_rejected: true,
     recipient_phones: [],
+    use_global_whatsapp: false,
   });
   const [newPhone, setNewPhone] = useState('');
   const [storeWhatsApp, setStoreWhatsApp] = useState<WhatsAppCredential | null>(null);
@@ -105,6 +107,7 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
           notify_request_approved: data.notify_request_approved ?? true,
           notify_request_rejected: data.notify_request_rejected ?? true,
           recipient_phones: data.recipient_phones || [],
+          use_global_whatsapp: data.use_global_whatsapp ?? false,
         });
       }
     } catch (err) {
@@ -169,6 +172,7 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
         notify_request_approved: config.notify_request_approved,
         notify_request_rejected: config.notify_request_rejected,
         recipient_phones: config.recipient_phones,
+        use_global_whatsapp: config.use_global_whatsapp ?? false,
         updated_at: new Date().toISOString(),
       };
 
@@ -256,13 +260,38 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
   const getWhatsAppStatus = () => {
     const storeConnected = storeWhatsApp?.uazapi_status === 'connected';
     const globalConnected = globalWhatsApp?.uazapi_status === 'connected';
+    const useGlobal = config.use_global_whatsapp ?? false;
 
+    // Se escolheu usar global e global está conectado, usar global
+    if (useGlobal && globalConnected) {
+      return {
+        type: 'global',
+        connected: true,
+        phone: globalWhatsApp?.uazapi_phone_number,
+        label: 'WhatsApp Global (Elevea)',
+        canChoose: storeConnected, // Pode escolher se loja também está conectada
+      };
+    }
+    
+    // Se escolheu usar loja e loja está conectada, usar loja
+    if (!useGlobal && storeConnected) {
+      return {
+        type: 'store',
+        connected: true,
+        phone: storeWhatsApp?.uazapi_phone_number,
+        label: 'WhatsApp da Loja',
+        canChoose: globalConnected, // Pode escolher se global também está conectada
+      };
+    }
+    
+    // Fallback: usar o que estiver disponível
     if (storeConnected) {
       return {
         type: 'store',
         connected: true,
         phone: storeWhatsApp?.uazapi_phone_number,
         label: 'WhatsApp da Loja',
+        canChoose: globalConnected,
       };
     } else if (globalConnected) {
       return {
@@ -270,6 +299,7 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
         connected: true,
         phone: globalWhatsApp?.uazapi_phone_number,
         label: 'WhatsApp Global (Elevea)',
+        canChoose: false,
       };
     } else {
       return {
@@ -277,6 +307,7 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
         connected: false,
         phone: null,
         label: 'Nenhum WhatsApp conectado',
+        canChoose: false,
       };
     }
   };
@@ -311,7 +342,7 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
         <CardContent className="space-y-6">
           <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50">
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 mb-2">
                 <span className="font-medium text-sm">Remetente:</span>
                 {whatsAppStatus.connected ? (
                   <Badge className="bg-green-500 text-white text-xs">
@@ -325,9 +356,48 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
                 )}
               </div>
               {whatsAppStatus.phone && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                   <Phone className="h-3 w-3" />
                   <span>{whatsAppStatus.phone}</span>
+                </div>
+              )}
+              {whatsAppStatus.canChoose && (
+                <div className="mt-2">
+                  <Label className="text-xs text-muted-foreground mb-1 block">
+                    Escolher WhatsApp:
+                  </Label>
+                  <Select
+                    value={config.use_global_whatsapp ? 'global' : 'store'}
+                    onValueChange={(value) => setConfig(prev => ({ ...prev, use_global_whatsapp: value === 'global' }))}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="store">
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-3 w-3" />
+                          <span>WhatsApp da Loja</span>
+                          {storeWhatsApp?.uazapi_phone_number && (
+                            <span className="text-xs text-muted-foreground">
+                              ({storeWhatsApp.uazapi_phone_number})
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="global">
+                        <div className="flex items-center gap-2">
+                          <Globe className="h-3 w-3" />
+                          <span>WhatsApp Global</span>
+                          {globalWhatsApp?.uazapi_phone_number && (
+                            <span className="text-xs text-muted-foreground">
+                              ({globalWhatsApp.uazapi_phone_number})
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
             </div>

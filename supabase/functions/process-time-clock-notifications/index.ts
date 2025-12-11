@@ -9,7 +9,8 @@ async function sendWhatsAppMessage(
   phone: string,
   message: string,
   storeId: string,
-  netlifyUrl: string
+  netlifyUrl: string,
+  useGlobalWhatsApp?: boolean
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`${netlifyUrl}/.netlify/functions/send-whatsapp-message`, {
@@ -21,6 +22,7 @@ async function sendWhatsAppMessage(
         phone,
         message,
         store_id: storeId,
+        use_global_whatsapp: useGlobalWhatsApp,
       }),
     })
 
@@ -85,6 +87,21 @@ Deno.serve(async (req) => {
       .order('created_at', { ascending: true })
       .limit(50)
 
+    // Buscar configuração de uso de WhatsApp global para cada loja única
+    const storeIds = [...new Set(queueItems?.map(item => item.store_id) || [])]
+    const configsMap = new Map<string, boolean>()
+    
+    if (storeIds.length > 0) {
+      const { data: configs } = await supabase
+        .from('time_clock_notification_config')
+        .select('store_id, use_global_whatsapp')
+        .in('store_id', storeIds)
+      
+      configs?.forEach(config => {
+        configsMap.set(config.store_id, config.use_global_whatsapp ?? false)
+      })
+    }
+
     if (queueError) {
       console.error('[ProcessTimeClockNotifications] Erro ao buscar fila:', queueError)
       throw queueError
@@ -127,11 +144,14 @@ Deno.serve(async (req) => {
           continue
         }
 
+        const useGlobalWhatsApp = configsMap.get(item.store_id) ?? false
+        
         const sendResult = await sendWhatsAppMessage(
           item.phone,
           item.message,
           item.store_id,
-          netlifyUrl
+          netlifyUrl,
+          useGlobalWhatsApp
         )
 
         if (sendResult.success) {
