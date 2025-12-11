@@ -209,16 +209,25 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
         
         try {
             // Buscar colaboradoras ativas do store_id
+            // ✅ IMPORTANTE: usar .eq('is_active', true) para garantir apenas ativas
             const { data: dataByStoreId, error: errorByStoreId } = await supabase
                 .schema('sistemaretiradas')
                 .from('profiles')
-                .select('id, name')
+                .select('id, name, is_active') // Incluir is_active para validação
                 .eq('role', 'COLABORADORA')
                 .eq('is_active', true) // ✅ FILTRO: apenas colaboradoras ATIVAS
                 .eq('store_id', storeId)
                 .order('name');
             
-            if (errorByStoreId) throw errorByStoreId;
+            if (errorByStoreId) {
+                console.error('[StoreConditionalsAdjustments] Erro ao buscar colaboradoras por store_id:', errorByStoreId);
+                throw errorByStoreId;
+            }
+            
+            // Validação extra: garantir que todas retornadas estão realmente ativas
+            const colaboradorasAtivasPorId = (dataByStoreId || []).filter(colab => 
+                colab.is_active === true || colab.is_active === 'true' || colab.is_active === 1
+            );
             
             // Buscar nome da loja para usar no store_default
             const { data: storeData } = await supabase
@@ -231,31 +240,41 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
             const storeName = storeData?.name || null;
             
             // Buscar colaboradoras por store_default (se tiver nome da loja)
-            let dataByStoreDefault: any[] = [];
+            let colaboradorasAtivasPorNome: any[] = [];
             if (storeName) {
                 const { data, error } = await supabase
                     .schema('sistemaretiradas')
                     .from('profiles')
-                    .select('id, name')
+                    .select('id, name, is_active') // Incluir is_active para validação
                     .eq('role', 'COLABORADORA')
                     .eq('is_active', true) // ✅ FILTRO: apenas colaboradoras ATIVAS
                     .eq('store_default', storeName)
                     .order('name');
                 
-                if (!error && data) {
-                    dataByStoreDefault = data;
+                if (error) {
+                    console.error('[StoreConditionalsAdjustments] Erro ao buscar colaboradoras por store_default:', error);
+                } else if (data) {
+                    // Validação extra: garantir que todas retornadas estão realmente ativas
+                    colaboradorasAtivasPorNome = data.filter(colab => 
+                        colab.is_active === true || colab.is_active === 'true' || colab.is_active === 1
+                    );
                 }
             }
             
             // Combinar resultados e remover duplicatas
-            const allColaboradoras = [...(dataByStoreId || []), ...dataByStoreDefault];
             const uniqueColaboradoras = Array.from(
                 new Map(allColaboradoras.map(colab => [colab.id, colab])).values()
             );
             
-            // As queries já filtram por is_active = true, então podemos usar diretamente
-            console.log('[StoreConditionalsAdjustments] Colaboradoras ativas encontradas:', uniqueColaboradoras.length);
-            setColaboradoras(uniqueColaboradoras);
+            // Mapear apenas id e name para o select
+            const colaboradorasParaSelect = uniqueColaboradoras.map(colab => ({
+                id: colab.id,
+                name: colab.name
+            }));
+            
+            console.log('[StoreConditionalsAdjustments] Colaboradoras ativas encontradas:', colaboradorasParaSelect.length);
+            console.log('[StoreConditionalsAdjustments] IDs:', colaboradorasParaSelect.map(c => c.id));
+            setColaboradoras(colaboradorasParaSelect);
         } catch (error) {
             console.error('Erro ao buscar colaboradoras:', error);
             setColaboradoras([]);
