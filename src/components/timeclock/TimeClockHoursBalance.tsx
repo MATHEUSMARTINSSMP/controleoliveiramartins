@@ -30,6 +30,17 @@ interface HoursAdjustment {
 }
 
 function TimeClockHoursBalance({ storeId, colaboradoraId }: TimeClockHoursBalanceProps) {
+  // Validação inicial
+  if (!storeId || !colaboradoraId) {
+    return (
+      <Card>
+        <CardContent className="py-8 flex justify-center">
+          <p className="text-muted-foreground">Dados inválidos</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const { hoursBalance, workSchedule, fetchHoursBalance, fetchWorkSchedule } = useTimeClock({
     storeId,
     colaboradoraId,
