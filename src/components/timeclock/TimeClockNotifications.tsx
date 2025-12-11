@@ -169,12 +169,12 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
       }
 
       // Buscar WhatsApp Global (sempre verificar, mesmo sem loja)
+      // ✅ Não filtrar por status - apenas verificar is_global (mesma lógica do Super Admin)
       const { data: globalWa } = await supabase
         .schema('sistemaretiradas')
         .from('whatsapp_credentials')
         .select('id, uazapi_status, uazapi_phone_number, is_global, status')
         .eq('is_global', true)
-        .eq('status', 'active')
         .maybeSingle();
 
       if (globalWa) {
