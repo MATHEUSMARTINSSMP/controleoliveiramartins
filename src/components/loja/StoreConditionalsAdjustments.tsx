@@ -253,28 +253,9 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                 new Map(allColaboradoras.map(colab => [colab.id, colab])).values()
             );
             
-            // ✅ GARANTIR: filtrar novamente apenas colaboradoras ativas (segurança extra)
-            // Buscar dados completos para verificar is_active
-            if (uniqueColaboradoras.length > 0) {
-                const colaboradoraIds = uniqueColaboradoras.map(c => c.id);
-                const { data: colaboradorasCompletas } = await supabase
-                    .schema('sistemaretiradas')
-                    .from('profiles')
-                    .select('id, name, is_active')
-                    .in('id', colaboradoraIds)
-                    .eq('role', 'COLABORADORA')
-                    .eq('is_active', true); // ✅ FILTRO ADICIONAL: garantir apenas ativas
-                
-                // Filtrar apenas as que estão realmente ativas (validação extra)
-                const colaboradorasAtivas = (colaboradorasCompletas || [])
-                    .filter(colab => colab.is_active === true || colab.is_active === 'true' || colab.is_active === 1)
-                    .map(colab => ({ id: colab.id, name: colab.name }));
-                
-                console.log('[StoreConditionalsAdjustments] Colaboradoras ativas encontradas:', colaboradorasAtivas.length);
-                setColaboradoras(colaboradorasAtivas);
-            } else {
-                setColaboradoras([]);
-            }
+            // As queries já filtram por is_active = true, então podemos usar diretamente
+            console.log('[StoreConditionalsAdjustments] Colaboradoras ativas encontradas:', uniqueColaboradoras.length);
+            setColaboradoras(uniqueColaboradoras);
         } catch (error) {
             console.error('Erro ao buscar colaboradoras:', error);
             setColaboradoras([]);
