@@ -49,6 +49,7 @@ import { sendWhatsAppMessage } from "@/lib/whatsapp";
 interface Conditional {
     id: string;
     store_id: string;
+    colaboradora_id: string | null;
     customer_name: string;
     customer_contact: string;
     customer_address: string;
@@ -161,8 +162,12 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
     const [editingItem, setEditingItem] = useState<Conditional | Adjustment | null>(null);
     const [isConditional, setIsConditional] = useState(true);
     
+    // Estados para colaboradoras
+    const [colaboradoras, setColaboradoras] = useState<{ id: string; name: string }[]>([]);
+    
     // Estados para formulário de condicional
     const [conditionalForm, setConditionalForm] = useState({
+        colaboradora_id: '',
         customer_name: '',
         customer_contact: '',
         customer_address: '',
@@ -195,8 +200,29 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
     useEffect(() => {
         if (storeId) {
             fetchData();
+            fetchColaboradoras();
         }
     }, [storeId, activeTab]);
+
+    const fetchColaboradoras = async () => {
+        if (!storeId) return;
+        
+        try {
+            const { data, error } = await supabase
+                .schema('sistemaretiradas')
+                .from('profiles')
+                .select('id, name')
+                .eq('role', 'COLABORADORA')
+                .eq('is_active', true)
+                .eq('store_id', storeId)
+                .order('name');
+            
+            if (error) throw error;
+            setColaboradoras(data || []);
+        } catch (error) {
+            console.error('Erro ao buscar colaboradoras:', error);
+        }
+    };
 
     const fetchData = async () => {
         setLoading(true);
@@ -260,6 +286,7 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
         
         if (type === 'conditional') {
             setConditionalForm({
+                colaboradora_id: '',
                 customer_name: '',
                 customer_contact: '',
                 customer_address: '',
@@ -299,6 +326,7 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
         if (type === 'conditional') {
             const conditional = item as Conditional;
             setConditionalForm({
+                colaboradora_id: conditional.colaboradora_id || '',
                 customer_name: conditional.customer_name,
                 customer_contact: conditional.customer_contact,
                 customer_address: conditional.customer_address || '',
@@ -347,6 +375,7 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
         try {
             const dataToSave = {
                 store_id: storeId,
+                colaboradora_id: conditionalForm.colaboradora_id || null,
                 customer_name: conditionalForm.customer_name,
                 customer_contact: conditionalForm.customer_contact,
                 customer_address: conditionalForm.customer_address || null,
@@ -1242,6 +1271,24 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="colaboradora_id">Colaboradora Responsável *</Label>
+                            <Select
+                                value={conditionalForm.colaboradora_id}
+                                onValueChange={(value) => setConditionalForm({ ...conditionalForm, colaboradora_id: value })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecione a colaboradora" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {colaboradoras.map((colab) => (
+                                        <SelectItem key={colab.id} value={colab.id}>
+                                            {colab.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="customer_name">Nome do Cliente *</Label>
