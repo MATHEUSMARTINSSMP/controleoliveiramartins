@@ -119,32 +119,62 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
 
   const fetchWhatsAppCredentials = async () => {
     try {
+      // Buscar loja para obter nome e admin
       const { data: storeData } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('site_slug')
+        .select('id, name, site_slug')
         .eq('id', storeId)
         .single();
 
-      if (storeData?.site_slug) {
-        const { data: storeWa } = await supabase
+      if (storeData) {
+        // Buscar admin da loja
+        const { data: adminProfile } = await supabase
           .schema('sistemaretiradas')
-          .from('whatsapp_credentials')
-          .select('id, uazapi_status, uazapi_phone_number, is_global')
-          .eq('site_slug', storeData.site_slug)
-          .eq('is_global', false)
+          .from('profiles')
+          .select('email')
+          .eq('store_id', storeId)
+          .eq('role', 'ADMIN')
           .maybeSingle();
 
-        if (storeWa) {
-          setStoreWhatsApp(storeWa);
+        if (adminProfile?.email && storeData.site_slug) {
+          // Gerar slug da loja (mesma lógica da função send-whatsapp-message)
+          const generateSlug = (name: string) => {
+            return name
+              .toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .replace(/[^a-z0-9]+/g, '_')
+              .replace(/(^_|_$)/g, '')
+              .replace(/_+/g, '_');
+          };
+
+          const storeSlug = generateSlug(storeData.name);
+
+          // Buscar WhatsApp da loja (não global)
+          const { data: storeWa } = await supabase
+            .schema('sistemaretiradas')
+            .from('whatsapp_credentials')
+            .select('id, uazapi_status, uazapi_phone_number, is_global, status')
+            .eq('customer_id', adminProfile.email)
+            .eq('site_slug', storeSlug)
+            .eq('status', 'active')
+            .eq('is_global', false)
+            .maybeSingle();
+
+          if (storeWa) {
+            setStoreWhatsApp(storeWa);
+          }
         }
       }
 
+      // Buscar WhatsApp Global (sempre verificar, mesmo sem loja)
       const { data: globalWa } = await supabase
         .schema('sistemaretiradas')
         .from('whatsapp_credentials')
-        .select('id, uazapi_status, uazapi_phone_number, is_global')
+        .select('id, uazapi_status, uazapi_phone_number, is_global, status')
         .eq('is_global', true)
+        .eq('status', 'active')
         .maybeSingle();
 
       if (globalWa) {
