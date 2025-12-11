@@ -64,18 +64,19 @@ BEGIN
     -- Formatar horário (Brasília) - formato simples como nova venda
     v_horario_formatado := TO_CHAR(NEW.horario AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY às HH24:MI');
     
-    -- Montar mensagem seguindo o padrão de nova venda (simples e limpo)
-    v_message := '🕐 *Registro de Ponto*\n\n';
-    v_message := v_message || '*Colaboradora:* ' || TRIM(v_colaboradora.name) || '\n';
-    v_message := v_message || '*Loja:* ' || v_store.name || '\n';
-    v_message := v_message || '*Tipo:* ' || v_tipo_label || '\n';
-    v_message := v_message || '*Horário:* ' || v_horario_formatado || '\n';
+    -- Montar mensagem seguindo o padrão EXATO de nova venda (usando CHR(10) para quebras de linha)
+    -- Padrão: título + linha em branco + campos em sequência + linha em branco + rodapé
+    v_message := '🕐 *Registro de Ponto*' || CHR(10) || CHR(10);
+    v_message := v_message || '*Colaboradora:* ' || TRIM(v_colaboradora.name) || CHR(10);
+    v_message := v_message || '*Loja:* ' || v_store.name || CHR(10);
+    v_message := v_message || '*Tipo:* ' || v_tipo_label || CHR(10);
+    v_message := v_message || '*Horário:* ' || v_horario_formatado || CHR(10);
     
     IF NEW.observacao IS NOT NULL AND NEW.observacao != '' THEN
-        v_message := v_message || '*Observação:* ' || NEW.observacao || '\n';
+        v_message := v_message || '*Observação:* ' || NEW.observacao || CHR(10);
     END IF;
     
-    v_message := v_message || '\nSistema EleveaOne 📊';
+    v_message := v_message || CHR(10) || 'Sistema EleveaOne 📊';
     
     -- Contar configurações de notificação disponíveis
     SELECT COUNT(*) INTO v_config_count
