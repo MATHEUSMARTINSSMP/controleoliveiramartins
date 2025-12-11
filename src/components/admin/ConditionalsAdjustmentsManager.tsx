@@ -269,13 +269,15 @@ export const ConditionalsAdjustmentsManager = () => {
                     .from('profiles')
                     .select('id, name, is_active')
                     .in('id', colaboradoraIds)
-                    .eq('role', 'COLABORADORA');
+                    .eq('role', 'COLABORADORA')
+                    .eq('is_active', true); // ✅ FILTRO ADICIONAL: garantir apenas ativas
                 
-                // Filtrar apenas as que estão realmente ativas
+                // Filtrar apenas as que estão realmente ativas (validação extra)
                 const colaboradorasAtivas = (colaboradorasCompletas || [])
                     .filter(colab => colab.is_active === true || colab.is_active === 'true' || colab.is_active === 1)
                     .map(colab => ({ id: colab.id, name: colab.name }));
                 
+                console.log('[ConditionalsAdjustmentsManager] Colaboradoras ativas encontradas:', colaboradorasAtivas.length);
                 setColaboradoras(colaboradorasAtivas);
             } else {
                 setColaboradoras([]);
