@@ -119,6 +119,29 @@ function TimeClockHoursBalance({ storeId, colaboradoraId }: TimeClockHoursBalanc
   };
 
   const calculateExpectedHours = (schedule: WorkSchedule, start: Date, end: Date): number => {
+    // Se tem carga horária diária configurada, usar ela
+    if (schedule.carga_horaria_diaria) {
+      const minutosPorDia = Math.round(schedule.carga_horaria_diaria * 60);
+      const diasSemanaConfigurados = schedule.dias_semana || [1, 2, 3, 4, 5];
+      
+      let diasTrabalhados = 0;
+      const current = new Date(start);
+      while (current <= end) {
+        const dayOfWeek = current.getDay();
+        if (diasSemanaConfigurados.includes(dayOfWeek)) {
+          diasTrabalhados++;
+        }
+        current.setDate(current.getDate() + 1);
+      }
+
+      return minutosPorDia * diasTrabalhados;
+    }
+
+    // Se não tem horários específicos, retornar 0
+    if (!schedule.hora_entrada || !schedule.hora_saida) {
+      return 0;
+    }
+
     const entrada = parseTimeToMinutes(schedule.hora_entrada);
     const saida = parseTimeToMinutes(schedule.hora_saida);
     let minutosPorDia = saida - entrada;
@@ -198,8 +221,10 @@ function TimeClockHoursBalance({ storeId, colaboradoraId }: TimeClockHoursBalanc
     return Math.round(totalMinutos);
   };
 
-  const parseTimeToMinutes = (timeStr: string): number => {
+  const parseTimeToMinutes = (timeStr: string | null | undefined): number => {
+    if (!timeStr) return 0;
     const [hours, minutes] = timeStr.split(':').map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return 0;
     return hours * 60 + minutes;
   };
 
