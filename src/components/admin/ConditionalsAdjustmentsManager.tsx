@@ -466,7 +466,7 @@ export const ConditionalsAdjustmentsManager = () => {
                                 }
                                 customerMessage += `\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne 📦`;
                             } else {
-                                customerMessage = `Olá ${conditionalForm.customer_name}! 👋\n\nSua condicional foi atualizada para: *${statusLabel}*\n\nProdutos: ${productInfo}\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne 📦`;
+                                customerMessage = `Olá ${conditionalForm.customer_name}! 👋\n\nSua condicional foi atualizada para: *${statusLabel}*\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne 📦`;
                             }
 
                             const phone = conditionalForm.customer_contact.replace(/\D/g, '');
@@ -518,7 +518,6 @@ export const ConditionalsAdjustmentsManager = () => {
                             } else {
                                 adminMessage = `🔔 *Notificação de Condicional*\n\n` +
                                     `*Cliente:* ${conditionalForm.customer_name}\n` +
-                                    `*Produtos:* ${productInfo}\n` +
                                     `*Status atualizado para:* ${statusLabel}\n` +
                                     `*Data:* ${format(new Date(), 'dd/MM/yyyy HH:mm')}\n\n` +
                                     `EleveaOne 📦`;

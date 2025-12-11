@@ -828,7 +828,7 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                             }
                             customerMessage += `\n\nQualquer dúvida, estamos à disposição!\n\nEquipe EleveaOne 📦`;
                         } else if (type === 'conditional') {
-                            customerMessage = `Olá ${item.customer_name}! 👋\n\nSua condicional foi atualizada para: *${statusLabel}*\n\nProdutos: ${productInfo}\n\nQualquer dúvida, estamos à disposição!\n\n${item.store_id ? 'Loja' : 'Equipe'} EleveaOne 📦`;
+                            customerMessage = `Olá ${item.customer_name}! 👋\n\nSua condicional foi atualizada para: *${statusLabel}*\n\nQualquer dúvida, estamos à disposição!\n\n${item.store_id ? 'Loja' : 'Equipe'} EleveaOne 📦`;
                         } else if (type === 'adjustment' && newStatus === 'AJUSTE_GERADO') {
                             const adjustment = item as Adjustment;
                             const paymentStatusLabel = adjustment.payment_status === 'PAGO' ? 'Pago' : 
@@ -950,10 +950,9 @@ export const StoreConditionalsAdjustments = ({ storeId }: StoreConditionalsAdjus
                             }
                             adminMessage += `\n\n*Status:* ${statusLabel}\n*Data/Hora:* ${format(new Date(), 'dd/MM/yyyy HH:mm')}\n\nEleveaOne 📦`;
                         } else {
-                            // Mensagem padrão para outros status
+                            // Mensagem padrão para outros status (sem produtos para não poluir)
                             adminMessage = `🔔 *Notificação de ${tipoItem}*\n\n` +
                                 `*Cliente:* ${item.customer_name}\n` +
-                                `*${type === 'conditional' ? 'Produtos' : 'Produto'}:* ${productInfo}\n` +
                                 `*Status atualizado para:* ${statusLabel}\n` +
                                 `*Data:* ${format(new Date(), 'dd/MM/yyyy HH:mm')}\n\n` +
                                 `EleveaOne 📦`;
