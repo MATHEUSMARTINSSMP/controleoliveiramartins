@@ -213,36 +213,8 @@ export default function PostSaleSchedulerDialog({
         postSaleId = newPostSale.id;
       }
 
-      // Verificar se já existe tarefa para esta venda
-      const { data: existingTask } = await supabase
-        .schema("sistemaretiradas")
-        .from("crm_tasks")
-        .select("id")
-        .eq("sale_id", saleId)
-        .maybeSingle();
-
-      if (!existingTask) {
-        // Criar tarefa na tabela crm_tasks apenas se não existir
-        const { error: taskError } = await supabase
-          .schema("sistemaretiradas")
-          .from("crm_tasks")
-          .insert({
-            store_id: storeId,
-            sale_id: saleId, // ✅ ID da venda capturado automaticamente
-            colaboradora_id: colaboradoraId, // Colaboradora que fez a venda
-            cliente_nome: clienteNome.trim(),
-            cliente_whatsapp: clienteWhatsapp.trim() || null,
-            informacoes_cliente: informacoesClienteStr, // ✅ Incluir informações adicionais
-            title: `Pós-venda: ${clienteNome.trim()}`,
-            description: `Categoria: Pós-Venda - Agendada para venda realizada em ${format(new Date(saleDate), "dd/MM/yyyy")}`,
-            due_date: format(followUpDate, "yyyy-MM-dd") + "T09:00:00", // 9h da manhã
-            priority: "MÉDIA",
-            status: "PENDENTE",
-            atribuido_para: colaboradoraId // Atribuído para a colaboradora que fez a venda
-          });
-
-        if (taskError) throw taskError;
-      }
+      // ✅ Removido: Não criar mais tarefas duplicadas em crm_tasks
+      // As pós-vendas agora são exibidas apenas via crm_post_sales
 
       toast.success(existingPostSale ? "Pós-venda atualizado com sucesso!" : "Pós-venda agendado com sucesso!");
       onSuccess?.();

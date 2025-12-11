@@ -240,6 +240,7 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
       const unified: UnifiedTask[] = [];
 
       // 1. Tarefas (crm_tasks) - próximos 30 dias
+      // ✅ Filtrar tarefas de pós-venda (elas vêm de crm_post_sales, não de crm_tasks)
       const { data: tasksData } = await supabase
         .schema('sistemaretiradas')
         .from('crm_tasks')
@@ -248,6 +249,7 @@ export default function CRMLojaView({ storeId }: CRMLojaViewProps) {
         .eq('status', 'PENDENTE')
         .gt('due_date', todayEnd)
         .lte('due_date', thirtyDaysLaterEnd)
+        .not('title', 'ilike', 'Pós-venda:%') // Excluir tarefas de pós-venda
         .order('due_date', { ascending: true });
 
       if (tasksData) {
