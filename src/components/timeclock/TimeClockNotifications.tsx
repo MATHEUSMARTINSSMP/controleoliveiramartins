@@ -51,10 +51,13 @@ interface NotificationConfig {
 }
 
 interface WhatsAppCredential {
-  id: string;
+  customer_id: string;
+  site_slug: string;
   uazapi_status: string | null;
   uazapi_phone_number: string | null;
   is_global: boolean;
+  status?: string | null;
+  display_name?: string | null;
 }
 
 export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps) {
@@ -152,10 +155,11 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
           const storeSlug = generateSlug(storeData.name);
 
           // Buscar WhatsApp da loja (não global)
+          // ✅ Tabela não tem coluna 'id', usa chave primária composta (customer_id, site_slug)
           const { data: storeWa, error: storeWaError } = await supabase
             .schema('sistemaretiradas')
             .from('whatsapp_credentials')
-            .select('id, uazapi_status, uazapi_phone_number, is_global, status')
+            .select('customer_id, site_slug, uazapi_status, uazapi_phone_number, is_global, status, display_name')
             .eq('customer_id', adminProfile.email)
             .eq('site_slug', storeSlug)
             .eq('is_global', false)
@@ -187,10 +191,11 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
 
       // Buscar WhatsApp Global (sempre verificar, mesmo sem loja)
       // ✅ Não filtrar por status - apenas verificar is_global (mesma lógica do Super Admin)
+      // ✅ Tabela não tem coluna 'id', usa chave primária composta (customer_id, site_slug)
       const { data: globalWa, error: globalError } = await supabase
         .schema('sistemaretiradas')
         .from('whatsapp_credentials')
-        .select('id, uazapi_status, uazapi_phone_number, is_global, status')
+        .select('customer_id, site_slug, uazapi_status, uazapi_phone_number, is_global, status, display_name')
         .eq('is_global', true)
         .maybeSingle();
 
