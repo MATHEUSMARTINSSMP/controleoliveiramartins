@@ -40,7 +40,7 @@ interface Colaboradora {
   cpf: string;
   limite_total: number;
   limite_mensal: number;
-  active: boolean;
+  is_active: boolean;
   store_default: string | null;
   whatsapp?: string | null;
   role?: string;
@@ -102,8 +102,8 @@ const Colaboradores = () => {
       console.log("[fetchColaboradoras] Auth User ID:", authUser?.id);
       console.log("[fetchColaboradoras] Profile atual:", profile);
       console.log("[fetchColaboradoras] Profile role:", profile?.role);
-      console.log("[fetchColaboradoras] Profile active:", profile?.active);
-      console.log("[fetchColaboradoras] É ADMIN?", profile?.role === 'ADMIN' && profile?.active === true);
+      console.log("[fetchColaboradoras] Profile is_active:", profile?.is_active);
+      console.log("[fetchColaboradoras] É ADMIN?", profile?.role === 'ADMIN' && profile?.is_active === true);
 
       // Testar a função is_user_admin() via RPC se possível
       try {
@@ -144,7 +144,7 @@ const Colaboradores = () => {
           console.error("[fetchColaboradoras] Isso indica que is_user_admin() está retornando false.");
           console.error("[fetchColaboradoras] Verifique:");
           console.error("[fetchColaboradoras] 1. Se o usuário está logado como ADMIN");
-          console.error("[fetchColaboradoras] 2. Se o profile do usuário tem active = true");
+          console.error("[fetchColaboradoras] 2. Se o profile do usuário tem is_active = true");
           console.error("[fetchColaboradoras] 3. Se a função is_user_admin() está funcionando corretamente");
           toast.error("Erro de permissão RLS. Verifique o console para detalhes.");
         }
@@ -156,10 +156,10 @@ const Colaboradores = () => {
       console.log("[fetchColaboradoras] Colaboradoras encontradas:", data?.length || 0);
       console.log("[fetchColaboradoras] Dados completos:", data);
 
-      // Garantir que active seja sempre boolean
+      // Garantir que is_active seja sempre boolean
       const colaboradorasNormalizadas = (data || []).map(colab => ({
         ...colab,
-        active: colab.active === true || colab.active === 'true' || colab.active === 1
+        is_active: colab.is_active === true || colab.is_active === 'true' || colab.is_active === 1
       }));
 
       setColaboradoras(colaboradorasNormalizadas);
@@ -593,15 +593,15 @@ const Colaboradores = () => {
       } else {
         console.log("[handleDelete] Profile do usuário encontrado:", currentUserProfile);
         console.log("[handleDelete] Role:", currentUserProfile?.role);
-        console.log("[handleDelete] Active:", currentUserProfile?.active);
-        console.log("[handleDelete] É ADMIN e está ativo?", currentUserProfile?.role === 'ADMIN' && currentUserProfile?.active === true);
+        console.log("[handleDelete] is_active:", currentUserProfile?.is_active);
+        console.log("[handleDelete] É ADMIN e está ativo?", currentUserProfile?.role === 'ADMIN' && currentUserProfile?.is_active === true);
       }
 
       // Primeiro, verificar o estado atual da colaboradora a ser desativada
       const { data: currentData, error: checkError } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
-        .select("id, name, active")
+        .select("id, name, is_active")
         .eq("id", id)
         .single();
 
@@ -611,15 +611,15 @@ const Colaboradores = () => {
       }
 
       console.log("[handleDelete] Estado atual da colaboradora:", currentData);
-      console.log("[handleDelete] Estado atual - active:", currentData?.active);
-      console.log("[handleDelete] Estado atual - active (tipo):", typeof currentData?.active);
+      console.log("[handleDelete] Estado atual - is_active:", currentData?.is_active);
+      console.log("[handleDelete] Estado atual - is_active (tipo):", typeof currentData?.is_active);
 
       // TESTE 4: Verificar se podemos fazer SELECT na colaboradora antes do UPDATE
       console.log("[handleDelete] --- TESTE 4: Verificando permissões RLS de SELECT ---");
       const { data: selectTest, error: selectError } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
-        .select("id, name, active, role")
+        .select("id, name, is_active, role")
         .eq("id", id)
         .single();
 
@@ -631,15 +631,15 @@ const Colaboradores = () => {
 
       // TESTE 5: Tentar UPDATE
       console.log("[handleDelete] --- TESTE 5: Executando UPDATE ---");
-      console.log("[handleDelete] Tentando atualizar active = false para colaboradora ID:", id);
+      console.log("[handleDelete] Tentando atualizar is_active = false para colaboradora ID:", id);
 
       // Tentar update com .select() para verificar quantas linhas foram afetadas
       const { data: updateData, error: updateError, count } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
-        .update({ active: false })
+        .update({ is_active: false })
         .eq("id", id)
-        .select("id, active", { count: 'exact' });
+        .select("id, is_active", { count: 'exact' });
 
       console.log("[handleDelete] Dados retornados pelo UPDATE:", updateData);
       console.log("[handleDelete] Count de linhas afetadas:", count);
@@ -679,15 +679,15 @@ const Colaboradores = () => {
         console.log("[handleDelete] ✅ UPDATE executado com sucesso!");
         console.log("[handleDelete] Dados atualizados:", updateData);
 
-        // Verificar se active foi realmente alterado nos dados retornados
+        // Verificar se is_active foi realmente alterado nos dados retornados
         const updatedProfile = updateData[0];
-        const isStillActive = updatedProfile?.active === true || updatedProfile?.active === 'true' || updatedProfile?.active === 1;
+        const isStillActive = updatedProfile?.is_active === true || updatedProfile?.is_active === 'true' || updatedProfile?.is_active === 1;
 
         if (isStillActive) {
-          console.error("[handleDelete] ❌ ATENÇÃO: O UPDATE retornou active = true!");
-          console.error("[handleDelete] Isso pode indicar um problema com o tipo de dados do campo active");
+          console.error("[handleDelete] ❌ ATENÇÃO: O UPDATE retornou is_active = true!");
+          console.error("[handleDelete] Isso pode indicar um problema com o tipo de dados do campo is_active");
         } else {
-          console.log("[handleDelete] ✅ Campo active foi atualizado para false");
+          console.log("[handleDelete] ✅ Campo is_active foi atualizado para false");
         }
       }
 
@@ -700,7 +700,7 @@ const Colaboradores = () => {
       const { data: verifyData, error: verifyError } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
-        .select("id, name, active")
+        .select("id, name, is_active")
         .eq("id", id)
         .single();
 
@@ -710,8 +710,8 @@ const Colaboradores = () => {
       } else {
         console.log("[handleDelete] Estado após update:", verifyData);
 
-        // Verificar se active foi realmente alterado
-        const isStillActive = verifyData?.active === true || verifyData?.active === 'true' || verifyData?.active === 1;
+        // Verificar se is_active foi realmente alterado
+        const isStillActive = verifyData?.is_active === true || verifyData?.is_active === 'true' || verifyData?.is_active === 1;
         if (isStillActive) {
           console.error("[handleDelete] ❌ ATENÇÃO: A colaboradora AINDA está ativa após o update!");
           console.error("[handleDelete] Isso pode indicar:");
@@ -745,7 +745,7 @@ const Colaboradores = () => {
       const { data, error } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
-        .update({ active: true })
+        .update({ is_active: true })
         .eq("id", id)
         .select();
 
@@ -777,7 +777,7 @@ const Colaboradores = () => {
       const { error } = await supabase
         .schema("sistemaretiradas")
         .from("profiles")
-        .update({ active: false })
+        .update({ is_active: false })
         .eq("id", id);
 
       if (error) throw error;
@@ -871,11 +871,11 @@ const Colaboradores = () => {
                             <TableCell className="text-xs sm:text-sm hidden lg:table-cell">{formatCurrency(colab.limite_total)}</TableCell>
                             <TableCell className="text-xs sm:text-sm hidden lg:table-cell">{formatCurrency(colab.limite_mensal)}</TableCell>
                             <TableCell className="text-xs sm:text-sm">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${(colab.active === true || colab.active === 'true' || colab.active === 1)
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${(colab.is_active === true || colab.is_active === 'true' || colab.is_active === 1)
                                 ? "bg-success/10 text-success"
                                 : "bg-muted text-muted-foreground"
                                 }`}>
-                                {(colab.active === true || colab.active === 'true' || colab.active === 1) ? "Ativa" : "Inativa"}
+                                {(colab.is_active === true || colab.is_active === 'true' || colab.is_active === 1) ? "Ativa" : "Inativa"}
                               </span>
                             </TableCell>
                             <TableCell className="sticky right-0 bg-background z-10">
@@ -898,7 +898,7 @@ const Colaboradores = () => {
                                 >
                                   <Mail className="h-4 w-4" />
                                 </Button>
-                                {(colab.active === true || colab.active === 'true' || colab.active === 1) ? (
+                                {(colab.is_active === true || colab.is_active === 'true' || colab.is_active === 1) ? (
                                   <Button
                                     variant="ghost"
                                     size="sm"

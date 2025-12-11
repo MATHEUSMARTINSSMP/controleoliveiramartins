@@ -1918,7 +1918,7 @@ async function findCollaboratorByVendedor(supabase, storeId, vendedor) {
       .from('profiles')
       .select('id, name, email, cpf, tiny_vendedor_id')
       .eq('role', 'COLABORADORA')
-      .eq('active', true)
+      .eq('is_active', true)
       .eq('store_id', storeId);
 
     if (!colaboradoras || colaboradoras.length === 0) {
@@ -2496,7 +2496,7 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
         .from('profiles')
         .select('id, name, email, cpf')
         .eq('role', 'COLABORADORA')
-        .eq('active', true)
+        .eq('is_active', true)
         .eq('store_id', storeId);
 
       if (todasColaboradoras && todasColaboradoras.length > 0) {

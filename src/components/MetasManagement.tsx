@@ -129,7 +129,7 @@ const MetasManagementContent = () => {
     const [monthlyGoal, setMonthlyGoal] = useState<{ meta_valor: number; super_meta_valor: number; daily_weights?: Record<string, number> } | null>(null);
     const [suggestedWeeklyMeta, setSuggestedWeeklyMeta] = useState<number>(0);
     const [suggestedWeeklySuperMeta, setSuggestedWeeklySuperMeta] = useState<number>(0);
-    const [colaboradorasAtivas, setColaboradorasAtivas] = useState<{ id: string; name: string; active: boolean }[]>([]);
+    const [colaboradorasAtivas, setColaboradorasAtivas] = useState<{ id: string; name: string; is_active: boolean }[]>([]);
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
     const [customizingGoals, setCustomizingGoals] = useState(false);
     const [customMetaEqual, setCustomMetaEqual] = useState<string>("");
@@ -363,12 +363,12 @@ const MetasManagementContent = () => {
             }
 
             const newColabs = storeColabs.map(c => {
-                const wasActive = colaboradorasAtivas.find(ca => ca.id === c.id)?.active;
+                const wasActive = colaboradorasAtivas.find(ca => ca.id === c.id)?.is_active;
                 const shouldBeActive = wasActive !== undefined ? wasActive : (existingColabIds.has(c.id) || true);
                 return {
                     id: c.id,
                     name: c.name || "Sem nome",
-                    active: shouldBeActive
+                    is_active: shouldBeActive
                 };
             });
             
@@ -383,7 +383,7 @@ const MetasManagementContent = () => {
 
     const toggleColaboradoraActive = (colabId: string) => {
         setColaboradorasAtivas(prev => prev.map(c => 
-            c.id === colabId ? { ...c, active: !c.active } : c
+            c.id === colabId ? { ...c, is_active: !c.is_active } : c
         ));
     };
 
@@ -393,7 +393,7 @@ const MetasManagementContent = () => {
             return;
         }
 
-        const activeColabs = colaboradorasAtivas.filter(c => c.active);
+        const activeColabs = colaboradorasAtivas.filter(c => c.is_active);
         if (activeColabs.length === 0) {
             toast.error("Selecione pelo menos uma colaboradora para receber a gincana semanal");
             return;
@@ -412,7 +412,7 @@ const MetasManagementContent = () => {
     };
 
     const handleStartCustomizing = () => {
-        const activeColabs = colaboradorasAtivas.filter(c => c.active);
+        const activeColabs = colaboradorasAtivas.filter(c => c.is_active);
         if (activeColabs.length === 0) {
             toast.error("Selecione pelo menos uma colaboradora para receber a gincana semanal");
             return;
@@ -436,7 +436,7 @@ const MetasManagementContent = () => {
             return;
         }
 
-        const activeColabs = colaboradorasAtivas.filter(c => c.active);
+        const activeColabs = colaboradorasAtivas.filter(c => c.is_active);
         if (activeColabs.length === 0) {
             toast.error("Selecione pelo menos uma colaboradora para receber a gincana semanal");
             return;
@@ -486,7 +486,7 @@ const MetasManagementContent = () => {
             return;
         }
 
-        const activeColabs = colaboradorasAtivas.filter(c => c.active);
+        const activeColabs = colaboradorasAtivas.filter(c => c.is_active);
         setCustomMetasIndividuais(activeColabs.map(c => ({
             id: c.id,
             meta: metaValue,
@@ -495,7 +495,7 @@ const MetasManagementContent = () => {
     };
 
     const handleApplyIndividualMetas = () => {
-        const activeColabs = colaboradorasAtivas.filter(c => c.active);
+        const activeColabs = colaboradorasAtivas.filter(c => c.is_active);
         if (activeColabs.length === 0) {
             toast.error("Selecione pelo menos uma colaboradora para receber a gincana semanal");
             return;
@@ -844,7 +844,7 @@ const MetasManagementContent = () => {
     };
 
     const prepareWeeklyGoalsData = (): { id: string; meta: number; superMeta: number }[] => {
-        const activeColabs = colaboradorasAtivas.filter(c => c.active);
+        const activeColabs = colaboradorasAtivas.filter(c => c.is_active);
         
         if (activeColabs.length === 0) {
             return [];
@@ -909,7 +909,7 @@ const MetasManagementContent = () => {
             return;
         }
 
-        const activeColabs = colaboradorasAtivas.filter(c => c.active);
+        const activeColabs = colaboradorasAtivas.filter(c => c.is_active);
         if (activeColabs.length === 0) {
             toast.error("Selecione pelo menos uma colaboradora para receber a gincana semanal");
             return;
@@ -1056,7 +1056,7 @@ const MetasManagementContent = () => {
     useEffect(() => {
         const recalculate = async () => {
             if (weeklyDialogOpen && selectedStore && selectedWeek && monthlyGoal) {
-                const activeColabsCount = colaboradorasAtivas.filter(c => c.active).length;
+                const activeColabsCount = colaboradorasAtivas.filter(c => c.is_active).length;
                 
                 if (activeColabsCount === 0) {
                     setSuggestedWeeklyMeta(0);
@@ -2479,7 +2479,7 @@ const MetasManagementContent = () => {
                                     </Label>
                                     {colaboradorasAtivas.length > 0 && (
                                         <Badge variant="secondary" className="text-[10px] sm:text-xs">
-                                            {colaboradorasAtivas.filter(c => c.active).length} de {colaboradorasAtivas.length} selecionada{colaboradorasAtivas.filter(c => c.active).length !== 1 ? 's' : ''}
+                                            {colaboradorasAtivas.filter(c => c.is_active).length} de {colaboradorasAtivas.length} selecionada{colaboradorasAtivas.filter(c => c.is_active).length !== 1 ? 's' : ''}
                                         </Badge>
                                     )}
                                 </div>
@@ -2501,11 +2501,11 @@ const MetasManagementContent = () => {
                                                     {colaboradorasAtivas.map((colab) => (
                                                         <div key={colab.id} className="flex items-center justify-between p-3 sm:p-4 rounded-lg border-2 hover:border-primary/50 hover:bg-primary/5 transition-all">
                                                             <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                                <UserCheck className={`h-4 w-4 flex-shrink-0 ${colab.active ? 'text-primary' : 'text-muted-foreground'}`} />
+                                                                <UserCheck className={`h-4 w-4 flex-shrink-0 ${colab.is_active ? 'text-primary' : 'text-muted-foreground'}`} />
                                                                 <span className="text-xs sm:text-sm font-medium truncate">{colab.name}</span>
                                                             </div>
                                                             <div className="flex items-center gap-3 flex-shrink-0">
-                                                                {colab.active ? (
+                                                                {colab.is_active ? (
                                                                     <Badge variant="default" className="text-[10px] sm:text-xs bg-primary">
                                                                         Participa
                                                                     </Badge>
@@ -2515,7 +2515,7 @@ const MetasManagementContent = () => {
                                                                     </Badge>
                                                                 )}
                                                                 <Switch
-                                                                    checked={colab.active}
+                                                                    checked={colab.is_active}
                                                                     onCheckedChange={() => toggleColaboradoraActive(colab.id)}
                                                                     className="scale-90 sm:scale-100"
                                                                 />
@@ -2594,7 +2594,7 @@ const MetasManagementContent = () => {
                                                         R$ {suggestedWeeklyMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                     </p>
                                                     <p className="text-[10px] sm:text-xs text-status-ahead mt-1">
-                                                        ({colaboradorasAtivas.filter(c => c.active).length} colaboradora{colaboradorasAtivas.filter(c => c.active).length !== 1 ? 's' : ''} ativa{colaboradorasAtivas.filter(c => c.active).length !== 1 ? 's' : ''})
+                                                        ({colaboradorasAtivas.filter(c => c.is_active).length} colaboradora{colaboradorasAtivas.filter(c => c.is_active).length !== 1 ? 's' : ''} ativa{colaboradorasAtivas.filter(c => c.is_active).length !== 1 ? 's' : ''})
                                                     </p>
                                                 </div>
                                                 <div className="text-right">
@@ -2614,7 +2614,7 @@ const MetasManagementContent = () => {
                                 variant="outline"
                                         className="w-full text-xs sm:text-sm border-2"
                                 size="sm"
-                                        disabled={colaboradorasAtivas.filter(c => c.active).length === 0 || loadingSuggestions}
+                                        disabled={colaboradorasAtivas.filter(c => c.is_active).length === 0 || loadingSuggestions}
                             >
                                         <Calculator className="mr-2 h-4 w-4" />
                                         Personalizar Metas
@@ -2627,7 +2627,7 @@ const MetasManagementContent = () => {
                         )}
 
                         {/* Seção de Personalização */}
-                        {customizingGoals && colaboradorasAtivas.filter(c => c.active).length > 0 && (
+                        {customizingGoals && colaboradorasAtivas.filter(c => c.is_active).length > 0 && (
                             <div className="space-y-4 border-t pt-4">
                                 <div className="flex items-center justify-between">
                                     <Label className="text-xs sm:text-sm font-semibold">Personalizar Metas</Label>
@@ -2698,7 +2698,7 @@ const MetasManagementContent = () => {
                                         <ScrollArea className="h-[250px] sm:h-[300px]">
                                             <div className="space-y-2">
                                                 {colaboradorasAtivas
-                                                    .filter(c => c.active)
+                                                    .filter(c => c.is_active)
                                                     .map((colab) => {
                                                         const customMeta = customMetasIndividuais.find(cm => cm.id === colab.id);
                                                         return (
@@ -2866,7 +2866,7 @@ const MetasManagementContent = () => {
                                     onClick={handleSaveWeeklyGoal}
                                     className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-xs sm:text-sm"
                                     size="sm"
-                                    disabled={savingWeeklyGoal || colaboradorasAtivas.filter(c => c.active).length === 0}
+                                    disabled={savingWeeklyGoal || colaboradorasAtivas.filter(c => c.is_active).length === 0}
                                 >
                                     {savingWeeklyGoal ? (
                                         <>

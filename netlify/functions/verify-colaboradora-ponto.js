@@ -67,11 +67,13 @@ exports.handler = async (event, context) => {
     const { data: profile, error: profileError } = await supabaseAdmin
       .schema('sistemaretiradas')
       .from('profiles')
-      .select('id, name, email, role, store_id, store_default, active')
+      .select('id, name, email, role, store_id, store_default, is_active')
       .eq('id', authData.user.id)
       .single();
 
     if (profileError || !profile) {
+      console.error('[verify-colaboradora-ponto] ❌ Erro ao buscar perfil:', profileError);
+      console.error('[verify-colaboradora-ponto] ❌ User ID:', authData.user.id);
       return {
         statusCode: 404,
         headers: corsHeaders,
@@ -80,6 +82,16 @@ exports.handler = async (event, context) => {
         }),
       };
     }
+
+    console.log('[verify-colaboradora-ponto] ✅ Perfil encontrado:', {
+      id: profile.id,
+      name: profile.name,
+      email: profile.email,
+      role: profile.role,
+      store_id: profile.store_id,
+      store_default: profile.store_default,
+      is_active: profile.is_active
+    });
 
     // Verificar se é colaboradora
     if (profile.role !== 'COLABORADORA') {
@@ -93,7 +105,7 @@ exports.handler = async (event, context) => {
     }
 
     // Verificar se está ativa
-    if (!profile.active) {
+    if (!profile.is_active) {
       return {
         statusCode: 403,
         headers: corsHeaders,
@@ -135,7 +147,7 @@ exports.handler = async (event, context) => {
         .select('id, name, store_default, store_id')
         .eq('role', 'LOJA')
         .or(`store_default.eq.${storeId},store_id.eq.${storeId}`)
-        .eq('active', true)
+        .eq('is_active', true)
         .limit(1);
 
       console.log('[verify-colaboradora-ponto] Resultado da busca em profiles (LOJA):', {
