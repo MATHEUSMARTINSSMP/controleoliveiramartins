@@ -8,7 +8,7 @@ const corsHeaders = {
 async function sendWhatsAppMessage(
   phone: string,
   message: string,
-  storeId: string,
+  storeId: string | undefined,
   netlifyUrl: string,
   useGlobalWhatsApp?: boolean
 ): Promise<{ success: boolean; error?: string }> {
@@ -21,8 +21,8 @@ async function sendWhatsAppMessage(
       body: JSON.stringify({
         phone,
         message,
-        store_id: storeId,
-        use_global_whatsapp: useGlobalWhatsApp,
+        ...(storeId && { store_id: storeId }),
+        ...(useGlobalWhatsApp !== undefined && { use_global_whatsapp: useGlobalWhatsApp }),
       }),
     })
 
@@ -146,10 +146,13 @@ Deno.serve(async (req) => {
 
         const useGlobalWhatsApp = configsMap.get(item.store_id) ?? false
         
+        // Se escolheu usar Global, não passar store_id (mesma lógica da notificação de venda)
+        const storeIdToUse = useGlobalWhatsApp ? undefined : item.store_id
+        
         const sendResult = await sendWhatsAppMessage(
           item.phone,
           item.message,
-          item.store_id,
+          storeIdToUse,
           netlifyUrl,
           useGlobalWhatsApp
         )
