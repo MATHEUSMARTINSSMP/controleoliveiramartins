@@ -85,21 +85,23 @@ BEGIN
         ELSE NEW.tipo_registro
     END;
     
-    -- Formatar horário (Brasília)
-    v_horario_formatado := TO_CHAR(NEW.horario AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI');
+    -- Formatar horário (Brasília) - formato melhorado
+    v_horario_formatado := TO_CHAR(NEW.horario AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY às HH24:MI');
     
-    -- Montar mensagem
-    v_message := '🕐 *Registro de Ponto*\n\n';
-    v_message := v_message || '*Colaboradora:* ' || v_colaboradora.name || '\n';
-    v_message := v_message || '*Loja:* ' || v_store.name || '\n';
-    v_message := v_message || '*Tipo:* ' || v_tipo_label || '\n';
-    v_message := v_message || '*Horário:* ' || v_horario_formatado || '\n';
+    -- Montar mensagem com formatação melhorada e mais legível
+    v_message := '🕐 *REGISTRO DE PONTO*\n';
+    v_message := v_message || '━━━━━━━━━━━━━━━━\n\n';
+    v_message := v_message || '👤 *Colaboradora:*\n' || TRIM(v_colaboradora.name) || '\n\n';
+    v_message := v_message || '🏪 *Loja:*\n' || v_store.name || '\n\n';
+    v_message := v_message || '📋 *Tipo:*\n' || v_tipo_label || '\n\n';
+    v_message := v_message || '🕒 *Horário:*\n' || v_horario_formatado || '\n';
     
     IF NEW.observacao IS NOT NULL AND NEW.observacao != '' THEN
-        v_message := v_message || '*Observação:* ' || NEW.observacao || '\n';
+        v_message := v_message || '\n📝 *Observação:*\n' || NEW.observacao || '\n';
     END IF;
     
-    v_message := v_message || '\nSistema EleveaOne 📊';
+    v_message := v_message || '\n━━━━━━━━━━━━━━━━\n';
+    v_message := v_message || '📊 Sistema EleveaOne';
     
     -- Contar configurações de notificação disponíveis
     SELECT COUNT(*) INTO v_config_count

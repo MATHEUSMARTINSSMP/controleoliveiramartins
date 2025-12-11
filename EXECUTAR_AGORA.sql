@@ -33,7 +33,13 @@ BEGIN
     END IF;
 END $$;
 
--- 4. Criar novo cron job com header de autenticação
+-- 4. Configurar service role key também
+INSERT INTO sistemaretiradas.app_config (key, value)
+VALUES ('supabase_service_role_key', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrdHNibnJubG56eW9mdXBlZ2pjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDc5NTAyNiwiZXhwIjoyMDc2MzcxMDI2fQ.C4bs65teQiC4cQNgRfFjDmmT27dCkEoS_H3eQFmdl3s')
+ON CONFLICT (key) 
+DO UPDATE SET value = EXCLUDED.value;
+
+-- 5. Criar novo cron job com headers de autenticação (apikey + Authorization)
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_net') THEN
@@ -46,19 +52,20 @@ BEGIN
                     url := 'https://kktsbnrnlnzyofupegjc.supabase.co/functions/v1/process-time-clock-notifications',
                     headers := jsonb_build_object(
                         'Content-Type', 'application/json',
-                        'apikey', (SELECT value FROM sistemaretiradas.app_config WHERE key = 'supabase_anon_key' LIMIT 1)
+                        'apikey', (SELECT value FROM sistemaretiradas.app_config WHERE key = 'supabase_anon_key' LIMIT 1),
+                        'Authorization', 'Bearer ' || (SELECT value FROM sistemaretiradas.app_config WHERE key = 'supabase_service_role_key' LIMIT 1)
                     ),
                     body := '{}'::jsonb
                 ) AS request_id;
             $cron$
         );
-        RAISE NOTICE '✅ Cron job atualizado com header de autenticação';
+        RAISE NOTICE '✅ Cron job atualizado com apikey + Authorization Bearer';
     ELSE
         RAISE WARNING '⚠️ pg_net não está habilitado';
     END IF;
 END $$;
 
--- 5. Verificar se o cron job foi criado corretamente
+-- 6. Verificar se o cron job foi criado corretamente
 SELECT 
     jobid,
     jobname,
@@ -68,7 +75,7 @@ SELECT
 FROM cron.job
 WHERE jobname = 'process-time-clock-notifications';
 
--- 6. Verificar itens pendentes na fila
+-- 7. Verificar itens pendentes na fila
 SELECT 
     COUNT(*) FILTER (WHERE status = 'PENDING') as pending,
     COUNT(*) FILTER (WHERE status = 'SENT') as sent,
