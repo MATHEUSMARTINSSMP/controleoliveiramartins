@@ -390,12 +390,14 @@ export default function CashbackManagement() {
     }
   }, [authLoading, profile, selectedStoreId]);
 
+  const [hasActiveCashback, setHasActiveCashback] = useState(false);
+
   const fetchStores = async () => {
     try {
       let query = supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, name')
+        .select('id, name, cashback_ativo')
         .eq('active', true)
         .order('name');
 
@@ -409,6 +411,11 @@ export default function CashbackManagement() {
 
       if (data) {
         setStores(data);
+        
+        // Verificar se há pelo menos uma loja com cashback ativo
+        const hasActive = data.some(store => store.cashback_ativo === true);
+        setHasActiveCashback(hasActive);
+        
         // Auto-selecionar primeira loja ou loja da LOJA (ou "ALL" se for ADMIN)
         if (profile?.role === 'LOJA' && data.length > 0) {
           setSelectedStoreId(data[0].id);
@@ -2059,6 +2066,56 @@ export default function CashbackManagement() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Verificar se há lojas com cashback ativo
+  if (!hasActiveCashback && stores.length > 0) {
+    return (
+      <div className="container mx-auto px-4 py-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/admin')}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold flex items-center gap-2">
+                <Gift className="h-8 w-8 text-primary" />
+                Gestão de Cashback
+              </h1>
+              <p className="text-muted-foreground">Gerencie o programa de cashback dos seus clientes</p>
+            </div>
+          </div>
+        </div>
+
+        <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2 text-orange-700 dark:text-orange-400">
+              <AlertTriangle className="h-5 w-5" />
+              Módulo Cashback Desativado
+            </CardTitle>
+            <CardDescription className="text-orange-600 dark:text-orange-300">
+              O módulo de cashback não está ativo para nenhuma loja no momento.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Para utilizar o sistema de cashback, é necessário ativar o módulo primeiro na aba <strong>Configurações → Módulos do Sistema</strong>.
+            </p>
+            <Button
+              onClick={() => {
+                // Navegar para a aba de configurações
+                navigate('/admin', { state: { tab: 'configuracoes', scrollTo: 'modules' } });
+              }}
+              variant="default"
+              className="gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              Ir para Configurações
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
