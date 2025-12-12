@@ -39,7 +39,9 @@ export function NewClientDialog({
 
   // Resetar formulário quando o modal abrir
   useEffect(() => {
+    console.log('[NewClientDialog] 🔄 Modal open mudou:', open);
     if (open) {
+      console.log('[NewClientDialog] ✅ Modal aberto, resetando formulário');
       setIsConsumidorFinal(true);
       setFormData({
         nome: "",
@@ -51,8 +53,16 @@ export function NewClientDialog({
   }, [open]);
 
   const handleSave = async () => {
+    console.log('[NewClientDialog] 🖱️ handleSave chamado!', {
+      isConsumidorFinal,
+      formData,
+      storeId,
+      profileRole: profile?.role
+    });
+
     // Se for Consumidor Final, não salvar nada, apenas retornar
     if (isConsumidorFinal) {
+      console.log('[NewClientDialog] ✅ Consumidor Final selecionado');
       onClientCreated?.({
         id: 'CONSUMIDOR_FINAL',
         nome: 'Consumidor Final',
@@ -378,5 +388,8 @@ export function NewClientDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+
 }
 
