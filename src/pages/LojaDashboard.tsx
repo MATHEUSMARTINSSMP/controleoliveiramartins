@@ -38,6 +38,9 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { motion } from "framer-motion";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { useQueryClient } from "@tanstack/react-query";
+import { useClientSearch } from "@/hooks/use-client-search";
+import { ClientSearchInput } from "@/components/shared/ClientSearchInput";
+import { NewClientDialog } from "@/components/shared/NewClientDialog";
 import {
     useStoreSettings,
     useStoreSales,
@@ -123,6 +126,8 @@ export default function LojaDashboard() {
         qtd_pecas: "",
         data_venda: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
         observacoes: "",
+        cliente_id: "", // ID do cliente cadastrado (opcional)
+        cliente_nome: "", // Nome do cliente (opcional, pode ser texto livre ou "Consumidor Final")
     });
 
 
@@ -2161,6 +2166,8 @@ export default function LojaDashboard() {
                     lancado_por_id: profile?.id,
                     forma_pagamento: formaPrincipal,
                     formas_pagamento_json: formasPagamento,
+                    cliente_id: formData.cliente_id || null, // ID do cliente (opcional)
+                    cliente_nome: formData.cliente_nome || null, // Nome do cliente (opcional)
                 })
                 .select()
                 .single();
@@ -2438,6 +2445,15 @@ export default function LojaDashboard() {
 
                             console.log('📱 [4/4] Formatando mensagem...');
                             const { formatVendaMessage, sendWhatsAppMessage } = await import('@/lib/whatsapp');
+                            
+                            // Usar cliente_nome do insertedSale diretamente (já vem no select)
+                            let clienteNome = null;
+                            if (insertedSale?.cliente_nome && 
+                                insertedSale.cliente_nome !== 'Consumidor Final' && 
+                                insertedSale.cliente_nome !== 'CONSUMIDOR_FINAL') {
+                              clienteNome = insertedSale.cliente_nome;
+                            }
+                            
                             const message = formatVendaMessage({
                                 colaboradoraName,
                                 valor: parseFloat(vendaData.valor),
@@ -2448,6 +2464,7 @@ export default function LojaDashboard() {
                                 totalDia: totalDia,
                                 totalMes: totalMesAtualizado || undefined,
                                 formasPagamento: formasPagamentoData,
+                                clienteNome: clienteNome,
                             });
 
                             console.log('📱 [4/4] Mensagem formatada:', message);
@@ -2584,12 +2601,50 @@ export default function LojaDashboard() {
             qtd_pecas: "",
             data_venda: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
             observacoes: "",
+            cliente_id: "",
+            cliente_nome: "",
         });
+        setSearchCliente("");
+        setSelectedClienteId(null);
         setFormasPagamento([{
             tipo: 'DINHEIRO',
             valor: 0,
         }]);
         setEditingSaleId(null);
+    };
+
+    // Quando selecionar cliente
+    const handleClienteSelect = (clienteId: string) => {
+        setSelectedClienteId(clienteId);
+        setSearchCliente("");
+        const cliente = allClients.find(c => c.id === clienteId);
+        if (cliente) {
+            setFormData({ ...formData, cliente_id: clienteId, cliente_nome: cliente.nome });
+        }
+    };
+
+    // Quando limpar seleção
+    const handleClearClientSelection = () => {
+        setSelectedClienteId(null);
+        setSearchCliente("");
+        setFormData({ ...formData, cliente_id: "", cliente_nome: "" });
+    };
+
+    // Quando novo cliente for criado
+    const handleNewClientCreated = (client: { id: string; nome: string; cpf: string | null }) => {
+        if (client.id === 'CONSUMIDOR_FINAL') {
+            // Consumidor Final: limpar campos
+            setSelectedClienteId(null);
+            setSearchCliente("");
+            setFormData({ ...formData, cliente_id: "", cliente_nome: "" });
+        } else {
+            // Cliente cadastrado: selecionar
+            setSelectedClienteId(client.id);
+            setSearchCliente("");
+            setFormData({ ...formData, cliente_id: client.id, cliente_nome: client.nome });
+            // Recarregar lista de clientes para incluir o novo
+            refreshClients();
+        }
     };
 
     const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
@@ -3254,6 +3309,26 @@ export default function LojaDashboard() {
                                                     </SelectContent>
                                                 </Select>
                                             </div>
+
+                                            {/* Campo Cliente */}
+                                            <ClientSearchInput
+                                                searchTerm={searchCliente}
+                                                onSearchTermChange={(term) => {
+                                                    setSearchCliente(term);
+                                                    if (!term) {
+                                                        handleClearClientSelection();
+                                                    } else {
+                                                        setFormData(prev => ({ ...prev, cliente_nome: term, cliente_id: "" }));
+                                                    }
+                                                }}
+                                                selectedClientId={selectedClienteId}
+                                                onClientSelect={handleClienteSelect}
+                                                onClearSelection={handleClearClientSelection}
+                                                onNewClientClick={() => setNewClientDialogOpen(true)}
+                                                filteredClients={filteredClientsForSearchInput}
+                                                allClients={allClients}
+                                                showNewClientButton={true}
+                                            />
 
                                             {/* Off‑Day Dialog */}
                                             <Dialog open={offDayDialog} onOpenChange={(open) => setOffDayDialog(open)}>
@@ -4412,6 +4487,26 @@ export default function LojaDashboard() {
                                             </Select>
                                         </div>
 
+                                        {/* Campo Cliente */}
+                                        <ClientSearchInput
+                                            searchTerm={searchCliente}
+                                            onSearchTermChange={(term) => {
+                                                setSearchCliente(term);
+                                                if (!term) {
+                                                    handleClearClientSelection();
+                                                } else {
+                                                    setFormData(prev => ({ ...prev, cliente_nome: term, cliente_id: "" }));
+                                                }
+                                            }}
+                                            selectedClientId={selectedClienteId}
+                                            onClientSelect={handleClienteSelect}
+                                            onClearSelection={handleClearClientSelection}
+                                            onNewClientClick={() => setNewClientDialogOpen(true)}
+                                            filteredClients={filteredClientsForSearchInput}
+                                            allClients={allClients}
+                                            showNewClientButton={true}
+                                        />
+
                                         {/* Off‑Day Dialog */}
                                         <Dialog open={offDayDialog} onOpenChange={(open) => setOffDayDialog(open)}>
                                             <DialogContent>
@@ -5446,6 +5541,14 @@ export default function LojaDashboard() {
                     />
                 </Suspense>
             )}
+
+            {/* Modal de Novo Cliente */}
+            <NewClientDialog
+                open={newClientDialogOpen}
+                onOpenChange={setNewClientDialogOpen}
+                onClientCreated={handleNewClientCreated}
+                storeId={storeId || undefined}
+            />
         </div>
     );
 }

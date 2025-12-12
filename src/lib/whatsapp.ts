@@ -101,8 +101,9 @@ export function formatVendaMessage(params: {
   totalDia?: number;
   totalMes?: number;
   formasPagamento?: FormaPagamento[];
+  clienteNome?: string | null; // Nome do cliente (se não for Consumidor Final)
 }): string {
-  const { colaboradoraName, valor, qtdPecas, storeName, dataVenda, observacoes, totalDia, totalMes, formasPagamento } = params;
+  const { colaboradoraName, valor, qtdPecas, storeName, dataVenda, observacoes, totalDia, totalMes, formasPagamento, clienteNome } = params;
 
   const dataFormatada = dataVenda
     ? new Date(dataVenda).toLocaleDateString('pt-BR', {
@@ -132,6 +133,11 @@ export function formatVendaMessage(params: {
 
   message += `*Valor:* ${valorFormatado}\n`;
   message += `*Quantidade de Peças:* ${qtdPecas}\n`;
+
+  // Adicionar cliente se fornecido e não for Consumidor Final
+  if (clienteNome && clienteNome.trim() && clienteNome !== 'Consumidor Final' && clienteNome !== 'CONSUMIDOR_FINAL') {
+    message += `*Cliente:* ${clienteNome.trim()}\n`;
+  }
 
   // Adicionar formas de pagamento se disponíveis
   if (formasPagamento && formasPagamento.length > 0) {
@@ -481,9 +487,9 @@ export function formatCashbackMessage(params: {
   cashbackAmount: number;
   dataExpiracao: string;
   percentualUsoMaximo: number;
-  saldoAtual: number;
+  saldoAtual?: number; // Opcional - não será mais exibido
 }): string {
-  const { clienteNome, storeName, cashbackAmount, dataExpiracao, percentualUsoMaximo, saldoAtual } = params;
+  const { clienteNome, storeName, cashbackAmount, dataExpiracao, percentualUsoMaximo } = params;
 
   // Extrair apenas o primeiro nome
   const primeiroNome = clienteNome.split(' ')[0];
@@ -493,11 +499,6 @@ export function formatCashbackMessage(params: {
     style: 'currency',
     currency: 'BRL',
   }).format(cashbackAmount);
-
-  const saldoFormatado = new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(saldoAtual);
 
   // Formatar data de expiração
   const dataExpiracaoFormatada = new Date(dataExpiracao).toLocaleDateString('pt-BR', {
@@ -518,7 +519,6 @@ export function formatCashbackMessage(params: {
   message += `Obrigado pela sua compra na ${storeName}, nós somos muito gratos por ter você como nossa cliente.\n\n`;
   message += `Você gerou ${cashbackFormatado} de cashback para você utilizar em nossa loja.\n\n`;
   message += `Esse cashback é válido até o dia ${dataExpiracaoFormatada} e você poderá cobrir até ${percentualFormatado} do valor da sua próxima compra.\n\n`;
-  message += `Seu saldo atual é ${saldoFormatado}.\n\n`;
   message += `Com carinho,\n${storeName}\n\n`;
   message += `Sistema EleveaOne 📊`;
 

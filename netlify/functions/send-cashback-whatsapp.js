@@ -182,11 +182,6 @@ exports.handler = async (event, context) => {
       currency: 'BRL',
     }).format(Number(transaction.amount));
 
-    const saldoFormatado = new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(Number(saldoAtual));
-
     const dataExpiracaoFormatada = new Date(transaction.data_expiracao).toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
@@ -204,7 +199,6 @@ exports.handler = async (event, context) => {
       `Obrigado pela sua compra na ${loja.name}, nós somos muito gratos por ter você como nossa cliente.\n\n` +
       `Você gerou ${cashbackFormatado} de cashback para você utilizar em nossa loja.\n\n` +
       `Esse cashback é válido até o dia ${dataExpiracaoFormatada} e você poderá cobrir até ${percentualFormatado} do valor da sua próxima compra.\n\n` +
-      `Seu saldo atual é ${saldoFormatado}.\n\n` +
       `Com carinho,\n${loja.name}\n\n` +
       `Sistema EleveaOne 📊`;
 

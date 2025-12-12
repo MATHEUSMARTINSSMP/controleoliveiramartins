@@ -14,6 +14,9 @@ import { ArrowLeft, Loader2, XCircle, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
 import { useCreatePurchase } from "@/hooks/queries";
+import { useClientSearch } from "@/hooks/use-client-search";
+import { ClientSearchInput } from "@/components/shared/ClientSearchInput";
+import { NewClientDialog } from "@/components/shared/NewClientDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -68,7 +71,14 @@ const NovaCompra = () => {
     num_parcelas: "1",
     primeiro_mes: "",
     observacoes: "",
+    cliente_id: "",
+    cliente_nome: "",
   });
+  
+  // Estados para busca de cliente (padrão cashback)
+  const [searchCliente, setSearchCliente] = useState("");
+  const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
+  const [newClientDialogOpen, setNewClientDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading) {
@@ -92,8 +102,40 @@ const NovaCompra = () => {
       .from("profiles")
       .select("id, name, limite_total, limite_mensal")
       .eq("role", "COLABORADORA")
-      .eq("active", true);
+      .eq("is_active", true);
     if (data) setColaboradoras(data);
+  };
+
+  // Buscar clientes (padrão cashback - busca todos uma vez)
+  const { clients: filteredClientes, allClients, refresh: refreshClients } = useClientSearch(searchCliente, {
+    fetchOnce: true,
+  });
+
+  // Quando selecionar cliente
+  const handleClienteSelect = (clienteId: string) => {
+    setSelectedClienteId(clienteId);
+    setSearchCliente("");
+    const cliente = allClients.find(c => c.id === clienteId);
+    if (cliente) {
+      setFormData({ ...formData, cliente_id: clienteId, cliente_nome: cliente.nome });
+    }
+  };
+
+  // Quando novo cliente for criado
+  const handleNewClientCreated = (client: { id: string; nome: string; cpf: string | null }) => {
+    if (client.id === 'CONSUMIDOR_FINAL') {
+      // Consumidor Final: limpar campos
+      setSelectedClienteId(null);
+      setSearchCliente("");
+      setFormData({ ...formData, cliente_id: "", cliente_nome: "" });
+    } else {
+      // Cliente cadastrado: selecionar
+      setSelectedClienteId(client.id);
+      setSearchCliente("");
+      setFormData({ ...formData, cliente_id: client.id, cliente_nome: client.nome });
+      // Recarregar lista de clientes para incluir o novo
+      refreshClients();
+    }
   };
 
   const fetchLimiteInfo = async (colaboradoraId: string) => {
@@ -339,6 +381,8 @@ const NovaCompra = () => {
       status_compra: "PENDENTE",
       observacoes: formData.observacoes || null,
       created_by_id: profile!.id,
+      cliente_id: formData.cliente_id || null,
+      cliente_nome: formData.cliente_nome || null,
       parcelas: parcelas.map(p => ({
         ...p,
         compra_id: '', // Será preenchido no hook
@@ -449,6 +493,28 @@ const NovaCompra = () => {
                   </Select>
                 </div>
               </div>
+
+              {/* Campo Cliente */}
+              <ClientSearchInput
+                searchTerm={searchCliente}
+                onSearchTermChange={(term) => {
+                  setSearchCliente(term);
+                  // Se limpar, limpar também o cliente selecionado
+                  if (!term) {
+                    handleClearClientSelection();
+                  } else {
+                    // Atualizar cliente_nome com texto livre
+                    setFormData(prev => ({ ...prev, cliente_nome: term, cliente_id: "" }));
+                  }
+                }}
+                selectedClientId={selectedClienteId}
+                onClientSelect={handleClienteSelect}
+                onClearSelection={handleClearClientSelection}
+                onNewClientClick={() => setNewClientDialogOpen(true)}
+                filteredClients={filteredClientes}
+                allClients={allClients}
+                showNewClientButton={true}
+              />
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -699,6 +765,14 @@ const NovaCompra = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Modal de Novo Cliente */}
+        <NewClientDialog
+          open={newClientDialogOpen}
+          onOpenChange={setNewClientDialogOpen}
+          onClientCreated={handleNewClientCreated}
+          storeId={formData.loja_id || undefined}
+        />
       </div>
     </div>
     </BillingAccessGuard>

@@ -2691,8 +2691,10 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     message += `*Colaboradora:* ${colaboradoraName}\n`;
     message += `*Loja:* ${storeData.name}\n`;
 
-    // ✅ Adicionar nome do cliente
-    if (orderData.cliente_nome) {
+    // ✅ Adicionar nome do cliente (se não for Consumidor Final)
+    if (orderData.cliente_nome && 
+        orderData.cliente_nome !== 'Consumidor Final' && 
+        orderData.cliente_nome !== 'CONSUMIDOR_FINAL') {
       message += `*Cliente:* ${orderData.cliente_nome}\n`;
     }
 
