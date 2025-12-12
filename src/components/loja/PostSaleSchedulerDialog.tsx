@@ -37,7 +37,7 @@ export default function PostSaleSchedulerDialog({
   clienteTelefone,
   onSuccess
 }: PostSaleSchedulerDialogProps) {
-  const [clienteNome, setClienteNome] = useState("");
+  const [clienteNomeState, setClienteNomeState] = useState("");
   const [clienteWhatsapp, setClienteWhatsapp] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [ocasiao, setOcasiao] = useState(""); // Nova informação: ocasião
@@ -59,7 +59,7 @@ export default function PostSaleSchedulerDialog({
           
           // Preencher com dados do cliente se fornecido (prioridade)
           if (clienteNome && !clienteNome.includes('Consumidor Final')) {
-            setClienteNome(clienteNome);
+            setClienteNomeState(clienteNome);
           }
           if (clienteTelefone) {
             setClienteWhatsapp(clienteTelefone);
@@ -68,7 +68,7 @@ export default function PostSaleSchedulerDialog({
           fetchSaleInfo();
           checkExistingPostSale();
         }
-      }, [open, saleId, saleDate, clienteNome, clienteTelefone]);
+      }, [open, saleId, saleDate, clienteNome, clienteTelefone, clienteId]);
 
   const checkExistingPostSale = async () => {
     setCheckingExisting(true);
@@ -88,7 +88,7 @@ export default function PostSaleSchedulerDialog({
       if (existingPostSale) {
         // Se já existe, preencher os campos com os dados existentes
         if (existingPostSale.cliente_nome) {
-          setClienteNome(existingPostSale.cliente_nome);
+          setClienteNomeState(existingPostSale.cliente_nome);
         }
         if (existingPostSale.cliente_whatsapp) {
           setClienteWhatsapp(existingPostSale.cliente_whatsapp);
@@ -180,8 +180,8 @@ export default function PostSaleSchedulerDialog({
 
         if (tinyOrder) {
           // Só preencher se ainda não foi preenchido (não sobrescrever dados existentes ou do cliente selecionado)
-          if (tinyOrder.cliente_nome && !clienteNome && !saleData.cliente_nome) {
-            setClienteNome(tinyOrder.cliente_nome);
+          if (tinyOrder.cliente_nome && !clienteNomeState && !saleData.cliente_nome) {
+            setClienteNomeState(tinyOrder.cliente_nome);
           }
           // Priorizar celular, senão telefone
           const telefone = tinyOrder.cliente_celular || tinyOrder.cliente_telefone;
@@ -196,7 +196,7 @@ export default function PostSaleSchedulerDialog({
   };
 
   const handleSave = async () => {
-    if (!clienteNome.trim()) {
+    if (!clienteNomeState.trim()) {
       toast.error("Informe o nome do cliente");
       return;
     }
@@ -228,7 +228,7 @@ export default function PostSaleSchedulerDialog({
           .schema("sistemaretiradas")
           .from("crm_post_sales")
           .update({
-            cliente_nome: clienteNome.trim(),
+            cliente_nome: clienteNomeState.trim(),
             cliente_whatsapp: clienteWhatsapp.trim() || null,
             observacoes_venda: observacoes.trim() || null,
             informacoes_cliente: informacoesClienteStr,
@@ -251,7 +251,7 @@ export default function PostSaleSchedulerDialog({
             store_id: storeId,
             sale_id: saleId, // ✅ ID da venda capturado automaticamente
             colaboradora_id: colaboradoraId,
-            cliente_nome: clienteNome.trim(),
+            cliente_nome: clienteNomeState.trim(),
             cliente_whatsapp: clienteWhatsapp.trim() || null,
             observacoes_venda: observacoes.trim() || null,
             informacoes_cliente: informacoesClienteStr,
@@ -275,7 +275,7 @@ export default function PostSaleSchedulerDialog({
       onOpenChange(false);
       
       // Resetar formulário
-      setClienteNome("");
+      setClienteNomeState("");
       setClienteWhatsapp("");
       setObservacoes("");
       setOcasiao("");
@@ -309,8 +309,8 @@ export default function PostSaleSchedulerDialog({
             </Label>
             <Input
               id="clienteNome"
-              value={clienteNome}
-              onChange={(e) => setClienteNome(e.target.value)}
+              value={clienteNomeState}
+              onChange={(e) => setClienteNomeState(e.target.value)}
               placeholder="Nome completo do cliente"
             />
           </div>
@@ -412,7 +412,7 @@ export default function PostSaleSchedulerDialog({
             </Button>
             <Button
               onClick={handleSave}
-              disabled={saving || checkingExisting || !clienteNome.trim()}
+              disabled={saving || checkingExisting || !clienteNomeState.trim()}
             >
               {saving ? "Salvando..." : checkingExisting ? "Verificando..." : "Salvar Pós-Venda"}
             </Button>
