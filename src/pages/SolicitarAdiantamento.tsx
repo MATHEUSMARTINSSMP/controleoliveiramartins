@@ -61,7 +61,7 @@ export default function SolicitarAdiantamento() {
     const { data: compras } = await supabase
       .schema("sistemaretiradas")
       .from("purchases")
-      .select("preco_final, num_parcelas")
+      .select("valor_total")
       .eq("colaboradora_id", profile.id)
       .eq("status_compra", "APROVADO" as any);
 
@@ -82,7 +82,7 @@ export default function SolicitarAdiantamento() {
       .eq("status", "APROVADO" as any)
       .is("data_desconto", null);
 
-    const totalComprasPendentes = (compras || []).reduce((acc, c) => acc + parseFloat(c.preco_final.toString()), 0);
+    const totalComprasPendentes = (compras || []).reduce((acc, c) => acc + parseFloat(c.valor_total.toString()), 0);
     const totalAdiantamentosPendentes = (adiantamentos || []).reduce((acc, a) => acc + parseFloat(a.valor.toString()), 0);
     const totalParcelasMes = (parcelasMes || []).reduce((acc, p) => acc + parseFloat(p.valor_parcela.toString()), 0);
 
