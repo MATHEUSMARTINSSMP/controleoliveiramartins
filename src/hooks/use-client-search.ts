@@ -51,6 +51,12 @@ export function useClientSearch(searchTerm: string = '', options: UseClientSearc
     const fetchAllClients = async () => {
       setLoading(true);
       setError(null);
+      console.log('[useClientSearch] 🔄 Iniciando fetchAllClients:', {
+        storeId,
+        refreshKey,
+        onlyWithCPF,
+        fetchOnce
+      });
 
       try {
         const clientsMap = new Map<string, Client>();
