@@ -29,7 +29,7 @@ export function NewClientDialog({
 }: NewClientDialogProps) {
   const { profile } = useAuth();
   const [saving, setSaving] = useState(false);
-  const [isConsumidorFinal, setIsConsumidorFinal] = useState(true); // Padrão: Consumidor Final
+  const [isConsumidorFinal, setIsConsumidorFinal] = useState(false); // Padrão: Formulário visível
   const [formData, setFormData] = useState({
     nome: "",
     cpf: "",
@@ -42,7 +42,8 @@ export function NewClientDialog({
     console.log('[NewClientDialog] 🔄 Modal open mudou:', open);
     if (open) {
       console.log('[NewClientDialog] ✅ Modal aberto, resetando formulário');
-      setIsConsumidorFinal(true);
+      // Não resetar isConsumidorFinal para true, manter o estado ou resetar para false se quiser garantir
+      setIsConsumidorFinal(false);
       setFormData({
         nome: "",
         cpf: "",
