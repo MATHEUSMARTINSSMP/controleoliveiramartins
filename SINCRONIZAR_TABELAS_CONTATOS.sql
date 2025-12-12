@@ -78,6 +78,21 @@ BEGIN
             ADD COLUMN tiny_contact_id UUID;
         END IF;
         
+        -- Verificar se coluna source existe e se é NOT NULL
+        IF EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_schema = 'sistemaretiradas' 
+            AND table_name = 'contacts' 
+            AND column_name = 'source'
+            AND is_nullable = 'NO'
+        ) THEN
+            RAISE NOTICE 'Coluna source existe e é NOT NULL. Garantindo valor padrão para registros existentes...';
+            -- Atualizar registros existentes sem source
+            UPDATE sistemaretiradas.contacts
+            SET source = 'CRM'
+            WHERE source IS NULL;
+        END IF;
+        
         -- Garantir que os índices existam
         CREATE INDEX IF NOT EXISTS idx_contacts_store ON sistemaretiradas.contacts(store_id);
         CREATE INDEX IF NOT EXISTS idx_contacts_nome ON sistemaretiradas.contacts(nome);
@@ -90,39 +105,83 @@ DO $$
 DECLARE
     inserted_count INTEGER := 0;
     updated_count INTEGER := 0;
+    has_source_column BOOLEAN;
 BEGIN
+    -- Verificar se coluna source existe
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'sistemaretiradas' 
+        AND table_name = 'contacts' 
+        AND column_name = 'source'
+    ) INTO has_source_column;
+    
     -- Inserir registros novos (que não existem em contacts nem por ID nem por CPF)
-    INSERT INTO sistemaretiradas.contacts (
-        id, store_id, nome, email, telefone, cpf, 
-        data_nascimento, observacoes, created_at, updated_at, tiny_contact_id
-    )
-    SELECT 
-        crm.id,
-        crm.store_id,
-        crm.nome,
-        crm.email,
-        crm.telefone,
-        crm.cpf,
-        crm.data_nascimento,
-        crm.observacoes,
-        crm.created_at,
-        crm.updated_at,
-        crm.tiny_contact_id
-    FROM sistemaretiradas.crm_contacts crm
-    WHERE NOT EXISTS (
-        -- Não existe por ID
-        SELECT 1 FROM sistemaretiradas.contacts c 
-        WHERE c.id = crm.id
-    )
-    AND (
-        -- E não existe por CPF (se CPF não for NULL)
-        crm.cpf IS NULL 
-        OR NOT EXISTS (
-            SELECT 1 FROM sistemaretiradas.contacts c 
-            WHERE c.cpf = crm.cpf AND c.cpf IS NOT NULL
+    IF has_source_column THEN
+        INSERT INTO sistemaretiradas.contacts (
+            id, store_id, nome, email, telefone, cpf, 
+            data_nascimento, observacoes, created_at, updated_at, tiny_contact_id, source
         )
-    )
-    ON CONFLICT (id) DO NOTHING;
+        SELECT 
+            crm.id,
+            crm.store_id,
+            crm.nome,
+            crm.email,
+            crm.telefone,
+            crm.cpf,
+            crm.data_nascimento,
+            crm.observacoes,
+            crm.created_at,
+            crm.updated_at,
+            crm.tiny_contact_id,
+            'CRM' as source  -- Valor padrão para source
+        FROM sistemaretiradas.crm_contacts crm
+        WHERE NOT EXISTS (
+            -- Não existe por ID
+            SELECT 1 FROM sistemaretiradas.contacts c 
+            WHERE c.id = crm.id
+        )
+        AND (
+            -- E não existe por CPF (se CPF não for NULL)
+            crm.cpf IS NULL 
+            OR NOT EXISTS (
+                SELECT 1 FROM sistemaretiradas.contacts c 
+                WHERE c.cpf = crm.cpf AND c.cpf IS NOT NULL
+            )
+        )
+        ON CONFLICT (id) DO NOTHING;
+    ELSE
+        INSERT INTO sistemaretiradas.contacts (
+            id, store_id, nome, email, telefone, cpf, 
+            data_nascimento, observacoes, created_at, updated_at, tiny_contact_id
+        )
+        SELECT 
+            crm.id,
+            crm.store_id,
+            crm.nome,
+            crm.email,
+            crm.telefone,
+            crm.cpf,
+            crm.data_nascimento,
+            crm.observacoes,
+            crm.created_at,
+            crm.updated_at,
+            crm.tiny_contact_id
+        FROM sistemaretiradas.crm_contacts crm
+        WHERE NOT EXISTS (
+            -- Não existe por ID
+            SELECT 1 FROM sistemaretiradas.contacts c 
+            WHERE c.id = crm.id
+        )
+        AND (
+            -- E não existe por CPF (se CPF não for NULL)
+            crm.cpf IS NULL 
+            OR NOT EXISTS (
+                SELECT 1 FROM sistemaretiradas.contacts c 
+                WHERE c.cpf = crm.cpf AND c.cpf IS NOT NULL
+            )
+        )
+        ON CONFLICT (id) DO NOTHING;
+    END IF;
     
     GET DIAGNOSTICS inserted_count = ROW_COUNT;
     RAISE NOTICE 'Inseridos % registros de crm_contacts para contacts', inserted_count;
