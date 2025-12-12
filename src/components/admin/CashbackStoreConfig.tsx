@@ -21,7 +21,6 @@ export const CashbackStoreConfig = () => {
   const navigate = useNavigate();
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null);
   const [hasActiveCashback, setHasActiveCashback] = useState(false);
 
   useEffect(() => {
@@ -42,8 +41,14 @@ export const CashbackStoreConfig = () => {
 
       const allStores = data || [];
       
-      // Filtrar apenas lojas com cashback ativo
-      const storesWithCashback = allStores.filter(store => store.cashback_ativo === true);
+      // Filtrar APENAS lojas com cashback ativo (apenas true, excluir null e false)
+      const storesWithCashback = allStores.filter(store => Boolean(store.cashback_ativo) === true);
+      
+      console.log('[CashbackStoreConfig] Lojas encontradas:', {
+        total: allStores.length,
+        comCashbackAtivo: storesWithCashback.length,
+        todas: allStores.map(s => ({ name: s.name, cashback_ativo: s.cashback_ativo }))
+      });
       
       setStores(storesWithCashback);
       setHasActiveCashback(storesWithCashback.length > 0);
@@ -55,47 +60,7 @@ export const CashbackStoreConfig = () => {
     }
   };
 
-  const toggleCashback = async (storeId: string, currentValue: boolean) => {
-    try {
-      setSaving(storeId);
-      const { error } = await supabase
-        .schema('sistemaretiradas')
-        .from('stores')
-        .update({ cashback_ativo: !currentValue })
-        .eq('id', storeId);
-
-      if (error) throw error;
-
-      // Atualizar estado local e remover da lista se foi desativado
-      if (!currentValue) {
-        // Foi ativado, adicionar à lista
-        const { data: updatedStore } = await supabase
-          .schema('sistemaretiradas')
-          .from('stores')
-          .select('id, name, cashback_ativo, active')
-          .eq('id', storeId)
-          .single();
-        
-        if (updatedStore) {
-          setStores(prev => [...prev, updatedStore].sort((a, b) => a.name.localeCompare(b.name)));
-          setHasActiveCashback(true);
-        }
-      } else {
-        // Foi desativado, remover da lista
-        setStores(prev => prev.filter(store => store.id !== storeId));
-        setHasActiveCashback(stores.length > 1);
-      }
-
-      toast.success(
-        `Cashback ${!currentValue ? 'ativado' : 'desativado'} para a loja com sucesso!`
-      );
-    } catch (error: any) {
-      console.error('Erro ao atualizar cashback:', error);
-      toast.error('Erro ao atualizar configuração de cashback');
-    } finally {
-      setSaving(null);
-    }
-  };
+  // Função removida - ativação/desativação deve ser feita na aba Configurações → Módulos
 
   if (loading) {
     return (
@@ -183,16 +148,12 @@ export const CashbackStoreConfig = () => {
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  {saving === store.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  ) : (
-                    <Switch
-                      id={`cashback-${store.id}`}
-                      checked={store.cashback_ativo || false}
-                      onCheckedChange={() => toggleCashback(store.id, store.cashback_ativo || false)}
-                      disabled={saving !== null}
-                    />
-                  )}
+                  <Badge variant="default" className="text-xs">
+                    Ativo
+                  </Badge>
+                  <p className="text-xs text-muted-foreground">
+                    Configure o cashback na aba Configurações → Módulos
+                  </p>
                 </div>
               </div>
             ))
