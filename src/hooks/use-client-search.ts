@@ -249,6 +249,13 @@ export function useClientSearch(searchTerm: string = '', options: UseClientSearc
       return consumidorFinal ? [consumidorFinal] : [];
     }
     
+    console.log('[useClientSearch] Filtrando clientes:', {
+      searchTerm,
+      totalClients: allClients.length,
+      storeId,
+      clientsWithStoreId: allClients.filter(c => c.id !== 'CONSUMIDOR_FINAL').length
+    });
+    
     const searchLower = searchTerm.toLowerCase().trim();
     const normalizedSearch = normalizeCPF(searchTerm);
     
