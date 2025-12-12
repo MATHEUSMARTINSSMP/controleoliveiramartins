@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, RefreshCw, Package, Users, DollarSign, TrendingUp, AlertCircle, CheckCircle2, LogOut, Settings, Gift, Brain } from 'lucide-react';
+import { Loader2, RefreshCw, Package, Users, DollarSign, TrendingUp, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { syncTinyOrders, syncTinyContacts } from '@/lib/erp/syncTiny';
 import TinyOrdersList from '@/components/erp/TinyOrdersList';
@@ -480,16 +480,6 @@ export default function ERPDashboard() {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      navigate('/erp/login');
-      toast.success('Logout realizado com sucesso');
-    } catch (error: any) {
-      console.error('Erro ao fazer logout:', error);
-      toast.error('Erro ao fazer logout');
-    }
-  };
 
   if (loading || authLoading) {
     return (
@@ -523,56 +513,6 @@ export default function ERPDashboard() {
               </SelectContent>
             </Select>
           )}
-          <div className="flex gap-2">
-            <Button
-              onClick={() => navigate('/erp/category-reports')}
-              variant="outline"
-            >
-              Relatórios
-            </Button>
-            <Button
-              onClick={() => navigate('/erp/product-intelligence')}
-              variant="outline"
-            >
-              Inteligência de Produtos
-            </Button>
-            <Button
-              onClick={() => navigate('/erp/customer-intelligence')}
-              variant="outline"
-              className="gap-2"
-            >
-              <Brain className="h-4 w-4" />
-              Inteligência de Clientes
-            </Button>
-            <Button
-              onClick={() => navigate('/erp/cashback-management')}
-              variant="outline"
-              className="gap-2"
-            >
-              <Gift className="h-4 w-4" />
-              Cashback
-            </Button>
-            {profile?.role === 'ADMIN' && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate('/dev/erp-config')}
-                className="gap-2"
-              >
-                <Settings className="h-4 w-4" />
-                Configurações
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleLogout}
-              className="gap-2"
-            >
-              <LogOut className="h-4 w-4" />
-              Sair
-            </Button>
-          </div>
         </div>
       </div>
 
