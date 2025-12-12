@@ -86,14 +86,10 @@ interface Sale {
     };
 }
 
-
-
-
-
 interface Colaboradora {
     id: string;
     name: string;
-    active: boolean;
+    active?: boolean;
 }
 
 export default function LojaDashboard() {
