@@ -38,20 +38,22 @@ export default function PostSaleSchedulerDialog({
   const [ajuste, setAjuste] = useState(""); // Nova informação: ajuste
   const [saving, setSaving] = useState(false);
   const [checkingExisting, setCheckingExisting] = useState(false);
+  
+  // Data do pós-venda (editável, padrão: 7 dias após a venda)
+  const saleDateObj = new Date(saleDate);
+  const defaultFollowUpDate = addDays(saleDateObj, 7);
+  const [followUpDate, setFollowUpDate] = useState<Date>(defaultFollowUpDate);
 
-  // Calcular data do pós-venda (7 dias após a venda) - fixa, não editável
-  const followUpDate = (() => {
-    const saleDateObj = new Date(saleDate);
-    return addDays(saleDateObj, 7);
-  })();
-
-  // Buscar informações do cliente da venda e verificar se já existe pós-venda
-  useEffect(() => {
-    if (open && saleId) {
-      fetchSaleInfo();
-      checkExistingPostSale();
-    }
-  }, [open, saleId]);
+      // Buscar informações do cliente da venda e verificar se já existe pós-venda
+      useEffect(() => {
+        if (open && saleId) {
+          // Resetar data para padrão (7 dias) quando abrir
+          const saleDateObj = new Date(saleDate);
+          setFollowUpDate(addDays(saleDateObj, 7));
+          fetchSaleInfo();
+          checkExistingPostSale();
+        }
+      }, [open, saleId, saleDate]);
 
   const checkExistingPostSale = async () => {
     setCheckingExisting(true);
@@ -60,7 +62,7 @@ export default function PostSaleSchedulerDialog({
       const { data: existingPostSale, error } = await supabase
         .schema("sistemaretiradas")
         .from("crm_post_sales")
-        .select("id, cliente_nome, cliente_whatsapp, observacoes_venda")
+        .select("id, cliente_nome, cliente_whatsapp, observacoes_venda, scheduled_follow_up")
         .eq("sale_id", saleId)
         .maybeSingle();
 
@@ -78,6 +80,10 @@ export default function PostSaleSchedulerDialog({
         }
         if (existingPostSale.observacoes_venda) {
           setObservacoes(existingPostSale.observacoes_venda);
+        }
+        if (existingPostSale.scheduled_follow_up) {
+          // Carregar data do pós-venda existente
+          setFollowUpDate(new Date(existingPostSale.scheduled_follow_up));
         }
         // Parsear informacoes_cliente se for JSON
         if (existingPostSale.informacoes_cliente) {
@@ -180,6 +186,8 @@ export default function PostSaleSchedulerDialog({
             cliente_whatsapp: clienteWhatsapp.trim() || null,
             observacoes_venda: observacoes.trim() || null,
             informacoes_cliente: informacoesClienteStr,
+            scheduled_follow_up: format(followUpDate, "yyyy-MM-dd"), // Data editável
+            details: `Pós-venda agendada para ${format(followUpDate, "dd/MM/yyyy")}`,
             updated_at: new Date().toISOString()
           })
           .eq("id", existingPostSale.id)
@@ -272,14 +280,21 @@ export default function PostSaleSchedulerDialog({
             />
           </div>
 
-          {/* Data do Pós-Venda (somente leitura - fixa: 7 dias após a venda) */}
+          {/* Data do Pós-Venda (editável, padrão: 7 dias após a venda) */}
           <div className="space-y-2">
-            <Label>Data do Pós-Venda</Label>
-            <div className="p-3 bg-muted rounded-md text-sm">
-              {format(followUpDate, "dd/MM/yyyy", { locale: ptBR })} (7 dias após a venda)
-            </div>
+            <Label htmlFor="followUpDate">Data do Pós-Venda *</Label>
+            <Input
+              id="followUpDate"
+              type="date"
+              value={format(followUpDate, "yyyy-MM-dd")}
+              onChange={(e) => {
+                const newDate = e.target.value ? new Date(e.target.value) : defaultFollowUpDate;
+                setFollowUpDate(newDate);
+              }}
+              min={format(saleDateObj, "yyyy-MM-dd")} // Não permitir data antes da venda
+            />
             <p className="text-xs text-muted-foreground">
-              A data do pós-venda é automaticamente definida para 7 dias após a venda.
+              Data padrão: 7 dias após a venda. Você pode alterar conforme necessário.
             </p>
           </div>
 
