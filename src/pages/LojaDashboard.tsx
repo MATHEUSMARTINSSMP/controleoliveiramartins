@@ -2682,6 +2682,7 @@ export default function LojaDashboard() {
 
     // Quando novo cliente for criado
     const handleNewClientCreated = (client: { id: string; nome: string; cpf: string | null }) => {
+        console.log('[LojaDashboard] 🎉 Novo cliente criado:', client);
         if (client.id === 'CONSUMIDOR_FINAL') {
             // Consumidor Final: limpar campos
             setSelectedClienteId(null);
@@ -2689,11 +2690,13 @@ export default function LojaDashboard() {
             setFormData({ ...formData, cliente_id: "", cliente_nome: "" });
         } else {
             // Cliente cadastrado: selecionar
+            console.log('[LojaDashboard] 🔄 Recarregando lista de clientes...');
             setSelectedClienteId(client.id);
             setSearchCliente("");
             setFormData({ ...formData, cliente_id: client.id, cliente_nome: client.nome });
             // Recarregar lista de clientes para incluir o novo
             refreshClients();
+            console.log('[LojaDashboard] ✅ Lista de clientes recarregada');
         }
     };
 

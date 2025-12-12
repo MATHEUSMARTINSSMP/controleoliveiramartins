@@ -96,29 +96,42 @@ export function NewClientDialog({
 
       // Determinar store_id
       let finalStoreId = storeId;
+      console.log('[NewClientDialog] 🔍 Determinando store_id:', {
+        storeIdProp: storeId,
+        profileRole: profile?.role,
+        profileStoreId: profile?.store_id,
+      });
+
       if (!finalStoreId && profile) {
         // Se não fornecido, tentar pegar da loja do perfil
         if (profile.role === 'LOJA' && profile.store_id) {
           finalStoreId = profile.store_id;
+          console.log('[NewClientDialog] ✅ Usando store_id do perfil LOJA:', finalStoreId);
         } else if (profile.role === 'ADMIN') {
           // Admin pode não ter store_id, buscar primeira loja ativa
           const { data: stores } = await supabase
             .schema('sistemaretiradas')
             .from('stores')
             .select('id')
+            .eq('active', true)
             .limit(1)
             .maybeSingle();
           if (stores) {
             finalStoreId = stores.id;
+            console.log('[NewClientDialog] ✅ Usando primeira loja ativa para ADMIN:', finalStoreId);
           }
         }
       }
 
       // Se ainda não tem store_id, não é possível salvar (crm_contacts requer store_id)
       if (!finalStoreId) {
+        console.error('[NewClientDialog] ❌ Erro: store_id não encontrado');
         toast.error("Erro: selecione uma loja antes de cadastrar o cliente");
+        setSaving(false);
         return;
       }
+
+      console.log('[NewClientDialog] ✅ store_id final:', finalStoreId);
 
       // Verificar se CPF já existe (evitar duplicatas)
       if (cpfNormalizado) {
@@ -151,16 +164,21 @@ export function NewClientDialog({
         store_id: finalStoreId,
       };
 
+      console.log('[NewClientDialog] 💾 Salvando cliente:', contactData);
+
       const { data: newClient, error: insertError } = await supabase
         .schema('sistemaretiradas')
         .from('crm_contacts')
         .insert(contactData)
-        .select('id, nome, cpf')
+        .select('id, nome, cpf, store_id')
         .single();
 
       if (insertError) {
+        console.error('[NewClientDialog] ❌ Erro ao inserir cliente:', insertError);
         throw insertError;
       }
+
+      console.log('[NewClientDialog] ✅ Cliente salvo com sucesso:', newClient);
 
       // Tentar inserir também em contacts (compatibilidade)
       if (newClient) {
