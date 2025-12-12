@@ -441,18 +441,18 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
         formatMinutes(d.horasEsperadas),
         formatMinutes(d.saldo),
         d.status.substring(0, 4).toUpperCase(),
-        todosAssinados && (d.entrada || d.saida) ? '✓' : '-', // Nova coluna
+        todosAssinados && (d.entrada || d.saida) ? 'Assinado Digitalmente' : '-', // Nova coluna
       ];
     });
 
     autoTable(doc, {
-      head: [['Data', 'Dia', 'Entrada', 'S.Int', 'R.Int', 'Saída', 'Trab', 'Esp', 'Saldo', 'Status', 'Assinado Digitalmente']],
+      head: [['Data', 'Dia', 'Entrada', 'S.Int', 'R.Int', 'Saída', 'Trab', 'Esp', 'Saldo', 'Status', 'Assinatura']],
       body: tableData,
       startY: margin + 20,
       theme: 'grid',
       styles: {
-        fontSize: 8, // era 7 (+15%)
-        cellPadding: 1.15, // era 1 (+15%)
+        fontSize: 7, // reduzido de 8 para caber texto maior
+        cellPadding: 1.15,
         halign: 'center',
         valign: 'middle',
         lineWidth: 0.1,
@@ -461,21 +461,21 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
         fillColor: [60, 60, 60],
         textColor: [255, 255, 255],
         fontStyle: 'bold',
-        fontSize: 8, // era 7 (+15%)
-        cellPadding: 1.4, // era 1.2 (+15%)
+        fontSize: 7, // reduzido de 8
+        cellPadding: 1.4,
       },
       columnStyles: {
-        0: { cellWidth: 13 },  // Data
-        1: { cellWidth: 10 },  // Dia
-        2: { cellWidth: 15 },  // Entrada
-        3: { cellWidth: 15 },  // S.Int.
-        4: { cellWidth: 15 },  // R.Int.
-        5: { cellWidth: 15 },  // Saída
-        6: { cellWidth: 16 },  // Trab.
-        7: { cellWidth: 16 },  // Esp.
-        8: { cellWidth: 16 },  // Saldo
-        9: { cellWidth: 13 },  // Status
-        10: { cellWidth: 11 }, // Assinado (NOVA)
+        0: { cellWidth: 12 },  // Data (reduzido)
+        1: { cellWidth: 9 },   // Dia (reduzido)
+        2: { cellWidth: 14 },  // Entrada (reduzido)
+        3: { cellWidth: 14 },  // S.Int. (reduzido)
+        4: { cellWidth: 14 },  // R.Int. (reduzido)
+        5: { cellWidth: 14 },  // Saída (reduzido)
+        6: { cellWidth: 15 },  // Trab. (reduzido)
+        7: { cellWidth: 15 },  // Esp. (reduzido)
+        8: { cellWidth: 15 },  // Saldo (reduzido)
+        9: { cellWidth: 12 },  // Status (reduzido)
+        10: { cellWidth: 25, fontSize: 6 }, // Assinatura (AUMENTADO para texto completo)
       },
       margin: { left: margin, right: margin },
       pageBreak: 'avoid',
