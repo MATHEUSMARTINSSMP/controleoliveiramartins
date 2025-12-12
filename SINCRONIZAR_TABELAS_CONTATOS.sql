@@ -44,6 +44,43 @@ BEGIN
         CREATE UNIQUE INDEX IF NOT EXISTS idx_contacts_cpf_unique 
         ON sistemaretiradas.contacts(cpf) 
         WHERE cpf IS NOT NULL;
+    ELSE
+        -- Tabela contacts existe, verificar se tem todas as colunas necessárias
+        RAISE NOTICE 'Tabela contacts existe. Verificando colunas...';
+        
+        -- Adicionar coluna cpf se não existir
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_schema = 'sistemaretiradas' 
+            AND table_name = 'contacts' 
+            AND column_name = 'cpf'
+        ) THEN
+            RAISE NOTICE 'Adicionando coluna cpf à tabela contacts...';
+            ALTER TABLE sistemaretiradas.contacts
+            ADD COLUMN cpf TEXT;
+            
+            -- Criar índices para CPF
+            CREATE INDEX IF NOT EXISTS idx_contacts_cpf ON sistemaretiradas.contacts(cpf);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_contacts_cpf_unique 
+            ON sistemaretiradas.contacts(cpf) 
+            WHERE cpf IS NOT NULL;
+        END IF;
+        
+        -- Adicionar outras colunas que possam estar faltando
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_schema = 'sistemaretiradas' 
+            AND table_name = 'contacts' 
+            AND column_name = 'tiny_contact_id'
+        ) THEN
+            RAISE NOTICE 'Adicionando coluna tiny_contact_id à tabela contacts...';
+            ALTER TABLE sistemaretiradas.contacts
+            ADD COLUMN tiny_contact_id UUID;
+        END IF;
+        
+        -- Garantir que os índices existam
+        CREATE INDEX IF NOT EXISTS idx_contacts_store ON sistemaretiradas.contacts(store_id);
+        CREATE INDEX IF NOT EXISTS idx_contacts_nome ON sistemaretiradas.contacts(nome);
     END IF;
 END $$;
 
