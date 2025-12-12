@@ -446,7 +446,7 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
     });
 
     autoTable(doc, {
-      head: [['Data', 'Dia', 'Entrada', 'S.Int', 'R.Int', 'Saída', 'Trab', 'Esp', 'Saldo', 'Status', 'Assin']],
+      head: [['Data', 'Dia', 'Entrada', 'S.Int', 'R.Int', 'Saída', 'Trab', 'Esp', 'Saldo', 'Status', 'Assinado Digitalmente']],
       body: tableData,
       startY: margin + 20,
       theme: 'grid',
