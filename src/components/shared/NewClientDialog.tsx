@@ -244,7 +244,7 @@ export function NewClientDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Novo Cliente</DialogTitle>
           <DialogDescription>
@@ -252,7 +252,7 @@ export function NewClientDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 min-h-[300px]">
           {/* Opção Consumidor Final */}
           <div className="flex items-center space-x-2 p-3 border rounded-lg bg-muted/50">
             <input
@@ -279,7 +279,7 @@ export function NewClientDialog({
           </div>
 
           {!isConsumidorFinal && (
-            <>
+            <div className="space-y-4">
               {/* Nome */}
               <div className="space-y-2">
                 <Label htmlFor="nome">Nome *</Label>
@@ -289,6 +289,7 @@ export function NewClientDialog({
                   onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
                   placeholder="Nome completo"
                   required
+                  className="w-full"
                 />
               </div>
 
@@ -301,6 +302,7 @@ export function NewClientDialog({
                   onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
                   placeholder="000.000.000-00"
                   maxLength={14}
+                  className="w-full"
                 />
               </div>
 
@@ -312,6 +314,7 @@ export function NewClientDialog({
                   value={formData.telefone}
                   onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
                   placeholder="(00) 00000-0000"
+                  className="w-full"
                 />
               </div>
 
@@ -323,9 +326,10 @@ export function NewClientDialog({
                   type="date"
                   value={formData.data_nascimento}
                   onChange={(e) => setFormData({ ...formData, data_nascimento: e.target.value })}
+                  className="w-full"
                 />
               </div>
-            </>
+            </div>
           )}
         </div>
 
