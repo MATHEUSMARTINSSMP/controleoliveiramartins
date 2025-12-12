@@ -405,22 +405,23 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
     const doc = new jsPDF('portrait', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
-    const margin = 8; // Margem reduzida para 8mm
+    const margin = 10; // Margem equilibrada
 
-    // CABEÇALHO COMPACTO
-    doc.setFontSize(11);
+    // CABEÇALHO COMPACTO MAS LEGÍVEL
+    doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
-    doc.text('RELATÓRIO DE PONTO ELETRÔNICO', pageWidth / 2, margin + 3, { align: 'center' });
+    doc.text('RELATÓRIO DE PONTO ELETRÔNICO', pageWidth / 2, margin + 4, { align: 'center' });
 
-    doc.setFontSize(7);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
-    doc.text(`${colaboradora?.name || 'N/A'} | CPF: ${cpf} | ${format(start, 'dd/MM/yy')} a ${format(end, 'dd/MM/yy')}`, pageWidth / 2, margin + 7, { align: 'center' });
+    doc.text(`${colaboradora?.name || 'N/A'} | CPF: ${cpf}`, pageWidth / 2, margin + 9, { align: 'center' });
+    doc.text(`Período: ${format(start, 'dd/MM/yy')} a ${format(end, 'dd/MM/yy')}`, pageWidth / 2, margin + 13, { align: 'center' });
 
-    // LEGENDA MÍNIMA
-    doc.setFontSize(5);
-    doc.text('(M)=Manual', margin, margin + 11);
+    // LEGENDA
+    doc.setFontSize(6.5);
+    doc.text('(M) = Lançamento Manual', margin, margin + 17);
 
-    // TABELA ULTRA COMPACTA
+    // TABELA OTIMIZADA
     const tableData = dailyReports.map(d => [
       format(d.date, 'dd/MM'),
       d.dayOfWeek.substring(0, 3).toUpperCase(),
@@ -435,13 +436,13 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
     ]);
 
     autoTable(doc, {
-      head: [['Data', 'Dia', 'Ent', 'S.I', 'R.I', 'Saí', 'Trab', 'Esp', 'Saldo', 'Stat']],
+      head: [['Data', 'Dia', 'Entrada', 'S.Int', 'R.Int', 'Saída', 'Trab', 'Esp', 'Saldo', 'Status']],
       body: tableData,
-      startY: margin + 13,
+      startY: margin + 20,
       theme: 'grid',
       styles: {
-        fontSize: 5.5,
-        cellPadding: 0.5,
+        fontSize: 7,
+        cellPadding: 1,
         halign: 'center',
         valign: 'middle',
         lineWidth: 0.1,
@@ -450,64 +451,64 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
         fillColor: [60, 60, 60],
         textColor: [255, 255, 255],
         fontStyle: 'bold',
-        fontSize: 5.5,
-        cellPadding: 0.8,
+        fontSize: 7,
+        cellPadding: 1.2,
       },
       columnStyles: {
-        0: { cellWidth: 14 },  // Data
-        1: { cellWidth: 10 },  // Dia
-        2: { cellWidth: 15 },  // Entrada
-        3: { cellWidth: 15 },  // S.Int.
-        4: { cellWidth: 15 },  // R.Int.
-        5: { cellWidth: 15 },  // Saída
-        6: { cellWidth: 16 },  // Trab.
-        7: { cellWidth: 16 },  // Esp.
-        8: { cellWidth: 16 },  // Saldo
-        9: { cellWidth: 13 },  // Status
+        0: { cellWidth: 15 },  // Data
+        1: { cellWidth: 11 },  // Dia
+        2: { cellWidth: 16 },  // Entrada
+        3: { cellWidth: 16 },  // S.Int.
+        4: { cellWidth: 16 },  // R.Int.
+        5: { cellWidth: 16 },  // Saída
+        6: { cellWidth: 17 },  // Trab.
+        7: { cellWidth: 17 },  // Esp.
+        8: { cellWidth: 17 },  // Saldo
+        9: { cellWidth: 14 },  // Status
       },
       margin: { left: margin, right: margin },
       pageBreak: 'avoid',
     });
 
-    // TOTAIS COMPACTOS
-    let currentY = (doc as any).lastAutoTable.finalY + 3;
+    // TOTAIS
+    let currentY = (doc as any).lastAutoTable.finalY + 4;
 
-    doc.setFontSize(6);
+    doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
     doc.text('RESUMO:', margin, currentY);
-    currentY += 3;
-
-    doc.setFontSize(5.5);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Trabalhado: ${formatMinutes(totals.totalTrabalhado)} | Esperado: ${formatMinutes(totals.totalEsperado)} | Saldo: ${formatMinutes(totals.saldo)}`, margin, currentY);
-    currentY += 3;
-    doc.text(`Dias: ${totals.diasTrabalhados} trabalhados${totals.diasFalta > 0 ? `, ${totals.diasFalta} faltas` : ''}${totals.diasIncompletos > 0 ? `, ${totals.diasIncompletos} incompletos` : ''}`, margin, currentY);
-
-    // ASSINATURA COMPACTA
-    currentY += 5;
-    doc.setLineWidth(0.3);
-    doc.line(margin, currentY, pageWidth - margin, currentY);
-    currentY += 3;
+    currentY += 4;
 
     doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Trabalhado: ${formatMinutes(totals.totalTrabalhado)} | Esperado: ${formatMinutes(totals.totalEsperado)} | Saldo: ${formatMinutes(totals.saldo)}`, margin, currentY);
+    currentY += 3.5;
+    doc.text(`Dias: ${totals.diasTrabalhados} trabalhados${totals.diasFalta > 0 ? `, ${totals.diasFalta} faltas` : ''}${totals.diasIncompletos > 0 ? `, ${totals.diasIncompletos} incompletos` : ''}`, margin, currentY);
+
+    // ASSINATURA
+    currentY += 6;
+    doc.setLineWidth(0.3);
+    doc.line(margin, currentY, pageWidth - margin, currentY);
+    currentY += 4;
+
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.text('ASSINADO DIGITALMENTE COM SENHA', margin, currentY);
-    currentY += 3;
+    currentY += 4;
 
-    doc.setFontSize(5.5);
+    doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
     doc.text(`${colaboradora?.name || 'N/A'} | CPF: ${cpf} | ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, margin, currentY);
-    currentY += 3;
+    currentY += 4;
 
-    doc.setFontSize(5);
+    doc.setFontSize(6);
     doc.setFont('helvetica', 'italic');
     doc.text('Conforme Portaria 671/2021 (REP-P)', margin, currentY);
 
     // RODAPÉ
-    doc.setFontSize(5);
+    doc.setFontSize(6);
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(100, 100, 100);
-    doc.text('Documento gerado eletronicamente', pageWidth / 2, pageHeight - 3, { align: 'center' });
+    doc.text('Documento gerado eletronicamente', pageWidth / 2, pageHeight - 4, { align: 'center' });
 
     doc.save(`ponto_${colaboradora?.name || 'colaboradora'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     toast.success('PDF exportado com sucesso');
