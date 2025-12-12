@@ -863,73 +863,82 @@ export const CRMManagement = () => {
         });
       }
 
-      // Inserir ou atualizar contatos válidos em lote (upsert)
-      // Se o CPF já existir, atualiza o registro; senão, insere novo
+      // Inserir ou atualizar contatos válidos em lote (upsert manual)
+      // Como o índice único do CPF é parcial (WHERE cpf IS NOT NULL), não podemos usar ON CONFLICT
+      // Então fazemos manualmente: buscar CPFs existentes e fazer update/insert separadamente
       if (successContacts.length > 0) {
         // Processar em lotes para evitar problemas com grandes volumes
         const batchSize = 100;
         for (let i = 0; i < successContacts.length; i += batchSize) {
           const batch = successContacts.slice(i, i + batchSize);
           
-          const { error: upsertError } = await supabase
+          // Buscar CPFs existentes deste batch
+          const cpfs = batch.map(c => c.cpf).filter(Boolean);
+          const { data: existing, error: fetchError } = await supabase
             .schema('sistemaretiradas')
             .from('crm_contacts')
-            .upsert(batch, {
-              onConflict: 'cpf', // Usa o índice único do CPF para detectar conflitos
-              ignoreDuplicates: false // Atualiza ao invés de ignorar
-            });
+            .select('id, cpf')
+            .in('cpf', cpfs);
 
-          if (upsertError) {
-            // Se der erro com onConflict='cpf', pode ser que o PostgREST não reconheça o índice parcial
-            // Nesse caso, vamos tentar uma abordagem manual: buscar CPFs existentes e fazer update/insert separadamente
-            console.warn('Erro no upsert direto, tentando abordagem manual:', upsertError);
-            
-            // Buscar CPFs existentes deste batch
-            const cpfs = batch.map(c => c.cpf).filter(Boolean);
-            const { data: existing } = await supabase
+          if (fetchError) {
+            console.error('Erro ao buscar CPFs existentes:', fetchError);
+            throw fetchError;
+          }
+
+          const existingCpfsMap = new Map((existing || []).map(c => [c.cpf, c.id]));
+          
+          const toInsert: any[] = [];
+          const toUpdate: any[] = [];
+
+          for (const contact of batch) {
+            if (contact.cpf && existingCpfsMap.has(contact.cpf)) {
+              // Atualizar registro existente
+              toUpdate.push({
+                id: existingCpfsMap.get(contact.cpf),
+                ...contact
+              });
+            } else {
+              // Inserir novo registro
+              toInsert.push(contact);
+            }
+          }
+
+          // Fazer updates em lote (processar múltiplos updates de uma vez)
+          if (toUpdate.length > 0) {
+            // Processar updates em pequenos lotes para evitar timeout
+            const updateBatchSize = 50;
+            for (let j = 0; j < toUpdate.length; j += updateBatchSize) {
+              const updateBatch = toUpdate.slice(j, j + updateBatchSize);
+              
+              // Executar updates em paralelo
+              await Promise.all(
+                updateBatch.map(async (contact) => {
+                  const { id, ...updateData } = contact;
+                  const { error: updateError } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('crm_contacts')
+                    .update(updateData)
+                    .eq('id', id);
+                  
+                  if (updateError) {
+                    console.error(`Erro ao atualizar contato ${id}:`, updateError);
+                    throw updateError;
+                  }
+                })
+              );
+            }
+          }
+
+          // Fazer inserts em lote
+          if (toInsert.length > 0) {
+            const { error: insertError } = await supabase
               .schema('sistemaretiradas')
               .from('crm_contacts')
-              .select('id, cpf')
-              .in('cpf', cpfs);
-
-            const existingCpfsMap = new Map((existing || []).map(c => [c.cpf, c.id]));
+              .insert(toInsert);
             
-            const toInsert: any[] = [];
-            const toUpdate: any[] = [];
-
-            for (const contact of batch) {
-              if (contact.cpf && existingCpfsMap.has(contact.cpf)) {
-                // Atualizar registro existente
-                toUpdate.push({
-                  id: existingCpfsMap.get(contact.cpf),
-                  ...contact
-                });
-              } else {
-                // Inserir novo registro
-                toInsert.push(contact);
-              }
-            }
-
-            // Fazer updates em lote
-            if (toUpdate.length > 0) {
-              for (const contact of toUpdate) {
-                const { id, ...updateData } = contact;
-                await supabase
-                  .schema('sistemaretiradas')
-                  .from('crm_contacts')
-                  .update(updateData)
-                  .eq('id', id);
-              }
-            }
-
-            // Fazer inserts em lote
-            if (toInsert.length > 0) {
-              const { error: insertError } = await supabase
-                .schema('sistemaretiradas')
-                .from('crm_contacts')
-                .insert(toInsert);
-              
-              if (insertError) throw insertError;
+            if (insertError) {
+              console.error('Erro ao inserir contatos:', insertError);
+              throw insertError;
             }
           }
         }
