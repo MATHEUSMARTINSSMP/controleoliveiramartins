@@ -422,12 +422,9 @@ export default function CashbackManagement() {
           lojas: data.map(s => ({ name: s.name, cashback_ativo: s.cashback_ativo }))
         });
         
-        // Auto-selecionar primeira loja ou loja da LOJA (ou "ALL" se for ADMIN)
-        if (profile?.role === 'LOJA' && data.length > 0) {
+        // Auto-selecionar primeira loja (sempre uma loja específica)
+        if (data.length > 0) {
           setSelectedStoreId(data[0].id);
-        } else if (profile?.role === 'ADMIN') {
-          // ADMIN pode ver todas as lojas por padrão
-          setSelectedStoreId('ALL');
         }
       }
     } catch (error: any) {
@@ -455,8 +452,8 @@ export default function CashbackManagement() {
         .not('cpf_cnpj', 'is', null)
         .neq('cpf_cnpj', '');
       
-      // Filtrar por loja se selecionada
-      if (selectedStoreId && selectedStoreId !== 'ALL') {
+      // Filtrar por loja selecionada
+      if (selectedStoreId) {
         clientesQuery = clientesQuery.eq('store_id', selectedStoreId);
       }
       
@@ -468,11 +465,11 @@ export default function CashbackManagement() {
       if (clientesError) throw clientesError;
       setClientes(allClientes || []);
 
-      // Buscar saldos - filtrar por loja se selecionada
+      // Buscar saldos - filtrar por loja selecionada
       let balances: any[] = [];
       let balancesError: any = null;
       
-      if (selectedStoreId && selectedStoreId !== 'ALL') {
+      if (selectedStoreId) {
         // Filtrar saldos de clientes da loja selecionada
         const clienteIds = (allClientes || []).map(c => c.id);
         if (clienteIds.length > 0) {
@@ -506,25 +503,15 @@ export default function CashbackManagement() {
           }
         }
         // Se não houver clientes, balances já está como array vazio
-      } else {
-        // Se 'ALL', buscar todos os saldos
-        const balancesQuery = supabase
-          .schema('sistemaretiradas')
-          .from('cashback_balance')
-          .select('*');
-        
-        const result = await balancesQuery;
-        balances = result.data || [];
-        balancesError = result.error;
       }
 
       if (balancesError) throw balancesError;
 
-      // Buscar todas as transações - filtrar por loja se selecionada
+      // Buscar todas as transações - filtrar por loja selecionada
       let transactions: any[] = [];
       let transactionsError: any = null;
       
-      if (selectedStoreId && selectedStoreId !== 'ALL') {
+      if (selectedStoreId) {
         // Filtrar transações de clientes da loja selecionada
         const clienteIds = (allClientes || []).map(c => c.id);
         if (clienteIds.length > 0) {
@@ -569,31 +556,17 @@ export default function CashbackManagement() {
           });
         }
         // Se não houver clientes, transactions já está como array vazio
-      } else {
-        // Se 'ALL', buscar todas as transações
-        const transactionsQuery = supabase
-          .schema('sistemaretiradas')
-          .from('cashback_transactions')
-          .select(`
-            *,
-            tiny_order:tiny_order_id (numero_pedido)
-          `)
-          .order('created_at', { ascending: false });
-        
-        const result = await transactionsQuery;
-        transactions = result.data || [];
-        transactionsError = result.error;
       }
 
       if (transactionsError) throw transactionsError;
 
-      // Buscar pedidos para calcular categoria - filtrar por loja se selecionada
+      // Buscar pedidos para calcular categoria - filtrar por loja selecionada
       let ordersQuery = supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
         .select('cliente_id, valor_total');
       
-      if (selectedStoreId && selectedStoreId !== 'ALL') {
+      if (selectedStoreId) {
         ordersQuery = ordersQuery.eq('store_id', selectedStoreId);
       }
 
@@ -2077,14 +2050,12 @@ export default function CashbackManagement() {
   }
 
   // Verificar se há lojas com cashback ativo
-  // Se não houver lojas com cashback ativo OU se a loja selecionada não tiver cashback ativo
-  const selectedStore = selectedStoreId && selectedStoreId !== 'ALL' 
+  // Verificar se a loja selecionada tem cashback ativo
+  const selectedStore = selectedStoreId 
     ? stores.find(s => s.id === selectedStoreId)
     : null;
   
-  const selectedStoreHasCashback = selectedStoreId === 'ALL' 
-    ? hasActiveCashback 
-    : selectedStore?.cashback_ativo === true;
+  const selectedStoreHasCashback = selectedStore?.cashback_ativo === true;
   
   console.log('[CashbackManagement] Verificação de cashback:', {
     selectedStoreId,
@@ -2119,7 +2090,10 @@ export default function CashbackManagement() {
               Módulo Cashback Desativado
             </CardTitle>
             <CardDescription className="text-orange-600 dark:text-orange-300">
-              O módulo de cashback não está ativo para nenhuma loja no momento.
+              {selectedStore 
+                ? `O módulo de cashback não está ativo para a loja "${selectedStore.name}".`
+                : 'O módulo de cashback não está ativo para nenhuma loja no momento.'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -2166,7 +2140,6 @@ export default function CashbackManagement() {
                 <SelectValue placeholder="Selecione a loja" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">Todas as lojas</SelectItem>
                 {stores.map((store) => (
                   <SelectItem key={store.id} value={store.id}>
                     {store.name}
