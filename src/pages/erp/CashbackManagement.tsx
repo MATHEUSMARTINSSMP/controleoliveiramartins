@@ -121,7 +121,7 @@ export default function CashbackManagement() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('lancar');
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
-  const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
+  const [stores, setStores] = useState<{ id: string; name: string; cashback_ativo?: boolean }[]>([]);
 
   // Estados para lançamento/resgate
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -2072,7 +2072,16 @@ export default function CashbackManagement() {
   }
 
   // Verificar se há lojas com cashback ativo
-  if (!hasActiveCashback && stores.length > 0) {
+  // Se não houver lojas com cashback ativo OU se a loja selecionada não tiver cashback ativo
+  const selectedStore = selectedStoreId && selectedStoreId !== 'ALL' 
+    ? stores.find(s => s.id === selectedStoreId)
+    : null;
+  
+  const selectedStoreHasCashback = selectedStoreId === 'ALL' 
+    ? hasActiveCashback 
+    : selectedStore?.cashback_ativo === true;
+  
+  if (stores.length > 0 && !selectedStoreHasCashback) {
     return (
       <div className="container mx-auto px-4 py-6 space-y-6">
         <div className="flex items-center justify-between">
