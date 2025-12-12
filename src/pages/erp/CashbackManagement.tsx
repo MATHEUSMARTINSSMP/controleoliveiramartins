@@ -435,7 +435,7 @@ export default function CashbackManagement() {
       let clientesQuery = supabase
         .schema('sistemaretiradas')
         .from('tiny_contacts')
-        .select('id, nome, cpf_cnpj, telefone, email, tags, data_nascimento')
+        .select('id, nome, cpf_cnpj, telefone, email, tags, data_nascimento, store_id')
         .not('cpf_cnpj', 'is', null)
         .neq('cpf_cnpj', '')
         .order('nome');
