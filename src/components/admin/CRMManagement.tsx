@@ -985,21 +985,56 @@ export const CRMManagement = () => {
             }
 
             // Tentar inserir também em contacts (compatibilidade)
-            // Se a tabela contacts não existir, apenas ignora o erro
+            // CRÍTICO: Verificar CPFs existentes antes de inserir para evitar duplicações
             if (insertedCrm && insertedCrm.length > 0) {
               try {
-                const { error: insertErrorContacts } = await supabase
-                  .schema('sistemaretiradas')
-                  .from('contacts')
-                  .insert(toInsert);
+                // Buscar CPFs dos registros inseridos que têm CPF
+                const cpfsToCheck = insertedCrm
+                  .map(c => c.cpf)
+                  .filter(Boolean) as string[];
 
-                if (insertErrorContacts && insertErrorContacts.code !== '42P01') {
-                  // Erro diferente de "tabela não existe" - logar mas não bloquear
-                  console.warn('Aviso: não foi possível inserir em contacts (continuando):', insertErrorContacts);
+                if (cpfsToCheck.length > 0) {
+                  // Verificar quais CPFs já existem em contacts
+                  const { data: existingContacts, error: checkError } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('contacts')
+                    .select('cpf')
+                    .in('cpf', cpfsToCheck);
+
+                  if (checkError && checkError.code === '42P01') {
+                    // Tabela não existe, ignorar
+                    console.warn('Aviso: tabela contacts não existe (continuando normalmente)');
+                  } else {
+                    const existingCpfsSet = new Set(
+                      (existingContacts || []).map(c => c.cpf).filter(Boolean)
+                    );
+
+                    // Filtrar apenas os contatos cujo CPF não existe em contacts
+                    const toInsertInContacts = toInsert.filter(contact => {
+                      if (!contact.cpf) return true; // Sem CPF, pode inserir
+                      return !existingCpfsSet.has(contact.cpf); // CPF não existe, pode inserir
+                    });
+
+                    if (toInsertInContacts.length > 0) {
+                      const { error: insertErrorContacts } = await supabase
+                        .schema('sistemaretiradas')
+                        .from('contacts')
+                        .insert(toInsertInContacts);
+
+                      if (insertErrorContacts && insertErrorContacts.code !== '42P01') {
+                        // Erro diferente de "tabela não existe" - logar mas não bloquear
+                        console.warn('Aviso: não foi possível inserir em contacts (continuando):', insertErrorContacts);
+                      } else if (toInsertInContacts.length < toInsert.length) {
+                        console.log(`✅ Inseridos ${toInsertInContacts.length} de ${toInsert.length} em contacts (${toInsert.length - toInsertInContacts.length} CPFs duplicados evitados)`);
+                      }
+                    } else {
+                      console.log('⚠️ Todos os CPFs já existem em contacts, não inserindo duplicados');
+                    }
+                  }
                 }
               } catch (e) {
                 // Ignorar erros ao inserir em contacts (tabela pode não existir)
-                console.warn('Aviso: tabela contacts pode não existir (continuando normalmente)');
+                console.warn('Aviso: erro ao verificar/inserir em contacts (continuando normalmente):', e);
               }
             }
           }
