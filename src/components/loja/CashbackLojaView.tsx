@@ -152,7 +152,8 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
         .from('crm_contacts')
         .select('id, nome, cpf, telefone, email, data_nascimento')
         .eq('store_id', storeId)
-        .order('nome');
+        .order('nome')
+        .range(0, 9999);
 
       if (clientesError) throw clientesError;
 
