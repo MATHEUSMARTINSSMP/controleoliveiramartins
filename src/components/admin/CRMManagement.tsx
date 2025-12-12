@@ -84,7 +84,7 @@ export const CRMManagement = () => {
   const [selectedStore, setSelectedStore] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'tasks' | 'birthdays' | 'postsales' | 'commitments' | 'contacts'>('tasks');
-  
+
   // Filtros avançados
   const [taskStatusFilter, setTaskStatusFilter] = useState<'all' | 'PENDENTE' | 'CONCLUÍDA'>('all');
   const [taskPriorityFilter, setTaskPriorityFilter] = useState<'all' | 'ALTA' | 'MÉDIA' | 'BAIXA'>('all');
@@ -131,7 +131,7 @@ export const CRMManagement = () => {
       fetchAllData();
     }
   }, [selectedStore]);
-  
+
   useEffect(() => {
     // Recarregar dados quando profile mudar
     console.log('📋 [CRMManagement] useEffect - profile mudou:', profile?.id);
@@ -143,7 +143,7 @@ export const CRMManagement = () => {
   const fetchAllData = async () => {
     try {
       setLoading(true);
-      
+
       console.log('📋 [CRMManagement] fetchAllData iniciado');
       console.log('📋 [CRMManagement] profile.id (admin_id):', profile?.id);
       console.log('📋 [CRMManagement] selectedStore:', selectedStore);
@@ -154,21 +154,21 @@ export const CRMManagement = () => {
         .from('stores')
         .select('id, name, admin_id')
         .eq('active', true);
-      
+
       console.log('📋 [CRMManagement] Todas as lojas encontradas:', storesData?.length || 0);
-      
+
       // FILTRO CRÍTICO: apenas lojas do admin logado
       const adminStores = storesData?.filter(store => store.admin_id === profile?.id) || [];
-      
+
       console.log('📋 [CRMManagement] Lojas do admin:', adminStores.length);
       console.log('📋 [CRMManagement] IDs das lojas do admin:', adminStores.map(s => s.id));
-      
+
       if (adminStores) setStores(adminStores.map(s => ({ id: s.id, name: s.name })));
 
       // Buscar contatos da tabela 'crm_contacts' (tabela correta para importações)
       try {
         let contactsData: any[] = [];
-        
+
         // Buscar diretamente de crm_contacts (tabela correta)
         console.log('📋 [CRMManagement] Buscando contatos da tabela crm_contacts...');
         const { data: contactsDataFromTable, error: contactsError } = await supabase
@@ -176,35 +176,35 @@ export const CRMManagement = () => {
           .from('crm_contacts')
           .select('*, stores(name, admin_id)')
           .order('nome', { ascending: true });
-        
+
         console.log('📋 [CRMManagement] Resultado crm_contacts:', {
           encontrados: contactsDataFromTable?.length || 0,
           error: contactsError?.code,
           message: contactsError?.message
         });
-        
+
         if (!contactsError && contactsDataFromTable) {
           contactsData = contactsDataFromTable;
         } else if (contactsError) {
           console.error('📋 [CRMManagement] Erro ao buscar contatos:', contactsError);
           // Não jogar erro aqui, apenas logar - permite que a página continue funcionando
         }
-        
+
         // FILTRO CRÍTICO 1: Apenas contatos de lojas do admin logado
         const adminStoreIds = new Set(adminStores.map(s => s.id));
         contactsData = contactsData.filter((c: any) => {
           const contactStoreId = c.store_id;
           const isAdminStore = contactStoreId && adminStoreIds.has(contactStoreId);
-          
+
           // Verificar também se o store.admin_id está correto
           const storeAdminId = c.stores?.admin_id;
           const isCorrectAdmin = storeAdminId === profile?.id;
-          
+
           return isAdminStore || isCorrectAdmin;
         });
-        
+
         console.log('📋 [CRMManagement] Contatos após filtro de admin:', contactsData.length);
-        
+
         // FILTRO CRÍTICO 2: Aplicar filtro de loja se selecionado
         if (selectedStore !== 'all') {
           const beforeFilter = contactsData.length;
@@ -228,7 +228,7 @@ export const CRMManagement = () => {
             store_id: c.store_id,
             storeName: c.stores?.name
           })));
-          
+
           console.log('📋 [CRMManagement] Contatos setados no state:', contactsData.length);
         } else {
           console.log('📋 [CRMManagement] Nenhum contato encontrado após filtros');
@@ -488,7 +488,7 @@ export const CRMManagement = () => {
       const { error } = await supabase
         .schema('sistemaretiradas')
         .from('crm_tasks')
-        .update({ 
+        .update({
           status: 'CONCLUÍDA',
           completed_at: new Date().toISOString()
         })
@@ -547,7 +547,7 @@ export const CRMManagement = () => {
         observacoes: formData.observacoes || null,
         store_id: formData.store_id,
       };
-      
+
       console.log('[CRMManagement] Salvando contato:', {
         nome: contactData.nome,
         cpf: contactData.cpf,
@@ -623,66 +623,107 @@ export const CRMManagement = () => {
 
         toast.success('Contato atualizado!');
       } else {
-        console.log('[CRMManagement] Criando novo contato:', {
-          nome: contactData.nome,
-          cpf: contactData.cpf,
-          telefone: contactData.telefone,
-          store_id: contactData.store_id,
-          email: contactData.email
-        });
-        
-        const { data, error } = await supabase
-          .schema('sistemaretiradas')
-          .from('crm_contacts')
-          .insert([contactData])
-          .select();
+        // Verificar se já existe cliente com este CPF nesta loja
+        let existingClientInStore = null;
 
-        if (error) {
-          console.error('[CRMManagement] Erro ao inserir contato:', error);
-          throw error;
+        if (contactData.cpf) {
+          const { data } = await supabase
+            .schema('sistemaretiradas')
+            .from('crm_contacts')
+            .select('id, nome')
+            .eq('cpf', contactData.cpf)
+            .eq('store_id', contactData.store_id)
+            .maybeSingle();
+
+          existingClientInStore = data;
         }
 
-        console.log('[CRMManagement] Contato criado com sucesso:', data);
+        if (existingClientInStore) {
+          console.log('[CRMManagement] Cliente já existe nesta loja, atualizando:', existingClientInStore);
 
-        if (data) {
-          setContacts(prev => [...prev, ...data]);
+          const { data, error } = await supabase
+            .schema('sistemaretiradas')
+            .from('crm_contacts')
+            .update(contactData)
+            .eq('id', existingClientInStore.id)
+            .select();
 
-          // Tentar inserir também em contacts (compatibilidade) - APENAS se CPF não existir
-          if (contactData.cpf) {
-            try {
-              // Verificar se CPF já existe em contacts antes de inserir
-              const { data: existingContact, error: checkError } = await supabase
-                .schema('sistemaretiradas')
-                .from('contacts')
-                .select('id, cpf')
-                .eq('cpf', contactData.cpf)
-                .maybeSingle();
+          if (error) {
+            console.error('[CRMManagement] Erro ao atualizar contato existente:', error);
+            throw error;
+          }
 
-              // Se não existe erro de tabela e o contato não existe, inserir
-              if (checkError && checkError.code === '42P01') {
-                // Tabela não existe, ignorar
-                console.warn('Aviso: tabela contacts não existe (continuando normalmente)');
-              } else if (!existingContact) {
-                // CPF não existe em contacts, pode inserir
-                const { error: insertErrorContacts } = await supabase
+          console.log('[CRMManagement] Contato atualizado com sucesso:', data);
+
+          if (data) {
+            // Atualizar lista local
+            setContacts(prev =>
+              prev.map(c => c.id === existingClientInStore.id ? { ...c, ...contactData } : c)
+            );
+          }
+
+          toast.success('Contato atualizado (já existia na loja)!');
+        } else {
+          console.log('[CRMManagement] Criando novo contato:', {
+            nome: contactData.nome,
+            cpf: contactData.cpf,
+            telefone: contactData.telefone,
+            store_id: contactData.store_id,
+            email: contactData.email
+          });
+
+          const { data, error } = await supabase
+            .schema('sistemaretiradas')
+            .from('crm_contacts')
+            .insert([contactData])
+            .select();
+
+          if (error) {
+            console.error('[CRMManagement] Erro ao inserir contato:', error);
+            throw error;
+          }
+
+          console.log('[CRMManagement] Contato criado com sucesso:', data);
+
+          if (data) {
+            setContacts(prev => [...prev, ...data]);
+
+            // Tentar inserir também em contacts (compatibilidade) - APENAS se CPF não existir
+            if (contactData.cpf) {
+              try {
+                // Verificar se CPF já existe em contacts antes de inserir
+                const { data: existingContact, error: checkError } = await supabase
                   .schema('sistemaretiradas')
                   .from('contacts')
-                  .insert([contactData]);
+                  .select('id, cpf')
+                  .eq('cpf', contactData.cpf)
+                  .maybeSingle();
 
-                if (insertErrorContacts && insertErrorContacts.code !== '42P01') {
-                  console.warn('Aviso: não foi possível inserir em contacts (continuando):', insertErrorContacts);
+                // Se não existe erro de tabela e o contato não existe, inserir
+                if (checkError && checkError.code === '42P01') {
+                  // Tabela não existe, ignorar
+                  console.warn('Aviso: tabela contacts não existe (continuando normalmente)');
+                } else if (!existingContact) {
+                  // CPF não existe em contacts, pode inserir
+                  const { error: insertErrorContacts } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('contacts')
+                    .insert([contactData]);
+
+                  if (insertErrorContacts && insertErrorContacts.code !== '42P01') {
+                    console.warn('Aviso: não foi possível inserir em contacts (continuando):', insertErrorContacts);
+                  }
+                } else {
+                  // CPF já existe em contacts, não inserir duplicado
+                  console.log('CPF já existe em contacts, não inserindo duplicado');
                 }
-              } else {
-                // CPF já existe em contacts, não inserir duplicado
-                console.log('CPF já existe em contacts, não inserindo duplicado');
+              } catch (e) {
+                console.warn('Aviso: erro ao verificar/inserir em contacts (continuando normalmente)');
               }
-            } catch (e) {
-              console.warn('Aviso: erro ao verificar/inserir em contacts (continuando normalmente)');
             }
           }
+          toast.success('Contato criado!');
         }
-
-        toast.success('Contato criado!');
       }
 
       setContactDialogOpen(false);
@@ -781,10 +822,10 @@ export const CRMManagement = () => {
   const validateCPF = (cpf: string): boolean => {
     const normalized = normalizeCPF(cpf);
     if (normalized.length !== 11) return false;
-    
+
     // Verificar se todos os dígitos são iguais
     if (/^(\d)\1{10}$/.test(normalized)) return false;
-    
+
     // Validar dígitos verificadores
     let sum = 0;
     for (let i = 0; i < 9; i++) {
@@ -793,7 +834,7 @@ export const CRMManagement = () => {
     let digit = 11 - (sum % 11);
     if (digit >= 10) digit = 0;
     if (digit !== parseInt(normalized.charAt(9))) return false;
-    
+
     sum = 0;
     for (let i = 0; i < 10; i++) {
       sum += parseInt(normalized.charAt(i)) * (11 - i);
@@ -801,7 +842,7 @@ export const CRMManagement = () => {
     digit = 11 - (sum % 11);
     if (digit >= 10) digit = 0;
     if (digit !== parseInt(normalized.charAt(10))) return false;
-    
+
     return true;
   };
 
@@ -851,13 +892,13 @@ export const CRMManagement = () => {
         }
 
         const cpfNormalized = normalizeCPF(cpfRaw);
-        
+
         // Verificar se é CNPJ (14 dígitos) e pular
         if (cpfNormalized.length === 14) {
           errors.push({ row: rowNum, nome, error: 'CNPJ detectado (pulando - apenas CPF é aceito)' });
           continue;
         }
-        
+
         if (cpfNormalized.length !== 11) {
           errors.push({ row: rowNum, nome, error: 'CPF inválido (deve ter 11 dígitos)' });
           continue;
@@ -892,7 +933,7 @@ export const CRMManagement = () => {
         let dataNascimento = null;
         if (dataNasc && dataNasc.trim() !== '' && dataNasc.trim() !== '-') {
           const dataNascTrimmed = dataNasc.trim();
-          
+
           // Tentar parsear formato brasileiro DD/MM/YYYY
           const dateMatch = dataNascTrimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
           if (dateMatch) {
@@ -900,38 +941,38 @@ export const CRMManagement = () => {
             const diaNum = parseInt(dia, 10);
             const mesNum = parseInt(mes, 10);
             const anoNum = parseInt(ano, 10);
-            
+
             // Validar valores básicos
             if (diaNum < 1 || diaNum > 31 || mesNum < 1 || mesNum > 12) {
               errors.push({ row: rowNum, nome, error: 'DATA_NASCIMENTO inválida (dia/mês inválido)' });
               continue;
             }
-            
+
             // Validar ano (razoável: entre 1900 e ano atual)
             const anoAtual = new Date().getFullYear();
             if (anoNum < 1900 || anoNum > anoAtual) {
               errors.push({ row: rowNum, nome, error: 'DATA_NASCIMENTO inválida (ano inválido)' });
               continue;
             }
-            
+
             // Criar data no formato ISO (YYYY-MM-DD)
             const dataISO = `${anoNum}-${mesNum.toString().padStart(2, '0')}-${diaNum.toString().padStart(2, '0')}`;
-            
+
             // Validar se a data é válida criando um objeto Date e verificando se corresponde
             const date = new Date(dataISO + 'T12:00:00'); // Usar meio-dia para evitar problemas de timezone
-            
+
             // Verificar se a data foi criada corretamente
             if (isNaN(date.getTime())) {
               errors.push({ row: rowNum, nome, error: 'DATA_NASCIMENTO inválida (data não existe)' });
               continue;
             }
-            
+
             // Verificar se os valores correspondem (ex: 31/02/2000 vira 02/03/2000)
             if (date.getFullYear() !== anoNum || date.getMonth() + 1 !== mesNum || date.getDate() !== diaNum) {
               errors.push({ row: rowNum, nome, error: 'DATA_NASCIMENTO inválida (data não existe)' });
               continue;
             }
-            
+
             dataNascimento = dataISO;
           } else {
             // Tentar parsear formato ISO YYYY-MM-DD como fallback
@@ -966,7 +1007,7 @@ export const CRMManagement = () => {
         const batchSize = 100;
         for (let i = 0; i < successContacts.length; i += batchSize) {
           const batch = successContacts.slice(i, i + batchSize);
-          
+
           // Buscar CPFs existentes deste batch
           const cpfs = batch.map(c => c.cpf).filter(Boolean);
           const { data: existing, error: fetchError } = await supabase
@@ -981,7 +1022,7 @@ export const CRMManagement = () => {
           }
 
           const existingCpfsMap = new Map((existing || []).map(c => [c.cpf, c.id]));
-          
+
           const toInsert: any[] = [];
           const toUpdate: any[] = [];
 
@@ -998,50 +1039,50 @@ export const CRMManagement = () => {
             }
           }
 
-            // Fazer updates em lote nas duas tabelas simultaneamente
-            if (toUpdate.length > 0) {
-              // Processar updates em pequenos lotes para evitar timeout
-              const updateBatchSize = 50;
-              for (let j = 0; j < toUpdate.length; j += updateBatchSize) {
-                const updateBatch = toUpdate.slice(j, j + updateBatchSize);
-                
-                // Executar updates em paralelo
-                await Promise.all(
-                  updateBatch.map(async (contact) => {
-                    const { id, ...updateData } = contact;
-                    
-                    // Atualizar em crm_contacts (tabela principal)
-                    const { error: updateErrorCrm } = await supabase
+          // Fazer updates em lote nas duas tabelas simultaneamente
+          if (toUpdate.length > 0) {
+            // Processar updates em pequenos lotes para evitar timeout
+            const updateBatchSize = 50;
+            for (let j = 0; j < toUpdate.length; j += updateBatchSize) {
+              const updateBatch = toUpdate.slice(j, j + updateBatchSize);
+
+              // Executar updates em paralelo
+              await Promise.all(
+                updateBatch.map(async (contact) => {
+                  const { id, ...updateData } = contact;
+
+                  // Atualizar em crm_contacts (tabela principal)
+                  const { error: updateErrorCrm } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('crm_contacts')
+                    .update(updateData)
+                    .eq('id', id);
+
+                  if (updateErrorCrm) {
+                    console.error(`Erro ao atualizar contato ${id} em crm_contacts:`, updateErrorCrm);
+                    throw updateErrorCrm;
+                  }
+
+                  // Tentar atualizar também em contacts (compatibilidade)
+                  try {
+                    const { error: updateErrorContacts } = await supabase
                       .schema('sistemaretiradas')
-                      .from('crm_contacts')
+                      .from('contacts')
                       .update(updateData)
                       .eq('id', id);
-                    
-                    if (updateErrorCrm) {
-                      console.error(`Erro ao atualizar contato ${id} em crm_contacts:`, updateErrorCrm);
-                      throw updateErrorCrm;
-                    }
 
-                    // Tentar atualizar também em contacts (compatibilidade)
-                    try {
-                      const { error: updateErrorContacts } = await supabase
-                        .schema('sistemaretiradas')
-                        .from('contacts')
-                        .update(updateData)
-                        .eq('id', id);
-
-                      if (updateErrorContacts && updateErrorContacts.code !== '42P01') {
-                        // Erro diferente de "tabela não existe" - logar mas não bloquear
-                        console.warn(`Aviso: não foi possível atualizar contato ${id} em contacts (continuando):`, updateErrorContacts);
-                      }
-                    } catch (e) {
-                      // Ignorar erros ao atualizar em contacts (tabela pode não existir)
-                      console.warn(`Aviso: tabela contacts pode não existir para atualização de ${id}`);
+                    if (updateErrorContacts && updateErrorContacts.code !== '42P01') {
+                      // Erro diferente de "tabela não existe" - logar mas não bloquear
+                      console.warn(`Aviso: não foi possível atualizar contato ${id} em contacts (continuando):`, updateErrorContacts);
                     }
-                  })
-                );
-              }
+                  } catch (e) {
+                    // Ignorar erros ao atualizar em contacts (tabela pode não existir)
+                    console.warn(`Aviso: tabela contacts pode não existir para atualização de ${id}`);
+                  }
+                })
+              );
             }
+          }
 
           // Fazer inserts em lote nas duas tabelas simultaneamente
           if (toInsert.length > 0) {
@@ -1171,26 +1212,26 @@ export const CRMManagement = () => {
   const filteredTasks = tasks.filter(t => {
     // Filtro de loja
     if (selectedStore !== 'all' && t.storeName !== selectedStore) return false;
-    
+
     // Filtro de busca
-    const matchesSearch = !searchTerm || 
+    const matchesSearch = !searchTerm ||
       t.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.title.toLowerCase().includes(searchTerm.toLowerCase());
     if (!matchesSearch) return false;
-    
+
     // Filtro de status
     if (taskStatusFilter !== 'all' && t.status !== taskStatusFilter) return false;
-    
+
     // Filtro de prioridade
     if (taskPriorityFilter !== 'all' && t.priority !== taskPriorityFilter) return false;
-    
+
     // Filtro de data (se aplicável)
     if (dateRangeFilter.start || dateRangeFilter.end) {
       const taskDate = new Date(t.dueDate);
       if (dateRangeFilter.start && taskDate < new Date(dateRangeFilter.start)) return false;
       if (dateRangeFilter.end && taskDate > new Date(dateRangeFilter.end)) return false;
     }
-    
+
     return true;
   });
 
@@ -1256,8 +1297,8 @@ export const CRMManagement = () => {
               </CardDescription>
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
-              <Select 
-                value={selectedStore} 
+              <Select
+                value={selectedStore}
                 onValueChange={(value) => {
                   console.log('📋 [CRMManagement] Select de loja mudou para:', value);
                   setSelectedStore(value);
@@ -1299,25 +1340,25 @@ export const CRMManagement = () => {
                 onClick={() => setActiveTab(tab)}
                 className="text-xs sm:text-sm font-semibold shadow-sm"
               >
-            {tab === 'tasks' && <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />}
-            {tab === 'birthdays' && <Gift className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />}
-            {tab === 'postsales' && <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />}
-            {tab === 'commitments' && <Calendar className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />}
-            {tab === 'contacts' && <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />}
-            <span className="hidden sm:inline">
-              {tab === 'tasks' && 'Tarefas'}
-              {tab === 'birthdays' && 'Aniversariantes'}
-              {tab === 'postsales' && 'Pós-Vendas'}
-              {tab === 'commitments' && 'Compromissos'}
-              {tab === 'contacts' && 'Contatos'}
-            </span>
-            <span className="sm:hidden">
-              {tab === 'tasks' && 'Tarefas'}
-              {tab === 'birthdays' && 'Aniver.'}
-              {tab === 'postsales' && 'Pós-V.'}
-              {tab === 'commitments' && 'Comp.'}
-              {tab === 'contacts' && 'Contatos'}
-            </span>
+                {tab === 'tasks' && <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />}
+                {tab === 'birthdays' && <Gift className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />}
+                {tab === 'postsales' && <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />}
+                {tab === 'commitments' && <Calendar className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />}
+                {tab === 'contacts' && <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />}
+                <span className="hidden sm:inline">
+                  {tab === 'tasks' && 'Tarefas'}
+                  {tab === 'birthdays' && 'Aniversariantes'}
+                  {tab === 'postsales' && 'Pós-Vendas'}
+                  {tab === 'commitments' && 'Compromissos'}
+                  {tab === 'contacts' && 'Contatos'}
+                </span>
+                <span className="sm:hidden">
+                  {tab === 'tasks' && 'Tarefas'}
+                  {tab === 'birthdays' && 'Aniver.'}
+                  {tab === 'postsales' && 'Pós-V.'}
+                  {tab === 'commitments' && 'Comp.'}
+                  {tab === 'contacts' && 'Contatos'}
+                </span>
               </Button>
             ))}
           </div>
@@ -1587,114 +1628,114 @@ export const CRMManagement = () => {
                   </DialogContent>
                 </Dialog>
                 <Dialog open={contactDialogOpen} onOpenChange={(open) => {
-                setContactDialogOpen(open);
-                if (!open) {
-                  resetContactForm();
-                } else {
-                  // Ao abrir, pré-selecionar loja baseada no filtro
-                  const defaultStoreId = selectedStore !== 'all' ? selectedStore : (stores.length > 0 ? stores[0].id : '');
-                  setFormData(prev => ({ ...prev, store_id: defaultStoreId }));
-                }
-              }}>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="bg-gradient-to-r from-primary to-accent">
-                    <Plus className="h-4 w-4 mr-2" />
-                    <span className="hidden sm:inline">Novo Contato</span>
-                    <span className="sm:hidden">Novo</span>
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>{editingId ? 'Editar' : 'Novo'} Contato CRM</DialogTitle>
-                    <DialogDescription>
-                      {editingId ? 'Atualize as informações do contato' : 'Adicione um novo contato ao CRM'}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Nome *</Label>
-                      <Input
-                        placeholder="Nome do cliente"
-                        value={formData.nome}
-                        onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                      />
+                  setContactDialogOpen(open);
+                  if (!open) {
+                    resetContactForm();
+                  } else {
+                    // Ao abrir, pré-selecionar loja baseada no filtro
+                    const defaultStoreId = selectedStore !== 'all' ? selectedStore : (stores.length > 0 ? stores[0].id : '');
+                    setFormData(prev => ({ ...prev, store_id: defaultStoreId }));
+                  }
+                }}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="bg-gradient-to-r from-primary to-accent">
+                      <Plus className="h-4 w-4 mr-2" />
+                      <span className="hidden sm:inline">Novo Contato</span>
+                      <span className="sm:hidden">Novo</span>
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>{editingId ? 'Editar' : 'Novo'} Contato CRM</DialogTitle>
+                      <DialogDescription>
+                        {editingId ? 'Atualize as informações do contato' : 'Adicione um novo contato ao CRM'}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Nome *</Label>
+                        <Input
+                          placeholder="Nome do cliente"
+                          value={formData.nome}
+                          onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>CPF</Label>
+                        <Input
+                          placeholder="000.000.000-00"
+                          value={formData.cpf || ''}
+                          onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Email</Label>
+                        <Input
+                          type="email"
+                          placeholder="cliente@email.com"
+                          value={formData.email || ''}
+                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Telefone</Label>
+                        <Input
+                          placeholder="(11) 99999-9999"
+                          value={formData.telefone || ''}
+                          onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Data de Nascimento</Label>
+                        <Input
+                          type="date"
+                          value={formData.data_nascimento || ''}
+                          onChange={(e) => setFormData({ ...formData, data_nascimento: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Loja *</Label>
+                        {stores.length === 0 ? (
+                          <div className="text-sm text-muted-foreground p-2 border rounded">
+                            Carregando lojas...
+                          </div>
+                        ) : (
+                          <Select
+                            value={formData.store_id}
+                            onValueChange={(value) => setFormData({ ...formData, store_id: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione uma loja" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {stores.map(store => (
+                                <SelectItem key={store.id} value={store.id}>
+                                  {store.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                      <div>
+                        <Label>Observações</Label>
+                        <Textarea
+                          placeholder="Informações adicionais..."
+                          value={formData.observacoes || ''}
+                          onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
+                          className="min-h-20"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button onClick={() => setContactDialogOpen(false)} variant="outline" className="flex-1">Cancelar</Button>
+                        <Button onClick={handleSaveContact} disabled={saving} className="flex-1">
+                          {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                          Salvar
+                        </Button>
+                      </div>
                     </div>
-                    <div>
-                      <Label>CPF</Label>
-                      <Input
-                        placeholder="000.000.000-00"
-                        value={formData.cpf || ''}
-                        onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Email</Label>
-                      <Input
-                        type="email"
-                        placeholder="cliente@email.com"
-                        value={formData.email || ''}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Telefone</Label>
-                      <Input
-                        placeholder="(11) 99999-9999"
-                        value={formData.telefone || ''}
-                        onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Data de Nascimento</Label>
-                      <Input
-                        type="date"
-                        value={formData.data_nascimento || ''}
-                        onChange={(e) => setFormData({ ...formData, data_nascimento: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Loja *</Label>
-                      {stores.length === 0 ? (
-                        <div className="text-sm text-muted-foreground p-2 border rounded">
-                          Carregando lojas...
-                        </div>
-                      ) : (
-                        <Select
-                          value={formData.store_id}
-                          onValueChange={(value) => setFormData({ ...formData, store_id: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione uma loja" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {stores.map(store => (
-                              <SelectItem key={store.id} value={store.id}>
-                                {store.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </div>
-                    <div>
-                      <Label>Observações</Label>
-                      <Textarea
-                        placeholder="Informações adicionais..."
-                        value={formData.observacoes || ''}
-                        onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-                        className="min-h-20"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button onClick={() => setContactDialogOpen(false)} variant="outline" className="flex-1">Cancelar</Button>
-                      <Button onClick={handleSaveContact} disabled={saving} className="flex-1">
-                        {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                        Salvar
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
           </CardHeader>

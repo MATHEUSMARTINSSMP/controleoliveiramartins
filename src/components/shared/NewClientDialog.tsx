@@ -143,29 +143,49 @@ export function NewClientDialog({
 
       console.log('[NewClientDialog] ✅ store_id final:', finalStoreId);
 
-      // Verificar se CPF já existe (evitar duplicatas)
+      // Verificar se CPF já existe NESTA LOJA
       if (cpfNormalizado) {
         const { data: existingClient } = await supabase
           .schema('sistemaretiradas')
           .from('crm_contacts')
-          .select('id, nome')
+          .select('id, nome, store_id')
           .eq('cpf', cpfNormalizado)
+          .eq('store_id', finalStoreId) // Isolamento por loja
           .maybeSingle();
 
         if (existingClient) {
-          toast.error(`Cliente com CPF ${cpfNormalizado} já existe: ${existingClient.nome}`);
-          // Retornar cliente existente
+          console.log('[NewClientDialog] ⚠️ Cliente já existe nesta loja, atualizando:', existingClient);
+
+          // Atualizar cliente existente
+          const { data: updatedClient, error: updateError } = await supabase
+            .schema('sistemaretiradas')
+            .from('crm_contacts')
+            .update({
+              nome: nomeNormalizado,
+              telefone: telefoneNormalizado,
+              data_nascimento: formData.data_nascimento || null,
+            })
+            .eq('id', existingClient.id)
+            .select('id, nome, cpf, store_id')
+            .single();
+
+          if (updateError) {
+            console.error('[NewClientDialog] ❌ Erro ao atualizar cliente:', updateError);
+            throw updateError;
+          }
+
+          toast.success("Dados do cliente atualizados com sucesso!");
           onClientCreated?.({
-            id: existingClient.id,
-            nome: existingClient.nome,
-            cpf: cpfNormalizado,
+            id: updatedClient.id,
+            nome: updatedClient.nome,
+            cpf: updatedClient.cpf,
           });
           handleClose();
           return;
         }
       }
 
-      // Inserir em crm_contacts
+      // Inserir em crm_contacts (Novo para esta loja)
       const contactData = {
         nome: nomeNormalizado,
         cpf: cpfNormalizado,
@@ -174,7 +194,7 @@ export function NewClientDialog({
         store_id: finalStoreId,
       };
 
-      console.log('[NewClientDialog] 💾 Salvando cliente:', contactData);
+      console.log('[NewClientDialog] 💾 Salvando novo cliente:', contactData);
 
       const { data: newClient, error: insertError } = await supabase
         .schema('sistemaretiradas')
@@ -190,57 +210,55 @@ export function NewClientDialog({
 
       console.log('[NewClientDialog] ✅ Cliente salvo com sucesso:', newClient);
 
-      // Tentar inserir também em contacts (compatibilidade)
-      if (newClient) {
+      // Tentar inserir também em contacts (compatibilidade - APENAS SE NÃO EXISTIR)
+      // Nota: contacts não tem store_id, então a unicidade é global pelo CPF.
+      // Se já existir em contacts, não fazemos nada (apenas garantimos que existe)
+      if (newClient && cpfNormalizado) {
         try {
-          // Verificar se contacts tem cpf e se não existe duplicata
-          if (cpfNormalizado) {
-            const { data: existingContact } = await supabase
-              .schema('sistemaretiradas')
-              .from('contacts')
-              .select('id')
-              .eq('cpf', cpfNormalizado)
-              .maybeSingle();
+          const { data: existingContact } = await supabase
+            .schema('sistemaretiradas')
+            .from('contacts')
+            .select('id')
+            .eq('cpf', cpfNormalizado)
+            .maybeSingle();
 
-            if (!existingContact) {
-              // Determinar valor válido para source
-              let sourceValue = 'MANUAL'; // Valor padrão seguro
-              try {
-                // Tentar obter um valor válido existente na tabela
-                const { data: existingSource } = await supabase
-                  .schema('sistemaretiradas')
-                  .from('contacts')
-                  .select('source')
-                  .not('source', 'is', null)
-                  .limit(1)
-                  .single();
-                
-                if (existingSource?.source) {
-                  sourceValue = existingSource.source;
-                }
-              } catch (err) {
-                // Se não conseguir, usar 'MANUAL' como padrão
-                console.warn('[NewClientDialog] Usando source padrão MANUAL');
-              }
-
-              // Inserir em contacts também
-              const { error: contactsError } = await supabase
+          if (!existingContact) {
+            // Determinar valor válido para source
+            let sourceValue = 'MANUAL';
+            try {
+              const { data: existingSource } = await supabase
                 .schema('sistemaretiradas')
                 .from('contacts')
-                .insert({
-                  id: newClient.id,
-                  ...contactData,
-                  source: sourceValue,
-                });
+                .select('source')
+                .not('source', 'is', null)
+                .limit(1)
+                .single();
 
-              if (contactsError && contactsError.code !== '42P01') {
-                console.warn('[NewClientDialog] Aviso: não foi possível inserir em contacts:', contactsError);
+              if (existingSource?.source) {
+                sourceValue = existingSource.source;
               }
+            } catch (err) {
+              console.warn('[NewClientDialog] Usando source padrão MANUAL');
+            }
+
+            // Inserir em contacts
+            const { error: contactsError } = await supabase
+              .schema('sistemaretiradas')
+              .from('contacts')
+              .insert({
+                id: newClient.id, // Usar mesmo ID se possível, mas contacts pode ter ID próprio se for auto-increment. 
+                // Na verdade, contacts.id geralmente é uuid. Se crm_contacts.id for uuid, podemos tentar usar o mesmo.
+                // Mas se contacts já tiver esse CPF, não inserimos.
+                ...contactData,
+                source: sourceValue,
+              });
+
+            if (contactsError && contactsError.code !== '42P01') {
+              console.warn('[NewClientDialog] Aviso: não foi possível inserir em contacts:', contactsError);
             }
           }
         } catch (err) {
           console.warn('[NewClientDialog] Erro ao inserir em contacts (compatibilidade):', err);
-          // Não bloquear se falhar em contacts
         }
       }
 
@@ -269,6 +287,7 @@ export function NewClientDialog({
     setIsConsumidorFinal(true); // Resetar para padrão
     onOpenChange(false);
   };
+
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -388,8 +407,5 @@ export function NewClientDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-
 }
 
