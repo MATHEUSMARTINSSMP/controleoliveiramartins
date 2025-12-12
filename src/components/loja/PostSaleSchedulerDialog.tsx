@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatBRL } from "@/lib/utils";
 
 interface PostSaleSchedulerDialogProps {
   open: boolean;
@@ -42,33 +42,35 @@ export default function PostSaleSchedulerDialog({
   const [observacoes, setObservacoes] = useState("");
   const [ocasiao, setOcasiao] = useState(""); // Nova informação: ocasião
   const [ajuste, setAjuste] = useState(""); // Nova informação: ajuste
+  const [saleValue, setSaleValue] = useState<number | null>(null);
+  const [saleQtdPecas, setSaleQtdPecas] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [checkingExisting, setCheckingExisting] = useState(false);
-  
+
   // Data do pós-venda (editável, padrão: 7 dias após a venda)
   const saleDateObj = new Date(saleDate);
   const defaultFollowUpDate = addDays(saleDateObj, 7);
   const [followUpDate, setFollowUpDate] = useState<Date>(defaultFollowUpDate);
 
-      // Buscar informações do cliente da venda e verificar se já existe pós-venda
-      useEffect(() => {
-        if (open && saleId) {
-          // Resetar data para padrão (7 dias) quando abrir
-          const saleDateObj = new Date(saleDate);
-          setFollowUpDate(addDays(saleDateObj, 7));
-          
-          // Preencher com dados do cliente se fornecido (prioridade)
-          if (clienteNome && !clienteNome.includes('Consumidor Final')) {
-            setClienteNomeState(clienteNome);
-          }
-          if (clienteTelefone) {
-            setClienteWhatsapp(clienteTelefone);
-          }
-          
-          fetchSaleInfo();
-          checkExistingPostSale();
-        }
-      }, [open, saleId, saleDate, clienteNome, clienteTelefone, clienteId]);
+  // Buscar informações do cliente da venda e verificar se já existe pós-venda
+  useEffect(() => {
+    if (open && saleId) {
+      // Resetar data para padrão (7 dias) quando abrir
+      const saleDateObj = new Date(saleDate);
+      setFollowUpDate(addDays(saleDateObj, 7));
+
+      // Preencher com dados do cliente se fornecido (prioridade)
+      if (clienteNome && !clienteNome.includes('Consumidor Final')) {
+        setClienteNomeState(clienteNome);
+      }
+      if (clienteTelefone) {
+        setClienteWhatsapp(clienteTelefone);
+      }
+
+      fetchSaleInfo();
+      checkExistingPostSale();
+    }
+  }, [open, saleId, saleDate, clienteNome, clienteTelefone, clienteId]);
 
   const checkExistingPostSale = async () => {
     setCheckingExisting(true);
@@ -77,7 +79,7 @@ export default function PostSaleSchedulerDialog({
       const { data: existingPostSale, error } = await supabase
         .schema("sistemaretiradas")
         .from("crm_post_sales")
-        .select("id, cliente_nome, cliente_whatsapp, observacoes_venda, scheduled_follow_up")
+        .select("id, cliente_nome, cliente_whatsapp, observacoes_venda, scheduled_follow_up, informacoes_cliente")
         .eq("sale_id", saleId)
         .maybeSingle();
 
@@ -120,6 +122,11 @@ export default function PostSaleSchedulerDialog({
           }
         }
         toast.info("Já existe um pós-venda agendado para esta venda. Você pode atualizar os dados.");
+      } else {
+        // Se NÃO existe, preencher observações com as observações da venda (se houver)
+        if (saleObservations) {
+          setObservacoes(saleObservations);
+        }
       }
     } catch (error) {
       console.error("Erro ao verificar pós-venda existente:", error);
@@ -130,13 +137,18 @@ export default function PostSaleSchedulerDialog({
 
   const fetchSaleInfo = async () => {
     try {
-      // Buscar venda (incluindo cliente_id e cliente_nome)
+      // Buscar venda (incluindo cliente_id, cliente_nome, valor e qtd_pecas)
       const { data: saleData } = await supabase
         .schema("sistemaretiradas")
         .from("sales")
-        .select("tiny_order_id, observacoes, cliente_id, cliente_nome")
+        .select("tiny_order_id, observacoes, cliente_id, cliente_nome, valor, qtd_pecas")
         .eq("id", saleId)
         .single();
+
+      if (saleData) {
+        setSaleValue(Number(saleData.valor));
+        setSaleQtdPecas(Number(saleData.qtd_pecas));
+      }
 
       // Se a venda tem cliente_id, buscar telefone do cliente
       if (saleData?.cliente_id && saleData.cliente_id !== 'CONSUMIDOR_FINAL') {
@@ -218,8 +230,8 @@ export default function PostSaleSchedulerDialog({
       const informacoesCliente: any = {};
       if (ocasiao.trim()) informacoesCliente.ocasiao = ocasiao.trim();
       if (ajuste.trim()) informacoesCliente.ajuste = ajuste.trim();
-      const informacoesClienteStr = Object.keys(informacoesCliente).length > 0 
-        ? JSON.stringify(informacoesCliente) 
+      const informacoesClienteStr = Object.keys(informacoesCliente).length > 0
+        ? JSON.stringify(informacoesCliente)
         : null;
 
       if (existingPostSale) {
@@ -273,13 +285,15 @@ export default function PostSaleSchedulerDialog({
       toast.success(existingPostSale ? "Pós-venda atualizado com sucesso!" : "Pós-venda agendado com sucesso!");
       onSuccess?.();
       onOpenChange(false);
-      
+
       // Resetar formulário
       setClienteNomeState("");
       setClienteWhatsapp("");
       setObservacoes("");
       setOcasiao("");
       setAjuste("");
+      setSaleValue(null);
+      setSaleQtdPecas(null);
     } catch (error: any) {
       console.error("Erro ao agendar pós-venda:", error);
       toast.error(error.message || "Erro ao agendar pós-venda");
@@ -352,7 +366,7 @@ export default function PostSaleSchedulerDialog({
             <p className="text-xs text-muted-foreground mb-3">
               Adicione aqui informações que serão úteis quando for entrar em contato com o cliente
             </p>
-            
+
             {/* Ocasião */}
             <div className="space-y-2">
               <Label htmlFor="ocasiao" className="text-sm">Ocasião</Label>
@@ -395,6 +409,12 @@ export default function PostSaleSchedulerDialog({
             <div className="p-3 bg-muted rounded-md text-sm space-y-1">
               <p><strong>ID da Venda:</strong> {saleId}</p>
               <p><strong>Data da Venda:</strong> {format(new Date(saleDate), "dd/MM/yyyy", { locale: ptBR })}</p>
+              {saleValue !== null && (
+                <p><strong>Valor da Venda:</strong> {formatBRL(saleValue)}</p>
+              )}
+              {saleQtdPecas !== null && (
+                <p><strong>Qtd Peças:</strong> {saleQtdPecas}</p>
+              )}
               {saleObservations && (
                 <p><strong>Observações da Venda:</strong> {saleObservations}</p>
               )}

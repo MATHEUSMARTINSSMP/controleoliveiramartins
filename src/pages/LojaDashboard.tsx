@@ -24,9 +24,9 @@ import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
 import { format, startOfWeek, getWeek, getYear } from "date-fns";
 import { StoreLogo } from "@/lib/storeLogo";
-import { 
-    validateFormasPagamento, 
-    getFormaPrincipal, 
+import {
+    validateFormasPagamento,
+    getFormaPrincipal,
     calcularTotalFormas,
     formatFormasPagamentoResumo,
     type FormaPagamento as FormaPagamentoType,
@@ -227,42 +227,42 @@ export default function LojaDashboard() {
     // Hooks para gestão de folgas
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const { offDays, toggleFolga, isOnLeave, refetch: refetchFolgas, loading: loadingFolgas } = useFolgas({ storeId, date: todayStr });
-    
+
     const { redistributeGoalsForDate } = useGoalRedistribution({ storeId });
-    
+
     // REDISTRIBUIÇÃO DE METAS - PÓS-PROCESSAMENTO
     // Calcula redistribuição baseada nas metas dinâmicas já calculadas em colaboradorasPerformance
     const redistributedPerformance = useMemo(() => {
         if (!colaboradorasPerformance || colaboradorasPerformance.length === 0) {
-            return { 
-                data: [], 
-                totalMetaDiariaOriginal: 0, 
+            return {
+                data: [],
+                totalMetaDiariaOriginal: 0,
                 totalMetaDiariaRedistribuida: 0,
                 totalTrabalhando: 0,
                 totalFolga: 0
             };
         }
-        
+
         // Identificar quem está de folga hoje
         const offColabIds = new Set(offDays.map(od => od.colaboradora_id));
-        
+
         // Separar colaboradoras trabalhando vs folga
         const working = colaboradorasPerformance.filter(p => !offColabIds.has(p.id));
         const onLeave = colaboradorasPerformance.filter(p => offColabIds.has(p.id));
-        
+
         // Somar meta das colaboradoras de folga
         const totalMetaFolga = onLeave.reduce((sum, p) => sum + (p.metaDiaria || 0), 0);
-        
+
         // Somar meta original total (para validação)
         const totalMetaOriginal = colaboradorasPerformance.reduce((sum, p) => sum + (p.metaDiaria || 0), 0);
-        
+
         // Calcular redistribuição para cada colaboradora trabalhando
         const redistribuicaoPorColab = working.length > 0 ? totalMetaFolga / working.length : 0;
-        
+
         // Criar array enriquecido com metas redistribuídas
         const enrichedData = colaboradorasPerformance.map(perf => {
             const isOnLeaveToday = offColabIds.has(perf.id);
-            
+
             if (isOnLeaveToday) {
                 // Colaboradora de folga: meta redistribuída = 0
                 return {
@@ -281,12 +281,12 @@ export default function LojaDashboard() {
                 };
             }
         });
-        
+
         // Somar meta redistribuída total (deve ser igual à original)
         const totalMetaRedist = enrichedData
             .filter(p => !p.isOnLeave)
             .reduce((sum, p) => sum + (p.metaDiariaRedistribuida || 0), 0);
-        
+
         console.log('[RedistribuicaoMetas] Resumo:', {
             totalColaboradoras: colaboradorasPerformance.length,
             trabalhando: working.length,
@@ -296,7 +296,7 @@ export default function LojaDashboard() {
             metaOriginalTotal: totalMetaOriginal,
             metaRedistribuidaTotal: totalMetaRedist
         });
-        
+
         return {
             data: enrichedData,
             totalMetaDiariaOriginal: totalMetaOriginal,
@@ -366,7 +366,7 @@ export default function LojaDashboard() {
 
     // Flag para controlar se devemos usar dados do React Query ou do fetchDataWithStoreId
     const useLocalPerformanceRef = useRef(false);
-    
+
     useEffect(() => {
         // Só atualizar do React Query se não estivermos usando dados locais
         // Isso evita que o React Query sobrescreva dados atualizados localmente
@@ -401,14 +401,14 @@ export default function LojaDashboard() {
                         console.error('Erro ao verificar admin da loja:', storeError);
                         return;
                     }
-                    
+
                     const adminIsActive = storeData?.profiles?.is_active !== false;
                     if (!adminIsActive) {
                         // Admin desativado - bloquear acesso
                         console.warn('⚠️ Admin da loja está desativado - bloqueando acesso');
                         return;
                     }
-                    
+
                     // Admin ativo - continuar normalmente
                     if (!isIdentifyingStoreRef.current) {
                         isIdentifyingStoreRef.current = true;
@@ -442,14 +442,14 @@ export default function LojaDashboard() {
                     cashbackType: typeof storeSettings.cashback_ativo,
                     crmType: typeof storeSettings.crm_ativo
                 });
-                
+
                 // Usar Boolean() para garantir conversão correta
                 const cashback = Boolean(storeSettings.cashback_ativo);
                 const crm = Boolean(storeSettings.crm_ativo);
                 const ponto = Boolean(storeSettings.ponto_ativo);
                 const wishlist = Boolean(storeSettings.wishlist_ativo);
                 const ajustesCondicionais = Boolean(storeSettings.ajustes_condicionais_ativo);
-                
+
                 console.log('[LojaDashboard] ✅ Valores booleanos calculados:', {
                     cashback,
                     crm,
@@ -459,13 +459,13 @@ export default function LojaDashboard() {
                     rawCashback: storeSettings.cashback_ativo,
                     rawCrm: storeSettings.crm_ativo
                 });
-                
+
                 setCashbackAtivo(cashback);
                 setCrmAtivo(crm);
                 setPontoAtivo(ponto);
                 setWishlistAtivo(wishlist);
                 setAjustesCondicionaisAtivo(ajustesCondicionais);
-                
+
                 console.log('[LojaDashboard] ✅ Estados atualizados via storeSettings');
                 return;
             }
@@ -501,13 +501,13 @@ export default function LojaDashboard() {
                             ajustesCondicionais: data.ajustes_condicionais_ativo,
                             cashbackType: typeof data.cashback_ativo
                         });
-                        
+
                         const cashback = data.cashback_ativo === true;
                         const crm = data.crm_ativo === true;
                         const ponto = data.ponto_ativo === true;
                         const wishlist = data.wishlist_ativo === true;
                         const ajustesCondicionais = data.ajustes_condicionais_ativo === true;
-                        
+
                         console.log('[LojaDashboard] ✅ Setando módulos (fallback):', {
                             cashback,
                             crm,
@@ -515,7 +515,7 @@ export default function LojaDashboard() {
                             wishlist,
                             ajustesCondicionais
                         });
-                        
+
                         setCashbackAtivo(cashback);
                         setCrmAtivo(crm);
                         setPontoAtivo(ponto);
@@ -661,7 +661,7 @@ export default function LojaDashboard() {
                         const crm = Boolean(modulesData.crm_ativo) && modulesData.crm_ativo === true;
                         const ponto = Boolean(modulesData.ponto_ativo) && modulesData.ponto_ativo === true;
                         const wishlist = Boolean(modulesData.wishlist_ativo) && modulesData.wishlist_ativo === true;
-                        
+
                         console.log('[LojaDashboard] ✅ Valores booleanos calculados (identifyStore):', {
                             cashback,
                             crm,
@@ -674,13 +674,13 @@ export default function LojaDashboard() {
                                 wishlist: modulesData.wishlist_ativo
                             }
                         });
-                        
+
                         // Setar módulos IMEDIATAMENTE
                         setCashbackAtivo(cashback);
                         setCrmAtivo(crm);
                         setPontoAtivo(ponto);
                         setWishlistAtivo(wishlist);
-                        
+
                         console.log('[LojaDashboard] ✅ Estados setados diretamente em identifyStore');
                     } else {
                         console.error('[LojaDashboard] ❌ Erro ao buscar módulos:', modulesError);
@@ -761,13 +761,13 @@ export default function LojaDashboard() {
 
         // 5. META FINAL: Base + Adicional
         let metaFinal = metaBase + metaAdicional;
-        
+
         // 6. PROTEÇÃO: Meta diária não pode ser maior que 50% da meta mensal
         const maxMetaDiaria = metaMensal * 0.5;
         if (metaFinal > maxMetaDiaria) {
             metaFinal = maxMetaDiaria;
         }
-        
+
         // 7. PROTEÇÃO: Meta diária não pode ser negativa
         if (metaFinal < 0) {
             metaFinal = 0;
@@ -873,13 +873,13 @@ export default function LojaDashboard() {
                     totalMes += Number(sale.valor || 0);
                 });
             }
-            
+
             // Usar o valor calculado localmente apenas se não houver dados do React Query
             // O React Query (useStoreMonthlyProgress) já calcula corretamente todas as vendas
             // Mas precisamos considerar colaboradoras desativadas para o cálculo da meta dinâmica
             // Por isso mantemos o totalMes local para a meta diária dinâmica
             // Mas não sobrescrevemos o monthlyRealizado se já temos dados do React Query
-            
+
             // O monthlyRealizado será atualizado pelo useEffect que observa monthlyProgressData
             // Apenas definimos aqui se não tivermos dados ainda
             if (!monthlyProgressData) {
@@ -1571,7 +1571,7 @@ export default function LojaDashboard() {
                     if (goal) {
                         // Verificar se colaboradora está de folga
                         const isFolga = isOnLeave(colab.id, today);
-                        
+
                         if (isFolga) {
                             // Se está de folga, meta diária = 0
                             return {
@@ -1592,7 +1592,7 @@ export default function LojaDashboard() {
                                 ticketMedio,
                             };
                         }
-                        
+
                         // Calcular meta diária DINÂMICA (apenas para colaboradoras ativas)
                         const dailyWeights = goal.daily_weights || {};
                         let metaDiaria = calculateDynamicDailyGoal(
@@ -1602,7 +1602,7 @@ export default function LojaDashboard() {
                             Object.keys(dailyWeights).length > 0 ? dailyWeights : null,
                             daysInMonth
                         );
-                        
+
                         // Aplicar redistribuição: se há colaboradoras de folga, adicionar parte redistribuída
                         // A redistribuição já foi aplicada na meta mensal pelo hook useGoalRedistribution
                         // então a meta diária calculada já inclui a parte redistribuída
@@ -2170,7 +2170,7 @@ export default function LojaDashboard() {
         const resumoPagamentos = formatFormasPagamentoResumo(formasPagamento);
         let observacoesComPagamento = formData.observacoes || '';
         if (resumoPagamentos && resumoPagamentos !== 'Nao informado') {
-            observacoesComPagamento = observacoesComPagamento 
+            observacoesComPagamento = observacoesComPagamento
                 ? `${observacoesComPagamento} | Pagamento: ${resumoPagamentos}`
                 : `Pagamento: ${resumoPagamentos}`;
         }
@@ -2240,7 +2240,7 @@ export default function LojaDashboard() {
 
             if (insertedSale?.id && crmAtivo) {
                 console.log('[LojaDashboard] ✅ Abrindo dialog de pós-venda');
-                
+
                 // Buscar telefone do cliente se houver cliente_id
                 let clienteTelefone: string | undefined = undefined;
                 if (formData.cliente_id && formData.cliente_id !== 'CONSUMIDOR_FINAL') {
@@ -2252,7 +2252,7 @@ export default function LojaDashboard() {
                             .select('telefone')
                             .eq('id', formData.cliente_id)
                             .maybeSingle();
-                        
+
                         if (clienteData?.telefone) {
                             clienteTelefone = clienteData.telefone;
                         } else {
@@ -2263,7 +2263,7 @@ export default function LojaDashboard() {
                                 .select('telefone')
                                 .eq('id', formData.cliente_id)
                                 .maybeSingle();
-                            
+
                             if (contactData?.telefone) {
                                 clienteTelefone = contactData.telefone;
                             }
@@ -2272,7 +2272,7 @@ export default function LojaDashboard() {
                         console.warn('[LojaDashboard] Erro ao buscar telefone do cliente:', error);
                     }
                 }
-                
+
                 setLastSaleData({
                     saleId: insertedSale.id,
                     colaboradoraId: formData.colaboradora_id,
@@ -2482,7 +2482,7 @@ export default function LojaDashboard() {
                                 totalMesAtualizado = vendasMes.reduce((sum: number, v: any) => sum + parseFloat(v.valor || 0), 0);
                                 // Verificar se a venda atual já está na lista pelo ID
                                 vendaAtualJaIncluidaMes = vendasMes.some((v: any) => v.id === saleIdAtual);
-                                
+
                                 // ✅ Só adicionar a venda atual se ela NÃO estiver na query ainda
                                 if (!vendaAtualJaIncluidaMes) {
                                     console.log('📱 [4/4] Venda atual NÃO estava na query mensal, adicionando ao total...');
@@ -2504,15 +2504,15 @@ export default function LojaDashboard() {
 
                             console.log('📱 [4/4] Formatando mensagem...');
                             const { formatVendaMessage, sendWhatsAppMessage } = await import('@/lib/whatsapp');
-                            
+
                             // Usar cliente_nome do insertedSale diretamente (já vem no select)
                             let clienteNome = null;
-                            if (insertedSale?.cliente_nome && 
-                                insertedSale.cliente_nome !== 'Consumidor Final' && 
+                            if (insertedSale?.cliente_nome &&
+                                insertedSale.cliente_nome !== 'Consumidor Final' &&
                                 insertedSale.cliente_nome !== 'CONSUMIDOR_FINAL') {
-                              clienteNome = insertedSale.cliente_nome;
+                                clienteNome = insertedSale.cliente_nome;
                             }
-                            
+
                             const message = formatVendaMessage({
                                 colaboradoraName,
                                 valor: parseFloat(vendaData.valor),
@@ -2693,7 +2693,7 @@ export default function LojaDashboard() {
     const handleNewClientCreated = async (client: { id: string; nome: string; cpf: string | null }) => {
         console.log('[LojaDashboard] 🎉 Novo cliente criado:', client);
         console.log('[LojaDashboard] 📍 storeId atual:', storeId);
-        
+
         if (client.id === 'CONSUMIDOR_FINAL') {
             // Consumidor Final: limpar campos
             setSelectedClienteId(null);
@@ -2702,18 +2702,18 @@ export default function LojaDashboard() {
         } else {
             // Cliente cadastrado: selecionar
             console.log('[LojaDashboard] 🔄 Recarregando lista de clientes...');
-            
+
             // Recarregar lista de clientes para incluir o novo
             refreshClients();
-            
+
             // Aguardar um pouco para garantir que os dados sejam recarregados
             await new Promise(resolve => setTimeout(resolve, 500));
-            
+
             // Selecionar o cliente recém-criado
             setSelectedClienteId(client.id);
             setSearchCliente(client.nome);
             setFormData({ ...formData, cliente_id: client.id, cliente_nome: client.nome });
-            
+
             console.log('[LojaDashboard] ✅ Cliente selecionado e lista recarregada');
         }
     };
@@ -2799,7 +2799,7 @@ export default function LojaDashboard() {
         const resumoPagamentos = formatFormasPagamentoResumo(formasPagamento);
         let observacoesComPagamento = formData.observacoes || '';
         if (resumoPagamentos && resumoPagamentos !== 'Nao informado') {
-            observacoesComPagamento = observacoesComPagamento 
+            observacoesComPagamento = observacoesComPagamento
                 ? `${observacoesComPagamento} | Pagamento: ${resumoPagamentos}`
                 : `Pagamento: ${resumoPagamentos}`;
         }
@@ -3382,24 +3382,41 @@ export default function LojaDashboard() {
                                             </div>
 
                                             {/* Campo Cliente */}
-                                            <ClientSearchInput
-                                                searchTerm={searchCliente}
-                                                onSearchTermChange={(term) => {
-                                                    setSearchCliente(term);
-                                                    if (!term) {
-                                                        handleClearClientSelection();
-                                                    } else {
-                                                        setFormData(prev => ({ ...prev, cliente_nome: term, cliente_id: "" }));
-                                                    }
-                                                }}
-                                                selectedClientId={selectedClienteId}
-                                                onClientSelect={handleClienteSelect}
-                                                onClearSelection={handleClearClientSelection}
-                                                onNewClientClick={() => setNewClientDialogOpen(true)}
-                                                filteredClients={filteredClientsForSearchInput}
-                                                allClients={allClients}
-                                                showNewClientButton={true}
-                                            />
+                                            <div className="flex gap-2 items-start">
+                                                <div className="flex-1">
+                                                    <ClientSearchInput
+                                                        searchTerm={searchCliente}
+                                                        onSearchTermChange={(term) => {
+                                                            setSearchCliente(term);
+                                                            if (!term) {
+                                                                handleClearClientSelection();
+                                                            } else {
+                                                                setFormData(prev => ({ ...prev, cliente_nome: term, cliente_id: "" }));
+                                                            }
+                                                        }}
+                                                        selectedClientId={selectedClienteId}
+                                                        onClientSelect={handleClienteSelect}
+                                                        onClearSelection={handleClearClientSelection}
+                                                        onNewClientClick={() => setNewClientDialogOpen(true)}
+                                                        filteredClients={filteredClientsForSearchInput}
+                                                        allClients={allClients}
+                                                        showNewClientButton={true}
+                                                    />
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="icon"
+                                                    onClick={() => {
+                                                        toast.info("Atualizando lista de clientes...");
+                                                        refreshClients();
+                                                    }}
+                                                    title="Atualizar lista de clientes"
+                                                    className="mt-0"
+                                                >
+                                                    <RefreshCw className="h-4 w-4" />
+                                                </Button>
+                                            </div>
 
                                             {/* Off‑Day Dialog */}
                                             <Dialog open={offDayDialog} onOpenChange={(open) => setOffDayDialog(open)}>
@@ -3813,13 +3830,13 @@ export default function LojaDashboard() {
                                                 const isFolga = perf.isOnLeave;
                                                 const metaRedistribuida = perf.metaDiariaRedistribuida ?? perf.metaDiaria ?? 0;
                                                 const redistribuicaoExtra = perf.redistribuicaoExtra ?? 0;
-                                                
+
                                                 const handleToggleFolga = async () => {
                                                     if (!storeId) {
                                                         toast.error('Loja não identificada');
                                                         return;
                                                     }
-                                                    
+
                                                     try {
                                                         await toggleFolga(perf.id, todayStr);
                                                     } catch (error: any) {
@@ -3827,7 +3844,7 @@ export default function LojaDashboard() {
                                                         toast.error('Erro ao alterar folga: ' + (error.message || 'Erro desconhecido'));
                                                     }
                                                 };
-                                                
+
                                                 return (
                                                     <Card key={perf.id} className={`flex flex-col w-full max-w-[380px] ${isFolga ? 'opacity-60 border-dashed' : ''}`}>
                                                         <CardHeader className="pb-4 p-5 sm:p-6 text-center border-b">
@@ -4224,15 +4241,13 @@ export default function LojaDashboard() {
                                                     return (
                                                         <div
                                                             key={item.colaboradora_id}
-                                                            className={`relative flex items-center justify-between p-3 rounded-md border ${
-                                                                isOuro ? 'border-primary/30' : isPrata ? 'border-muted-foreground/20' : isBronze ? 'border-primary/20' : 'border-border/50 bg-muted/20'
-                                                            }`}
+                                                            className={`relative flex items-center justify-between p-3 rounded-md border ${isOuro ? 'border-primary/30' : isPrata ? 'border-muted-foreground/20' : isBronze ? 'border-primary/20' : 'border-border/50 bg-muted/20'
+                                                                }`}
                                                             style={getRowStyle()}
                                                         >
                                                             <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold flex-shrink-0 ${
-                                                                    isOuro ? 'bg-primary text-primary-foreground' : isPrata ? 'bg-muted-foreground/40 text-foreground' : isBronze ? 'bg-primary/60 text-primary-foreground' : 'bg-muted text-muted-foreground'
-                                                                }`}>
+                                                                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold flex-shrink-0 ${isOuro ? 'bg-primary text-primary-foreground' : isPrata ? 'bg-muted-foreground/40 text-foreground' : isBronze ? 'bg-primary/60 text-primary-foreground' : 'bg-muted text-muted-foreground'
+                                                                    }`}>
                                                                     {index + 1}
                                                                 </div>
                                                                 <div className="min-w-0 flex-1">
@@ -4559,24 +4574,41 @@ export default function LojaDashboard() {
                                         </div>
 
                                         {/* Campo Cliente */}
-                                        <ClientSearchInput
-                                            searchTerm={searchCliente}
-                                            onSearchTermChange={(term) => {
-                                                setSearchCliente(term);
-                                                if (!term) {
-                                                    handleClearClientSelection();
-                                                } else {
-                                                    setFormData(prev => ({ ...prev, cliente_nome: term, cliente_id: "" }));
-                                                }
-                                            }}
-                                            selectedClientId={selectedClienteId}
-                                            onClientSelect={handleClienteSelect}
-                                            onClearSelection={handleClearClientSelection}
-                                            onNewClientClick={() => setNewClientDialogOpen(true)}
-                                            filteredClients={filteredClientsForSearchInput}
-                                            allClients={allClients}
-                                            showNewClientButton={true}
-                                        />
+                                        <div className="flex gap-2 items-start">
+                                            <div className="flex-1">
+                                                <ClientSearchInput
+                                                    searchTerm={searchCliente}
+                                                    onSearchTermChange={(term) => {
+                                                        setSearchCliente(term);
+                                                        if (!term) {
+                                                            handleClearClientSelection();
+                                                        } else {
+                                                            setFormData(prev => ({ ...prev, cliente_nome: term, cliente_id: "" }));
+                                                        }
+                                                    }}
+                                                    selectedClientId={selectedClienteId}
+                                                    onClientSelect={handleClienteSelect}
+                                                    onClearSelection={handleClearClientSelection}
+                                                    onNewClientClick={() => setNewClientDialogOpen(true)}
+                                                    filteredClients={filteredClientsForSearchInput}
+                                                    allClients={allClients}
+                                                    showNewClientButton={true}
+                                                />
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="icon"
+                                                onClick={() => {
+                                                    toast.info("Atualizando lista de clientes...");
+                                                    refreshClients();
+                                                }}
+                                                title="Atualizar lista de clientes"
+                                                className="mt-0"
+                                            >
+                                                <RefreshCw className="h-4 w-4" />
+                                            </Button>
+                                        </div>
 
                                         {/* Off‑Day Dialog */}
                                         <Dialog open={offDayDialog} onOpenChange={(open) => setOffDayDialog(open)}>
@@ -5334,15 +5366,13 @@ export default function LojaDashboard() {
                                                 return (
                                                     <div
                                                         key={item.colaboradora_id}
-                                                        className={`relative flex items-center justify-between p-3 rounded-md border ${
-                                                            isOuro ? 'border-primary/30' : isPrata ? 'border-muted-foreground/20' : isBronze ? 'border-primary/20' : 'border-border/50 bg-muted/20'
-                                                        }`}
+                                                        className={`relative flex items-center justify-between p-3 rounded-md border ${isOuro ? 'border-primary/30' : isPrata ? 'border-muted-foreground/20' : isBronze ? 'border-primary/20' : 'border-border/50 bg-muted/20'
+                                                            }`}
                                                         style={getRowStyle()}
                                                     >
                                                         <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                            <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold flex-shrink-0 ${
-                                                                isOuro ? 'bg-primary text-primary-foreground' : isPrata ? 'bg-muted-foreground/40 text-foreground' : isBronze ? 'bg-primary/60 text-primary-foreground' : 'bg-muted text-muted-foreground'
-                                                            }`}>
+                                                            <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold flex-shrink-0 ${isOuro ? 'bg-primary text-primary-foreground' : isPrata ? 'bg-muted-foreground/40 text-foreground' : isBronze ? 'bg-primary/60 text-primary-foreground' : 'bg-muted text-muted-foreground'
+                                                                }`}>
                                                                 {index + 1}
                                                             </div>
                                                             <div className="min-w-0 flex-1">
