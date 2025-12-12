@@ -408,41 +408,51 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
     const margin = 10; // Margem equilibrada
 
     // CABEÇALHO COMPACTO MAS LEGÍVEL
-    doc.setFontSize(13);
+    doc.setFontSize(15); // era 13
     doc.setFont('helvetica', 'bold');
     doc.text('RELATÓRIO DE PONTO ELETRÔNICO', pageWidth / 2, margin + 4, { align: 'center' });
 
-    doc.setFontSize(8);
+    doc.setFontSize(9); // era 8
     doc.setFont('helvetica', 'normal');
     doc.text(`${colaboradora?.name || 'N/A'} | CPF: ${cpf}`, pageWidth / 2, margin + 9, { align: 'center' });
     doc.text(`Período: ${format(start, 'dd/MM/yy')} a ${format(end, 'dd/MM/yy')}`, pageWidth / 2, margin + 13, { align: 'center' });
 
     // LEGENDA
-    doc.setFontSize(6.5);
-    doc.text('(M) = Lançamento Manual', margin, margin + 17);
+    doc.setFontSize(7.5); // era 6.5
+    doc.text('(M) = Manual | ✓ = Assinado Digitalmente', margin, margin + 17);
 
     // TABELA OTIMIZADA
-    const tableData = dailyReports.map(d => [
-      format(d.date, 'dd/MM'),
-      d.dayOfWeek.substring(0, 3).toUpperCase(),
-      d.entrada ? `${d.entrada}${d.entradaManual ? '(M)' : ''}` : '-',
-      d.saidaIntervalo ? `${d.saidaIntervalo}${d.saidaIntervaloManual ? '(M)' : ''}` : '-',
-      d.entradaIntervalo ? `${d.entradaIntervalo}${d.entradaIntervaloManual ? '(M)' : ''}` : '-',
-      d.saida ? `${d.saida}${d.saidaManual ? '(M)' : ''}` : '-',
-      formatMinutes(d.horasTrabalhadas),
-      formatMinutes(d.horasEsperadas),
-      formatMinutes(d.saldo),
-      d.status.substring(0, 4).toUpperCase(),
-    ]);
+    const tableData = dailyReports.map(d => {
+      // Verificar se TODOS os registros do dia estão assinados
+      const todosAssinados =
+        (!d.entrada || d.entradaAssinada) &&
+        (!d.saidaIntervalo || d.saidaIntervaloAssinada) &&
+        (!d.entradaIntervalo || d.entradaIntervaloAssinada) &&
+        (!d.saida || d.saidaAssinada);
+
+      return [
+        format(d.date, 'dd/MM'),
+        d.dayOfWeek.substring(0, 3).toUpperCase(),
+        d.entrada ? `${d.entrada}${d.entradaManual ? '(M)' : ''}` : '-',
+        d.saidaIntervalo ? `${d.saidaIntervalo}${d.saidaIntervaloManual ? '(M)' : ''}` : '-',
+        d.entradaIntervalo ? `${d.entradaIntervalo}${d.entradaIntervaloManual ? '(M)' : ''}` : '-',
+        d.saida ? `${d.saida}${d.saidaManual ? '(M)' : ''}` : '-',
+        formatMinutes(d.horasTrabalhadas),
+        formatMinutes(d.horasEsperadas),
+        formatMinutes(d.saldo),
+        d.status.substring(0, 4).toUpperCase(),
+        todosAssinados && (d.entrada || d.saida) ? '✓' : '-', // Nova coluna
+      ];
+    });
 
     autoTable(doc, {
-      head: [['Data', 'Dia', 'Entrada', 'S.Int', 'R.Int', 'Saída', 'Trab', 'Esp', 'Saldo', 'Status']],
+      head: [['Data', 'Dia', 'Entrada', 'S.Int', 'R.Int', 'Saída', 'Trab', 'Esp', 'Saldo', 'Status', 'Assin']],
       body: tableData,
       startY: margin + 20,
       theme: 'grid',
       styles: {
-        fontSize: 7,
-        cellPadding: 1,
+        fontSize: 8, // era 7 (+15%)
+        cellPadding: 1.15, // era 1 (+15%)
         halign: 'center',
         valign: 'middle',
         lineWidth: 0.1,
@@ -451,20 +461,21 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
         fillColor: [60, 60, 60],
         textColor: [255, 255, 255],
         fontStyle: 'bold',
-        fontSize: 7,
-        cellPadding: 1.2,
+        fontSize: 8, // era 7 (+15%)
+        cellPadding: 1.4, // era 1.2 (+15%)
       },
       columnStyles: {
-        0: { cellWidth: 15 },  // Data
-        1: { cellWidth: 11 },  // Dia
-        2: { cellWidth: 16 },  // Entrada
-        3: { cellWidth: 16 },  // S.Int.
-        4: { cellWidth: 16 },  // R.Int.
-        5: { cellWidth: 16 },  // Saída
-        6: { cellWidth: 17 },  // Trab.
-        7: { cellWidth: 17 },  // Esp.
-        8: { cellWidth: 17 },  // Saldo
-        9: { cellWidth: 14 },  // Status
+        0: { cellWidth: 13 },  // Data
+        1: { cellWidth: 10 },  // Dia
+        2: { cellWidth: 15 },  // Entrada
+        3: { cellWidth: 15 },  // S.Int.
+        4: { cellWidth: 15 },  // R.Int.
+        5: { cellWidth: 15 },  // Saída
+        6: { cellWidth: 16 },  // Trab.
+        7: { cellWidth: 16 },  // Esp.
+        8: { cellWidth: 16 },  // Saldo
+        9: { cellWidth: 13 },  // Status
+        10: { cellWidth: 11 }, // Assinado (NOVA)
       },
       margin: { left: margin, right: margin },
       pageBreak: 'avoid',
@@ -473,12 +484,12 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
     // TOTAIS
     let currentY = (doc as any).lastAutoTable.finalY + 4;
 
-    doc.setFontSize(7.5);
+    doc.setFontSize(8.5); // era 7.5 (+15%)
     doc.setFont('helvetica', 'bold');
     doc.text('RESUMO:', margin, currentY);
     currentY += 4;
 
-    doc.setFontSize(7);
+    doc.setFontSize(8); // era 7 (+15%)
     doc.setFont('helvetica', 'normal');
     doc.text(`Trabalhado: ${formatMinutes(totals.totalTrabalhado)} | Esperado: ${formatMinutes(totals.totalEsperado)} | Saldo: ${formatMinutes(totals.saldo)}`, margin, currentY);
     currentY += 3.5;
@@ -490,22 +501,22 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
     doc.line(margin, currentY, pageWidth - margin, currentY);
     currentY += 4;
 
-    doc.setFontSize(8);
+    doc.setFontSize(9); // era 8 (+15%)
     doc.setFont('helvetica', 'bold');
     doc.text('ASSINADO DIGITALMENTE COM SENHA', margin, currentY);
     currentY += 4;
 
-    doc.setFontSize(7);
+    doc.setFontSize(8); // era 7 (+15%)
     doc.setFont('helvetica', 'normal');
     doc.text(`${colaboradora?.name || 'N/A'} | CPF: ${cpf} | ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, margin, currentY);
     currentY += 4;
 
-    doc.setFontSize(6);
+    doc.setFontSize(7); // era 6 (+15%)
     doc.setFont('helvetica', 'italic');
     doc.text('Conforme Portaria 671/2021 (REP-P)', margin, currentY);
 
     // RODAPÉ
-    doc.setFontSize(6);
+    doc.setFontSize(7); // era 6 (+15%)
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(100, 100, 100);
     doc.text('Documento gerado eletronicamente', pageWidth / 2, pageHeight - 4, { align: 'center' });
