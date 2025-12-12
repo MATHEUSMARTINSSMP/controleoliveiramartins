@@ -384,7 +384,7 @@ export default function CashbackManagement() {
   }, [authLoading, profile]);
 
   useEffect(() => {
-    if (!authLoading && profile && selectedStoreId && selectedStoreId !== '') {
+    if (!authLoading && profile && selectedStoreId) {
       fetchData();
       fetchCategoriasProdutos();
     }
@@ -482,10 +482,11 @@ export default function CashbackManagement() {
         if (clienteIds.length > 0) {
           transactionsQuery = transactionsQuery.in('cliente_id', clienteIds);
         } else {
-          // Se não houver clientes, retornar array vazio
+          // Se não houver clientes, usar query que retorna vazio
           transactionsQuery = transactionsQuery.eq('cliente_id', '00000000-0000-0000-0000-000000000000'); // ID inválido para retornar vazio
         }
       }
+      // Se selectedStoreId === 'ALL' ou não especificado, buscar todas as transações
 
       const { data: transactions, error: transactionsError } = await transactionsQuery;
 
@@ -567,9 +568,21 @@ export default function CashbackManagement() {
         a_vencer_7d: aVencer7d,
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao buscar dados:', error);
-      toast.error('Erro ao carregar dados de cashback');
+      const errorMessage = error?.message || error?.error_description || error?.details || 'Erro desconhecido';
+      console.error('Detalhes do erro:', {
+        message: errorMessage,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+        fullError: error
+      });
+      toast.error(`Erro ao carregar dados de cashback: ${errorMessage}`);
+      // Em caso de erro, limpar dados para evitar inconsistências
+      setClientes([]);
+      setClientesComSaldo([]);
+      setHistoricoGeral([]);
     } finally {
       setLoading(false);
     }
