@@ -106,14 +106,29 @@ DECLARE
     inserted_count INTEGER := 0;
     updated_count INTEGER := 0;
     has_source_column BOOLEAN;
+    allowed_source_value TEXT := 'MANUAL';  -- Valor padrão seguro
 BEGIN
-    -- Verificar se coluna source existe
+    -- Verificar se coluna source existe e obter valores permitidos
     SELECT EXISTS (
         SELECT 1 FROM information_schema.columns 
         WHERE table_schema = 'sistemaretiradas' 
         AND table_name = 'contacts' 
         AND column_name = 'source'
     ) INTO has_source_column;
+    
+    -- Se source existe, tentar obter um valor válido existente
+    IF has_source_column THEN
+        -- Tentar obter um valor válido existente
+        SELECT source INTO allowed_source_value
+        FROM sistemaretiradas.contacts
+        WHERE source IS NOT NULL
+        LIMIT 1;
+        
+        -- Se não encontrar valor existente, usar 'MANUAL' como padrão
+        IF allowed_source_value IS NULL THEN
+            allowed_source_value := 'MANUAL';
+        END IF;
+    END IF;
     
     -- Inserir registros novos (que não existem em contacts nem por ID nem por CPF)
     IF has_source_column THEN
@@ -133,7 +148,7 @@ BEGIN
             crm.created_at,
             crm.updated_at,
             crm.tiny_contact_id,
-            'CRM' as source  -- Valor padrão para source
+            COALESCE(allowed_source_value, 'MANUAL') as source  -- Valor válido para source
         FROM sistemaretiradas.crm_contacts crm
         WHERE NOT EXISTS (
             -- Não existe por ID
