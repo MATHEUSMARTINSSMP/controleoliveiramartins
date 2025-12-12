@@ -76,6 +76,13 @@ export function useClientSearch(searchTerm: string = '', options: UseClientSearc
           if (crmError && crmError.code !== 'PGRST116') {
             console.warn('[useClientSearch] Erro ao buscar crm_contacts:', crmError);
           } else if (crmData) {
+            console.log('[useClientSearch] crm_contacts encontrados:', {
+              total: crmData.length,
+              storeId,
+              comCPF: crmData.filter(c => c.cpf).length,
+              semCPF: crmData.filter(c => !c.cpf).length,
+              amostra: crmData.slice(0, 3).map(c => ({ nome: c.nome, cpf: c.cpf, store_id: (c as any).store_id }))
+            });
             crmData.forEach(client => {
               const cpfNormalized = client.cpf ? normalizeCPF(client.cpf) : null;
               if (cpfNormalized) {
