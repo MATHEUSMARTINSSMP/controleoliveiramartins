@@ -810,15 +810,41 @@ export const CRMManagement = () => {
           continue;
         }
 
-        // Validar data de nascimento se fornecida
+        // Validar data de nascimento se fornecida (aceitar formato brasileiro DD/MM/YYYY)
         let dataNascimento = null;
         if (dataNasc) {
-          const date = new Date(dataNasc);
-          if (isNaN(date.getTime())) {
-            errors.push({ row: rowNum, nome, error: 'DATA_NASCIMENTO inválida (formato: YYYY-MM-DD)' });
-            continue;
+          // Tentar parsear formato brasileiro DD/MM/YYYY
+          const dateMatch = dataNasc.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+          if (dateMatch) {
+            const [, dia, mes, ano] = dateMatch;
+            const diaNum = parseInt(dia, 10);
+            const mesNum = parseInt(mes, 10);
+            const anoNum = parseInt(ano, 10);
+            
+            // Validar valores
+            if (diaNum < 1 || diaNum > 31 || mesNum < 1 || mesNum > 12 || anoNum < 1900 || anoNum > new Date().getFullYear()) {
+              errors.push({ row: rowNum, nome, error: 'DATA_NASCIMENTO inválida (valores fora do range)' });
+              continue;
+            }
+            
+            // Criar data no formato ISO (YYYY-MM-DD)
+            dataNascimento = `${anoNum}-${mesNum.toString().padStart(2, '0')}-${diaNum.toString().padStart(2, '0')}`;
+            
+            // Validar se a data é válida (ex: 31/02 não existe)
+            const date = new Date(dataNascimento);
+            if (isNaN(date.getTime()) || date.getFullYear() !== anoNum || date.getMonth() + 1 !== mesNum || date.getDate() !== diaNum) {
+              errors.push({ row: rowNum, nome, error: 'DATA_NASCIMENTO inválida (data não existe)' });
+              continue;
+            }
+          } else {
+            // Tentar parsear formato ISO YYYY-MM-DD como fallback
+            const date = new Date(dataNasc);
+            if (isNaN(date.getTime())) {
+              errors.push({ row: rowNum, nome, error: 'DATA_NASCIMENTO inválida (formato esperado: DD/MM/YYYY)' });
+              continue;
+            }
+            dataNascimento = format(date, 'yyyy-MM-dd');
           }
-          dataNascimento = format(date, 'yyyy-MM-dd');
         }
 
         successContacts.push({
