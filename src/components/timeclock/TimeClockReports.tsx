@@ -90,7 +90,7 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
   const [schedule, setSchedule] = useState<WorkSchedule | null>(null);
   const [loading, setLoading] = useState(false);
   const [reportType, setReportType] = useState<'mensal' | 'semanal' | 'customizado'>('mensal');
-  
+
   const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
   const [weekStart, setWeekStart] = useState<string>(format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'));
   const [customStart, setCustomStart] = useState<string>(format(addDays(new Date(), -30), 'yyyy-MM-dd'));
@@ -176,15 +176,15 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
       ]);
 
       if (recordsRes.error) throw recordsRes.error;
-      
+
       // Processar registros para incluir assinatura digital
       const processedRecords = (recordsRes.data || []).map((record: any) => ({
         ...record,
-        assinatura_digital: Array.isArray(record.assinaturas) && record.assinaturas.length > 0 
-          ? record.assinaturas[0] 
+        assinatura_digital: Array.isArray(record.assinaturas) && record.assinaturas.length > 0
+          ? record.assinaturas[0]
           : null
       }));
-      
+
       setRecords(processedRecords);
       setSchedule(scheduleRes.data || null);
     } catch (err: any) {
@@ -197,17 +197,17 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
 
   const dailyReports = useMemo(() => {
     if (!schedule) return [];
-    
+
     const { start, end } = getDateRange();
     const days = eachDayOfInterval({ start, end });
-    
+
     const workDays = schedule.dias_semana || [1, 2, 3, 4, 5, 6];
-    
+
     return days.map(day => {
       const dayOfWeek = day.getDay();
       const isWorkDay = workDays.includes(dayOfWeek);
-      
-      const dayRecords = records.filter(r => 
+
+      const dayRecords = records.filter(r =>
         format(new Date(r.horario), 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd')
       );
 
@@ -215,13 +215,13 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
       const saidaIntervalo = dayRecords.find(r => r.tipo_registro === 'SAIDA_INTERVALO');
       const entradaIntervalo = dayRecords.find(r => r.tipo_registro === 'ENTRADA_INTERVALO');
       const saida = dayRecords.find(r => r.tipo_registro === 'SAIDA');
-      
+
       // Verificar se são lançamentos manuais
       const entradaManual = entrada?.lancamento_manual || false;
       const saidaIntervaloManual = saidaIntervalo?.lancamento_manual || false;
       const entradaIntervaloManual = entradaIntervalo?.lancamento_manual || false;
       const saidaManual = saida?.lancamento_manual || false;
-      
+
       // Verificar se têm assinatura digital
       const entradaAssinada = entrada?.assinatura_digital !== null && entrada?.assinatura_digital !== undefined;
       const saidaIntervaloAssinada = saidaIntervalo?.assinatura_digital !== null && saidaIntervalo?.assinatura_digital !== undefined;
@@ -239,7 +239,7 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
           const [entradaH, entradaM] = schedule.hora_entrada.split(':').map(Number);
           const [saidaH, saidaM] = schedule.hora_saida.split(':').map(Number);
           horasEsperadas = (saidaH * 60 + saidaM) - (entradaH * 60 + entradaM);
-          
+
           if (schedule.hora_intervalo_saida && schedule.hora_intervalo_retorno) {
             const [intervSaidaH, intervSaidaM] = schedule.hora_intervalo_saida.split(':').map(Number);
             const [intervRetornoH, intervRetornoM] = schedule.hora_intervalo_retorno.split(':').map(Number);
@@ -383,7 +383,7 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
     return result;
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (dailyReports.length === 0) {
       toast.error('Nao ha dados para exportar');
       return;
@@ -391,110 +391,196 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
 
     const colaboradora = colaboradoras.find(c => c.id === selectedColaboradora);
     const { start, end } = getDateRange();
-    
-    // Formato RETRATO (portrait) para caber um mês inteiro
+
+    // Buscar CPF da colaboradora
+    const { data: profileData } = await supabase
+      .schema('sistemaretiradas')
+      .from('profiles')
+      .select('cpf')
+      .eq('id', selectedColaboradora)
+      .single();
+
+    const cpf = profileData?.cpf || 'Não informado';
+
     const doc = new jsPDF('portrait', 'mm', 'a4');
-    
-    // Margens: 10mm de cada lado (padrão A4)
-    const marginLeft = 10;
-    const marginRight = 10;
-    const marginTop = 10;
-    const marginBottom = 10;
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
-    const usableWidth = pageWidth - marginLeft - marginRight;
-    const usableHeight = pageHeight - marginTop - marginBottom;
-    
-    // Cabeçalho compacto
-    doc.setFontSize(14);
-    doc.text('RELATORIO DE PONTO', marginLeft, marginTop + 5);
-    doc.setFontSize(9);
-    doc.text(`Colaboradora: ${colaboradora?.name || 'N/A'}`, marginLeft, marginTop + 10);
-    doc.text(`Periodo: ${format(start, 'dd/MM/yyyy')} a ${format(end, 'dd/MM/yyyy')}`, marginLeft, marginTop + 14);
-    
-    // Legenda compacta em duas linhas
-    doc.setFontSize(7);
-    doc.text('Legenda: (M) = Manual | ✓ = Assinado', marginLeft, marginTop + 18);
+    const margin = 15;
+    const usableWidth = pageWidth - (margin * 2);
 
-    // Preparar dados da tabela com indicadores compactos
-    const tableData = dailyReports.map(d => {
-      const entradaStr = formatTimeWithIndicators(d.entrada, d.entradaManual || false, d.entradaAssinada || false);
-      const saidaIntStr = formatTimeWithIndicators(d.saidaIntervalo, d.saidaIntervaloManual || false, d.saidaIntervaloAssinada || false);
-      const entradaIntStr = formatTimeWithIndicators(d.entradaIntervalo, d.entradaIntervaloManual || false, d.entradaIntervaloAssinada || false);
-      const saidaStr = formatTimeWithIndicators(d.saida, d.saidaManual || false, d.saidaAssinada || false);
-      
-      return [
-        format(d.date, 'dd/MM'),
-        d.dayOfWeek.substring(0, 3).toUpperCase(),
-        entradaStr.length > 8 ? entradaStr.substring(0, 7) + '..' : entradaStr,
-        saidaIntStr.length > 8 ? saidaIntStr.substring(0, 7) + '..' : saidaIntStr,
-        entradaIntStr.length > 8 ? entradaIntStr.substring(0, 7) + '..' : entradaIntStr,
-        saidaStr.length > 8 ? saidaStr.substring(0, 7) + '..' : saidaStr,
-        formatMinutes(d.horasTrabalhadas),
-        formatMinutes(d.horasEsperadas),
-        formatMinutes(d.saldo),
-        d.status.substring(0, 4).toUpperCase(),
-      ];
-    });
+    // CABEÇALHO
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('RELATÓRIO DE REGISTRO DE PONTO ELETRÔNICO', pageWidth / 2, margin + 5, { align: 'center' });
 
-    // Configurar tabela otimizada para A4
-    autoTable(doc, {
-      head: [['Data', 'Dia', 'Entrada', 'S.Int.', 'R.Int.', 'Saida', 'Trab.', 'Esp.', 'Saldo', 'Status']],
-      body: tableData,
-      startY: marginTop + 22,
-      theme: 'striped',
-      styles: { 
-        fontSize: 6.5,
-        cellPadding: 1,
-        lineWidth: 0.1,
-        halign: 'center',
-      },
-      headStyles: { 
-        fillColor: [100, 100, 100],
-        fontSize: 6.5,
-        fontStyle: 'bold',
-        cellPadding: 1.5,
-        halign: 'center',
-      },
-      columnStyles: {
-        0: { cellWidth: 12, halign: 'center' }, // Data
-        1: { cellWidth: 12, halign: 'center' }, // Dia
-        2: { cellWidth: 18, halign: 'center' }, // Entrada
-        3: { cellWidth: 15, halign: 'center' }, // S. Int.
-        4: { cellWidth: 15, halign: 'center' }, // R. Int.
-        5: { cellWidth: 18, halign: 'center' }, // Saida
-        6: { cellWidth: 16, halign: 'center' }, // Trab.
-        7: { cellWidth: 16, halign: 'center' }, // Esp.
-        8: { cellWidth: 16, halign: 'center' }, // Saldo
-        9: { cellWidth: 15, halign: 'center' }, // Status
-      },
-      margin: { top: marginTop + 22, left: marginLeft, right: marginRight, bottom: marginBottom + 20 },
-      tableWidth: usableWidth,
-      showHead: 'everyPage',
-      pageBreak: 'auto',
-      rowPageBreak: 'avoid',
-    });
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Colaboradora: ${colaboradora?.name || 'N/A'}`, margin, margin + 15);
+    doc.text(`CPF: ${cpf}`, margin, margin + 20);
+    doc.text(`Período: ${format(start, 'dd/MM/yyyy')} a ${format(end, 'dd/MM/yyyy')}`, margin, margin + 25);
+    doc.text(`Data de Geração: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, margin, margin + 30);
 
-    // Totais após a tabela
-    const finalY = (doc as any).lastAutoTable.finalY || (pageHeight - marginBottom - 20);
-    doc.setFontSize(8);
-    doc.text(`Total Trabalhado: ${formatMinutes(totals.totalTrabalhado)}`, marginLeft, finalY + 5);
-    doc.text(`Total Esperado: ${formatMinutes(totals.totalEsperado)}`, marginLeft, finalY + 9);
-    doc.text(`Saldo: ${formatMinutes(totals.saldo)}`, marginLeft, finalY + 13);
-    
-    // Campo de assinatura
-    const signatureY = finalY + 20;
-    doc.setFontSize(8);
-    doc.text('Assinatura:', marginLeft, signatureY);
+    // Linha separadora
     doc.setLineWidth(0.5);
-    doc.line(marginLeft + 25, signatureY - 2, marginLeft + 80, signatureY - 2);
-    doc.setFontSize(7);
-    doc.text('Assinado digitalmente', marginLeft, signatureY + 6);
-    
-    // Rodapé com informações de conformidade
-    doc.setFontSize(6);
-    const footerY = pageHeight - marginBottom;
-    doc.text('Conforme Portaria 671/2021 (REP-P) - Assinatura digital obrigatória para validade legal', marginLeft, footerY);
+    doc.line(margin, margin + 33, pageWidth - margin, margin + 33);
+
+    // LEGENDA
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Legenda:', margin, margin + 38);
+    doc.setFont('helvetica', 'normal');
+    doc.text('(M) = Lançamento Manual  |  ✓ = Assinatura Digital Confirmada', margin + 20, margin + 38);
+
+    let currentY = margin + 45;
+
+    // Agrupar por dia para assinaturas diárias
+    const dayGroups: { [key: string]: DailyReport[] } = {};
+    dailyReports.forEach(report => {
+      const dateKey = format(report.date, 'yyyy-MM-dd');
+      if (!dayGroups[dateKey]) {
+        dayGroups[dateKey] = [];
+      }
+      dayGroups[dateKey].push(report);
+    });
+
+    // Processar cada dia
+    Object.keys(dayGroups).sort().forEach((dateKey, dayIndex) => {
+      const dayReport = dayGroups[dateKey][0];
+
+      // Verificar se precisa de nova página
+      if (currentY > pageHeight - 60) {
+        doc.addPage();
+        currentY = margin + 10;
+      }
+
+      // DATA DO DIA
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${format(dayReport.date, 'dd/MM/yyyy')} - ${dayReport.dayOfWeek}`, margin, currentY);
+      currentY += 5;
+
+      // TABELA DO DIA
+      const tableData = [[
+        dayReport.entrada ? `${dayReport.entrada}${dayReport.entradaManual ? ' (M)' : ''}${dayReport.entradaAssinada ? ' ✓' : ''}` : '-',
+        dayReport.saidaIntervalo ? `${dayReport.saidaIntervalo}${dayReport.saidaIntervaloManual ? ' (M)' : ''}${dayReport.saidaIntervaloAssinada ? ' ✓' : ''}` : '-',
+        dayReport.entradaIntervalo ? `${dayReport.entradaIntervalo}${dayReport.entradaIntervaloManual ? ' (M)' : ''}${dayReport.entradaIntervaloAssinada ? ' ✓' : ''}` : '-',
+        dayReport.saida ? `${dayReport.saida}${dayReport.saidaManual ? ' (M)' : ''}${dayReport.saidaAssinada ? ' ✓' : ''}` : '-',
+        formatMinutes(dayReport.horasTrabalhadas),
+        formatMinutes(dayReport.horasEsperadas),
+        formatMinutes(dayReport.saldo),
+        dayReport.status.toUpperCase(),
+      ]];
+
+      autoTable(doc, {
+        head: [['Entrada', 'Saída Interv.', 'Retorno Interv.', 'Saída', 'Trabalhadas', 'Esperadas', 'Saldo', 'Status']],
+        body: tableData,
+        startY: currentY,
+        theme: 'grid',
+        styles: {
+          fontSize: 9,
+          cellPadding: 3,
+          halign: 'center',
+          valign: 'middle',
+        },
+        headStyles: {
+          fillColor: [70, 70, 70],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 9,
+        },
+        columnStyles: {
+          0: { cellWidth: 22 }, // Entrada
+          1: { cellWidth: 22 }, // Saída Interv.
+          2: { cellWidth: 22 }, // Retorno Interv.
+          3: { cellWidth: 22 }, // Saída
+          4: { cellWidth: 22 }, // Trabalhadas
+          5: { cellWidth: 22 }, // Esperadas
+          6: { cellWidth: 22 }, // Saldo
+          7: { cellWidth: 26 }, // Status
+        },
+        margin: { left: margin, right: margin },
+      });
+
+      currentY = (doc as any).lastAutoTable.finalY + 3;
+
+      // ASSINATURA DIGITAL DIÁRIA (estilo carimbo governo)
+      const signatureBoxY = currentY;
+      const signatureBoxHeight = 18;
+      const signatureBoxWidth = usableWidth;
+
+      // Caixa de assinatura
+      doc.setDrawColor(100, 100, 100);
+      doc.setLineWidth(0.3);
+      doc.rect(margin, signatureBoxY, signatureBoxWidth, signatureBoxHeight);
+
+      // Conteúdo da assinatura
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text('ASSINATURA DIGITAL ELETRÔNICA', margin + 3, signatureBoxY + 4);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.text(`Colaboradora: ${colaboradora?.name || 'N/A'}`, margin + 3, signatureBoxY + 8);
+      doc.text(`CPF: ${cpf}`, margin + 3, signatureBoxY + 11);
+      doc.text(`Data/Hora: ${format(dayReport.date, 'dd/MM/yyyy')} - Assinado digitalmente`, margin + 3, signatureBoxY + 14);
+
+      // Selo de conformidade
+      doc.setFontSize(6);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Assinatura Digital por Senha conforme Portaria 671/2021 (REP-P)', margin + 3, signatureBoxY + 17);
+
+      currentY = signatureBoxY + signatureBoxHeight + 8;
+    });
+
+    // TOTAIS FINAIS
+    if (currentY > pageHeight - 50) {
+      doc.addPage();
+      currentY = margin + 10;
+    }
+
+    doc.setLineWidth(0.5);
+    doc.line(margin, currentY, pageWidth - margin, currentY);
+    currentY += 5;
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('RESUMO DO PERÍODO', margin, currentY);
+    currentY += 6;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Total Trabalhado: ${formatMinutes(totals.totalTrabalhado)}`, margin, currentY);
+    currentY += 5;
+    doc.text(`Total Esperado: ${formatMinutes(totals.totalEsperado)}`, margin, currentY);
+    currentY += 5;
+    doc.text(`Saldo: ${formatMinutes(totals.saldo)}`, margin, currentY);
+    currentY += 5;
+    doc.text(`Dias Trabalhados: ${totals.diasTrabalhados}`, margin, currentY);
+    currentY += 5;
+    if (totals.diasFalta > 0) {
+      doc.text(`Faltas: ${totals.diasFalta}`, margin, currentY);
+      currentY += 5;
+    }
+    if (totals.diasIncompletos > 0) {
+      doc.text(`Dias Incompletos: ${totals.diasIncompletos}`, margin, currentY);
+      currentY += 5;
+    }
+
+    // RODAPÉ EM TODAS AS PÁGINAS
+    const totalPages = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(100, 100, 100);
+      doc.text(
+        'Documento gerado eletronicamente em conformidade com a Portaria 671/2021 (REP-P) - Registro Eletrônico de Ponto',
+        pageWidth / 2,
+        pageHeight - 5,
+        { align: 'center' }
+      );
+      doc.text(`Página ${i} de ${totalPages}`, pageWidth - margin, pageHeight - 5, { align: 'right' });
+    }
 
     doc.save(`ponto_${colaboradora?.name || 'colaboradora'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     toast.success('PDF exportado com sucesso');
