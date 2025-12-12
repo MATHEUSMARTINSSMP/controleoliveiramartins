@@ -130,6 +130,15 @@ export default function LojaDashboard() {
         cliente_nome: "", // Nome do cliente (opcional, pode ser texto livre ou "Consumidor Final")
     });
 
+    // Estados para busca de cliente
+    const [searchCliente, setSearchCliente] = useState("");
+    const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
+    const [newClientDialogOpen, setNewClientDialogOpen] = useState(false);
+
+    // Buscar clientes (padrão cashback - busca todos uma vez)
+    const { clients: filteredClientsForSearchInput, allClients, refresh: refreshClients } = useClientSearch(searchCliente, {
+        fetchOnce: true,
+    });
 
     const [goals, setGoals] = useState<any>(null);
     const [metrics, setMetrics] = useState<any>(null);
