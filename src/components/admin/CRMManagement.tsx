@@ -165,43 +165,29 @@ export const CRMManagement = () => {
       
       if (adminStores) setStores(adminStores.map(s => ({ id: s.id, name: s.name })));
 
-      // Buscar contatos da tabela 'contacts' (PRIORIDADE) ou 'crm_contacts' (FALLBACK)
+      // Buscar contatos da tabela 'crm_contacts' (tabela correta para importações)
       try {
         let contactsData: any[] = [];
         
-        // Tentar tabela 'contacts' primeiro
-        console.log('📋 [CRMManagement] Buscando contatos da tabela contacts...');
-        const { data: contactsDataPrimary, error: contactsErrorPrimary } = await supabase
+        // Buscar diretamente de crm_contacts (tabela correta)
+        console.log('📋 [CRMManagement] Buscando contatos da tabela crm_contacts...');
+        const { data: contactsDataFromTable, error: contactsError } = await supabase
           .schema('sistemaretiradas')
-          .from('contacts')
+          .from('crm_contacts')
           .select('*, stores(name, admin_id)')
           .order('nome', { ascending: true });
         
-        console.log('📋 [CRMManagement] Resultado contacts:', {
-          encontrados: contactsDataPrimary?.length || 0,
-          error: contactsErrorPrimary?.code,
-          message: contactsErrorPrimary?.message
+        console.log('📋 [CRMManagement] Resultado crm_contacts:', {
+          encontrados: contactsDataFromTable?.length || 0,
+          error: contactsError?.code,
+          message: contactsError?.message
         });
         
-        if (contactsErrorPrimary && contactsErrorPrimary.code === '42P01') {
-          // Tabela contacts não existe, tentar crm_contacts
-          console.log('📋 [CRMManagement] Tabela contacts não existe, tentando crm_contacts...');
-          const { data: contactsDataFallback, error: contactsErrorFallback } = await supabase
-            .schema('sistemaretiradas')
-            .from('crm_contacts')
-            .select('*, stores(name, admin_id)')
-            .order('nome', { ascending: true });
-          
-          console.log('📋 [CRMManagement] Resultado crm_contacts:', {
-            encontrados: contactsDataFallback?.length || 0,
-            error: contactsErrorFallback?.code
-          });
-          
-          if (!contactsErrorFallback && contactsDataFallback) {
-            contactsData = contactsDataFallback;
-          }
-        } else if (!contactsErrorPrimary && contactsDataPrimary) {
-          contactsData = contactsDataPrimary;
+        if (!contactsError && contactsDataFromTable) {
+          contactsData = contactsDataFromTable;
+        } else if (contactsError) {
+          console.error('📋 [CRMManagement] Erro ao buscar contatos:', contactsError);
+          // Não jogar erro aqui, apenas logar - permite que a página continue funcionando
         }
         
         // FILTRO CRÍTICO 1: Apenas contatos de lojas do admin logado
