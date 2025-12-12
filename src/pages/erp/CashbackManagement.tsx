@@ -432,17 +432,21 @@ export default function CashbackManagement() {
       setLoading(true);
 
       // Buscar TODAS as clientes (com e sem saldo) - filtrar por loja se selecionada
+      // Filtrar apenas clientes ativos (se existir coluna active, senão buscar todos)
       let clientesQuery = supabase
         .schema('sistemaretiradas')
         .from('tiny_contacts')
         .select('id, nome, cpf_cnpj, telefone, email, tags, data_nascimento, store_id')
         .not('cpf_cnpj', 'is', null)
-        .neq('cpf_cnpj', '')
-        .order('nome');
+        .neq('cpf_cnpj', '');
       
+      // Filtrar por loja se selecionada
       if (selectedStoreId && selectedStoreId !== 'ALL') {
         clientesQuery = clientesQuery.eq('store_id', selectedStoreId);
       }
+      
+      // Ordenar por nome
+      clientesQuery = clientesQuery.order('nome');
 
       const { data: allClientes, error: clientesError } = await clientesQuery;
 
@@ -450,49 +454,76 @@ export default function CashbackManagement() {
       setClientes(allClientes || []);
 
       // Buscar saldos - filtrar por loja se selecionada
-      let balancesQuery = supabase
-        .schema('sistemaretiradas')
-        .from('cashback_balance')
-        .select('*');
+      let balances: any[] = [];
+      let balancesError: any = null;
       
       if (selectedStoreId && selectedStoreId !== 'ALL') {
         // Filtrar saldos de clientes da loja selecionada
         const clienteIds = (allClientes || []).map(c => c.id);
         if (clienteIds.length > 0) {
-          balancesQuery = balancesQuery.in('cliente_id', clienteIds);
-        } else {
-          // Se não houver clientes, retornar array vazio
-          balancesQuery = balancesQuery.eq('cliente_id', '00000000-0000-0000-0000-000000000000'); // ID inválido para retornar vazio
+          const balancesQuery = supabase
+            .schema('sistemaretiradas')
+            .from('cashback_balance')
+            .select('*')
+            .in('cliente_id', clienteIds);
+          
+          const result = await balancesQuery;
+          balances = result.data || [];
+          balancesError = result.error;
         }
+        // Se não houver clientes, balances já está como array vazio
+      } else {
+        // Se 'ALL', buscar todos os saldos
+        const balancesQuery = supabase
+          .schema('sistemaretiradas')
+          .from('cashback_balance')
+          .select('*');
+        
+        const result = await balancesQuery;
+        balances = result.data || [];
+        balancesError = result.error;
       }
-
-      const { data: balances, error: balancesError } = await balancesQuery;
 
       if (balancesError) throw balancesError;
 
       // Buscar todas as transações - filtrar por loja se selecionada
-      let transactionsQuery = supabase
-        .schema('sistemaretiradas')
-        .from('cashback_transactions')
-        .select(`
-          *,
-          tiny_order:tiny_order_id (numero_pedido)
-        `)
-        .order('created_at', { ascending: false });
+      let transactions: any[] = [];
+      let transactionsError: any = null;
       
       if (selectedStoreId && selectedStoreId !== 'ALL') {
         // Filtrar transações de clientes da loja selecionada
         const clienteIds = (allClientes || []).map(c => c.id);
         if (clienteIds.length > 0) {
-          transactionsQuery = transactionsQuery.in('cliente_id', clienteIds);
-        } else {
-          // Se não houver clientes, usar query que retorna vazio
-          transactionsQuery = transactionsQuery.eq('cliente_id', '00000000-0000-0000-0000-000000000000'); // ID inválido para retornar vazio
+          const transactionsQuery = supabase
+            .schema('sistemaretiradas')
+            .from('cashback_transactions')
+            .select(`
+              *,
+              tiny_order:tiny_order_id (numero_pedido)
+            `)
+            .in('cliente_id', clienteIds)
+            .order('created_at', { ascending: false });
+          
+          const result = await transactionsQuery;
+          transactions = result.data || [];
+          transactionsError = result.error;
         }
+        // Se não houver clientes, transactions já está como array vazio
+      } else {
+        // Se 'ALL', buscar todas as transações
+        const transactionsQuery = supabase
+          .schema('sistemaretiradas')
+          .from('cashback_transactions')
+          .select(`
+            *,
+            tiny_order:tiny_order_id (numero_pedido)
+          `)
+          .order('created_at', { ascending: false });
+        
+        const result = await transactionsQuery;
+        transactions = result.data || [];
+        transactionsError = result.error;
       }
-      // Se selectedStoreId === 'ALL' ou não especificado, buscar todas as transações
-
-      const { data: transactions, error: transactionsError } = await transactionsQuery;
 
       if (transactionsError) throw transactionsError;
 
