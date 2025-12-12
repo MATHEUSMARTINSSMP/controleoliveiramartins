@@ -84,7 +84,7 @@ const AdminDashboard = () => {
         .select('id, name')
         .eq('admin_id', profile.id)
         .order('name');
-      
+
       if (error) throw error;
       setAdminStores(data || []);
     } catch (err) {
@@ -219,6 +219,10 @@ const AdminDashboard = () => {
                 <span className="hidden sm:inline">Gestao CRM</span>
                 <span className="sm:hidden">CRM</span>
               </TabsTrigger>
+              <TabsTrigger value="gestao-dre" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[50px] justify-center">
+                <span className="hidden sm:inline">Gestao DRE</span>
+                <span className="sm:hidden">DRE</span>
+              </TabsTrigger>
               <TabsTrigger value="configuracoes" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[50px] justify-center">
                 <span className="hidden sm:inline">Configuracoes</span>
                 <span className="sm:hidden">Config</span>
@@ -349,8 +353,8 @@ const AdminDashboard = () => {
                 </TabsContent>
 
                 <TabsContent value="ponto" className="space-y-4">
-                  <TimeClockManagement 
-                    stores={adminStores} 
+                  <TimeClockManagement
+                    stores={adminStores}
                     showStoreSelector={adminStores.length > 1}
                     storeId={adminStores.length === 1 ? adminStores[0]?.id : undefined}
                   />
@@ -411,6 +415,32 @@ const AdminDashboard = () => {
 
             <TabsContent value="gestao-crm" className="animate-fade-in space-y-4 sm:space-y-6">
               <CRMManagement />
+            </TabsContent>
+
+            <TabsContent value="gestao-dre" className="animate-fade-in space-y-4 sm:space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <BarChart className="h-5 w-5" />
+                    Gestão DRE
+                  </CardTitle>
+                  <CardDescription>
+                    Demonstração do Resultado do Exercício - Gerencie receitas, despesas e investimentos
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Sistema completo de DRE com lançamentos manuais, IA para processamento de linguagem natural,
+                      assistente financeiro inteligente, multi-loja e exportação Excel.
+                    </p>
+                    <Button onClick={() => navigate("/admin/dre")} className="w-full sm:w-auto">
+                      <BarChart className="mr-2 h-4 w-4" />
+                      Acessar Gestão DRE
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="configuracoes" className="animate-fade-in space-y-6 sm:space-y-8">
