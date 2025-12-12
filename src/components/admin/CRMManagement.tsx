@@ -728,20 +728,7 @@ export const CRMManagement = () => {
 
       const errors: Array<{ row: number; nome: string; error: string }> = [];
       const successContacts: any[] = [];
-      const cpfSet = new Set<string>();
-
-      // Buscar CPFs existentes no banco
-      const { data: existingContacts } = await supabase
-        .schema('sistemaretiradas')
-        .from('crm_contacts')
-        .select('cpf')
-        .not('cpf', 'is', null);
-
-      const existingCpfs = new Set(
-        (existingContacts || [])
-          .map(c => normalizeCPF(c.cpf || ''))
-          .filter(cpf => cpf.length === 11)
-      );
+      const cpfSet = new Set<string>(); // Para detectar duplicados no próprio arquivo
 
       for (let i = 0; i < jsonData.length; i++) {
         const row = jsonData[i];
@@ -786,18 +773,14 @@ export const CRMManagement = () => {
           continue;
         }
 
-        // Verificar duplicado no arquivo
+        // Verificar duplicado no próprio arquivo (manter erro para arquivo)
         if (cpfSet.has(cpfNormalized)) {
-          errors.push({ row: rowNum, nome, error: 'CPF duplicado no arquivo' });
+          errors.push({ row: rowNum, nome, error: 'CPF duplicado no arquivo (será pulado)' });
           continue;
         }
         cpfSet.add(cpfNormalized);
 
-        // Verificar duplicado no banco
-        if (existingCpfs.has(cpfNormalized)) {
-          errors.push({ row: rowNum, nome, error: 'CPF já existe no sistema (duplicado)' });
-          continue;
-        }
+        // CPF duplicado no banco não é mais erro - será atualizado via upsert
 
         if (!celularRaw) {
           errors.push({ row: rowNum, nome, error: 'Campo CELULAR é obrigatório' });
@@ -880,15 +863,19 @@ export const CRMManagement = () => {
         });
       }
 
-      // Inserir contatos válidos em lote
+      // Inserir ou atualizar contatos válidos em lote (upsert)
+      // Se o CPF já existir, atualiza o registro; senão, insere novo
       if (successContacts.length > 0) {
-        const { error: insertError } = await supabase
+        const { error: upsertError } = await supabase
           .schema('sistemaretiradas')
           .from('crm_contacts')
-          .insert(successContacts);
+          .upsert(successContacts, {
+            onConflict: 'cpf', // Usa o índice único do CPF para detectar conflitos
+            ignoreDuplicates: false // Atualiza ao invés de ignorar
+          });
 
-        if (insertError) {
-          throw insertError;
+        if (upsertError) {
+          throw upsertError;
         }
       }
 
