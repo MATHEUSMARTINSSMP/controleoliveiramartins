@@ -61,34 +61,69 @@ export function useClientSearch(searchTerm: string = '', options: UseClientSearc
       try {
         const clientsMap = new Map<string, Client>();
 
+        // Helper para buscar com paginação
+        const fetchWithPagination = async (
+          tableName: string,
+          selectColumns: string,
+          applyFilters: (query: any) => any
+        ) => {
+          let allRows: any[] = [];
+          let page = 0;
+          const pageSize = 1000;
+          let hasMore = true;
+          const maxPages = 50; // Limite de segurança (50k registros)
+
+          while (hasMore && page < maxPages) {
+            let query = supabase
+              .schema('sistemaretiradas')
+              .from(tableName)
+              .select(selectColumns)
+              .order('nome')
+              .range(page * pageSize, (page + 1) * pageSize - 1);
+
+            query = applyFilters(query);
+
+            const { data, error } = await query;
+
+            if (error) {
+              if (error.code !== 'PGRST116' && error.code !== '42P01') {
+                console.warn(`[useClientSearch] Erro ao buscar ${tableName} (página ${page}):`, error);
+              }
+              break;
+            }
+
+            if (data) {
+              allRows = [...allRows, ...data];
+              if (data.length < pageSize) {
+                hasMore = false;
+              }
+            } else {
+              hasMore = false;
+            }
+            page++;
+          }
+          return allRows;
+        };
+
         // 1. Buscar em crm_contacts
         try {
-          let crmQuery = supabase
-            .schema('sistemaretiradas')
-            .from('crm_contacts')
-            .select('id, nome, cpf, telefone, email, data_nascimento')
-            .order('nome')
-            .range(0, 9999);
+          const crmData = await fetchWithPagination(
+            'crm_contacts',
+            'id, nome, cpf, telefone, email, data_nascimento, store_id',
+            (q) => {
+              if (storeId) q = q.eq('store_id', storeId);
+              if (onlyWithCPF) q = q.not('cpf', 'is', null).neq('cpf', '');
+              return q;
+            }
+          );
 
-          if (storeId) {
-            crmQuery = crmQuery.eq('store_id', storeId);
-          }
-
-          if (onlyWithCPF) {
-            crmQuery = crmQuery.not('cpf', 'is', null).neq('cpf', '');
-          }
-
-          const { data: crmData, error: crmError } = await crmQuery;
-
-          if (crmError && crmError.code !== 'PGRST116') {
-            console.warn('[useClientSearch] Erro ao buscar crm_contacts:', crmError);
-          } else if (crmData) {
+          if (crmData.length > 0) {
             console.log('[useClientSearch] crm_contacts encontrados:', {
               total: crmData.length,
               storeId,
               comCPF: crmData.filter(c => c.cpf).length,
               semCPF: crmData.filter(c => !c.cpf).length,
-              amostra: crmData.slice(0, 3).map(c => ({ nome: c.nome, cpf: c.cpf, store_id: (c as any).store_id }))
+              amostra: crmData.slice(0, 3).map(c => ({ nome: c.nome, cpf: c.cpf, store_id: c.store_id }))
             });
             crmData.forEach(client => {
               const cpfNormalized = client.cpf ? normalizeCPF(client.cpf) : null;
@@ -120,28 +155,19 @@ export function useClientSearch(searchTerm: string = '', options: UseClientSearc
           console.warn('[useClientSearch] Erro ao buscar crm_contacts:', err);
         }
 
-        // 2. Buscar em contacts (se a tabela existir)
+        // 2. Buscar em contacts
         try {
-          let contactsQuery = supabase
-            .schema('sistemaretiradas')
-            .from('contacts')
-            .select('id, nome, cpf, telefone, email, data_nascimento')
-            .order('nome')
-            .range(0, 9999);
+          const contactsData = await fetchWithPagination(
+            'contacts',
+            'id, nome, cpf, telefone, email, data_nascimento',
+            (q) => {
+              if (storeId) q = q.eq('store_id', storeId);
+              if (onlyWithCPF) q = q.not('cpf', 'is', null).neq('cpf', '');
+              return q;
+            }
+          );
 
-          if (storeId) {
-            contactsQuery = contactsQuery.eq('store_id', storeId);
-          }
-
-          if (onlyWithCPF) {
-            contactsQuery = contactsQuery.not('cpf', 'is', null).neq('cpf', '');
-          }
-
-          const { data: contactsData, error: contactsError } = await contactsQuery;
-
-          if (contactsError && contactsError.code !== 'PGRST116' && contactsError.code !== '42P01') {
-            console.warn('[useClientSearch] Erro ao buscar contacts:', contactsError);
-          } else if (contactsData) {
+          if (contactsData.length > 0) {
             contactsData.forEach(client => {
               const cpfNormalized = client.cpf ? normalizeCPF(client.cpf) : null;
               if (cpfNormalized && !clientsMap.has(cpfNormalized)) {
@@ -172,24 +198,18 @@ export function useClientSearch(searchTerm: string = '', options: UseClientSearc
           console.warn('[useClientSearch] Erro ao buscar contacts:', err);
         }
 
-        // 3. Buscar em tiny_contacts (se a tabela existir)
+        // 3. Buscar em tiny_contacts
         try {
-          let tinyQuery = supabase
-            .schema('sistemaretiradas')
-            .from('tiny_contacts')
-            .select('id, nome, cpf_cnpj, telefone, email, data_nascimento')
-            .order('nome')
-            .range(0, 9999);
+          const tinyData = await fetchWithPagination(
+            'tiny_contacts',
+            'id, nome, cpf_cnpj, telefone, email, data_nascimento',
+            (q) => {
+              if (onlyWithCPF) q = q.not('cpf_cnpj', 'is', null).neq('cpf_cnpj', '');
+              return q;
+            }
+          );
 
-          if (onlyWithCPF) {
-            tinyQuery = tinyQuery.not('cpf_cnpj', 'is', null).neq('cpf_cnpj', '');
-          }
-
-          const { data: tinyData, error: tinyError } = await tinyQuery;
-
-          if (tinyError && tinyError.code !== 'PGRST116' && tinyError.code !== '42P01') {
-            console.warn('[useClientSearch] Erro ao buscar tiny_contacts:', tinyError);
-          } else if (tinyData) {
+          if (tinyData.length > 0) {
             tinyData.forEach(client => {
               const cpfNormalized = client.cpf_cnpj ? normalizeCPF(client.cpf_cnpj) : null;
               // Verificar se é CPF (11 dígitos) e não CNPJ (14 dígitos)

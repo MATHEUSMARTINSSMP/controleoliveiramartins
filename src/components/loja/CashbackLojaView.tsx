@@ -147,15 +147,34 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
       setLoading(true);
 
       // Buscar clientes DESTA LOJA (filtrado por store_id para segurança multi-tenant)
-      const { data: allClientesData, error: clientesError } = await supabase
-        .schema('sistemaretiradas')
-        .from('crm_contacts')
-        .select('id, nome, cpf, telefone, email, data_nascimento')
-        .eq('store_id', storeId)
-        .order('nome')
-        .range(0, 9999);
+      // Implementação com paginação para superar limite de 1000 registros
+      let allClientesData: any[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      const maxPages = 50; // Limite de segurança
 
-      if (clientesError) throw clientesError;
+      while (hasMore && page < maxPages) {
+        const { data, error } = await supabase
+          .schema('sistemaretiradas')
+          .from('crm_contacts')
+          .select('id, nome, cpf, telefone, email, data_nascimento')
+          .eq('store_id', storeId)
+          .order('nome')
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) throw error;
+
+        if (data) {
+          allClientesData = [...allClientesData, ...data];
+          if (data.length < pageSize) {
+            hasMore = false;
+          }
+        } else {
+          hasMore = false;
+        }
+        page++;
+      }
 
       // Mapear para o formato esperado (cpf -> cpf_cnpj)
       const allClientes: Cliente[] = (allClientesData || []).map(c => ({
