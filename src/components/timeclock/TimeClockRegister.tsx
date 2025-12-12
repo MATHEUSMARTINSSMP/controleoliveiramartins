@@ -50,13 +50,13 @@ export function TimeClockRegister({
 
   const [observacao, setObservacao] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
-  
+
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
   const [pin, setPin] = useState('');
   const [pendingAction, setPendingAction] = useState<'ENTRADA' | 'SAIDA_INTERVALO' | 'ENTRADA_INTERVALO' | 'SAIDA' | null>(null);
   const [processingSignature, setProcessingSignature] = useState(false);
   const [signatureError, setSignatureError] = useState<string | null>(null);
-  
+
   const [setupPinDialogOpen, setSetupPinDialogOpen] = useState(false);
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -89,7 +89,7 @@ export function TimeClockRegister({
       const { data, error } = await supabase.rpc('has_signature_pin', {
         p_colaboradora_id: colaboradoraId
       }) as { data: boolean | null; error: any };
-      
+
       if (error) {
         console.error('[TimeClockRegister] Error checking PIN:', error);
         setHasPin(false);
@@ -185,7 +185,7 @@ export function TimeClockRegister({
       if (error) throw error;
 
       const result = data?.[0];
-      
+
       if (!result?.success) {
         throw new Error(result?.message || 'Erro ao redefinir PIN');
       }
@@ -265,13 +265,13 @@ export function TimeClockRegister({
     if (nextRecordType && nextRecordType !== tipo) {
       const config = getButtonConfig(tipo);
       const expectedConfig = getButtonConfig(nextRecordType);
-      
+
       const confirmed = window.confirm(
         `Voce deveria fazer: ${expectedConfig.label}\n\n` +
         `Voce esta tentando fazer: ${config.label}\n\n` +
         `Confirma que deseja fazer ${config.label}?`
       );
-      
+
       if (!confirmed) {
         return;
       }
@@ -305,18 +305,18 @@ export function TimeClockRegister({
     try {
       console.log('[TimeClockRegister] 🔐 Validando PIN para colaboradora:', colaboradoraId);
       console.log('[TimeClockRegister] 📝 PIN digitado (tamanho):', pin.length, 'dígitos');
-      
+
       // Verificar se o PIN existe antes de validar
       const { data: hasPinData, error: hasPinError } = await supabase.rpc('has_signature_pin', {
         p_colaboradora_id: colaboradoraId
       });
-      
+
       console.log('[TimeClockRegister] 🔍 PIN existe?', { hasPinData, hasPinError });
-      
+
       if (hasPinError) {
         console.error('[TimeClockRegister] ❌ Erro ao verificar se PIN existe:', hasPinError);
       }
-      
+
       const { data: validationResult, error: validationError } = await supabase.rpc('validate_signature_pin', {
         p_colaboradora_id: colaboradoraId,
         p_pin: pin
@@ -344,7 +344,7 @@ export function TimeClockRegister({
 
       // A função retorna um JSON, mas Supabase pode retornar como objeto direto ou string
       let result: { valid?: boolean; error?: string; message?: string } | null = null;
-      
+
       if (typeof validationResult === 'string') {
         try {
           result = JSON.parse(validationResult);
@@ -362,10 +362,10 @@ export function TimeClockRegister({
         setProcessingSignature(false);
         return;
       }
-      
+
       console.log('[TimeClockRegister] ✅ Resultado processado:', result);
       console.log('[TimeClockRegister] 🔍 Valid?', result?.valid);
-      
+
       if (!result || result.valid !== true) {
         const errorMsg = result?.error || result?.message || 'PIN inválido';
         console.error('[TimeClockRegister] ❌ PIN inválido. Detalhes:', {
@@ -379,13 +379,13 @@ export function TimeClockRegister({
         setProcessingSignature(false);
         return;
       }
-      
+
       console.log('[TimeClockRegister] ✅✅✅ PIN válido! Prosseguindo com registro...');
 
       // Validações de negócio antes de registrar
       const horarioRegistro = new Date();
       const horarioISO = horarioRegistro.toISOString();
-      
+
       // 1. Validar que não está registrando no futuro (mais de 5 minutos)
       const cincoMinutosFuturo = new Date(horarioRegistro.getTime() + 5 * 60 * 1000);
       if (horarioRegistro > cincoMinutosFuturo) {
@@ -393,7 +393,7 @@ export function TimeClockRegister({
         setProcessingSignature(false);
         return;
       }
-      
+
       // 2. Validar que não está registrando muito no passado (mais de 1 ano)
       const umAnoAtras = new Date(horarioRegistro.getTime() - 365 * 24 * 60 * 60 * 1000);
       if (horarioRegistro < umAnoAtras) {
@@ -401,23 +401,23 @@ export function TimeClockRegister({
         setProcessingSignature(false);
         return;
       }
-      
-      // 3. Validar limite de registros por dia (máximo 4)
+
+      // 3. Validar limite de registros por dia (máximo 4 POR COLABORADORA)
       try {
         const hoje = new Date(horarioRegistro);
         hoje.setHours(0, 0, 0, 0);
         const amanha = new Date(hoje);
         amanha.setDate(amanha.getDate() + 1);
-        
+
         const { count, error: countError } = await supabase
           .schema('sistemaretiradas')
           .from('time_clock_records')
           .select('*', { count: 'exact', head: true })
           .eq('colaboradora_id', colaboradoraId)
-          .eq('store_id', storeId)
+          // ✅ REMOVIDO .eq('store_id', storeId) - limite é POR COLABORADORA, não por loja
           .gte('horario', hoje.toISOString())
           .lt('horario', amanha.toISOString());
-        
+
         if (countError) {
           console.warn('[TimeClockRegister] Erro ao contar registros do dia:', countError);
         } else if (count !== null && count >= 4) {
@@ -432,13 +432,13 @@ export function TimeClockRegister({
 
       const signatureHash = await generateSignatureHash();
       console.log('[TimeClockRegister] 🔐 Signature hash gerado:', signatureHash ? `${signatureHash.substring(0, 20)}...` : 'NULL/UNDEFINED');
-      
+
       if (!signatureHash) {
         setSignatureError('Erro ao gerar hash da assinatura digital');
         setProcessingSignature(false);
         return;
       }
-      
+
       const deviceInfo = {
         userAgent: navigator.userAgent,
         platform: navigator.platform,
@@ -469,7 +469,7 @@ export function TimeClockRegister({
 
       // Usar função RPC para inserir assinatura digital (bypassa RLS com validação adequada)
       console.log('[TimeClockRegister] Inserindo assinatura digital via RPC...');
-      
+
       const rpcParams = {
         p_time_clock_record_id: recordData.id,
         p_colaboradora_id: colaboradoraId,
@@ -479,20 +479,20 @@ export function TimeClockRegister({
         p_ip_address: null,
         p_rep_identity: `REP-${storeId.substring(0, 8)}-${Date.now()}`,
       };
-      
+
       console.log('[TimeClockRegister] 📤 Parâmetros RPC sendo enviados:', {
         ...rpcParams,
         p_password_hash: signatureHash ? `${signatureHash.substring(0, 20)}... (tamanho: ${signatureHash.length})` : 'NULL',
         p_device_info: deviceInfo ? 'Object presente' : 'NULL',
       });
-      
+
       const { data: signatureResult, error: signatureInsertError } = await supabase.rpc(
         'insert_time_clock_digital_signature',
         rpcParams
       );
 
-      console.log('[TimeClockRegister] 📥 Resposta RPC inserir assinatura:', { 
-        signatureResult, 
+      console.log('[TimeClockRegister] 📥 Resposta RPC inserir assinatura:', {
+        signatureResult,
         signatureInsertError,
         success: signatureResult?.success,
         error: signatureResult?.error,
@@ -507,7 +507,7 @@ export function TimeClockRegister({
           .from('time_clock_records')
           .delete()
           .eq('id', recordData.id);
-        
+
         throw new Error('Erro ao criar assinatura digital. Registro cancelado.');
       }
 
@@ -518,7 +518,7 @@ export function TimeClockRegister({
           .from('time_clock_records')
           .delete()
           .eq('id', recordData.id);
-        
+
         throw new Error(signatureResult?.error || 'Erro ao criar assinatura digital. Registro cancelado.');
       }
 
@@ -527,15 +527,15 @@ export function TimeClockRegister({
       const registeredAction = pendingAction;
       setPendingAction(null);
       setPin('');
-      
+
       // Atualizar registros localmente primeiro
       await fetchRecords();
-      
+
       // Notificar componente pai para atualizar histórico
       if (onRecordSuccess) {
         onRecordSuccess();
       }
-      
+
       toast.success('Ponto registrado com assinatura digital');
 
       if (registeredAction === 'SAIDA') {
@@ -603,8 +603,8 @@ export function TimeClockRegister({
               <p className="text-muted-foreground">{colaboradoraName}</p>
             </div>
             <div className="flex items-center gap-2">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 onClick={() => setSetupPinDialogOpen(true)}
                 title="Configurar PIN"
@@ -638,9 +638,9 @@ export function TimeClockRegister({
                 <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
                   Configure seu PIN de assinatura digital para registrar ponto
                 </span>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
+                <Button
+                  size="sm"
+                  variant="outline"
                   onClick={() => setSetupPinDialogOpen(true)}
                   className="ml-auto"
                   data-testid="button-setup-pin"
@@ -775,7 +775,7 @@ export function TimeClockRegister({
               Digite seu PIN de assinatura digital (diferente da senha de acesso)
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             {pendingAction && (
               <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
@@ -872,13 +872,13 @@ export function TimeClockRegister({
               {hasPin ? 'Alterar PIN de Assinatura' : 'Criar PIN de Assinatura Digital'}
             </DialogTitle>
             <DialogDescription>
-              {hasPin 
+              {hasPin
                 ? 'Digite um novo PIN de 6 a 8 digitos numericos'
                 : 'Crie um PIN exclusivo para assinar seus registros de ponto. Este PIN e diferente da sua senha de acesso ao sistema.'
               }
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="newPin">{hasPin ? 'Novo PIN' : 'PIN'} (6-8 digitos)</Label>
@@ -977,13 +977,13 @@ export function TimeClockRegister({
               Redefinir PIN de Assinatura
             </DialogTitle>
             <DialogDescription>
-              {resetStep === 'request' 
+              {resetStep === 'request'
                 ? 'Enviaremos um codigo para seu email cadastrado'
                 : 'Digite o codigo recebido e seu novo PIN'
               }
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             {resetStep === 'request' ? (
               <>
@@ -1084,7 +1084,7 @@ export function TimeClockRegister({
             >
               Cancelar
             </Button>
-            
+
             {resetStep === 'request' ? (
               <Button
                 onClick={handleRequestPinReset}
