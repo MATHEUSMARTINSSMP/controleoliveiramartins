@@ -230,7 +230,17 @@ export function useClientSearch(searchTerm: string = '', options: UseClientSearc
           source: 'crm_contacts', // Usar uma source válida
         };
 
-        setAllClients([consumidorFinal, ...finalClients]);
+        const allClientsList = [consumidorFinal, ...finalClients];
+        
+        console.log('[useClientSearch] ✅ Clientes carregados:', {
+          total: allClientsList.length,
+          storeId,
+          comCPF: finalClients.filter(c => c.cpf).length,
+          semCPF: finalClients.filter(c => !c.cpf).length,
+          amostraNomes: finalClients.slice(0, 5).map(c => c.nome)
+        });
+
+        setAllClients(allClientsList);
       } catch (err) {
         console.error('[useClientSearch] Erro geral:', err);
         setError(err instanceof Error ? err : new Error('Erro ao buscar clientes'));
@@ -245,7 +255,12 @@ export function useClientSearch(searchTerm: string = '', options: UseClientSearc
 
   // Função para forçar reload (útil após criar novo cliente)
   const refresh = useCallback(() => {
-    setRefreshKey(prev => prev + 1);
+    console.log('[useClientSearch] 🔄 Refresh chamado, incrementando refreshKey');
+    setRefreshKey(prev => {
+      const newKey = prev + 1;
+      console.log('[useClientSearch] ✅ refreshKey atualizado:', newKey);
+      return newKey;
+    });
   }, []);
 
   // Filtrar localmente conforme o usuário digita (padrão cashback)

@@ -142,6 +142,15 @@ export default function LojaDashboard() {
         storeId: storeId || profile?.store_id || undefined, // Filtrar por loja atual
     });
 
+    // Debug: log quando storeId mudar
+    useEffect(() => {
+        console.log('[LojaDashboard] 📍 storeId atualizado:', {
+            storeId,
+            profileStoreId: profile?.store_id,
+            finalStoreId: storeId || profile?.store_id || undefined
+        });
+    }, [storeId, profile?.store_id]);
+
     const [goals, setGoals] = useState<any>(null);
     const [metrics, setMetrics] = useState<any>(null);
     const [colaboradorasPerformance, setColaboradorasPerformance] = useState<any[]>([]);
