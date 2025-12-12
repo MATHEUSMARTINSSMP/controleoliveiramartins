@@ -812,38 +812,60 @@ export const CRMManagement = () => {
 
         // Validar data de nascimento se fornecida (aceitar formato brasileiro DD/MM/YYYY)
         let dataNascimento = null;
-        if (dataNasc) {
+        if (dataNasc && dataNasc.trim() !== '' && dataNasc.trim() !== '-') {
+          const dataNascTrimmed = dataNasc.trim();
+          
           // Tentar parsear formato brasileiro DD/MM/YYYY
-          const dateMatch = dataNasc.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+          const dateMatch = dataNascTrimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
           if (dateMatch) {
             const [, dia, mes, ano] = dateMatch;
             const diaNum = parseInt(dia, 10);
             const mesNum = parseInt(mes, 10);
             const anoNum = parseInt(ano, 10);
             
-            // Validar valores
-            if (diaNum < 1 || diaNum > 31 || mesNum < 1 || mesNum > 12 || anoNum < 1900 || anoNum > new Date().getFullYear()) {
-              errors.push({ row: rowNum, nome, error: 'DATA_NASCIMENTO inválida (valores fora do range)' });
+            // Validar valores básicos
+            if (diaNum < 1 || diaNum > 31 || mesNum < 1 || mesNum > 12) {
+              errors.push({ row: rowNum, nome, error: 'DATA_NASCIMENTO inválida (dia/mês inválido)' });
+              continue;
+            }
+            
+            // Validar ano (razoável: entre 1900 e ano atual)
+            const anoAtual = new Date().getFullYear();
+            if (anoNum < 1900 || anoNum > anoAtual) {
+              errors.push({ row: rowNum, nome, error: 'DATA_NASCIMENTO inválida (ano inválido)' });
               continue;
             }
             
             // Criar data no formato ISO (YYYY-MM-DD)
-            dataNascimento = `${anoNum}-${mesNum.toString().padStart(2, '0')}-${diaNum.toString().padStart(2, '0')}`;
+            const dataISO = `${anoNum}-${mesNum.toString().padStart(2, '0')}-${diaNum.toString().padStart(2, '0')}`;
             
-            // Validar se a data é válida (ex: 31/02 não existe)
-            const date = new Date(dataNascimento);
-            if (isNaN(date.getTime()) || date.getFullYear() !== anoNum || date.getMonth() + 1 !== mesNum || date.getDate() !== diaNum) {
+            // Validar se a data é válida criando um objeto Date e verificando se corresponde
+            const date = new Date(dataISO + 'T12:00:00'); // Usar meio-dia para evitar problemas de timezone
+            
+            // Verificar se a data foi criada corretamente
+            if (isNaN(date.getTime())) {
               errors.push({ row: rowNum, nome, error: 'DATA_NASCIMENTO inválida (data não existe)' });
               continue;
             }
-          } else {
-            // Tentar parsear formato ISO YYYY-MM-DD como fallback
-            const date = new Date(dataNasc);
-            if (isNaN(date.getTime())) {
-              errors.push({ row: rowNum, nome, error: 'DATA_NASCIMENTO inválida (formato esperado: DD/MM/YYYY)' });
+            
+            // Verificar se os valores correspondem (ex: 31/02/2000 vira 02/03/2000)
+            if (date.getFullYear() !== anoNum || date.getMonth() + 1 !== mesNum || date.getDate() !== diaNum) {
+              errors.push({ row: rowNum, nome, error: 'DATA_NASCIMENTO inválida (data não existe)' });
               continue;
             }
-            dataNascimento = format(date, 'yyyy-MM-dd');
+            
+            dataNascimento = dataISO;
+          } else {
+            // Tentar parsear formato ISO YYYY-MM-DD como fallback
+            const date = new Date(dataNascTrimmed);
+            if (isNaN(date.getTime())) {
+              // Se não conseguir parsear, não é erro crítico - apenas ignora a data
+              // Mas avisa o usuário
+              errors.push({ row: rowNum, nome, error: 'DATA_NASCIMENTO em formato inválido (será ignorada, formato esperado: DD/MM/YYYY)' });
+              // Não fazemos continue aqui - apenas ignora a data e continua
+            } else {
+              dataNascimento = format(date, 'yyyy-MM-dd');
+            }
           }
         }
 
