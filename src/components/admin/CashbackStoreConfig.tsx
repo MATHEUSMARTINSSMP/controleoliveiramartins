@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Loader2, Gift, AlertCircle, Settings } from 'lucide-react';
 import { toast } from 'sonner';
@@ -41,8 +39,8 @@ export const CashbackStoreConfig = () => {
 
       const allStores = data || [];
       
-      // Filtrar APENAS lojas com cashback ativo (apenas true, excluir null e false)
-      const storesWithCashback = allStores.filter(store => Boolean(store.cashback_ativo) === true);
+      // Filtrar APENAS lojas com cashback ativo (exatamente true, não null nem false)
+      const storesWithCashback = allStores.filter(store => store.cashback_ativo === true);
       
       console.log('[CashbackStoreConfig] Lojas encontradas:', {
         total: allStores.length,
@@ -138,13 +136,11 @@ export const CashbackStoreConfig = () => {
                 className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
               >
                 <div className="flex-1">
-                  <Label htmlFor={`cashback-${store.id}`} className="text-sm font-medium cursor-pointer">
+                  <p className="text-sm font-medium">
                     {store.name}
-                  </Label>
+                  </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {store.cashback_ativo
-                      ? 'Módulo de cashback ativo para esta loja'
-                      : 'Módulo de cashback desativado'}
+                    Módulo de cashback ativo para esta loja
                   </p>
                 </div>
                 <div className="flex items-center gap-3">

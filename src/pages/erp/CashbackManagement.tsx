@@ -384,13 +384,9 @@ export default function CashbackManagement() {
   }, [authLoading, profile]);
 
   useEffect(() => {
-    if (!authLoading && profile && selectedStoreId !== '') {
-      // Aguardar um pouco para garantir que selectedStoreId está definido
-      const timer = setTimeout(() => {
-        fetchData();
-        fetchCategoriasProdutos();
-      }, 100);
-      return () => clearTimeout(timer);
+    if (!authLoading && profile && selectedStoreId) {
+      fetchData();
+      fetchCategoriasProdutos();
     }
   }, [authLoading, profile, selectedStoreId]);
 
@@ -428,8 +424,14 @@ export default function CashbackManagement() {
   };
 
   const fetchData = async () => {
+    if (!selectedStoreId) {
+      console.warn('[CashbackManagement] selectedStoreId não definido, abortando fetchData');
+      return;
+    }
+
     try {
       setLoading(true);
+      console.log('[CashbackManagement] fetchData iniciado, selectedStoreId:', selectedStoreId);
 
       // Buscar TODAS as clientes (com e sem saldo) - filtrar por loja se selecionada
       // Filtrar apenas clientes ativos (se existir coluna active, senão buscar todos)
@@ -461,15 +463,34 @@ export default function CashbackManagement() {
         // Filtrar saldos de clientes da loja selecionada
         const clienteIds = (allClientes || []).map(c => c.id);
         if (clienteIds.length > 0) {
-          const balancesQuery = supabase
-            .schema('sistemaretiradas')
-            .from('cashback_balance')
-            .select('*')
-            .in('cliente_id', clienteIds);
+          // Dividir em chunks de 100 para evitar URL muito longa
+          const CHUNK_SIZE = 100;
+          const chunks: string[][] = [];
+          for (let i = 0; i < clienteIds.length; i += CHUNK_SIZE) {
+            chunks.push(clienteIds.slice(i, i + CHUNK_SIZE));
+          }
           
-          const result = await balancesQuery;
-          balances = result.data || [];
-          balancesError = result.error;
+          // Fazer queries em paralelo para cada chunk
+          const balancePromises = chunks.map(chunk => 
+            supabase
+              .schema('sistemaretiradas')
+              .from('cashback_balance')
+              .select('*')
+              .in('cliente_id', chunk)
+          );
+          
+          const balanceResults = await Promise.all(balancePromises);
+          
+          // Combinar resultados e verificar erros
+          for (const result of balanceResults) {
+            if (result.error) {
+              balancesError = result.error;
+              break;
+            }
+            if (result.data) {
+              balances.push(...result.data);
+            }
+          }
         }
         // Se não houver clientes, balances já está como array vazio
       } else {
@@ -494,19 +515,45 @@ export default function CashbackManagement() {
         // Filtrar transações de clientes da loja selecionada
         const clienteIds = (allClientes || []).map(c => c.id);
         if (clienteIds.length > 0) {
-          const transactionsQuery = supabase
-            .schema('sistemaretiradas')
-            .from('cashback_transactions')
-            .select(`
-              *,
-              tiny_order:tiny_order_id (numero_pedido)
-            `)
-            .in('cliente_id', clienteIds)
-            .order('created_at', { ascending: false });
+          // Dividir em chunks de 100 para evitar URL muito longa
+          const CHUNK_SIZE = 100;
+          const chunks: string[][] = [];
+          for (let i = 0; i < clienteIds.length; i += CHUNK_SIZE) {
+            chunks.push(clienteIds.slice(i, i + CHUNK_SIZE));
+          }
           
-          const result = await transactionsQuery;
-          transactions = result.data || [];
-          transactionsError = result.error;
+          // Fazer queries em paralelo para cada chunk
+          const transactionPromises = chunks.map(chunk => 
+            supabase
+              .schema('sistemaretiradas')
+              .from('cashback_transactions')
+              .select(`
+                *,
+                tiny_order:tiny_order_id (numero_pedido)
+              `)
+              .in('cliente_id', chunk)
+              .order('created_at', { ascending: false })
+          );
+          
+          const transactionResults = await Promise.all(transactionPromises);
+          
+          // Combinar resultados e verificar erros
+          for (const result of transactionResults) {
+            if (result.error) {
+              transactionsError = result.error;
+              break;
+            }
+            if (result.data) {
+              transactions.push(...result.data);
+            }
+          }
+          
+          // Ordenar todas as transações por created_at após combinar
+          transactions.sort((a, b) => {
+            const dateA = new Date(a.created_at).getTime();
+            const dateB = new Date(b.created_at).getTime();
+            return dateB - dateA; // Descendente
+          });
         }
         // Se não houver clientes, transactions já está como array vazio
       } else {
