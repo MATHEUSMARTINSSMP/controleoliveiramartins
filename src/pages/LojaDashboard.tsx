@@ -5632,6 +5632,9 @@ export default function LojaDashboard() {
                         colaboradoraId={lastSaleData.colaboradoraId}
                         saleDate={lastSaleData.saleDate}
                         saleObservations={lastSaleData.saleObservations}
+                        clienteId={lastSaleData.clienteId}
+                        clienteNome={lastSaleData.clienteNome}
+                        clienteTelefone={lastSaleData.clienteTelefone}
                         onSuccess={() => {
                             if (storeId) {
                                 fetchSalesWithStoreId(storeId, salesDateFilter);
