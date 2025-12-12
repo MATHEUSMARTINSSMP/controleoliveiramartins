@@ -57,6 +57,8 @@ import {
 } from "@/hooks/queries";
 import { QUERY_KEYS } from "@/hooks/queries/types";
 
+import { TimeClockLojaView } from "@/components/timeclock/TimeClockLojaView";
+
 // Lazy imports com tratamento de erro
 const WeeklyGoalProgress = lazy(() => import("@/components/WeeklyGoalProgress"));
 const WeeklyBonusProgress = lazy(() => import("@/components/WeeklyBonusProgress"));
@@ -66,7 +68,7 @@ const TrophiesGallery = lazy(() => import("@/components/loja/TrophiesGallery").t
 const CashbackLojaView = lazy(() => import("@/components/loja/CashbackLojaView"));
 const CRMLojaView = lazy(() => import("@/components/loja/CRMLojaView"));
 const WishlistLojaView = lazy(() => import("@/components/loja/WishlistLojaView"));
-const TimeClockLojaView = lazy(() => import("@/components/timeclock/TimeClockLojaView").then(m => ({ default: m.TimeClockLojaView })));
+// const TimeClockLojaView = lazy(() => import("@/components/timeclock/TimeClockLojaView").then(m => ({ default: m.TimeClockLojaView })));
 const StoreConditionalsAdjustments = lazy(() => import("@/components/loja/StoreConditionalsAdjustments"));
 
 interface Sale {
@@ -77,10 +79,16 @@ interface Sale {
     data_venda: string;
     observacoes: string | null;
     tiny_order_id: string | null;
+    cliente_id?: string | null;
+    cliente_nome?: string | null;
     colaboradora: {
         name: string;
     };
 }
+
+
+
+
 
 interface Colaboradora {
     id: string;
@@ -1324,7 +1332,7 @@ export default function LojaDashboard() {
             return;
         }
 
-        // Prevenir múltiplas chamadas com o mesmo storeId (mas permitir se forçado)
+        // Prevenir múltiplas chamadas com o mesmo storeId (but allow if forced)
         // Se lastFetchedStoreIdRef foi limpo (null), significa que queremos forçar recarregamento
         if (isFetchingDataRef.current && lastFetchedStoreIdRef.current === currentStoreId && lastFetchedStoreIdRef.current !== null) {
             console.log('[LojaDashboard] ⚠️ fetchDataWithStoreId já está sendo executado para este storeId, ignorando chamada duplicada');
@@ -2765,6 +2773,8 @@ export default function LojaDashboard() {
             qtd_pecas: sale.qtd_pecas.toString(),
             data_venda: format(new Date(sale.data_venda), "yyyy-MM-dd'T'HH:mm"),
             observacoes: sale.observacoes || "",
+            cliente_id: sale.cliente_id || "",
+            cliente_nome: sale.cliente_nome || "",
         });
         setEditingSaleId(sale.id);
         setDialogOpen(true);
