@@ -136,8 +136,10 @@ export default function LojaDashboard() {
     const [newClientDialogOpen, setNewClientDialogOpen] = useState(false);
 
     // Buscar clientes (padrão cashback - busca todos uma vez)
+    // Usar storeId do estado (pode ser da loja ou da colaboradora)
     const { clients: filteredClientsForSearchInput, allClients, refresh: refreshClients } = useClientSearch(searchCliente, {
         fetchOnce: true,
+        storeId: storeId || profile?.store_id || undefined, // Filtrar por loja atual
     });
 
     const [goals, setGoals] = useState<any>(null);
