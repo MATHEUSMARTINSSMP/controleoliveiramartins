@@ -77,15 +77,26 @@ END;
 $$;
 
 -- 4. Criar job no pg_cron para rodar a cada 5 minutos
--- Remove job anterior se existir
-SELECT cron.unschedule('sync-tiny-orders-automatico');
+DO $$
+BEGIN
+    -- Tentar remover job anterior se existir
+    BEGIN
+        PERFORM cron.unschedule('sync-tiny-orders-automatico');
+    EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'Job sync-tiny-orders-automatico não existia ou erro ao remover: %', SQLERRM;
+    END;
 
--- Agenda job para rodar a cada 5 minutos
-SELECT cron.schedule(
-  'sync-tiny-orders-automatico',           -- Nome do job
-  '*/5 * * * *',                           -- Cron expression: a cada 5 minutos
-  $$SELECT sistemaretiradas.chamar_sync_tiny_orders();$$  -- Função a executar
-);
+    -- Agenda job para rodar a cada 5 minutos
+    BEGIN
+        PERFORM cron.schedule(
+          'sync-tiny-orders-automatico',           -- Nome do job
+          '*/5 * * * *',                           -- Cron expression: a cada 5 minutos
+          $cmd$SELECT sistemaretiradas.chamar_sync_tiny_orders();$cmd$  -- Função a executar
+        );
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING 'Erro ao agendar job sync-tiny-orders-automatico: %', SQLERRM;
+    END;
+END $$;
 
 -- Comentários
 COMMENT ON FUNCTION sistemaretiradas.chamar_sync_tiny_orders() IS 

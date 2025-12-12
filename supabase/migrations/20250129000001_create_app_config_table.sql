@@ -21,6 +21,7 @@ CREATE INDEX IF NOT EXISTS idx_app_config_key ON sistemaretiradas.app_config(key
 ALTER TABLE sistemaretiradas.app_config ENABLE ROW LEVEL SECURITY;
 
 -- Política: Apenas ADMIN pode ver configurações
+DROP POLICY IF EXISTS "app_config_select_admin" ON sistemaretiradas.app_config;
 CREATE POLICY "app_config_select_admin"
   ON sistemaretiradas.app_config
   FOR SELECT
@@ -33,6 +34,7 @@ CREATE POLICY "app_config_select_admin"
   );
 
 -- Política: Apenas ADMIN pode inserir/atualizar configurações
+DROP POLICY IF EXISTS "app_config_modify_admin" ON sistemaretiradas.app_config;
 CREATE POLICY "app_config_modify_admin"
   ON sistemaretiradas.app_config
   FOR ALL

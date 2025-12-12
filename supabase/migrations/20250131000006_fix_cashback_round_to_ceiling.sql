@@ -154,8 +154,8 @@ EXCEPTION
 END;
 $$;
 
-COMMENT ON FUNCTION sistemaretiradas.gerar_cashback IS 
-'Gera cashback automaticamente para um pedido. Arredonda para cima (sem centavos). Exemplo: 152.15 -> 153';
+-- COMMENT ON FUNCTION sistemaretiradas.gerar_cashback IS 
+-- 'Gera cashback automaticamente para um pedido. Arredonda para cima (sem centavos). Exemplo: 152.15 -> 153';
 
 -- ============================================================================
 -- 2. CORRIGIR FUNÇÃO lancar_cashback_manual()
@@ -260,6 +260,6 @@ EXCEPTION
 END;
 $$;
 
-COMMENT ON FUNCTION sistemaretiradas.lancar_cashback_manual IS 
-'Lança cashback manualmente para um cliente. Arredonda para cima (sem centavos). Exemplo: 152.15 -> 153';
+-- COMMENT ON FUNCTION sistemaretiradas.lancar_cashback_manual IS 
+-- 'Lança cashback manualmente para um cliente. Arredonda para cima (sem centavos). Exemplo: 152.15 -> 153';
 

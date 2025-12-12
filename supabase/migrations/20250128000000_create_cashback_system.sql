@@ -273,7 +273,7 @@ EXCEPTION
 END;
 $$;
 
-COMMENT ON FUNCTION sistemaretiradas.gerar_cashback IS 'Gera cashback automaticamente para um pedido';
+-- COMMENT ON FUNCTION sistemaretiradas.gerar_cashback IS 'Gera cashback automaticamente para um pedido';
 
 -- ============================================================================
 -- 6. FUNÇÃO: Atualizar saldos de cashback (liberar pendentes)

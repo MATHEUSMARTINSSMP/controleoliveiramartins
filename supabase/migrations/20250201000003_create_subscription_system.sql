@@ -191,7 +191,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION sistemaretiradas.can_create_colaboradora IS 'Verifica se admin pode criar colaboradora (conta TOTAL em todas as lojas)';
+-- COMMENT ON FUNCTION sistemaretiradas.can_create_colaboradora IS 'Verifica se admin pode criar colaboradora (conta TOTAL em todas as lojas)';
 
 -- ============================================================================
 -- 8. INSERIR PLANOS

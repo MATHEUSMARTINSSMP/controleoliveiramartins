@@ -221,8 +221,8 @@ EXCEPTION
 END;
 $$;
 
-COMMENT ON FUNCTION sistemaretiradas.gerar_cashback IS 
-'Gera cashback automaticamente para um pedido. Arredonda para cima (sem centavos). Adiciona WhatsApp à fila.';
+-- COMMENT ON FUNCTION sistemaretiradas.gerar_cashback IS 
+-- 'Gera cashback automaticamente para um pedido. Arredonda para cima (sem centavos). Adiciona WhatsApp à fila.';
 
 -- ============================================================================
 -- 4. RLS PARA TABELA DE FILA

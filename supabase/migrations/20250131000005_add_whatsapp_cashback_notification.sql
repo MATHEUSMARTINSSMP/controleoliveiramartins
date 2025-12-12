@@ -269,8 +269,8 @@ EXCEPTION
 END;
 $$;
 
-COMMENT ON FUNCTION sistemaretiradas.gerar_cashback IS 
-'Gera cashback automaticamente para um pedido e envia WhatsApp para o cliente';
+-- COMMENT ON FUNCTION sistemaretiradas.gerar_cashback IS 
+-- 'Gera cashback automaticamente para um pedido e envia WhatsApp para o cliente';
 
 -- ============================================================================
 -- 3. VERIFICAR SE EXTENSÕES HTTP ESTÃO DISPONÍVEIS

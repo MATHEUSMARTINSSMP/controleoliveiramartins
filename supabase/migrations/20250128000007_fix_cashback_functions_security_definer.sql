@@ -186,5 +186,5 @@ DROP POLICY IF EXISTS "Admin e Loja podem inserir saldos de cashback" ON sistema
 
 -- Comentário explicativo
 COMMENT ON FUNCTION sistemaretiradas.atualizar_saldo_cliente_cashback IS 'Atualiza saldo de cashback de um cliente. Usa SECURITY DEFINER para poder criar saldos inicialmente, ignorando RLS.';
-COMMENT ON FUNCTION sistemaretiradas.gerar_cashback IS 'Gera cashback para um pedido. Usa SECURITY DEFINER para poder criar transações e saldos, ignorando RLS.';
+-- COMMENT ON FUNCTION sistemaretiradas.gerar_cashback IS 'Gera cashback para um pedido. Usa SECURITY DEFINER para poder criar transações e saldos, ignorando RLS.';
 
