@@ -406,7 +406,6 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
     const margin = 15;
-    const usableWidth = pageWidth - (margin * 2);
 
     // CABEÇALHO
     doc.setFontSize(16);
@@ -429,115 +428,66 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
     doc.setFont('helvetica', 'bold');
     doc.text('Legenda:', margin, margin + 38);
     doc.setFont('helvetica', 'normal');
-    doc.text('(M) = Lançamento Manual  |  ✓ = Assinatura Digital Confirmada', margin + 20, margin + 38);
+    doc.text('(M) = Lançamento Manual', margin + 20, margin + 38);
 
-    let currentY = margin + 45;
+    // TABELA ÚNICA COM TODOS OS DIAS
+    const tableData = dailyReports.map(d => [
+      format(d.date, 'dd/MM/yyyy'),
+      d.dayOfWeek.substring(0, 3).toUpperCase(),
+      d.entrada ? `${d.entrada}${d.entradaManual ? ' (M)' : ''}` : '-',
+      d.saidaIntervalo ? `${d.saidaIntervalo}${d.saidaIntervaloManual ? ' (M)' : ''}` : '-',
+      d.entradaIntervalo ? `${d.entradaIntervalo}${d.entradaIntervaloManual ? ' (M)' : ''}` : '-',
+      d.saida ? `${d.saida}${d.saidaManual ? ' (M)' : ''}` : '-',
+      formatMinutes(d.horasTrabalhadas),
+      formatMinutes(d.horasEsperadas),
+      formatMinutes(d.saldo),
+      d.status.toUpperCase(),
+    ]);
 
-    // Agrupar por dia para assinaturas diárias
-    const dayGroups: { [key: string]: DailyReport[] } = {};
-    dailyReports.forEach(report => {
-      const dateKey = format(report.date, 'yyyy-MM-dd');
-      if (!dayGroups[dateKey]) {
-        dayGroups[dateKey] = [];
-      }
-      dayGroups[dateKey].push(report);
+    autoTable(doc, {
+      head: [['Data', 'Dia', 'Entrada', 'S.Int.', 'R.Int.', 'Saída', 'Trab.', 'Esp.', 'Saldo', 'Status']],
+      body: tableData,
+      startY: margin + 45,
+      theme: 'grid',
+      styles: {
+        fontSize: 7,
+        cellPadding: 2,
+        halign: 'center',
+        valign: 'middle',
+      },
+      headStyles: {
+        fillColor: [70, 70, 70],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 7,
+      },
+      columnStyles: {
+        0: { cellWidth: 20 },  // Data
+        1: { cellWidth: 12 },  // Dia
+        2: { cellWidth: 16 },  // Entrada
+        3: { cellWidth: 16 },  // S.Int.
+        4: { cellWidth: 16 },  // R.Int.
+        5: { cellWidth: 16 },  // Saída
+        6: { cellWidth: 18 },  // Trab.
+        7: { cellWidth: 18 },  // Esp.
+        8: { cellWidth: 18 },  // Saldo
+        9: { cellWidth: 20 },  // Status
+      },
+      margin: { left: margin, right: margin },
+      showHead: 'everyPage',
+      pageBreak: 'auto',
     });
 
-    // Processar cada dia
-    Object.keys(dayGroups).sort().forEach((dateKey, dayIndex) => {
-      const dayReport = dayGroups[dateKey][0];
+    // TOTAIS E ASSINATURA
+    let currentY = (doc as any).lastAutoTable.finalY + 10;
 
-      // Verificar se precisa de nova página
-      if (currentY > pageHeight - 60) {
-        doc.addPage();
-        currentY = margin + 10;
-      }
-
-      // DATA DO DIA
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`${format(dayReport.date, 'dd/MM/yyyy')} - ${dayReport.dayOfWeek}`, margin, currentY);
-      currentY += 5;
-
-      // TABELA DO DIA
-      const tableData = [[
-        dayReport.entrada ? `${dayReport.entrada}${dayReport.entradaManual ? ' (M)' : ''}${dayReport.entradaAssinada ? ' ✓' : ''}` : '-',
-        dayReport.saidaIntervalo ? `${dayReport.saidaIntervalo}${dayReport.saidaIntervaloManual ? ' (M)' : ''}${dayReport.saidaIntervaloAssinada ? ' ✓' : ''}` : '-',
-        dayReport.entradaIntervalo ? `${dayReport.entradaIntervalo}${dayReport.entradaIntervaloManual ? ' (M)' : ''}${dayReport.entradaIntervaloAssinada ? ' ✓' : ''}` : '-',
-        dayReport.saida ? `${dayReport.saida}${dayReport.saidaManual ? ' (M)' : ''}${dayReport.saidaAssinada ? ' ✓' : ''}` : '-',
-        formatMinutes(dayReport.horasTrabalhadas),
-        formatMinutes(dayReport.horasEsperadas),
-        formatMinutes(dayReport.saldo),
-        dayReport.status.toUpperCase(),
-      ]];
-
-      autoTable(doc, {
-        head: [['Entrada', 'Saída Interv.', 'Retorno Interv.', 'Saída', 'Trabalhadas', 'Esperadas', 'Saldo', 'Status']],
-        body: tableData,
-        startY: currentY,
-        theme: 'grid',
-        styles: {
-          fontSize: 9,
-          cellPadding: 3,
-          halign: 'center',
-          valign: 'middle',
-        },
-        headStyles: {
-          fillColor: [70, 70, 70],
-          textColor: [255, 255, 255],
-          fontStyle: 'bold',
-          fontSize: 9,
-        },
-        columnStyles: {
-          0: { cellWidth: 22 }, // Entrada
-          1: { cellWidth: 22 }, // Saída Interv.
-          2: { cellWidth: 22 }, // Retorno Interv.
-          3: { cellWidth: 22 }, // Saída
-          4: { cellWidth: 22 }, // Trabalhadas
-          5: { cellWidth: 22 }, // Esperadas
-          6: { cellWidth: 22 }, // Saldo
-          7: { cellWidth: 26 }, // Status
-        },
-        margin: { left: margin, right: margin },
-      });
-
-      currentY = (doc as any).lastAutoTable.finalY + 3;
-
-      // ASSINATURA DIGITAL DIÁRIA (estilo carimbo governo)
-      const signatureBoxY = currentY;
-      const signatureBoxHeight = 18;
-      const signatureBoxWidth = usableWidth;
-
-      // Caixa de assinatura
-      doc.setDrawColor(100, 100, 100);
-      doc.setLineWidth(0.3);
-      doc.rect(margin, signatureBoxY, signatureBoxWidth, signatureBoxHeight);
-
-      // Conteúdo da assinatura
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.text('ASSINATURA DIGITAL ELETRÔNICA', margin + 3, signatureBoxY + 4);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.text(`Colaboradora: ${colaboradora?.name || 'N/A'}`, margin + 3, signatureBoxY + 8);
-      doc.text(`CPF: ${cpf}`, margin + 3, signatureBoxY + 11);
-      doc.text(`Data/Hora: ${format(dayReport.date, 'dd/MM/yyyy')} - Assinado digitalmente`, margin + 3, signatureBoxY + 14);
-
-      // Selo de conformidade
-      doc.setFontSize(6);
-      doc.setFont('helvetica', 'italic');
-      doc.text('Assinatura Digital por Senha conforme Portaria 671/2021 (REP-P)', margin + 3, signatureBoxY + 17);
-
-      currentY = signatureBoxY + signatureBoxHeight + 8;
-    });
-
-    // TOTAIS FINAIS
-    if (currentY > pageHeight - 50) {
+    // Se não couber na página, adicionar nova
+    if (currentY > pageHeight - 60) {
       doc.addPage();
       currentY = margin + 10;
     }
 
+    // TOTAIS
     doc.setLineWidth(0.5);
     doc.line(margin, currentY, pageWidth - margin, currentY);
     currentY += 5;
@@ -566,6 +516,30 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
       currentY += 5;
     }
 
+    // ASSINATURA ÚNICA NO FINAL
+    currentY += 10;
+    doc.setLineWidth(0.5);
+    doc.line(margin, currentY, pageWidth - margin, currentY);
+    currentY += 8;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ASSINADO DIGITALMENTE COM SENHA', margin, currentY);
+    currentY += 6;
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Colaboradora: ${colaboradora?.name || 'N/A'}`, margin, currentY);
+    currentY += 5;
+    doc.text(`CPF: ${cpf}`, margin, currentY);
+    currentY += 5;
+    doc.text(`Data/Hora: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, margin, currentY);
+    currentY += 8;
+
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Assinatura Digital por Senha conforme Portaria 671/2021 (REP-P)', margin, currentY);
+
     // RODAPÉ EM TODAS AS PÁGINAS
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
@@ -574,7 +548,7 @@ export function TimeClockReports({ storeId, colaboradoraId: propColaboradoraId, 
       doc.setFont('helvetica', 'italic');
       doc.setTextColor(100, 100, 100);
       doc.text(
-        'Documento gerado eletronicamente em conformidade com a Portaria 671/2021 (REP-P) - Registro Eletrônico de Ponto',
+        'Documento gerado eletronicamente - Registro Eletrônico de Ponto',
         pageWidth / 2,
         pageHeight - 5,
         { align: 'center' }
