@@ -666,6 +666,22 @@ export const CRMManagement = () => {
     return phone.replace(/[^\d]/g, '');
   };
 
+  // Função para normalizar nome (primeira letra de cada palavra maiúscula)
+  const normalizeName = (name: string): string => {
+    if (!name) return '';
+    return name
+      .toLowerCase()
+      .split(' ')
+      .map(word => {
+        // Ignorar palavras vazias ou muito pequenas (artigos, preposições)
+        if (word.length <= 2) return word;
+        // Primeira letra maiúscula
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      })
+      .join(' ')
+      .trim();
+  };
+
   // Função para validar CPF
   const validateCPF = (cpf: string): boolean => {
     const normalized = normalizeCPF(cpf);
@@ -731,7 +747,7 @@ export const CRMManagement = () => {
         const row = jsonData[i];
         const rowNum = i + 2; // +2 porque começa na linha 2 (linha 1 é cabeçalho)
 
-        const nome = String(row.NOME || row.nome || '').trim();
+        const nomeRaw = String(row.NOME || row.nome || '').trim();
         const cpfRaw = String(row.CPF || row.cpf || '').trim();
         const celularRaw = String(row.CELULAR || row.celular || row.TELEFONE || row.telefone || '').trim();
         const email = String(row.EMAIL || row.email || '').trim();
@@ -739,10 +755,13 @@ export const CRMManagement = () => {
         const observacoes = String(row.OBSERVACOES || row.observacoes || '').trim();
 
         // Validar campos obrigatórios
-        if (!nome) {
-          errors.push({ row: rowNum, nome: nome || 'Sem nome', error: 'Campo NOME é obrigatório' });
+        if (!nomeRaw) {
+          errors.push({ row: rowNum, nome: 'Sem nome', error: 'Campo NOME é obrigatório' });
           continue;
         }
+
+        // Normalizar nome (primeira letra de cada palavra maiúscula)
+        const nome = normalizeName(nomeRaw);
 
         if (!cpfRaw) {
           errors.push({ row: rowNum, nome, error: 'Campo CPF é obrigatório' });
@@ -750,6 +769,13 @@ export const CRMManagement = () => {
         }
 
         const cpfNormalized = normalizeCPF(cpfRaw);
+        
+        // Verificar se é CNPJ (14 dígitos) e pular
+        if (cpfNormalized.length === 14) {
+          errors.push({ row: rowNum, nome, error: 'CNPJ detectado (pulando - apenas CPF é aceito)' });
+          continue;
+        }
+        
         if (cpfNormalized.length !== 11) {
           errors.push({ row: rowNum, nome, error: 'CPF inválido (deve ter 11 dígitos)' });
           continue;
@@ -796,8 +822,8 @@ export const CRMManagement = () => {
         }
 
         successContacts.push({
-          nome,
-          cpf: cpfNormalized,
+          nome: nome, // Nome normalizado
+          cpf: cpfNormalized, // CPF normalizado (sem pontos e traços)
           telefone: telefoneNormalized,
           email: email || null,
           data_nascimento: dataNascimento,
