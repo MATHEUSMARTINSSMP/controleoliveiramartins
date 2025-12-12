@@ -571,7 +571,43 @@ export const CRMManagement = () => {
 
         if (error) throw error;
 
-        if (data) setContacts(prev => [...prev, ...data]);
+        if (data) {
+          setContacts(prev => [...prev, ...data]);
+
+          // Tentar inserir também em contacts (compatibilidade) - APENAS se CPF não existir
+          if (contactData.cpf) {
+            try {
+              // Verificar se CPF já existe em contacts antes de inserir
+              const { data: existingContact, error: checkError } = await supabase
+                .schema('sistemaretiradas')
+                .from('contacts')
+                .select('id, cpf')
+                .eq('cpf', contactData.cpf)
+                .maybeSingle();
+
+              // Se não existe erro de tabela e o contato não existe, inserir
+              if (checkError && checkError.code === '42P01') {
+                // Tabela não existe, ignorar
+                console.warn('Aviso: tabela contacts não existe (continuando normalmente)');
+              } else if (!existingContact) {
+                // CPF não existe em contacts, pode inserir
+                const { error: insertErrorContacts } = await supabase
+                  .schema('sistemaretiradas')
+                  .from('contacts')
+                  .insert([contactData]);
+
+                if (insertErrorContacts && insertErrorContacts.code !== '42P01') {
+                  console.warn('Aviso: não foi possível inserir em contacts (continuando):', insertErrorContacts);
+                }
+              } else {
+                // CPF já existe em contacts, não inserir duplicado
+                console.log('CPF já existe em contacts, não inserindo duplicado');
+              }
+            } catch (e) {
+              console.warn('Aviso: erro ao verificar/inserir em contacts (continuando normalmente)');
+            }
+          }
+        }
 
         toast.success('Contato criado!');
       }
@@ -889,42 +925,82 @@ export const CRMManagement = () => {
             }
           }
 
-          // Fazer updates em lote (processar múltiplos updates de uma vez)
-          if (toUpdate.length > 0) {
-            // Processar updates em pequenos lotes para evitar timeout
-            const updateBatchSize = 50;
-            for (let j = 0; j < toUpdate.length; j += updateBatchSize) {
-              const updateBatch = toUpdate.slice(j, j + updateBatchSize);
-              
-              // Executar updates em paralelo
-              await Promise.all(
-                updateBatch.map(async (contact) => {
-                  const { id, ...updateData } = contact;
-                  const { error: updateError } = await supabase
-                    .schema('sistemaretiradas')
-                    .from('crm_contacts')
-                    .update(updateData)
-                    .eq('id', id);
-                  
-                  if (updateError) {
-                    console.error(`Erro ao atualizar contato ${id}:`, updateError);
-                    throw updateError;
-                  }
-                })
-              );
-            }
-          }
+            // Fazer updates em lote nas duas tabelas simultaneamente
+            if (toUpdate.length > 0) {
+              // Processar updates em pequenos lotes para evitar timeout
+              const updateBatchSize = 50;
+              for (let j = 0; j < toUpdate.length; j += updateBatchSize) {
+                const updateBatch = toUpdate.slice(j, j + updateBatchSize);
+                
+                // Executar updates em paralelo
+                await Promise.all(
+                  updateBatch.map(async (contact) => {
+                    const { id, ...updateData } = contact;
+                    
+                    // Atualizar em crm_contacts (tabela principal)
+                    const { error: updateErrorCrm } = await supabase
+                      .schema('sistemaretiradas')
+                      .from('crm_contacts')
+                      .update(updateData)
+                      .eq('id', id);
+                    
+                    if (updateErrorCrm) {
+                      console.error(`Erro ao atualizar contato ${id} em crm_contacts:`, updateErrorCrm);
+                      throw updateErrorCrm;
+                    }
 
-          // Fazer inserts em lote
+                    // Tentar atualizar também em contacts (compatibilidade)
+                    try {
+                      const { error: updateErrorContacts } = await supabase
+                        .schema('sistemaretiradas')
+                        .from('contacts')
+                        .update(updateData)
+                        .eq('id', id);
+
+                      if (updateErrorContacts && updateErrorContacts.code !== '42P01') {
+                        // Erro diferente de "tabela não existe" - logar mas não bloquear
+                        console.warn(`Aviso: não foi possível atualizar contato ${id} em contacts (continuando):`, updateErrorContacts);
+                      }
+                    } catch (e) {
+                      // Ignorar erros ao atualizar em contacts (tabela pode não existir)
+                      console.warn(`Aviso: tabela contacts pode não existir para atualização de ${id}`);
+                    }
+                  })
+                );
+              }
+            }
+
+          // Fazer inserts em lote nas duas tabelas simultaneamente
           if (toInsert.length > 0) {
-            const { error: insertError } = await supabase
+            // Inserir em crm_contacts (tabela principal)
+            const { error: insertErrorCrm, data: insertedCrm } = await supabase
               .schema('sistemaretiradas')
               .from('crm_contacts')
-              .insert(toInsert);
-            
-            if (insertError) {
-              console.error('Erro ao inserir contatos:', insertError);
-              throw insertError;
+              .insert(toInsert)
+              .select();
+
+            if (insertErrorCrm) {
+              console.error('Erro ao inserir contatos em crm_contacts:', insertErrorCrm);
+              throw insertErrorCrm;
+            }
+
+            // Tentar inserir também em contacts (compatibilidade)
+            // Se a tabela contacts não existir, apenas ignora o erro
+            if (insertedCrm && insertedCrm.length > 0) {
+              try {
+                const { error: insertErrorContacts } = await supabase
+                  .schema('sistemaretiradas')
+                  .from('contacts')
+                  .insert(toInsert);
+
+                if (insertErrorContacts && insertErrorContacts.code !== '42P01') {
+                  // Erro diferente de "tabela não existe" - logar mas não bloquear
+                  console.warn('Aviso: não foi possível inserir em contacts (continuando):', insertErrorContacts);
+                }
+              } catch (e) {
+                // Ignorar erros ao inserir em contacts (tabela pode não existir)
+                console.warn('Aviso: tabela contacts pode não existir (continuando normalmente)');
+              }
             }
           }
         }
