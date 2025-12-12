@@ -26,17 +26,17 @@ const Auth = () => {
 
   const redirectToDashboard = useCallback((userProfile: typeof profile) => {
     if (!userProfile) return;
-    
+
     setIsRedirecting(true);
-    
-    const targetPath = userProfile.role === "LOJA" 
-      ? "/loja" 
-      : userProfile.role === "ADMIN" 
-        ? "/admin" 
+
+    const targetPath = userProfile.role === "LOJA"
+      ? "/loja"
+      : userProfile.role === "ADMIN"
+        ? "/admin"
         : "/me";
-    
+
     console.log("[Auth] Redirecting to:", targetPath);
-    
+
     setTimeout(() => {
       navigate(targetPath, { replace: true });
     }, 300);
@@ -51,12 +51,12 @@ const Auth = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.email || !formData.password) {
       toast.error("Preencha todos os campos");
       return;
     }
-    
+
     setLoading(true);
 
     try {
@@ -65,23 +65,23 @@ const Auth = () => {
           email: formData.email.trim().toLowerCase(),
           password: formData.password,
         });
-        
+
         if (error) {
           if (error.message.includes("Invalid login credentials")) {
             throw new Error("Email ou senha incorretos");
           }
           throw error;
         }
-        
+
         if (!data.user) {
           throw new Error("Erro ao fazer login");
         }
 
         toast.success("Login realizado com sucesso!");
-        
+
         const fetchProfileAndRedirect = async (userId: string, attempts = 0): Promise<void> => {
           const maxAttempts = 10;
-          
+
           try {
             const { data: profileData, error: profileError } = await supabase
               .schema("sistemaretiradas")
@@ -89,7 +89,7 @@ const Auth = () => {
               .select("*")
               .eq("id", userId)
               .maybeSingle();
-            
+
             if (profileError) {
               console.error("[Auth] Error fetching profile:", profileError);
               if (attempts < maxAttempts) {
@@ -98,7 +98,7 @@ const Auth = () => {
               }
               throw profileError;
             }
-            
+
             if (!profileData) {
               if (attempts < maxAttempts) {
                 console.log("[Auth] Profile not found yet, retrying... attempt", attempts + 1);
@@ -107,29 +107,29 @@ const Auth = () => {
               }
               throw new Error("Perfil não encontrado");
             }
-            
+
             console.log("[Auth] Profile loaded:", profileData.role);
-            
+
             setIsRedirecting(true);
-            
-            const targetPath = profileData.role === "LOJA" 
-              ? "/loja" 
-              : profileData.role === "ADMIN" 
-                ? "/admin" 
+
+            const targetPath = profileData.role === "LOJA"
+              ? "/loja"
+              : profileData.role === "ADMIN"
+                ? "/admin"
                 : "/me";
-            
+
             setTimeout(() => {
               navigate(targetPath, { replace: true });
             }, 300);
-            
+
           } catch (err) {
             console.error("[Auth] Failed to fetch profile:", err);
             throw err;
           }
         };
-        
+
         await fetchProfileAndRedirect(data.user.id);
-        
+
       } else {
         const { error } = await supabase.auth.signUp({
           email: formData.email.trim().toLowerCase(),
@@ -142,9 +142,9 @@ const Auth = () => {
             emailRedirectTo: `${window.location.origin}/`,
           },
         });
-        
+
         if (error) throw error;
-        
+
         toast.success("Cadastro realizado! Verifique seu email para confirmar.");
         setIsLogin(true);
         setFormData({ ...formData, password: "" });
@@ -160,7 +160,7 @@ const Auth = () => {
   if (isRedirecting || (!authLoading && profile && user)) {
     return (
       <div className="page-container flex items-center justify-center">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="text-center space-y-4 relative z-10"
@@ -218,7 +218,7 @@ const Auth = () => {
         />
       </div>
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
@@ -245,7 +245,7 @@ const Auth = () => {
               {isLogin ? "Entre com suas credenciais" : "Preencha os dados abaixo"}
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
@@ -266,7 +266,7 @@ const Auth = () => {
                   </div>
                 </div>
               )}
-              
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <div className="relative">
@@ -283,7 +283,7 @@ const Auth = () => {
                   />
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
                 <div className="relative">
@@ -308,7 +308,7 @@ const Auth = () => {
                   </button>
                 </div>
               </div>
-              
+
               <LoadingButton
                 type="submit"
                 isLoading={loading}
@@ -323,7 +323,7 @@ const Auth = () => {
                 </span>
               </LoadingButton>
             </form>
-            
+
             <div className="mt-6 space-y-3">
               {isLogin && (
                 <button
@@ -335,35 +335,11 @@ const Auth = () => {
                   Esqueci minha senha
                 </button>
               )}
-              
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">ou</span>
-                </div>
-              </div>
-              
-              <button
-                type="button"
-                onClick={() => {
-                  setIsLogin(!isLogin);
-                  setFormData({ ...formData, password: "", name: "" });
-                }}
-                className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
-                data-testid="button-toggle-mode"
-              >
-                {isLogin ? (
-                  <>Nao tem conta? <span className="text-primary font-medium">Cadastre-se</span></>
-                ) : (
-                  <>Ja tem conta? <span className="text-primary font-medium">Faca login</span></>
-                )}
-              </button>
+
             </div>
           </CardContent>
         </Card>
-        
+
         <p className="text-center text-muted-foreground/60 text-xs mt-6">
           2024 EleveaOne. Todos os direitos reservados.
         </p>
