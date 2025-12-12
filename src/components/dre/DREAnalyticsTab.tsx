@@ -1,10 +1,13 @@
 /**
  * Tab de Analytics DRE
- * Visualização simplificada de analytics
+ * Visualização simplificada de analytics com exportação Excel
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { BarChart3 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { BarChart3, Download } from 'lucide-react'
+import { toast } from 'sonner'
+import * as XLSX from 'xlsx'
 import type { DRECategoria, DRELancamento, TipoLancamentoDRE } from '@/types/dre'
 
 interface Props {
@@ -24,13 +27,75 @@ export default function DREAnalyticsTab({ categorias, lancamentos }: Props) {
         }
     }).filter(c => c.total > 0).sort((a, b) => b.total - a.total)
 
+    const handleExportExcel = () => {
+        try {
+            // Calcular totais
+            const totalReceitas = porCategoria.filter(c => c.tipo === 'RECEITA').reduce((sum, c) => sum + c.total, 0)
+            const totalDespesas = porCategoria.filter(c => c.tipo === 'DESPESA').reduce((sum, c) => sum + c.total, 0)
+            const totalInvestimentos = porCategoria.filter(c => c.tipo === 'INVESTIMENTO').reduce((sum, c) => sum + c.total, 0)
+            const resultado = totalReceitas - totalDespesas - totalInvestimentos
+
+            // Preparar dados para Excel
+            const dadosExcel = [
+                ['DEMONSTRAÇÃO DO RESULTADO DO EXERCÍCIO (DRE)'],
+                [''],
+                ['RESUMO'],
+                ['Receitas', `R$ ${totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+                ['Despesas', `R$ ${totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+                ['Investimentos', `R$ ${totalInvestimentos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+                ['Resultado', `R$ ${resultado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+                [''],
+                ['RECEITAS POR CATEGORIA'],
+                ['Categoria', 'Valor'],
+                ...porCategoria.filter(c => c.tipo === 'RECEITA').map(c => [
+                    c.categoria,
+                    `R$ ${c.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                ]),
+                [''],
+                ['DESPESAS POR CATEGORIA'],
+                ['Categoria', 'Valor'],
+                ...porCategoria.filter(c => c.tipo === 'DESPESA').map(c => [
+                    c.categoria,
+                    `R$ ${c.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                ]),
+                [''],
+                ['INVESTIMENTOS POR CATEGORIA'],
+                ['Categoria', 'Valor'],
+                ...porCategoria.filter(c => c.tipo === 'INVESTIMENTO').map(c => [
+                    c.categoria,
+                    `R$ ${c.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                ]),
+            ]
+
+            // Criar workbook
+            const ws = XLSX.utils.aoa_to_sheet(dadosExcel)
+            const wb = XLSX.utils.book_new()
+            XLSX.utils.book_append_sheet(wb, ws, 'DRE')
+
+            // Download
+            const hoje = new Date().toISOString().split('T')[0]
+            XLSX.writeFile(wb, `DRE_${hoje}.xlsx`)
+
+            toast.success('Excel exportado com sucesso!')
+        } catch (err) {
+            console.error('Erro ao exportar Excel:', err)
+            toast.error('Erro ao exportar Excel')
+        }
+    }
+
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5" />
-                    Analytics DRE
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5" />
+                        Analytics DRE
+                    </CardTitle>
+                    <Button onClick={handleExportExcel} variant="outline">
+                        <Download className="h-4 w-4 mr-2" />
+                        Exportar Excel
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent>
                 <div className="space-y-6">

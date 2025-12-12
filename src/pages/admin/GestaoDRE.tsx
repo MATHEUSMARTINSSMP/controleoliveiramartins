@@ -11,11 +11,11 @@ import { toast } from 'sonner'
 import * as dre from '@/lib/n8n-dre'
 import type { DRECategoria, DRELancamento } from '@/types/dre'
 
-// Componentes que serão criados
 import DRELancamentosTab from '@/components/dre/DRELancamentosTab'
 import DRECategoriasTab from '@/components/dre/DRECategoriasTab'
 import DREAnalyticsTab from '@/components/dre/DREAnalyticsTab'
 import DREAssistenteIA from '@/components/dre/DREAssistenteIA'
+import DREStoreSelector from '@/components/dre/DREStoreSelector'
 
 interface DRELancamentoCompleto extends DRELancamento {
     categoria_nome: string
@@ -99,6 +99,10 @@ export default function GestaoDRE() {
                         Demonstração do Resultado do Exercício
                     </p>
                 </div>
+                <DREStoreSelector
+                    value={selectedStoreId}
+                    onChange={setSelectedStoreId}
+                />
             </div>
 
             {/* Cards de Resumo */}
