@@ -341,6 +341,7 @@ export async function createDRELancamento(data: {
     }>(`/api/dre/lancamentos`, {
         method: 'POST',
         body: JSON.stringify({
+            tipo: 'manual', // Indica que é lançamento manual
             categoria_id: data.categoria_id,
             descricao: data.descricao,
             valor: data.valor,
@@ -361,6 +362,8 @@ export async function createDRELancamento(data: {
 
 /**
  * Cria lançamento DRE via IA (processamento de linguagem natural)
+ * NOTA: Usa o mesmo endpoint que createDRELancamento, mas com tipo='ia'
+ * O N8N filtra internamente e roteia para processamento com IA
  */
 export async function createDRELancamentoIA(data: {
     prompt: string
@@ -369,13 +372,22 @@ export async function createDRELancamentoIA(data: {
 }): Promise<DRELancamento> {
     const store_id = await getStoreId(data.store_id)
 
+    if (!store_id) {
+        throw new Error('store_id é obrigatório para criar lançamento via IA')
+    }
+
+    if (!data.prompt || !data.prompt.trim()) {
+        throw new Error('prompt é obrigatório para lançamento via IA')
+    }
+
     const result = await n8nRequest<{
         success: boolean
         data: DRELancamento
         error?: string
-    }>(`/api/dre/lancamentos/ia`, {
+    }>(`/api/dre/lancamentos`, { // Mesmo endpoint!
         method: 'POST',
         body: JSON.stringify({
+            tipo: 'ia', // Indica que é lançamento via IA
             prompt: data.prompt,
             store_id,
             created_by_id: data.created_by_id || null
