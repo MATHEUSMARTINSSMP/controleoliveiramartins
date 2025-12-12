@@ -167,6 +167,9 @@ export default function LojaDashboard() {
         colaboradoraId: string;
         saleDate: string;
         saleObservations?: string;
+        clienteId?: string; // ID do cliente (se selecionado)
+        clienteNome?: string; // Nome do cliente (se selecionado)
+        clienteTelefone?: string; // Telefone do cliente (se disponível)
     } | null>(null);
 
     // Refs para prevenir múltiplas chamadas
@@ -2226,11 +2229,47 @@ export default function LojaDashboard() {
 
             if (insertedSale?.id && crmAtivo) {
                 console.log('[LojaDashboard] ✅ Abrindo dialog de pós-venda');
+                
+                // Buscar telefone do cliente se houver cliente_id
+                let clienteTelefone: string | undefined = undefined;
+                if (formData.cliente_id && formData.cliente_id !== 'CONSUMIDOR_FINAL') {
+                    try {
+                        // Buscar telefone do cliente em crm_contacts ou contacts
+                        const { data: clienteData } = await supabase
+                            .schema('sistemaretiradas')
+                            .from('crm_contacts')
+                            .select('telefone')
+                            .eq('id', formData.cliente_id)
+                            .maybeSingle();
+                        
+                        if (clienteData?.telefone) {
+                            clienteTelefone = clienteData.telefone;
+                        } else {
+                            // Tentar buscar em contacts
+                            const { data: contactData } = await supabase
+                                .schema('sistemaretiradas')
+                                .from('contacts')
+                                .select('telefone')
+                                .eq('id', formData.cliente_id)
+                                .maybeSingle();
+                            
+                            if (contactData?.telefone) {
+                                clienteTelefone = contactData.telefone;
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('[LojaDashboard] Erro ao buscar telefone do cliente:', error);
+                    }
+                }
+                
                 setLastSaleData({
                     saleId: insertedSale.id,
                     colaboradoraId: formData.colaboradora_id,
                     saleDate: formData.data_venda,
-                    saleObservations: formData.observacoes || null
+                    saleObservations: formData.observacoes || null,
+                    clienteId: formData.cliente_id || undefined,
+                    clienteNome: formData.cliente_nome || undefined,
+                    clienteTelefone: clienteTelefone,
                 });
                 // Usar setTimeout para garantir que o estado seja atualizado antes de abrir o dialog
                 setTimeout(() => {

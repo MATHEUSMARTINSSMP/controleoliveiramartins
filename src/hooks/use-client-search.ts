@@ -213,7 +213,17 @@ export function useClientSearch(searchTerm: string = '', options: UseClientSearc
         const finalClients = Array.from(clientsMap.values())
           .sort((a, b) => a.nome.localeCompare(b.nome));
 
-        setAllClients(finalClients);
+        // Adicionar "Consumidor Final" no início da lista
+        const consumidorFinal: Client = {
+          id: 'CONSUMIDOR_FINAL',
+          nome: 'Consumidor Final',
+          cpf: null,
+          telefone: null,
+          email: null,
+          source: 'crm_contacts', // Usar uma source válida
+        };
+
+        setAllClients([consumidorFinal, ...finalClients]);
       } catch (err) {
         console.error('[useClientSearch] Erro geral:', err);
         setError(err instanceof Error ? err : new Error('Erro ao buscar clientes'));
@@ -233,20 +243,43 @@ export function useClientSearch(searchTerm: string = '', options: UseClientSearc
 
   // Filtrar localmente conforme o usuário digita (padrão cashback)
   const filteredClients = useMemo(() => {
-    if (!searchTerm || searchTerm.trim().length < 2) return [];
+    if (!searchTerm || searchTerm.trim().length < 2) {
+      // Se não houver termo de busca ou for muito curto, retornar apenas "Consumidor Final"
+      const consumidorFinal = allClients.find(c => c.id === 'CONSUMIDOR_FINAL');
+      return consumidorFinal ? [consumidorFinal] : [];
+    }
     
     const searchLower = searchTerm.toLowerCase().trim();
     const normalizedSearch = normalizeCPF(searchTerm);
     
-    return allClients
+    // Buscar "Consumidor Final" se o termo corresponder
+    const consumidorFinal = allClients.find(c => c.id === 'CONSUMIDOR_FINAL');
+    const matchesConsumidorFinal = consumidorFinal && 
+      (consumidorFinal.nome.toLowerCase().includes(searchLower) || 
+       searchLower.includes('consumidor') || 
+       searchLower.includes('final'));
+    
+    const filtered = allClients
       .filter(client => {
+        // Sempre incluir Consumidor Final se corresponder
+        if (client.id === 'CONSUMIDOR_FINAL') {
+          return matchesConsumidorFinal;
+        }
+        
         const nomeMatch = client.nome.toLowerCase().includes(searchLower);
         const cpfMatch = client.cpf && normalizeCPF(client.cpf).includes(normalizedSearch);
         const telefoneMatch = client.telefone?.toLowerCase().includes(searchLower);
         
         return nomeMatch || cpfMatch || telefoneMatch;
-      })
-      .slice(0, 10); // Limitar a 10 resultados (padrão cashback)
+      });
+    
+    // Se Consumidor Final corresponder, colocá-lo primeiro
+    if (matchesConsumidorFinal && consumidorFinal) {
+      const others = filtered.filter(c => c.id !== 'CONSUMIDOR_FINAL');
+      return [consumidorFinal, ...others].slice(0, 10);
+    }
+    
+    return filtered.slice(0, 10); // Limitar a 10 resultados (padrão cashback)
   }, [allClients, searchTerm]);
 
   return {

@@ -4,8 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Loader2, Gift } from 'lucide-react';
+import { Loader2, Gift, AlertCircle, Settings } from 'lucide-react';
 import { toast } from 'sonner';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { useNavigate } from 'react-router-dom';
 
 interface Store {
   id: string;
@@ -15,9 +18,11 @@ interface Store {
 }
 
 export const CashbackStoreConfig = () => {
+  const navigate = useNavigate();
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const [hasActiveCashback, setHasActiveCashback] = useState(false);
 
   useEffect(() => {
     fetchStores();
@@ -35,7 +40,13 @@ export const CashbackStoreConfig = () => {
 
       if (error) throw error;
 
-      setStores(data || []);
+      const allStores = data || [];
+      
+      // Filtrar apenas lojas com cashback ativo
+      const storesWithCashback = allStores.filter(store => store.cashback_ativo === true);
+      
+      setStores(storesWithCashback);
+      setHasActiveCashback(storesWithCashback.length > 0);
     } catch (error: any) {
       console.error('Erro ao buscar lojas:', error);
       toast.error('Erro ao carregar lojas');
@@ -55,12 +66,25 @@ export const CashbackStoreConfig = () => {
 
       if (error) throw error;
 
-      // Atualizar estado local
-      setStores(prev =>
-        prev.map(store =>
-          store.id === storeId ? { ...store, cashback_ativo: !currentValue } : store
-        )
-      );
+      // Atualizar estado local e remover da lista se foi desativado
+      if (!currentValue) {
+        // Foi ativado, adicionar à lista
+        const { data: updatedStore } = await supabase
+          .schema('sistemaretiradas')
+          .from('stores')
+          .select('id, name, cashback_ativo, active')
+          .eq('id', storeId)
+          .single();
+        
+        if (updatedStore) {
+          setStores(prev => [...prev, updatedStore].sort((a, b) => a.name.localeCompare(b.name)));
+          setHasActiveCashback(true);
+        }
+      } else {
+        // Foi desativado, remover da lista
+        setStores(prev => prev.filter(store => store.id !== storeId));
+        setHasActiveCashback(stores.length > 1);
+      }
 
       toast.success(
         `Cashback ${!currentValue ? 'ativado' : 'desativado'} para a loja com sucesso!`
@@ -85,6 +109,46 @@ export const CashbackStoreConfig = () => {
     );
   }
 
+  // Se não houver lojas com cashback ativo, mostrar mensagem orientativa
+  if (!hasActiveCashback || stores.length === 0) {
+    return (
+      <Card className="border-primary/20">
+        <CardHeader>
+          <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+            <Gift className="h-4 w-4 sm:h-5 sm:w-5" />
+            Configuração de Cashback por Loja
+          </CardTitle>
+          <CardDescription className="text-xs sm:text-sm">
+            Configure as opções de cashback para lojas com o módulo ativado.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Módulo Cashback não está ativo</AlertTitle>
+            <AlertDescription className="mt-2">
+              <p className="mb-3">
+                Nenhuma loja possui o módulo de cashback ativado no momento. Para configurar o sistema de cashback, é necessário ativar o módulo primeiro.
+              </p>
+              <Button
+                onClick={() => {
+                  // Navegar para a aba de configurações e focar nos módulos
+                  navigate('/admin', { state: { tab: 'configuracoes', scrollTo: 'modules' } });
+                }}
+                variant="default"
+                size="sm"
+                className="gap-2"
+              >
+                <Settings className="h-4 w-4" />
+                Ativar Módulo Cashback
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="border-primary/20">
       <CardHeader>
@@ -93,14 +157,14 @@ export const CashbackStoreConfig = () => {
           Configuração de Cashback por Loja
         </CardTitle>
         <CardDescription className="text-xs sm:text-sm">
-          Ative ou desative o módulo de cashback para cada loja. Apenas lojas com cashback ativo terão acesso ao módulo.
+          Configure as opções de cashback para lojas com o módulo ativado. Apenas lojas com cashback ativo aparecem aqui.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           {stores.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhuma loja ativa encontrada
+              Nenhuma loja com cashback ativo encontrada
             </p>
           ) : (
             stores.map((store) => (

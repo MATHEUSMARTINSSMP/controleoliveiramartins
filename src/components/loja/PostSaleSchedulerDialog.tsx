@@ -18,6 +18,9 @@ interface PostSaleSchedulerDialogProps {
   colaboradoraId: string;
   saleDate: string;
   saleObservations: string | null;
+  clienteId?: string; // ID do cliente (se selecionado na venda)
+  clienteNome?: string; // Nome do cliente (se selecionado na venda)
+  clienteTelefone?: string; // Telefone do cliente (se disponível)
   onSuccess?: () => void;
 }
 
@@ -29,6 +32,9 @@ export default function PostSaleSchedulerDialog({
   colaboradoraId,
   saleDate,
   saleObservations,
+  clienteId,
+  clienteNome,
+  clienteTelefone,
   onSuccess
 }: PostSaleSchedulerDialogProps) {
   const [clienteNome, setClienteNome] = useState("");
@@ -50,10 +56,19 @@ export default function PostSaleSchedulerDialog({
           // Resetar data para padrão (7 dias) quando abrir
           const saleDateObj = new Date(saleDate);
           setFollowUpDate(addDays(saleDateObj, 7));
+          
+          // Preencher com dados do cliente se fornecido (prioridade)
+          if (clienteNome && !clienteNome.includes('Consumidor Final')) {
+            setClienteNome(clienteNome);
+          }
+          if (clienteTelefone) {
+            setClienteWhatsapp(clienteTelefone);
+          }
+          
           fetchSaleInfo();
           checkExistingPostSale();
         }
-      }, [open, saleId, saleDate]);
+      }, [open, saleId, saleDate, clienteNome, clienteTelefone]);
 
   const checkExistingPostSale = async () => {
     setCheckingExisting(true);
@@ -115,16 +130,47 @@ export default function PostSaleSchedulerDialog({
 
   const fetchSaleInfo = async () => {
     try {
-      // Buscar venda
+      // Buscar venda (incluindo cliente_id e cliente_nome)
       const { data: saleData } = await supabase
         .schema("sistemaretiradas")
         .from("sales")
-        .select("tiny_order_id, observacoes")
+        .select("tiny_order_id, observacoes, cliente_id, cliente_nome")
         .eq("id", saleId)
         .single();
 
+      // Se a venda tem cliente_id, buscar telefone do cliente
+      if (saleData?.cliente_id && saleData.cliente_id !== 'CONSUMIDOR_FINAL') {
+        try {
+          // Buscar telefone em crm_contacts
+          const { data: clienteData } = await supabase
+            .schema("sistemaretiradas")
+            .from("crm_contacts")
+            .select("telefone")
+            .eq("id", saleData.cliente_id)
+            .maybeSingle();
+
+          if (clienteData?.telefone && !clienteWhatsapp) {
+            setClienteWhatsapp(clienteData.telefone);
+          } else {
+            // Tentar buscar em contacts
+            const { data: contactData } = await supabase
+              .schema("sistemaretiradas")
+              .from("contacts")
+              .select("telefone")
+              .eq("id", saleData.cliente_id)
+              .maybeSingle();
+
+            if (contactData?.telefone && !clienteWhatsapp) {
+              setClienteWhatsapp(contactData.telefone);
+            }
+          }
+        } catch (error) {
+          console.warn("Erro ao buscar telefone do cliente:", error);
+        }
+      }
+
+      // Se veio do ERP (tiny_order_id), buscar dados do cliente do Tiny
       if (saleData?.tiny_order_id) {
-        // Se veio do ERP, buscar dados do cliente
         const { data: tinyOrder } = await supabase
           .schema("sistemaretiradas")
           .from("tiny_orders")
@@ -133,13 +179,13 @@ export default function PostSaleSchedulerDialog({
           .single();
 
         if (tinyOrder) {
-          // Só preencher se ainda não foi preenchido (não sobrescrever dados existentes)
-          if (tinyOrder.cliente_nome && !clienteNome) {
+          // Só preencher se ainda não foi preenchido (não sobrescrever dados existentes ou do cliente selecionado)
+          if (tinyOrder.cliente_nome && !clienteNome && !saleData.cliente_nome) {
             setClienteNome(tinyOrder.cliente_nome);
           }
           // Priorizar celular, senão telefone
           const telefone = tinyOrder.cliente_celular || tinyOrder.cliente_telefone;
-          if (telefone && !clienteWhatsapp) {
+          if (telefone && !clienteWhatsapp && !clienteTelefone) {
             setClienteWhatsapp(telefone);
           }
         }

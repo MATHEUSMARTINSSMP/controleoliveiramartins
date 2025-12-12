@@ -119,6 +119,8 @@ export default function CashbackManagement() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('lancar');
+  const [selectedStoreId, setSelectedStoreId] = useState<string>('');
+  const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
 
   // Estados para lançamento/resgate
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -377,37 +379,95 @@ export default function CashbackManagement() {
 
   useEffect(() => {
     if (!authLoading && profile) {
+      fetchStores();
+    }
+  }, [authLoading, profile]);
+
+  useEffect(() => {
+    if (!authLoading && profile && selectedStoreId && selectedStoreId !== '') {
       fetchData();
       fetchCategoriasProdutos();
     }
-  }, [authLoading, profile]);
+  }, [authLoading, profile, selectedStoreId]);
+
+  const fetchStores = async () => {
+    try {
+      let query = supabase
+        .schema('sistemaretiradas')
+        .from('stores')
+        .select('id, name')
+        .eq('active', true)
+        .order('name');
+
+      // Se for LOJA, filtrar apenas sua loja
+      if (profile?.role === 'LOJA' && profile.store_id) {
+        query = query.eq('id', profile.store_id);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      if (data) {
+        setStores(data);
+        // Auto-selecionar primeira loja ou loja da LOJA (ou "ALL" se for ADMIN)
+        if (profile?.role === 'LOJA' && data.length > 0) {
+          setSelectedStoreId(data[0].id);
+        } else if (profile?.role === 'ADMIN') {
+          // ADMIN pode ver todas as lojas por padrão
+          setSelectedStoreId('ALL');
+        }
+      }
+    } catch (error: any) {
+      console.error('Erro ao buscar lojas:', error);
+      toast.error('Erro ao carregar lojas');
+    }
+  };
 
   const fetchData = async () => {
     try {
       setLoading(true);
 
-      // Buscar TODAS as clientes (com e sem saldo)
-      const { data: allClientes, error: clientesError } = await supabase
+      // Buscar TODAS as clientes (com e sem saldo) - filtrar por loja se selecionada
+      let clientesQuery = supabase
         .schema('sistemaretiradas')
         .from('tiny_contacts')
         .select('id, nome, cpf_cnpj, telefone, email, tags, data_nascimento')
         .not('cpf_cnpj', 'is', null)
         .neq('cpf_cnpj', '')
         .order('nome');
+      
+      if (selectedStoreId && selectedStoreId !== 'ALL') {
+        clientesQuery = clientesQuery.eq('store_id', selectedStoreId);
+      }
+
+      const { data: allClientes, error: clientesError } = await clientesQuery;
 
       if (clientesError) throw clientesError;
       setClientes(allClientes || []);
 
-      // Buscar saldos
-      const { data: balances, error: balancesError } = await supabase
+      // Buscar saldos - filtrar por loja se selecionada
+      let balancesQuery = supabase
         .schema('sistemaretiradas')
         .from('cashback_balance')
         .select('*');
+      
+      if (selectedStoreId && selectedStoreId !== 'ALL') {
+        // Filtrar saldos de clientes da loja selecionada
+        const clienteIds = (allClientes || []).map(c => c.id);
+        if (clienteIds.length > 0) {
+          balancesQuery = balancesQuery.in('cliente_id', clienteIds);
+        } else {
+          // Se não houver clientes, retornar array vazio
+          balancesQuery = balancesQuery.eq('cliente_id', '00000000-0000-0000-0000-000000000000'); // ID inválido para retornar vazio
+        }
+      }
+
+      const { data: balances, error: balancesError } = await balancesQuery;
 
       if (balancesError) throw balancesError;
 
-      // Buscar todas as transações
-      const { data: transactions, error: transactionsError } = await supabase
+      // Buscar todas as transações - filtrar por loja se selecionada
+      let transactionsQuery = supabase
         .schema('sistemaretiradas')
         .from('cashback_transactions')
         .select(`
@@ -415,14 +475,33 @@ export default function CashbackManagement() {
           tiny_order:tiny_order_id (numero_pedido)
         `)
         .order('created_at', { ascending: false });
+      
+      if (selectedStoreId && selectedStoreId !== 'ALL') {
+        // Filtrar transações de clientes da loja selecionada
+        const clienteIds = (allClientes || []).map(c => c.id);
+        if (clienteIds.length > 0) {
+          transactionsQuery = transactionsQuery.in('cliente_id', clienteIds);
+        } else {
+          // Se não houver clientes, retornar array vazio
+          transactionsQuery = transactionsQuery.eq('cliente_id', '00000000-0000-0000-0000-000000000000'); // ID inválido para retornar vazio
+        }
+      }
+
+      const { data: transactions, error: transactionsError } = await transactionsQuery;
 
       if (transactionsError) throw transactionsError;
 
-      // Buscar pedidos para calcular categoria
-      const { data: ordersData } = await supabase
+      // Buscar pedidos para calcular categoria - filtrar por loja se selecionada
+      let ordersQuery = supabase
         .schema('sistemaretiradas')
         .from('tiny_orders')
         .select('cliente_id, valor_total');
+      
+      if (selectedStoreId && selectedStoreId !== 'ALL') {
+        ordersQuery = ordersQuery.eq('store_id', selectedStoreId);
+      }
+
+      const { data: ordersData } = await ordersQuery;
 
       // Calcular total de compras por cliente
       const totalComprasPorCliente = new Map<string, number>();
@@ -1894,7 +1973,7 @@ export default function CashbackManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/erp/dashboard')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/admin')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
@@ -1905,7 +1984,23 @@ export default function CashbackManagement() {
             <p className="text-muted-foreground">Gerencie o programa de cashback dos seus clientes</p>
           </div>
         </div>
-
+        <div className="flex items-center gap-4">
+          {stores.length > 0 && (
+            <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Selecione a loja" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todas as lojas</SelectItem>
+                {stores.map((store) => (
+                  <SelectItem key={store.id} value={store.id}>
+                    {store.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
       </div>
 
       {/* KPIs */}

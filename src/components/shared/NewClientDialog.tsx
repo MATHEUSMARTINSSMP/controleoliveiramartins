@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,19 @@ export function NewClientDialog({
     telefone: "",
     data_nascimento: "",
   });
+
+  // Resetar formulário quando o modal abrir
+  useEffect(() => {
+    if (open) {
+      setIsConsumidorFinal(true);
+      setFormData({
+        nome: "",
+        cpf: "",
+        telefone: "",
+        data_nascimento: "",
+      });
+    }
+  }, [open]);
 
   const handleSave = async () => {
     // Se for Consumidor Final, não salvar nada, apenas retornar

@@ -56,6 +56,7 @@ export default function CustomerIntelligence() {
     const [storeId, setStoreId] = useState<string | undefined>();
     const [dateFrom, setDateFrom] = useState<string>('');
     const [dateTo, setDateTo] = useState<string>('');
+    const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
 
     // Rankings
     const [topBuyers, setTopBuyers] = useState<CustomerRanking[]>([]);
@@ -449,8 +450,26 @@ export default function CustomerIntelligence() {
                     .schema('sistemaretiradas')
                     .from('stores')
                     .select('id, name')
-                    .eq('active', true);
-                // TODO: adicionar seletor de loja no filtro
+                    .eq('active', true)
+                    .order('name');
+                
+                if (data) {
+                    setStores(data);
+                }
+            } else if (profile?.role === 'LOJA' && profile.store_id) {
+                // Se for LOJA, buscar apenas sua loja
+                const { data } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('stores')
+                    .select('id, name')
+                    .eq('id', profile.store_id)
+                    .eq('active', true)
+                    .maybeSingle();
+                
+                if (data) {
+                    setStores([data]);
+                    setStoreId(data.id); // Auto-selecionar loja da LOJA
+                }
             }
         };
         fetchStores();
@@ -468,7 +487,7 @@ export default function CustomerIntelligence() {
         <div className="space-y-6 p-6">
             {/* Header com botão voltar */}
             <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" onClick={() => navigate('/erp/dashboard')}>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Voltar ao Dashboard
                 </Button>
@@ -501,7 +520,23 @@ export default function CustomerIntelligence() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-4">
+                        <div className="space-y-2">
+                            <Label>Loja</Label>
+                            <Select value={storeId || 'ALL'} onValueChange={(v) => setStoreId(v === 'ALL' ? undefined : v)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Todas as lojas" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ALL">Todas as lojas</SelectItem>
+                                    {stores.map((store) => (
+                                        <SelectItem key={store.id} value={store.id}>
+                                            {store.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <div className="space-y-2">
                             <Label>Data Inicial</Label>
                             <Input
