@@ -561,6 +561,58 @@ export const CRMManagement = () => {
           prev.map(c => c.id === editingId ? { ...c, ...contactData } : c)
         );
 
+        // Tentar atualizar também em contacts (compatibilidade) - verificar se existe primeiro
+        if (contactData.cpf) {
+          try {
+            const { data: existingContact, error: checkError } = await supabase
+              .schema('sistemaretiradas')
+              .from('contacts')
+              .select('id')
+              .eq('id', editingId)
+              .maybeSingle();
+
+            if (!checkError || checkError.code !== '42P01') {
+              if (existingContact) {
+                // Contato existe em contacts, atualizar
+                const { error: updateErrorContacts } = await supabase
+                  .schema('sistemaretiradas')
+                  .from('contacts')
+                  .update(contactData)
+                  .eq('id', editingId);
+
+                if (updateErrorContacts && updateErrorContacts.code !== '42P01') {
+                  console.warn('Aviso: não foi possível atualizar em contacts:', updateErrorContacts);
+                }
+              } else {
+                // Contato não existe em contacts, mas CPF pode existir em outro registro
+                // Verificar por CPF antes de inserir para evitar duplicação
+                const { data: existingByCpf } = await supabase
+                  .schema('sistemaretiradas')
+                  .from('contacts')
+                  .select('id')
+                  .eq('cpf', contactData.cpf)
+                  .maybeSingle();
+
+                if (!existingByCpf) {
+                  // CPF não existe, pode inserir
+                  const { error: insertErrorContacts } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('contacts')
+                    .insert([{ ...contactData, id: editingId }]);
+
+                  if (insertErrorContacts && insertErrorContacts.code !== '42P01') {
+                    console.warn('Aviso: não foi possível inserir em contacts:', insertErrorContacts);
+                  }
+                } else {
+                  console.log('⚠️ CPF já existe em contacts em outro registro, não inserindo duplicado');
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('Aviso: erro ao verificar/atualizar contacts (continuando normalmente)');
+          }
+        }
+
         toast.success('Contato atualizado!');
       } else {
         const { data, error } = await supabase
