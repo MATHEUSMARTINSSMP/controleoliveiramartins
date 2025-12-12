@@ -147,17 +147,27 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
       setLoading(true);
 
       // Buscar clientes DESTA LOJA (filtrado por store_id para segurança multi-tenant)
-      const { data: allClientes, error: clientesError } = await supabase
+      const { data: allClientesData, error: clientesError } = await supabase
         .schema('sistemaretiradas')
-        .from('tiny_contacts')
-        .select('id, nome, cpf_cnpj, telefone, email, tags, data_nascimento')
+        .from('crm_contacts')
+        .select('id, nome, cpf, telefone, email, data_nascimento')
         .eq('store_id', storeId)
-        .not('cpf_cnpj', 'is', null)
-        .neq('cpf_cnpj', '')
         .order('nome');
 
       if (clientesError) throw clientesError;
-      setClientes(allClientes || []);
+
+      // Mapear para o formato esperado (cpf -> cpf_cnpj)
+      const allClientes: Cliente[] = (allClientesData || []).map(c => ({
+        id: c.id,
+        nome: c.nome,
+        cpf_cnpj: c.cpf,
+        telefone: c.telefone,
+        email: c.email,
+        data_nascimento: c.data_nascimento,
+        tags: [] // crm_contacts não tem tags por enquanto
+      }));
+
+      setClientes(allClientes);
 
       // Buscar saldos DESTA LOJA
       const { data: balances, error: balancesError } = await supabase
