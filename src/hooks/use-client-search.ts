@@ -20,13 +20,13 @@ interface UseClientSearchOptions {
    * @default false
    */
   onlyWithCPF?: boolean;
-  
+
   /**
    * Se fornecido, filtra clientes por store_id
    * @default undefined (busca todos)
    */
   storeId?: string;
-  
+
   /**
    * Se true, busca clientes apenas uma vez no mount (padrão cashback)
    * @default true
@@ -67,7 +67,8 @@ export function useClientSearch(searchTerm: string = '', options: UseClientSearc
             .schema('sistemaretiradas')
             .from('crm_contacts')
             .select('id, nome, cpf, telefone, email, data_nascimento')
-            .order('nome');
+            .order('nome')
+            .range(0, 9999);
 
           if (storeId) {
             crmQuery = crmQuery.eq('store_id', storeId);
@@ -125,7 +126,8 @@ export function useClientSearch(searchTerm: string = '', options: UseClientSearc
             .schema('sistemaretiradas')
             .from('contacts')
             .select('id, nome, cpf, telefone, email, data_nascimento')
-            .order('nome');
+            .order('nome')
+            .range(0, 9999);
 
           if (storeId) {
             contactsQuery = contactsQuery.eq('store_id', storeId);
@@ -176,7 +178,8 @@ export function useClientSearch(searchTerm: string = '', options: UseClientSearc
             .schema('sistemaretiradas')
             .from('tiny_contacts')
             .select('id, nome, cpf_cnpj, telefone, email, data_nascimento')
-            .order('nome');
+            .order('nome')
+            .range(0, 9999);
 
           if (onlyWithCPF) {
             tinyQuery = tinyQuery.not('cpf_cnpj', 'is', null).neq('cpf_cnpj', '');
@@ -191,7 +194,7 @@ export function useClientSearch(searchTerm: string = '', options: UseClientSearc
               const cpfNormalized = client.cpf_cnpj ? normalizeCPF(client.cpf_cnpj) : null;
               // Verificar se é CPF (11 dígitos) e não CNPJ (14 dígitos)
               const isCPF = cpfNormalized && cpfNormalized.length === 11;
-              
+
               if (isCPF && !clientsMap.has(cpfNormalized)) {
                 // Só adiciona se não existir (priorizar crm_contacts e contacts)
                 clientsMap.set(cpfNormalized, {
@@ -237,7 +240,7 @@ export function useClientSearch(searchTerm: string = '', options: UseClientSearc
         };
 
         const allClientsList = [consumidorFinal, ...finalClients];
-        
+
         console.log('[useClientSearch] ✅ Clientes carregados:', {
           total: allClientsList.length,
           storeId,
@@ -276,44 +279,44 @@ export function useClientSearch(searchTerm: string = '', options: UseClientSearc
       const consumidorFinal = allClients.find(c => c.id === 'CONSUMIDOR_FINAL');
       return consumidorFinal ? [consumidorFinal] : [];
     }
-    
+
     console.log('[useClientSearch] Filtrando clientes:', {
       searchTerm,
       totalClients: allClients.length,
       storeId,
       clientsWithStoreId: allClients.filter(c => c.id !== 'CONSUMIDOR_FINAL').length
     });
-    
+
     const searchLower = searchTerm.toLowerCase().trim();
     const normalizedSearch = normalizeCPF(searchTerm);
-    
+
     // Buscar "Consumidor Final" se o termo corresponder
     const consumidorFinal = allClients.find(c => c.id === 'CONSUMIDOR_FINAL');
-    const matchesConsumidorFinal = consumidorFinal && 
-      (consumidorFinal.nome.toLowerCase().includes(searchLower) || 
-       searchLower.includes('consumidor') || 
-       searchLower.includes('final'));
-    
+    const matchesConsumidorFinal = consumidorFinal &&
+      (consumidorFinal.nome.toLowerCase().includes(searchLower) ||
+        searchLower.includes('consumidor') ||
+        searchLower.includes('final'));
+
     const filtered = allClients
       .filter(client => {
         // Sempre incluir Consumidor Final se corresponder
         if (client.id === 'CONSUMIDOR_FINAL') {
           return matchesConsumidorFinal;
         }
-        
+
         const nomeMatch = client.nome.toLowerCase().includes(searchLower);
         const cpfMatch = client.cpf && normalizeCPF(client.cpf).includes(normalizedSearch);
         const telefoneMatch = client.telefone?.toLowerCase().includes(searchLower);
-        
+
         return nomeMatch || cpfMatch || telefoneMatch;
       });
-    
+
     // Se Consumidor Final corresponder, colocá-lo primeiro
     if (matchesConsumidorFinal && consumidorFinal) {
       const others = filtered.filter(c => c.id !== 'CONSUMIDOR_FINAL');
       return [consumidorFinal, ...others].slice(0, 10);
     }
-    
+
     return filtered.slice(0, 10); // Limitar a 10 resultados (padrão cashback)
   }, [allClients, searchTerm]);
 
