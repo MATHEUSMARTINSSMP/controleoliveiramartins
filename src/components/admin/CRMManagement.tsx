@@ -547,6 +547,14 @@ export const CRMManagement = () => {
         observacoes: formData.observacoes || null,
         store_id: formData.store_id,
       };
+      
+      console.log('[CRMManagement] Salvando contato:', {
+        nome: contactData.nome,
+        cpf: contactData.cpf,
+        telefone: contactData.telefone,
+        store_id: contactData.store_id,
+        editingId
+      });
 
       if (editingId) {
         const { error } = await supabase
@@ -615,13 +623,26 @@ export const CRMManagement = () => {
 
         toast.success('Contato atualizado!');
       } else {
+        console.log('[CRMManagement] Criando novo contato:', {
+          nome: contactData.nome,
+          cpf: contactData.cpf,
+          telefone: contactData.telefone,
+          store_id: contactData.store_id,
+          email: contactData.email
+        });
+        
         const { data, error } = await supabase
           .schema('sistemaretiradas')
           .from('crm_contacts')
           .insert([contactData])
           .select();
 
-        if (error) throw error;
+        if (error) {
+          console.error('[CRMManagement] Erro ao inserir contato:', error);
+          throw error;
+        }
+
+        console.log('[CRMManagement] Contato criado com sucesso:', data);
 
         if (data) {
           setContacts(prev => [...prev, ...data]);
