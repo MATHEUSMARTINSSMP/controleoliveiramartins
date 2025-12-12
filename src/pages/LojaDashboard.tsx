@@ -2681,8 +2681,10 @@ export default function LojaDashboard() {
     };
 
     // Quando novo cliente for criado
-    const handleNewClientCreated = (client: { id: string; nome: string; cpf: string | null }) => {
+    const handleNewClientCreated = async (client: { id: string; nome: string; cpf: string | null }) => {
         console.log('[LojaDashboard] 🎉 Novo cliente criado:', client);
+        console.log('[LojaDashboard] 📍 storeId atual:', storeId);
+        
         if (client.id === 'CONSUMIDOR_FINAL') {
             // Consumidor Final: limpar campos
             setSelectedClienteId(null);
@@ -2691,12 +2693,19 @@ export default function LojaDashboard() {
         } else {
             // Cliente cadastrado: selecionar
             console.log('[LojaDashboard] 🔄 Recarregando lista de clientes...');
-            setSelectedClienteId(client.id);
-            setSearchCliente("");
-            setFormData({ ...formData, cliente_id: client.id, cliente_nome: client.nome });
+            
             // Recarregar lista de clientes para incluir o novo
             refreshClients();
-            console.log('[LojaDashboard] ✅ Lista de clientes recarregada');
+            
+            // Aguardar um pouco para garantir que os dados sejam recarregados
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Selecionar o cliente recém-criado
+            setSelectedClienteId(client.id);
+            setSearchCliente(client.nome);
+            setFormData({ ...formData, cliente_id: client.id, cliente_nome: client.nome });
+            
+            console.log('[LojaDashboard] ✅ Cliente selecionado e lista recarregada');
         }
     };
 
