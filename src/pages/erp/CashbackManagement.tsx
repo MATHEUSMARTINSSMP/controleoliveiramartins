@@ -416,6 +416,11 @@ export default function CashbackManagement() {
         // Verificar se há pelo menos uma loja com cashback ativo
         const hasActive = data.some(store => store.cashback_ativo === true);
         setHasActiveCashback(hasActive);
+        console.log('[CashbackManagement] Lojas carregadas:', {
+          total: data.length,
+          comCashbackAtivo: data.filter(s => s.cashback_ativo === true).length,
+          lojas: data.map(s => ({ name: s.name, cashback_ativo: s.cashback_ativo }))
+        });
         
         // Auto-selecionar primeira loja ou loja da LOJA (ou "ALL" se for ADMIN)
         if (profile?.role === 'LOJA' && data.length > 0) {
@@ -2080,6 +2085,14 @@ export default function CashbackManagement() {
   const selectedStoreHasCashback = selectedStoreId === 'ALL' 
     ? hasActiveCashback 
     : selectedStore?.cashback_ativo === true;
+  
+  console.log('[CashbackManagement] Verificação de cashback:', {
+    selectedStoreId,
+    hasActiveCashback,
+    selectedStore: selectedStore ? { name: selectedStore.name, cashback_ativo: selectedStore.cashback_ativo } : null,
+    selectedStoreHasCashback,
+    storesLength: stores.length
+  });
   
   if (stores.length > 0 && !selectedStoreHasCashback) {
     return (
