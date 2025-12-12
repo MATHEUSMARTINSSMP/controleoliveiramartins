@@ -384,9 +384,13 @@ export default function CashbackManagement() {
   }, [authLoading, profile]);
 
   useEffect(() => {
-    if (!authLoading && profile && selectedStoreId) {
-      fetchData();
-      fetchCategoriasProdutos();
+    if (!authLoading && profile && selectedStoreId !== '') {
+      // Aguardar um pouco para garantir que selectedStoreId está definido
+      const timer = setTimeout(() => {
+        fetchData();
+        fetchCategoriasProdutos();
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [authLoading, profile, selectedStoreId]);
 
