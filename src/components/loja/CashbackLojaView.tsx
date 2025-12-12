@@ -69,6 +69,7 @@ interface CashbackTransaction {
   renovado: boolean;
   created_at: string;
   tiny_order?: { numero_pedido: string | null };
+  sale?: { id: string; valor: number; data_venda: string };
 }
 
 interface ClienteComSaldo {
@@ -204,7 +205,8 @@ export default function CashbackLojaView({ storeId }: CashbackLojaViewProps) {
         .from('cashback_transactions')
         .select(`
           *,
-          tiny_order:tiny_order_id (numero_pedido)
+          tiny_order:tiny_order_id (numero_pedido),
+          sale:sale_id (id, valor, data_venda)
         `)
         .eq('store_id', storeId)
         .order('created_at', { ascending: false });
