@@ -49,37 +49,38 @@ export default function SolicitarAdiantamento() {
 
     // Buscar limites do perfil
     const { data: profileData } = await supabase
-        .schema("sistemaretiradas")
-        .from("profiles")
+      .schema("sistemaretiradas")
+      .from("profiles")
       .select("limite_total, limite_mensal")
       .eq("id", profile.id)
       .single();
 
     if (!profileData) return false;
 
-    // Buscar compras pendentes e aprovadas
+    // Buscar compras aprovadas (não contar pendentes pois ainda não foram aprovadas)
     const { data: compras } = await supabase
-        .schema("sistemaretiradas")
-        .from("purchases")
+      .schema("sistemaretiradas")
+      .from("purchases")
       .select("preco_final, num_parcelas")
       .eq("colaboradora_id", profile.id)
-      .in("status_compra", ["PENDENTE"] as any);
+      .eq("status_compra", "APROVADO" as any);
 
-    // Buscar parcelas pendentes do mês
+    // Buscar parcelas pendentes do mês (NÃO incluir DESCONTADO pois já foi pago!)
     const { data: parcelasMes } = await supabase
-        .schema("sistemaretiradas")
-        .from("parcelas")
+      .schema("sistemaretiradas")
+      .from("parcelas")
       .select("valor_parcela")
       .eq("competencia", formData.mes_competencia)
-      .in("status_parcela", ["PENDENTE", "AGENDADO", "DESCONTADO"]);
+      .in("status_parcela", ["PENDENTE", "AGENDADO"]);
 
-    // Buscar adiantamentos pendentes e aprovados
+    // Buscar adiantamentos aprovados não descontados (não contar pendentes nem já descontados)
     const { data: adiantamentos } = await supabase
-        .schema("sistemaretiradas")
-        .from("adiantamentos")
+      .schema("sistemaretiradas")
+      .from("adiantamentos")
       .select("valor")
       .eq("colaboradora_id", profile.id)
-      .in("status", ["PENDENTE", "APROVADO"] as any);
+      .eq("status", "APROVADO" as any)
+      .is("data_desconto", null);
 
     const totalComprasPendentes = (compras || []).reduce((acc, c) => acc + parseFloat(c.preco_final.toString()), 0);
     const totalAdiantamentosPendentes = (adiantamentos || []).reduce((acc, a) => acc + parseFloat(a.valor.toString()), 0);
@@ -133,7 +134,7 @@ export default function SolicitarAdiantamento() {
       try {
         console.log('📱 [SolicitarAdiantamento] Iniciando processo de envio de WhatsApp...');
         console.log('📱 [SolicitarAdiantamento] Dados do adiantamento:', adiantamentoData);
-        
+
         // Buscar loja da colaboradora
         console.log('📱 [1/5] Buscando dados da colaboradora...');
         const { data: colaboradoraData, error: colaboradoraError } = await supabase
@@ -186,7 +187,7 @@ export default function SolicitarAdiantamento() {
         console.log('📱 [3/5] Buscando destinatários WhatsApp para ADIANTAMENTO...');
         console.log('📱 [3/5] Admin ID:', storeData.admin_id);
         console.log('📱 [3/5] Store ID da colaboradora:', colaboradoraData.store_id);
-        
+
         // Buscar destinatários: store_id IS NULL (todas as lojas) OU store_id = loja atual
         // Usar EXATAMENTE a mesma lógica do LojaDashboard para VENDA
         const { data: recipientsAllStores, error: recipientsAllError } = await supabase
@@ -197,7 +198,7 @@ export default function SolicitarAdiantamento() {
           .eq('notification_type', 'ADIANTAMENTO')
           .eq('active', true)
           .is('store_id', null);
-        
+
         const { data: recipientsThisStore, error: recipientsStoreError } = await supabase
           .schema('sistemaretiradas')
           .from('whatsapp_notification_config')
@@ -206,12 +207,12 @@ export default function SolicitarAdiantamento() {
           .eq('notification_type', 'ADIANTAMENTO')
           .eq('active', true)
           .eq('store_id', colaboradoraData.store_id);
-        
-        console.log('📱 [3/5] Resultado da busca de destinatários:', { 
-          recipientsAllStores, 
-          recipientsThisStore, 
+
+        console.log('📱 [3/5] Resultado da busca de destinatários:', {
+          recipientsAllStores,
+          recipientsThisStore,
           recipientsAllError,
-          recipientsStoreError 
+          recipientsStoreError
         });
 
         if (recipientsAllError || recipientsStoreError) {
@@ -223,7 +224,7 @@ export default function SolicitarAdiantamento() {
         const recipientsData = [
           ...(recipientsAllStores || []),
           ...(recipientsThisStore || [])
-        ].filter((item, index, self) => 
+        ].filter((item, index, self) =>
           index === self.findIndex(t => t.phone === item.phone)
         );
 
@@ -268,7 +269,7 @@ export default function SolicitarAdiantamento() {
 
         // Enviar para todos os números em paralelo (não bloqueia)
         Promise.all(
-          adminPhones.map(phone => 
+          adminPhones.map(phone =>
             sendWhatsAppMessage({
               phone,
               message,

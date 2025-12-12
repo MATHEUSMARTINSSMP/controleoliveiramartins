@@ -40,11 +40,11 @@ export default function NovoAdiantamento() {
 
   const fetchColaboradoras = async () => {
     const { data, error } = await supabase
-        .schema("sistemaretiradas")
-        .from("profiles")
+      .schema("sistemaretiradas")
+      .from("profiles")
       .select("id, name, limite_total, limite_mensal")
       .eq("role", "COLABORADORA")
-      .eq("active", true)
+      .eq("is_active", true)
       .order("name");
 
     if (error) {
@@ -76,13 +76,13 @@ export default function NovoAdiantamento() {
   const validarLimites = async (): Promise<boolean> => {
     const valor = parseFloat(formData.valor);
     const colaboradora = colaboradoras.find(c => c.id === formData.colaboradora_id);
-    
+
     if (!colaboradora) return false;
 
     // Buscar compras pendentes
     const { data: purchases } = await supabase
-        .schema("sistemaretiradas")
-        .from("purchases")
+      .schema("sistemaretiradas")
+      .from("purchases")
       .select("id")
       .eq("colaboradora_id", formData.colaboradora_id);
 
@@ -90,16 +90,16 @@ export default function NovoAdiantamento() {
 
     // Buscar parcelas pendentes (todas as competências para o total)
     const { data: parcelas } = await supabase
-        .schema("sistemaretiradas")
-        .from("parcelas")
+      .schema("sistemaretiradas")
+      .from("parcelas")
       .select("valor_parcela, competencia")
       .in("compra_id", purchaseIds)
       .in("status_parcela", ["PENDENTE", "AGENDADO"]);
 
     // Buscar todos adiantamentos aprovados e não descontados (para limite total)
     const { data: adiantamentosTotal } = await supabase
-        .schema("sistemaretiradas")
-        .from("adiantamentos")
+      .schema("sistemaretiradas")
+      .from("adiantamentos")
       .select("valor")
       .eq("colaboradora_id", formData.colaboradora_id)
       .eq("status", "APROVADO" as any)
@@ -107,8 +107,8 @@ export default function NovoAdiantamento() {
 
     // Buscar adiantamentos aprovados do mês (para limite mensal)
     const { data: adiantamentosMes } = await supabase
-        .schema("sistemaretiradas")
-        .from("adiantamentos")
+      .schema("sistemaretiradas")
+      .from("adiantamentos")
       .select("valor")
       .eq("colaboradora_id", formData.colaboradora_id)
       .eq("mes_competencia", formData.mes_competencia)
@@ -199,7 +199,7 @@ export default function NovoAdiantamento() {
     (async () => {
       try {
         console.log('📱 [NovoAdiantamento] Iniciando processo de envio de WhatsApp...');
-        
+
         if (!colaboradoraData?.store_id) {
           console.warn('⚠️ [NovoAdiantamento] Colaboradora não tem loja associada');
           return;
@@ -227,7 +227,7 @@ export default function NovoAdiantamento() {
           .eq('notification_type', 'ADIANTAMENTO')
           .eq('active', true)
           .is('store_id', null);
-        
+
         const { data: recipientsThisStore } = await supabase
           .schema('sistemaretiradas')
           .from('whatsapp_notification_config')
@@ -241,7 +241,7 @@ export default function NovoAdiantamento() {
         const recipientsData = [
           ...(recipientsAllStores || []),
           ...(recipientsThisStore || [])
-        ].filter((item, index, self) => 
+        ].filter((item, index, self) =>
           index === self.findIndex(t => t.phone === item.phone)
         );
 
@@ -274,7 +274,7 @@ export default function NovoAdiantamento() {
 
         // Enviar para todos os números em paralelo
         Promise.all(
-          adminPhones.map(phone => 
+          adminPhones.map(phone =>
             sendWhatsAppMessage({
               phone,
               message,
@@ -282,7 +282,7 @@ export default function NovoAdiantamento() {
             }).then(result => {
               if (result.success) {
                 console.log(`✅ WhatsApp enviado com sucesso para ${phone}`);
-    } else {
+              } else {
                 console.warn(`⚠️ Falha ao enviar WhatsApp para ${phone}:`, result.error);
               }
             }).catch(err => {
@@ -299,10 +299,10 @@ export default function NovoAdiantamento() {
       }
     })();
 
-      toast({
-        title: "Adiantamento lançado com sucesso!",
-      });
-      navigate("/admin/adiantamentos");
+    toast({
+      title: "Adiantamento lançado com sucesso!",
+    });
+    navigate("/admin/adiantamentos");
     setLoading(false);
   };
 
