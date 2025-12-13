@@ -63,6 +63,7 @@ interface CRMContact {
   data_nascimento?: string;
   observacoes?: string;
   store_id?: string;
+  storeName?: string;
 }
 
 interface Store {

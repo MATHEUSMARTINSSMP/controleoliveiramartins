@@ -36,7 +36,7 @@ interface Contact {
   id: string;
   nome: string;
   telefone: string | null;
-  cpf_cnpj: string | null;
+  cpf: string | null;
 }
 
 export function WishlistDialog({
@@ -93,10 +93,10 @@ export function WishlistDialog({
     try {
       const { data, error } = await supabase
         .schema("sistemaretiradas")
-        .from("contacts")
-        .select("id, nome, telefone, cpf_cnpj")
+        .from("crm_contacts")
+        .select("id, nome, telefone, cpf")
         .eq("store_id", storeId)
-        .or(`nome.ilike.%${searchTerm}%,cpf_cnpj.ilike.%${searchTerm}%`)
+        .or(`nome.ilike.%${searchTerm}%,cpf.ilike.%${searchTerm}%`)
         .limit(10);
 
       if (error) throw error;
@@ -209,7 +209,7 @@ export function WishlistDialog({
         ...formData,
         cliente_nome: contact.nome || formData.cliente_nome,
         telefone: contact.telefone || formData.telefone,
-        cpf_cnpj: contact.cpf_cnpj || formData.cpf_cnpj,
+        cpf_cnpj: contact.cpf || formData.cpf_cnpj,
         contact_id: contact.id || null
       });
       setSearchOpen(false);
