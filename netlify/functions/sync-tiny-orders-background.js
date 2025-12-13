@@ -1918,7 +1918,7 @@ async function findCollaboratorByVendedor(supabase, storeId, vendedor) {
       .from('profiles')
       .select('id, name, email, cpf, tiny_vendedor_id')
       .eq('role', 'COLABORADORA')
-      .eq('is_active', true)
+      .eq('active', true)
       .eq('store_id', storeId);
 
     if (!colaboradoras || colaboradoras.length === 0) {
@@ -1928,6 +1928,22 @@ async function findCollaboratorByVendedor(supabase, storeId, vendedor) {
     const normalizeCPF = (cpf) => cpf ? String(cpf).replace(/\D/g, '') : null;
     const normalizedVendedorCPF = normalizeCPF(vendedorCompleto.cpf);
 
+    // Função auxiliar para salvar tiny_vendedor_id quando encontrar match
+    const saveVendedorIdMapping = async (colaboradoraId, tinyVendedorId) => {
+      if (!tinyVendedorId) return;
+      try {
+        await supabase
+          .schema('sistemaretiradas')
+          .from('profiles')
+          .update({ tiny_vendedor_id: String(tinyVendedorId) })
+          .eq('id', colaboradoraId)
+          .is('tiny_vendedor_id', null); // Só atualiza se ainda não tiver
+        console.log(`[SyncBackground] 💾 Salvou tiny_vendedor_id ${tinyVendedorId} para colaboradora ${colaboradoraId}`);
+      } catch (err) {
+        console.warn(`[SyncBackground] ⚠️ Erro ao salvar tiny_vendedor_id:`, err);
+      }
+    };
+
     // ✅ 1. Tentar matching por CPF primeiro (mais confiável)
     if (normalizedVendedorCPF && normalizedVendedorCPF.length >= 11) {
       const matchByCPF = colaboradoras.find((colab) => {
@@ -1936,6 +1952,10 @@ async function findCollaboratorByVendedor(supabase, storeId, vendedor) {
       });
       if (matchByCPF) {
         console.log(`[SyncBackground] ✅ Match por CPF: ${vendedorCompleto.nome} -> ${matchByCPF.name}`);
+        // Salvar mapeamento para futuras sincronizações
+        if (vendedorCompleto.id && !matchByCPF.tiny_vendedor_id) {
+          await saveVendedorIdMapping(matchByCPF.id, vendedorCompleto.id);
+        }
         return matchByCPF.id;
       }
     }
@@ -1963,28 +1983,53 @@ async function findCollaboratorByVendedor(supabase, storeId, vendedor) {
       }
     }
 
-    // Tentar matching por nome
+    // ✅ 4. Tentar matching por nome EXATO (normalizado)
     if (vendedorCompleto.nome) {
       const normalizeName = (name) => {
+        if (!name) return '';
         return name
           .toLowerCase()
           .normalize('NFD')
           .replace(/[\u0300-\u036f]/g, '')
+          .replace(/\s+/g, ' ')
           .trim();
       };
 
       const normalizedVendedorNome = normalizeName(vendedorCompleto.nome);
-      const matchByName = colaboradoras.find((colab) => {
+      
+      // Primeiro tentar match exato
+      const matchByExactName = colaboradoras.find((colab) => {
         const normalizedColabNome = normalizeName(colab.name || '');
         return normalizedColabNome === normalizedVendedorNome;
       });
 
-      if (matchByName) {
-        console.log(`[SyncBackground] ✅ Match por Nome: ${vendedorCompleto.nome} -> ${matchByName.name}`);
-        return matchByName.id;
-      } else {
-        console.log(`[SyncBackground] ⚠️ Nenhum match encontrado para vendedor: ${vendedorCompleto.nome} (ID: ${vendedorCompleto.id})`);
+      if (matchByExactName) {
+        console.log(`[SyncBackground] ✅ Match por Nome Exato: ${vendedorCompleto.nome} -> ${matchByExactName.name}`);
+        // Salvar mapeamento para futuras sincronizações
+        if (vendedorCompleto.id && !matchByExactName.tiny_vendedor_id) {
+          await saveVendedorIdMapping(matchByExactName.id, vendedorCompleto.id);
+        }
+        return matchByExactName.id;
       }
+      
+      // Tentar match parcial (nome do vendedor contém nome da colaboradora ou vice-versa)
+      const matchByPartialName = colaboradoras.find((colab) => {
+        const normalizedColabNome = normalizeName(colab.name || '');
+        if (!normalizedColabNome || !normalizedVendedorNome) return false;
+        return normalizedColabNome.includes(normalizedVendedorNome) || 
+               normalizedVendedorNome.includes(normalizedColabNome);
+      });
+
+      if (matchByPartialName) {
+        console.log(`[SyncBackground] ✅ Match por Nome Parcial: ${vendedorCompleto.nome} -> ${matchByPartialName.name}`);
+        // Salvar mapeamento para futuras sincronizações
+        if (vendedorCompleto.id && !matchByPartialName.tiny_vendedor_id) {
+          await saveVendedorIdMapping(matchByPartialName.id, vendedorCompleto.id);
+        }
+        return matchByPartialName.id;
+      }
+      
+      console.log(`[SyncBackground] ⚠️ Nenhum match encontrado para vendedor: ${vendedorCompleto.nome} (ID: ${vendedorCompleto.id})`);
     }
 
     return null;
