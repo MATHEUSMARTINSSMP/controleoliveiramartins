@@ -146,6 +146,7 @@ function normalizeDRELancamento(data: any): DRELancamento {
 export async function getStoreId(providedStoreId?: string): Promise<string> {
     if (providedStoreId) return providedStoreId
 
+    // Tentar do localStorage
     try {
         const authData = localStorage.getItem('auth')
         if (authData) {
@@ -156,6 +157,28 @@ export async function getStoreId(providedStoreId?: string): Promise<string> {
         }
     } catch (err) {
         console.warn('[n8n-dre] Erro ao obter store_id do localStorage:', err)
+    }
+
+    // Se não tem no localStorage, buscar do perfil do usuário
+    try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user?.id) {
+            const { data: profile } = await supabase
+                .schema('sistemaretiradas')
+                .from('profiles')
+                .select('store_id, store_default')
+                .eq('id', user.id)
+                .single()
+            
+            if (profile?.store_id) {
+                return profile.store_id
+            }
+            if (profile?.store_default) {
+                return profile.store_default
+            }
+        }
+    } catch (err) {
+        console.warn('[n8n-dre] Erro ao obter store_id do perfil:', err)
     }
 
     return ''
