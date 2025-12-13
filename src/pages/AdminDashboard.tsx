@@ -4,7 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet, RefreshCw, AlertTriangle, Plus } from "lucide-react";
+import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet, RefreshCw, AlertTriangle, Plus, Link2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import ERPDashboard from "@/pages/erp/ERPDashboard";
@@ -35,6 +36,13 @@ import { useAdminPendingAdiantamentos } from "@/hooks/queries";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { motion } from "framer-motion";
 
+interface UnmappedVendorInfo {
+  storeId: string;
+  storeName: string;
+  unmappedCount: number;
+  pendingOrders: number;
+}
+
 const AdminDashboard = () => {
   const { profile, signOut, loading, billingStatus } = useAuth();
   const navigate = useNavigate();
@@ -43,6 +51,7 @@ const AdminDashboard = () => {
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [adminStores, setAdminStores] = useState<{ id: string; name: string }[]>([]);
   const [isReloading, setIsReloading] = useState(false);
+  const [unmappedVendors, setUnmappedVendors] = useState<UnmappedVendorInfo[]>([]);
 
   const { data: pendingAdiantamentos = 0 } = useAdminPendingAdiantamentos();
 
@@ -87,9 +96,45 @@ const AdminDashboard = () => {
 
       if (error) throw error;
       setAdminStores(data || []);
+      
+      if (data && data.length > 0) {
+        fetchUnmappedVendors(data);
+      }
     } catch (err) {
       console.error('[AdminDashboard] Erro ao buscar lojas:', err);
     }
+  };
+
+  const fetchUnmappedVendors = async (stores: { id: string; name: string }[]) => {
+    const results: UnmappedVendorInfo[] = [];
+    
+    for (const store of stores) {
+      try {
+        const response = await fetch("/.netlify/functions/list-tiny-vendors", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ store_id: store.id }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.resumo) {
+            if (data.resumo.nao_mapeados > 0 || data.resumo.pedidos_sem_colaboradora > 0) {
+              results.push({
+                storeId: store.id,
+                storeName: store.name,
+                unmappedCount: data.resumo.nao_mapeados,
+                pendingOrders: data.resumo.pedidos_sem_colaboradora,
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.warn(`[AdminDashboard] Erro ao verificar vendedores da loja ${store.name}:`, err);
+      }
+    }
+    
+    setUnmappedVendors(results);
   };
 
   const handleChangePassword = async () => {
@@ -496,6 +541,38 @@ const AdminDashboard = () => {
                 <p className="text-sm text-muted-foreground mb-4">
                   Configure integrações ERP por loja (Tiny, Bling, Microvix, Conta Azul, etc). As vendas são sincronizadas automaticamente.
                 </p>
+
+                {unmappedVendors.length > 0 && (
+                  <Alert variant="destructive" data-testid="alert-unmapped-vendors">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Vendedores Tiny sem mapeamento</AlertTitle>
+                    <AlertDescription className="mt-2 space-y-2">
+                      <p>
+                        Existem vendedores do Tiny ERP que nao estao vinculados a colaboradoras. 
+                        Isso impede o registro correto das vendas.
+                      </p>
+                      <ul className="text-sm list-disc pl-4">
+                        {unmappedVendors.map((info) => (
+                          <li key={info.storeId}>
+                            <strong>{info.storeName}</strong>: {info.unmappedCount} vendedor(es) nao mapeado(s)
+                            {info.pendingOrders > 0 && ` - ${info.pendingOrders} pedido(s) pendente(s)`}
+                          </li>
+                        ))}
+                      </ul>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate("/admin/tiny-mapping")}
+                        className="mt-2"
+                        data-testid="button-goto-tiny-mapping"
+                      >
+                        <Link2 className="mr-2 h-4 w-4" />
+                        Mapear Vendedores
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 <Card>
                   <CardContent className="pt-6">
                     <div className="flex flex-col sm:flex-row gap-2">
@@ -507,6 +584,16 @@ const AdminDashboard = () => {
                       >
                         <ExternalLink className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                         Gerenciar Integrações ERP
+                      </Button>
+                      <Button
+                        onClick={() => navigate("/admin/tiny-mapping")}
+                        variant="outline"
+                        className="w-full sm:w-auto"
+                        size="sm"
+                        data-testid="button-tiny-mapping-nav"
+                      >
+                        <Link2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                        Mapeamento Tiny
                       </Button>
                     </div>
                   </CardContent>
