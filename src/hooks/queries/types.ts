@@ -119,12 +119,21 @@ export interface TinyContact {
 
 export interface CashbackTransaction {
   id: string;
-  customer_id: string;
-  store_id: string;
-  order_id?: string;
-  tipo: 'CREDITO' | 'DEBITO' | 'EXPIRACAO';
-  valor: number;
-  descricao?: string;
+  cliente_id: string;
+  store_id: string | null;
+  colaboradora_id?: string | null;
+  sale_id?: string | null;
+  tiny_order_id?: string | null;
+  cashback_rule_id?: string | null;
+  cashback_settings_id?: string | null;
+  contact_id?: string | null;
+  transaction_type: 'EARNED' | 'REDEEMED' | 'EXPIRED';
+  amount: number;
+  description?: string | null;
+  data_liberacao?: string | null;
+  data_expiracao?: string | null;
+  renovado?: boolean;
+  recuperado?: boolean;
   created_at: string;
 }
 
