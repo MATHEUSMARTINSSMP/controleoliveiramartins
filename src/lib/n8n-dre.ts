@@ -217,47 +217,10 @@ export async function getSiteSlug(storeId: string): Promise<string> {
 // ============================================================
 
 /**
- * Busca categorias DRE diretamente do Supabase
- * Mais confiável que N8N - garante IDs consistentes com a IA
+ * Busca categorias DRE via N8N
+ * Endpoint: /api/financeiro/dre/categorias
  */
 export async function getDRECategorias(filters?: {
-    store_id?: string
-    tipo?: TipoLancamentoDRE
-    ativo?: boolean
-    pesquisa?: string
-    incluir_globais?: boolean
-}): Promise<DRECategoria[]> {
-    const store_id = filters?.store_id || await getStoreId()
-
-    try {
-        // Buscar todas as categorias do schema elevea (mesma tabela que o N8N usa)
-        const { data, error } = await supabase
-            .schema('elevea')
-            .from('financeiro_dre_categorias')
-            .select('*')
-            .order('tipo', { ascending: true })
-            .order('ordem', { ascending: true })
-            .order('nome', { ascending: true })
-
-        if (error) {
-            console.error('[DRE] Erro ao buscar categorias:', error)
-            // Fallback para N8N se der erro no Supabase
-            return getDRECategoriasViaN8N(filters)
-        }
-
-        console.log('[DRE] Categorias carregadas do Supabase:', data?.length || 0)
-        return (data || []).map(normalizeDRECategoria)
-    } catch (err: any) {
-        console.error('[DRE] Erro ao buscar categorias:', err)
-        // Fallback para N8N
-        return getDRECategoriasViaN8N(filters)
-    }
-}
-
-/**
- * Fallback: Busca categorias via N8N
- */
-async function getDRECategoriasViaN8N(filters?: {
     store_id?: string
     tipo?: TipoLancamentoDRE
     ativo?: boolean
@@ -284,6 +247,7 @@ async function getDRECategoriasViaN8N(filters?: {
         method: 'GET'
     })
 
+    console.log('[DRE] Categorias carregadas do N8N:', data.data?.length || 0)
     return (data.data || []).map(normalizeDRECategoria)
 }
 
@@ -374,7 +338,7 @@ export async function getDRELancamentos(filters?: {
         success: boolean
         data: DRELancamento[]
         error?: string
-    }>(`/api/dre/lancamentos${params.toString() ? `?${params.toString()}` : ''}`, {
+    }>(`/api/financeiro/dre/lancamentos${params.toString() ? `?${params.toString()}` : ''}`, {
         method: 'GET'
     })
 
@@ -430,7 +394,7 @@ export async function createDRELancamento(data: {
         success: boolean
         data: DRELancamento
         error?: string
-    }>(`/api/dre/lancamentos`, {
+    }>(`/api/financeiro/dre/lancamentos`, {
         method: 'POST',
         body: JSON.stringify({
             tipo: 'manual',
@@ -510,7 +474,7 @@ export async function updateDRELancamento(
         success: boolean
         data: DRELancamento
         error?: string
-    }>(`/api/dre/lancamentos/${encodeURIComponent(id)}`, {
+    }>(`/api/financeiro/dre/lancamentos/${encodeURIComponent(id)}`, {
         method: 'PUT',
         body: JSON.stringify(updates)
     })
@@ -522,7 +486,7 @@ export async function deleteDRELancamento(id: string): Promise<void> {
     await n8nRequest<{
         success: boolean
         error?: string
-    }>(`/api/dre/lancamentos/${encodeURIComponent(id)}`, {
+    }>(`/api/financeiro/dre/lancamentos/${encodeURIComponent(id)}`, {
         method: 'DELETE'
     })
 }
