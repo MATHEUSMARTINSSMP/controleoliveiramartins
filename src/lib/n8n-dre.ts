@@ -15,57 +15,46 @@ import type {
 } from '@/types/dre'
 
 // ============================================================
-// CONFIGURAÇÃO N8N
+// CONFIGURAÇÃO N8N (usa proxy Netlify para evitar CORS)
 // ============================================================
 
-const BASE = (import.meta.env.VITE_N8N_BASE_URL || '').replace(/\/$/, '')
-const MODE = (import.meta.env.VITE_N8N_MODE || 'prod').toLowerCase()
-const PREFIX = MODE === 'test' ? '/webhook-test' : '/webhook'
-const AUTH_HEADER = import.meta.env.VITE_N8N_AUTH_HEADER || ''
-const AUTH_HEADER_NAME = 'X-APP-KEY'
-
-function url(path: string) {
-    const clean = path.startsWith('/') ? path : `/${path}`
-    return `${BASE}${PREFIX}${clean}`
-}
-
-function authHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-    }
-
-    if (AUTH_HEADER) {
-        headers[AUTH_HEADER_NAME] = AUTH_HEADER
-    }
-
-    return headers
-}
+const USE_PROXY = true // Sempre usar proxy para evitar CORS
+const PROXY_URL = '/.netlify/functions/n8n-proxy'
 
 async function n8nRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    if (!BASE) {
-        const errorMsg = 'N8N não configurado: VITE_N8N_BASE_URL não definido'
-        console.error('[n8n-dre]', errorMsg)
-        throw new Error(errorMsg)
-    }
-
-    const finalUrl = url(endpoint)
-
-    if (typeof window !== 'undefined' && (import.meta.env.DEV || import.meta.env.MODE === 'development')) {
-        console.log('[n8n-dre] Chamando:', finalUrl)
-    }
-
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 30000)
 
-    const headers = {
-        ...authHeaders(),
-        ...options.headers
+    // Extrair parâmetros de query string se houver
+    let cleanEndpoint = endpoint
+    let params: Record<string, string> = {}
+    
+    if (endpoint.includes('?')) {
+        const [path, queryString] = endpoint.split('?')
+        cleanEndpoint = path
+        const searchParams = new URLSearchParams(queryString)
+        searchParams.forEach((value, key) => {
+            params[key] = value
+        })
+    }
+
+    // Preparar body para o proxy
+    const proxyBody = {
+        endpoint: cleanEndpoint,
+        method: options.method || 'GET',
+        params,
+        body: options.body ? JSON.parse(options.body as string) : undefined
+    }
+
+    if (typeof window !== 'undefined' && (import.meta.env.DEV || import.meta.env.MODE === 'development')) {
+        console.log('[n8n-dre] Chamando via proxy:', cleanEndpoint)
     }
 
     try {
-        const response = await fetch(finalUrl, {
-            ...options,
-            headers,
+        const response = await fetch(PROXY_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(proxyBody),
             signal: controller.signal
         })
 
@@ -96,8 +85,7 @@ async function n8nRequest<T = any>(endpoint: string, options: RequestInit = {}):
             const errorMsg = data.error || data.message || `HTTP ${response.status}: ${response.statusText}`
             console.error('[n8n-dre] Erro HTTP:', {
                 status: response.status,
-                error: errorMsg,
-                url: finalUrl
+                error: errorMsg
             })
             throw new Error(errorMsg)
         }
