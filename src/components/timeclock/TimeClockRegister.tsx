@@ -489,7 +489,7 @@ export function TimeClockRegister({
       const { data: signatureResult, error: signatureInsertError } = await supabase.rpc(
         'insert_time_clock_digital_signature',
         rpcParams
-      );
+      ) as { data: { success: boolean; error?: string } | null; error: any };
 
       console.log('[TimeClockRegister] 📥 Resposta RPC inserir assinatura:', {
         signatureResult,

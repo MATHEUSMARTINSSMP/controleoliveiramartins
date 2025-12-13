@@ -90,6 +90,7 @@ interface Colaboradora {
     id: string;
     name: string;
     active?: boolean;
+    is_active?: boolean;
 }
 
 export default function LojaDashboard() {
@@ -1527,8 +1528,8 @@ export default function LojaDashboard() {
             const performance = colaboradorasToUse
                 // Filtrar colaboradoras desativadas e sem meta ANTES de processar
                 .filter(colab => {
-                    // Garantir que colaboradora está ativa
-                    if (!colab.is_active) {
+                    // Garantir que colaboradora está ativa (verifica is_active ou active)
+                    if (colab.is_active === false || colab.active === false) {
                         console.log(`[LojaDashboard] ⏭️ Colaboradora desativada "${colab.name}" excluída do Planejamento do Dia`);
                         return false;
                     }
