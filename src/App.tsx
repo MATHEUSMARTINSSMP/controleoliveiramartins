@@ -46,6 +46,7 @@ const Landing = lazy(() => import("./pages/Landing"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const TinyVendorMapping = lazy(() => import("./pages/TinyVendorMapping"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -99,6 +100,7 @@ const App = () => (
                 <Route path="/admin/benchmarks" element={<Suspense fallback={<PageLoader />}><BenchmarksManagement /></Suspense>} />
                 <Route path="/admin/dre" element={<Suspense fallback={<PageLoader />}><GestaoDRE /></Suspense>} />
                 <Route path="/admin/erp-integrations" element={<Suspense fallback={<PageLoader />}><ERPIntegrationsConfig /></Suspense>} />
+                <Route path="/admin/tiny-mapping" element={<Suspense fallback={<PageLoader />}><TinyVendorMapping /></Suspense>} />
 
                 <Route path="/dev/login" element={<Suspense fallback={<PageLoader />}><DevLogin /></Suspense>} />
                 <Route path="/dev/erp-config" element={<Suspense fallback={<PageLoader />}><ERPConfig /></Suspense>} />
