@@ -112,17 +112,26 @@ export default function DRELancamentosTab({ categorias, lancamentos, onRefresh, 
                 store_id: storeId
             })
 
+            // Debug: mostrar o que veio do N8N
+            console.log('[DRE] Resultado bruto do N8N:', JSON.stringify(resultado, null, 2))
+            console.log('[DRE] categoria_id do resultado:', resultado.categoria_id, typeof resultado.categoria_id)
+            console.log('[DRE] Categorias disponíveis:', categorias.length, categorias.map(c => ({ id: c.id, tipo: typeof c.id, nome: c.nome })))
+
             // Buscar nome e tipo da categoria se não vieram do N8N
             if (resultado.categoria_id && !resultado.categoria_nome) {
-                const cat = categorias.find(c => String(c.id) === String(resultado.categoria_id))
+                const catId = String(resultado.categoria_id)
+                console.log('[DRE] Buscando categoria com id:', catId)
+                const cat = categorias.find(c => String(c.id) === catId)
+                console.log('[DRE] Categoria encontrada:', cat)
                 if (cat) {
                     resultado.categoria_nome = cat.nome
                     resultado.categoria_tipo = cat.tipo
+                } else {
+                    console.warn('[DRE] Categoria NÃO encontrada! IDs disponíveis:', categorias.map(c => c.id))
                 }
             }
 
-            console.log('[DRE] Resultado IA:', resultado)
-            console.log('[DRE] Categorias disponíveis:', categorias.map(c => ({ id: c.id, nome: c.nome })))
+            console.log('[DRE] Resultado final após busca categoria:', resultado)
 
             setResultadoIA(resultado)
             toast.success('IA processou o lançamento! Revise antes de confirmar.')
