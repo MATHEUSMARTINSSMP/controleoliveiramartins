@@ -110,7 +110,7 @@ const AdminDashboard = () => {
     
     for (const store of stores) {
       try {
-        const response = await fetch("/.netlify/functions/list-tiny-vendors", {
+        const response = await fetch("/.netlify/functions/list-erp-vendors", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ store_id: store.id }),
@@ -545,10 +545,10 @@ const AdminDashboard = () => {
                 {unmappedVendors.length > 0 && (
                   <Alert variant="destructive" data-testid="alert-unmapped-vendors">
                     <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Vendedores Tiny sem mapeamento</AlertTitle>
+                    <AlertTitle>Vendedores ERP sem mapeamento</AlertTitle>
                     <AlertDescription className="mt-2 space-y-2">
                       <p>
-                        Existem vendedores do Tiny ERP que nao estao vinculados a colaboradoras. 
+                        Existem vendedores do ERP que nao estao vinculados a colaboradoras. 
                         Isso impede o registro correto das vendas.
                       </p>
                       <ul className="text-sm list-disc pl-4">
@@ -562,9 +562,9 @@ const AdminDashboard = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => navigate("/admin/tiny-mapping")}
+                        onClick={() => navigate("/admin/erp-mapping")}
                         className="mt-2"
-                        data-testid="button-goto-tiny-mapping"
+                        data-testid="button-goto-erp-mapping"
                       >
                         <Link2 className="mr-2 h-4 w-4" />
                         Mapear Vendedores
@@ -586,14 +586,14 @@ const AdminDashboard = () => {
                         Gerenciar Integrações ERP
                       </Button>
                       <Button
-                        onClick={() => navigate("/admin/tiny-mapping")}
+                        onClick={() => navigate("/admin/erp-mapping")}
                         variant="outline"
                         className="w-full sm:w-auto"
                         size="sm"
-                        data-testid="button-tiny-mapping-nav"
+                        data-testid="button-erp-mapping-nav"
                       >
                         <Link2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                        Mapeamento Tiny
+                        Mapeamento ERP
                       </Button>
                     </div>
                   </CardContent>

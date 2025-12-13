@@ -45,7 +45,7 @@ interface StoreOption {
   name: string;
 }
 
-const TinyVendorMapping = () => {
+const ERPVendorMapping = () => {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   
@@ -106,7 +106,7 @@ const TinyVendorMapping = () => {
 
     setRefreshing(true);
     try {
-      const response = await fetch("/.netlify/functions/list-tiny-vendors", {
+      const response = await fetch("/.netlify/functions/list-erp-vendors", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ store_id: selectedStoreId }),
@@ -139,7 +139,7 @@ const TinyVendorMapping = () => {
 
     setSavingMap(tinyId);
     try {
-      const response = await fetch("/.netlify/functions/map-vendor-to-colaboradora", {
+      const response = await fetch("/.netlify/functions/map-erp-vendor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -201,9 +201,9 @@ const TinyVendorMapping = () => {
             <ChevronLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">Mapeamento Tiny ERP</h1>
+            <h1 className="text-2xl font-bold">Mapeamento ERP</h1>
             <p className="text-muted-foreground">
-              Vincule vendedores do Tiny ERP às colaboradoras do sistema
+              Vincule vendedores do ERP as colaboradoras do sistema
             </p>
           </div>
         </div>
@@ -425,4 +425,4 @@ const TinyVendorMapping = () => {
   );
 };
 
-export default TinyVendorMapping;
+export default ERPVendorMapping;
