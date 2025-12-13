@@ -230,13 +230,14 @@ export async function getDRECategorias(filters?: {
     const store_id = filters?.store_id || await getStoreId()
 
     try {
-        // Buscar todas as categorias (globais + da loja)
-        // A filtragem por store_id é feita no lado do cliente
+        // Buscar todas as categorias do schema elevea (mesma tabela que o N8N usa)
         const { data, error } = await supabase
-            .schema('sistemaretiradas')
-            .from('dre_categorias')
+            .schema('elevea')
+            .from('financeiro_dre_categorias')
             .select('*')
+            .order('tipo', { ascending: true })
             .order('ordem', { ascending: true })
+            .order('nome', { ascending: true })
 
         if (error) {
             console.error('[DRE] Erro ao buscar categorias:', error)
