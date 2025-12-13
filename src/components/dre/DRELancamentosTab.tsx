@@ -288,10 +288,10 @@ export default function DRELancamentosTab({ categorias, lancamentos, onRefresh, 
                                             <div className="bg-muted p-4 rounded-lg space-y-2">
                                                 <p className="text-sm font-medium">IA identificou:</p>
                                                 <div className="grid grid-cols-2 gap-2 text-sm">
-                                                    <div><strong>Categoria:</strong> {resultadoIA.categoria_nome}</div>
-                                                    <div><strong>Tipo:</strong> {resultadoIA.categoria_tipo}</div>
-                                                    <div><strong>Valor:</strong> R$ {resultadoIA.valor.toFixed(2)}</div>
-                                                    <div><strong>Competência:</strong> {dre.formatCompetencia(resultadoIA.competencia)}</div>
+                                                    <div><strong>Categoria:</strong> {resultadoIA.categoria_nome || categorias.find(c => c.id === resultadoIA.categoria_id)?.nome || 'Não identificada'}</div>
+                                                    <div><strong>Tipo:</strong> {resultadoIA.categoria_tipo || (resultadoIA as any).tipo_detectado || categorias.find(c => c.id === resultadoIA.categoria_id)?.tipo || 'N/A'}</div>
+                                                    <div><strong>Valor:</strong> R$ {(resultadoIA.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                                                    <div><strong>Competência:</strong> {dre.formatCompetencia(resultadoIA.competencia || '')}</div>
                                                     <div className="col-span-2"><strong>Descrição:</strong> {resultadoIA.descricao}</div>
                                                 </div>
                                             </div>
