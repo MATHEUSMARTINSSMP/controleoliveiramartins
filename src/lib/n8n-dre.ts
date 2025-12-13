@@ -216,7 +216,72 @@ export async function getSiteSlug(storeId: string): Promise<string> {
 // CATEGORIAS DRE
 // ============================================================
 
+/**
+ * Busca categorias DRE diretamente do Supabase
+ * Mais confiável que buscar via N8N - garante IDs consistentes
+ */
 export async function getDRECategorias(filters?: {
+    store_id?: string
+    tipo?: TipoLancamentoDRE
+    ativo?: boolean
+    pesquisa?: string
+    incluir_globais?: boolean
+}): Promise<DRECategoria[]> {
+    const store_id = filters?.store_id || await getStoreId()
+
+    try {
+        let query = supabase
+            .schema('sistemaretiradas')
+            .from('dre_categorias')
+            .select('*')
+
+        // Filtrar por loja específica ou globais
+        if (store_id) {
+            if (filters?.incluir_globais !== false) {
+                // Buscar categorias da loja + globais
+                query = query.or(`store_id.eq.${store_id},is_global.eq.true`)
+            } else {
+                // Somente categorias da loja
+                query = query.eq('store_id', store_id)
+            }
+        } else if (filters?.incluir_globais !== false) {
+            // Sem loja específica, buscar apenas globais
+            query = query.eq('is_global', true)
+        }
+
+        // Filtros opcionais
+        if (filters?.tipo) {
+            query = query.eq('tipo', filters.tipo)
+        }
+        if (filters?.ativo !== undefined) {
+            query = query.eq('ativo', filters.ativo)
+        }
+        if (filters?.pesquisa) {
+            query = query.ilike('nome', `%${filters.pesquisa}%`)
+        }
+
+        // Ordenar por ordem e nome
+        query = query.order('ordem', { ascending: true }).order('nome', { ascending: true })
+
+        const { data, error } = await query
+
+        if (error) {
+            console.error('[DRE] Erro ao buscar categorias do Supabase:', error)
+            throw new Error(`Erro ao buscar categorias: ${error.message}`)
+        }
+
+        console.log('[DRE] Categorias carregadas do Supabase:', data?.length || 0)
+        return (data || []).map(normalizeDRECategoria)
+    } catch (err: any) {
+        console.error('[DRE] Erro ao buscar categorias:', err)
+        throw err
+    }
+}
+
+/**
+ * @deprecated Use getDRECategorias que agora busca direto do Supabase
+ */
+export async function getDRECategoriasViaN8N(filters?: {
     store_id?: string
     tipo?: TipoLancamentoDRE
     ativo?: boolean
