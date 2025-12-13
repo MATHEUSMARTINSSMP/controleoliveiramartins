@@ -61,7 +61,7 @@ exports.handler = async (event, context) => {
     const { data: colaboradora, error: colabError } = await supabase
       .schema('sistemaretiradas')
       .from('profiles')
-      .select('id, nome, store_id, tiny_vendedor_id')
+      .select('id, name, store_id, tiny_vendedor_id')
       .eq('id', colaboradora_id)
       .single();
 
@@ -85,7 +85,7 @@ exports.handler = async (event, context) => {
     const { data: jaMapesado } = await supabase
       .schema('sistemaretiradas')
       .from('profiles')
-      .select('id, nome')
+      .select('id, name')
       .eq('store_id', finalStoreId)
       .eq('tiny_vendedor_id', String(tiny_vendedor_id))
       .neq('id', colaboradora_id)
@@ -97,7 +97,7 @@ exports.handler = async (event, context) => {
         headers,
         body: JSON.stringify({
           success: false,
-          error: `Este vendedor já está mapeado para ${jaMapesado.nome}`,
+          error: `Este vendedor já está mapeado para ${jaMapesado.name}`,
         }),
       };
     }
@@ -122,7 +122,7 @@ exports.handler = async (event, context) => {
       };
     }
 
-    console.log(`[MapVendor] ✅ Mapeamento salvo: vendedor ${tiny_vendedor_id} → ${colaboradora.nome}`);
+    console.log(`[MapVendor] ✅ Mapeamento salvo: vendedor ${tiny_vendedor_id} → ${colaboradora.name}`);
 
     // Atualizar pedidos existentes com este vendedor que não têm colaboradora
     const { data: pedidosAtualizados, error: pedidosError } = await supabase
@@ -162,7 +162,7 @@ exports.handler = async (event, context) => {
       headers,
       body: JSON.stringify({
         success: true,
-        message: `Vendedor mapeado para ${colaboradora.nome}`,
+        message: `Vendedor mapeado para ${colaboradora.name}`,
         pedidos_atualizados: pedidosCount,
       }),
     };

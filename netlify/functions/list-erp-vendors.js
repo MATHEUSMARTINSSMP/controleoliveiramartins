@@ -149,9 +149,11 @@ exports.handler = async (event, context) => {
     const { data: colaboradoras, error: colabError } = await supabase
       .schema('sistemaretiradas')
       .from('profiles')
-      .select('id, nome, email, tiny_vendedor_id, is_active')
+      .select('id, name, email, tiny_vendedor_id, is_active')
       .eq('store_id', finalStoreId)
       .eq('role', 'COLABORADORA');
+    
+    console.log(`[ListVendors] ${colaboradoras?.length || 0} colaboradoras encontradas na loja`);
 
     if (colabError) {
       console.error('[ListVendors] Erro ao buscar colaboradoras:', colabError);
@@ -176,7 +178,7 @@ exports.handler = async (event, context) => {
         codigo: contato.codigo || null,
         mapeado: !!colaboradoraMapeada,
         colaboradora_id: colaboradoraMapeada?.id || null,
-        colaboradora_nome: colaboradoraMapeada?.nome || null,
+        colaboradora_nome: colaboradoraMapeada?.name || null,
       };
     });
 
@@ -226,14 +228,17 @@ exports.handler = async (event, context) => {
       return (b.pedidos_pendentes || 0) - (a.pedidos_pendentes || 0);
     });
 
-    // Retornar também as colaboradoras não mapeadas
+    // Retornar também as colaboradoras não mapeadas (ativas e sem tiny_vendedor_id)
+    // Nota: is_active pode ser undefined (quando não existe a coluna), tratamos como true por default
     const colaboradorasNaoMapeadas = (colaboradoras || [])
-      .filter(c => c.is_active && !c.tiny_vendedor_id)
+      .filter(c => (c.is_active !== false) && !c.tiny_vendedor_id)
       .map(c => ({
         id: c.id,
-        nome: c.nome,
+        nome: c.name,
         email: c.email,
       }));
+    
+    console.log(`[ListVendors] ${colaboradorasNaoMapeadas.length} colaboradoras disponíveis para mapeamento`);
 
     return {
       statusCode: 200,
