@@ -1,12 +1,11 @@
 /**
  * Netlify Function: Listar Vendedores do ERP
  * 
- * Lista todos os vendedores únicos encontrados nos pedidos sincronizados
+ * Lista todos os vendedores cadastrados no Tiny ERP da loja
  * para permitir mapeamento manual com colaboradoras
  * 
- * NOTA: A API Tiny v3 NÃO tem endpoint /vendedores separado.
- * Os vendedores vêm dentro dos pedidos como { id, nome }.
- * Esta função extrai os vendedores únicos dos pedidos já sincronizados.
+ * API Tiny v3 GET /vendedores retorna:
+ * { itens: [{ id, contato: { nome, codigo, cpfCnpj, email, ... } }], paginacao: { limit, offset, total } }
  * 
  * Endpoint: /.netlify/functions/list-erp-vendors
  * Método: POST
@@ -59,20 +58,16 @@ exports.handler = async (event, context) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Buscar integração da loja para confirmar que tem Tiny configurado
+    // Buscar integração da loja
     const { data: integration, error: integrationError } = await supabase
       .schema('sistemaretiradas')
       .from('erp_integrations')
-      .select('id, sistema_erp, sync_status')
+      .select('*')
       .eq('store_id', finalStoreId)
       .eq('sistema_erp', 'TINY')
       .maybeSingle();
 
-    if (integrationError) {
-      console.error('[ListVendors] Erro ao buscar integração:', integrationError);
-    }
-
-    if (!integration) {
+    if (integrationError || !integration) {
       return {
         statusCode: 404,
         headers,
@@ -83,7 +78,74 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Buscar colaboradoras da loja
+    if (!integration.access_token) {
+      return {
+        statusCode: 401,
+        headers,
+        body: JSON.stringify({ success: false, error: 'Token de acesso não configurado' }),
+      };
+    }
+
+    // Chamar API Tiny para buscar vendedores
+    const proxyUrl = `${process.env.URL || 'https://eleveaone.com.br'}/.netlify/functions/erp-api-proxy`;
+
+    let allVendedores = [];
+    let currentOffset = 0;
+    const pageLimit = 100;
+    let hasMore = true;
+
+    while (hasMore) {
+      try {
+        console.log(`[ListVendors] Buscando página offset=${currentOffset}, limit=${pageLimit}...`);
+        
+        const response = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            storeId: finalStoreId,
+            endpoint: '/vendedores',
+            method: 'GET',
+            params: {
+              limit: pageLimit,
+              offset: currentOffset,
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[ListVendors] Erro na API Tiny: ${response.status} - ${errorText}`);
+          break;
+        }
+
+        const result = await response.json();
+        
+        console.log(`[ListVendors] Resposta da API:`, JSON.stringify(result).substring(0, 500));
+        
+        const itens = result.itens || [];
+        
+        if (itens.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        allVendedores = allVendedores.concat(itens);
+
+        // Verificar paginação (API v3 usa limit/offset/total)
+        const paginacao = result.paginacao || {};
+        const total = paginacao.total || 0;
+        currentOffset += pageLimit;
+        hasMore = currentOffset < total;
+
+      } catch (error) {
+        console.error(`[ListVendors] Erro ao buscar vendedores offset=${currentOffset}:`, error);
+        hasMore = false;
+      }
+    }
+
+    console.log(`[ListVendors] ${allVendedores.length} vendedores encontrados no Tiny`);
+
+    // Buscar colaboradoras da loja para verificar quais já estão mapeadas
     const { data: colaboradoras, error: colabError } = await supabase
       .schema('sistemaretiradas')
       .from('profiles')
@@ -95,70 +157,67 @@ exports.handler = async (event, context) => {
       console.error('[ListVendors] Erro ao buscar colaboradoras:', colabError);
     }
 
-    // Buscar vendedores únicos dos pedidos sincronizados
-    // A tabela tiny_orders deve ter campos: vendedor_tiny_id, vendedor_nome
-    const { data: pedidosComVendedor, error: pedidosError } = await supabase
-      .schema('sistemaretiradas')
-      .from('tiny_orders')
-      .select('vendedor_tiny_id, vendedor_nome, colaboradora_id')
-      .eq('store_id', finalStoreId)
-      .not('vendedor_tiny_id', 'is', null);
-
-    if (pedidosError) {
-      console.error('[ListVendors] Erro ao buscar pedidos:', pedidosError);
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ success: false, error: 'Erro ao buscar pedidos: ' + pedidosError.message }),
-      };
-    }
-
-    console.log(`[ListVendors] ${(pedidosComVendedor || []).length} pedidos com vendedor encontrados`);
-
-    // Agrupar vendedores únicos e contar pedidos
-    const vendedoresMap = new Map();
-    const pedidosSemColaboradora = {};
-
-    (pedidosComVendedor || []).forEach(p => {
-      const tinyId = String(p.vendedor_tiny_id);
+    // Mapear vendedores com status de mapeamento
+    // API v3: { id, contato: { nome, codigo, cpfCnpj, email, ... } }
+    const vendedoresComStatus = allVendedores.map(item => {
+      const tinyId = String(item.id);
+      const contato = item.contato || {};
       
-      if (!vendedoresMap.has(tinyId)) {
-        vendedoresMap.set(tinyId, {
-          tiny_id: tinyId,
-          nome: p.vendedor_nome || `Vendedor #${tinyId}`,
-          total_pedidos: 0,
-          pedidos_pendentes: 0,
-        });
-      }
-      
-      const vendedor = vendedoresMap.get(tinyId);
-      vendedor.total_pedidos++;
-      
-      // Atualizar nome se estava vazio e agora tem
-      if (p.vendedor_nome && (!vendedor.nome || vendedor.nome === `Vendedor #${tinyId}`)) {
-        vendedor.nome = p.vendedor_nome;
-      }
-      
-      // Contar pedidos sem colaboradora
-      if (!p.colaboradora_id) {
-        vendedor.pedidos_pendentes++;
-        pedidosSemColaboradora[tinyId] = (pedidosSemColaboradora[tinyId] || 0) + 1;
-      }
-    });
-
-    // Converter Map para Array e adicionar status de mapeamento
-    const vendedoresComStatus = Array.from(vendedoresMap.values()).map(vendedor => {
       // Verificar se este vendedor já está mapeado para alguma colaboradora
-      const colaboradoraMapeada = (colaboradoras || []).find(c => 
-        c.tiny_vendedor_id && String(c.tiny_vendedor_id) === vendedor.tiny_id
+      const colaboradoraMapeada = colaboradoras?.find(c => 
+        c.tiny_vendedor_id && String(c.tiny_vendedor_id) === tinyId
       );
 
       return {
-        ...vendedor,
+        tiny_id: tinyId,
+        nome: contato.nome || `Vendedor #${tinyId}`,
+        cpf: contato.cpfCnpj || null,
+        email: contato.email || null,
+        codigo: contato.codigo || null,
         mapeado: !!colaboradoraMapeada,
         colaboradora_id: colaboradoraMapeada?.id || null,
         colaboradora_nome: colaboradoraMapeada?.nome || null,
       };
+    });
+
+    // Buscar contagem de pedidos pendentes por vendedor
+    const { data: pedidosNaoMapeados } = await supabase
+      .schema('sistemaretiradas')
+      .from('tiny_orders')
+      .select('vendedor_tiny_id')
+      .eq('store_id', finalStoreId)
+      .is('colaboradora_id', null)
+      .not('vendedor_tiny_id', 'is', null);
+
+    // Contar ocorrências de cada vendedor_tiny_id
+    const vendedoresNaoMapeadosCount = {};
+    (pedidosNaoMapeados || []).forEach(p => {
+      const id = String(p.vendedor_tiny_id);
+      vendedoresNaoMapeadosCount[id] = (vendedoresNaoMapeadosCount[id] || 0) + 1;
+    });
+
+    // Adicionar contagem de pedidos pendentes e vendedores ausentes na API
+    const tinyIdsExistentes = new Set(vendedoresComStatus.map(v => v.tiny_id));
+    
+    Object.entries(vendedoresNaoMapeadosCount).forEach(([tinyId, count]) => {
+      const idx = vendedoresComStatus.findIndex(v => v.tiny_id === tinyId);
+      if (idx >= 0) {
+        vendedoresComStatus[idx].pedidos_pendentes = count;
+      } else {
+        // Vendedor existe nos pedidos mas não na API (pode ter sido deletado)
+        vendedoresComStatus.push({
+          tiny_id: tinyId,
+          nome: `[Vendedor #${tinyId} - não encontrado na API]`,
+          cpf: null,
+          email: null,
+          codigo: null,
+          mapeado: false,
+          colaboradora_id: null,
+          colaboradora_nome: null,
+          pedidos_pendentes: count,
+          deletado_do_tiny: true,
+        });
+      }
     });
 
     // Ordenar: não mapeados primeiro, depois por quantidade de pedidos pendentes
@@ -166,8 +225,6 @@ exports.handler = async (event, context) => {
       if (a.mapeado !== b.mapeado) return a.mapeado ? 1 : -1;
       return (b.pedidos_pendentes || 0) - (a.pedidos_pendentes || 0);
     });
-
-    console.log(`[ListVendors] ${vendedoresComStatus.length} vendedores únicos encontrados`);
 
     // Retornar também as colaboradoras não mapeadas
     const colaboradorasNaoMapeadas = (colaboradoras || [])
@@ -177,8 +234,6 @@ exports.handler = async (event, context) => {
         nome: c.nome,
         email: c.email,
       }));
-
-    const totalPedidosSemColaboradora = Object.values(pedidosSemColaboradora).reduce((a, b) => a + b, 0);
 
     return {
       statusCode: 200,
@@ -192,7 +247,7 @@ exports.handler = async (event, context) => {
           mapeados: vendedoresComStatus.filter(v => v.mapeado).length,
           nao_mapeados: vendedoresComStatus.filter(v => !v.mapeado).length,
           colaboradoras_sem_tiny: colaboradorasNaoMapeadas.length,
-          pedidos_sem_colaboradora: totalPedidosSemColaboradora,
+          pedidos_sem_colaboradora: Object.values(vendedoresNaoMapeadosCount).reduce((a, b) => a + b, 0),
         },
       }),
     };
