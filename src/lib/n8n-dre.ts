@@ -162,6 +162,20 @@ export async function getStoreId(providedStoreId?: string): Promise<string> {
 }
 
 /**
+ * Busca o ID do usuário logado via Supabase auth
+ * Usado para o campo created_by_id que o N8N exige
+ */
+export async function getCurrentUserId(): Promise<string> {
+    try {
+        const { data: { user } } = await supabase.auth.getUser()
+        return user?.id || ''
+    } catch (err) {
+        console.warn('[n8n-dre] Erro ao obter user ID:', err)
+        return ''
+    }
+}
+
+/**
  * Busca o site_slug a partir do store_id
  * O N8N espera site_slug, não store_id
  */
@@ -365,6 +379,12 @@ export async function createDRELancamento(data: {
         throw new Error('competencia é obrigatória e deve estar no formato YYYYMM (ex: "202512")')
     }
 
+    // Buscar created_by_id automaticamente se não fornecido
+    let created_by_id = data.created_by_id
+    if (!created_by_id) {
+        created_by_id = await getCurrentUserId()
+    }
+
     const result = await n8nRequest<{
         success: boolean
         data: DRELancamento
@@ -380,7 +400,7 @@ export async function createDRELancamento(data: {
             data_lancamento: dataLancamentoFormatada,
             observacoes: data.observacoes || null,
             site_slug,
-            created_by_id: data.created_by_id || null
+            created_by_id: created_by_id || null
         })
     })
 
@@ -411,6 +431,16 @@ export async function createDRELancamentoIA(data: {
         throw new Error('prompt é obrigatório para lançamento via IA')
     }
 
+    // Buscar created_by_id automaticamente se não fornecido
+    let created_by_id = data.created_by_id
+    if (!created_by_id) {
+        created_by_id = await getCurrentUserId()
+    }
+
+    if (!created_by_id) {
+        throw new Error('created_by_id é obrigatório - usuário não está logado')
+    }
+
     const result = await n8nRequest<{
         success: boolean
         data: DRELancamento
@@ -420,7 +450,7 @@ export async function createDRELancamentoIA(data: {
         body: JSON.stringify({
             prompt: data.prompt,
             site_slug,
-            created_by_id: data.created_by_id || null
+            created_by_id
         })
     })
 
