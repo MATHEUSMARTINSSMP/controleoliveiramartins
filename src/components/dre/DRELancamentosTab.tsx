@@ -24,9 +24,10 @@ interface Props {
     categorias: DRECategoria[]
     lancamentos: Array<DRELancamento & { categoria_nome: string; categoria_tipo: TipoLancamentoDRE }>
     onRefresh: () => void
+    storeId?: string
 }
 
-export default function DRELancamentosTab({ categorias, lancamentos, onRefresh }: Props) {
+export default function DRELancamentosTab({ categorias, lancamentos, onRefresh, storeId }: Props) {
     const [novoManualDialog, setNovoManualDialog] = useState(false)
     const [novoIADialog, setNovoIADialog] = useState(false)
     const [deleteDialog, setDeleteDialog] = useState<string | null>(null)
@@ -77,7 +78,8 @@ export default function DRELancamentosTab({ categorias, lancamentos, onRefresh }
                 valor: parseFloat(formManual.valor) || 0,
                 competencia: competenciaNormalizada,
                 data_lancamento: dataLancamento,
-                observacoes: formManual.observacoes
+                observacoes: formManual.observacoes,
+                store_id: storeId
             })
 
             toast.success('Lançamento criado com sucesso!')
@@ -106,7 +108,8 @@ export default function DRELancamentosTab({ categorias, lancamentos, onRefresh }
         setLoading(true)
         try {
             const resultado = await dre.createDRELancamentoIA({
-                prompt: promptIA
+                prompt: promptIA,
+                store_id: storeId
             })
 
             setResultadoIA(resultado)

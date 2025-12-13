@@ -2,7 +2,8 @@
  * Biblioteca de integração com N8N para DRE
  * Demonstração do Resultado do Exercício
  * 
- * Adaptado de EleveA2Trabalho para usar store_id ao invés de site_slug
+ * IMPORTANTE: O N8N espera receber site_slug, não store_id
+ * Este módulo converte store_id para site_slug automaticamente
  */
 
 import type {
@@ -13,6 +14,7 @@ import type {
     DRECalculo,
     DRERespostaIA
 } from '@/types/dre'
+import { supabase } from '@/integrations/supabase/client'
 
 // ============================================================
 // CONFIGURAÇÃO N8N (usa proxy Netlify para evitar CORS)
@@ -159,6 +161,43 @@ export async function getStoreId(providedStoreId?: string): Promise<string> {
     return ''
 }
 
+/**
+ * Busca o site_slug a partir do store_id
+ * O N8N espera site_slug, não store_id
+ */
+const siteSlugCache: Record<string, string> = {}
+
+export async function getSiteSlug(storeId: string): Promise<string> {
+    if (!storeId) return ''
+    
+    if (siteSlugCache[storeId]) {
+        return siteSlugCache[storeId]
+    }
+
+    try {
+        const { data, error } = await supabase
+            .schema('sistemaretiradas')
+            .from('stores')
+            .select('site_slug')
+            .eq('id', storeId)
+            .single()
+
+        if (error) {
+            console.error('[n8n-dre] Erro ao buscar site_slug:', error)
+            return ''
+        }
+
+        const siteSlug = data?.site_slug || ''
+        if (siteSlug) {
+            siteSlugCache[storeId] = siteSlug
+        }
+        return siteSlug
+    } catch (err) {
+        console.error('[n8n-dre] Erro ao buscar site_slug:', err)
+        return ''
+    }
+}
+
 // ============================================================
 // CATEGORIAS DRE
 // ============================================================
@@ -171,9 +210,10 @@ export async function getDRECategorias(filters?: {
     incluir_globais?: boolean
 }): Promise<DRECategoria[]> {
     const store_id = filters?.store_id || await getStoreId()
+    const site_slug = await getSiteSlug(store_id)
 
     const params = new URLSearchParams()
-    if (store_id) params.append('store_id', store_id)
+    if (site_slug) params.append('site_slug', site_slug)
     if (filters?.incluir_globais !== undefined) {
         params.append('incluir_globais', String(filters.incluir_globais))
     }
@@ -201,9 +241,10 @@ export async function createDRECategoria(data: {
     store_id?: string
 }): Promise<DRECategoria> {
     const store_id = await getStoreId(data.store_id)
+    const site_slug = await getSiteSlug(store_id)
 
-    if (!store_id) {
-        throw new Error('store_id é obrigatório para criar categoria DRE customizada')
+    if (!site_slug) {
+        throw new Error('site_slug é obrigatório para criar categoria DRE customizada')
     }
 
     const result = await n8nRequest<{
@@ -218,7 +259,7 @@ export async function createDRECategoria(data: {
             descricao: data.descricao || null,
             ordem: data.ordem || 0,
             ativo: data.ativo !== undefined ? data.ativo : true,
-            store_id,
+            site_slug,
             is_global: false
         })
     })
@@ -266,9 +307,10 @@ export async function getDRELancamentos(filters?: {
     store_id?: string
 }): Promise<DRELancamento[]> {
     const store_id = await getStoreId(filters?.store_id)
+    const site_slug = await getSiteSlug(store_id)
 
     const params = new URLSearchParams()
-    if (store_id) params.append('store_id', store_id)
+    if (site_slug) params.append('site_slug', site_slug)
     if (filters?.competencia) params.append('competencia', filters.competencia)
     if (filters?.categoria_id) params.append('categoria_id', filters.categoria_id)
     if (filters?.tipo) params.append('tipo', filters.tipo)
@@ -295,9 +337,10 @@ export async function createDRELancamento(data: {
     created_by_id?: string
 }): Promise<DRELancamento> {
     const store_id = await getStoreId(data.store_id)
+    const site_slug = await getSiteSlug(store_id)
 
-    if (!store_id) {
-        throw new Error('store_id é obrigatório para criar lançamento DRE')
+    if (!site_slug) {
+        throw new Error('site_slug é obrigatório para criar lançamento DRE')
     }
 
     if (!data.data_lancamento) {
@@ -329,14 +372,14 @@ export async function createDRELancamento(data: {
     }>(`/api/dre/lancamentos`, {
         method: 'POST',
         body: JSON.stringify({
-            tipo: 'manual', // Indica que é lançamento manual
+            tipo: 'manual',
             categoria_id: data.categoria_id,
             descricao: data.descricao,
             valor: data.valor,
             competencia: competenciaFormatada,
             data_lancamento: dataLancamentoFormatada,
             observacoes: data.observacoes || null,
-            store_id,
+            site_slug,
             created_by_id: data.created_by_id || null
         })
     })
@@ -358,9 +401,10 @@ export async function createDRELancamentoIA(data: {
     created_by_id?: string
 }): Promise<DRELancamento> {
     const store_id = await getStoreId(data.store_id)
+    const site_slug = await getSiteSlug(store_id)
 
-    if (!store_id) {
-        throw new Error('store_id é obrigatório para criar lançamento via IA')
+    if (!site_slug) {
+        throw new Error('site_slug é obrigatório para criar lançamento via IA')
     }
 
     if (!data.prompt || !data.prompt.trim()) {
@@ -375,7 +419,7 @@ export async function createDRELancamentoIA(data: {
         method: 'POST',
         body: JSON.stringify({
             prompt: data.prompt,
-            store_id,
+            site_slug,
             created_by_id: data.created_by_id || null
         })
     })
@@ -422,13 +466,14 @@ export async function getDREAnalytics(filters?: {
     periodo_fim?: string // YYYY-MM-DD
 }): Promise<DREAnalytics> {
     const store_id = await getStoreId(filters?.store_id)
+    const site_slug = await getSiteSlug(store_id)
 
-    if (!store_id) {
-        throw new Error('store_id é obrigatório para obter analytics DRE')
+    if (!site_slug) {
+        throw new Error('site_slug é obrigatório para obter analytics DRE')
     }
 
     const params = new URLSearchParams()
-    params.append('store_id', store_id)
+    params.append('site_slug', site_slug)
 
     if (filters?.periodo_inicio) {
         let periodoInicio = filters.periodo_inicio
@@ -487,9 +532,10 @@ export async function perguntarDRE(data: {
     store_id?: string
 }): Promise<DRERespostaIA> {
     const store_id = await getStoreId(data.store_id)
+    const site_slug = await getSiteSlug(store_id)
 
-    if (!store_id) {
-        throw new Error('store_id é obrigatório para fazer perguntas sobre DRE')
+    if (!site_slug) {
+        throw new Error('site_slug é obrigatório para fazer perguntas sobre DRE')
     }
 
     const result = await n8nRequest<{
@@ -500,7 +546,7 @@ export async function perguntarDRE(data: {
         method: 'POST',
         body: JSON.stringify({
             pergunta: data.pergunta,
-            store_id
+            site_slug
         })
     })
 

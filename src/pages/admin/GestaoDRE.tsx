@@ -199,6 +199,7 @@ export default function GestaoDRE() {
                         categorias={categorias}
                         lancamentos={lancamentos}
                         onRefresh={loadData}
+                        storeId={selectedStoreId === 'all' ? undefined : selectedStoreId}
                     />
                 </TabsContent>
 
