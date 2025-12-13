@@ -47,17 +47,31 @@ export default function DREAssistenteIA() {
         try {
             const resposta = await dre.perguntarDRE({ pergunta })
 
-            // Adicionar resposta da IA
-            setMessages(prev => [...prev, {
-                type: 'ai',
-                content: resposta.resposta,
-                calculos: resposta.calculos
-            }])
+            // Se N8N não está configurado, mostrar mensagem informativa
+            if (!resposta || (resposta as any).error?.includes('N8N não configurado')) {
+                setMessages(prev => [...prev, {
+                    type: 'ai',
+                    content: 'Assistente IA não está configurado. Configure VITE_N8N_BASE_URL para usar esta funcionalidade.'
+                }])
+            } else {
+                // Adicionar resposta da IA
+                setMessages(prev => [...prev, {
+                    type: 'ai',
+                    content: resposta.resposta,
+                    calculos: resposta.calculos
+                }])
+            }
         } catch (err: any) {
-            toast.error('Erro ao processar pergunta: ' + err.message)
+            const errorMsg = err.message || 'Erro desconhecido'
+            // Não mostrar toast se for erro de N8N não configurado (já mostramos mensagem na UI)
+            if (!errorMsg.includes('N8N não configurado')) {
+                toast.error('Erro ao processar pergunta: ' + errorMsg)
+            }
             setMessages(prev => [...prev, {
                 type: 'ai',
-                content: 'Desculpe, não consegui processar sua pergunta. Tente novamente.'
+                content: errorMsg.includes('N8N não configurado') 
+                    ? 'Assistente IA não está configurado. Configure VITE_N8N_BASE_URL para usar esta funcionalidade.'
+                    : 'Desculpe, não consegui processar sua pergunta. Tente novamente.'
             }])
         } finally {
             setLoading(false)

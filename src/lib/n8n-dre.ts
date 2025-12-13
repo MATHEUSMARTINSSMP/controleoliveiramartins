@@ -42,13 +42,13 @@ function authHeaders(): Record<string, string> {
 }
 
 async function n8nRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const finalUrl = url(endpoint)
-
     if (!BASE) {
         const errorMsg = 'N8N não configurado: VITE_N8N_BASE_URL não definido'
         console.error('[n8n-dre]', errorMsg)
         throw new Error(errorMsg)
     }
+
+    const finalUrl = url(endpoint)
 
     if (typeof window !== 'undefined' && (import.meta.env.DEV || import.meta.env.MODE === 'development')) {
         console.log('[n8n-dre] Chamando:', finalUrl)
@@ -517,6 +517,14 @@ export async function perguntarDRE(data: {
             store_id
         })
     })
+
+    // Se N8N não está configurado, retornar resposta vazia com erro
+    if (!result.success && result.error?.includes('N8N não configurado')) {
+        return {
+            resposta: 'Assistente IA não está configurado. Configure VITE_N8N_BASE_URL para usar esta funcionalidade.',
+            calculos: []
+        } as DRERespostaIA
+    }
 
     if (!result.success) {
         throw new Error(result.error || 'Erro ao processar pergunta via IA')

@@ -4,9 +4,11 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { BarChart3, TrendingUp, TrendingDown, DollarSign, Sparkles } from 'lucide-react'
+import { BarChart3, TrendingUp, TrendingDown, DollarSign, Sparkles, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import * as dre from '@/lib/n8n-dre'
 import type { DRECategoria, DRELancamento } from '@/types/dre'
@@ -23,6 +25,7 @@ interface DRELancamentoCompleto extends DRELancamento {
 }
 
 export default function GestaoDRE() {
+    const navigate = useNavigate()
     const [categorias, setCategorias] = useState<DRECategoria[]>([])
     const [lancamentos, setLancamentos] = useState<DRELancamentoCompleto[]>([])
     const [loading, setLoading] = useState(true)
@@ -56,8 +59,13 @@ export default function GestaoDRE() {
 
             setLancamentos(lancamentosCompletos)
         } catch (err: any) {
-            console.error('Erro ao carregar dados DRE:', err)
-            toast.error('Erro ao carregar dados: ' + (err.message || 'Erro desconhecido'))
+            // Não mostrar erro se for erro de N8N não configurado (já retorna valores vazios)
+            const errorMsg = err.message || 'Erro desconhecido'
+            if (!errorMsg.includes('N8N não configurado')) {
+                console.error('Erro ao carregar dados DRE:', err)
+                toast.error('Erro ao carregar dados: ' + errorMsg)
+            }
+            // Se N8N não está configurado, simplesmente usar arrays vazios (já são os valores padrão)
         } finally {
             setLoading(false)
         }
@@ -88,6 +96,12 @@ export default function GestaoDRE() {
 
     return (
         <div className="container mx-auto p-6 space-y-6">
+            {/* Botão Voltar */}
+            <Button variant="ghost" onClick={() => navigate("/admin")} className="mb-4" size="sm">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar
+            </Button>
+
             {/* Cabeçalho */}
             <div className="flex items-center justify-between">
                 <div>
