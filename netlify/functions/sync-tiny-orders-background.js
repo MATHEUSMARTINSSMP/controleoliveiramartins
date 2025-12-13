@@ -1928,19 +1928,30 @@ async function findCollaboratorByVendedor(supabase, storeId, vendedor) {
     const normalizeCPF = (cpf) => cpf ? String(cpf).replace(/\D/g, '') : null;
     const normalizedVendedorCPF = normalizeCPF(vendedorCompleto.cpf);
 
-    // Função auxiliar para salvar tiny_vendedor_id quando encontrar match
-    const saveVendedorIdMapping = async (colaboradoraId, tinyVendedorId) => {
+    // Função auxiliar para CASAR PERMANENTEMENTE tiny_vendedor_id quando encontrar match
+    // IMUTÁVEL: Uma vez casados, os IDs ficam vinculados para sempre
+    const saveVendedorIdMapping = async (colaboradoraId, tinyVendedorId, colaboradoraNome, matchType) => {
       if (!tinyVendedorId) return;
       try {
-        await supabase
+        const { data, error } = await supabase
           .schema('sistemaretiradas')
           .from('profiles')
-          .update({ tiny_vendedor_id: String(tinyVendedorId) })
+          .update({ 
+            tiny_vendedor_id: String(tinyVendedorId),
+            tiny_vendedor_mapeado_em: new Date().toISOString(),
+            tiny_vendedor_match_tipo: matchType // CPF, NOME_EXATO, NOME_PARCIAL, EMAIL
+          })
           .eq('id', colaboradoraId)
-          .is('tiny_vendedor_id', null); // Só atualiza se ainda não tiver
-        console.log(`[SyncBackground] 💾 Salvou tiny_vendedor_id ${tinyVendedorId} para colaboradora ${colaboradoraId}`);
+          .is('tiny_vendedor_id', null) // Só atualiza se ainda não tiver (IMUTÁVEL)
+          .select();
+        
+        if (data && data.length > 0) {
+          console.log(`[SyncBackground] 🔒 CASAMENTO PERMANENTE: tiny_vendedor_id ${tinyVendedorId} -> colaboradora ${colaboradoraNome} (${colaboradoraId}) [Match: ${matchType}]`);
+        } else if (!error) {
+          console.log(`[SyncBackground] ℹ️ Colaboradora ${colaboradoraNome} já tem tiny_vendedor_id mapeado (imutável)`);
+        }
       } catch (err) {
-        console.warn(`[SyncBackground] ⚠️ Erro ao salvar tiny_vendedor_id:`, err);
+        console.warn(`[SyncBackground] ⚠️ Erro ao salvar mapeamento:`, err);
       }
     };
 
@@ -1952,22 +1963,22 @@ async function findCollaboratorByVendedor(supabase, storeId, vendedor) {
       });
       if (matchByCPF) {
         console.log(`[SyncBackground] ✅ Match por CPF: ${vendedorCompleto.nome} -> ${matchByCPF.name}`);
-        // Salvar mapeamento para futuras sincronizações
+        // CASAR PERMANENTEMENTE para futuras sincronizações
         if (vendedorCompleto.id && !matchByCPF.tiny_vendedor_id) {
-          await saveVendedorIdMapping(matchByCPF.id, vendedorCompleto.id);
+          await saveVendedorIdMapping(matchByCPF.id, vendedorCompleto.id, matchByCPF.name, 'CPF');
         }
         return matchByCPF.id;
       }
     }
 
-    // ✅ 2. NOVO: Tentar matching por tiny_vendedor_id (ID do Tiny - muito confiável)
+    // ✅ 2. Tentar matching por tiny_vendedor_id JÁ CASADO (imutável, mais rápido)
     if (vendedorCompleto.id) {
       const vendedorTinyId = String(vendedorCompleto.id);
       const matchByTinyId = colaboradoras.find((colab) => {
         return colab.tiny_vendedor_id && String(colab.tiny_vendedor_id) === vendedorTinyId;
       });
       if (matchByTinyId) {
-        console.log(`[SyncBackground] ✅ Match por Tiny ID: ${vendedorCompleto.nome} (ID: ${vendedorTinyId}) -> ${matchByTinyId.name}`);
+        console.log(`[SyncBackground] ✅ Match por Tiny ID (CASADO): ${vendedorCompleto.nome} (ID: ${vendedorTinyId}) -> ${matchByTinyId.name}`);
         return matchByTinyId.id;
       }
     }
@@ -1979,6 +1990,10 @@ async function findCollaboratorByVendedor(supabase, storeId, vendedor) {
       );
       if (matchByEmail) {
         console.log(`[SyncBackground] ✅ Match por Email: ${vendedorCompleto.nome} -> ${matchByEmail.name}`);
+        // CASAR PERMANENTEMENTE
+        if (vendedorCompleto.id && !matchByEmail.tiny_vendedor_id) {
+          await saveVendedorIdMapping(matchByEmail.id, vendedorCompleto.id, matchByEmail.name, 'EMAIL');
+        }
         return matchByEmail.id;
       }
     }
@@ -2005,9 +2020,9 @@ async function findCollaboratorByVendedor(supabase, storeId, vendedor) {
 
       if (matchByExactName) {
         console.log(`[SyncBackground] ✅ Match por Nome Exato: ${vendedorCompleto.nome} -> ${matchByExactName.name}`);
-        // Salvar mapeamento para futuras sincronizações
+        // CASAR PERMANENTEMENTE
         if (vendedorCompleto.id && !matchByExactName.tiny_vendedor_id) {
-          await saveVendedorIdMapping(matchByExactName.id, vendedorCompleto.id);
+          await saveVendedorIdMapping(matchByExactName.id, vendedorCompleto.id, matchByExactName.name, 'NOME_EXATO');
         }
         return matchByExactName.id;
       }
@@ -2022,9 +2037,9 @@ async function findCollaboratorByVendedor(supabase, storeId, vendedor) {
 
       if (matchByPartialName) {
         console.log(`[SyncBackground] ✅ Match por Nome Parcial: ${vendedorCompleto.nome} -> ${matchByPartialName.name}`);
-        // Salvar mapeamento para futuras sincronizações
+        // CASAR PERMANENTEMENTE
         if (vendedorCompleto.id && !matchByPartialName.tiny_vendedor_id) {
-          await saveVendedorIdMapping(matchByPartialName.id, vendedorCompleto.id);
+          await saveVendedorIdMapping(matchByPartialName.id, vendedorCompleto.id, matchByPartialName.name, 'NOME_PARCIAL');
         }
         return matchByPartialName.id;
       }
