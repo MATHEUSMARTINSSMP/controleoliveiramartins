@@ -280,7 +280,7 @@ async function getDRECategoriasViaN8N(filters?: {
         success: boolean
         data: DRECategoria[]
         error?: string
-    }>(`/api/dre/categorias${params.toString() ? `?${params.toString()}` : ''}`, {
+    }>(`/api/financeiro/dre/categorias${params.toString() ? `?${params.toString()}` : ''}`, {
         method: 'GET'
     })
 
