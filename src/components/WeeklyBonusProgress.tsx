@@ -192,17 +192,13 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
             const monthlyGoalsMap = new Map((monthlyGoalsData || []).map((g: any) => [g.colaboradora_id, g]));
 
             // Buscar vendas da semana para cada colaboradora
-            // Usar timezone do Brasil (-03:00)
-            const startDateStr = range.start.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-            const endDateStr = range.end.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-            
             const { data: salesData } = await supabase
                 .schema("sistemaretiradas")
                 .from("sales")
                 .select("colaboradora_id, valor, data_venda")
                 .eq("store_id", storeId)
-                .gte("data_venda", `${startDateStr}T00:00:00-03:00`)
-                .lte("data_venda", `${endDateStr}T23:59:59-03:00`);
+                .gte("data_venda", format(range.start, "yyyy-MM-dd'T'00:00:00"))
+                .lte("data_venda", format(range.end, "yyyy-MM-dd'T'23:59:59"));
 
             // Buscar vendas de hoje
             const { data: salesTodayData } = await supabase
@@ -210,8 +206,8 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
                 .from("sales")
                 .select("colaboradora_id, valor")
                 .eq("store_id", storeId)
-                .gte("data_venda", `${today}T00:00:00-03:00`)
-                .lte("data_venda", `${today}T23:59:59-03:00`);
+                .gte("data_venda", `${today}T00:00:00`)
+                .lte("data_venda", `${today}T23:59:59`);
 
             const salesByCollaborator = new Map<string, number>();
             salesData?.forEach((sale: any) => {
