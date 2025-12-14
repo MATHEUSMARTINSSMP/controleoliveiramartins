@@ -312,8 +312,8 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                             .from("sales")
                             .select("valor")
                             .eq("colaboradora_id", colaboradoraId)
-                            .gte("data_venda", format(semanaAnteriorRange.start, "yyyy-MM-dd"))
-                            .lte("data_venda", format(semanaAnteriorRange.end, "yyyy-MM-dd"));
+                            .gte("data_venda", format(semanaAnteriorRange.start, "yyyy-MM-dd'T'00:00:00"))
+                            .lte("data_venda", format(semanaAnteriorRange.end, "yyyy-MM-dd'T'23:59:59"));
                         
                         const realizadoSemanaAnterior = salesSemanaAnterior?.reduce((sum, sale) => sum + parseFloat(sale.valor || '0'), 0) || 0;
                         

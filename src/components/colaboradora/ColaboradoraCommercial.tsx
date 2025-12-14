@@ -61,8 +61,8 @@ export const ColaboradoraCommercial = () => {
             .from("sales")
             .select("valor")
             .eq("colaboradora_id", profile.id)
-            .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
-            .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+            .gte("data_venda", format(weekRange.start, "yyyy-MM-dd'T'00:00:00"))
+            .lte("data_venda", format(weekRange.end, "yyyy-MM-dd'T'23:59:59"));
 
           const realizado = sales?.reduce((sum, s) => sum + Number(s.valor || 0), 0) || 0;
 

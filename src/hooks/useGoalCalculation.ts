@@ -111,8 +111,8 @@ export const useGoalCalculation = (
           .from('sales')
           .select('data_venda, valor, qtd_pecas')
           .eq('colaboradora_id', colaboradoraId)
-          .gte('data_venda', format(inicioMes, 'yyyy-MM-dd'))
-          .lte('data_venda', format(fimMes, 'yyyy-MM-dd'))
+          .gte('data_venda', format(inicioMes, "yyyy-MM-dd'T'00:00:00"))
+          .lte('data_venda', format(fimMes, "yyyy-MM-dd'T'23:59:59"))
           .order('data_venda', { ascending: true });
 
         const vendas: SalesData[] = (sales || []).map(s => ({

@@ -350,8 +350,8 @@ async function validateSinglePreRequisito(
                 .from("sales")
                 .select("valor")
                 .eq("store_id", storeId)
-                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
-                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd'T'00:00:00"))
+                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd'T'23:59:59"));
 
             const totalVendido = vendasSemana?.reduce((sum, v) => sum + Number(v.valor || 0), 0) || 0;
             const bateuMeta = totalVendido >= metaSemanalValor;
@@ -428,8 +428,8 @@ async function validateSinglePreRequisito(
                 .from("sales")
                 .select("valor")
                 .eq("store_id", storeId)
-                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
-                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd'T'00:00:00"))
+                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd'T'23:59:59"));
 
             const totalVendido = vendasSemana?.reduce((sum, v) => sum + Number(v.valor || 0), 0) || 0;
             const bateuMeta = totalVendido >= metaSemanalValor;
@@ -507,8 +507,8 @@ async function validateSinglePreRequisito(
                 .from("sales")
                 .select("valor")
                 .eq("colaboradora_id", colaboradoraId)
-                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
-                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd'T'00:00:00"))
+                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd'T'23:59:59"));
 
             const totalVendido = vendasSemana?.reduce((sum, v) => sum + Number(v.valor || 0), 0) || 0;
             const bateuMeta = totalVendido >= metaSemanalValor;
@@ -586,8 +586,8 @@ async function validateSinglePreRequisito(
                 .from("sales")
                 .select("valor")
                 .eq("colaboradora_id", colaboradoraId)
-                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
-                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd'T'00:00:00"))
+                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd'T'23:59:59"));
 
             const totalVendido = vendasSemana?.reduce((sum, v) => sum + Number(v.valor || 0), 0) || 0;
             const bateuMeta = totalVendido >= metaSemanalValor;

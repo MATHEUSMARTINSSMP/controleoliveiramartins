@@ -197,8 +197,8 @@ const WeeklyBonusProgress: React.FC<WeeklyBonusProgressProps> = ({ storeId, cola
                 .from("sales")
                 .select("colaboradora_id, valor, data_venda")
                 .eq("store_id", storeId)
-                .gte("data_venda", format(range.start, "yyyy-MM-dd"))
-                .lte("data_venda", format(range.end, "yyyy-MM-dd"));
+                .gte("data_venda", format(range.start, "yyyy-MM-dd'T'00:00:00"))
+                .lte("data_venda", format(range.end, "yyyy-MM-dd'T'23:59:59"));
 
             // Buscar vendas de hoje
             const { data: salesTodayData } = await supabase
