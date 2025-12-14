@@ -396,6 +396,294 @@ GRANT ALL ON sistemaretiradas.linx_microvix_vendas TO service_role;
 GRANT ALL ON sistemaretiradas.linx_microvix_vendas_itens TO service_role;
 GRANT ALL ON sistemaretiradas.linx_microvix_sync_log TO service_role;
 
+-- #############################################################################
+-- PARTE 4: VIEWS ÚTEIS
+-- #############################################################################
+
+-- View: Resumo de vendas por loja
+CREATE OR REPLACE VIEW sistemaretiradas.vw_linx_microvix_vendas_resumo AS
+SELECT 
+    v.store_id,
+    s.name as store_name,
+    DATE_TRUNC('day', v.data_venda) as data,
+    COUNT(*) as total_vendas,
+    SUM(v.valor_liquido) as valor_total,
+    COUNT(DISTINCT v.doc_cliente) as clientes_unicos,
+    COUNT(DISTINCT v.cod_vendedor) as vendedores_ativos
+FROM sistemaretiradas.linx_microvix_vendas v
+JOIN sistemaretiradas.stores s ON s.id = v.store_id
+WHERE v.cancelado = false
+GROUP BY v.store_id, s.name, DATE_TRUNC('day', v.data_venda);
+
+-- View: Resumo de fidelidade por loja
+CREATE OR REPLACE VIEW sistemaretiradas.vw_linx_microvix_fidelidade_resumo AS
+SELECT 
+    c.store_id,
+    s.name as store_name,
+    COUNT(*) as total_clientes,
+    COUNT(*) FILTER (WHERE c.cliente_cadastrado = true) as clientes_cadastrados,
+    SUM(c.saldo_disponivel) as saldo_total_disponivel,
+    MAX(c.last_sync_at) as ultima_sincronizacao
+FROM sistemaretiradas.linx_microvix_clientes c
+JOIN sistemaretiradas.stores s ON s.id = c.store_id
+GROUP BY c.store_id, s.name;
+
+-- View: Status das integrações por loja
+CREATE OR REPLACE VIEW sistemaretiradas.vw_linx_microvix_status AS
+SELECT 
+    cfg.store_id,
+    s.name as store_name,
+    cfg.cnpj,
+    cfg.hub_active,
+    cfg.hub_sync_status,
+    cfg.hub_last_sync_at,
+    cfg.ws_active,
+    cfg.ws_sync_status,
+    cfg.ws_last_sync_at,
+    cfg.ws_last_timestamp,
+    (SELECT COUNT(*) FROM sistemaretiradas.linx_microvix_vendas v WHERE v.store_id = cfg.store_id) as total_vendas,
+    (SELECT COUNT(*) FROM sistemaretiradas.linx_microvix_clientes c WHERE c.store_id = cfg.store_id) as total_clientes_fidelidade
+FROM sistemaretiradas.linx_microvix_config cfg
+JOIN sistemaretiradas.stores s ON s.id = cfg.store_id
+WHERE cfg.active = true;
+
+-- #############################################################################
+-- PARTE 5: FUNÇÕES ÚTEIS
+-- #############################################################################
+
+-- Função: Buscar configuração Linx por store_id
+CREATE OR REPLACE FUNCTION sistemaretiradas.get_linx_microvix_config(p_store_id UUID)
+RETURNS sistemaretiradas.linx_microvix_config AS $$
+DECLARE
+    v_config sistemaretiradas.linx_microvix_config;
+BEGIN
+    SELECT * INTO v_config
+    FROM sistemaretiradas.linx_microvix_config
+    WHERE store_id = p_store_id AND active = true
+    LIMIT 1;
+    
+    RETURN v_config;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Função: Atualizar saldo do cliente
+CREATE OR REPLACE FUNCTION sistemaretiradas.update_linx_cliente_saldo(
+    p_store_id UUID,
+    p_cpf VARCHAR(14),
+    p_saldo_atual DECIMAL(15,2),
+    p_saldo_disponivel DECIMAL(15,2)
+)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE sistemaretiradas.linx_microvix_clientes
+    SET 
+        saldo_atual = p_saldo_atual,
+        saldo_disponivel = p_saldo_disponivel,
+        last_sync_at = NOW(),
+        updated_at = NOW()
+    WHERE store_id = p_store_id AND cpf = p_cpf;
+    
+    IF NOT FOUND THEN
+        INSERT INTO sistemaretiradas.linx_microvix_clientes (store_id, cpf, saldo_atual, saldo_disponivel, cliente_cadastrado)
+        VALUES (p_store_id, p_cpf, p_saldo_atual, p_saldo_disponivel, true);
+    END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Função: Atualizar timestamp após sync de vendas
+CREATE OR REPLACE FUNCTION sistemaretiradas.update_linx_ws_timestamp(
+    p_store_id UUID,
+    p_new_timestamp BIGINT
+)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE sistemaretiradas.linx_microvix_config
+    SET 
+        ws_last_timestamp = p_new_timestamp,
+        ws_last_sync_at = NOW(),
+        ws_sync_status = 'CONNECTED',
+        ws_error_message = NULL,
+        updated_at = NOW()
+    WHERE store_id = p_store_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Função: Registrar log de sync
+CREATE OR REPLACE FUNCTION sistemaretiradas.log_linx_sync(
+    p_store_id UUID,
+    p_tipo_sync VARCHAR(50),
+    p_metodo VARCHAR(100),
+    p_timestamp_inicio BIGINT,
+    p_timestamp_fim BIGINT,
+    p_registros_processados INTEGER,
+    p_registros_inseridos INTEGER,
+    p_registros_atualizados INTEGER,
+    p_registros_erro INTEGER,
+    p_status VARCHAR(20),
+    p_error_message TEXT DEFAULT NULL,
+    p_duracao_ms INTEGER DEFAULT NULL
+)
+RETURNS UUID AS $$
+DECLARE
+    v_id UUID;
+BEGIN
+    INSERT INTO sistemaretiradas.linx_microvix_sync_log (
+        store_id,
+        tipo_sync,
+        metodo,
+        timestamp_inicio,
+        timestamp_fim,
+        registros_processados,
+        registros_inseridos,
+        registros_atualizados,
+        registros_erro,
+        status,
+        error_message,
+        duracao_ms,
+        finished_at
+    ) VALUES (
+        p_store_id,
+        p_tipo_sync,
+        p_metodo,
+        p_timestamp_inicio,
+        p_timestamp_fim,
+        p_registros_processados,
+        p_registros_inseridos,
+        p_registros_atualizados,
+        p_registros_erro,
+        p_status,
+        p_error_message,
+        p_duracao_ms,
+        CASE WHEN p_status IN ('SUCCESS', 'ERROR') THEN NOW() ELSE NULL END
+    )
+    RETURNING id INTO v_id;
+    
+    RETURN v_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Função: Upsert de venda
+CREATE OR REPLACE FUNCTION sistemaretiradas.upsert_linx_venda(
+    p_store_id UUID,
+    p_id_transacao VARCHAR(100),
+    p_numero_documento VARCHAR(50),
+    p_serie_documento VARCHAR(10),
+    p_tipo_movimento VARCHAR(50),
+    p_cod_cliente VARCHAR(50),
+    p_doc_cliente VARCHAR(20),
+    p_nome_cliente VARCHAR(255),
+    p_cod_vendedor VARCHAR(50),
+    p_nome_vendedor VARCHAR(255),
+    p_valor_bruto DECIMAL(15,2),
+    p_valor_desconto DECIMAL(15,2),
+    p_valor_liquido DECIMAL(15,2),
+    p_valor_frete DECIMAL(15,2),
+    p_data_venda TIMESTAMPTZ,
+    p_data_emissao TIMESTAMPTZ,
+    p_situacao VARCHAR(50),
+    p_cancelado BOOLEAN,
+    p_forma_pagamento VARCHAR(100),
+    p_observacao TEXT,
+    p_dados_originais JSONB,
+    p_timestamp_linx BIGINT
+)
+RETURNS UUID AS $$
+DECLARE
+    v_id UUID;
+BEGIN
+    INSERT INTO sistemaretiradas.linx_microvix_vendas (
+        store_id,
+        id_transacao,
+        numero_documento,
+        serie_documento,
+        tipo_movimento,
+        cod_cliente,
+        doc_cliente,
+        nome_cliente,
+        cod_vendedor,
+        nome_vendedor,
+        valor_bruto,
+        valor_desconto,
+        valor_liquido,
+        valor_frete,
+        data_venda,
+        data_emissao,
+        situacao,
+        cancelado,
+        forma_pagamento,
+        observacao,
+        dados_originais,
+        timestamp_linx,
+        synced_at
+    ) VALUES (
+        p_store_id,
+        p_id_transacao,
+        p_numero_documento,
+        p_serie_documento,
+        p_tipo_movimento,
+        p_cod_cliente,
+        p_doc_cliente,
+        p_nome_cliente,
+        p_cod_vendedor,
+        p_nome_vendedor,
+        p_valor_bruto,
+        p_valor_desconto,
+        p_valor_liquido,
+        p_valor_frete,
+        p_data_venda,
+        p_data_emissao,
+        p_situacao,
+        p_cancelado,
+        p_forma_pagamento,
+        p_observacao,
+        p_dados_originais,
+        p_timestamp_linx,
+        NOW()
+    )
+    ON CONFLICT (store_id, id_transacao) DO UPDATE SET
+        numero_documento = EXCLUDED.numero_documento,
+        serie_documento = EXCLUDED.serie_documento,
+        tipo_movimento = EXCLUDED.tipo_movimento,
+        cod_cliente = EXCLUDED.cod_cliente,
+        doc_cliente = EXCLUDED.doc_cliente,
+        nome_cliente = EXCLUDED.nome_cliente,
+        cod_vendedor = EXCLUDED.cod_vendedor,
+        nome_vendedor = EXCLUDED.nome_vendedor,
+        valor_bruto = EXCLUDED.valor_bruto,
+        valor_desconto = EXCLUDED.valor_desconto,
+        valor_liquido = EXCLUDED.valor_liquido,
+        valor_frete = EXCLUDED.valor_frete,
+        data_venda = EXCLUDED.data_venda,
+        data_emissao = EXCLUDED.data_emissao,
+        situacao = EXCLUDED.situacao,
+        cancelado = EXCLUDED.cancelado,
+        forma_pagamento = EXCLUDED.forma_pagamento,
+        observacao = EXCLUDED.observacao,
+        dados_originais = EXCLUDED.dados_originais,
+        timestamp_linx = EXCLUDED.timestamp_linx,
+        synced_at = NOW(),
+        updated_at = NOW()
+    RETURNING id INTO v_id;
+    
+    RETURN v_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- #############################################################################
+-- PARTE 6: COMENTÁRIOS
+-- #############################################################################
+
+COMMENT ON TABLE sistemaretiradas.linx_microvix_config IS 'Configurações de integração Linx Microvix (Hub Fidelidade + WebService de Saída) por store_id';
+COMMENT ON TABLE sistemaretiradas.linx_microvix_parceiros IS 'Cache de parceiros de fidelidade da Linx';
+COMMENT ON TABLE sistemaretiradas.linx_microvix_clientes IS 'Clientes do Hub Fidelidade com saldo de pontos';
+COMMENT ON TABLE sistemaretiradas.linx_microvix_transacoes IS 'Log de transações com o Hub Fidelidade';
+COMMENT ON TABLE sistemaretiradas.linx_microvix_campanhas IS 'Campanhas de fidelidade ativas';
+COMMENT ON TABLE sistemaretiradas.linx_microvix_bonus IS 'Histórico de bônus (geração, resgate, estorno)';
+COMMENT ON TABLE sistemaretiradas.linx_microvix_vendas IS 'Vendas sincronizadas do WebService de Saída Microvix';
+COMMENT ON TABLE sistemaretiradas.linx_microvix_vendas_itens IS 'Itens das vendas sincronizadas';
+COMMENT ON TABLE sistemaretiradas.linx_microvix_sync_log IS 'Log de sincronizações do WebService';
+
 -- =============================================================================
--- FIM DO SQL - Linx Microvix Integration
+-- FIM DO SQL - Linx Microvix Integration (V2 - RLS Simplificado)
+-- Cada loja (store_id) tem suas próprias credenciais Hub + WebService
 -- =============================================================================
