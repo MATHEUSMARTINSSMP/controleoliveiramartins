@@ -9,6 +9,14 @@ import { useToast } from '@/hooks/use-toast';
 import { QUERY_KEYS } from './types';
 import { format, startOfWeek, getWeek, getYear } from 'date-fns';
 
+/**
+ * Retorna a data atual no fuso horário de Brasília (America/Sao_Paulo)
+ * Isso evita problemas quando o servidor está em UTC
+ */
+function getBrazilDateString(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
 interface Sale {
   id: string;
   colaboradora_id: string;
@@ -102,7 +110,7 @@ export function useStoreSettings(storeId: string | null | undefined) {
 }
 
 export function useStoreSales(storeId: string | null | undefined, filterDate?: string) {
-  const dateFilter = filterDate || format(new Date(), 'yyyy-MM-dd');
+  const dateFilter = filterDate || getBrazilDateString();
 
   return useQuery({
     queryKey: [QUERY_KEYS.sales, 'store', storeId, dateFilter],
@@ -242,7 +250,7 @@ export function useStoreGoals(storeId: string | null | undefined) {
 }
 
 export function useStoreMetrics(storeId: string | null | undefined) {
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const today = getBrazilDateString();
 
   return useQuery({
     queryKey: [QUERY_KEYS.sales, 'metrics', storeId, today],
