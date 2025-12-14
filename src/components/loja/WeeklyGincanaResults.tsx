@@ -14,6 +14,14 @@ const getSupabaseClient = async () => {
     return supabase;
 };
 
+/**
+ * Retorna uma data no fuso horário de Brasília (America/Sao_Paulo)
+ * para garantir que as queries usem o timezone correto
+ */
+const getBrazilDateString = (date: Date): string => {
+    return date.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+};
+
 const getWeekNumber = (date: Date): number => {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     const dayNum = d.getUTCDay() || 7;
@@ -183,13 +191,17 @@ export default function WeeklyGincanaResults({
             const weekRange = getWeekRange(weekRef);
 
             // 1. Buscar todas as vendas da semana para a loja
+            // Usar timezone do Brasil para garantir que as datas estejam corretas
+            const startDateStr = getBrazilDateString(weekRange.start);
+            const endDateStr = getBrazilDateString(weekRange.end);
+            
             const { data: allSales, error: allSalesError } = await supabase
                 .schema("sistemaretiradas")
                 .from("sales")
                 .select("valor, colaboradora_id, profiles!sales_colaboradora_id_fkey(name)")
                 .eq("store_id", storeId)
-                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd'T'00:00:00"))
-                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd'T'23:59:59"));
+                .gte("data_venda", `${startDateStr}T00:00:00-03:00`)
+                .lte("data_venda", `${endDateStr}T23:59:59-03:00`);
 
             if (allSalesError) throw allSalesError;
 

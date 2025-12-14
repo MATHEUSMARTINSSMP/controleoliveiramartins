@@ -8,6 +8,13 @@ import { format, startOfWeek, endOfWeek, getWeek, getYear, addWeeks, addDays, ea
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/utils";
 
+/**
+ * Retorna uma data no fuso horário de Brasília (America/Sao_Paulo)
+ */
+const getBrazilDateString = (date: Date): string => {
+    return date.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+};
+
 interface WeeklyGoalProgressProps {
     storeId?: string;
     colaboradoraId?: string;
@@ -404,6 +411,10 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
             }
 
             // Fetch sales for the week (incluindo colaboradoras desativadas até a data de desativação)
+            // Usar timezone do Brasil (-03:00) para garantir que as datas estejam corretas
+            const startDateStr = getBrazilDateString(weekRange.start);
+            const endDateStr = getBrazilDateString(addDays(weekRange.end, 1));
+            
             const salesQuery = colaboradoraId
                 ? supabase
                     .schema("sistemaretiradas")
@@ -417,8 +428,8 @@ const WeeklyGoalProgress: React.FC<WeeklyGoalProgressProps> = ({
                     .eq("store_id", storeId);
 
             const { data: salesData } = await salesQuery
-                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
-                .lt("data_venda", format(addDays(weekRange.end, 1), "yyyy-MM-dd"));
+                .gte("data_venda", `${startDateStr}T00:00:00-03:00`)
+                .lt("data_venda", `${endDateStr}T00:00:00-03:00`);
 
             // Buscar informações de desativação das colaboradoras (se for loja)
             let deactivationMap = new Map<string, string | null>();
