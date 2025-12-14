@@ -10,13 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, CheckCircle2, XCircle, Save, Store, Key, Eye, EyeOff, ExternalLink, TestTube, RefreshCw, MessageSquare, Package } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Save, Store, Key, Eye, EyeOff, ExternalLink, TestTube, RefreshCw, MessageSquare, Package, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { getERPAuthorizationUrl, testERPConnection } from "@/lib/erpIntegrations";
 import { syncTinyOrders, syncTinyContacts } from "@/lib/erp/syncTiny";
 import { WhatsAppGlobalConfig } from "@/components/dev/WhatsAppGlobalConfig";
 import { PaymentGatewaysConfig } from "@/components/dev/PaymentGatewaysConfig";
 import { WebhookTester } from "@/components/admin/WebhookTester";
+import { LinxMicrovixConfig } from "@/components/dev/LinxMicrovixConfig";
 
 interface Store {
   id: string;
@@ -567,24 +568,32 @@ const ERPConfig = () => {
         </div>
 
         <Tabs defaultValue="erp" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="erp" className="gap-2" data-testid="tab-dev-erp">
               <Package className="h-4 w-4" />
-              Integracao ERP
+              Tiny ERP
+            </TabsTrigger>
+            <TabsTrigger value="linx" className="gap-2" data-testid="tab-dev-linx">
+              <Zap className="h-4 w-4" />
+              Linx Microvix
             </TabsTrigger>
             <TabsTrigger value="whatsapp" className="gap-2" data-testid="tab-dev-whatsapp">
               <MessageSquare className="h-4 w-4" />
-              WhatsApp Global
+              WhatsApp
             </TabsTrigger>
             <TabsTrigger value="payment" className="gap-2" data-testid="tab-dev-payment">
               <Key className="h-4 w-4" />
-              Gateways de Pagamento
+              Pagamentos
             </TabsTrigger>
             <TabsTrigger value="webhook" className="gap-2" data-testid="tab-dev-webhook">
               <TestTube className="h-4 w-4" />
-              Teste de Webhook
+              Webhooks
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="linx" className="space-y-6">
+            <LinxMicrovixConfig />
+          </TabsContent>
 
           <TabsContent value="whatsapp" className="space-y-6">
             <WhatsAppGlobalConfig />

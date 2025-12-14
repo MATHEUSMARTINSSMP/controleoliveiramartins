@@ -148,6 +148,15 @@ CREATE POLICY "linx_microvix_parceiros_read_all" ON sistemaretiradas.linx_microv
 CREATE POLICY "linx_microvix_parceiros_service_role" ON sistemaretiradas.linx_microvix_parceiros
     FOR ALL USING (auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "linx_microvix_parceiros_super_admin" ON sistemaretiradas.linx_microvix_parceiros;
+CREATE POLICY "linx_microvix_parceiros_super_admin" ON sistemaretiradas.linx_microvix_parceiros
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM sistemaretiradas.profiles 
+            WHERE id = auth.uid() AND is_super_admin = true
+        )
+    );
+
 -- -----------------------------------------------------------------------------
 -- 1.3 TABELA: linx_microvix_clientes
 -- Clientes do Hub Fidelidade com saldo de pontos

@@ -73,14 +73,35 @@ exports.handler = async (event) => {
 
     const url = `${baseUrl}${endpoint}`;
 
+    // Validar credenciais obrigatórias antes de chamar API
+    if (!config.hub_token_produto || !config.hub_token_parceiro) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          error: 'Credenciais Hub incompletas. Configure Token Produto e Token Parceiro.',
+        }),
+      };
+    }
+
+    if (!config.cnpj || !config.nome_loja) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          error: 'CNPJ e Nome da Loja são obrigatórios.',
+        }),
+      };
+    }
+
     // Headers de autenticação Linx
     const linxHeaders = {
       'Content-Type': 'application/json',
       'Linx-Cnpj': config.cnpj.replace(/\D/g, ''),
-      'Linx-TokenProduto': config.hub_token_produto || '',
-      'Linx-TokenParceiro': config.hub_token_parceiro || '',
+      'Linx-TokenProduto': config.hub_token_produto,
+      'Linx-TokenParceiro': config.hub_token_parceiro,
       'Linx-IdParceiro': String(config.hub_id_parceiro || ''),
-      'Linx-NomeLoja': config.nome_loja || '',
+      'Linx-NomeLoja': config.nome_loja,
     };
 
     console.log(`[LinxHub] Chamando ${method} ${url}`);
@@ -111,11 +132,11 @@ exports.handler = async (event) => {
       })
       .eq('store_id', storeId);
 
-    // Registrar transação
-    if (body?.Documento) {
+    // Registrar transação apenas quando há IdentificadorTransacao válido (transação real de venda)
+    if (body?.Documento && body?.IdentificadorTransacao) {
       await supabase.from('linx_microvix_transacoes').insert({
         store_id: storeId,
-        identificador_transacao: body.IdentificadorTransacao || `auto-${Date.now()}`,
+        identificador_transacao: body.IdentificadorTransacao,
         tipo_operacao: endpoint.replace('/', ''),
         cpf_cliente: body.Documento,
         request_payload: body,
