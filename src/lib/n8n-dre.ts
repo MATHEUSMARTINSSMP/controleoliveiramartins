@@ -17,17 +17,83 @@ import type {
 import { supabase } from '@/integrations/supabase/client'
 
 // ============================================================
-// CONFIGURAÇÃO N8N (usa proxy Netlify para evitar CORS)
+// CONFIGURAÇÃO N8N
 // ============================================================
 
-const USE_PROXY = true // Sempre usar proxy para evitar CORS
 const PROXY_URL = '/.netlify/functions/n8n-proxy'
+const N8N_BASE_URL = import.meta.env.VITE_N8N_BASE_URL || ''
+const N8N_MODE = (import.meta.env.VITE_N8N_MODE || 'prod').toLowerCase()
+const N8N_AUTH_HEADER = import.meta.env.VITE_N8N_AUTH_HEADER || ''
 
-async function n8nRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function n8nRequestDirect<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    if (!N8N_BASE_URL) {
+        throw new Error('N8N não configurado: VITE_N8N_BASE_URL não definido')
+    }
+
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 30000)
 
-    // Extrair parâmetros de query string se houver
+    const prefix = N8N_MODE === 'test' ? '/webhook-test' : '/webhook'
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+    const fullUrl = `${N8N_BASE_URL.replace(/\/$/, '')}${prefix}${cleanEndpoint}`
+
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+    }
+    if (N8N_AUTH_HEADER) {
+        headers['X-APP-KEY'] = N8N_AUTH_HEADER
+    }
+
+    console.log('[n8n-dre] Chamando direto:', options.method || 'GET', fullUrl)
+
+    try {
+        const response = await fetch(fullUrl, {
+            ...options,
+            headers: { ...headers, ...options.headers },
+            signal: controller.signal
+        })
+
+        clearTimeout(timeoutId)
+
+        const contentType = response.headers.get('content-type')
+        const isJson = contentType?.includes('application/json')
+
+        let data: any = {}
+
+        if (isJson) {
+            data = await response.json().catch(() => ({}))
+        } else {
+            const text = await response.text().catch(() => '')
+            if (text) {
+                try {
+                    data = JSON.parse(text)
+                } catch {
+                    throw new Error(`Resposta inválida: ${text.substring(0, 100)}`)
+                }
+            }
+        }
+
+        if (!response.ok) {
+            throw new Error(data.error || data.message || `HTTP ${response.status}: ${response.statusText}`)
+        }
+
+        if (data.success === false) {
+            throw new Error(data.error || data.message || 'Erro na requisição')
+        }
+
+        return data as T
+    } catch (err: any) {
+        if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+            throw new Error('Timeout: A requisição demorou muito para responder')
+        }
+        throw err
+    }
+}
+
+async function n8nRequestProxy<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
+
     let cleanEndpoint = endpoint
     let params: Record<string, string> = {}
     
@@ -40,7 +106,6 @@ async function n8nRequest<T = any>(endpoint: string, options: RequestInit = {}):
         })
     }
 
-    // Preparar body para o proxy
     const proxyBody = {
         endpoint: cleanEndpoint,
         method: options.method || 'GET',
@@ -48,9 +113,7 @@ async function n8nRequest<T = any>(endpoint: string, options: RequestInit = {}):
         body: options.body ? JSON.parse(options.body as string) : undefined
     }
 
-    if (typeof window !== 'undefined' && (import.meta.env.DEV || import.meta.env.MODE === 'development')) {
-        console.log('[n8n-dre] Chamando via proxy:', cleanEndpoint)
-    }
+    console.log('[n8n-dre] Chamando via proxy:', cleanEndpoint)
 
     try {
         const response = await fetch(PROXY_URL, {
@@ -68,10 +131,7 @@ async function n8nRequest<T = any>(endpoint: string, options: RequestInit = {}):
         let data: any = {}
 
         if (isJson) {
-            data = await response.json().catch((err) => {
-                console.error('[n8n-dre] Erro ao parsear JSON:', err)
-                return {}
-            })
+            data = await response.json().catch(() => ({}))
         } else {
             const text = await response.text().catch(() => '')
             if (text) {
@@ -84,12 +144,7 @@ async function n8nRequest<T = any>(endpoint: string, options: RequestInit = {}):
         }
 
         if (!response.ok) {
-            const errorMsg = data.error || data.message || `HTTP ${response.status}: ${response.statusText}`
-            console.error('[n8n-dre] Erro HTTP:', {
-                status: response.status,
-                error: errorMsg
-            })
-            throw new Error(errorMsg)
+            throw new Error(data.error || data.message || `HTTP ${response.status}: ${response.statusText}`)
         }
 
         if (data.success === false) {
@@ -101,10 +156,19 @@ async function n8nRequest<T = any>(endpoint: string, options: RequestInit = {}):
         if (err.name === 'AbortError' || err.name === 'TimeoutError') {
             throw new Error('Timeout: A requisição demorou muito para responder')
         }
-        if (err.name === 'TypeError' && err.message.includes('fetch')) {
-            throw new Error(`Erro de rede: Não foi possível conectar ao servidor N8N`)
-        }
         throw err
+    }
+}
+
+async function n8nRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    try {
+        return await n8nRequestProxy<T>(endpoint, options)
+    } catch (proxyError: any) {
+        if (proxyError.message?.includes('404') || proxyError.message?.includes('Not Found')) {
+            console.log('[n8n-dre] Proxy não disponível, tentando chamada direta...')
+            return await n8nRequestDirect<T>(endpoint, options)
+        }
+        throw proxyError
     }
 }
 
