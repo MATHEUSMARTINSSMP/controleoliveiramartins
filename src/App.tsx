@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, ComponentType } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,39 +14,56 @@ import {
   LoadingSpinner,
 } from "@/components/ui/skeleton-loaders";
 
-const Index = lazy(() => import("./pages/Index"));
-const Auth = lazy(() => import("./pages/Auth"));
-const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
-const ColaboradoraDashboard = lazy(() => import("./pages/ColaboradoraDashboard"));
-const NovaCompra = lazy(() => import("./pages/NovaCompra"));
-const NovoAdiantamento = lazy(() => import("./pages/NovoAdiantamento"));
-const Adiantamentos = lazy(() => import("./pages/Adiantamentos"));
-const SolicitarAdiantamento = lazy(() => import("./pages/SolicitarAdiantamento"));
-const Lancamentos = lazy(() => import("./pages/Lancamentos"));
-const Relatorios = lazy(() => import("./pages/Relatorios"));
-const Colaboradores = lazy(() => import("./pages/Colaboradores"));
-const LojaDashboard = lazy(() => import("./pages/LojaDashboard"));
-const MetasManagement = lazy(() => import("./components/MetasManagement"));
-const BonusManagement = lazy(() => import("./components/BonusManagement"));
-const BenchmarksManagement = lazy(() => import("./pages/BenchmarksManagement"));
-const ERPIntegrationsConfig = lazy(() => import("./pages/ERPIntegrationsConfig"));
-const ERPConfig = lazy(() => import("./pages/dev/ERPConfig"));
-const SuperAdmin = lazy(() => import("./pages/dev/SuperAdmin"));
-const DevLogin = lazy(() => import("./pages/dev/DevLogin"));
-const ERPLogin = lazy(() => import("./pages/erp/ERPLogin"));
-const ERPDashboard = lazy(() => import("./pages/erp/ERPDashboard"));
-const CategoryReports = lazy(() => import("./pages/erp/CategoryReports"));
-const ProductSalesIntelligence = lazy(() => import("./pages/erp/ProductSalesIntelligence"));
-const CustomerIntelligence = lazy(() => import("./pages/erp/CustomerIntelligence"));
-const CashbackManagement = lazy(() => import("./pages/erp/CashbackManagement"));
-const GestaoDRE = lazy(() => import("./pages/admin/GestaoDRE"));
-const Seed = lazy(() => import("./pages/Seed"));
-const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
-const Landing = lazy(() => import("./pages/Landing"));
-const LandingPage = lazy(() => import("./pages/LandingPage"));
-const Onboarding = lazy(() => import("./pages/Onboarding"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const ERPVendorMapping = lazy(() => import("./pages/ERPVendorMapping"));
+function lazyWithRetry<T extends ComponentType<any>>(
+  componentImport: () => Promise<{ default: T }>
+): React.LazyExoticComponent<T> {
+  return lazy(() =>
+    componentImport().catch((error) => {
+      console.error("Chunk load failed, attempting reload...", error);
+      const hasReloaded = sessionStorage.getItem("chunk_reload_attempted");
+      if (!hasReloaded) {
+        sessionStorage.setItem("chunk_reload_attempted", "true");
+        window.location.reload();
+      }
+      sessionStorage.removeItem("chunk_reload_attempted");
+      return { default: (() => null) as unknown as T };
+    })
+  );
+}
+
+const Index = lazyWithRetry(() => import("./pages/Index"));
+const Auth = lazyWithRetry(() => import("./pages/Auth"));
+const AdminDashboard = lazyWithRetry(() => import("./pages/AdminDashboard"));
+const ColaboradoraDashboard = lazyWithRetry(() => import("./pages/ColaboradoraDashboard"));
+const NovaCompra = lazyWithRetry(() => import("./pages/NovaCompra"));
+const NovoAdiantamento = lazyWithRetry(() => import("./pages/NovoAdiantamento"));
+const Adiantamentos = lazyWithRetry(() => import("./pages/Adiantamentos"));
+const SolicitarAdiantamento = lazyWithRetry(() => import("./pages/SolicitarAdiantamento"));
+const Lancamentos = lazyWithRetry(() => import("./pages/Lancamentos"));
+const Relatorios = lazyWithRetry(() => import("./pages/Relatorios"));
+const Colaboradores = lazyWithRetry(() => import("./pages/Colaboradores"));
+const LojaDashboard = lazyWithRetry(() => import("./pages/LojaDashboard"));
+const MetasManagement = lazyWithRetry(() => import("./components/MetasManagement"));
+const BonusManagement = lazyWithRetry(() => import("./components/BonusManagement"));
+const BenchmarksManagement = lazyWithRetry(() => import("./pages/BenchmarksManagement"));
+const ERPIntegrationsConfig = lazyWithRetry(() => import("./pages/ERPIntegrationsConfig"));
+const ERPConfig = lazyWithRetry(() => import("./pages/dev/ERPConfig"));
+const SuperAdmin = lazyWithRetry(() => import("./pages/dev/SuperAdmin"));
+const DevLogin = lazyWithRetry(() => import("./pages/dev/DevLogin"));
+const ERPLogin = lazyWithRetry(() => import("./pages/erp/ERPLogin"));
+const ERPDashboard = lazyWithRetry(() => import("./pages/erp/ERPDashboard"));
+const CategoryReports = lazyWithRetry(() => import("./pages/erp/CategoryReports"));
+const ProductSalesIntelligence = lazyWithRetry(() => import("./pages/erp/ProductSalesIntelligence"));
+const CustomerIntelligence = lazyWithRetry(() => import("./pages/erp/CustomerIntelligence"));
+const CashbackManagement = lazyWithRetry(() => import("./pages/erp/CashbackManagement"));
+const GestaoDRE = lazyWithRetry(() => import("./pages/admin/GestaoDRE"));
+const Seed = lazyWithRetry(() => import("./pages/Seed"));
+const ForgotPassword = lazyWithRetry(() => import("./pages/ForgotPassword"));
+const Landing = lazyWithRetry(() => import("./pages/Landing"));
+const LandingPage = lazyWithRetry(() => import("./pages/LandingPage"));
+const Onboarding = lazyWithRetry(() => import("./pages/Onboarding"));
+const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
+const ERPVendorMapping = lazyWithRetry(() => import("./pages/ERPVendorMapping"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
