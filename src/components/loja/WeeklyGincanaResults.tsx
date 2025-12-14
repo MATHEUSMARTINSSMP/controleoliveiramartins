@@ -188,8 +188,8 @@ export default function WeeklyGincanaResults({
                 .from("sales")
                 .select("valor, colaboradora_id, profiles!sales_colaboradora_id_fkey(name)")
                 .eq("store_id", storeId)
-                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd"))
-                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd"));
+                .gte("data_venda", format(weekRange.start, "yyyy-MM-dd'T'00:00:00"))
+                .lte("data_venda", format(weekRange.end, "yyyy-MM-dd'T'23:59:59"));
 
             if (allSalesError) throw allSalesError;
 
