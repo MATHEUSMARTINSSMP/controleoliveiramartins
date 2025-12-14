@@ -2637,16 +2637,12 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
 
     const totalDia = vendasHoje?.reduce((sum, v) => sum + (parseFloat(v.valor) || 0), 0) || 0;
 
-    // ✅ IMPORTANTE: Adicionar a venda atual ao total do dia (se for de hoje)
+    // ✅ CORRIGIDO: A venda atual JÁ está em sales quando esta função é chamada
+    // Não precisamos adicionar novamente, senão duplica o valor
     const valorVendaAtual = parseFloat(orderData.valor_total) || 0;
     const dataPedido = orderData.data_pedido ? new Date(orderData.data_pedido).toISOString().split('T')[0] : null;
-    let totalDiaComVendaAtual = totalDia;
-    if (dataPedido === hojeStr) {
-      totalDiaComVendaAtual = totalDia + valorVendaAtual;
-      console.log(`[SyncBackground] 📊 Total do dia ANTES da venda atual: ${totalDia.toFixed(2)}`);
-      console.log(`[SyncBackground] 📊 Valor da venda atual: ${valorVendaAtual.toFixed(2)}`);
-      console.log(`[SyncBackground] 📊 Total do dia COM venda atual: ${totalDiaComVendaAtual.toFixed(2)}`);
-    }
+    let totalDiaComVendaAtual = totalDia; // Usar o total que já inclui a venda atual
+    console.log(`[SyncBackground] 📊 Total do dia (já inclui venda atual): ${totalDia.toFixed(2)}`);
 
     // ✅ BUSCAR TOTAL DO MÊS DE SALES (não tiny_orders)
     const mesAtual = new Date().toISOString().slice(0, 7); // Formato: YYYY-MM
@@ -2663,18 +2659,10 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
 
     const totalMes = vendasMes?.reduce((sum, v) => sum + (parseFloat(v.valor) || 0), 0) || 0;
 
-    // ✅ IMPORTANTE: Adicionar a venda atual ao total do mês
-    // Verificar se a venda é do mês atual
-    const mesPedido = dataPedido ? dataPedido.slice(0, 7) : null; // Formato: YYYY-MM
-    let totalMesComVendaAtual = totalMes;
-    if (mesPedido === mesAtual) {
-      totalMesComVendaAtual = totalMes + valorVendaAtual;
-      console.log(`[SyncBackground] 📊 Total do mês ANTES da venda atual (de sales): ${totalMes.toFixed(2)}`);
-      console.log(`[SyncBackground] 📊 Valor da venda atual: ${valorVendaAtual.toFixed(2)}`);
-      console.log(`[SyncBackground] 📊 Total do mês COM venda atual: ${totalMesComVendaAtual.toFixed(2)}`);
-    } else {
-      console.log(`[SyncBackground] 📊 Venda não é do mês atual (mesPedido: ${mesPedido}, mesAtual: ${mesAtual}), usando total sem adicionar`);
-    }
+    // ✅ CORRIGIDO: A venda atual JÁ está em sales quando esta função é chamada
+    // Não precisamos adicionar novamente, senão duplica o valor
+    let totalMesComVendaAtual = totalMes; // Usar o total que já inclui a venda atual
+    console.log(`[SyncBackground] 📊 Total do mês (já inclui venda atual): ${totalMes.toFixed(2)}`);
 
     // 5. Formatar produtos para observações
     // ✅ CRÍTICO: Usar itens ORIGINAIS do pedido completo (não processados) para pegar descrição limpa
