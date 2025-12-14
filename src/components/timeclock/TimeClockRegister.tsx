@@ -404,23 +404,37 @@ export function TimeClockRegister({
 
       // 3. Validar limite de registros por dia (máximo 4 POR COLABORADORA)
       try {
+        // Usar timezone de Brasília para cálculo correto do dia
         const hoje = new Date(horarioRegistro);
         hoje.setHours(0, 0, 0, 0);
         const amanha = new Date(hoje);
         amanha.setDate(amanha.getDate() + 1);
+
+        console.log('[TimeClockRegister] 📊 Verificando limite de registros:', {
+          colaboradoraId,
+          storeId,
+          hojeISO: hoje.toISOString(),
+          amanhaISO: amanha.toISOString(),
+        });
 
         const { count, error: countError } = await supabase
           .schema('sistemaretiradas')
           .from('time_clock_records')
           .select('*', { count: 'exact', head: true })
           .eq('colaboradora_id', colaboradoraId)
-          // ✅ REMOVIDO .eq('store_id', storeId) - limite é POR COLABORADORA, não por loja
           .gte('horario', hoje.toISOString())
           .lt('horario', amanha.toISOString());
+
+        console.log('[TimeClockRegister] 📊 Resultado contagem:', {
+          count,
+          countError,
+          colaboradoraId,
+        });
 
         if (countError) {
           console.warn('[TimeClockRegister] Erro ao contar registros do dia:', countError);
         } else if (count !== null && count >= 4) {
+          console.log('[TimeClockRegister] ⚠️ Limite atingido:', { count, colaboradoraId });
           setSignatureError('Limite de 4 registros por dia atingido. Entre em contato com o administrador para lançamento manual.');
           setProcessingSignature(false);
           return;
