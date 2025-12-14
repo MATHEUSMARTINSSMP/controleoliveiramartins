@@ -140,14 +140,23 @@ export default function WeeklyGincanaResults({
 
             if (error) throw error;
 
-            // Agrupar por semana_referencia
+            // Agrupar por semana_referencia, preservando semana_inicio e semana_fim
             const grouped = (data || []).reduce((acc: any, goal: any) => {
                 const weekRef = goal.semana_referencia;
                 if (!acc[weekRef]) {
                     acc[weekRef] = {
                         semana_referencia: weekRef,
+                        semana_inicio: goal.semana_inicio,
+                        semana_fim: goal.semana_fim,
                         goals: [],
                     };
+                }
+                // Se algum goal tem as datas, usar elas
+                if (goal.semana_inicio && !acc[weekRef].semana_inicio) {
+                    acc[weekRef].semana_inicio = goal.semana_inicio;
+                }
+                if (goal.semana_fim && !acc[weekRef].semana_fim) {
+                    acc[weekRef].semana_fim = goal.semana_fim;
                 }
                 acc[weekRef].goals.push(goal);
                 return acc;
@@ -188,12 +197,24 @@ export default function WeeklyGincanaResults({
 
         try {
             const supabase = await getSupabaseClient();
-            const weekRange = getWeekRange(weekRef);
-
-            // 1. Buscar todas as vendas da semana para a loja
-            // Usar timezone do Brasil para garantir que as datas estejam corretas
-            const startDateStr = getBrazilDateString(weekRange.start);
-            const endDateStr = getBrazilDateString(weekRange.end);
+            
+            // ✅ CORREÇÃO: Usar semana_inicio e semana_fim do banco de dados quando disponíveis
+            const weekGroup = weeklyGoals.find(wg => wg.semana_referencia === weekRef);
+            let startDateStr: string;
+            let endDateStr: string;
+            
+            if (weekGroup?.semana_inicio && weekGroup?.semana_fim) {
+                // Usar datas do banco (formato yyyy-MM-dd)
+                startDateStr = weekGroup.semana_inicio;
+                endDateStr = weekGroup.semana_fim;
+                console.log(`[WeeklyGincanaResults] Usando datas do banco: ${startDateStr} a ${endDateStr}`);
+            } else {
+                // Fallback: calcular via getWeekRange (pode ter erro)
+                const weekRange = getWeekRange(weekRef);
+                startDateStr = getBrazilDateString(weekRange.start);
+                endDateStr = getBrazilDateString(weekRange.end);
+                console.warn(`[WeeklyGincanaResults] AVISO: Usando getWeekRange para semana ${weekRef}: ${startDateStr} a ${endDateStr}`);
+            }
             
             const { data: allSales, error: allSalesError } = await supabase
                 .schema("sistemaretiradas")
