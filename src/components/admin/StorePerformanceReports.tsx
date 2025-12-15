@@ -485,14 +485,15 @@ export const StorePerformanceReports = () => {
             const projections: StoreGoalProjection[] = [];
             
             for (const store of stores) {
-                // Buscar meta mensal da loja (tipo LOJA)
+                // Buscar meta mensal da loja (tipo MENSAL, sem colaboradora_id)
                 const { data: goalData } = await supabase
                     .schema('sistemaretiradas')
                     .from('goals')
                     .select('meta_valor, daily_weights')
                     .eq('store_id', store.id)
                     .eq('mes_referencia', mesAtual)
-                    .eq('tipo', 'LOJA')
+                    .eq('tipo', 'MENSAL')
+                    .is('colaboradora_id', null)
                     .maybeSingle();
                 
                 const metaMensal = goalData ? Number(goalData.meta_valor || 0) : 0;
