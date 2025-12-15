@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Gift, MessageSquare, Package, Info, Heart, Clock, ChevronDown, ChevronRight, Check, X, Target, Settings, Scissors } from 'lucide-react';
+import { Loader2, Gift, MessageSquare, Package, Info, Heart, Clock, ChevronDown, ChevronRight, Check, X, Target, Settings, Scissors, Banknote } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -19,7 +19,10 @@ interface Store {
   wishlist_ativo: boolean;
   ponto_ativo: boolean;
   ajustes_condicionais_ativo: boolean;
+  caixa_ativo: boolean;
   whatsapp_notificacoes_ajustes_condicionais: string | null;
+  whatsapp_caixa_numeros: string[] | null;
+  whatsapp_caixa_usar_global: boolean;
   daily_goal_check_ativo: boolean;
   daily_goal_check_valor_bonus: number | null;
   daily_goal_check_horario_limite: string | null;
@@ -27,11 +30,11 @@ interface Store {
 }
 
 interface ModuleInfo {
-  id: 'cashback' | 'crm' | 'erp' | 'wishlist' | 'ponto' | 'ajustes_condicionais' | 'daily_goal_check';
+  id: 'cashback' | 'crm' | 'erp' | 'wishlist' | 'ponto' | 'ajustes_condicionais' | 'daily_goal_check' | 'caixa';
   name: string;
   description: string;
   icon: React.ReactNode;
-  field: 'cashback_ativo' | 'crm_ativo' | 'wishlist_ativo' | 'ponto_ativo' | 'ajustes_condicionais_ativo' | 'daily_goal_check_ativo';
+  field: 'cashback_ativo' | 'crm_ativo' | 'wishlist_ativo' | 'ponto_ativo' | 'ajustes_condicionais_ativo' | 'daily_goal_check_ativo' | 'caixa_ativo';
   color: string;
   hasConfig?: boolean;
 }
@@ -93,6 +96,15 @@ const modules: ModuleInfo[] = [
     field: 'daily_goal_check_ativo',
     color: 'text-purple-600 dark:text-purple-400',
     hasConfig: true
+  },
+  {
+    id: 'caixa',
+    name: 'Abertura/Fechamento de Caixa',
+    description: 'Sistema de controle de abertura e fechamento de caixa com envio de notificações WhatsApp. Registra dinheiro em caixa, metas diárias e resumo de vendas.',
+    icon: <Banknote className="h-5 w-5" />,
+    field: 'caixa_ativo',
+    color: 'text-emerald-600 dark:text-emerald-400',
+    hasConfig: false
   }
 ];
 
@@ -120,7 +132,7 @@ export const ModulesStoreConfig = () => {
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, daily_goal_check_ativo, daily_goal_check_valor_bonus, daily_goal_check_horario_limite, active')
+        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, daily_goal_check_ativo, daily_goal_check_valor_bonus, daily_goal_check_horario_limite, whatsapp_caixa_numeros, whatsapp_caixa_usar_global, active')
         .eq('active', true)
         .order('name');
 
@@ -382,6 +394,11 @@ export const ModulesStoreConfig = () => {
                         <Scissors className="h-3.5 w-3.5" />
                         <span className="font-medium">Ajustes</span>
                         {store.ajustes_condicionais_ativo ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                      </div>
+                      <div className={`flex items-center gap-1.5 px-2 py-1 rounded ${store.caixa_ativo ? 'bg-success/10 text-success' : 'text-muted-foreground'}`}>
+                        <Banknote className="h-3.5 w-3.5" />
+                        <span className="font-medium">Caixa</span>
+                        {store.caixa_ativo ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                       </div>
                       <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-success/10 text-success">
                         <Package className="h-3.5 w-3.5" />

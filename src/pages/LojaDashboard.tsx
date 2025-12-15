@@ -70,6 +70,7 @@ const CRMLojaView = lazy(() => import("@/components/loja/CRMLojaView"));
 const WishlistLojaView = lazy(() => import("@/components/loja/WishlistLojaView"));
 // const TimeClockLojaView = lazy(() => import("@/components/timeclock/TimeClockLojaView").then(m => ({ default: m.TimeClockLojaView })));
 const StoreConditionalsAdjustments = lazy(() => import("@/components/loja/StoreConditionalsAdjustments"));
+const CaixaLojaView = lazy(() => import("@/components/loja/CaixaLojaView"));
 
 interface Sale {
     id: string;
@@ -118,7 +119,8 @@ export default function LojaDashboard() {
     const [pontoAtivo, setPontoAtivo] = useState<boolean>(false);
     const [wishlistAtivo, setWishlistAtivo] = useState<boolean>(false);
     const [ajustesCondicionaisAtivo, setAjustesCondicionaisAtivo] = useState<boolean>(false);
-    const [activeView, setActiveView] = useState<'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes'>('metas');
+    const [caixaAtivo, setCaixaAtivo] = useState<boolean>(false);
+    const [activeView, setActiveView] = useState<'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes' | 'caixa'>('metas');
 
     const [formasPagamento, setFormasPagamento] = useState<FormaPagamentoType[]>([{
         tipo: 'DINHEIRO',
