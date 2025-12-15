@@ -121,6 +121,13 @@ const NovaCompra = () => {
     }
   };
 
+  // Limpar seleção de cliente
+  const handleClearClientSelection = () => {
+    setSelectedClienteId(null);
+    setSearchCliente("");
+    setFormData(prev => ({ ...prev, cliente_id: "", cliente_nome: "" }));
+  };
+
   // Quando novo cliente for criado
   const handleNewClientCreated = (client: { id: string; nome: string; cpf: string | null }) => {
     if (client.id === 'CONSUMIDOR_FINAL') {
