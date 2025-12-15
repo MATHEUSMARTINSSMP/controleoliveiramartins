@@ -48,12 +48,14 @@ export default function GestaoDRE() {
             setCategorias(cats || [])
 
             // Enriquecer lançamentos com dados da categoria
+            // Prioridade: 1) Tipo que já veio do N8N, 2) Tipo da categoria local, 3) DESPESA como fallback
             const lancamentosCompletos: DRELancamentoCompleto[] = (lancs || []).map(l => {
                 const categoria = (cats || []).find(c => c.id === l.categoria_id)
+                const lancAny = l as any
                 return {
                     ...l,
-                    categoria_nome: categoria?.nome || 'Desconhecido',
-                    categoria_tipo: categoria?.tipo || 'DESPESA'
+                    categoria_nome: lancAny.categoria_nome || categoria?.nome || 'Desconhecido',
+                    categoria_tipo: lancAny.categoria_tipo || categoria?.tipo || 'DESPESA'
                 }
             })
 
