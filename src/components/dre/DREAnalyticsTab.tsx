@@ -16,16 +16,22 @@ interface Props {
 }
 
 export default function DREAnalyticsTab({ categorias, lancamentos }: Props) {
-    // Agrupar por categoria
-    const porCategoria = categorias.map(cat => {
-        const lancamentosCategoria = lancamentos.filter(l => l.categoria_id === cat.id)
-        const total = lancamentosCategoria.reduce((sum, l) => sum + Math.abs(l.valor), 0)
-        return {
-            categoria: cat.nome,
-            tipo: cat.tipo,
-            total
+    // Agrupar por categoria usando categoria_tipo do lançamento (já vem enriquecido)
+    const porCategoria = lancamentos.reduce((acc, l) => {
+        const key = l.categoria_nome || 'Desconhecido'
+        const existing = acc.find(c => c.categoria === key)
+        if (existing) {
+            existing.total += Math.abs(l.valor)
+        } else {
+            acc.push({
+                categoria: key,
+                tipo: l.categoria_tipo,
+                total: Math.abs(l.valor)
+            })
         }
-    }).filter(c => c.total > 0).sort((a, b) => b.total - a.total)
+        return acc
+    }, [] as Array<{ categoria: string; tipo: TipoLancamentoDRE; total: number }>)
+        .sort((a, b) => b.total - a.total)
 
     const handleExportExcel = () => {
         try {
