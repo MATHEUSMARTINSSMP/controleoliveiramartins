@@ -51,6 +51,17 @@ interface CollaboratorPerformance {
     meta_diaria: number;
 }
 
+interface StoreGoalProjection {
+    store_id: string;
+    store_name: string;
+    vendido_mes: number;
+    meta_mensal: number;
+    esperado_ate_data: number;
+    diferenca: number;
+    percentual_atingimento: number;
+    projecao_faturamento: number;
+}
+
 export const StorePerformanceReports = () => {
     const { profile } = useAuth();
     const [loading, setLoading] = useState(true);
@@ -67,6 +78,10 @@ export const StorePerformanceReports = () => {
     const [customEndDate, setCustomEndDate] = useState<string>('');
     const [customReport, setCustomReport] = useState<PeriodReport | null>(null);
     const [loadingCustom, setLoadingCustom] = useState(false);
+    
+    // Estados para metas e projeções
+    const [goalsProjections, setGoalsProjections] = useState<StoreGoalProjection[]>([]);
+    const [loadingGoals, setLoadingGoals] = useState(false);
 
     useEffect(() => {
         if (profile && profile.role === 'ADMIN') {
@@ -457,6 +472,106 @@ export const StorePerformanceReports = () => {
         }
     }, [selectedStoreForVendedores]);
 
+    const fetchGoalsProjections = async () => {
+        if (stores.length === 0) return;
+        
+        setLoadingGoals(true);
+        try {
+            const hoje = new Date();
+            const mesAtual = format(hoje, 'yyyyMM');
+            const inicioMes = format(startOfMonth(hoje), 'yyyy-MM-dd');
+            const diaAtual = hoje.getDate();
+            
+            const projections: StoreGoalProjection[] = [];
+            
+            for (const store of stores) {
+                // Buscar meta mensal da loja (tipo LOJA)
+                const { data: goalData } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('goals')
+                    .select('meta_valor, daily_weights')
+                    .eq('store_id', store.id)
+                    .eq('mes_referencia', mesAtual)
+                    .eq('tipo', 'LOJA')
+                    .maybeSingle();
+                
+                const metaMensal = goalData ? Number(goalData.meta_valor || 0) : 0;
+                const dailyWeights = goalData?.daily_weights || {};
+                
+                // Calcular o esperado até a data usando os pesos diários
+                let esperadoAteData = 0;
+                if (metaMensal > 0 && Object.keys(dailyWeights).length > 0) {
+                    // Somar os pesos diários do dia 1 até hoje
+                    for (let dia = 1; dia <= diaAtual; dia++) {
+                        const dataStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), dia), 'yyyy-MM-dd');
+                        const peso = dailyWeights[dataStr] || 0;
+                        esperadoAteData += (metaMensal * peso) / 100;
+                    }
+                } else if (metaMensal > 0) {
+                    // Se não há pesos, distribuir igualmente
+                    const totalDias = getDaysInMonth(hoje);
+                    esperadoAteData = (metaMensal / totalDias) * diaAtual;
+                }
+                
+                // Buscar vendas do mês atual
+                const { data: salesData } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('analytics_daily_performance')
+                    .select('total_valor')
+                    .eq('store_id', store.id)
+                    .gte('data_referencia', inicioMes)
+                    .lte('data_referencia', format(hoje, 'yyyy-MM-dd'));
+                
+                const vendidoMes = salesData?.reduce((sum, s) => sum + Number(s.total_valor || 0), 0) || 0;
+                
+                // Calcular diferença e percentual com proteção contra divisão por zero
+                const diferenca = esperadoAteData - vendidoMes;
+                
+                let percentualAtingimento = 0;
+                let projecaoFaturamento = 0;
+                
+                if (esperadoAteData > 0) {
+                    percentualAtingimento = (vendidoMes / esperadoAteData) * 100;
+                    projecaoFaturamento = metaMensal * (vendidoMes / esperadoAteData);
+                } else if (metaMensal > 0 && vendidoMes > 0) {
+                    // Se não há esperado mas há vendas, considerar vendido como projeção mínima
+                    percentualAtingimento = 100;
+                    projecaoFaturamento = vendidoMes;
+                } else if (metaMensal === 0 && vendidoMes > 0) {
+                    // Sem meta definida mas com vendas
+                    percentualAtingimento = 100;
+                    projecaoFaturamento = vendidoMes;
+                }
+                
+                projections.push({
+                    store_id: store.id,
+                    store_name: store.name,
+                    vendido_mes: vendidoMes,
+                    meta_mensal: metaMensal,
+                    esperado_ate_data: esperadoAteData,
+                    diferenca: diferenca,
+                    percentual_atingimento: percentualAtingimento,
+                    projecao_faturamento: projecaoFaturamento
+                });
+            }
+            
+            // Ordenar por projeção de faturamento (maior primeiro)
+            projections.sort((a, b) => b.projecao_faturamento - a.projecao_faturamento);
+            
+            setGoalsProjections(projections);
+        } catch (error) {
+            console.error('Erro ao buscar metas e projeções:', error);
+        } finally {
+            setLoadingGoals(false);
+        }
+    };
+    
+    useEffect(() => {
+        if (stores.length > 0) {
+            fetchGoalsProjections();
+        }
+    }, [stores]);
+
     const renderPeriodTable = (periodKey: string, report: PeriodReport) => {
         if (loading) {
             return (
@@ -613,12 +728,15 @@ export const StorePerformanceReports = () => {
             </Card>
 
             <Tabs defaultValue="loja" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-2 gap-2">
+                <TabsList className="grid w-full grid-cols-3 gap-2">
                     <TabsTrigger value="loja" className="text-xs sm:text-sm">
                         Performance por Loja
                     </TabsTrigger>
                     <TabsTrigger value="vendedor" className="text-xs sm:text-sm">
                         Performance por Vendedor
+                    </TabsTrigger>
+                    <TabsTrigger value="metas" className="text-xs sm:text-sm">
+                        Metas e Projeções
                     </TabsTrigger>
                 </TabsList>
 
@@ -832,6 +950,110 @@ export const StorePerformanceReports = () => {
                                 <div className="text-center py-8">
                                     <p className="text-sm text-muted-foreground">
                                         Selecione uma loja para ver a performance dos vendedores.
+                                    </p>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="metas" className="space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                                <TrendingUp className="h-5 w-5 text-primary" />
+                                Metas e Projeções do Mês Atual
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {loadingGoals ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                </div>
+                            ) : goalsProjections.length > 0 ? (
+                                <div className="overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="text-xs sm:text-sm font-bold min-w-[150px]">Loja</TableHead>
+                                                <TableHead className="text-xs sm:text-sm text-center">Vendido no Mês</TableHead>
+                                                <TableHead className="text-xs sm:text-sm text-center">Meta Mensal</TableHead>
+                                                <TableHead className="text-xs sm:text-sm text-center">Esperado até Hoje</TableHead>
+                                                <TableHead className="text-xs sm:text-sm text-center">Diferença</TableHead>
+                                                <TableHead className="text-xs sm:text-sm text-center">% Atingimento</TableHead>
+                                                <TableHead className="text-xs sm:text-sm text-center">Projeção Final</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {goalsProjections.map((projection) => (
+                                                <TableRow key={projection.store_id}>
+                                                    <TableCell className="text-xs sm:text-sm font-medium">
+                                                        {projection.store_name}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs sm:text-sm text-center font-semibold text-primary">
+                                                        {formatCurrency(projection.vendido_mes)}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs sm:text-sm text-center">
+                                                        {formatCurrency(projection.meta_mensal)}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs sm:text-sm text-center">
+                                                        {formatCurrency(projection.esperado_ate_data)}
+                                                    </TableCell>
+                                                    <TableCell className={`text-xs sm:text-sm text-center font-semibold ${
+                                                        projection.diferenca > 0 ? 'text-status-behind' : 'text-status-ahead'
+                                                    }`}>
+                                                        {projection.diferenca > 0 ? '-' : '+'}
+                                                        {formatCurrency(Math.abs(projection.diferenca))}
+                                                    </TableCell>
+                                                    <TableCell className={`text-xs sm:text-sm text-center font-semibold ${
+                                                        projection.percentual_atingimento >= 100 ? 'text-status-ahead' : 
+                                                        projection.percentual_atingimento >= 80 ? 'text-status-warning' : 'text-status-behind'
+                                                    }`}>
+                                                        {projection.percentual_atingimento.toFixed(1)}%
+                                                    </TableCell>
+                                                    <TableCell className={`text-xs sm:text-sm text-center font-bold ${
+                                                        projection.projecao_faturamento >= projection.meta_mensal ? 'text-status-ahead' : 'text-status-behind'
+                                                    }`}>
+                                                        {formatCurrency(projection.projecao_faturamento)}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                            {/* Linha de Total */}
+                                            <TableRow className="bg-primary/5 font-bold border-t-2 border-primary">
+                                                <TableCell className="text-xs sm:text-sm font-bold">TOTAL</TableCell>
+                                                <TableCell className="text-xs sm:text-sm text-center font-bold text-primary">
+                                                    {formatCurrency(goalsProjections.reduce((sum, p) => sum + p.vendido_mes, 0))}
+                                                </TableCell>
+                                                <TableCell className="text-xs sm:text-sm text-center font-bold">
+                                                    {formatCurrency(goalsProjections.reduce((sum, p) => sum + p.meta_mensal, 0))}
+                                                </TableCell>
+                                                <TableCell className="text-xs sm:text-sm text-center font-bold">
+                                                    {formatCurrency(goalsProjections.reduce((sum, p) => sum + p.esperado_ate_data, 0))}
+                                                </TableCell>
+                                                <TableCell className={`text-xs sm:text-sm text-center font-bold ${
+                                                    goalsProjections.reduce((sum, p) => sum + p.diferenca, 0) > 0 ? 'text-status-behind' : 'text-status-ahead'
+                                                }`}>
+                                                    {goalsProjections.reduce((sum, p) => sum + p.diferenca, 0) > 0 ? '-' : '+'}
+                                                    {formatCurrency(Math.abs(goalsProjections.reduce((sum, p) => sum + p.diferenca, 0)))}
+                                                </TableCell>
+                                                <TableCell className="text-xs sm:text-sm text-center font-bold">
+                                                    {(() => {
+                                                        const totalEsperado = goalsProjections.reduce((sum, p) => sum + p.esperado_ate_data, 0);
+                                                        const totalVendido = goalsProjections.reduce((sum, p) => sum + p.vendido_mes, 0);
+                                                        return totalEsperado > 0 ? ((totalVendido / totalEsperado) * 100).toFixed(1) : '0.0';
+                                                    })()}%
+                                                </TableCell>
+                                                <TableCell className="text-xs sm:text-sm text-center font-bold">
+                                                    {formatCurrency(goalsProjections.reduce((sum, p) => sum + p.projecao_faturamento, 0))}
+                                                </TableCell>
+                                            </TableRow>
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            ) : (
+                                <div className="text-center py-8">
+                                    <p className="text-sm text-muted-foreground">
+                                        Nenhuma meta configurada para as lojas no mês atual.
                                     </p>
                                 </div>
                             )}
