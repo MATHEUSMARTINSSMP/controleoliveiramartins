@@ -552,8 +552,8 @@ export async function deleteDRELancamento(id: string): Promise<void> {
     await n8nRequest<{
         success: boolean
         error?: string
-    }>(`/api/financeiro/dre/lancamentos/${encodeURIComponent(id)}`, {
-        method: 'DELETE'
+    }>(`/api/financeiro/dre/lancamentos/delete?id=${encodeURIComponent(id)}`, {
+        method: 'POST'
     })
 }
 
