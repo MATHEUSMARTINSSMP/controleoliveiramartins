@@ -68,6 +68,7 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
 import CashbackSettings from '@/components/erp/CashbackSettings';
+import { CashbackWhatsAppQueue } from '@/components/admin/CashbackWhatsAppQueue';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import * as XLSX from 'xlsx';
@@ -2205,6 +2206,7 @@ export default function CashbackManagement() {
           <TabsTrigger value="clientes" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[55px] justify-center">Clientes</TabsTrigger>
           <TabsTrigger value="historico" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[70px] justify-center">Histórico</TabsTrigger>
           <TabsTrigger value="bonificar" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] justify-center">Bonificar</TabsTrigger>
+          <TabsTrigger value="fila" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[55px] justify-center">Fila</TabsTrigger>
           <TabsTrigger value="configuracoes" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] justify-center">Config</TabsTrigger>
         </TabsList>
 
@@ -3809,7 +3811,12 @@ export default function CashbackManagement() {
           </Card>
         </TabsContent>
 
-        {/* TAB 5: CONFIGURAÇÕES */}
+        {/* TAB 5: FILA DE WHATSAPP */}
+        <TabsContent value="fila" className="space-y-4">
+          <CashbackWhatsAppQueue storeId={selectedStoreId || undefined} />
+        </TabsContent>
+
+        {/* TAB 6: CONFIGURAÇÕES */}
         <TabsContent value="configuracoes" className="space-y-4">
           <CashbackSettings />
         </TabsContent>
