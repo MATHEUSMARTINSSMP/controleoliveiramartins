@@ -445,6 +445,7 @@ export default function LojaDashboard() {
                     ponto: storeSettings.ponto_ativo,
                     wishlist: storeSettings.wishlist_ativo,
                     ajustesCondicionais: storeSettings.ajustes_condicionais_ativo,
+                    caixa: storeSettings.caixa_ativo,
                     storeId: storeId,
                     cashbackType: typeof storeSettings.cashback_ativo,
                     crmType: typeof storeSettings.crm_ativo
@@ -456,6 +457,7 @@ export default function LojaDashboard() {
                 const ponto = Boolean(storeSettings.ponto_ativo);
                 const wishlist = Boolean(storeSettings.wishlist_ativo);
                 const ajustesCondicionais = Boolean(storeSettings.ajustes_condicionais_ativo);
+                const caixa = Boolean(storeSettings.caixa_ativo);
 
                 console.log('[LojaDashboard] ✅ Valores booleanos calculados:', {
                     cashback,
@@ -463,6 +465,7 @@ export default function LojaDashboard() {
                     ponto,
                     wishlist,
                     ajustesCondicionais,
+                    caixa,
                     rawCashback: storeSettings.cashback_ativo,
                     rawCrm: storeSettings.crm_ativo
                 });
@@ -472,6 +475,7 @@ export default function LojaDashboard() {
                 setPontoAtivo(ponto);
                 setWishlistAtivo(wishlist);
                 setAjustesCondicionaisAtivo(ajustesCondicionais);
+                setCaixaAtivo(caixa);
 
                 console.log('[LojaDashboard] ✅ Estados atualizados via storeSettings');
                 return;
@@ -484,7 +488,7 @@ export default function LojaDashboard() {
                     const { data, error } = await supabase
                         .schema('sistemaretiradas')
                         .from('stores')
-                        .select('cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo, ajustes_condicionais_ativo')
+                        .select('cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo, ajustes_condicionais_ativo, caixa_ativo')
                         .eq('id', storeId)
                         .maybeSingle(); // ✅ Usar maybeSingle() para evitar erro quando não encontrar
 
@@ -506,6 +510,7 @@ export default function LojaDashboard() {
                             ponto: data.ponto_ativo,
                             wishlist: data.wishlist_ativo,
                             ajustesCondicionais: data.ajustes_condicionais_ativo,
+                            caixa: data.caixa_ativo,
                             cashbackType: typeof data.cashback_ativo
                         });
 
@@ -514,13 +519,15 @@ export default function LojaDashboard() {
                         const ponto = data.ponto_ativo === true;
                         const wishlist = data.wishlist_ativo === true;
                         const ajustesCondicionais = data.ajustes_condicionais_ativo === true;
+                        const caixa = data.caixa_ativo === true;
 
                         console.log('[LojaDashboard] ✅ Setando módulos (fallback):', {
                             cashback,
                             crm,
                             ponto,
                             wishlist,
-                            ajustesCondicionais
+                            ajustesCondicionais,
+                            caixa
                         });
 
                         setCashbackAtivo(cashback);
@@ -528,6 +535,7 @@ export default function LojaDashboard() {
                         setPontoAtivo(ponto);
                         setWishlistAtivo(wishlist);
                         setAjustesCondicionaisAtivo(ajustesCondicionais);
+                        setCaixaAtivo(caixa);
                     } else {
                         console.warn('[LojaDashboard] ⚠️ data é null ou undefined no fallback');
                     }
@@ -3281,8 +3289,8 @@ export default function LojaDashboard() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo || ajustesCondicionaisAtivo) && (
-                            <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes')}>
+                        {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo || ajustesCondicionaisAtivo || caixaAtivo) && (
+                            <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes' | 'caixa')}>
                                 <TabsList className="flex flex-wrap h-auto gap-0.5 p-0.5">
                                     <TabsTrigger value="metas" className="text-[10px] sm:text-xs px-2 py-1 justify-center">
                                         Metas
@@ -3310,6 +3318,11 @@ export default function LojaDashboard() {
                                     {ajustesCondicionaisAtivo && (
                                         <TabsTrigger value="ajustes" className="text-[10px] sm:text-xs px-2 py-1 justify-center">
                                             Ajustes
+                                        </TabsTrigger>
+                                    )}
+                                    {caixaAtivo && (
+                                        <TabsTrigger value="caixa" className="text-[10px] sm:text-xs px-2 py-1 justify-center">
+                                            Caixa
                                         </TabsTrigger>
                                     )}
                                 </TabsList>
@@ -3350,13 +3363,13 @@ export default function LojaDashboard() {
                     {/* DEBUG: Log dos estados antes de renderizar */}
                     {import.meta.env.DEV && (
                         <div className="p-2 bg-muted rounded text-xs">
-                            <strong>DEBUG Módulos:</strong> cashback={String(cashbackAtivo)}, crm={String(crmAtivo)}, wishlist={String(wishlistAtivo)}, ponto={String(pontoAtivo)}, ajustes={String(ajustesCondicionaisAtivo)} | storeId={storeId || 'null'} | Condição: {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo || ajustesCondicionaisAtivo) ? 'TRUE' : 'FALSE'}
+                            <strong>DEBUG Módulos:</strong> cashback={String(cashbackAtivo)}, crm={String(crmAtivo)}, wishlist={String(wishlistAtivo)}, ponto={String(pontoAtivo)}, ajustes={String(ajustesCondicionaisAtivo)}, caixa={String(caixaAtivo)} | storeId={storeId || 'null'} | Condição: {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo || ajustesCondicionaisAtivo || caixaAtivo) ? 'TRUE' : 'FALSE'}
                         </div>
                     )}
 
                     {/* Conteúdo Principal com Abas */}
-                    {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo || ajustesCondicionaisAtivo) ? (
-                        <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes')} className="space-y-4">
+                    {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo || ajustesCondicionaisAtivo || caixaAtivo) ? (
+                        <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes' | 'caixa')} className="space-y-4">
                             <TabsContent value="metas" className="space-y-4 sm:space-y-6">
                                 {/* Todo o conteúdo atual do dashboard de metas */}
                                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -4536,6 +4549,34 @@ export default function LojaDashboard() {
                                     <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
                                         {storeId ? (
                                             <StoreConditionalsAdjustments storeId={storeId} />
+                                        ) : (
+                                            <div className="flex items-center justify-center py-8 text-muted-foreground">
+                                                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                                                Carregando dados da loja...
+                                            </div>
+                                        )}
+                                    </Suspense>
+                                </TabsContent>
+                            )}
+                            {caixaAtivo && (
+                                <TabsContent value="caixa" className="space-y-4 sm:space-y-6">
+                                    <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                        {storeId ? (
+                                            <CaixaLojaView
+                                                storeId={storeId}
+                                                storeName={storeName || 'Loja'}
+                                                colaboradoras={colaboradoras}
+                                                colaboradorasPerformance={redistributedPerformance.data.map(p => ({
+                                                    id: p.id,
+                                                    name: p.name,
+                                                    vendidoHoje: p.vendidoHoje || 0,
+                                                    metaDiaria: p.metaDiariaRedistribuida || p.metaDiaria || 0,
+                                                    isOnLeave: p.isOnLeave || false
+                                                }))}
+                                                metaMensal={goals?.meta_valor || 0}
+                                                vendidoMensal={monthlyRealizado}
+                                                vendidoHoje={metrics?.totalVendas || 0}
+                                            />
                                         ) : (
                                             <div className="flex items-center justify-center py-8 text-muted-foreground">
                                                 <Loader2 className="h-6 w-6 animate-spin mr-2" />
