@@ -292,18 +292,42 @@ Deno.serve(async (req) => {
         }
 
         // 2. Buscar dados do cliente (nome e telefone)
-        const { data: cliente, error: clienteError } = await supabase
-          .from('tiny_contacts')
-          .select('nome, telefone')
-          .eq('id', item.cliente_id)
-          .single()
+        // Primeiro tentar usar os dados que já estão na fila (preenchidos pelo trigger)
+        let clienteNome = item.cliente_nome
+        let clienteTelefone = item.cliente_telefone
 
-        if (clienteError || !cliente) {
+        // Se não tiver na fila, buscar do banco (tiny_contacts primeiro, depois crm_contacts)
+        if (!clienteNome || !clienteTelefone) {
+          const { data: tinyCliente } = await supabase
+            .from('tiny_contacts')
+            .select('nome, telefone')
+            .eq('id', item.cliente_id)
+            .single()
+
+          if (tinyCliente) {
+            clienteNome = clienteNome || tinyCliente.nome
+            clienteTelefone = clienteTelefone || tinyCliente.telefone
+          } else {
+            // Tentar crm_contacts
+            const { data: crmCliente } = await supabase
+              .from('crm_contacts')
+              .select('nome, telefone')
+              .eq('id', item.cliente_id)
+              .single()
+
+            if (crmCliente) {
+              clienteNome = clienteNome || crmCliente.nome
+              clienteTelefone = clienteTelefone || crmCliente.telefone
+            }
+          }
+        }
+
+        if (!clienteNome) {
           throw new Error('Cliente não encontrado')
         }
 
         // Verificar se cliente tem telefone válido
-        if (!cliente.telefone || cliente.telefone.trim() === '') {
+        if (!clienteTelefone || clienteTelefone.trim() === '') {
           await supabase
             .from('cashback_whatsapp_queue')
             .update({
@@ -320,19 +344,19 @@ Deno.serve(async (req) => {
         }
 
         // Validar telefone antes de normalizar (deve ter pelo menos 10 dígitos após limpar)
-        const telefoneLimpo = cliente.telefone.replace(/\D/g, '')
+        const telefoneLimpo = clienteTelefone.replace(/\D/g, '')
         if (telefoneLimpo.length < 10) {
           await supabase
             .from('cashback_whatsapp_queue')
             .update({
               status: 'SKIPPED',
-              error_message: `Telefone inválido: ${cliente.telefone} (menos de 10 dígitos)`,
+              error_message: `Telefone inválido: ${clienteTelefone} (menos de 10 dígitos)`,
               updated_at: new Date().toISOString(),
             })
             .eq('id', item.id)
 
           skipped++
-          console.log(`[ProcessCashbackQueue] ⏭️ WhatsApp pulado: telefone inválido (${cliente.telefone}) - transação ${item.transaction_id}`)
+          console.log(`[ProcessCashbackQueue] ⏭️ WhatsApp pulado: telefone inválido (${clienteTelefone}) - transação ${item.transaction_id}`)
           processed++
           continue
         }
@@ -390,7 +414,7 @@ Deno.serve(async (req) => {
 
         // 6. Formatar mensagem usando a mesma função do sistema
         const message = formatCashbackMessage({
-          clienteNome: cliente.nome,
+          clienteNome: clienteNome,
           storeName: loja.name,
           cashbackAmount: Number(transaction.amount),
           dataExpiracao: transaction.data_expiracao,
@@ -399,7 +423,7 @@ Deno.serve(async (req) => {
         })
 
         // 7. Enviar WhatsApp usando a mesma lógica do send-whatsapp-message.js
-        const sendResult = await sendWhatsAppMessage(cliente.telefone, message)
+        const sendResult = await sendWhatsAppMessage(clienteTelefone, message)
 
         if (sendResult.success) {
           // Sucesso
@@ -412,7 +436,7 @@ Deno.serve(async (req) => {
             .eq('id', item.id)
 
           sent++
-          console.log(`[ProcessCashbackQueue] ✅ WhatsApp enviado para transação ${item.transaction_id} (cliente: ${cliente.nome}, telefone: ${cliente.telefone})`)
+          console.log(`[ProcessCashbackQueue] ✅ WhatsApp enviado para transação ${item.transaction_id} (cliente: ${clienteNome}, telefone: ${clienteTelefone})`)
         } else if (sendResult.skipped) {
           // Cliente sem telefone válido - marcar como SKIPPED
           await supabase
@@ -425,7 +449,7 @@ Deno.serve(async (req) => {
             .eq('id', item.id)
 
           skipped++
-          console.log(`[ProcessCashbackQueue] ⏭️ WhatsApp pulado: ${sendResult.error} (transação ${item.transaction_id}, cliente: ${cliente.nome})`)
+          console.log(`[ProcessCashbackQueue] ⏭️ WhatsApp pulado: ${sendResult.error} (transação ${item.transaction_id}, cliente: ${clienteNome})`)
         } else {
           // Falha
           const newStatus = item.attempts >= 2 ? 'FAILED' : 'PENDING' // Tentar até 3 vezes
