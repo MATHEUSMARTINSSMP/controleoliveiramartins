@@ -142,15 +142,21 @@ export default function DREAssistenteIA({ storeId }: Props) {
                             className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}
                         >
                             <div
-                                className={`max-w-[85%] rounded-lg p-4 overflow-hidden ${msg.type === 'user'
+                                className={`max-w-[85%] rounded-lg p-4 ${msg.type === 'user'
                                         ? 'bg-primary text-primary-foreground'
-                                        : 'bg-muted'
+                                        : 'bg-muted text-foreground'
                                     }`}
                             >
-                                <div 
-                                    className="whitespace-pre-wrap break-words text-sm prose prose-sm dark:prose-invert max-w-none"
-                                    dangerouslySetInnerHTML={{ __html: msg.content }}
-                                />
+                                {msg.type === 'user' ? (
+                                    <div className="whitespace-pre-wrap break-words text-sm">
+                                        {msg.content}
+                                    </div>
+                                ) : (
+                                    <div 
+                                        className="whitespace-pre-wrap break-words text-sm [&_strong]:font-semibold [&_em]:italic [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-3 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1 [&_h4]:font-medium [&_h4]:mt-2 [&_h4]:mb-1 [&_ul]:list-disc [&_ul]:ml-4 [&_ul]:my-2 [&_li]:my-1"
+                                        dangerouslySetInnerHTML={{ __html: msg.content }}
+                                    />
+                                )}
 
                                 {/* Cálculos (se houver) */}
                                 {msg.calculos && msg.calculos.length > 0 && (
