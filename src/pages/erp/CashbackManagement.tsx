@@ -733,6 +733,7 @@ export default function CashbackManagement() {
           description: descricaoLancar || 'Lançamento manual de cashback',
           data_liberacao: dataLiberacao.toISOString(),
           data_expiracao: dataExpiracao.toISOString(),
+          store_id: selectedStoreId, // ✅ Associar à loja selecionada
         });
 
       if (insertError) throw insertError;
