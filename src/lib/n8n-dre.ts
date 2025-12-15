@@ -553,7 +553,7 @@ export async function deleteDRELancamento(id: string): Promise<void> {
         success: boolean
         error?: string
     }>(`/api/financeiro/dre/lancamentos/delete?id=${encodeURIComponent(id)}`, {
-        method: 'POST'
+        method: 'DELETE'
     })
 }
 
