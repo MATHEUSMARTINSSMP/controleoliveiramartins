@@ -696,3 +696,49 @@ export function getCompetenciasFuturas(): Array<{ value: string; label: string }
 
     return competencias
 }
+
+/**
+ * Gera lista de anos disponíveis para seleção
+ * Inclui 5 anos para trás e 5 anos para frente
+ */
+export function getAnosDisponiveis(): Array<{ value: number; label: string }> {
+    const anos: Array<{ value: number; label: string }> = []
+    const anoAtual = new Date().getFullYear()
+    
+    for (let i = anoAtual - 5; i <= anoAtual + 5; i++) {
+        anos.push({
+            value: i,
+            label: String(i)
+        })
+    }
+    
+    return anos
+}
+
+/**
+ * Gera lista de meses para seleção
+ */
+export function getMesesDisponiveis(): Array<{ value: string; label: string }> {
+    const meses = [
+        { value: '01', label: 'Janeiro' },
+        { value: '02', label: 'Fevereiro' },
+        { value: '03', label: 'Março' },
+        { value: '04', label: 'Abril' },
+        { value: '05', label: 'Maio' },
+        { value: '06', label: 'Junho' },
+        { value: '07', label: 'Julho' },
+        { value: '08', label: 'Agosto' },
+        { value: '09', label: 'Setembro' },
+        { value: '10', label: 'Outubro' },
+        { value: '11', label: 'Novembro' },
+        { value: '12', label: 'Dezembro' }
+    ]
+    return meses
+}
+
+/**
+ * Gera competência no formato YYYYMM a partir de ano e mês
+ */
+export function buildCompetencia(ano: number, mes: string): string {
+    return `${ano}${mes}`
+}

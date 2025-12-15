@@ -33,12 +33,17 @@ export default function DRELancamentosTab({ categorias, lancamentos, onRefresh, 
     const [deleteDialog, setDeleteDialog] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
 
+    // Estado para ano e mês do formulário
+    const anoAtual = new Date().getFullYear()
+    const mesAtual = String(new Date().getMonth() + 1).padStart(2, '0')
+
     // Formulário manual
     const [formManual, setFormManual] = useState({
         categoria_id: '',
         descricao: '',
         valor: '',
-        competencia: '',
+        ano: String(anoAtual),
+        mes: mesAtual,
         observacoes: ''
     })
 
@@ -48,26 +53,22 @@ export default function DRELancamentosTab({ categorias, lancamentos, onRefresh, 
 
     // Filtros
     const [filtros, setFiltros] = useState({
-        competencia: 'all',
+        ano: 'all',
+        mes: 'all',
         tipo: 'all' as 'all' | TipoLancamentoDRE,
         categoria_id: 'all'
     })
 
     const handleNovoManual = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!formManual.categoria_id || !formManual.descricao || !formManual.valor || !formManual.competencia) {
+        if (!formManual.categoria_id || !formManual.descricao || !formManual.valor || !formManual.ano || !formManual.mes) {
             toast.error('Preencha todos os campos obrigatórios')
             return
         }
 
         setLoading(true)
         try {
-            const competenciaNormalizada = formManual.competencia.replace(/[-/]/g, '').substring(0, 6)
-
-            if (competenciaNormalizada.length !== 6) {
-                toast.error('Competência inválida. Use o formato AAAAMM')
-                return
-            }
+            const competencia = dre.buildCompetencia(parseInt(formManual.ano), formManual.mes)
 
             const hoje = new Date()
             const dataLancamento = hoje.toISOString().split('T')[0]
@@ -76,7 +77,7 @@ export default function DRELancamentosTab({ categorias, lancamentos, onRefresh, 
                 categoria_id: formManual.categoria_id,
                 descricao: formManual.descricao,
                 valor: parseFloat(formManual.valor) || 0,
-                competencia: competenciaNormalizada,
+                competencia,
                 data_lancamento: dataLancamento,
                 observacoes: formManual.observacoes,
                 store_id: storeId
@@ -88,7 +89,8 @@ export default function DRELancamentosTab({ categorias, lancamentos, onRefresh, 
                 categoria_id: '',
                 descricao: '',
                 valor: '',
-                competencia: '',
+                ano: String(anoAtual),
+                mes: mesAtual,
                 observacoes: ''
             })
             onRefresh()
@@ -166,15 +168,20 @@ export default function DRELancamentosTab({ categorias, lancamentos, onRefresh, 
         }
     }
 
-    // Filtrar lançamentos
+    // Filtrar lançamentos por ano e mês
     const filteredLancamentos = lancamentos.filter(l => {
-        if (filtros.competencia !== 'all' && l.competencia !== filtros.competencia) return false
+        if (filtros.ano !== 'all') {
+            const lancamentoAno = l.competencia.substring(0, 4)
+            if (lancamentoAno !== filtros.ano) return false
+        }
+        if (filtros.mes !== 'all') {
+            const lancamentoMes = l.competencia.substring(4, 6)
+            if (lancamentoMes !== filtros.mes) return false
+        }
         if (filtros.tipo !== 'all' && l.categoria_tipo !== filtros.tipo) return false
         if (filtros.categoria_id !== 'all' && l.categoria_id !== filtros.categoria_id) return false
         return true
     })
-
-    const competenciasDisponiveis = dre.getCompetenciasFuturas()
 
     return (
         <Card>
@@ -231,18 +238,33 @@ export default function DRELancamentosTab({ categorias, lancamentos, onRefresh, 
                                         />
                                     </div>
 
-                                    <div>
-                                        <Label>Competência *</Label>
-                                        <Select value={formManual.competencia} onValueChange={(v) => setFormManual({ ...formManual, competencia: v })}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Selecione o mês" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {competenciasDisponiveis.map(c => (
-                                                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <Label>Ano *</Label>
+                                            <Select value={formManual.ano} onValueChange={(v) => setFormManual({ ...formManual, ano: v })}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Ano" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {dre.getAnosDisponiveis().map(a => (
+                                                        <SelectItem key={a.value} value={String(a.value)}>{a.label}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label>Mês *</Label>
+                                            <Select value={formManual.mes} onValueChange={(v) => setFormManual({ ...formManual, mes: v })}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Mês" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {dre.getMesesDisponiveis().map(m => (
+                                                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                     </div>
 
                                     <div>
@@ -334,21 +356,33 @@ export default function DRELancamentosTab({ categorias, lancamentos, onRefresh, 
             </CardHeader>
             <CardContent>
                 {/* Filtros */}
-                <div className="flex gap-4 mb-4">
-                    <Select value={filtros.competencia} onValueChange={(v) => setFiltros({ ...filtros, competencia: v })}>
-                        <SelectTrigger className="w-[200px]">
-                            <SelectValue placeholder="Competência" />
+                <div className="flex flex-wrap gap-4 mb-4">
+                    <Select value={filtros.ano} onValueChange={(v) => setFiltros({ ...filtros, ano: v })}>
+                        <SelectTrigger className="w-[150px]">
+                            <SelectValue placeholder="Ano" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">Todas as competências</SelectItem>
-                            {competenciasDisponiveis.map(c => (
-                                <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                            <SelectItem value="all">Todos os anos</SelectItem>
+                            {dre.getAnosDisponiveis().map(a => (
+                                <SelectItem key={a.value} value={String(a.value)}>{a.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <Select value={filtros.mes} onValueChange={(v) => setFiltros({ ...filtros, mes: v })}>
+                        <SelectTrigger className="w-[150px]">
+                            <SelectValue placeholder="Mês" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos os meses</SelectItem>
+                            {dre.getMesesDisponiveis().map(m => (
+                                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
 
                     <Select value={filtros.tipo} onValueChange={(v) => setFiltros({ ...filtros, tipo: v as any })}>
-                        <SelectTrigger className="w-[200px]">
+                        <SelectTrigger className="w-[150px]">
                             <SelectValue placeholder="Tipo" />
                         </SelectTrigger>
                         <SelectContent>
