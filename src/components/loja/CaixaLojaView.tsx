@@ -193,22 +193,34 @@ export function CaixaLojaView({
       const { data: storeData } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('whatsapp_caixa_numeros, whatsapp_caixa_usar_global')
+        .select('admin_id')
         .eq('id', storeId)
         .single();
 
-      const numerosDestino = storeData?.whatsapp_caixa_numeros || [];
-      const usarGlobal = storeData?.whatsapp_caixa_usar_global !== false;
+      if (storeData?.admin_id) {
+        const { data: notifConfigs } = await supabase
+          .schema('sistemaretiradas')
+          .from('whatsapp_notification_config')
+          .select('phone')
+          .eq('admin_id', storeData.admin_id)
+          .eq('notification_type', 'CAIXA')
+          .eq('store_id', storeId)
+          .eq('active', true);
 
-      if (numerosDestino.length > 0) {
-        for (const numero of numerosDestino) {
-          await sendWhatsAppMessage({
-            phone: numero,
-            message: mensagem,
-            store_id: usarGlobal ? undefined : storeId,
-          });
+        const numerosDestino = notifConfigs?.map(c => c.phone) || [];
+
+        if (numerosDestino.length > 0) {
+          for (const numero of numerosDestino) {
+            await sendWhatsAppMessage({
+              phone: numero,
+              message: mensagem,
+              store_id: storeId,
+            });
+          }
+          toast.success('Caixa aberto e mensagem enviada!');
+        } else {
+          toast.success('Caixa aberto com sucesso!');
         }
-        toast.success('Caixa aberto e mensagem enviada!');
       } else {
         toast.success('Caixa aberto com sucesso!');
       }
@@ -284,22 +296,34 @@ export function CaixaLojaView({
       const { data: storeData } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('whatsapp_caixa_numeros, whatsapp_caixa_usar_global')
+        .select('admin_id')
         .eq('id', storeId)
         .single();
 
-      const numerosDestino = storeData?.whatsapp_caixa_numeros || [];
-      const usarGlobal = storeData?.whatsapp_caixa_usar_global !== false;
+      if (storeData?.admin_id) {
+        const { data: notifConfigs } = await supabase
+          .schema('sistemaretiradas')
+          .from('whatsapp_notification_config')
+          .select('phone')
+          .eq('admin_id', storeData.admin_id)
+          .eq('notification_type', 'CAIXA')
+          .eq('store_id', storeId)
+          .eq('active', true);
 
-      if (numerosDestino.length > 0) {
-        for (const numero of numerosDestino) {
-          await sendWhatsAppMessage({
-            phone: numero,
-            message: mensagem,
-            store_id: usarGlobal ? undefined : storeId,
-          });
+        const numerosDestino = notifConfigs?.map(c => c.phone) || [];
+
+        if (numerosDestino.length > 0) {
+          for (const numero of numerosDestino) {
+            await sendWhatsAppMessage({
+              phone: numero,
+              message: mensagem,
+              store_id: storeId,
+            });
+          }
+          toast.success('Caixa fechado e mensagem enviada!');
+        } else {
+          toast.success('Caixa fechado com sucesso!');
         }
-        toast.success('Caixa fechado e mensagem enviada!');
       } else {
         toast.success('Caixa fechado com sucesso!');
       }
