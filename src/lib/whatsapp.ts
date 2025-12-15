@@ -727,3 +727,155 @@ export async function connectWhatsApp(params: FetchStatusParams): Promise<WhatsA
   }
 }
 
+/**
+ * Formata mensagem de abertura de caixa (notificação WhatsApp)
+ */
+export function formatAberturaCaixaMessage(params: {
+  storeName: string;
+  dataAbertura: string;
+  dinheiroCaixa: number;
+  metaDia: number;
+  metaMes: number;
+  vendidoMes: number;
+  faltaMes: number;
+  diasRestantes: number;
+  metasColaboradoras?: { nome: string; metaDiaria: number }[];
+  observacoes?: string;
+}): string {
+  const {
+    storeName,
+    dataAbertura,
+    dinheiroCaixa,
+    metaDia,
+    metaMes,
+    vendidoMes,
+    faltaMes,
+    diasRestantes,
+    metasColaboradoras,
+    observacoes,
+  } = params;
+
+  const dataFormatada = new Date(dataAbertura).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
+  const horaFormatada = new Date(dataAbertura).toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  const formatarValor = (valor: number) =>
+    new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(valor);
+
+  let message = `*ABERTURA DE CAIXA - ${dataFormatada}*\n`;
+  message += `${storeName.toUpperCase()}\n`;
+  message += `Horário: ${horaFormatada}\n\n`;
+
+  message += `*Dinheiro em Caixa:* ${formatarValor(dinheiroCaixa)}\n\n`;
+
+  message += `*META DO MÊS*\n`;
+  message += `Meta: ${formatarValor(metaMes)}\n`;
+  message += `Vendido: ${formatarValor(vendidoMes)}\n`;
+  message += `Falta: ${formatarValor(faltaMes)}\n`;
+  message += `Dias restantes: ${diasRestantes}\n`;
+  message += `Diária necessária: ${formatarValor(metaDia)}\n\n`;
+
+  if (metasColaboradoras && metasColaboradoras.length > 0) {
+    message += `*METAS INDIVIDUAIS HOJE*\n`;
+    metasColaboradoras.forEach((colab) => {
+      message += `${colab.nome}: ${formatarValor(colab.metaDiaria)}\n`;
+    });
+    message += `\n`;
+  }
+
+  if (observacoes && observacoes.trim()) {
+    message += `*Obs:* ${observacoes.trim()}\n\n`;
+  }
+
+  message += `Sistema EleveaOne`;
+
+  return message;
+}
+
+/**
+ * Formata mensagem de fechamento de caixa (notificação WhatsApp)
+ */
+export function formatFechamentoCaixaMessage(params: {
+  storeName: string;
+  dataFechamento: string;
+  metaMes: number;
+  vendidoMes: number;
+  faltaMes: number;
+  diariaNecessaria: number;
+  diasRestantes: number;
+  vendidoHoje: number;
+  vendasColaboradoras?: { nome: string; vendidoHoje: number; isOnLeave: boolean }[];
+  observacoes?: string;
+}): string {
+  const {
+    storeName,
+    dataFechamento,
+    metaMes,
+    vendidoMes,
+    faltaMes,
+    diariaNecessaria,
+    diasRestantes,
+    vendidoHoje,
+    vendasColaboradoras,
+    observacoes,
+  } = params;
+
+  const dataFormatada = new Date(dataFechamento).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
+  const formatarValor = (valor: number) =>
+    new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(valor);
+
+  const formatarValorCurto = (valor: number) => {
+    if (valor >= 1000) {
+      return `${(valor / 1000).toFixed(0)}K`;
+    }
+    return formatarValor(valor);
+  };
+
+  let message = `*FECHAMENTO - ${dataFormatada}*\n`;
+  message += `${storeName.toUpperCase()}\n\n`;
+
+  message += `Meta Loja: ${formatarValorCurto(metaMes)}\n`;
+  message += `Vendido: ${formatarValor(vendidoMes)}\n`;
+  message += `Falta: ${formatarValor(faltaMes)}\n`;
+  message += `Diária hoje: ${formatarValor(diariaNecessaria)}\n`;
+  message += `Falta dias pra acabar o mês: ${diasRestantes}\n\n`;
+
+  message += `*Loja vendeu hoje:* ${formatarValor(vendidoHoje)}\n`;
+
+  if (vendasColaboradoras && vendasColaboradoras.length > 0) {
+    vendasColaboradoras.forEach((colab) => {
+      if (colab.isOnLeave) {
+        message += `${colab.nome}: R$ - folga\n`;
+      } else {
+        message += `${colab.nome}: ${formatarValor(colab.vendidoHoje)}\n`;
+      }
+    });
+  }
+
+  if (observacoes && observacoes.trim()) {
+    message += `\n*Obs:* ${observacoes.trim()}\n`;
+  }
+
+  message += `\nSistema EleveaOne`;
+
+  return message;
+}
+
