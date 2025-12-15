@@ -1,8 +1,8 @@
 // Supabase Edge Function: Processar Fila de WhatsApp de Cashback
 // Esta função processa a fila de WhatsApp de cashback automaticamente
-// Usa a mesma lógica de envio de WhatsApp que já existe no sistema
+// Usa a mesma lógica de envio de WhatsApp que já existe no sistema (send-whatsapp-message.js)
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,85 +10,61 @@ const corsHeaders = {
 }
 
 // Função para normalizar telefone para WhatsApp (DDI + DDD + número)
-// Formato esperado: 55DDDXXXXXXXXX (ex: 5596981032928)
 function normalizePhone(phoneNumber: string): string {
   if (!phoneNumber) return ''
   
-  // 1. Remove todos os caracteres não numéricos
   let cleaned = phoneNumber.replace(/\D/g, '')
   
-  // 2. Remove zero inicial se houver (ex: 096 -> 96)
   if (cleaned.startsWith('0')) {
     cleaned = cleaned.substring(1)
   }
   
-  // 3. Se já tem DDI 55 e está no tamanho correto (12 ou 13 dígitos), manter
-  // Formato correto: 55 + DDD (2) + número (8 ou 9) = 12 ou 13 dígitos
   if (cleaned.startsWith('55') && (cleaned.length === 12 || cleaned.length === 13)) {
-    return cleaned // Já está no formato correto
+    return cleaned
   }
   
-  // 4. Se tem DDI 55 mas está muito longo (possível duplicação), remover o primeiro 55
   if (cleaned.startsWith('55') && cleaned.length > 13) {
     cleaned = cleaned.substring(2)
   }
   
-  // 5. Validação de tamanho após limpeza (deve ter 10 ou 11 dígitos = DDD + número)
   if (cleaned.length < 10 || cleaned.length > 11) {
-    console.warn(`[normalizePhone] ⚠️ Telefone com tamanho inválido após limpeza: ${cleaned.length} dígitos (${phoneNumber})`)
-    // Se tiver menos de 10 dígitos, pode estar incompleto
+    console.warn(`[normalizePhone] Telefone com tamanho inválido: ${cleaned.length} dígitos`)
     if (cleaned.length < 10) {
       return cleaned
     }
   }
   
-  // 6. Adiciona DDI 55 (Brasil) se não tiver
   if (!cleaned.startsWith('55')) {
     cleaned = '55' + cleaned
   }
   
-  // 7. Verificar se o número após DDD começa com "99" (possível 9 duplicado)
+  // Verificar 9 duplicado
   if (cleaned.length === 13 && cleaned.startsWith('55')) {
-    const ddi = cleaned.substring(0, 2) // 55
-    const ddd = cleaned.substring(2, 4) // DDD (pode ser 96, 99, etc)
-    const numero = cleaned.substring(4) // Número após DDI+DDD (9 dígitos)
-    
-    // Se o número começa com "99", pode haver um 9 duplicado
-    if (numero.startsWith('99') && numero.length === 9) {
-      // Remove o primeiro 9 do número: 55 + DDD + 99XXXXXXX -> 55 + DDD + 9XXXXXXX
-      cleaned = ddi + ddd + numero.substring(1) // Remove primeiro dígito do número (um dos 9s)
-      console.log(`[normalizePhone] 🔧 Removido 9 duplicado (número começa com 99): ${phoneNumber} -> ${cleaned}`)
-    }
-  }
-  
-  // 8. VERIFICAÇÃO EXTRA: Verificar de trás para frente se o 9º dígito do final é 9 extra
-  // Celulares brasileiros: 55 + DDD (2) + 9 (celular) + 8 dígitos = 13 dígitos
-  // Se o 9º e 10º dígitos a partir do final forem ambos 9, há duplicação
-  if (cleaned.length === 13 && cleaned.startsWith('55')) {
-    const nonoDoFinal = cleaned[cleaned.length - 9] // Índice: length - 9 (0-based)
+    const nonoDoFinal = cleaned[cleaned.length - 9]
     const decimoDoFinal = cleaned[cleaned.length - 10]
-    
-    // Se ambos são 9, há duplicação - remover o 9 extra (o 9º do final)
     if (nonoDoFinal === '9' && decimoDoFinal === '9') {
-      // Remove o 9 extra: mantém tudo exceto o 9º dígito a partir do final
-      const antes = cleaned.substring(0, cleaned.length - 9) // Tudo antes do 9 extra
-      const depois = cleaned.substring(cleaned.length - 8) // Tudo depois do 9 extra
+      const antes = cleaned.substring(0, cleaned.length - 9)
+      const depois = cleaned.substring(cleaned.length - 8)
       cleaned = antes + depois
-      console.log(`[normalizePhone] 🔧 Removido 9 extra (verificação de trás para frente): ${phoneNumber} -> ${cleaned}`)
+      console.log(`[normalizePhone] Removido 9 extra: ${phoneNumber} -> ${cleaned}`)
     }
   }
   
-  // 9. Validação final: deve ter 12 dígitos (55 + DDD + 8 dígitos) ou 13 (55 + DDD + 9 dígitos)
-  // Formato: 55 + DDD (2 dígitos) + número (8 dígitos para WhatsApp)
-  if (cleaned.length === 12 || cleaned.length === 13) {
-    return cleaned
-  }
-  
-  console.warn(`[normalizePhone] ⚠️ Telefone normalizado com formato inesperado: ${cleaned} (${cleaned.length} dígitos, original: ${phoneNumber})`)
   return cleaned
 }
 
-// Função para formatar mensagem de cashback (mesma lógica do formatCashbackMessage)
+// Função para gerar slug a partir do nome da loja
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/(^_|_$)/g, '')
+    .replace(/_+/g, '_')
+}
+
+// Função para formatar mensagem de cashback
 function formatCashbackMessage(params: {
   clienteNome: string
   storeName: string
@@ -99,10 +75,8 @@ function formatCashbackMessage(params: {
 }): string {
   const { clienteNome, storeName, cashbackAmount, dataExpiracao, percentualUsoMaximo, saldoAtual } = params
   
-  // Extrair apenas o primeiro nome
   const primeiroNome = clienteNome.split(' ')[0]
   
-  // Formatar valores monetários
   const cashbackFormatado = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
@@ -113,14 +87,12 @@ function formatCashbackMessage(params: {
     currency: 'BRL',
   }).format(saldoAtual)
   
-  // Formatar data de expiração
   const dataExpiracaoFormatada = new Date(dataExpiracao).toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   })
   
-  // Formatar percentual de uso máximo
   const percentualFormatado = new Intl.NumberFormat('pt-BR', {
     style: 'percent',
     minimumFractionDigits: 0,
@@ -139,42 +111,158 @@ function formatCashbackMessage(params: {
   return message
 }
 
-// Função para enviar WhatsApp via webhook n8n (mesma lógica do send-whatsapp-message.js)
-async function sendWhatsAppMessage(phone: string, message: string): Promise<{ success: boolean; error?: string; skipped?: boolean }> {
+// Buscar credencial GLOBAL do banco de dados
+async function fetchGlobalCredential(supabase: SupabaseClient): Promise<{ siteSlug: string; customerId: string } | null> {
   try {
-    // Validar telefone antes de normalizar
+    console.log('[WhatsApp] Buscando credencial global (is_global = true)...')
+    
+    const { data: globalCred, error: globalError } = await supabase
+      .from('whatsapp_credentials')
+      .select('customer_id, site_slug, uazapi_status, display_name')
+      .eq('is_global', true)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    if (globalError) {
+      console.warn('[WhatsApp] Erro ao buscar credencial global:', globalError.message)
+      return null
+    }
+
+    if (globalCred && globalCred.uazapi_status === 'connected') {
+      console.log('[WhatsApp] Credencial global encontrada e conectada:', globalCred.display_name || 'Elevea Global')
+      return {
+        siteSlug: globalCred.site_slug,
+        customerId: globalCred.customer_id,
+      }
+    }
+
+    console.log('[WhatsApp] Credencial global não encontrada ou não conectada (status:', globalCred?.uazapi_status || 'não existe', ')')
+    return null
+  } catch (err: any) {
+    console.warn('[WhatsApp] Erro ao buscar credencial global:', err.message)
+    return null
+  }
+}
+
+// Buscar credenciais da loja ou usar global como fallback
+async function getWhatsAppCredentials(
+  supabase: SupabaseClient,
+  storeId: string,
+  storeName: string
+): Promise<{ siteSlug: string; customerId: string; source: string } | null> {
+  try {
+    // 1. Verificar se loja tem WhatsApp ativo
+    const { data: store, error: storeError } = await supabase
+      .from('stores')
+      .select('id, name, whatsapp_ativo')
+      .eq('id', storeId)
+      .single()
+
+    if (storeError || !store) {
+      console.log('[WhatsApp] Loja não encontrada, tentando credencial global...')
+      const globalCred = await fetchGlobalCredential(supabase)
+      if (globalCred) {
+        return { ...globalCred, source: 'global_db (loja não encontrada)' }
+      }
+      return null
+    }
+
+    if (store.whatsapp_ativo === false) {
+      console.log('[WhatsApp] Loja', store.name, 'tem whatsapp_ativo = false. Não enviando.')
+      return null
+    }
+
+    // 2. Buscar admin da loja
+    const storeSlug = generateSlug(store.name)
+    
+    const { data: adminProfile, error: adminError } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('store_id', storeId)
+      .eq('role', 'ADMIN')
+      .maybeSingle()
+
+    if (!adminError && adminProfile?.email) {
+      const adminEmail = adminProfile.email
+      console.log('[WhatsApp] Admin da loja encontrado:', adminEmail)
+
+      // 3. Buscar credenciais PRÓPRIAS da loja
+      const { data: storeCreds, error: credError } = await supabase
+        .from('whatsapp_credentials')
+        .select('customer_id, site_slug, uazapi_status, is_global')
+        .eq('customer_id', adminEmail)
+        .eq('site_slug', storeSlug)
+        .eq('status', 'active')
+        .maybeSingle()
+
+      if (!credError && storeCreds && storeCreds.uazapi_status === 'connected' && !storeCreds.is_global) {
+        console.log('[WhatsApp] Usando credenciais PRÓPRIAS da loja:', store.name)
+        return {
+          siteSlug: storeCreds.site_slug,
+          customerId: storeCreds.customer_id,
+          source: `loja:${store.name}`,
+        }
+      }
+    }
+
+    // 4. Fallback para credencial GLOBAL
+    console.log('[WhatsApp] Loja', store.name, 'vai usar credencial GLOBAL (fallback)')
+    const globalCred = await fetchGlobalCredential(supabase)
+    if (globalCred) {
+      return { ...globalCred, source: `global_db (loja: ${store.name})` }
+    }
+
+    return null
+  } catch (err: any) {
+    console.warn('[WhatsApp] Erro ao buscar credenciais:', err.message)
+    const globalCred = await fetchGlobalCredential(supabase)
+    if (globalCred) {
+      return { ...globalCred, source: 'global_db (fallback erro)' }
+    }
+    return null
+  }
+}
+
+// Função para enviar WhatsApp via webhook n8n
+async function sendWhatsAppMessage(
+  phone: string, 
+  message: string,
+  siteSlug: string,
+  customerId: string
+): Promise<{ success: boolean; error?: string; skipped?: boolean }> {
+  try {
     if (!phone || phone.trim() === '') {
       return { success: false, error: 'Telefone vazio', skipped: true }
     }
 
-    // Normalizar telefone
     const normalizedPhone = normalizePhone(phone)
     
-    // Validar telefone normalizado (deve ter pelo menos 12 dígitos: 55 + DDD + número)
     if (!normalizedPhone || normalizedPhone.length < 12) {
       return { success: false, error: `Telefone normalizado inválido: ${normalizedPhone}`, skipped: true }
     }
     
-    // Credenciais do webhook via variáveis de ambiente
     const webhookUrl = Deno.env.get('WHATSAPP_WEBHOOK_URL') || 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/send'
     const webhookAuth = Deno.env.get('N8N_WEBHOOK_AUTH') || ''
-    const siteSlug = Deno.env.get('WHATSAPP_SITE_SLUG') || 'elevea'
-    const customerId = Deno.env.get('N8N_CUSTOMER_ID') || ''
 
-    // Escapar mensagem como string JSON (mesma lógica do send-whatsapp-message.js)
     const messageEscaped = JSON.stringify(message)
     const messageSafe = messageEscaped.slice(1, -1)
 
     const payload = {
       siteSlug: siteSlug,
       customerId: customerId,
-      phone_number: String(normalizedPhone), // snake_case + String() para garantir que não seja tratado como número
+      phone_number: String(normalizedPhone),
       message: messageSafe,
     }
 
-    const headers = {
+    console.log('[WhatsApp] Enviando para:', normalizedPhone)
+    console.log('[WhatsApp] siteSlug:', siteSlug, '| customerId:', customerId)
+
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'x-app-key': webhookAuth,
+    }
+
+    if (webhookAuth) {
+      headers['x-app-key'] = webhookAuth
     }
 
     const response = await fetch(webhookUrl, {
@@ -191,6 +279,8 @@ async function sendWhatsAppMessage(phone: string, message: string): Promise<{ su
       responseData = { message: responseText, raw: responseText }
     }
 
+    console.log('[WhatsApp] Status:', response.status, '| Response:', JSON.stringify(responseData).substring(0, 200))
+
     if (!response.ok) {
       throw new Error(responseData.message || responseData.error || `HTTP ${response.status}`)
     }
@@ -202,26 +292,18 @@ async function sendWhatsAppMessage(phone: string, message: string): Promise<{ su
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // Criar cliente Supabase
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
     if (!supabaseUrl || !supabaseServiceKey) {
       return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Configuração Supabase não encontrada',
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        JSON.stringify({ success: false, error: 'Configuração Supabase não encontrada' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -231,7 +313,6 @@ Deno.serve(async (req) => {
 
     console.log('[ProcessCashbackQueue] 🔄 Processando fila de WhatsApp de cashback...')
 
-    // Buscar itens pendentes (máximo 10 por execução)
     const { data: queueItems, error: queueError } = await supabase
       .from('cashback_whatsapp_queue')
       .select('*')
@@ -246,15 +327,8 @@ Deno.serve(async (req) => {
 
     if (!queueItems || queueItems.length === 0) {
       return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Nenhum item pendente na fila',
-          processed: 0,
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        JSON.stringify({ success: true, message: 'Nenhum item pendente na fila', processed: 0 }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -265,10 +339,8 @@ Deno.serve(async (req) => {
     let failed = 0
     let skipped = 0
 
-    // Processar cada item da fila
     for (const item of queueItems) {
       try {
-        // Marcar como PROCESSING
         await supabase
           .from('cashback_whatsapp_queue')
           .update({
@@ -279,7 +351,6 @@ Deno.serve(async (req) => {
           })
           .eq('id', item.id)
 
-        // 1. Buscar dados da transação de cashback
         const { data: transaction, error: transactionError } = await supabase
           .from('cashback_transactions')
           .select('amount, data_expiracao')
@@ -291,12 +362,10 @@ Deno.serve(async (req) => {
           throw new Error('Transação de cashback não encontrada')
         }
 
-        // 2. Buscar dados do cliente (nome e telefone)
-        // Primeiro tentar usar os dados que já estão na fila (preenchidos pelo trigger)
+        // Usar dados da fila primeiro, depois buscar do banco
         let clienteNome = item.cliente_nome
         let clienteTelefone = item.cliente_telefone
 
-        // Se não tiver na fila, buscar do banco (tiny_contacts primeiro, depois crm_contacts)
         if (!clienteNome || !clienteTelefone) {
           const { data: tinyCliente } = await supabase
             .from('tiny_contacts')
@@ -308,7 +377,6 @@ Deno.serve(async (req) => {
             clienteNome = clienteNome || tinyCliente.nome
             clienteTelefone = clienteTelefone || tinyCliente.telefone
           } else {
-            // Tentar crm_contacts
             const { data: crmCliente } = await supabase
               .from('crm_contacts')
               .select('nome, telefone')
@@ -326,7 +394,6 @@ Deno.serve(async (req) => {
           throw new Error('Cliente não encontrado')
         }
 
-        // Verificar se cliente tem telefone válido
         if (!clienteTelefone || clienteTelefone.trim() === '') {
           await supabase
             .from('cashback_whatsapp_queue')
@@ -343,7 +410,6 @@ Deno.serve(async (req) => {
           continue
         }
 
-        // Validar telefone antes de normalizar (deve ter pelo menos 10 dígitos após limpar)
         const telefoneLimpo = clienteTelefone.replace(/\D/g, '')
         if (telefoneLimpo.length < 10) {
           await supabase
@@ -356,12 +422,11 @@ Deno.serve(async (req) => {
             .eq('id', item.id)
 
           skipped++
-          console.log(`[ProcessCashbackQueue] ⏭️ WhatsApp pulado: telefone inválido (${clienteTelefone}) - transação ${item.transaction_id}`)
           processed++
           continue
         }
 
-        // 3. Buscar dados da loja (nome)
+        // Buscar dados da loja
         const { data: loja, error: lojaError } = await supabase
           .from('stores')
           .select('name')
@@ -372,7 +437,31 @@ Deno.serve(async (req) => {
           throw new Error('Loja não encontrada')
         }
 
-        // 4. Buscar configurações de cashback
+        // =====================================================================
+        // BUSCAR CREDENCIAIS DO WHATSAPP (LOJA OU GLOBAL)
+        // =====================================================================
+        let credentials = await getWhatsAppCredentials(supabase, item.store_id, loja.name)
+        
+        if (!credentials) {
+          // Fallback final: variáveis de ambiente
+          const envSiteSlug = Deno.env.get('WHATSAPP_SITE_SLUG')
+          const envCustomerId = Deno.env.get('N8N_CUSTOMER_ID')
+          
+          if (!envSiteSlug || !envCustomerId) {
+            throw new Error('Nenhuma credencial WhatsApp disponível (banco ou env vars)')
+          }
+          
+          console.log('[WhatsApp] Usando credenciais de variáveis de ambiente (fallback final)')
+          credentials = {
+            siteSlug: envSiteSlug,
+            customerId: envCustomerId,
+            source: 'env_vars'
+          }
+        }
+
+        console.log(`[WhatsApp] Fonte das credenciais: ${credentials.source}`)
+
+        // Buscar configurações de cashback
         const { data: settings } = await supabase
           .from('cashback_settings')
           .select('percentual_uso_maximo')
@@ -383,36 +472,23 @@ Deno.serve(async (req) => {
 
         const percentualUsoMaximo = settings?.percentual_uso_maximo || 30.0
 
-        // 5. Buscar saldo atual do cliente (balance_disponivel + balance_pendente)
-        // ✅ CORREÇÃO: Buscar saldo mais recente e garantir que a transação atual está incluída
+        // Buscar saldo atual
         const { data: saldo } = await supabase
           .from('cashback_balance')
           .select('balance, balance_disponivel, balance_pendente')
           .eq('cliente_id', item.cliente_id)
           .single()
 
-        // ✅ CORREÇÃO: Calcular saldo total corretamente
-        // Se o saldo ainda não foi atualizado pelo trigger, calcular manualmente
         let saldoAtual = 0
         if (saldo) {
-          // Usar balance (que já é disponivel + pendente) ou somar os dois campos
           saldoAtual = saldo.balance || ((saldo.balance_disponivel || 0) + (saldo.balance_pendente || 0))
         }
         
-        // ✅ FALLBACK: Se saldo é zero mas temos a transação, o saldo mínimo é o valor da transação
-        // Isso acontece quando o trigger do banco ainda não atualizou o cashback_balance
         if (saldoAtual === 0 && transaction.amount > 0) {
-          console.log(`[ProcessCashbackQueue] ⚠️ Saldo zerado, usando valor da transação como fallback: ${transaction.amount}`)
           saldoAtual = Number(transaction.amount)
-        } else if (saldoAtual > 0 && saldoAtual < Number(transaction.amount)) {
-          // Se saldo existe mas é menor que a transação, significa que não foi atualizado ainda
-          console.log(`[ProcessCashbackQueue] ⚠️ Saldo (${saldoAtual}) menor que transação (${transaction.amount}), ajustando...`)
-          saldoAtual = Math.max(saldoAtual, Number(transaction.amount))
         }
-        
-        console.log(`[ProcessCashbackQueue] 💰 Saldo calculado: ${saldoAtual} (balance: ${saldo?.balance || 0}, disponivel: ${saldo?.balance_disponivel || 0}, pendente: ${saldo?.balance_pendente || 0})`)
 
-        // 6. Formatar mensagem usando a mesma função do sistema
+        // Formatar mensagem
         const message = formatCashbackMessage({
           clienteNome: clienteNome,
           storeName: loja.name,
@@ -422,11 +498,15 @@ Deno.serve(async (req) => {
           saldoAtual: Number(saldoAtual),
         })
 
-        // 7. Enviar WhatsApp usando a mesma lógica do send-whatsapp-message.js
-        const sendResult = await sendWhatsAppMessage(clienteTelefone, message)
+        // Enviar WhatsApp com credenciais do banco
+        const sendResult = await sendWhatsAppMessage(
+          clienteTelefone, 
+          message,
+          credentials.siteSlug,
+          credentials.customerId
+        )
 
         if (sendResult.success) {
-          // Sucesso
           await supabase
             .from('cashback_whatsapp_queue')
             .update({
@@ -436,9 +516,8 @@ Deno.serve(async (req) => {
             .eq('id', item.id)
 
           sent++
-          console.log(`[ProcessCashbackQueue] ✅ WhatsApp enviado para transação ${item.transaction_id} (cliente: ${clienteNome}, telefone: ${clienteTelefone})`)
+          console.log(`[ProcessCashbackQueue] ✅ WhatsApp enviado para ${clienteNome} (${clienteTelefone})`)
         } else if (sendResult.skipped) {
-          // Cliente sem telefone válido - marcar como SKIPPED
           await supabase
             .from('cashback_whatsapp_queue')
             .update({
@@ -449,10 +528,8 @@ Deno.serve(async (req) => {
             .eq('id', item.id)
 
           skipped++
-          console.log(`[ProcessCashbackQueue] ⏭️ WhatsApp pulado: ${sendResult.error} (transação ${item.transaction_id}, cliente: ${clienteNome})`)
         } else {
-          // Falha
-          const newStatus = item.attempts >= 2 ? 'FAILED' : 'PENDING' // Tentar até 3 vezes
+          const newStatus = item.attempts >= 2 ? 'FAILED' : 'PENDING'
 
           await supabase
             .from('cashback_whatsapp_queue')
@@ -465,9 +542,9 @@ Deno.serve(async (req) => {
 
           if (newStatus === 'FAILED') {
             failed++
-            console.log(`[ProcessCashbackQueue] ❌ WhatsApp falhou após 3 tentativas para transação ${item.transaction_id}: ${sendResult.error}`)
+            console.log(`[ProcessCashbackQueue] ❌ WhatsApp falhou após 3 tentativas: ${sendResult.error}`)
           } else {
-            console.log(`[ProcessCashbackQueue] ⚠️ Tentativa ${item.attempts + 1} falhou, tentando novamente: ${sendResult.error}`)
+            console.log(`[ProcessCashbackQueue] ⚠️ Tentativa ${item.attempts + 1} falhou: ${sendResult.error}`)
           }
         }
 
@@ -475,7 +552,6 @@ Deno.serve(async (req) => {
       } catch (itemError: any) {
         console.error(`[ProcessCashbackQueue] ❌ Erro ao processar item ${item.id}:`, itemError)
 
-        // Marcar como PENDING novamente se não excedeu tentativas
         if (item.attempts < 2) {
           await supabase
             .from('cashback_whatsapp_queue')
@@ -496,6 +572,7 @@ Deno.serve(async (req) => {
             .eq('id', item.id)
           failed++
         }
+        processed++
       }
     }
 
@@ -528,4 +605,3 @@ Deno.serve(async (req) => {
     )
   }
 })
-
