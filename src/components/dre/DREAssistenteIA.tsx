@@ -92,7 +92,7 @@ export default function DREAssistenteIA({ storeId }: Props) {
     }
 
     return (
-        <Card className="h-[600px] flex flex-col">
+        <Card className="flex flex-col max-h-[600px] min-h-[400px]">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <Sparkles className="h-5 w-5" />
@@ -135,19 +135,19 @@ export default function DREAssistenteIA({ storeId }: Props) {
                 )}
 
                 {/* Histórico de Mensagens */}
-                <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+                <div className="flex-1 overflow-y-auto space-y-4 mb-4 min-h-0">
                     {messages.map((msg, i) => (
                         <div
                             key={i}
                             className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}
                         >
                             <div
-                                className={`max-w-[80%] rounded-lg p-4 ${msg.type === 'user'
+                                className={`max-w-[85%] rounded-lg p-4 overflow-hidden ${msg.type === 'user'
                                         ? 'bg-primary text-primary-foreground'
                                         : 'bg-muted'
                                     }`}
                             >
-                                <p className="whitespace-pre-wrap">{msg.content}</p>
+                                <p className="whitespace-pre-wrap break-words text-sm">{msg.content}</p>
 
                                 {/* Cálculos (se houver) */}
                                 {msg.calculos && msg.calculos.length > 0 && (
