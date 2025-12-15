@@ -276,6 +276,7 @@ export function CaixaLojaView({
         diariaNecessaria: diariaNecessaria,
         diasRestantes: diasRestantes,
         vendidoHoje: vendidoHoje,
+        dinheiroCaixa: valorDinheiro,
         vendasColaboradoras,
         observacoes: observacoes || undefined,
       });

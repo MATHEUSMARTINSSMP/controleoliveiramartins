@@ -814,6 +814,7 @@ export function formatFechamentoCaixaMessage(params: {
   diariaNecessaria: number;
   diasRestantes: number;
   vendidoHoje: number;
+  dinheiroCaixa?: number;
   vendasColaboradoras?: { nome: string; vendidoHoje: number; isOnLeave: boolean }[];
   observacoes?: string;
 }): string {
@@ -826,6 +827,7 @@ export function formatFechamentoCaixaMessage(params: {
     diariaNecessaria,
     diasRestantes,
     vendidoHoje,
+    dinheiroCaixa,
     vendasColaboradoras,
     observacoes,
   } = params;
@@ -859,6 +861,10 @@ export function formatFechamentoCaixaMessage(params: {
   message += `Falta dias pra acabar o mês: ${diasRestantes}\n\n`;
 
   message += `*Loja vendeu hoje:* ${formatarValor(vendidoHoje)}\n`;
+
+  if (dinheiroCaixa !== undefined && dinheiroCaixa > 0) {
+    message += `*Dinheiro em caixa:* ${formatarValor(dinheiroCaixa)}\n`;
+  }
 
   if (vendasColaboradoras && vendasColaboradoras.length > 0) {
     vendasColaboradoras.forEach((colab) => {
