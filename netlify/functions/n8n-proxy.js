@@ -53,10 +53,10 @@ exports.handler = async (event, context) => {
     const prefix = N8N_MODE === 'test' ? '/webhook-test' : '/webhook';
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     
-    // Adicionar query params se for GET
+    // Adicionar query params para GET e DELETE
     let fullUrl = `${N8N_BASE_URL.replace(/\/$/, '')}${prefix}${cleanEndpoint}`;
     
-    if (method === 'GET' && Object.keys(params).length > 0) {
+    if ((method === 'GET' || method === 'DELETE') && Object.keys(params).length > 0) {
       const queryString = new URLSearchParams(params).toString();
       fullUrl += `?${queryString}`;
     }
