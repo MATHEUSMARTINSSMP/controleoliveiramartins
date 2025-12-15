@@ -314,7 +314,7 @@ const MetasManagementContent = () => {
                     .from("profiles")
                     .select("id, name, store_id")
                     .eq("role", "COLABORADORA")
-                    .eq("active", true)
+                    .eq("is_active", true)
                     .eq("store_id", selectedStore);
                 
                 if (directError) {
@@ -1258,7 +1258,7 @@ const MetasManagementContent = () => {
             .schema("sistemaretiradas")
             .from("stores")
             .select("*")
-            .eq("active", true);
+            .eq("is_active", true);
         if (data) setStores(data);
     };
 
@@ -1268,7 +1268,7 @@ const MetasManagementContent = () => {
             .from("profiles")
             .select("*")
             .eq("role", "COLABORADORA")
-            .eq("active", true);
+            .eq("is_active", true);
         if (data) setColaboradoras(data);
     };
 
@@ -1767,6 +1767,27 @@ const MetasManagementContent = () => {
             .eq("semana_referencia", goal.semana_referencia)
             .eq("tipo", "SEMANAL");
 
+        // Buscar todas as colaboradoras ativas da loja para exibir na lista
+        const { data: storeColabs } = await supabase
+            .schema("sistemaretiradas")
+            .from("profiles")
+            .select("id, name")
+            .eq("store_id", goal.store_id)
+            .eq("is_active", true);
+
+        // IDs das colaboradoras que já têm meta nesta gincana
+        const colabsWithGoals = new Set((weeklyGoalsData || []).map((g: any) => g.colaboradora_id));
+
+        // Criar lista de colaboradoras ativas (com is_active baseado se tem meta ou não)
+        if (storeColabs && storeColabs.length > 0) {
+            const colabsAtivas = storeColabs.map(c => ({
+                id: c.id,
+                name: c.name || "Sem nome",
+                is_active: colabsWithGoals.has(c.id)
+            }));
+            setColaboradorasAtivas(colabsAtivas);
+        }
+
         if (weeklyGoalsData && weeklyGoalsData.length > 0) {
             const colabGoalsData = weeklyGoalsData.map((g: any) => ({
                 id: g.colaboradora_id,
@@ -1777,11 +1798,20 @@ const MetasManagementContent = () => {
 
             setWeeklyColabGoals(colabGoalsData);
 
-            const totalMeta = colabGoalsData.reduce((sum, c) => sum + c.meta, 0);
-            const totalSuper = colabGoalsData.reduce((sum, c) => sum + c.superMeta, 0);
+            const totalMeta = colabGoalsData.reduce((sum: number, c: any) => sum + c.meta, 0);
+            const totalSuper = colabGoalsData.reduce((sum: number, c: any) => sum + c.superMeta, 0);
             
             setWeeklyMetaValor(totalMeta.toFixed(2));
             setWeeklySuperMetaValor(totalSuper.toFixed(2));
+
+            // Carregar dados do prêmio se existirem (pegar do primeiro goal)
+            const firstGoal = weeklyGoalsData[0];
+            if (firstGoal) {
+                setPremioCheckpoint1(firstGoal.premio_checkpoint_1 || "");
+                setPremioCheckpointFinal(firstGoal.premio_checkpoint_final || "");
+                setIsPremioFisicoCheckpoint1(firstGoal.is_premio_fisico_checkpoint_1 || false);
+                setIsPremioFisicoCheckpointFinal(firstGoal.is_premio_fisico_checkpoint_final || false);
+            }
         } else {
             // If no goals found, load active collaborators
             const activeColabs = colaboradoras.filter(c => c.store_id === goal.store_id);
@@ -1793,6 +1823,11 @@ const MetasManagementContent = () => {
             })));
             setWeeklyMetaValor("");
             setWeeklySuperMetaValor("");
+        }
+
+        // Carregar sugestões (meta mensal) para exibir no formulário
+        if (goal.store_id && goal.semana_referencia) {
+            await loadSuggestions(true);
         }
 
         setWeeklyDialogOpen(true);
