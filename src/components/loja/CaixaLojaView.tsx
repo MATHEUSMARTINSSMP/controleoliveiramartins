@@ -233,6 +233,8 @@ export function CaixaLojaView({
       return;
     }
 
+    const valorDinheiro = parseFloat(dinheiroCaixa.replace(',', '.')) || 0;
+
     try {
       setSubmitting(true);
 
@@ -240,7 +242,7 @@ export function CaixaLojaView({
         store_id: storeId,
         tipo: 'FECHAMENTO',
         data_operacao: new Date().toISOString(),
-        dinheiro_caixa: 0,
+        dinheiro_caixa: valorDinheiro,
         meta_dia: diariaNecessaria,
         vendido_dia: vendidoHoje,
         meta_mes: metaMensal,
@@ -415,19 +417,19 @@ export function CaixaLojaView({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {!caixaAberto && (
-              <div className="space-y-2">
-                <Label htmlFor="dinheiro-caixa">Dinheiro em Caixa (R$)</Label>
-                <Input
-                  id="dinheiro-caixa"
-                  type="text"
-                  placeholder="0,00"
-                  value={dinheiroCaixa}
-                  onChange={(e) => setDinheiroCaixa(e.target.value)}
-                  data-testid="input-dinheiro-caixa"
-                />
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="dinheiro-caixa">
+                {caixaAberto ? 'Dinheiro em Caixa no Fechamento (R$)' : 'Dinheiro em Caixa (R$)'}
+              </Label>
+              <Input
+                id="dinheiro-caixa"
+                type="text"
+                placeholder="0,00"
+                value={dinheiroCaixa}
+                onChange={(e) => setDinheiroCaixa(e.target.value)}
+                data-testid="input-dinheiro-caixa"
+              />
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="observacoes">Observações (opcional)</Label>
