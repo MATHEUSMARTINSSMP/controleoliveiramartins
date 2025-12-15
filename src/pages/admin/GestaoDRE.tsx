@@ -229,7 +229,7 @@ export default function GestaoDRE() {
                 </TabsContent>
 
                 <TabsContent value="ia">
-                    <DREAssistenteIA />
+                    <DREAssistenteIA storeId={selectedStoreId === 'all' ? undefined : selectedStoreId} />
                 </TabsContent>
             </Tabs>
         </div>
