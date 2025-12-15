@@ -23,15 +23,14 @@ ORDER BY c.tipo, c.ordem, c.nome;
 -- NODE: PostgreSQL - GET Lançamentos
 -- =============================================================================
 -- Parâmetros: $1=site_slug, $2=categoria_id, $3=competencia, $4=pesquisa
+-- NOTA: Removido JOIN com collaborators pois a tabela não existe
 
 SELECT 
     l.*,
     c.nome AS categoria_nome,
-    c.tipo AS categoria_tipo,
-    col.name AS created_by_name
+    c.tipo AS categoria_tipo
 FROM sistemaretiradas.dre_lancamentos l
 LEFT JOIN sistemaretiradas.dre_categorias c ON l.categoria_id = c.id
-LEFT JOIN sistemaretiradas.collaborators col ON l.created_by_id = col.user_id
 INNER JOIN sistemaretiradas.stores s ON l.store_id = s.id
 WHERE 
     ($1::text = '' OR s.site_slug = $1)
