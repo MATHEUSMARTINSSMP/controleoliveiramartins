@@ -1767,6 +1767,50 @@ const MetasManagementContent = () => {
             .eq("semana_referencia", goal.semana_referencia)
             .eq("tipo", "SEMANAL");
 
+        // Buscar prêmios da gincana da tabela bonuses
+        const { data: gincanaBonus } = await supabase
+            .schema("sistemaretiradas")
+            .from("bonuses")
+            .select("valor_bonus, valor_bonus_texto, descricao_premio")
+            .eq("store_id", goal.store_id)
+            .eq("periodo_semana", goal.semana_referencia)
+            .eq("condicao_meta_tipo", "GINCANA_SEMANAL")
+            .maybeSingle();
+
+        const { data: superGincanaBonus } = await supabase
+            .schema("sistemaretiradas")
+            .from("bonuses")
+            .select("valor_bonus, valor_bonus_texto, descricao_premio")
+            .eq("store_id", goal.store_id)
+            .eq("periodo_semana", goal.semana_referencia)
+            .eq("condicao_meta_tipo", "SUPER_GINCANA_SEMANAL")
+            .maybeSingle();
+
+        // Carregar prêmios da gincana
+        if (gincanaBonus) {
+            const isPremioFisico = !!gincanaBonus.valor_bonus_texto || !!gincanaBonus.descricao_premio;
+            const premioValor = isPremioFisico 
+                ? (gincanaBonus.valor_bonus_texto || gincanaBonus.descricao_premio || "")
+                : (gincanaBonus.valor_bonus ? String(gincanaBonus.valor_bonus) : "");
+            setPremioCheckpoint1(premioValor);
+            setIsPremioFisicoCheckpoint1(isPremioFisico);
+        } else {
+            setPremioCheckpoint1("");
+            setIsPremioFisicoCheckpoint1(false);
+        }
+
+        if (superGincanaBonus) {
+            const isPremioFisico = !!superGincanaBonus.valor_bonus_texto || !!superGincanaBonus.descricao_premio;
+            const premioValor = isPremioFisico 
+                ? (superGincanaBonus.valor_bonus_texto || superGincanaBonus.descricao_premio || "")
+                : (superGincanaBonus.valor_bonus ? String(superGincanaBonus.valor_bonus) : "");
+            setPremioCheckpointFinal(premioValor);
+            setIsPremioFisicoCheckpointFinal(isPremioFisico);
+        } else {
+            setPremioCheckpointFinal("");
+            setIsPremioFisicoCheckpointFinal(false);
+        }
+
         // Buscar todas as colaboradoras ativas da loja para exibir na lista
         const { data: storeColabs } = await supabase
             .schema("sistemaretiradas")
@@ -1803,15 +1847,6 @@ const MetasManagementContent = () => {
             
             setWeeklyMetaValor(totalMeta.toFixed(2));
             setWeeklySuperMetaValor(totalSuper.toFixed(2));
-
-            // Carregar dados do prêmio se existirem (pegar do primeiro goal)
-            const firstGoal = weeklyGoalsData[0];
-            if (firstGoal) {
-                setPremioCheckpoint1(firstGoal.premio_checkpoint_1 || "");
-                setPremioCheckpointFinal(firstGoal.premio_checkpoint_final || "");
-                setIsPremioFisicoCheckpoint1(firstGoal.is_premio_fisico_checkpoint_1 || false);
-                setIsPremioFisicoCheckpointFinal(firstGoal.is_premio_fisico_checkpoint_final || false);
-            }
         } else {
             // If no goals found, load active collaborators
             const activeColabs = colaboradoras.filter(c => c.store_id === goal.store_id);
