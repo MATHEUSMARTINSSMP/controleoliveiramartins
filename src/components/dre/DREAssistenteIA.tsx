@@ -92,8 +92,8 @@ export default function DREAssistenteIA({ storeId }: Props) {
     }
 
     return (
-        <Card className="flex flex-col max-h-[600px] min-h-[400px]">
-            <CardHeader>
+        <Card className="flex flex-col h-[600px] overflow-hidden">
+            <CardHeader className="flex-shrink-0">
                 <CardTitle className="flex items-center gap-2">
                     <Sparkles className="h-5 w-5" />
                     Assistente Financeiro IA
@@ -102,7 +102,7 @@ export default function DREAssistenteIA({ storeId }: Props) {
                     Faça perguntas sobre seu DRE e obtenha respostas inteligentes
                 </p>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col">
+            <CardContent className="flex-1 flex flex-col overflow-hidden">
                 {/* Aviso se nenhuma loja selecionada */}
                 {!storeId && (
                     <Alert className="mb-4">
