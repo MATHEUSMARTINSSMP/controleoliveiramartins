@@ -118,6 +118,7 @@ const MetasManagementContent = () => {
     // Weekly goals state
     const [activeTab, setActiveTab] = useState<'mensal' | 'semanal'>('mensal');
     const [weeklyGoals, setWeeklyGoals] = useState<Goal[]>([]);
+    const [gincanasBonuses, setGincanasBonuses] = useState<Map<string, { premio1: string; premioFinal: string }>>(new Map());
     const [weeklyDialogOpen, setWeeklyDialogOpen] = useState(false);
     const [editingWeeklyGoal, setEditingWeeklyGoal] = useState<Goal | null>(null);
     const [selectedWeek, setSelectedWeek] = useState<string>(getCurrentWeekRef());
@@ -1246,6 +1247,35 @@ const MetasManagementContent = () => {
                 });
                 
                 setWeeklyGoals(sorted as any);
+
+                // Buscar bônus das gincanas para exibir prêmios na lista
+                const { data: bonusesData } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("bonuses")
+                    .select("store_id, periodo_semana, condicao_meta_tipo, valor_bonus, valor_bonus_texto, descricao_premio")
+                    .in("condicao_meta_tipo", ["GINCANA_SEMANAL", "SUPER_GINCANA_SEMANAL"]);
+
+                if (bonusesData) {
+                    const bonusesMap = new Map<string, { premio1: string; premioFinal: string }>();
+                    
+                    bonusesData.forEach((bonus: any) => {
+                        const key = `${bonus.store_id}_${bonus.periodo_semana}`;
+                        if (!bonusesMap.has(key)) {
+                            bonusesMap.set(key, { premio1: "", premioFinal: "" });
+                        }
+                        const entry = bonusesMap.get(key)!;
+                        const premioTexto = bonus.valor_bonus_texto || bonus.descricao_premio || 
+                            (bonus.valor_bonus ? `R$ ${Number(bonus.valor_bonus).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : "");
+                        
+                        if (bonus.condicao_meta_tipo === "GINCANA_SEMANAL") {
+                            entry.premio1 = premioTexto;
+                        } else if (bonus.condicao_meta_tipo === "SUPER_GINCANA_SEMANAL") {
+                            entry.premioFinal = premioTexto;
+                        }
+                    });
+                    
+                    setGincanasBonuses(bonusesMap);
+                }
             }
         } catch (err) {
             console.error("Error fetching weekly goals:", err);
@@ -2117,6 +2147,9 @@ const MetasManagementContent = () => {
                             const totalSuper = group.goals.reduce((sum: number, g: any) => sum + g.super_meta_valor, 0);
                                             const colabsCount = new Set(group.goals.map((g: any) => g.colaboradora_id).filter((id: any) => id != null)).size;
                             
+                            const bonusKey = `${storeId}_${group.semana_referencia}`;
+                            const bonusInfo = gincanasBonuses.get(bonusKey);
+                            
                             return (
                                 <Card 
                                                     key={semanaKey}
@@ -2135,6 +2168,22 @@ const MetasManagementContent = () => {
                                                                 <p className="text-xs sm:text-sm text-muted-foreground">
                                                                     Semana {group.semana_referencia?.substring(0, 2)}/{group.semana_referencia?.substring(2, 6)}
                                                 </p>
+                                                {(bonusInfo?.premio1 || bonusInfo?.premioFinal) && (
+                                                    <div className="mt-1 flex flex-wrap gap-2">
+                                                        {bonusInfo?.premio1 && (
+                                                            <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                                                                <Trophy className="h-3 w-3 mr-1" />
+                                                                Meta: {bonusInfo.premio1}
+                                                            </Badge>
+                                                        )}
+                                                        {bonusInfo?.premioFinal && (
+                                                            <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                                                                <Medal className="h-3 w-3 mr-1" />
+                                                                Super: {bonusInfo.premioFinal}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                             {isCurrentWeek && (
                                                 <Badge className="bg-primary text-primary-foreground text-xs">Semana Atual</Badge>
