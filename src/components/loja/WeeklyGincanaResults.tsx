@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trophy, ChevronDown, ChevronUp, Medal } from "lucide-react";
+import { Trophy, ChevronDown, ChevronUp, Medal, Check, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -647,8 +647,14 @@ export default function WeeklyGincanaResults({
                                                     {result.super_meta_valor > 0 && (
                                                         <div className="flex justify-between text-sm text-muted-foreground">
                                                             <span>Super Meta: {formatCurrency(result.super_meta_valor)}</span>
-                                                            <span className={result.bateu_super_meta ? 'text-purple-600 font-semibold' : ''}>
-                                                                {result.realizado >= result.super_meta_valor ? '✅' : '❌'}
+                                                            <span>
+                                                                {result.bateu_super_meta ? (
+                                                                    <Trophy className="h-4 w-4 text-yellow-500" />
+                                                                ) : result.bateu_meta ? (
+                                                                    <Check className="h-4 w-4 text-green-500" />
+                                                                ) : (
+                                                                    <X className="h-4 w-4 text-red-500" />
+                                                                )}
                                                             </span>
                                                         </div>
                                                     )}
