@@ -86,22 +86,35 @@ exports.handler = async (event, context) => {
     
     let data;
     const contentType = response.headers.get('content-type');
+    const text = await response.text();
     
-    if (contentType && contentType.includes('application/json')) {
-      data = await response.json();
+    console.log(`[N8N-Proxy] Response status: ${response.status}, length: ${text.length}`);
+    
+    if (!text || text.trim() === '') {
+      // Resposta vazia - retornar estrutura padrão
+      data = { success: true, data: [] };
+    } else if (contentType && contentType.includes('application/json')) {
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        console.error('[N8N-Proxy] Erro ao parsear JSON:', parseErr.message, 'Text:', text.substring(0, 200));
+        data = { success: false, error: 'Resposta inválida do N8N', raw: text.substring(0, 500) };
+      }
     } else {
-      const text = await response.text();
       try {
         data = JSON.parse(text);
       } catch {
-        data = { raw: text };
+        data = { success: false, error: 'Resposta não é JSON válido', raw: text.substring(0, 500) };
       }
     }
 
-    console.log(`[N8N-Proxy] Response status: ${response.status}`);
+    // Garantir que data nunca seja undefined
+    if (data === undefined || data === null) {
+      data = { success: true, data: [] };
+    }
 
     return {
-      statusCode: response.status,
+      statusCode: response.ok ? 200 : response.status,
       headers,
       body: JSON.stringify(data),
     };
