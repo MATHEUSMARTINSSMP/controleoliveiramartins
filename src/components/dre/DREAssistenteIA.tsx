@@ -147,7 +147,10 @@ export default function DREAssistenteIA({ storeId }: Props) {
                                         : 'bg-muted'
                                     }`}
                             >
-                                <p className="whitespace-pre-wrap break-words text-sm">{msg.content}</p>
+                                <div 
+                                    className="whitespace-pre-wrap break-words text-sm prose prose-sm dark:prose-invert max-w-none"
+                                    dangerouslySetInnerHTML={{ __html: msg.content }}
+                                />
 
                                 {/* Cálculos (se houver) */}
                                 {msg.calculos && msg.calculos.length > 0 && (
