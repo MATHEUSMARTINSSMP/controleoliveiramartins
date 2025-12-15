@@ -858,7 +858,7 @@ export function formatFechamentoCaixaMessage(params: {
   message += `Vendido: ${formatarValor(vendidoMes)}\n`;
   message += `Falta: ${formatarValor(faltaMes)}\n`;
   message += `Diária hoje: ${formatarValor(diariaNecessaria)}\n`;
-  message += `Falta dias pra acabar o mês: ${diasRestantes}\n\n`;
+  message += `Restam ${diasRestantes} dias no mês\n\n`;
 
   message += `*Loja vendeu hoje:* ${formatarValor(vendidoHoje)}\n`;
 
