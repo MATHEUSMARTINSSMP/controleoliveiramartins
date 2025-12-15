@@ -22,7 +22,7 @@ interface NotificationRecipient {
 }
 
 interface NotificationConfig {
-  type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS';
+  type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS' | 'CAIXA';
   label: string;
   description: string;
   recipients: NotificationRecipient[];
@@ -56,6 +56,12 @@ export const WhatsAppNotificationConfig = () => {
       type: 'AJUSTES_CONDICIONAIS',
       label: 'Notificações de Ajustes & Condicionais',
       description: 'Receba notificações quando houver mudança de status em ajustes ou condicionais',
+      recipients: []
+    },
+    {
+      type: 'CAIXA',
+      label: 'Notificações de Caixa',
+      description: 'Receba notificações quando houver abertura, sangria, suprimento ou fechamento de caixa',
       recipients: []
     }
   ]);
@@ -160,7 +166,7 @@ export const WhatsAppNotificationConfig = () => {
       // Agrupar por tipo de notificação e telefone
       // Agrupar registros com mesmo telefone e tipo, coletando todas as lojas
       const groupedByPhone = (data || []).reduce((acc, item) => {
-        const type = item.notification_type as 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS';
+        const type = item.notification_type as 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS' | 'CAIXA';
         const normalizedPhone = normalizePhone(item.phone);
         const key = `${type}-${normalizedPhone}`;
         
@@ -191,7 +197,7 @@ export const WhatsAppNotificationConfig = () => {
       type GroupedValue = { phone: string; store_ids: string[]; ids: string[]; active: boolean };
       const grouped = Object.entries(groupedByPhone).reduce((acc, [key, val]) => {
         const value = val as GroupedValue;
-        const type = key.split('-')[0] as 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS';
+        const type = key.split('-')[0] as 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS' | 'CAIXA';
         if (!acc[type]) {
           acc[type] = [];
         }
@@ -208,6 +214,7 @@ export const WhatsAppNotificationConfig = () => {
         ADIANTAMENTO: grouped['ADIANTAMENTO']?.length || 0,
         PARABENS: grouped['PARABENS']?.length || 0,
         AJUSTES_CONDICIONAIS: grouped['AJUSTES_CONDICIONAIS']?.length || 0,
+        CAIXA: grouped['CAIXA']?.length || 0,
       });
 
       // Atualizar configs com dados do banco
@@ -228,7 +235,7 @@ export const WhatsAppNotificationConfig = () => {
     }
   };
 
-  const addRecipient = (type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS') => {
+  const addRecipient = (type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS' | 'CAIXA') => {
     setConfigs(prev => prev.map(config => {
       if (config.type === type) {
         return {
@@ -240,7 +247,7 @@ export const WhatsAppNotificationConfig = () => {
     }));
   };
 
-  const removeRecipient = (type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS', index: number) => {
+  const removeRecipient = (type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS' | 'CAIXA', index: number) => {
     setConfigs(prev => prev.map(config => {
       if (config.type === type) {
         const newRecipients = [...config.recipients];
@@ -252,7 +259,7 @@ export const WhatsAppNotificationConfig = () => {
   };
 
   const updateRecipientPhone = (
-    type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS',
+    type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS' | 'CAIXA',
     index: number,
     value: string
   ) => {
@@ -267,7 +274,7 @@ export const WhatsAppNotificationConfig = () => {
   };
 
   const toggleStoreSelection = (
-    type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS',
+    type: 'VENDA' | 'ADIANTAMENTO' | 'PARABENS' | 'AJUSTES_CONDICIONAIS' | 'CAIXA',
     index: number,
     storeId: string
   ) => {
@@ -554,6 +561,8 @@ export const WhatsAppNotificationConfig = () => {
                   <p className="text-xs text-muted-foreground/70">
                     {config.type === 'PARABENS' 
                       ? 'Selecione as lojas que receberão os parabéns após cada venda'
+                      : config.type === 'CAIXA'
+                      ? 'Selecione as lojas que receberão notificações de operações de caixa'
                       : 'Selecione as lojas que receberão notificações deste tipo'}
                   </p>
                 </div>
