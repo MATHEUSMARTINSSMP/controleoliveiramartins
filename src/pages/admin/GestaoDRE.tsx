@@ -16,6 +16,7 @@ import type { DRECategoria, DRELancamento } from '@/types/dre'
 import DRELancamentosTab from '@/components/dre/DRELancamentosTab'
 import DRECategoriasTab from '@/components/dre/DRECategoriasTab'
 import DREAnalyticsTab from '@/components/dre/DREAnalyticsTab'
+import DREDemonstrativoTab from '@/components/dre/DREDemonstrativoTab'
 import DREAssistenteIA from '@/components/dre/DREAssistenteIA'
 import DREStoreSelector from '@/components/dre/DREStoreSelector'
 
@@ -185,16 +186,24 @@ export default function GestaoDRE() {
             </div>
 
             {/* Tabs */}
-            <Tabs defaultValue="lancamentos" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-4">
+            <Tabs defaultValue="demonstrativo" className="space-y-4">
+                <TabsList className="grid w-full grid-cols-5">
+                    <TabsTrigger value="demonstrativo">Demonstrativo</TabsTrigger>
                     <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
                     <TabsTrigger value="categorias">Categorias</TabsTrigger>
                     <TabsTrigger value="analytics">Analytics</TabsTrigger>
                     <TabsTrigger value="ia" className="flex items-center gap-2">
                         <Sparkles className="h-4 w-4" />
-                        Assistente IA
+                        IA
                     </TabsTrigger>
                 </TabsList>
+
+                <TabsContent value="demonstrativo">
+                    <DREDemonstrativoTab
+                        categorias={categorias}
+                        lancamentos={lancamentos}
+                    />
+                </TabsContent>
 
                 <TabsContent value="lancamentos">
                     <DRELancamentosTab
