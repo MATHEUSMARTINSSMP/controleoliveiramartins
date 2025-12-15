@@ -1265,7 +1265,9 @@ const MetasManagementContent = () => {
                         }
                         const entry = bonusesMap.get(key)!;
                         const premioTexto = bonus.valor_bonus_texto || bonus.descricao_premio || 
-                            (bonus.valor_bonus ? `R$ ${Number(bonus.valor_bonus).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : "");
+                            (bonus.valor_bonus !== null && bonus.valor_bonus !== undefined 
+                                ? `R$ ${Number(bonus.valor_bonus).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` 
+                                : "");
                         
                         if (bonus.condicao_meta_tipo === "GINCANA_SEMANAL") {
                             entry.premio1 = premioTexto;
@@ -1821,7 +1823,9 @@ const MetasManagementContent = () => {
             const isPremioFisico = !!gincanaBonus.valor_bonus_texto || !!gincanaBonus.descricao_premio;
             const premioValor = isPremioFisico 
                 ? (gincanaBonus.valor_bonus_texto || gincanaBonus.descricao_premio || "")
-                : (gincanaBonus.valor_bonus ? String(gincanaBonus.valor_bonus) : "");
+                : (gincanaBonus.valor_bonus !== null && gincanaBonus.valor_bonus !== undefined 
+                    ? String(gincanaBonus.valor_bonus) 
+                    : "");
             setPremioCheckpoint1(premioValor);
             setIsPremioFisicoCheckpoint1(isPremioFisico);
         } else {
@@ -1833,7 +1837,9 @@ const MetasManagementContent = () => {
             const isPremioFisico = !!superGincanaBonus.valor_bonus_texto || !!superGincanaBonus.descricao_premio;
             const premioValor = isPremioFisico 
                 ? (superGincanaBonus.valor_bonus_texto || superGincanaBonus.descricao_premio || "")
-                : (superGincanaBonus.valor_bonus ? String(superGincanaBonus.valor_bonus) : "");
+                : (superGincanaBonus.valor_bonus !== null && superGincanaBonus.valor_bonus !== undefined 
+                    ? String(superGincanaBonus.valor_bonus) 
+                    : "");
             setPremioCheckpointFinal(premioValor);
             setIsPremioFisicoCheckpointFinal(isPremioFisico);
         } else {

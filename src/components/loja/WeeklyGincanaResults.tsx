@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trophy, ChevronDown, ChevronUp } from "lucide-react";
+import { Trophy, ChevronDown, ChevronUp, Medal } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -76,6 +77,7 @@ export default function WeeklyGincanaResults({
     const [selectedWeekForResults, setSelectedWeekForResults] = useState<string>("");
     const [weekResults, setWeekResults] = useState<WeekResult[]>([]);
     const [loadingResults, setLoadingResults] = useState(false);
+    const [gincanasBonuses, setGincanasBonuses] = useState<Map<string, { premio1: string; premioFinal: string }>>(new Map());
 
     useEffect(() => {
         fetchWeeklyGoals();
@@ -146,6 +148,38 @@ export default function WeeklyGincanaResults({
             }, {});
 
             setWeeklyGoals(Object.values(grouped));
+
+            // Buscar bônus das gincanas para exibir prêmios
+            const { data: bonusesData } = await supabase
+                .schema("sistemaretiradas")
+                .from("bonuses")
+                .select("store_id, periodo_semana, condicao_meta_tipo, valor_bonus, valor_bonus_texto, descricao_premio")
+                .eq("store_id", storeId)
+                .in("condicao_meta_tipo", ["GINCANA_SEMANAL", "SUPER_GINCANA_SEMANAL"]);
+
+            if (bonusesData) {
+                const bonusesMap = new Map<string, { premio1: string; premioFinal: string }>();
+                
+                bonusesData.forEach((bonus: any) => {
+                    const key = bonus.periodo_semana;
+                    if (!bonusesMap.has(key)) {
+                        bonusesMap.set(key, { premio1: "", premioFinal: "" });
+                    }
+                    const entry = bonusesMap.get(key)!;
+                    const premioTexto = bonus.valor_bonus_texto || bonus.descricao_premio || 
+                        (bonus.valor_bonus !== null && bonus.valor_bonus !== undefined 
+                            ? `R$ ${Number(bonus.valor_bonus).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` 
+                            : "");
+                    
+                    if (bonus.condicao_meta_tipo === "GINCANA_SEMANAL") {
+                        entry.premio1 = premioTexto;
+                    } else if (bonus.condicao_meta_tipo === "SUPER_GINCANA_SEMANAL") {
+                        entry.premioFinal = premioTexto;
+                    }
+                });
+                
+                setGincanasBonuses(bonusesMap);
+            }
         } catch (err: any) {
             console.error("Erro ao buscar gincanas semanais:", err);
             toast.error("Erro ao carregar gincanas semanais");
@@ -341,6 +375,7 @@ export default function WeeklyGincanaResults({
             }
 
             const weekResults = weekResultsMap.get(weekRef);
+            const bonusInfo = gincanasBonuses.get(weekRef);
 
             return (
                 <Collapsible
@@ -365,29 +400,47 @@ export default function WeeklyGincanaResults({
                                     ? 'bg-gradient-to-r from-primary/30 via-primary/20 to-purple-500/20' 
                                     : 'bg-gradient-to-r from-primary/10 to-purple-500/10'
                             }`}>
-                                <CardTitle className={`flex justify-between items-center ${isCurrentWeek ? 'text-lg font-bold' : 'text-lg'}`}>
-                                    <span className={isCurrentWeek ? 'text-primary font-bold' : ''}>
-                                        {format(weekRange.start, "dd/MM", { locale: ptBR })} - {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
-                                    </span>
-                                    <div className="flex gap-2 items-center">
-                                        {isCurrentWeek && (
-                                            <span className="text-xs font-bold bg-primary text-primary-foreground px-3 py-1.5 rounded-full shadow-lg animate-pulse">
-                                                ⭐ Semana Atual
-                                            </span>
-                                        )}
-                                        {isPastWeek && !isCurrentWeek && (
-                                            <span className="text-xs font-normal bg-muted text-muted-foreground px-2 py-1 rounded">
-                                                Finalizada
-                                            </span>
-                                        )}
-                                        {!isCurrentWeek && (
-                                            isExpanded ? (
-                                                <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                                            ) : (
-                                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                            )
-                                        )}
+                                <CardTitle className={`flex flex-col gap-2 ${isCurrentWeek ? 'text-lg font-bold' : 'text-lg'}`}>
+                                    <div className="flex justify-between items-center">
+                                        <span className={isCurrentWeek ? 'text-primary font-bold' : ''}>
+                                            {format(weekRange.start, "dd/MM", { locale: ptBR })} - {format(weekRange.end, "dd/MM/yyyy", { locale: ptBR })}
+                                        </span>
+                                        <div className="flex gap-2 items-center">
+                                            {isCurrentWeek && (
+                                                <span className="text-xs font-bold bg-primary text-primary-foreground px-3 py-1.5 rounded-full shadow-lg animate-pulse">
+                                                    Semana Atual
+                                                </span>
+                                            )}
+                                            {isPastWeek && !isCurrentWeek && (
+                                                <span className="text-xs font-normal bg-muted text-muted-foreground px-2 py-1 rounded">
+                                                    Finalizada
+                                                </span>
+                                            )}
+                                            {!isCurrentWeek && (
+                                                isExpanded ? (
+                                                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                                                ) : (
+                                                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                                )
+                                            )}
+                                        </div>
                                     </div>
+                                    {(bonusInfo?.premio1 || bonusInfo?.premioFinal) && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {bonusInfo?.premio1 && (
+                                                <Badge variant="outline" className="text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800">
+                                                    <Trophy className="h-3 w-3 mr-1" />
+                                                    Meta: {bonusInfo.premio1}
+                                                </Badge>
+                                            )}
+                                            {bonusInfo?.premioFinal && (
+                                                <Badge variant="outline" className="text-xs bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
+                                                    <Medal className="h-3 w-3 mr-1" />
+                                                    Super: {bonusInfo.premioFinal}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    )}
                                 </CardTitle>
                             </CardHeader>
                         </CollapsibleTrigger>
