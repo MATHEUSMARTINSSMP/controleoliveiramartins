@@ -16,6 +16,8 @@ import type {
 } from '@/types/dre'
 import { supabase } from '@/integrations/supabase/client'
 
+export type { TipoLancamentoDRE, DRECategoria, DRELancamento, DREAnalytics, DRECalculo, DRERespostaIA }
+
 // ============================================================
 // CONFIGURAÇÃO N8N
 // ============================================================
