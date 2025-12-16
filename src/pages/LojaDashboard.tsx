@@ -1593,7 +1593,7 @@ export default function LojaDashboard() {
                         return {
                             id: colab.id,
                             name: colab.name,
-                            vendido: vendidoHoje,
+                            vendidoHoje: vendidoHoje,
                             vendidoMes,
                             meta: 0, // Sem meta
                             metaDiaria: 0, // Sem meta diária
@@ -1616,7 +1616,7 @@ export default function LojaDashboard() {
                         return {
                             id: colab.id,
                             name: colab.name,
-                            vendido: vendidoHoje,
+                            vendidoHoje: vendidoHoje,
                             vendidoMes,
                             meta: Number(goal.meta_valor),
                             metaDiaria: 0, // Meta diária = 0 para quem está de folga
@@ -1658,7 +1658,7 @@ export default function LojaDashboard() {
                     return {
                         id: colab.id,
                         name: colab.name,
-                        vendido: vendidoHoje,
+                        vendidoHoje: vendidoHoje,
                         vendidoMes,
                         meta: Number(goal.meta_valor),
                         metaDiaria,
@@ -1675,7 +1675,7 @@ export default function LojaDashboard() {
                 }) as Array<{
                     id: string;
                     name: string;
-                    vendido: number;
+                    vendidoHoje: number;
                     vendidoMes: number;
                     meta: number;
                     metaDiaria: number;
@@ -1695,7 +1695,7 @@ export default function LojaDashboard() {
             // Todas as colaboradoras ativas devem aparecer, com ou sem meta
             console.log('[LojaDashboard] 📊 Performance (todas as colaboradoras ativas):', performance.length, 'colaboradoras');
             performance.forEach((p, idx) => {
-                console.log(`[LojaDashboard]   ${idx + 1}. ${p.name}: meta=R$ ${p.meta || 0}, metaDiaria=R$ ${p.metaDiaria || 0}, vendido hoje=R$ ${p.vendido || 0}, vendido mês=R$ ${p.vendidoMes || 0}`);
+                console.log(`[LojaDashboard]   ${idx + 1}. ${p.name}: meta=R$ ${p.meta || 0}, metaDiaria=R$ ${p.metaDiaria || 0}, vendido hoje=R$ ${p.vendidoHoje || 0}, vendido mês=R$ ${p.vendidoMes || 0}`);
             });
             // Marcar que estamos usando dados locais (do fetchDataWithStoreId)
             useLocalPerformanceRef.current = true;
@@ -3928,13 +3928,13 @@ export default function LojaDashboard() {
                                                                         )}
                                                                         <div className="flex items-center justify-between text-base">
                                                                             <span className="text-muted-foreground">Vendido:</span>
-                                                                            <span className="font-bold text-primary">R$ {perf.vendido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                                            <span className="font-bold text-primary">R$ {perf.vendidoHoje.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                                                         </div>
                                                                         {metaRedistribuida > 0 && (
                                                                             <div className="flex items-center justify-between text-base">
                                                                                 <span className="text-muted-foreground">Falta:</span>
-                                                                                <span className={`font-semibold ${perf.vendido >= metaRedistribuida ? 'text-status-ahead' : 'text-status-ontrack'}`}>
-                                                                                    R$ {Math.max(0, metaRedistribuida - perf.vendido).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                                <span className={`font-semibold ${perf.vendidoHoje >= metaRedistribuida ? 'text-status-ahead' : 'text-status-ontrack'}`}>
+                                                                                    R$ {Math.max(0, metaRedistribuida - perf.vendidoHoje).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                                                 </span>
                                                                             </div>
                                                                         )}
@@ -4015,10 +4015,10 @@ export default function LojaDashboard() {
                                                             <TableRow key={perf.id}>
                                                                 <TableCell className="font-medium text-xs sm:text-sm break-words">{perf.name}</TableCell>
                                                                 <TableCell className="text-xs sm:text-sm font-medium">
-                                                                    {formatBRL(perf.vendido)}
-                                                                    {perf.vendidoMes > 0 && (
+                                                                    {formatBRL(perf.vendidoHoje)}
+                                                                    {perf.vendidoHojeMes > 0 && (
                                                                         <div className="text-[10px] text-muted-foreground mt-0.5">
-                                                                            Mês: {formatBRL(perf.vendidoMes)}
+                                                                            Mês: {formatBRL(perf.vendidoHojeMes)}
                                                                         </div>
                                                                     )}
                                                                 </TableCell>
@@ -5093,13 +5093,13 @@ export default function LojaDashboard() {
                                                         </div>
                                                         <div className="flex items-center justify-between text-base">
                                                             <span className="text-muted-foreground">Vendido:</span>
-                                                            <span className="font-bold text-primary">{formatBRL(perf.vendido)}</span>
+                                                            <span className="font-bold text-primary">{formatBRL(perf.vendidoHoje)}</span>
                                                         </div>
                                                         {perf.metaDiaria > 0 && (
                                                             <div className="flex items-center justify-between text-base">
                                                                 <span className="text-muted-foreground">Falta:</span>
-                                                                <span className={`font-semibold ${perf.vendido >= perf.metaDiaria ? 'text-status-ahead' : 'text-status-ontrack'}`}>
-                                                                    {formatBRL(Math.max(0, perf.metaDiaria - perf.vendido))}
+                                                                <span className={`font-semibold ${perf.vendidoHoje >= perf.metaDiaria ? 'text-status-ahead' : 'text-status-ontrack'}`}>
+                                                                    {formatBRL(Math.max(0, perf.metaDiaria - perf.vendidoHoje))}
                                                                 </span>
                                                             </div>
                                                         )}
@@ -5169,10 +5169,10 @@ export default function LojaDashboard() {
                                                         <TableRow key={perf.id}>
                                                             <TableCell className="font-medium text-xs sm:text-sm break-words">{perf.name}</TableCell>
                                                             <TableCell className="text-xs sm:text-sm font-medium">
-                                                                {formatBRL(perf.vendido)}
-                                                                {perf.vendidoMes > 0 && (
+                                                                {formatBRL(perf.vendidoHoje)}
+                                                                {perf.vendidoHojeMes > 0 && (
                                                                     <div className="text-[10px] text-muted-foreground mt-0.5">
-                                                                        Mês: {formatBRL(perf.vendidoMes)}
+                                                                        Mês: {formatBRL(perf.vendidoHojeMes)}
                                                                     </div>
                                                                 )}
                                                             </TableCell>
