@@ -605,10 +605,10 @@ export function CaixaLojaView({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Metas Individuais Hoje
+              Desempenho Individual Hoje
             </CardTitle>
             <CardDescription>
-              Metas diárias de cada colaboradora
+              Vendas de cada colaboradora no dia
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -630,16 +630,11 @@ export function CaixaLojaView({
                     </div>
                     <div className="text-right">
                       {colab.isOnLeave ? (
-                        <span className="text-sm text-muted-foreground">-</span>
+                        <span className="text-sm text-muted-foreground">Folga</span>
                       ) : (
-                        <>
-                          <div className="text-sm font-medium">
-                            {formatCurrency(colab.vendidoHoje)} / {formatCurrency(colab.metaDiaria)}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {colab.metaDiaria > 0 ? ((colab.vendidoHoje / colab.metaDiaria) * 100).toFixed(0) : 0}%
-                          </div>
-                        </>
+                        <div className="text-sm font-medium text-green-600">
+                          {formatCurrency(colab.vendidoHoje || 0)}
+                        </div>
                       )}
                     </div>
                   </div>
