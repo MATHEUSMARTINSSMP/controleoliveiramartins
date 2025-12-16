@@ -217,54 +217,35 @@ exports.handler = async (event, context) => {
               credentialsSource = `global_db (escolhido pelo usuario)`;
             }
           } else {
-            // Buscar credenciais da loja primeiro
+            // Buscar credenciais da loja DIRETAMENTE pelo site_slug
             // IMPORTANTE: Usar site_slug da tabela stores se existir, caso contrario gerar
             const storeSlug = store.site_slug || generateSlug(store.name);
             console.log('[WhatsApp] Usando slug:', storeSlug, '(fonte:', store.site_slug ? 'site_slug' : 'generateSlug', ')');
             let storeHasOwnCredentials = false;
 
-            // 2. Encontrar admin da loja via tabela profiles
-            // A associacao loja->admin e feita via profiles.store_id (role = 'ADMIN')
-            const { data: adminProfile, error: adminError } = await supabase
-              .from('profiles')
-              .select('id, email')
-              .eq('store_id', store_id)
-              .eq('role', 'ADMIN')
+            // 2. Buscar credenciais PROPRIAS da loja diretamente pelo site_slug (mais confiavel)
+            const { data: storeCreds, error: credError } = await supabase
+              .from('whatsapp_credentials')
+              .select('customer_id, site_slug, uazapi_status, is_global, admin_id')
+              .eq('site_slug', storeSlug)
+              .eq('status', 'active')
+              .eq('is_global', false)
               .maybeSingle();
 
-            if (adminError) {
-              console.warn('[WhatsApp] Erro ao buscar admin da loja:', adminError.message);
-            } else if (adminProfile && adminProfile.id) {
-              const adminId = adminProfile.id;
-              const adminEmail = adminProfile.email;
-              console.log('[WhatsApp] Admin da loja encontrado:', adminEmail, '| ID:', adminId);
+            console.log('[WhatsApp] Busca credenciais por site_slug:', storeSlug, '| resultado:', storeCreds ? 'encontrado' : 'nao encontrado');
 
-              // 3. Buscar credenciais PROPRIAS da loja pelo admin_id (UUID)
-              const { data: storeCreds, error: credError } = await supabase
-                .from('whatsapp_credentials')
-                .select('customer_id, site_slug, uazapi_status, is_global, admin_id')
-                .eq('admin_id', adminId)
-                .eq('site_slug', storeSlug)
-                .eq('status', 'active')
-                .maybeSingle();
-
-              console.log('[WhatsApp] Busca credenciais: admin_id=', adminId, '| site_slug=', storeSlug, '| resultado:', storeCreds ? 'encontrado' : 'nao encontrado');
-
-              // Verificar se nao e a credencial global e esta conectada
-              if (!credError && storeCreds && storeCreds.uazapi_status === 'connected' && !storeCreds.is_global) {
-                siteSlug = storeCreds.site_slug;
-                customerId = storeCreds.customer_id || adminEmail;
-                credentialsSource = `loja:${store.name}`;
-                storeHasOwnCredentials = true;
-                console.log('[WhatsApp] Usando credenciais PROPRIAS da loja:', store.name, '| status:', storeCreds.uazapi_status);
-              } else {
-                console.log('[WhatsApp] Loja sem credenciais proprias conectadas (status:', storeCreds?.uazapi_status || 'nao encontrado', ', is_global:', storeCreds?.is_global || false, ')');
-              }
+            // Verificar se esta conectada
+            if (!credError && storeCreds && storeCreds.uazapi_status === 'connected') {
+              siteSlug = storeCreds.site_slug;
+              customerId = storeCreds.customer_id || storeSlug;
+              credentialsSource = `loja:${store.name}`;
+              storeHasOwnCredentials = true;
+              console.log('[WhatsApp] Usando credenciais PROPRIAS da loja:', store.name, '| status:', storeCreds.uazapi_status);
             } else {
-              console.log('[WhatsApp] Admin nao encontrado para loja', store.name, '- tentando credencial global');
+              console.log('[WhatsApp] Loja sem credenciais proprias conectadas (status:', storeCreds?.uazapi_status || 'nao encontrado', ')');
             }
 
-            // 4. Se loja NAO tem credenciais proprias, usar GLOBAL como fallback
+            // 3. Se loja NAO tem credenciais proprias, usar GLOBAL como fallback
             if (!storeHasOwnCredentials) {
               console.log('[WhatsApp] Loja', store.name, 'vai usar credencial GLOBAL (fallback)');
               const globalCred = await fetchGlobalCredential();
