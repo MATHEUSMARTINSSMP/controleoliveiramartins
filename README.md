@@ -13,12 +13,16 @@
 
 1. [Visao Geral](#visao-geral)
 2. [Arquitetura Tecnica](#arquitetura-tecnica)
-3. [Funcionalidades Principais](#funcionalidades-principais)
-4. [Automacoes e Integracoes](#automacoes-e-integracoes)
-5. [Estrutura do Banco de Dados](#estrutura-do-banco-de-dados)
-6. [Edge Functions e RPCs](#edge-functions-e-rpcs)
-7. [Planos e Precos](#planos-e-precos)
-8. [Instalacao e Deploy](#instalacao-e-deploy)
+3. [Design e UI/UX](#design-e-uiux)
+4. [Funcionalidades Principais](#funcionalidades-principais)
+5. [Automacoes e Integracoes](#automacoes-e-integracoes)
+6. [Sistema de WhatsApp](#sistema-de-whatsapp)
+7. [Estrutura do Banco de Dados](#estrutura-do-banco-de-dados)
+8. [Edge Functions e RPCs](#edge-functions-e-rpcs)
+9. [Performance e Otimizacoes](#performance-e-otimizacoes)
+10. [Planos e Precos](#planos-e-precos)
+11. [Roadmap Futuro](#roadmap-futuro)
+12. [Instalacao e Deploy](#instalacao-e-deploy)
 
 ---
 
@@ -32,7 +36,9 @@ O **EleveaOne** e uma plataforma SaaS Multi-Tenant completa para gestao de varej
 - **Controle de Ponto Digital** em conformidade com a legislacao brasileira (REP-P)
 - **Integracao com ERPs** (Tiny, Bling) para sincronizacao automatica
 - **DRE e Relatorios Financeiros** com integracao N8N
-- **Sistema de Ajustes e Condicionais** para gestao de colaboradoras
+- **Sistema de Adiantamentos** com controle de parcelas e limites
+- **Alertas de Tarefas** recorrentes para lojas via WhatsApp
+- **Check de Meta Diaria** gamificado com bonus configuravel
 
 ---
 
@@ -50,6 +56,7 @@ O **EleveaOne** e uma plataforma SaaS Multi-Tenant completa para gestao de varej
 | **Automacoes** | N8N + Cron Jobs | Workflows automatizados |
 | **WhatsApp** | UazAPI + N8N | Mensagens transacionais |
 | **Emails** | Resend | Emails transacionais |
+| **Animacoes** | Framer Motion | Transicoes e micro-interacoes |
 
 ### Estrutura do Repositorio
 
@@ -86,6 +93,41 @@ O sistema utiliza **Row Level Security (RLS)** no PostgreSQL para garantir isola
 - Todas as tabelas possuem `store_id` ou `admin_id`
 - Policies garantem que usuarios so acessam dados da sua loja
 - Schema dedicado: `sistemaretiradas`
+- Credenciais WhatsApp isoladas por admin com fallback global
+
+---
+
+## Design e UI/UX
+
+### Paleta de Cores Dual
+
+O sistema possui um tema dual sofisticado e minimalista:
+
+#### Tema Claro (Dourado/Bege)
+| Cor | HSL | Uso |
+|-----|-----|-----|
+| **Primary** | `38 92% 50%` | Dourado vibrante - botoes, destaques |
+| **Background** | `40 30% 97%` | Bege bem claro - fundo geral |
+| **Card** | `40 25% 98%` | Bege quase branco - cards |
+| **Secondary** | `40 20% 93%` | Bege medio - fundos secundarios |
+| **Accent** | `35 30% 88%` | Bege acentuado - hovers |
+
+#### Tema Escuro (Roxo/Violeta)
+| Cor | HSL | Uso |
+|-----|-----|-----|
+| **Primary** | `262 60% 65%` | Violeta vibrante - botoes, destaques |
+| **Background** | `262 20% 4%` | Preto-roxo profundo - fundo |
+| **Card** | `262 18% 8%` | Roxo escuro - cards |
+| **Secondary** | `262 15% 12%` | Roxo medio - fundos secundarios |
+
+### Elementos de Design
+
+- **Glassmorphism**: Efeitos de vidro fosco com blur
+- **Orbs Animados**: Gradientes flutuantes no background
+- **Glow Shadows**: Sombras com brilho sutil
+- **Shimmer Loaders**: Skeletons com animacao de brilho
+- **Page Transitions**: Transicoes suaves entre paginas (Framer Motion)
+- **Animated Counters**: Numeros com animacao de incremento
 
 ---
 
@@ -99,9 +141,21 @@ O sistema utiliza **Row Level Security (RLS)** no PostgreSQL para garantir isola
 - **Super Meta** com bonificacoes especiais
 - **Calendario Mensal** de vendas por colaboradora
 - **Ranking de Performance** em tempo real
-- **Check de Meta Diaria** gamificado com bonus configuravel
+- **Graficos de Evolucao Diaria** com comparativo por loja
 
-### 2. Sistema de Cashback
+### 2. Check de Meta Diaria (Gamificado)
+
+Sistema gamificado para incentivar colaboradoras a visualizar suas metas diariamente:
+
+| Funcionalidade | Descricao |
+|----------------|-----------|
+| **Confirmacao Diaria** | Colaboradora confirma que viu a meta do dia |
+| **Horario Limite** | Configuravel por loja (ex: ate 10h) |
+| **Bonus por Consistencia** | Valor configuravel para quem confirma no prazo |
+| **Dashboard Visual** | Mostra status de todas as colaboradoras |
+| **Historico Mensal** | Registro de todas as confirmacoes |
+
+### 3. Sistema de Cashback
 
 | Funcionalidade | Descricao |
 |----------------|-----------|
@@ -111,6 +165,7 @@ O sistema utiliza **Row Level Security (RLS)** no PostgreSQL para garantir isola
 | **Expiracao Automatica** | Saldos expiram conforme configuracao |
 | **Bonificacao Manual** | Admin pode creditar cashback para clientes |
 | **Historico Completo** | Todas as transacoes rastreadas |
+| **Data de Liberacao** | Cashback so fica disponivel apos periodo configurado |
 
 **Campos da Tabela `cashback_transactions`:**
 - `transaction_type`: EARNED, REDEEMED, EXPIRED
@@ -119,7 +174,7 @@ O sistema utiliza **Row Level Security (RLS)** no PostgreSQL para garantir isola
 - `data_liberacao`: Data de liberacao do saldo
 - `data_expiracao`: Data de expiracao
 
-### 3. CRM (Customer Relationship Management)
+### 4. CRM (Customer Relationship Management)
 
 - **Gestao de Contatos** com dados completos (CPF, telefone, email, aniversario)
 - **Tarefas e Lembretes** com prioridades e status
@@ -128,7 +183,7 @@ O sistema utiliza **Row Level Security (RLS)** no PostgreSQL para garantir isola
 - **Categorias de Clientes** (BLACK, PLATINUM, VIP, REGULAR) baseado em compras
 - **Integracao com Wishlist** para avisar quando produto chegar
 
-### 4. Wishlist (Lista de Desejos)
+### 5. Wishlist (Lista de Desejos)
 
 - Cadastro de produtos desejados por clientes
 - Busca inteligente com autocomplete
@@ -137,7 +192,7 @@ O sistema utiliza **Row Level Security (RLS)** no PostgreSQL para garantir isola
 - Botao WhatsApp para contato direto
 - Integracao com CRM
 
-### 5. Controle de Ponto Digital (REP-P Compliance)
+### 6. Controle de Ponto Digital (REP-P Compliance)
 
 Sistema em conformidade com **Portaria 671/2021** e **CLT**:
 
@@ -151,22 +206,54 @@ Sistema em conformidade com **Portaria 671/2021** e **CLT**:
 | **Solicitacao de Alteracao** | Colaboradora solicita correcoes |
 | **Relatorios PDF** | Exportacao mensal profissional |
 | **Notificacoes WhatsApp** | Aviso ao admin quando ponto e registrado |
+| **Jornadas Configuraveis** | Horarios por colaboradora |
 
-### 6. Sistema de Ajustes e Condicionais
+### 7. Sistema de Adiantamentos
+
+Controle completo de adiantamentos salariais para colaboradoras:
+
+| Funcionalidade | Descricao |
+|----------------|-----------|
+| **Solicitacao pela Colaboradora** | Portal para solicitar adiantamento |
+| **Aprovacao pelo Admin** | Fluxo de aprovacao com justificativa |
+| **Parcelamento Automatico** | Divisao em parcelas mensais |
+| **Limite por Colaboradora** | Valor maximo configuravel |
+| **Controle de Competencia** | Parcelas vinculadas ao mes de desconto |
+| **Historico Completo** | Rastreamento de todas as solicitacoes |
+
+**Validacoes de Limite:**
+- Soma apenas parcelas da colaboradora especifica
+- Considera adiantamentos aprovados e parcelas pendentes
+- Bloqueia nova solicitacao se limite excedido
+
+### 8. Alertas de Tarefas para Lojas
+
+Sistema de lembretes recorrentes via WhatsApp:
+
+| Funcionalidade | Descricao |
+|----------------|-----------|
+| **Tarefas Recorrentes** | Diaria, semanal, mensal |
+| **Horario Configuravel** | Define hora de envio |
+| **Dias da Semana** | Seleciona dias especificos |
+| **Multiplos Destinatarios** | Envia para varios numeros |
+| **Ativacao/Desativacao** | Controle por tarefa |
+| **Templates de Mensagem** | Mensagens personalizaveis |
+
+### 9. Sistema de Ajustes e Condicionais
 
 - **Condicionais** para colaboradoras com status (PENDENTE, EM_PREPARO, PRONTO, ENTREGUE)
 - **Ajustes** de valores com observacoes
 - **Notificacoes WhatsApp** para clientes e colaboradoras
 - **Historico Completo** de todas as movimentacoes
 
-### 7. DRE (Demonstrativo de Resultado do Exercicio)
+### 10. DRE (Demonstrativo de Resultado do Exercicio)
 
 - **Integracao N8N** para busca de dados financeiros
 - **Categorias de Receitas e Despesas** configuraveis
 - **Relatorios por Periodo** (mensal, trimestral, anual)
 - **Exportacao** para analise externa
 
-### 8. Integracao ERP (Tiny/Bling)
+### 11. Integracao ERP (Tiny/Bling)
 
 | Funcionalidade | Descricao |
 |----------------|-----------|
@@ -176,6 +263,55 @@ Sistema em conformidade com **Portaria 671/2021** e **CLT**:
 | **Mapeamento de Vendedores** | Vincula vendedores do ERP com colaboradoras |
 | **Logs de Sincronizacao** | Historico detalhado de todas as operacoes |
 | **Multi-ERP Ready** | Estrutura preparada para Tiny, Bling e outros |
+
+---
+
+## Sistema de WhatsApp
+
+### Arquitetura de Notificacoes
+
+O sistema suporta multiplas fontes de envio WhatsApp com fallback automatico:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    FLUXO DE ENVIO                           │
+├─────────────────────────────────────────────────────────────┤
+│  1. Verifica WhatsApp da Loja (site_slug)                   │
+│     ├─ Se conectado → Usa credenciais da loja              │
+│     └─ Se nao conectado → Fallback para Global             │
+│                                                             │
+│  2. WhatsApp Global (is_global = true)                      │
+│     ├─ Credencial compartilhada entre todas as lojas       │
+│     └─ Requer admin_id para acesso via RLS                 │
+│                                                             │
+│  3. N8N Webhook                                             │
+│     ├─ Processa fila de mensagens                          │
+│     ├─ Busca credenciais via JOIN stores + credentials     │
+│     └─ Envia via UazAPI                                    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Tipos de Notificacoes
+
+| Tipo | Trigger | Conteudo |
+|------|---------|----------|
+| **Cashback Earned** | Venda processada | Valor ganho, saldo, validade |
+| **Cashback Redeemed** | Resgate realizado | Valor usado, saldo restante |
+| **Time Clock** | Registro de ponto | Tipo, horario, colaboradora |
+| **Task Alert** | Cron configurado | Lembrete de tarefa |
+| **Condicional** | Status alterado | Status atual, detalhes |
+
+### Configuracao WhatsApp por Loja
+
+```sql
+-- Credenciais especificas da loja
+INSERT INTO whatsapp_credentials (admin_id, site_slug, uazapi_token, uazapi_status)
+VALUES ('uuid', 'minha-loja', 'token', 'connected');
+
+-- Credencial global (fallback)
+INSERT INTO whatsapp_credentials (admin_id, site_slug, is_global, uazapi_status)
+VALUES ('uuid', 'elevea_global', true, 'connected');
+```
 
 ---
 
@@ -225,6 +361,7 @@ Sistema em conformidade com **Portaria 671/2021** e **CLT**:
 | Sync ERP | A cada 1 min | Sincroniza pedidos novos |
 | Hard Sync ERP | Diario | Reconciliacao completa |
 | Processamento WhatsApp | A cada 5 min | Envia mensagens pendentes |
+| Alertas de Tarefas | Conforme config | Lembretes para lojas |
 
 ---
 
@@ -258,6 +395,11 @@ Sistema em conformidade com **Portaria 671/2021** e **CLT**:
 - `time_clock_change_requests` - Solicitacoes de alteracao
 - `time_clock_hours_balance` - Banco de horas
 - `colaboradora_work_schedules` - Jornadas de trabalho
+- `time_clock_notification_config` - Config notificacoes ponto
+
+#### Tabelas de Adiantamentos
+- `adiantamentos` - Solicitacoes de adiantamento
+- `adiantamento_parcelas` - Parcelas de desconto
 
 #### Tabelas de ERP
 - `erp_integrations` - Configuracoes de integracao
@@ -266,10 +408,62 @@ Sistema em conformidade com **Portaria 671/2021** e **CLT**:
 - `tiny_contacts` - Contatos sincronizados
 
 #### Tabelas de Notificacoes
-- `whatsapp_credentials` - Credenciais WhatsApp
+- `whatsapp_credentials` - Credenciais WhatsApp (loja + global)
 - `whatsapp_notification_config` - Configuracoes de notificacao
 - `store_notifications` - Notificacoes da loja
 - `store_notification_queue` - Fila de envio
+- `store_task_alerts` - Alertas de tarefas recorrentes
+
+#### Tabelas de Gamificacao
+- `daily_goal_checks` - Check de meta diaria
+- `daily_goal_check_config` - Configuracoes do check
+
+---
+
+## Performance e Otimizacoes
+
+### Lazy Loading
+
+Bibliotecas pesadas sao carregadas sob demanda:
+
+```typescript
+// Carregamento dinamico
+const XLSX = await import('xlsx');
+const jsPDF = await import('jspdf');
+const { default: autoTable } = await import('jspdf-autotable');
+```
+
+### Prefetch System
+
+Sistema inteligente de pre-carregamento de rotas:
+
+- Analisa navegacao do usuario
+- Pre-carrega componentes provaveis
+- Reduz tempo de carregamento percebido
+
+### Virtual Table
+
+Renderizacao eficiente para grandes datasets:
+
+- Apenas linhas visiveis sao renderizadas
+- Scroll virtualizado
+- Suporte a milhares de registros
+
+### React Query Cache
+
+```typescript
+// Query keys estruturadas
+queryKey: ['cashback', storeId, month]
+
+// Invalidacao precisa
+queryClient.invalidateQueries({ queryKey: ['cashback', storeId] });
+```
+
+### Error Boundaries
+
+- Captura erros de renderizacao
+- Exibe fallback amigavel
+- Log de erros para debug
 
 ---
 
@@ -283,10 +477,40 @@ Sistema em conformidade com **Portaria 671/2021** e **CLT**:
 | CRM | Sim | Sim | Sim |
 | Wishlist | Sim | Sim | Sim |
 | Controle de Ponto | Sim | Sim | Sim |
+| Check Meta Diaria | Sim | Sim | Sim |
 | WhatsApp Integrado | - | Sim | Sim |
+| Alertas de Tarefas | - | Sim | Sim |
 | Integracao ERP | Sim | Sim | Sim |
 | DRE Financeiro | - | Sim | Sim |
+| Adiantamentos | - | Sim | Sim |
 | Suporte | Email | WhatsApp | Prioritario 24/7 |
+
+---
+
+## Roadmap Futuro
+
+### Integracao Linx Microvix (Em Desenvolvimento)
+
+Homologacao como operador de fidelidade oficial para sistemas Linx POS:
+
+| Endpoint | Funcao |
+|----------|--------|
+| `/api/linx/consulta` | Consulta saldo de cashback |
+| `/api/linx/acumulo` | Acumula pontos/cashback |
+| `/api/linx/resgate` | Resgata cashback |
+| `/api/linx/estorno` | Estorna operacao |
+
+**Requisitos Linx:**
+- Resposta em < 3 segundos
+- Token de autenticacao (max 600 chars)
+- Formato JSON
+- HTTP status codes padronizados
+
+### NF-e (Nota Fiscal Eletronica)
+
+- Emissao de notas fiscais
+- Integracao com SEFAZ
+- Independencia total de ERP externo
 
 ---
 
@@ -317,6 +541,14 @@ VITE_SUPABASE_URL=https://seu-projeto.supabase.co
 VITE_SUPABASE_ANON_KEY=sua-chave-anonima
 VITE_N8N_BASE_URL=https://seu-n8n.com
 VITE_N8N_AUTH_HEADER=sua-chave-auth
+```
+
+### Timezone
+
+Todos os timestamps do sistema usam **America/Sao_Paulo (UTC-3)**:
+
+```typescript
+const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 ```
 
 ### Deploy
