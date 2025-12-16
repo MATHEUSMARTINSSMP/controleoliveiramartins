@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, Fragment, lazy, Suspense, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { formatBRL } from "@/lib/utils";
+import { formatBRL, getBrazilDateString, BRAZIL_TIMEZONE } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1430,11 +1430,11 @@ export default function LojaDashboard() {
     const fetchColaboradorasPerformanceWithStoreId = async (currentStoreId: string, currentStoreName?: string | null) => {
         if (!currentStoreId) return;
 
-        const hoje = new Date();
-        const today = format(hoje, 'yyyy-MM-dd');
-        const mesAtual = format(hoje, 'yyyyMM');
+        const today = getBrazilDateString();
+        const brazilNow = new Date(new Date().toLocaleString('en-US', { timeZone: BRAZIL_TIMEZONE }));
+        const mesAtual = format(brazilNow, 'yyyyMM');
         const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
-        const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+        const daysInMonth = new Date(brazilNow.getFullYear(), brazilNow.getMonth() + 1, 0).getDate();
 
         console.log('[LojaDashboard] 📡 Buscando desempenho das colaboradoras...');
         console.log('[LojaDashboard]   storeId:', currentStoreId);

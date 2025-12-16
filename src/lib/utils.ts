@@ -56,3 +56,25 @@ export function formatBRL(value: number | string | null | undefined, decimals: n
 export function formatNumber(value: number | string | null | undefined, decimals: number = 2): string {
   return formatCurrency(value, { decimals, showSymbol: false });
 }
+
+export const BRAZIL_TIMEZONE = 'America/Sao_Paulo';
+
+export function getBrazilNow(): Date {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: BRAZIL_TIMEZONE }));
+}
+
+export function getBrazilISOString(): string {
+  const now = new Date();
+  const brazilDate = new Date(now.toLocaleString('en-US', { timeZone: BRAZIL_TIMEZONE }));
+  const year = brazilDate.getFullYear();
+  const month = String(brazilDate.getMonth() + 1).padStart(2, '0');
+  const day = String(brazilDate.getDate()).padStart(2, '0');
+  const hours = String(brazilDate.getHours()).padStart(2, '0');
+  const minutes = String(brazilDate.getMinutes()).padStart(2, '0');
+  const seconds = String(brazilDate.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-03:00`;
+}
+
+export function getBrazilDateString(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: BRAZIL_TIMEZONE });
+}
