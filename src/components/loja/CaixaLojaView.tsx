@@ -3,7 +3,7 @@
  * Permite abrir e fechar caixa com envio de mensagem WhatsApp
  */
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -84,22 +84,33 @@ export function CaixaLojaView({
   const [dinheiroCaixa, setDinheiroCaixa] = useState('');
   const [observacoes, setObservacoes] = useState('');
   const [historicoHoje, setHistoricoHoje] = useState<CaixaOperacao[]>([]);
-  const [vendidoHojeCalculado, setVendidoHojeCalculado] = useState<number>(0);
+  const [vendidoHojeCalculado, setVendidoHojeCalculado] = useState<number | null>(null);
+  const [vendidoHojeCalculadoFlag, setVendidoHojeCalculadoFlag] = useState<boolean>(false);
 
   const hoje = new Date();
   const hojeStr = format(hoje, 'yyyy-MM-dd');
   const diasNoMes = getDaysInMonth(hoje);
   const diasRestantes = differenceInDays(endOfMonth(hoje), hoje);
-  const faltaMes = metaMensal - vendidoMensal;
-  const diariaNecessaria = diasRestantes > 0 ? faltaMes / diasRestantes : 0;
+  const faltaMes = (metaMensal || 0) - (vendidoMensal || 0);
+  const diariaNecessaria = diasRestantes > 0 && !isNaN(faltaMes) ? (faltaMes / diasRestantes) : 0;
   
   // Usar o valor calculado diretamente ou o prop como fallback
-  const vendidoHoje = vendidoHojeCalculado > 0 ? vendidoHojeCalculado : (vendidoHojeProp || 0);
+  // Se já foi calculado, usar o valor calculado (mesmo que seja 0)
+  // Caso contrário, usar o prop
+  const vendidoHoje = vendidoHojeCalculadoFlag && vendidoHojeCalculado !== null
+    ? (isNaN(vendidoHojeCalculado) || vendidoHojeCalculado === null ? 0 : vendidoHojeCalculado)
+    : (isNaN(vendidoHojeProp) ? 0 : (vendidoHojeProp || 0));
 
   useEffect(() => {
     if (storeId) {
-      fetchCaixaStatus();
-      fetchVendidoHoje();
+      fetchCaixaStatus().catch((err: any) => {
+        console.error('[CaixaLojaView] Erro ao buscar status do caixa:', err);
+      });
+      fetchVendidoHoje().catch((err: any) => {
+        console.error('[CaixaLojaView] Erro ao buscar vendidoHoje:', err);
+        setVendidoHojeCalculado(0);
+        setVendidoHojeCalculadoFlag(true);
+      });
     }
   }, [storeId]);
 
@@ -124,17 +135,23 @@ export function CaixaLojaView({
         return 0;
       }
 
-      const totalVendido = (data || []).reduce((sum, s) => sum + Number(s.valor || 0), 0);
-      setVendidoHojeCalculado(totalVendido);
+      const totalVendido = (data || []).reduce((sum, s) => {
+        const valor = Number(s.valor || 0);
+        return sum + (isNaN(valor) ? 0 : valor);
+      }, 0);
+      
+      const valorFinal = isNaN(totalVendido) ? 0 : totalVendido;
+      setVendidoHojeCalculado(valorFinal);
+      setVendidoHojeCalculadoFlag(true);
       
       console.log('[CaixaLojaView] VendidoHoje calculado:', {
-        totalVendido,
+        totalVendido: valorFinal,
         qtdVendas: data?.length || 0,
         hojeStr,
         storeId
       });
       
-      return totalVendido;
+      return valorFinal;
     } catch (err) {
       console.error('[CaixaLojaView] Erro ao calcular vendidoHoje:', err);
       return 0;
@@ -294,10 +311,14 @@ export function CaixaLojaView({
       setSubmitting(true);
 
       // Recalcular vendidoHoje antes de fechar para garantir valor atualizado
-      const vendidoHojeFinal = await fetchVendidoHoje() || vendidoHojeProp || 0;
+      const vendidoHojeRecalculado = await fetchVendidoHoje();
+      const vendidoHojeFinal = isNaN(vendidoHojeRecalculado) 
+        ? (isNaN(vendidoHojeProp) ? 0 : (vendidoHojeProp || 0))
+        : vendidoHojeRecalculado;
       
       console.log('[CaixaLojaView] Fechando caixa com vendidoHoje:', {
         vendidoHojeFinal,
+        vendidoHojeRecalculado,
         vendidoHojeProp,
         vendidoHojeCalculado
       });
@@ -437,9 +458,9 @@ export function CaixaLojaView({
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(metaMensal)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(metaMensal || 0)}</div>
             <p className="text-xs text-muted-foreground">
-              Vendido: {formatCurrency(vendidoMensal)} ({((vendidoMensal / metaMensal) * 100).toFixed(1)}%)
+              Vendido: {formatCurrency(vendidoMensal || 0)} ({metaMensal > 0 ? ((vendidoMensal / metaMensal) * 100).toFixed(1) : 0}%)
             </p>
           </CardContent>
         </Card>
