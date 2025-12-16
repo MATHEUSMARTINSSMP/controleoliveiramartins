@@ -161,6 +161,7 @@ export default function LojaDashboard() {
     const [goals, setGoals] = useState<any>(null);
     const [metrics, setMetrics] = useState<any>(null);
     const [colaboradorasPerformance, setColaboradorasPerformance] = useState<any[]>([]);
+    const [colaboradorasPerformanceCaixa, setColaboradorasPerformanceCaixa] = useState<any[]>([]);
     const [rankingTop3, setRankingTop3] = useState<any[]>([]);
     const [rankingMonthly, setRankingMonthly] = useState<any[]>([]);
     const [offDayDialog, setOffDayDialog] = useState(false);
@@ -317,6 +318,27 @@ export default function LojaDashboard() {
         };
     }, [colaboradorasPerformance, offDays]);
 
+    // REDISTRIBUIÇÃO PARA CAIXA - LISTA COMPLETA (inclui gerentes sem meta)
+    // Usado na aba Caixa para mostrar todas as colaboradoras que venderam
+    const redistributedPerformanceCaixa = useMemo(() => {
+        if (!colaboradorasPerformanceCaixa || colaboradorasPerformanceCaixa.length === 0) {
+            return { data: [] };
+        }
+
+        const offColabIds = new Set(offDays.map(od => od.colaboradora_id));
+
+        return {
+            data: colaboradorasPerformanceCaixa.map(perf => ({
+                ...perf,
+                metaDiariaRedistribuida: perf.metaDiaria || 0,
+                redistribuicaoExtra: 0,
+                isOnLeave: offColabIds.has(perf.id),
+                vendidoHoje: perf.vendidoHoje || 0,
+                metaDiaria: perf.metaDiaria || 0
+            }))
+        };
+    }, [colaboradorasPerformanceCaixa, offDays]);
+
     useEffect(() => {
         if (salesData) {
             setSales(salesData as Sale[]);
@@ -382,7 +404,11 @@ export default function LojaDashboard() {
         // Só atualizar do React Query se não estivermos usando dados locais
         // Isso evita que o React Query sobrescreva dados atualizados localmente
         if (colaboradorasPerformanceData && !useLocalPerformanceRef.current) {
-            setColaboradorasPerformance(colaboradorasPerformanceData);
+            // ✅ Planejamento usa apenas colaboradoras COM meta > 0
+            const performanceComMeta = colaboradorasPerformanceData.filter((p: any) => p.meta > 0);
+            setColaboradorasPerformance(performanceComMeta);
+            // ✅ Caixa usa lista completa (todas as colaboradoras)
+            setColaboradorasPerformanceCaixa(colaboradorasPerformanceData);
         }
     }, [colaboradorasPerformanceData]);
     // ============= FIM DOS HOOKS REACT-QUERY =============
@@ -1690,16 +1716,29 @@ export default function LojaDashboard() {
                     ticketMedio: number;
                 }>;
 
-            // ✅ REMOVIDO: Não filtrar por meta - todas as colaboradoras ativas devem aparecer
-            // IMPORTANTE: Não filtrar por meta > 0 porque colaboradoras podem não ter meta mas ainda vender
-            // Todas as colaboradoras ativas devem aparecer, com ou sem meta
-            console.log('[LojaDashboard] 📊 Performance (todas as colaboradoras ativas):', performance.length, 'colaboradoras');
-            performance.forEach((p, idx) => {
-                console.log(`[LojaDashboard]   ${idx + 1}. ${p.name}: meta=R$ ${p.meta || 0}, metaDiaria=R$ ${p.metaDiaria || 0}, vendido hoje=R$ ${p.vendidoHoje || 0}, vendido mês=R$ ${p.vendidoMes || 0}`);
+            // ✅ DUAS LISTAS: 
+            // 1. Performance COM meta > 0 → para Planejamento do Dia (gerentes sem meta não aparecem)
+            // 2. Performance COMPLETA → para Caixa (todas que venderam aparecem)
+            const performanceComMeta = performance.filter(p => p.meta > 0);
+            
+            console.log('[LojaDashboard] 📊 Performance COM meta (Planejamento):', performanceComMeta.length, 'colaboradoras');
+            performanceComMeta.forEach((p, idx) => {
+                console.log(`[LojaDashboard]   ${idx + 1}. ${p.name}: meta=R$ ${p.meta}, metaDiaria=R$ ${p.metaDiaria}, vendido hoje=R$ ${p.vendidoHoje}, vendido mês=R$ ${p.vendidoMes}`);
             });
+            
+            console.log('[LojaDashboard] 📊 Performance COMPLETA (Caixa):', performance.length, 'colaboradoras');
+            performance.forEach((p, idx) => {
+                console.log(`[LojaDashboard]   ${idx + 1}. ${p.name}: vendido hoje=R$ ${p.vendidoHoje}`);
+            });
+            
             // Marcar que estamos usando dados locais (do fetchDataWithStoreId)
             useLocalPerformanceRef.current = true;
-            setColaboradorasPerformance(performance);
+            
+            // ✅ Planejamento usa apenas colaboradoras COM meta
+            setColaboradorasPerformance(performanceComMeta);
+            
+            // ✅ Caixa usa lista completa - salvar em estado separado
+            setColaboradorasPerformanceCaixa(performance);
         } else {
             console.warn('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada para processar performance');
             if (goalsError) {
@@ -4583,7 +4622,7 @@ export default function LojaDashboard() {
                                                 storeId={storeId}
                                                 storeName={storeName || 'Loja'}
                                                 colaboradoras={colaboradoras}
-                                                colaboradorasPerformance={redistributedPerformance.data.map(p => ({
+                                                colaboradorasPerformance={redistributedPerformanceCaixa.data.map(p => ({
                                                     id: p.id,
                                                     name: p.name,
                                                     vendidoHoje: p.vendidoHoje || 0,
@@ -4592,7 +4631,7 @@ export default function LojaDashboard() {
                                                 }))}
                                                 metaMensal={goals?.meta_valor || 0}
                                                 vendidoMensal={monthlyRealizado}
-                                                vendidoHoje={metrics?.totalVendas || 0}
+                                                vendidoHoje={redistributedPerformanceCaixa.data.reduce((sum, p) => sum + (p.vendidoHoje || 0), 0) || metrics?.totalVendas || 0}
                                             />
                                         ) : (
                                             <div className="flex items-center justify-center py-8 text-muted-foreground">
