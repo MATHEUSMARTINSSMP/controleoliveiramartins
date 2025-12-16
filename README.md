@@ -14,7 +14,7 @@
 1. [Visao Geral](#visao-geral)
 2. [Arquitetura Tecnica](#arquitetura-tecnica)
 3. [Design e UI/UX](#design-e-uiux)
-4. [Funcionalidades Principais](#funcionalidades-principais) (19 modulos)
+4. [Funcionalidades Principais](#funcionalidades-principais) (21 modulos)
 5. [Sistema de WhatsApp](#sistema-de-whatsapp)
 6. [Automacoes e Integracoes](#automacoes-e-integracoes)
 7. [Estrutura do Banco de Dados](#estrutura-do-banco-de-dados)
@@ -337,7 +337,19 @@ Modulos avancados de analise e insights:
 - Participacao de cada categoria no faturamento
 - Exportacao para analise
 
-### 17. Relatorios e Exportacoes
+### 17. Sistema de Trofeus e Premiacoes
+
+Gamificacao avancada com reconhecimento de conquistas:
+
+| Funcionalidade | Descricao |
+|----------------|-----------|
+| **Trofeus Mensais** | Premiacao automatica ao final de cada mes |
+| **Trofeus Semanais** | Premiacao das gincanas semanais |
+| **Ranking Permanente** | Historico de todas as conquistas |
+| **Funcao RPC** | `check_and_create_monthly_trophies()` e `check_and_create_weekly_trophies()` |
+| **Calculo Automatico** | Disparo automatico via triggers |
+
+### 18. Relatorios e Exportacoes
 
 Sistema completo de relatorios com multiplos formatos:
 
@@ -348,8 +360,9 @@ Sistema completo de relatorios com multiplos formatos:
 | **Relatorios de Cashback** | Excel, PDF | Transacoes e saldos |
 | **Relatorios de Metas** | PDF, Excel | Atingimento e performance |
 | **Bonificacao** | WhatsApp, Excel | Lista para campanhas |
+| **Projecao de Faturamento** | Dashboard | Projecao baseada em performance atual |
 
-### 18. Gestao de Lojas e Colaboradoras
+### 19. Gestao de Lojas e Colaboradoras
 
 #### Gestao de Lojas
 - Cadastro de multiplas lojas por admin
@@ -364,7 +377,7 @@ Sistema completo de relatorios com multiplos formatos:
 - Perfis e permissoes
 - Limite por plano de assinatura
 
-### 19. Sistema de Subscricoes (Billing)
+### 20. Sistema de Subscricoes (Billing)
 
 Controle de planos e limites por tenant:
 
@@ -375,6 +388,20 @@ Controle de planos e limites por tenant:
 | **Verificacao em Tempo Real** | Bloqueia acoes quando limite atingido |
 | **Dashboard de Billing** | Visualizacao de uso vs limite |
 | **Eventos de Billing** | Historico de mudancas de plano |
+| **Funcao RPC** | `get_admin_limits()` para verificar limites |
+
+### 21. Renovacao e Gestao de Cashback
+
+Funcionalidades avancadas de gestao de cashback:
+
+| Funcionalidade | Descricao |
+|----------------|-----------|
+| **Renovacao de Saldo Expirado** | Admin pode renovar cashback vencido |
+| **Bonificacao Manual** | Creditar cashback para clientes especificos |
+| **Expiracao Automatica** | Cron job diario para expirar saldos |
+| **Relatorio de ROI** | Analise de retorno do programa |
+| **Configuracoes por Loja** | Percentual, liberacao, expiracao |
+| **Data de Liberacao** | Cashback disponivel apos periodo configurado |
 
 ---
 
@@ -410,8 +437,16 @@ O sistema suporta multiplas fontes de envio WhatsApp com fallback automatico:
 | **Cashback Earned** | Venda processada | Valor ganho, saldo, validade |
 | **Cashback Redeemed** | Resgate realizado | Valor usado, saldo restante |
 | **Time Clock** | Registro de ponto | Tipo, horario, colaboradora |
-| **Task Alert** | Cron configurado | Lembrete de tarefa |
-| **Condicional** | Status alterado | Status atual, detalhes |
+| **Task Alert** | Cron configurado | Lembrete de tarefa recorrente |
+| **Condicional** | Status alterado | Status atual, detalhes do pedido |
+| **Bonus/Gincana** | Gincana finalizada | Premiacao, valor, posicao no ranking |
+| **Nova Venda ERP** | Pedido sincronizado | Valor, cliente, vendedor |
+| **Aniversario Cliente** | Data de nascimento | Parabens personalizados |
+| **Wishlist Disponivel** | Produto chegou | Aviso de disponibilidade |
+| **Pos-Venda** | Dias apos compra | Follow-up automatico |
+| **Adiantamento** | Solicitacao/Aprovacao | Status e detalhes |
+| **Meta Diaria** | Inicio do expediente | Lembrete de meta do dia |
+| **Reset de Senha/PIN** | Solicitacao | Link de reset seguro |
 
 ### Configuracao WhatsApp por Loja
 
@@ -437,33 +472,90 @@ VALUES ('uuid', 'elevea_global', true, 'connected');
 | `process-cashback-queue` | Processa fila de WhatsApp de cashback |
 | `process-time-clock-notifications` | Envia notificacoes de ponto |
 | `create-colaboradora` | Cria usuarios com validacao de limites |
-| `send-welcome-email` | Email de boas-vindas |
+| `send-welcome-email` | Email de boas-vindas via Resend |
 | `reset-colaboradora-password` | Reset de senha seguro |
+| `verify-colaboradora-ponto` | Verifica credenciais para acesso ao ponto |
+| `request-password-reset` | Endpoint para solicitar reset de senha |
+| `send-password-reset-email` | Envia email de reset de senha |
+| `request-pin-reset` | Solicita reset de PIN de assinatura digital |
+| `seed-users` | Cria usuarios de teste (desenvolvimento) |
+| `cashback-generate-retroactive` | Gera cashback para pedidos antigos |
 
 ### Netlify Functions (Node.js)
 
 | Funcao | Descricao |
 |--------|-----------|
-| `sync-tiny-orders-background` | Sincronizacao em background |
-| `sync-tiny-contacts-background` | Importacao de contatos |
+| `sync-tiny-orders-background` | Sincronizacao em background com retry |
+| `sync-tiny-contacts-background` | Importacao de contatos do ERP |
 | `process-cashback-queue-cron` | Cron de processamento WhatsApp |
+| `sync-orders-cron` | Cron de sincronizacao automatica (1 min) |
+| `cashback-expire-cron` | Expiracao diaria de saldos vencidos |
+| `send-cashback-whatsapp` | Envio de WhatsApp de cashback |
+| `send-whatsapp-message` | Envio generico de WhatsApp |
+| `n8n-proxy` | Proxy para chamadas ao N8N |
+| `erp-api-proxy` | Proxy para API do ERP com cache |
+| `list-erp-vendors` | Lista vendedores nao mapeados |
+| `create-colaboradora` | Cria colaboradora com auth |
+| `reset-colaboradora-password` | Reset de senha |
 
 ### Funcoes RPC (PostgreSQL)
 
 #### Cashback
 - `gerar_cashback(sale_id, tiny_order_id)` - Gera cashback automaticamente
-- `expire_cashback()` - Expira saldos vencidos
+- `expire_cashback()` / `expirar_cashback_vencido()` - Expira saldos vencidos
+- `get_cashback_settings(store_id)` - Obtem configuracoes de cashback
 
 #### Controle de Ponto
 - `has_signature_pin(colaboradora_id)` - Verifica se tem PIN
 - `set_signature_pin(admin_id, colaboradora_id, pin)` - Define PIN
 - `validate_signature_pin(colaboradora_id, pin)` - Valida PIN
 - `validate_time_clock_sequence(...)` - Valida sequencia logica
+- `reset_pin_with_token(token, new_pin)` - Reset de PIN via token
+- `insert_time_clock_digital_signature(...)` - Insere assinatura digital
+
+#### Vendas e ERP
+- `criar_vendas_de_tiny_orders()` - Cria vendas a partir de pedidos Tiny
+- `chamar_sync_tiny_orders()` - Dispara sincronizacao de pedidos
+- `count_total_orders(store_id)` - Conta total de pedidos
+
+#### Limites e Subscricoes
+- `get_admin_limits(admin_id)` - Obtem limites de lojas e colaboradoras
+
+#### Gamificacao
+- `check_and_create_monthly_trophies()` - Cria trofeus mensais
+- `check_and_create_weekly_trophies()` - Cria trofeus semanais
 
 #### Triggers Automaticos
 - `trg_gerar_cashback_new_sale` - Dispara cashback ao inserir venda
+- `trg_gerar_cashback_new_order` - Dispara cashback ao inserir pedido Tiny
 - `trg_send_time_clock_notification` - Notifica registro de ponto
 - `trg_create_post_sale_schedule` - Cria agendamento pos-venda
+- `trigger_gerar_cashback_pedido()` - Funcao do trigger de cashback
+
+### Sistema de Matching de Colaboradoras
+
+Vinculacao inteligente de vendas do ERP com colaboradoras do sistema:
+
+```
+1. Pedido chega do Tiny ERP com vendedor
+   ↓
+2. Busca dados completos do vendedor no Tiny (se necessario)
+   ↓
+3. Busca TODAS colaboradoras da loja no Supabase
+   ↓
+4. Tenta matching por CPF (PRIORIDADE 1 - mais confiavel)
+   ↓
+5. Se nao encontrar, tenta por Email (PRIORIDADE 2)
+   ↓
+6. Se nao encontrar, tenta por Nome normalizado (PRIORIDADE 3)
+   ↓
+7. Retorna colaboradora_id encontrada ou NULL
+```
+
+**Normalizacoes aplicadas:**
+- **CPF:** Remove pontos, tracos (`123.456.789-00` → `12345678900`)
+- **Email:** Converte para lowercase
+- **Nome:** Remove acentos, converte para lowercase, trim
 
 ### Cron Jobs
 
@@ -472,8 +564,9 @@ VALUES ('uuid', 'elevea_global', true, 'connected');
 | Expiracao Cashback | Diario | Invalida saldos vencidos |
 | Sync ERP | A cada 1 min | Sincroniza pedidos novos |
 | Hard Sync ERP | Diario | Reconciliacao completa |
-| Processamento WhatsApp | A cada 5 min | Envia mensagens pendentes |
+| Processamento WhatsApp | A cada 1 min | Envia mensagens pendentes |
 | Alertas de Tarefas | Conforme config | Lembretes para lojas |
+| Criacao de Trofeus | Semanal/Mensal | Premia colaboradoras |
 
 ---
 
@@ -529,6 +622,22 @@ VALUES ('uuid', 'elevea_global', true, 'connected');
 #### Tabelas de Gamificacao
 - `daily_goal_checks` - Check de meta diaria
 - `daily_goal_check_config` - Configuracoes do check
+- `weekly_goals` - Gincanas semanais
+- `trophies` - Trofeus e conquistas
+- `benchmarks` - Indicadores ideais por loja
+
+#### Tabelas de Folgas e Metas
+- `colaboradora_folgas` - Registro de folgas
+- `colaboradora_daily_goals` - Metas diarias por colaboradora
+- `goal_daily_weights` - Pesos diarios para distribuicao de metas
+
+#### Tabelas de Condicionais
+- `condicionais` - Pedidos de clientes com status
+- `condicionais_historico` - Historico de alteracoes
+
+#### Tabelas de Wishlist
+- `wishlist_items` - Itens na lista de desejos
+- `wishlist_notifications` - Notificacoes de disponibilidade
 
 ---
 
@@ -569,6 +678,31 @@ queryKey: ['cashback', storeId, month]
 
 // Invalidacao precisa
 queryClient.invalidateQueries({ queryKey: ['cashback', storeId] });
+```
+
+### Cache de API ERP
+
+O sistema utiliza cache para otimizar requisicoes a API do ERP:
+
+- **erp-api-proxy:** Netlify Function com cache em memoria
+- **Contatos:** Cache de 5 minutos para buscas frequentes
+- **Retry automatico:** 3 tentativas com backoff exponencial
+
+### Retry System
+
+Todas as requisicoes criticas possuem sistema de retry:
+
+```typescript
+// Retry com backoff exponencial
+const retryWithBackoff = async (fn, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      await sleep(Math.pow(2, i) * 1000);
+    }
+  }
+};
 ```
 
 ### Error Boundaries
