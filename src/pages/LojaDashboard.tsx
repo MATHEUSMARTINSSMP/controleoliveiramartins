@@ -276,7 +276,9 @@ export default function LojaDashboard() {
                     ...perf,
                     metaDiariaRedistribuida: 0,
                     redistribuicaoExtra: 0,
-                    isOnLeave: true
+                    isOnLeave: true,
+                    vendidoHoje: perf.vendidoHoje || 0, // Preservar vendidoHoje
+                    metaDiaria: perf.metaDiaria || 0 // Preservar metaDiaria
                 };
             } else {
                 // Colaboradora trabalhando: recebe parte da meta redistribuída
@@ -284,7 +286,9 @@ export default function LojaDashboard() {
                     ...perf,
                     metaDiariaRedistribuida: (perf.metaDiaria || 0) + redistribuicaoPorColab,
                     redistribuicaoExtra: redistribuicaoPorColab,
-                    isOnLeave: false
+                    isOnLeave: false,
+                    vendidoHoje: perf.vendidoHoje || 0, // Preservar vendidoHoje
+                    metaDiaria: perf.metaDiaria || 0 // Preservar metaDiaria original
                 };
             }
         });

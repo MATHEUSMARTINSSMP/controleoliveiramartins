@@ -63,6 +63,9 @@ interface ColaboradoraPerformance {
   pa: number;
   metaIndividual: number | null;
   percentualMeta: number;
+  vendidoHoje: number;
+  qtdVendasHoje: number;
+  metaDiaria: number;
 }
 
 interface RankingItem {
@@ -353,22 +356,31 @@ export function useStoreColaboradorasPerformance(
 ) {
   const mesAtual = format(new Date(), 'yyyyMM');
   const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
+  const today = getBrazilDateString();
 
   return useQuery({
-    queryKey: [QUERY_KEYS.sales, 'colaboradoras-performance', storeId, mesAtual, colaboradoras.map(c => c.id).join(',')],
+    queryKey: [QUERY_KEYS.sales, 'colaboradoras-performance', storeId, mesAtual, today, colaboradoras.map(c => c.id).join(',')],
     queryFn: async (): Promise<ColaboradoraPerformance[]> => {
       if (!storeId || colaboradoras.length === 0) return [];
 
       const colaboradoraIds = colaboradoras.map(c => c.id);
 
-      const [salesResult, goalsResult] = await Promise.all([
+      const [salesResult, salesTodayResult, goalsResult] = await Promise.all([
+        supabase
+          .schema('sistemaretiradas')
+          .from('sales')
+          .select('colaboradora_id, valor, qtd_pecas, data_venda')
+          .eq('store_id', storeId)
+          .in('colaboradora_id', colaboradoraIds)
+          .gte('data_venda', `${startOfMonth}T00:00:00`),
         supabase
           .schema('sistemaretiradas')
           .from('sales')
           .select('colaboradora_id, valor, qtd_pecas')
           .eq('store_id', storeId)
           .in('colaboradora_id', colaboradoraIds)
-          .gte('data_venda', `${startOfMonth}T00:00:00`),
+          .gte('data_venda', `${today}T00:00:00`)
+          .lte('data_venda', `${today}T23:59:59`),
         supabase
           .schema('sistemaretiradas')
           .from('goals')
@@ -380,14 +392,22 @@ export function useStoreColaboradorasPerformance(
       ]);
 
       if (salesResult.error) throw salesResult.error;
+      if (salesTodayResult.error) throw salesTodayResult.error;
 
       const goalsMap = new Map(
         (goalsResult.data || []).map((g) => [g.colaboradora_id, Number(g.meta_valor)])
       );
 
+      // Calcular dias no mês para meta diária
+      const hoje = new Date();
+      const diasNoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+
       const performanceMap = new Map<string, ColaboradoraPerformance>();
 
       colaboradoras.forEach((colab) => {
+        const metaMensal = goalsMap.get(colab.id) || null;
+        const metaDiaria = metaMensal ? metaMensal / diasNoMes : 0;
+        
         performanceMap.set(colab.id, {
           id: colab.id,
           name: colab.name,
@@ -396,17 +416,30 @@ export function useStoreColaboradorasPerformance(
           qtdPecas: 0,
           ticketMedio: 0,
           pa: 0,
-          metaIndividual: goalsMap.get(colab.id) || null,
+          metaIndividual: metaMensal,
           percentualMeta: 0,
+          vendidoHoje: 0,
+          qtdVendasHoje: 0,
+          metaDiaria: metaDiaria,
         });
       });
 
+      // Vendas do mês
       (salesResult.data || []).forEach((sale) => {
         const perf = performanceMap.get(sale.colaboradora_id);
         if (perf) {
           perf.totalVendas += Number(sale.valor || 0);
           perf.qtdVendas += 1;
           perf.qtdPecas += Number(sale.qtd_pecas || 0);
+        }
+      });
+
+      // Vendas de hoje
+      (salesTodayResult.data || []).forEach((sale) => {
+        const perf = performanceMap.get(sale.colaboradora_id);
+        if (perf) {
+          perf.vendidoHoje += Number(sale.valor || 0);
+          perf.qtdVendasHoje += 1;
         }
       });
 
