@@ -1462,12 +1462,25 @@ export default function LojaDashboard() {
         }
 
         // Buscar vendas do dia por colaboradora
+        console.log('[LojaDashboard] 📡 Buscando vendas de hoje com filtro data_venda >=', `${today}T00:00:00`);
         const { data: salesToday, error: salesTodayError } = await supabase
             .schema("sistemaretiradas")
             .from('sales')
-            .select('colaboradora_id, valor, qtd_pecas')
+            .select('colaboradora_id, valor, qtd_pecas, data_venda')
             .eq('store_id', currentStoreId)
             .gte('data_venda', `${today}T00:00:00`);
+
+        console.log('[LojaDashboard] 📊 Vendas de hoje encontradas:', salesToday?.length || 0);
+        if (salesToday && salesToday.length > 0) {
+            console.log('[LojaDashboard] 📊 Detalhes das vendas de hoje:');
+            salesToday.forEach((s, idx) => {
+                console.log(`[LojaDashboard]   ${idx + 1}. valor: R$ ${s.valor}, colaboradora_id: ${s.colaboradora_id || 'NULL'}, data_venda: ${s.data_venda}`);
+            });
+            const vendasComColaboradora = salesToday.filter(s => s.colaboradora_id);
+            const vendasSemColaboradora = salesToday.filter(s => !s.colaboradora_id);
+            console.log(`[LojaDashboard] 📊 Vendas COM colaboradora_id: ${vendasComColaboradora.length}`);
+            console.log(`[LojaDashboard] 📊 Vendas SEM colaboradora_id: ${vendasSemColaboradora.length}`);
+        }
 
         // Buscar vendas do mês por colaboradora
         const { data: salesMonth, error: salesMonthError } = await supabase
