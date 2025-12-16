@@ -179,31 +179,39 @@ async function getWhatsAppCredentials(
     
     const { data: adminProfile, error: adminError } = await supabase
       .from('profiles')
-      .select('email')
+      .select('id, email')
       .eq('store_id', storeId)
       .eq('role', 'ADMIN')
       .maybeSingle()
 
-    if (!adminError && adminProfile?.email) {
+    if (!adminError && adminProfile) {
+      const adminId = adminProfile.id
       const adminEmail = adminProfile.email
-      console.log('[WhatsApp] Admin da loja encontrado:', adminEmail)
+      console.log('[WhatsApp] Admin da loja encontrado:', adminEmail, '| ID:', adminId)
 
-      // 3. Buscar credenciais PRÓPRIAS da loja
+      // 3. Buscar credenciais PRÓPRIAS da loja pelo admin_id (UUID)
       const { data: storeCreds, error: credError } = await supabase
         .from('whatsapp_credentials')
-        .select('customer_id, site_slug, uazapi_status, is_global')
-        .eq('customer_id', adminEmail)
+        .select('customer_id, site_slug, uazapi_status, is_global, admin_id')
+        .eq('admin_id', adminId)
         .eq('site_slug', storeSlug)
         .eq('status', 'active')
         .maybeSingle()
 
+      console.log('[WhatsApp] Busca credenciais: admin_id=', adminId, '| site_slug=', storeSlug, '| resultado:', storeCreds ? 'encontrado' : 'não encontrado')
+
       if (!credError && storeCreds && storeCreds.uazapi_status === 'connected' && !storeCreds.is_global) {
-        console.log('[WhatsApp] Usando credenciais PRÓPRIAS da loja:', store.name)
+        console.log('[WhatsApp] Usando credenciais PRÓPRIAS da loja:', store.name, '| status:', storeCreds.uazapi_status)
         return {
           siteSlug: storeCreds.site_slug,
-          customerId: storeCreds.customer_id,
+          customerId: storeCreds.customer_id || adminEmail,
           source: `loja:${store.name}`,
         }
+      }
+      
+      // Log detalhado se não encontrar credenciais
+      if (storeCreds) {
+        console.log('[WhatsApp] Credencial encontrada mas não usada - status:', storeCreds.uazapi_status, '| is_global:', storeCreds.is_global)
       }
     }
 
