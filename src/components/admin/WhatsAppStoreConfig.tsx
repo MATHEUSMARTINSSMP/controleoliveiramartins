@@ -439,10 +439,20 @@ export const WhatsAppStoreConfig = () => {
                             
                             if (existingCred) {
                                 // UPDATE: Apenas atualizar campos de status, preservando token existente
+                                // NUNCA sobrescrever com status de erro se já está conectado
                                 const updateData: Record<string, any> = {
-                                    uazapi_status: newStatus,
                                     updated_at: new Date().toISOString(),
                                 };
+                                
+                                // Só atualizar status se for uma melhoria ou confirmação
+                                // Não fazer downgrade de connected para disconnected/error
+                                const currentDbStatus = existingCred.uazapi_status;
+                                const shouldUpdateStatus = !(currentDbStatus === 'connected' && 
+                                    (newStatus === 'disconnected' || newStatus === 'error' || !newStatus));
+                                
+                                if (shouldUpdateStatus) {
+                                    updateData.uazapi_status = newStatus;
+                                }
                                 
                                 if (status.phoneNumber) {
                                     updateData.uazapi_phone_number = status.phoneNumber;
@@ -451,17 +461,21 @@ export const WhatsAppStoreConfig = () => {
                                     updateData.uazapi_instance_id = status.instanceId;
                                 }
                                 
-                                // IMPORTANTE: Se status é connected e temos token do N8N, salvar
-                                if (status.token && status.connected) {
+                                // IMPORTANTE: Só salvar token se tiver valor E status connected
+                                // NUNCA limpar token existente
+                                if (status.token && status.token.trim() !== '' && status.connected) {
                                     updateData.uazapi_token = status.token;
                                 }
                                 
-                                await supabase
-                                    .schema('sistemaretiradas')
-                                    .from('whatsapp_credentials')
-                                    .update(updateData)
-                                    .eq('admin_id', profile.id)
-                                    .eq('site_slug', store.slug);
+                                // Só fazer update se houver algo além de updated_at
+                                if (Object.keys(updateData).length > 1) {
+                                    await supabase
+                                        .schema('sistemaretiradas')
+                                        .from('whatsapp_credentials')
+                                        .update(updateData)
+                                        .eq('admin_id', profile.id)
+                                        .eq('site_slug', store.slug);
+                                }
                             } else {
                                 // INSERT: Criar novo registro
                                 const insertData: Record<string, any> = {
