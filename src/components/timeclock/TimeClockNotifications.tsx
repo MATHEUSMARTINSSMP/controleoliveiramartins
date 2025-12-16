@@ -52,7 +52,7 @@ interface NotificationConfig {
 }
 
 interface WhatsAppCredential {
-  customer_id: string;
+  admin_id: string;
   site_slug: string;
   uazapi_status: string | null;
   uazapi_phone_number: string | null;
@@ -128,81 +128,52 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
 
   const fetchWhatsAppCredentials = async () => {
     try {
-      // Buscar loja para obter nome e admin
+      // Buscar loja para obter nome, admin_id e site_slug
       const { data: storeData } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, name, site_slug')
+        .select('id, name, site_slug, admin_id')
         .eq('id', storeId)
         .single();
 
-      if (storeData) {
-        // Buscar admin da loja
-        const { data: adminProfile } = await supabase
+      if (storeData && storeData.admin_id && storeData.site_slug) {
+        // Buscar WhatsApp da loja usando admin_id (UUID) e site_slug
+        const { data: storeWa, error: storeWaError } = await supabase
           .schema('sistemaretiradas')
-          .from('profiles')
-          .select('email')
-          .eq('store_id', storeId)
-          .eq('role', 'ADMIN')
+          .from('whatsapp_credentials')
+          .select('admin_id, site_slug, uazapi_status, uazapi_phone_number, is_global, status, display_name')
+          .eq('admin_id', storeData.admin_id)
+          .eq('site_slug', storeData.site_slug)
+          .eq('is_global', false)
           .maybeSingle();
 
-        if (adminProfile?.email) {
-          // IMPORTANTE: Usar site_slug da tabela stores se existir,
-          // caso contrário gerar a partir do nome para manter consistência
-          const generateSlug = (name: string) => {
-            return name
-              .toLowerCase()
-              .normalize('NFD')
-              .replace(/[\u0300-\u036f]/g, '')
-              .replace(/[^a-z0-9]+/g, '_')
-              .replace(/(^_|_$)/g, '')
-              .replace(/_+/g, '_');
-          };
+        console.log('[TimeClockNotifications] WhatsApp da Loja encontrado:', {
+          found: !!storeWa,
+          error: storeWaError,
+          searchParams: {
+            admin_id: storeData.admin_id,
+            site_slug: storeData.site_slug,
+          },
+          data: storeWa ? {
+            uazapi_status: storeWa.uazapi_status,
+            uazapi_phone_number: storeWa.uazapi_phone_number,
+            is_global: storeWa.is_global,
+            status: storeWa.status,
+          } : null,
+        });
 
-          const storeSlug = storeData.site_slug || generateSlug(storeData.name);
-
-          // Buscar WhatsApp da loja (não global)
-          // ✅ Tabela não tem coluna 'id', usa chave primária composta (customer_id, site_slug)
-          const { data: storeWa, error: storeWaError } = await supabase
-            .schema('sistemaretiradas')
-            .from('whatsapp_credentials')
-            .select('customer_id, site_slug, uazapi_status, uazapi_phone_number, is_global, status, display_name')
-            .eq('customer_id', adminProfile.email)
-            .eq('site_slug', storeSlug)
-            .eq('is_global', false)
-            .maybeSingle();
-
-          console.log('[TimeClockNotifications] WhatsApp da Loja encontrado:', {
-            found: !!storeWa,
-            error: storeWaError,
-            searchParams: {
-              customer_id: adminProfile.email,
-              site_slug: storeSlug,
-            },
-            data: storeWa ? {
-              id: storeWa.id,
-              uazapi_status: storeWa.uazapi_status,
-              uazapi_phone_number: storeWa.uazapi_phone_number,
-              is_global: storeWa.is_global,
-              status: storeWa.status,
-            } : null,
-          });
-
-          if (storeWa) {
-            setStoreWhatsApp(storeWa);
-          } else if (storeWaError) {
-            console.error('[TimeClockNotifications] Erro ao buscar WhatsApp da Loja:', storeWaError);
-          }
+        if (storeWa) {
+          setStoreWhatsApp(storeWa);
+        } else if (storeWaError) {
+          console.error('[TimeClockNotifications] Erro ao buscar WhatsApp da Loja:', storeWaError);
         }
       }
 
       // Buscar WhatsApp Global (sempre verificar, mesmo sem loja)
-      // ✅ Não filtrar por status - apenas verificar is_global (mesma lógica do Super Admin)
-      // ✅ Tabela não tem coluna 'id', usa chave primária composta (customer_id, site_slug)
       const { data: globalWa, error: globalError } = await supabase
         .schema('sistemaretiradas')
         .from('whatsapp_credentials')
-        .select('customer_id, site_slug, uazapi_status, uazapi_phone_number, is_global, status, display_name')
+        .select('admin_id, site_slug, uazapi_status, uazapi_phone_number, is_global, status, display_name')
         .eq('is_global', true)
         .maybeSingle();
 
@@ -210,7 +181,6 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
         found: !!globalWa,
         error: globalError,
         data: globalWa ? {
-          id: globalWa.id,
           uazapi_status: globalWa.uazapi_status,
           uazapi_phone_number: globalWa.uazapi_phone_number,
           is_global: globalWa.is_global,
