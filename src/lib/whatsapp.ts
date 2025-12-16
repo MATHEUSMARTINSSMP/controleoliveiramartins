@@ -551,6 +551,7 @@ export interface WhatsAppStatusResponse {
   qrCode: string | null;
   instanceId: string | null;
   phoneNumber: string | null;
+  token: string | null;
 }
 
 export interface FetchStatusParams {
@@ -573,6 +574,7 @@ export async function fetchWhatsAppStatus(params: FetchStatusParams): Promise<Wh
       qrCode: null,
       instanceId: null,
       phoneNumber: null,
+      token: null,
     };
   }
 
@@ -602,6 +604,7 @@ export async function fetchWhatsAppStatus(params: FetchStatusParams): Promise<Wh
       qrCode: data.qrCode || null,
       instanceId: data.instanceId || null,
       phoneNumber: data.phoneNumber || null,
+      token: data.token || data.uazapi_token || null,
     };
   } catch (error) {
     console.error('Erro ao verificar status WhatsApp:', error);
@@ -613,6 +616,7 @@ export async function fetchWhatsAppStatus(params: FetchStatusParams): Promise<Wh
       qrCode: null,
       instanceId: null,
       phoneNumber: null,
+      token: null,
     };
   }
 }

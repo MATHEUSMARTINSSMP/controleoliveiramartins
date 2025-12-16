@@ -410,30 +410,61 @@ export const WhatsAppStoreConfig = () => {
                         const hasNewPhone = status.phoneNumber && !store.credentials?.uazapi_phone_number;
                         
                         if (hasStatusChange || hasNewInstanceId || hasNewPhone) {
-                            // Usar UPSERT para criar registro se nao existir
-                            const upsertData: Record<string, any> = {
-                                admin_id: profile.id,
-                                site_slug: store.slug,
-                                uazapi_status: status.status,
-                                updated_at: new Date().toISOString(),
-                                status: 'active',
-                            };
+                            // Verificar se ja existe registro para decidir entre INSERT e UPDATE
+                            const existingCred = store.credentials;
                             
-                            if (status.phoneNumber) {
-                                upsertData.uazapi_phone_number = status.phoneNumber;
-                            }
-                            if (status.instanceId) {
-                                upsertData.uazapi_instance_id = status.instanceId;
-                            }
-                            
-                            await supabase
-                                .schema('sistemaretiradas')
-                                .from('whatsapp_credentials')
-                                .upsert(upsertData, {
-                                    onConflict: 'admin_id,site_slug'
-                                });
+                            if (existingCred) {
+                                // UPDATE: Apenas atualizar campos de status, preservando token existente
+                                const updateData: Record<string, any> = {
+                                    uazapi_status: status.status,
+                                    updated_at: new Date().toISOString(),
+                                };
                                 
-                            console.log('[fetchStoresAndCredentials] Status salvo no Supabase para', store.slug, ':', status.status);
+                                if (status.phoneNumber) {
+                                    updateData.uazapi_phone_number = status.phoneNumber;
+                                }
+                                if (status.instanceId) {
+                                    updateData.uazapi_instance_id = status.instanceId;
+                                }
+                                
+                                // IMPORTANTE: Se status é connected e temos token do N8N, salvar
+                                if (status.token && status.connected) {
+                                    updateData.uazapi_token = status.token;
+                                }
+                                
+                                await supabase
+                                    .schema('sistemaretiradas')
+                                    .from('whatsapp_credentials')
+                                    .update(updateData)
+                                    .eq('admin_id', profile.id)
+                                    .eq('site_slug', store.slug);
+                            } else {
+                                // INSERT: Criar novo registro
+                                const insertData: Record<string, any> = {
+                                    admin_id: profile.id,
+                                    site_slug: store.slug,
+                                    uazapi_status: status.status,
+                                    updated_at: new Date().toISOString(),
+                                    status: 'active',
+                                };
+                                
+                                if (status.phoneNumber) {
+                                    insertData.uazapi_phone_number = status.phoneNumber;
+                                }
+                                if (status.instanceId) {
+                                    insertData.uazapi_instance_id = status.instanceId;
+                                }
+                                if (status.token) {
+                                    insertData.uazapi_token = status.token;
+                                }
+                                
+                                await supabase
+                                    .schema('sistemaretiradas')
+                                    .from('whatsapp_credentials')
+                                    .insert(insertData);
+                            }
+                                
+                            console.log('[fetchStoresAndCredentials] Status salvo no Supabase para', store.slug, ':', status.status, '(existia:', !!existingCred, ')');
                         }
                         
                         return { slug: store.slug, status };

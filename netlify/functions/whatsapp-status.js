@@ -92,6 +92,7 @@ exports.handler = async (event) => {
         qrCode: qrCode,
         instanceId: data.instanceId || data.uazapi_instance_id || null,
         phoneNumber: data.phoneNumber || data.uazapi_phone_number || null,
+        token: data.token || data.uazapi_token || null,
       }),
     };
   } catch (error) {
