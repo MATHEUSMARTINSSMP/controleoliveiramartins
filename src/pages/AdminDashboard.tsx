@@ -305,14 +305,6 @@ const AdminDashboard = () => {
                 >
                   Benchmarks
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate("/admin/colaboradores")}
-                >
-                  <span className="hidden sm:inline">Colaboradoras & Lojas</span>
-                  <span className="sm:hidden">Perfis</span>
-                </Button>
               </div>
 
               <CommercialDashboard />
@@ -338,11 +330,6 @@ const AdminDashboard = () => {
                     <Clock className="h-3 w-3 mr-1" />
                     <span className="hidden sm:inline">Ponto & Jornada</span>
                     <span className="sm:hidden">Ponto</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="ajustes-condicionais" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[70px] justify-center">
-                    <Package className="h-3 w-3 mr-1" />
-                    <span className="hidden sm:inline">Ajustes & Condicionais</span>
-                    <span className="sm:hidden">Ajustes</span>
                   </TabsTrigger>
                 </TabsList>
 
@@ -404,10 +391,6 @@ const AdminDashboard = () => {
                     storeId={adminStores.length === 1 ? adminStores[0]?.id : undefined}
                   />
                 </TabsContent>
-
-                <TabsContent value="ajustes-condicionais" className="space-y-4">
-                  <ConditionalsAdjustmentsManager />
-                </TabsContent>
               </Tabs>
             </TabsContent>
 
@@ -434,6 +417,11 @@ const AdminDashboard = () => {
                     <Gift className="h-3 w-3 mr-1" />
                     <span className="hidden sm:inline">Cashback</span>
                   </TabsTrigger>
+                  <TabsTrigger value="ajustes-condicionais" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] justify-center">
+                    <Package className="h-3 w-3 mr-1" />
+                    <span className="hidden sm:inline">Ajustes & Condicionais</span>
+                    <span className="sm:hidden">Ajustes</span>
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="dashboard" className="space-y-4">
@@ -454,6 +442,10 @@ const AdminDashboard = () => {
 
                 <TabsContent value="cashback" className="space-y-4">
                   <CashbackManagement />
+                </TabsContent>
+
+                <TabsContent value="ajustes-condicionais" className="space-y-4">
+                  <ConditionalsAdjustmentsManager />
                 </TabsContent>
               </Tabs>
             </TabsContent>
