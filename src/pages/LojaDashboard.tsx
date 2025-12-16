@@ -1540,7 +1540,7 @@ export default function LojaDashboard() {
             });
 
             const performance = colaboradorasToUse
-                // Filtrar colaboradoras desativadas e sem meta ANTES de processar
+                // Filtrar APENAS colaboradoras desativadas (não filtrar por meta)
                 .filter(colab => {
                     // Garantir que colaboradora está ativa (verifica is_active ou active)
                     if (colab.is_active === false || colab.active === false) {
@@ -1548,13 +1548,8 @@ export default function LojaDashboard() {
                         return false;
                     }
 
-                    // Verificar se tem meta lançada
-                    const goal = goalsData?.find(g => g.colaboradora_id === colab.id);
-                    if (!goal) {
-                        console.log(`[LojaDashboard] ⏭️ Colaboradora "${colab.name}" sem meta lançada, excluída do Planejamento do Dia`);
-                        return false;
-                    }
-
+                    // ✅ REMOVIDO: Não filtrar por meta - todas as colaboradoras ativas devem aparecer
+                    // Mesmo sem meta, a colaboradora deve aparecer para mostrar vendas
                     return true;
                 })
                 .map(colab => {
@@ -1573,92 +1568,98 @@ export default function LojaDashboard() {
                     // Ticket médio do dia
                     const ticketMedio = qtdVendasHoje > 0 ? vendidoHoje / qtdVendasHoje : 0;
 
-                    // Meta individual (já verificamos que existe no filter acima)
+                    // Meta individual (pode não existir - colaboradora pode não ter meta)
                     const goal = goalsData?.find(g => g.colaboradora_id === colab.id);
 
-                    if (goal) {
-                        console.log(`[LojaDashboard]   ✅ Meta encontrada para ${colab.name}: R$ ${goal.meta_valor}`);
-                    } else {
-                        // Não deve chegar aqui devido ao filter, mas mantemos para segurança
-                        console.log(`[LojaDashboard]   ⚠️ Nenhuma meta encontrada para ${colab.name} (id: ${colab.id})`);
-                        if (goalsData && goalsData.length > 0) {
-                            console.log(`[LojaDashboard]     IDs de metas disponíveis:`, goalsData.map(g => g.colaboradora_id));
-                        }
-                        return null; // Retornar null para ser filtrado depois
-                    }
+                    // Verificar se colaboradora está de folga
+                    const isFolga = isOnLeave(colab.id, today);
 
-                    if (goal) {
-                        // Verificar se colaboradora está de folga
-                        const isFolga = isOnLeave(colab.id, today);
-
-                        if (isFolga) {
-                            // Se está de folga, meta diária = 0
-                            return {
-                                id: colab.id,
-                                name: colab.name,
-                                vendido: vendidoHoje,
-                                vendidoMes,
-                                meta: Number(goal.meta_valor),
-                                metaDiaria: 0, // Meta diária = 0 para quem está de folga
-                                superMeta: Number(goal.super_meta_valor) || 0,
-                                percentual: 0,
-                                percentualMensal: Number(goal.meta_valor) > 0 ? (vendidoMes / Number(goal.meta_valor)) * 100 : 0,
-                                faltaMensal: Math.max(0, Number(goal.meta_valor) - vendidoMes),
-                                qtdVendas: qtdVendasHoje,
-                                qtdVendasMes,
-                                qtdPecas: qtdPecasHoje,
-                                qtdPecasMes,
-                                ticketMedio,
-                            };
-                        }
-
-                        // Calcular meta diária DINÂMICA (apenas para colaboradoras ativas)
-                        const dailyWeights = goal.daily_weights || {};
-                        let metaDiaria = calculateDynamicDailyGoal(
-                            Number(goal.meta_valor),
-                            vendidoMes,
-                            today,
-                            Object.keys(dailyWeights).length > 0 ? dailyWeights : null,
-                            daysInMonth
-                        );
-
-                        // Aplicar redistribuição: se há colaboradoras de folga, adicionar parte redistribuída
-                        // A redistribuição já foi aplicada na meta mensal pelo hook useGoalRedistribution
-                        // então a meta diária calculada já inclui a parte redistribuída
-
-                        // Progresso do dia
-                        const progressoDia = metaDiaria > 0 ? (vendidoHoje / metaDiaria) * 100 : 0;
-
-                        // Progresso mensal
-                        const progressoMensal = Number(goal.meta_valor) > 0 ? (vendidoMes / Number(goal.meta_valor)) * 100 : 0;
-
-                        // Quanto falta para a meta mensal
-                        const faltaMensal = Math.max(0, Number(goal.meta_valor) - vendidoMes);
-
+                    if (!goal) {
+                        // ✅ Colaboradora SEM meta - ainda assim deve aparecer para mostrar vendas
+                        console.log(`[LojaDashboard]   ℹ️ Colaboradora ${colab.name} sem meta - será exibida com meta = 0`);
                         return {
                             id: colab.id,
                             name: colab.name,
                             vendido: vendidoHoje,
                             vendidoMes,
-                            meta: Number(goal.meta_valor),
-                            metaDiaria,
-                            superMeta: Number(goal.super_meta_valor) || 0,
-                            percentual: progressoDia, // Percentual do dia
-                            percentualMensal: progressoMensal, // Percentual do mês
-                            faltaMensal,
+                            meta: 0, // Sem meta
+                            metaDiaria: 0, // Sem meta diária
+                            superMeta: 0,
+                            percentual: 0,
+                            percentualMensal: 0,
+                            faltaMensal: 0,
                             qtdVendas: qtdVendasHoje,
                             qtdVendasMes,
                             qtdPecas: qtdPecasHoje,
                             qtdPecasMes,
                             ticketMedio,
                         };
-                    } else {
-                        // Sem meta individual - não deve chegar aqui devido ao filter, mas retorna null para ser filtrado
-                        return null;
                     }
-                })
-                // Filtrar nulls (colaboradoras sem meta ou desativadas)
-                .filter(p => p !== null) as Array<{
+
+                    console.log(`[LojaDashboard]   ✅ Meta encontrada para ${colab.name}: R$ ${goal.meta_valor}`);
+
+                    if (isFolga) {
+                        // Se está de folga, meta diária = 0
+                        return {
+                            id: colab.id,
+                            name: colab.name,
+                            vendido: vendidoHoje,
+                            vendidoMes,
+                            meta: Number(goal.meta_valor),
+                            metaDiaria: 0, // Meta diária = 0 para quem está de folga
+                            superMeta: Number(goal.super_meta_valor) || 0,
+                            percentual: 0,
+                            percentualMensal: Number(goal.meta_valor) > 0 ? (vendidoMes / Number(goal.meta_valor)) * 100 : 0,
+                            faltaMensal: Math.max(0, Number(goal.meta_valor) - vendidoMes),
+                            qtdVendas: qtdVendasHoje,
+                            qtdVendasMes,
+                            qtdPecas: qtdPecasHoje,
+                            qtdPecasMes,
+                            ticketMedio,
+                        };
+                    }
+
+                    // Calcular meta diária DINÂMICA (apenas para colaboradoras ativas)
+                    const dailyWeights = goal.daily_weights || {};
+                    let metaDiaria = calculateDynamicDailyGoal(
+                        Number(goal.meta_valor),
+                        vendidoMes,
+                        today,
+                        Object.keys(dailyWeights).length > 0 ? dailyWeights : null,
+                        daysInMonth
+                    );
+
+                    // Aplicar redistribuição: se há colaboradoras de folga, adicionar parte redistribuída
+                    // A redistribuição já foi aplicada na meta mensal pelo hook useGoalRedistribution
+                    // então a meta diária calculada já inclui a parte redistribuída
+
+                    // Progresso do dia
+                    const progressoDia = metaDiaria > 0 ? (vendidoHoje / metaDiaria) * 100 : 0;
+
+                    // Progresso mensal
+                    const progressoMensal = Number(goal.meta_valor) > 0 ? (vendidoMes / Number(goal.meta_valor)) * 100 : 0;
+
+                    // Quanto falta para a meta mensal
+                    const faltaMensal = Math.max(0, Number(goal.meta_valor) - vendidoMes);
+
+                    return {
+                        id: colab.id,
+                        name: colab.name,
+                        vendido: vendidoHoje,
+                        vendidoMes,
+                        meta: Number(goal.meta_valor),
+                        metaDiaria,
+                        superMeta: Number(goal.super_meta_valor) || 0,
+                        percentual: progressoDia, // Percentual do dia
+                        percentualMensal: progressoMensal, // Percentual do mês
+                        faltaMensal,
+                        qtdVendas: qtdVendasHoje,
+                        qtdVendasMes,
+                        qtdPecas: qtdPecasHoje,
+                        qtdPecasMes,
+                        ticketMedio,
+                    };
+                }) as Array<{
                     id: string;
                     name: string;
                     vendido: number;
@@ -1676,17 +1677,16 @@ export default function LojaDashboard() {
                     ticketMedio: number;
                 }>;
 
-            // Filtro adicional: apenas colaboradoras com meta lançada
-            // IMPORTANTE: Não filtrar por metaDiaria > 0 porque colaboradoras de folga têm metaDiaria = 0
-            // mas ainda devem aparecer na lista para mostrar o status de folga
-            const performanceFiltered = performance.filter(p => p.meta > 0);
-            console.log('[LojaDashboard] 📊 Performance filtrada:', performanceFiltered.length, 'colaboradoras');
-            performanceFiltered.forEach((p, idx) => {
-                console.log(`[LojaDashboard]   ${idx + 1}. ${p.name}: meta=R$ ${p.meta}, metaDiaria=R$ ${p.metaDiaria}, vendido hoje=R$ ${p.vendido}, vendido mês=R$ ${p.vendidoMes}`);
+            // ✅ REMOVIDO: Não filtrar por meta - todas as colaboradoras ativas devem aparecer
+            // IMPORTANTE: Não filtrar por meta > 0 porque colaboradoras podem não ter meta mas ainda vender
+            // Todas as colaboradoras ativas devem aparecer, com ou sem meta
+            console.log('[LojaDashboard] 📊 Performance (todas as colaboradoras ativas):', performance.length, 'colaboradoras');
+            performance.forEach((p, idx) => {
+                console.log(`[LojaDashboard]   ${idx + 1}. ${p.name}: meta=R$ ${p.meta || 0}, metaDiaria=R$ ${p.metaDiaria || 0}, vendido hoje=R$ ${p.vendido || 0}, vendido mês=R$ ${p.vendidoMes || 0}`);
             });
             // Marcar que estamos usando dados locais (do fetchDataWithStoreId)
             useLocalPerformanceRef.current = true;
-            setColaboradorasPerformance(performanceFiltered);
+            setColaboradorasPerformance(performance);
         } else {
             console.warn('[LojaDashboard] ⚠️ Nenhuma colaboradora encontrada para processar performance');
             if (goalsError) {

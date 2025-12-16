@@ -428,27 +428,40 @@ export function useStoreColaboradorasPerformance(
       (salesResult.data || []).forEach((sale) => {
         const perf = performanceMap.get(sale.colaboradora_id);
         if (perf) {
-          perf.totalVendas += Number(sale.valor || 0);
-          perf.qtdVendas += 1;
-          perf.qtdPecas += Number(sale.qtd_pecas || 0);
+          const valor = Number(sale.valor || 0);
+          if (!isNaN(valor)) {
+            perf.totalVendas += valor;
+            perf.qtdVendas += 1;
+            perf.qtdPecas += Number(sale.qtd_pecas || 0);
+          }
         }
       });
 
-      // Vendas de hoje
+      // Vendas de hoje - IMPORTANTE: calcular corretamente
       (salesTodayResult.data || []).forEach((sale) => {
         const perf = performanceMap.get(sale.colaboradora_id);
         if (perf) {
-          perf.vendidoHoje += Number(sale.valor || 0);
-          perf.qtdVendasHoje += 1;
+          const valor = Number(sale.valor || 0);
+          if (!isNaN(valor)) {
+            perf.vendidoHoje += valor;
+            perf.qtdVendasHoje += 1;
+          }
         }
       });
 
-      return Array.from(performanceMap.values()).map((perf) => ({
-        ...perf,
-        ticketMedio: perf.qtdVendas > 0 ? perf.totalVendas / perf.qtdVendas : 0,
-        pa: perf.qtdVendas > 0 ? perf.qtdPecas / perf.qtdVendas : 0,
-        percentualMeta: perf.metaIndividual ? (perf.totalVendas / perf.metaIndividual) * 100 : 0,
-      }));
+      // Retornar TODAS as colaboradoras, mesmo sem meta
+      // Ordenar por nome para consistência
+      return Array.from(performanceMap.values())
+        .map((perf) => ({
+          ...perf,
+          ticketMedio: perf.qtdVendas > 0 ? perf.totalVendas / perf.qtdVendas : 0,
+          pa: perf.qtdVendas > 0 ? perf.qtdPecas / perf.qtdVendas : 0,
+          percentualMeta: perf.metaIndividual ? (perf.totalVendas / perf.metaIndividual) * 100 : 0,
+          // Garantir que vendidoHoje seja sempre um número válido
+          vendidoHoje: isNaN(perf.vendidoHoje) ? 0 : perf.vendidoHoje,
+          qtdVendasHoje: perf.qtdVendasHoje || 0,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
     },
     enabled: !!storeId && colaboradoras.length > 0,
     staleTime: 1000 * 60,
