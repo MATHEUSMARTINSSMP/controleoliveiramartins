@@ -146,8 +146,9 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
           .eq('role', 'ADMIN')
           .maybeSingle();
 
-        if (adminProfile?.email && storeData.site_slug) {
-          // Gerar slug da loja (mesma lógica da função send-whatsapp-message)
+        if (adminProfile?.email) {
+          // IMPORTANTE: Usar site_slug da tabela stores se existir,
+          // caso contrário gerar a partir do nome para manter consistência
           const generateSlug = (name: string) => {
             return name
               .toLowerCase()
@@ -158,7 +159,7 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
               .replace(/_+/g, '_');
           };
 
-          const storeSlug = generateSlug(storeData.name);
+          const storeSlug = storeData.site_slug || generateSlug(storeData.name);
 
           // Buscar WhatsApp da loja (não global)
           // ✅ Tabela não tem coluna 'id', usa chave primária composta (customer_id, site_slug)

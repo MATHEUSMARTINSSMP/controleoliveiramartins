@@ -312,7 +312,7 @@ export const WhatsAppStoreConfig = () => {
             const { data: stores, error: storesError } = await supabase
                 .schema('sistemaretiradas')
                 .from('stores')
-                .select('id, name, whatsapp_ativo')
+                .select('id, name, whatsapp_ativo, site_slug')
                 .eq('admin_id', profile.id)
                 .eq('active', true)
                 .order('name', { ascending: true });
@@ -325,9 +325,11 @@ export const WhatsAppStoreConfig = () => {
                 return;
             }
 
+            // IMPORTANTE: Usar site_slug da tabela stores se existir, 
+            // caso contrário gerar a partir do nome para manter consistência
             const storesWithSlugs = stores.map(store => ({
                 ...store,
-                slug: generateSlug(store.name)
+                slug: store.site_slug || generateSlug(store.name)
             }));
 
             const slugs = storesWithSlugs.map(s => s.slug);

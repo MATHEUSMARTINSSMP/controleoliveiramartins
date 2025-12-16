@@ -154,7 +154,7 @@ async function getWhatsAppCredentials(
     // 1. Verificar se loja tem WhatsApp ativo
     const { data: store, error: storeError } = await supabase
       .from('stores')
-      .select('id, name, whatsapp_ativo')
+      .select('id, name, whatsapp_ativo, site_slug')
       .eq('id', storeId)
       .single()
 
@@ -173,7 +173,9 @@ async function getWhatsAppCredentials(
     }
 
     // 2. Buscar admin da loja
-    const storeSlug = generateSlug(store.name)
+    // IMPORTANTE: Usar site_slug da tabela stores se existir, caso contrário gerar
+    const storeSlug = store.site_slug || generateSlug(store.name)
+    console.log('[WhatsApp] Usando slug:', storeSlug, '(fonte:', store.site_slug ? 'site_slug' : 'generateSlug', ')')
     
     const { data: adminProfile, error: adminError } = await supabase
       .from('profiles')
