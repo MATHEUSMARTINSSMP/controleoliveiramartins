@@ -24,7 +24,9 @@ export function useColaboradoraKPIs(profileId: string | null | undefined) {
     queryFn: async (): Promise<ColaboradoraKPIs | null> => {
       if (!profileId) return null;
 
-      const mesAtual = new Date().toISOString().slice(0, 7);
+      const now = new Date();
+      const mesAtualParcelas = now.toISOString().slice(0, 7);
+      const mesAtualAdiantamentos = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
 
       const [profileResult, purchasesResult, adiantamentosResult] = await Promise.all([
         supabase
@@ -41,9 +43,10 @@ export function useColaboradoraKPIs(profileId: string | null | undefined) {
         supabase
           .schema('sistemaretiradas')
           .from('adiantamentos')
-          .select('valor, status, competencia')
+          .select('valor, status, mes_competencia, data_desconto')
           .eq('colaboradora_id', profileId)
-          .in('status', ['PENDENTE', 'APROVADO']),
+          .in('status', ['PENDENTE', 'APROVADO'])
+          .is('data_desconto', null),
       ]);
 
       if (profileResult.error) throw profileResult.error;
@@ -58,11 +61,20 @@ export function useColaboradoraKPIs(profileId: string | null | undefined) {
         .reduce((acc, a) => acc + Number(a.valor || 0), 0);
 
       const adiantamentosMesPendente = adiantamentos
-        .filter(a => a.competencia === mesAtual)
+        .filter(a => a.mes_competencia === mesAtualAdiantamentos)
         .reduce((acc, a) => acc + Number(a.valor || 0), 0);
 
       const limiteTotal = Number(profileData?.limite_total) || 0;
       const limiteMensal = Number(profileData?.limite_mensal) || 0;
+
+      console.log('[useColaboradoraKPIs] Debug:', {
+        profileId,
+        limiteTotal,
+        limiteMensal,
+        adiantamentosTotalPendente,
+        adiantamentosMesPendente,
+        adiantamentosCount: adiantamentos.length,
+      });
       
       if (purchaseIds.length === 0) {
         return {
@@ -95,11 +107,20 @@ export function useColaboradoraKPIs(profileId: string | null | undefined) {
         .reduce((acc, p) => acc + Number(p.valor_parcela || 0), 0);
 
       const parcelasMesPendentes = minhasParcelas
-        .filter(p => p.competencia === mesAtual && p.status_parcela === 'PENDENTE')
+        .filter(p => p.competencia === mesAtualParcelas && p.status_parcela === 'PENDENTE')
         .reduce((acc, p) => acc + Number(p.valor_parcela || 0), 0);
 
       const totalPendente = parcelasPendentes + adiantamentosTotalPendente;
       const proximasParcelas = parcelasMesPendentes + adiantamentosMesPendente;
+
+      console.log('[useColaboradoraKPIs] Resultado final:', {
+        parcelasPendentes,
+        parcelasMesPendentes,
+        totalPendente,
+        proximasParcelas,
+        limiteDisponivel: Math.max(0, limiteTotal - totalPendente),
+        limiteDisponivelMensal: Math.max(0, limiteMensal - proximasParcelas),
+      });
 
       return {
         totalPendente,
