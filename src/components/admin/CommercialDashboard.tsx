@@ -356,16 +356,22 @@ export const CommercialDashboard = () => {
             setAnalytics(finalAnalytics);
 
             // Prepare daily trends data for charts (with total)
+            // Usar data original como chave para garantir ordenação correta
             const trendsMap: Record<string, any> = {};
             dailyData?.forEach((day: any) => {
+                const sortKey = day.data_referencia; // yyyy-MM-dd para ordenação
                 const dateKey = format(new Date(day.data_referencia), 'dd/MM');
-                if (!trendsMap[dateKey]) {
-                    trendsMap[dateKey] = { date: dateKey, total: 0 };
+                if (!trendsMap[sortKey]) {
+                    trendsMap[sortKey] = { date: dateKey, sortKey, total: 0 };
                 }
-                trendsMap[dateKey][day.store_name] = day.total_valor;
-                trendsMap[dateKey].total += day.total_valor;
+                trendsMap[sortKey][day.store_name] = day.total_valor;
+                trendsMap[sortKey].total += day.total_valor;
             });
-            setDailyTrends(Object.values(trendsMap));
+            // Ordenar por data original antes de exibir
+            const sortedTrends = Object.values(trendsMap).sort((a, b) => 
+                a.sortKey.localeCompare(b.sortKey)
+            );
+            setDailyTrends(sortedTrends);
 
             // ✅ Buscar faturamento mensal acumulado para calcular progresso mensal corretamente
             // (independente do período filtrado)
@@ -678,7 +684,7 @@ export const CommercialDashboard = () => {
                         <ResponsiveContainer width="100%" height={300} className="min-h-[250px] sm:min-h-[300px]">
                             <LineChart data={dailyTrends} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                                 <defs>
-                                    {Object.keys(dailyTrends[0] || {}).filter(key => key !== 'date').map((storeName, idx) => (
+                                    {Object.keys(dailyTrends[0] || {}).filter(key => !['date', 'sortKey', 'total'].includes(key)).map((storeName, idx) => (
                                         <linearGradient key={`gradient-${storeName}`} id={`gradient-${idx}`} x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="5%" stopColor={`hsl(${idx * 137.5}, 70%, 50%)`} stopOpacity={0.3}/>
                                             <stop offset="95%" stopColor={`hsl(${idx * 137.5}, 70%, 50%)`} stopOpacity={0}/>
@@ -710,7 +716,7 @@ export const CommercialDashboard = () => {
                                     iconType="line"
                                 />
                                 {showByStore ? (
-                                    Object.keys(dailyTrends[0] || {}).filter(key => key !== 'date').map((storeName, idx) => (
+                                    Object.keys(dailyTrends[0] || {}).filter(key => !['date', 'sortKey', 'total'].includes(key)).map((storeName, idx) => (
                                         <Line
                                             key={storeName}
                                             type="monotone"
