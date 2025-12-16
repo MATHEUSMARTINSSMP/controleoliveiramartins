@@ -68,13 +68,15 @@ const Onboarding = () => {
   }, [profile, user]);
 
   // Gerar slug automaticamente a partir do nome da loja
+  // IMPORTANTE: Usar underscores para consistência com todo o sistema
   const generateSlug = (text: string) => {
     return text
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "") // Remove acentos
-      .replace(/[^a-z0-9]+/g, "-") // Substitui espaços e caracteres especiais por hífen
-      .replace(/^-+|-+$/g, ""); // Remove hífens do início e fim
+      .replace(/[^a-z0-9]+/g, "_") // Substitui espaços e caracteres especiais por underscore
+      .replace(/^_+|_+$/g, "") // Remove underscores do início e fim
+      .replace(/_+/g, "_"); // Remove underscores duplicados
   };
 
   const handleStoreNameChange = (value: string) => {
@@ -106,8 +108,8 @@ const Onboarding = () => {
     }
 
     // Validar formato do slug
-    if (!/^[a-z0-9-]+$/.test(formData.site_slug)) {
-      toast.error("Slug deve conter apenas letras minúsculas, números e hífens");
+    if (!/^[a-z0-9_]+$/.test(formData.site_slug)) {
+      toast.error("Slug deve conter apenas letras minúsculas, números e underscores");
       return false;
     }
 
