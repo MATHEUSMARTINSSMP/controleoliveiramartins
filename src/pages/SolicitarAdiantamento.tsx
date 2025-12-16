@@ -65,11 +65,12 @@ export default function SolicitarAdiantamento() {
       .eq("colaboradora_id", profile.id)
       .eq("status_compra", "APROVADO" as any);
 
-    // Buscar parcelas pendentes do mês (NÃO incluir DESCONTADO pois já foi pago!)
+    // Buscar parcelas pendentes do mês DESTA colaboradora (NÃO incluir DESCONTADO pois já foi pago!)
     const { data: parcelasMes } = await supabase
       .schema("sistemaretiradas")
       .from("parcelas")
-      .select("valor_parcela")
+      .select("valor_parcela, colaboradora_id")
+      .eq("colaboradora_id", profile.id)
       .eq("competencia", formData.mes_competencia)
       .in("status_parcela", ["PENDENTE", "AGENDADO"]);
 
