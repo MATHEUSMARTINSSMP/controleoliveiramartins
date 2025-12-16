@@ -74,7 +74,7 @@ export function CaixaLojaView({
   colaboradorasPerformance,
   metaMensal,
   vendidoMensal,
-  vendidoHoje,
+  vendidoHoje: vendidoHojeProp,
 }: CaixaLojaViewProps) {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -84,6 +84,7 @@ export function CaixaLojaView({
   const [dinheiroCaixa, setDinheiroCaixa] = useState('');
   const [observacoes, setObservacoes] = useState('');
   const [historicoHoje, setHistoricoHoje] = useState<CaixaOperacao[]>([]);
+  const [vendidoHojeCalculado, setVendidoHojeCalculado] = useState<number>(0);
 
   const hoje = new Date();
   const hojeStr = format(hoje, 'yyyy-MM-dd');
@@ -91,12 +92,54 @@ export function CaixaLojaView({
   const diasRestantes = differenceInDays(endOfMonth(hoje), hoje);
   const faltaMes = metaMensal - vendidoMensal;
   const diariaNecessaria = diasRestantes > 0 ? faltaMes / diasRestantes : 0;
+  
+  // Usar o valor calculado diretamente ou o prop como fallback
+  const vendidoHoje = vendidoHojeCalculado > 0 ? vendidoHojeCalculado : (vendidoHojeProp || 0);
 
   useEffect(() => {
     if (storeId) {
       fetchCaixaStatus();
+      fetchVendidoHoje();
     }
   }, [storeId]);
+
+  // Função para buscar vendidoHoje diretamente do banco
+  const fetchVendidoHoje = async (): Promise<number> => {
+    if (!storeId) return 0;
+
+    try {
+      const hoje = new Date();
+      const hojeStr = format(hoje, 'yyyy-MM-dd');
+      
+      const { data, error } = await supabase
+        .schema('sistemaretiradas')
+        .from('sales')
+        .select('valor')
+        .eq('store_id', storeId)
+        .gte('data_venda', `${hojeStr}T00:00:00`)
+        .lte('data_venda', `${hojeStr}T23:59:59`);
+
+      if (error) {
+        console.error('[CaixaLojaView] Erro ao buscar vendidoHoje:', error);
+        return 0;
+      }
+
+      const totalVendido = (data || []).reduce((sum, s) => sum + Number(s.valor || 0), 0);
+      setVendidoHojeCalculado(totalVendido);
+      
+      console.log('[CaixaLojaView] VendidoHoje calculado:', {
+        totalVendido,
+        qtdVendas: data?.length || 0,
+        hojeStr,
+        storeId
+      });
+      
+      return totalVendido;
+    } catch (err) {
+      console.error('[CaixaLojaView] Erro ao calcular vendidoHoje:', err);
+      return 0;
+    }
+  };
 
   const fetchCaixaStatus = async () => {
     if (!storeId) return;
@@ -250,13 +293,22 @@ export function CaixaLojaView({
     try {
       setSubmitting(true);
 
+      // Recalcular vendidoHoje antes de fechar para garantir valor atualizado
+      const vendidoHojeFinal = await fetchVendidoHoje() || vendidoHojeProp || 0;
+      
+      console.log('[CaixaLojaView] Fechando caixa com vendidoHoje:', {
+        vendidoHojeFinal,
+        vendidoHojeProp,
+        vendidoHojeCalculado
+      });
+
       const operacao = {
         store_id: storeId,
         tipo: 'FECHAMENTO',
         data_operacao: new Date().toISOString(),
         dinheiro_caixa: valorDinheiro,
         meta_dia: diariaNecessaria,
-        vendido_dia: vendidoHoje,
+        vendido_dia: vendidoHojeFinal,
         meta_mes: metaMensal,
         vendido_mes: vendidoMensal,
         falta_mes: faltaMes,
@@ -287,7 +339,7 @@ export function CaixaLojaView({
         faltaMes: faltaMes,
         diariaNecessaria: diariaNecessaria,
         diasRestantes: diasRestantes,
-        vendidoHoje: vendidoHoje,
+        vendidoHoje: vendidoHojeFinal,
         dinheiroCaixa: valorDinheiro,
         vendasColaboradoras,
         observacoes: observacoes || undefined,
