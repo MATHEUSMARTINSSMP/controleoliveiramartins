@@ -14,15 +14,14 @@
 1. [Visao Geral](#visao-geral)
 2. [Arquitetura Tecnica](#arquitetura-tecnica)
 3. [Design e UI/UX](#design-e-uiux)
-4. [Funcionalidades Principais](#funcionalidades-principais)
-5. [Automacoes e Integracoes](#automacoes-e-integracoes)
-6. [Sistema de WhatsApp](#sistema-de-whatsapp)
+4. [Funcionalidades Principais](#funcionalidades-principais) (19 modulos)
+5. [Sistema de WhatsApp](#sistema-de-whatsapp)
+6. [Automacoes e Integracoes](#automacoes-e-integracoes)
 7. [Estrutura do Banco de Dados](#estrutura-do-banco-de-dados)
-8. [Edge Functions e RPCs](#edge-functions-e-rpcs)
-9. [Performance e Otimizacoes](#performance-e-otimizacoes)
-10. [Planos e Precos](#planos-e-precos)
-11. [Roadmap Futuro](#roadmap-futuro)
-12. [Instalacao e Deploy](#instalacao-e-deploy)
+8. [Performance e Otimizacoes](#performance-e-otimizacoes)
+9. [Planos e Precos](#planos-e-precos)
+10. [Roadmap Futuro](#roadmap-futuro)
+11. [Instalacao e Deploy](#instalacao-e-deploy)
 
 ---
 
@@ -142,8 +141,56 @@ O sistema possui um tema dual sofisticado e minimalista:
 - **Calendario Mensal** de vendas por colaboradora
 - **Ranking de Performance** em tempo real
 - **Graficos de Evolucao Diaria** com comparativo por loja
+- **Pesos Diarios** configuraveis para distribuicao proporcional de metas
 
-### 2. Check de Meta Diaria (Gamificado)
+### 2. Gincanas Semanais
+
+Competicoes semanais com premiacoes para incentivar vendas:
+
+| Funcionalidade | Descricao |
+|----------------|-----------|
+| **Metas Semanais** | Definicao de meta e super meta por semana |
+| **Calculo Automatico** | Baseado nos pesos diarios da meta mensal |
+| **Premios** | Premio para 1o lugar e premio final configuravel |
+| **Ranking Semanal** | Acompanhamento em tempo real |
+| **Historico** | Registro de todas as gincanas anteriores |
+
+### 3. Benchmarks de Loja
+
+Indicadores ideais de performance para cada loja:
+
+| Indicador | Descricao |
+|-----------|-----------|
+| **Ticket Medio Ideal** | Valor medio por venda esperado |
+| **PA Ideal** | Pecas por Atendimento esperado |
+| **Preco Medio Ideal** | Preco medio por peca esperado |
+| **Comparativo Visual** | Cores indicam performance vs benchmark |
+| **Por Loja** | Cada loja tem seus proprios benchmarks |
+
+### 4. Gestao de Folgas
+
+Sistema completo para controle de folgas de colaboradoras:
+
+- **Calendario Visual** de folgas por mes
+- **Toggle Rapido** para marcar/desmarcar folga
+- **Redistribuicao de Meta** automatica quando colaboradora esta de folga
+- **Historico** de todas as folgas
+- **Por Loja** cada loja gerencia suas folgas
+
+### 5. Sistema de Bonus
+
+Controle de bonificacoes e premiacoes:
+
+| Funcionalidade | Descricao |
+|----------------|-----------|
+| **Bonus por Meta** | Premiacoes ao atingir metas |
+| **Bonus por Super Meta** | Premiacoes especiais |
+| **Bonus de Gincana** | Premios de competicoes semanais |
+| **Bonus de Check Diario** | Premios por confirmar meta |
+| **Historico Completo** | Rastreamento de todos os bonus |
+| **Tracker Visual** | Dashboard de bonus pendentes e pagos |
+
+### 6. Check de Meta Diaria (Gamificado)
 
 Sistema gamificado para incentivar colaboradoras a visualizar suas metas diariamente:
 
@@ -155,7 +202,7 @@ Sistema gamificado para incentivar colaboradoras a visualizar suas metas diariam
 | **Dashboard Visual** | Mostra status de todas as colaboradoras |
 | **Historico Mensal** | Registro de todas as confirmacoes |
 
-### 3. Sistema de Cashback
+### 7. Sistema de Cashback
 
 | Funcionalidade | Descricao |
 |----------------|-----------|
@@ -174,7 +221,7 @@ Sistema gamificado para incentivar colaboradoras a visualizar suas metas diariam
 - `data_liberacao`: Data de liberacao do saldo
 - `data_expiracao`: Data de expiracao
 
-### 4. CRM (Customer Relationship Management)
+### 8. CRM (Customer Relationship Management)
 
 - **Gestao de Contatos** com dados completos (CPF, telefone, email, aniversario)
 - **Tarefas e Lembretes** com prioridades e status
@@ -183,7 +230,7 @@ Sistema gamificado para incentivar colaboradoras a visualizar suas metas diariam
 - **Categorias de Clientes** (BLACK, PLATINUM, VIP, REGULAR) baseado em compras
 - **Integracao com Wishlist** para avisar quando produto chegar
 
-### 5. Wishlist (Lista de Desejos)
+### 9. Wishlist (Lista de Desejos)
 
 - Cadastro de produtos desejados por clientes
 - Busca inteligente com autocomplete
@@ -192,7 +239,7 @@ Sistema gamificado para incentivar colaboradoras a visualizar suas metas diariam
 - Botao WhatsApp para contato direto
 - Integracao com CRM
 
-### 6. Controle de Ponto Digital (REP-P Compliance)
+### 10. Controle de Ponto Digital (REP-P Compliance)
 
 Sistema em conformidade com **Portaria 671/2021** e **CLT**:
 
@@ -208,7 +255,7 @@ Sistema em conformidade com **Portaria 671/2021** e **CLT**:
 | **Notificacoes WhatsApp** | Aviso ao admin quando ponto e registrado |
 | **Jornadas Configuraveis** | Horarios por colaboradora |
 
-### 7. Sistema de Adiantamentos
+### 11. Sistema de Adiantamentos
 
 Controle completo de adiantamentos salariais para colaboradoras:
 
@@ -226,7 +273,7 @@ Controle completo de adiantamentos salariais para colaboradoras:
 - Considera adiantamentos aprovados e parcelas pendentes
 - Bloqueia nova solicitacao se limite excedido
 
-### 8. Alertas de Tarefas para Lojas
+### 12. Alertas de Tarefas para Lojas
 
 Sistema de lembretes recorrentes via WhatsApp:
 
@@ -239,21 +286,21 @@ Sistema de lembretes recorrentes via WhatsApp:
 | **Ativacao/Desativacao** | Controle por tarefa |
 | **Templates de Mensagem** | Mensagens personalizaveis |
 
-### 9. Sistema de Ajustes e Condicionais
+### 13. Sistema de Ajustes e Condicionais
 
 - **Condicionais** para colaboradoras com status (PENDENTE, EM_PREPARO, PRONTO, ENTREGUE)
 - **Ajustes** de valores com observacoes
 - **Notificacoes WhatsApp** para clientes e colaboradoras
 - **Historico Completo** de todas as movimentacoes
 
-### 10. DRE (Demonstrativo de Resultado do Exercicio)
+### 14. DRE (Demonstrativo de Resultado do Exercicio)
 
 - **Integracao N8N** para busca de dados financeiros
 - **Categorias de Receitas e Despesas** configuraveis
 - **Relatorios por Periodo** (mensal, trimestral, anual)
 - **Exportacao** para analise externa
 
-### 11. Integracao ERP (Tiny/Bling)
+### 15. Integracao ERP (Tiny/Bling)
 
 | Funcionalidade | Descricao |
 |----------------|-----------|
@@ -263,6 +310,71 @@ Sistema de lembretes recorrentes via WhatsApp:
 | **Mapeamento de Vendedores** | Vincula vendedores do ERP com colaboradoras |
 | **Logs de Sincronizacao** | Historico detalhado de todas as operacoes |
 | **Multi-ERP Ready** | Estrutura preparada para Tiny, Bling e outros |
+
+### 16. Inteligencia de Vendas
+
+Modulos avancados de analise e insights:
+
+#### Inteligencia de Produtos
+| Funcionalidade | Descricao |
+|----------------|-----------|
+| **Ranking de Produtos** | Produtos mais vendidos por periodo |
+| **Analise por Categoria** | Vendas agrupadas por categoria |
+| **Tendencias** | Identificacao de produtos em alta/baixa |
+| **Margem por Produto** | Analise de rentabilidade |
+
+#### Inteligencia de Clientes
+| Funcionalidade | Descricao |
+|----------------|-----------|
+| **Segmentacao RFM** | Recencia, Frequencia, Valor Monetario |
+| **Categorias Automaticas** | BLACK, PLATINUM, VIP, REGULAR |
+| **Clientes em Risco** | Identificacao de clientes inativos |
+| **Analise de Comportamento** | Padroes de compra |
+
+#### Relatorios por Categoria
+- Vendas por categoria de produto
+- Comparativo entre periodos
+- Participacao de cada categoria no faturamento
+- Exportacao para analise
+
+### 17. Relatorios e Exportacoes
+
+Sistema completo de relatorios com multiplos formatos:
+
+| Tipo | Formatos | Descricao |
+|------|----------|-----------|
+| **Relatorios de Vendas** | PDF, Excel, CSV | Vendas por periodo, colaboradora, loja |
+| **Relatorios de Ponto** | PDF | Espelho de ponto mensal (REP-P) |
+| **Relatorios de Cashback** | Excel, PDF | Transacoes e saldos |
+| **Relatorios de Metas** | PDF, Excel | Atingimento e performance |
+| **Bonificacao** | WhatsApp, Excel | Lista para campanhas |
+
+### 18. Gestao de Lojas e Colaboradoras
+
+#### Gestao de Lojas
+- Cadastro de multiplas lojas por admin
+- Configuracoes individuais por loja
+- Ativacao/desativacao de modulos
+- WhatsApp proprio por loja
+
+#### Gestao de Colaboradoras
+- Cadastro com email e senha
+- Reset de senha pelo admin
+- Vinculo com lojas
+- Perfis e permissoes
+- Limite por plano de assinatura
+
+### 19. Sistema de Subscricoes (Billing)
+
+Controle de planos e limites por tenant:
+
+| Funcionalidade | Descricao |
+|----------------|-----------|
+| **Planos Escalonados** | Starter, Pro, Enterprise |
+| **Limites por Plano** | Lojas, colaboradoras, recursos |
+| **Verificacao em Tempo Real** | Bloqueia acoes quando limite atingido |
+| **Dashboard de Billing** | Visualizacao de uso vs limite |
+| **Eventos de Billing** | Historico de mudancas de plano |
 
 ---
 
