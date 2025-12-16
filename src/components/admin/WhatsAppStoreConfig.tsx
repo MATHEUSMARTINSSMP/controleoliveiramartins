@@ -391,21 +391,45 @@ export const WhatsAppStoreConfig = () => {
                         
                         console.log('[fetchStoresAndCredentials] Resposta N8N para', store.slug, ':', status);
                         
-                        // Atualizar estado local IMEDIATAMENTE
-                        setStoresWithCredentials(prev =>
-                            prev.map(s => s.slug === store.slug ? {
-                                ...s,
-                                credentials: {
-                                    ...s.credentials,
-                                    uazapi_status: status.status,
-                                    uazapi_phone_number: status.phoneNumber || s.credentials?.uazapi_phone_number,
-                                    uazapi_instance_id: status.instanceId || s.credentials?.uazapi_instance_id,
-                                } as WhatsAppCredential
-                            } : s)
-                        );
+                        // Verificar se devemos ignorar o downgrade ANTES de atualizar a UI
+                        const currentStatusLocal = store.credentials?.uazapi_status;
+                        const isDowngradeLocal = currentStatusLocal === 'connected' && 
+                            (status.status === 'error' || status.status === 'disconnected' || !status.status);
+                        
+                        if (isDowngradeLocal) {
+                            console.log('[fetchStoresAndCredentials] UI: Mantendo status connected para', store.slug);
+                            // Não atualizar UI, manter status atual
+                        } else {
+                            // Atualizar estado local IMEDIATAMENTE
+                            setStoresWithCredentials(prev =>
+                                prev.map(s => s.slug === store.slug ? {
+                                    ...s,
+                                    credentials: {
+                                        ...s.credentials,
+                                        uazapi_status: status.status,
+                                        uazapi_phone_number: status.phoneNumber || s.credentials?.uazapi_phone_number,
+                                        uazapi_instance_id: status.instanceId || s.credentials?.uazapi_instance_id,
+                                    } as WhatsAppCredential
+                                } : s)
+                            );
+                        }
                         
                         // Salvar no Supabase se status diferente ou se encontrou dados novos
-                        const hasStatusChange = status.status !== store.credentials?.uazapi_status;
+                        // IMPORTANTE: Não sobrescrever status "connected" com status de erro ou indefinido
+                        const currentStatus = store.credentials?.uazapi_status;
+                        const newStatus = status.status;
+                        
+                        // Se já está connected e o N8N retornou erro/disconnected/undefined, NÃO atualizar
+                        const isDowngrade = currentStatus === 'connected' && 
+                            (newStatus === 'error' || newStatus === 'disconnected' || !newStatus);
+                        
+                        if (isDowngrade) {
+                            console.log('[fetchStoresAndCredentials] IGNORANDO downgrade de status para', store.slug, 
+                                '- mantendo connected ao invés de', newStatus);
+                            return { slug: store.slug, status, skipped: true };
+                        }
+                        
+                        const hasStatusChange = newStatus !== currentStatus;
                         const hasNewInstanceId = status.instanceId && !store.credentials?.uazapi_instance_id;
                         const hasNewPhone = status.phoneNumber && !store.credentials?.uazapi_phone_number;
                         
@@ -416,7 +440,7 @@ export const WhatsAppStoreConfig = () => {
                             if (existingCred) {
                                 // UPDATE: Apenas atualizar campos de status, preservando token existente
                                 const updateData: Record<string, any> = {
-                                    uazapi_status: status.status,
+                                    uazapi_status: newStatus,
                                     updated_at: new Date().toISOString(),
                                 };
                                 
