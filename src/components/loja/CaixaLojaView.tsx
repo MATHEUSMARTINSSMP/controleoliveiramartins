@@ -98,8 +98,21 @@ export function CaixaLojaView({
   // Se já foi calculado, usar o valor calculado (mesmo que seja 0)
   // Caso contrário, usar o prop
   const vendidoHoje = vendidoHojeCalculadoFlag && vendidoHojeCalculado !== null
-    ? (isNaN(vendidoHojeCalculado) || vendidoHojeCalculado === null ? 0 : vendidoHojeCalculado)
+    ? (isNaN(vendidoHojeCalculado) ? 0 : vendidoHojeCalculado)
     : (isNaN(vendidoHojeProp) ? 0 : (vendidoHojeProp || 0));
+  
+  // Debug: log do valor que será usado na renderização
+  useEffect(() => {
+    if (vendidoHojeCalculadoFlag) {
+      console.log('[CaixaLojaView] VendidoHoje para renderização:', {
+        vendidoHoje,
+        vendidoHojeCalculado,
+        vendidoHojeCalculadoFlag,
+        vendidoHojeProp,
+        usandoCalculado: vendidoHojeCalculadoFlag && vendidoHojeCalculado !== null
+      });
+    }
+  }, [vendidoHoje, vendidoHojeCalculado, vendidoHojeCalculadoFlag, vendidoHojeProp]);
 
   useEffect(() => {
     if (storeId) {
@@ -487,6 +500,27 @@ export function CaixaLojaView({
             <div className="text-2xl font-bold">{formatCurrency(diariaNecessaria)}</div>
             <p className="text-xs text-muted-foreground">
               Para bater a meta
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+            <CardTitle className="text-sm font-medium">Vendido Hoje</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{formatCurrency(vendidoHoje)}</div>
+            <p className="text-xs text-muted-foreground">
+              {diariaNecessaria > 0 ? (
+                <>
+                  {((vendidoHoje / diariaNecessaria) * 100).toFixed(1)}% da diária necessária
+                </>
+              ) : (
+                'Total de vendas do dia'
+              )}
             </p>
           </CardContent>
         </Card>
