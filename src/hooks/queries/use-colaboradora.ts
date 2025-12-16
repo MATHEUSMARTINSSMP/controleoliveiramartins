@@ -24,7 +24,9 @@ export function useColaboradoraKPIs(profileId: string | null | undefined) {
     queryFn: async (): Promise<ColaboradoraKPIs | null> => {
       if (!profileId) return null;
 
-      const [profileResult, purchasesResult] = await Promise.all([
+      const mesAtual = new Date().toISOString().slice(0, 7);
+
+      const [profileResult, purchasesResult, adiantamentosResult] = await Promise.all([
         supabase
           .schema('sistemaretiradas')
           .from('profiles')
@@ -36,6 +38,12 @@ export function useColaboradoraKPIs(profileId: string | null | undefined) {
           .from('purchases')
           .select('id, preco_final, status_compra')
           .eq('colaboradora_id', profileId),
+        supabase
+          .schema('sistemaretiradas')
+          .from('adiantamentos')
+          .select('valor, status, competencia')
+          .eq('colaboradora_id', profileId)
+          .in('status', ['PENDENTE', 'APROVADO']),
       ]);
 
       if (profileResult.error) throw profileResult.error;
@@ -43,23 +51,30 @@ export function useColaboradoraKPIs(profileId: string | null | undefined) {
 
       const profileData = profileResult.data;
       const purchases = purchasesResult.data || [];
+      const adiantamentos = adiantamentosResult.data || [];
       const purchaseIds = purchases.map(p => p.id);
+
+      const adiantamentosTotalPendente = adiantamentos
+        .reduce((acc, a) => acc + Number(a.valor || 0), 0);
+
+      const adiantamentosMesPendente = adiantamentos
+        .filter(a => a.competencia === mesAtual)
+        .reduce((acc, a) => acc + Number(a.valor || 0), 0);
+
+      const limiteTotal = Number(profileData?.limite_total) || 0;
+      const limiteMensal = Number(profileData?.limite_mensal) || 0;
       
       if (purchaseIds.length === 0) {
-        const limiteTotal = Number(profileData?.limite_total) || 0;
-        const limiteMensal = Number(profileData?.limite_mensal) || 0;
         return {
-          totalPendente: 0,
-          proximasParcelas: 0,
+          totalPendente: adiantamentosTotalPendente,
+          proximasParcelas: adiantamentosMesPendente,
           totalPago: 0,
           limiteTotal,
-          limiteDisponivel: limiteTotal,
+          limiteDisponivel: Math.max(0, limiteTotal - adiantamentosTotalPendente),
           limiteMensal,
-          limiteDisponivelMensal: limiteMensal,
+          limiteDisponivelMensal: Math.max(0, limiteMensal - adiantamentosMesPendente),
         };
       }
-
-      const mesAtual = new Date().toISOString().slice(0, 7);
       
       const { data: parcelas, error: parcelasError } = await supabase
         .schema('sistemaretiradas')
@@ -71,7 +86,7 @@ export function useColaboradoraKPIs(profileId: string | null | undefined) {
 
       const minhasParcelas = parcelas || [];
 
-      const totalPendente = minhasParcelas
+      const parcelasPendentes = minhasParcelas
         .filter(p => p.status_parcela === 'PENDENTE')
         .reduce((acc, p) => acc + Number(p.valor_parcela || 0), 0);
 
@@ -79,12 +94,12 @@ export function useColaboradoraKPIs(profileId: string | null | undefined) {
         .filter(p => p.status_parcela === 'PAGO')
         .reduce((acc, p) => acc + Number(p.valor_parcela || 0), 0);
 
-      const proximasParcelas = minhasParcelas
+      const parcelasMesPendentes = minhasParcelas
         .filter(p => p.competencia === mesAtual && p.status_parcela === 'PENDENTE')
         .reduce((acc, p) => acc + Number(p.valor_parcela || 0), 0);
 
-      const limiteTotal = Number(profileData?.limite_total) || 0;
-      const limiteMensal = Number(profileData?.limite_mensal) || 0;
+      const totalPendente = parcelasPendentes + adiantamentosTotalPendente;
+      const proximasParcelas = parcelasMesPendentes + adiantamentosMesPendente;
 
       return {
         totalPendente,
