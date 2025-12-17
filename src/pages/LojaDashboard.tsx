@@ -761,8 +761,11 @@ export default function LojaDashboard() {
     };
 
     // Função auxiliar para calcular meta diária dinâmica
-    // FÓRMULA CORRETA (igual ao Caixa):
-    // Meta Diária = Meta Base do Dia (peso) + (Falta para Meta / Dias Restantes)
+    // FÓRMULA CORRETA:
+    // 1. Calcular quanto DEVERIA ter vendido ATÉ HOJE (soma dos pesos acumulados)
+    // 2. Calcular DÉFICIT = metaEsperadaAteHoje - vendidoMes
+    // 3. Distribuir déficit pelos dias restantes
+    // 4. Meta Dinâmica = Meta Base do Dia + (Déficit / Dias Restantes)
     const calculateDynamicDailyGoal = (
         metaMensal: number,
         vendidoMes: number,
@@ -770,66 +773,73 @@ export default function LojaDashboard() {
         dailyWeights: Record<string, number> | null,
         daysInMonth: number
     ): number => {
-        // Calcular dias restantes do mês (NÃO incluindo o dia de hoje, pois hoje está sendo vendido)
         const [year, month] = today.split('-').map(Number);
         const hoje = new Date(year, month - 1, parseInt(today.split('-')[2]));
         const diaAtual = hoje.getDate();
         const diasRestantes = daysInMonth - diaAtual; // Dias DEPOIS de hoje
 
-        // 1. META BASE: Meta mínima do dia pelo peso configurado
-        let metaBase = metaMensal / daysInMonth;
+        // 1. META BASE DO DIA: Meta mínima pelo peso configurado
+        let metaBaseDoDia = metaMensal / daysInMonth;
         if (dailyWeights && Object.keys(dailyWeights).length > 0) {
             const hojePeso = dailyWeights[today] || 0;
             if (hojePeso > 0) {
-                metaBase = (metaMensal * hojePeso) / 100;
+                metaBaseDoDia = (metaMensal * hojePeso) / 100;
             }
         }
 
-        // 2. CALCULAR O QUE FALTA PARA A META (total, não até ontem)
-        const faltaParaMeta = Math.max(0, metaMensal - vendidoMes);
-
-        // 3. DISTRIBUIR O QUE FALTA PELOS DIAS RESTANTES (incluindo hoje)
-        // Se estamos no último dia, todo o déficit é para hoje
-        const diasParaDistribuir = diasRestantes + 1; // +1 para incluir hoje
-        let metaAdicional = 0;
-        if (faltaParaMeta > 0 && diasParaDistribuir > 0) {
-            metaAdicional = faltaParaMeta / diasParaDistribuir;
+        // 2. CALCULAR META ESPERADA ATÉ HOJE (soma dos pesos de dia 1 até hoje)
+        let metaEsperadaAteHoje = 0;
+        if (dailyWeights && Object.keys(dailyWeights).length > 0) {
+            // Com pesos configurados: somar pesos de todos os dias até hoje (inclusive)
+            for (let d = 1; d <= diaAtual; d++) {
+                const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const peso = dailyWeights[dateStr] || 0;
+                metaEsperadaAteHoje += (metaMensal * peso) / 100;
+            }
+        } else {
+            // Sem pesos: distribuição uniforme
+            metaEsperadaAteHoje = (metaMensal / daysInMonth) * diaAtual;
         }
 
-        // 4. META FINAL: Usamos o MAIOR entre a meta base e a meta necessária para compensar
-        // A meta dinâmica é: meta base + compensação do déficit
-        // Mas se já passou a meta, a compensação é zero
-        let metaFinal = metaAdicional;
-        
-        // Se a meta adicional é menor que a meta base, usar a meta base
-        // (não queremos que a meta do dia seja menor que o peso configurado)
-        if (metaFinal < metaBase) {
-            metaFinal = metaBase;
+        // 3. CALCULAR DÉFICIT: quanto está atrás do esperado
+        const deficit = Math.max(0, metaEsperadaAteHoje - vendidoMes);
+
+        // 4. DISTRIBUIR DÉFICIT PELOS DIAS RESTANTES (não incluindo hoje, pois hoje já tem sua meta base)
+        let metaAdicionalPorDia = 0;
+        if (deficit > 0 && diasRestantes > 0) {
+            metaAdicionalPorDia = deficit / diasRestantes;
+        } else if (deficit > 0 && diasRestantes === 0) {
+            // Último dia do mês: todo o déficit é para hoje
+            metaAdicionalPorDia = deficit;
         }
 
-        // 5. PROTEÇÃO: Meta diária não pode ser maior que 50% da meta mensal
+        // 5. META DINÂMICA = Meta Base do Dia + Adicional para compensar déficit
+        let metaDinamica = metaBaseDoDia + metaAdicionalPorDia;
+
+        // 6. PROTEÇÃO: Meta diária não pode ser maior que 50% da meta mensal
         const maxMetaDiaria = metaMensal * 0.5;
-        if (metaFinal > maxMetaDiaria) {
-            metaFinal = maxMetaDiaria;
+        if (metaDinamica > maxMetaDiaria) {
+            metaDinamica = maxMetaDiaria;
         }
 
-        // 6. PROTEÇÃO: Meta diária não pode ser negativa
-        if (metaFinal < 0) {
-            metaFinal = 0;
+        // 7. PROTEÇÃO: Meta diária nunca menor que a meta base do dia
+        if (metaDinamica < metaBaseDoDia) {
+            metaDinamica = metaBaseDoDia;
         }
 
         console.log('[calculateDynamicDailyGoal] Cálculo:', {
             metaMensal,
             vendidoMes,
-            faltaParaMeta,
+            diaAtual,
             diasRestantes,
-            diasParaDistribuir,
-            metaBase,
-            metaAdicional,
-            metaFinal
+            metaEsperadaAteHoje: metaEsperadaAteHoje.toFixed(2),
+            deficit: deficit.toFixed(2),
+            metaBaseDoDia: metaBaseDoDia.toFixed(2),
+            metaAdicionalPorDia: metaAdicionalPorDia.toFixed(2),
+            metaDinamica: metaDinamica.toFixed(2)
         });
 
-        return metaFinal;
+        return metaDinamica;
     };
 
     const fetchGoalsWithStoreId = async (currentStoreId: string) => {
