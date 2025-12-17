@@ -69,20 +69,22 @@ export function WhatsAppCampaigns() {
 
       if (error) throw error;
 
-      const storesWithWhatsApp: Store[] = [];
-      for (const store of storesData || []) {
-        const { data: whatsappData } = await supabase
-          .schema('sistemaretiradas')
-          .from('whatsapp_credentials')
-          .select('is_connected')
-          .eq('store_id', store.id)
-          .single();
+      const storeIds = (storesData || []).map(s => s.id);
+      
+      const { data: credentialsData } = await supabase
+        .schema('sistemaretiradas')
+        .from('whatsapp_credentials')
+        .select('store_id, uazapi_status')
+        .in('store_id', storeIds);
 
-        storesWithWhatsApp.push({
-          ...store,
-          whatsapp_connected: whatsappData?.is_connected || false,
-        });
-      }
+      const credentialsMap = new Map(
+        (credentialsData || []).map(c => [c.store_id, c.uazapi_status])
+      );
+
+      const storesWithWhatsApp: Store[] = (storesData || []).map(store => ({
+        ...store,
+        whatsapp_connected: credentialsMap.get(store.id) === 'connected',
+      }));
 
       setStores(storesWithWhatsApp);
       const connectedStore = storesWithWhatsApp.find(s => s.whatsapp_connected);
