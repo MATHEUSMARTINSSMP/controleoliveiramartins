@@ -141,17 +141,17 @@ export function ReviewStep({
                   </span>
                 </div>
                 <div className="pt-2 border-t">
-                  <p className="text-xs text-muted-foreground mb-2">Categorias:</p>
+                  <p className="text-xs text-muted-foreground mb-2">Resumo:</p>
                   <div className="flex flex-wrap gap-1">
-                    {['BLACK', 'PLATINUM', 'VIP', 'REGULAR'].map(cat => {
-                      const count = selectedContacts.filter(c => c.categoria === cat).length;
-                      if (count === 0) return null;
-                      return (
-                        <Badge key={cat} variant="secondary" className="text-xs">
-                          {cat}: {count}
-                        </Badge>
-                      );
-                    })}
+                    <Badge variant="secondary" className="text-xs">
+                      {selectedContacts.filter(c => c.total_compras >= 5000).length} Top
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      {selectedContacts.filter(c => c.total_compras >= 1000 && c.total_compras < 5000).length} Ativos
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      {selectedContacts.filter(c => c.total_compras < 1000).length} Novos
+                    </Badge>
                   </div>
                 </div>
               </>

@@ -28,7 +28,7 @@ import {
   Trash2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { FilterConfig, FilterRule, CustomerStats, ImportedContact, AudienceSource, FILTER_OPTIONS } from "../types";
+import { FilterConfig, FilterRule, CustomerStats, ImportedContact, AudienceSource, FILTER_OPTIONS, FILTER_DEFINITIONS } from "../types";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -119,9 +119,6 @@ export function FilterStep({
         case 'top_spenders':
           result = result.sort((a, b) => b.total_compras - a.total_compras).slice(0, value);
           break;
-        case 'category':
-          result = result.filter(c => c.categoria === filter.value);
-          break;
       }
     });
 
@@ -172,13 +169,10 @@ export function FilterStep({
     onContactsChange(updated.filter(c => c.selected));
   };
 
-  const getCategoryColor = (cat: string) => {
-    switch (cat) {
-      case 'BLACK': return 'bg-black text-white';
-      case 'PLATINUM': return 'bg-slate-400 text-white';
-      case 'VIP': return 'bg-amber-500 text-white';
-      default: return 'bg-muted';
-    }
+  const getSpendingBadge = (total: number) => {
+    if (total >= 5000) return { label: 'TOP', color: 'bg-amber-500 text-white' };
+    if (total >= 1000) return { label: 'ATIVO', color: 'bg-green-500 text-white' };
+    return { label: 'NOVO', color: 'bg-muted' };
   };
 
   const formatPhone = (phone: string): string => {
@@ -376,71 +370,75 @@ export function FilterStep({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2 flex-wrap">
-                {activeFilters.map((filter, index) => (
-                  <Badge 
-                    key={index} 
-                    variant="secondary" 
-                    className="flex items-center gap-1 py-1"
-                  >
-                    {FILTER_OPTIONS.find(f => f.type === filter.type)?.label}: {filter.value}
-                    <button onClick={() => removeFilter(index)} className="ml-1">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
+                {activeFilters.map((filter, index) => {
+                  const def = FILTER_DEFINITIONS[filter.type];
+                  const badgeText = def ? def.formatBadge(filter.value) : `${filter.type}: ${filter.value}`;
+                  return (
+                    <Badge 
+                      key={index} 
+                      variant="secondary" 
+                      className="flex items-center gap-1 py-1"
+                    >
+                      {badgeText}
+                      <button onClick={() => removeFilter(index)} className="ml-1">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  );
+                })}
               </div>
 
               <div className="flex gap-2 flex-wrap items-end">
                 <div className="flex-1 min-w-[200px]">
                   <Label className="text-xs">Tipo de filtro</Label>
-                  <Select value={newFilterType} onValueChange={setNewFilterType}>
+                  <Select value={newFilterType} onValueChange={(val) => { setNewFilterType(val); setNewFilterValue(''); }}>
                     <SelectTrigger data-testid="select-filter-type">
                       <SelectValue placeholder="Escolha um filtro..." />
                     </SelectTrigger>
                     <SelectContent>
                       {FILTER_OPTIONS.map(opt => (
                         <SelectItem key={opt.type} value={opt.type}>
-                          {opt.label}
+                          <div className="flex flex-col">
+                            <span>{opt.label}</span>
+                            <span className="text-xs text-muted-foreground">{opt.description}</span>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="w-40">
-                  <Label className="text-xs">
-                    {newFilterType === 'inactive_days' ? 'Dias' :
-                     newFilterType === 'min_ticket' ? 'R$ mínimo' :
-                     newFilterType === 'max_ticket' ? 'R$ máximo' :
-                     newFilterType === 'min_purchases' ? 'Qtd mínima' :
-                     newFilterType === 'top_spenders' ? 'Top N' :
-                     newFilterType === 'category' ? 'Categoria' : 'Valor'}
-                  </Label>
-                  {newFilterType === 'category' ? (
-                    <Select value={newFilterValue} onValueChange={setNewFilterValue}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="BLACK">BLACK</SelectItem>
-                        <SelectItem value="PLATINUM">PLATINUM</SelectItem>
-                        <SelectItem value="VIP">VIP</SelectItem>
-                        <SelectItem value="REGULAR">REGULAR</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input 
-                      type="number" 
-                      value={newFilterValue} 
-                      onChange={(e) => setNewFilterValue(e.target.value)}
-                      placeholder={
-                        newFilterType === 'inactive_days' ? 'Ex: 30' :
-                        newFilterType === 'min_ticket' ? 'Ex: 100' :
-                        newFilterType === 'top_spenders' ? 'Ex: 100' : '0'
-                      }
-                      data-testid="input-filter-value"
-                    />
-                  )}
-                </div>
+                {newFilterType && FILTER_DEFINITIONS[newFilterType] && (
+                  <div className="w-48">
+                    <Label className="text-xs">{FILTER_DEFINITIONS[newFilterType].inputLabel}</Label>
+                    {FILTER_DEFINITIONS[newFilterType].inputType === 'month' ? (
+                      <Select value={newFilterValue} onValueChange={setNewFilterValue}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={FILTER_DEFINITIONS[newFilterType].placeholder} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FILTER_DEFINITIONS[newFilterType].options?.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <Input 
+                          type="number" 
+                          value={newFilterValue} 
+                          onChange={(e) => setNewFilterValue(e.target.value)}
+                          placeholder={FILTER_DEFINITIONS[newFilterType].placeholder}
+                          data-testid="input-filter-value"
+                        />
+                        {FILTER_DEFINITIONS[newFilterType].suffix && (
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {FILTER_DEFINITIONS[newFilterType].suffix}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <Button 
                   onClick={addFilter} 
                   disabled={!newFilterType || !newFilterValue}
@@ -482,14 +480,14 @@ export function FilterStep({
                     <p className="text-xs text-muted-foreground">{contact.telefone}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge className={getCategoryColor(contact.categoria)} variant="secondary">
-                      {contact.categoria}
+                    <Badge className={getSpendingBadge(contact.total_compras).color} variant="secondary">
+                      {getSpendingBadge(contact.total_compras).label}
                     </Badge>
                     <div className="text-right text-xs">
                       <p className="font-medium">{formatCurrency(contact.total_compras)}</p>
                       <p className="text-muted-foreground flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {contact.dias_sem_comprar}d
+                        {contact.dias_sem_comprar >= 9999 ? 'Nunca' : `${contact.dias_sem_comprar}d`}
                       </p>
                     </div>
                   </div>

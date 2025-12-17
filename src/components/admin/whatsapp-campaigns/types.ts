@@ -105,7 +105,6 @@ export interface CustomerStats {
   total_compras: number;
   quantidade_compras: number;
   ticket_medio: number;
-  categoria: string;
   selected?: boolean;
 }
 
@@ -143,16 +142,88 @@ export const AVAILABLE_VARIABLES = [
   { key: 'loja', label: 'Nome da Loja', example: 'Mr. Kitsch' },
 ];
 
-export const FILTER_OPTIONS = [
-  { type: 'inactive_days', label: 'Clientes inativos há X dias', icon: 'clock', description: 'Clientes que não compram há um período' },
-  { type: 'min_ticket', label: 'Ticket médio mínimo', icon: 'trending-up', description: 'Clientes com ticket médio acima de X' },
-  { type: 'top_spenders', label: 'Top clientes por faturamento', icon: 'crown', description: 'Os X clientes que mais gastaram' },
-  { type: 'min_purchases', label: 'Mínimo de compras', icon: 'shopping-bag', description: 'Clientes com pelo menos X compras' },
-  { type: 'category', label: 'Por categoria', icon: 'star', description: 'BLACK, PLATINUM, VIP ou REGULAR' },
-  { type: 'birthday_month', label: 'Aniversariantes', icon: 'cake', description: 'Clientes que fazem aniversário no mês' },
-  { type: 'purchased_period', label: 'Compraram no período', icon: 'calendar-check', description: 'Clientes que compraram entre datas' },
-  { type: 'not_purchased_period', label: 'NÃO compraram no período', icon: 'calendar-x', description: 'Clientes que NÃO compraram entre datas' },
-];
+export const FILTER_DEFINITIONS: Record<string, {
+  label: string;
+  description: string;
+  icon: string;
+  inputType: 'number' | 'select' | 'month';
+  inputLabel: string;
+  placeholder: string;
+  suffix?: string;
+  options?: { value: string; label: string }[];
+  formatBadge: (value: string | number) => string;
+}> = {
+  inactive_days: {
+    label: 'Clientes inativos',
+    description: 'Clientes que não compram há um período',
+    icon: 'clock',
+    inputType: 'number',
+    inputLabel: 'Há quantos dias?',
+    placeholder: 'Ex: 30',
+    suffix: 'dias',
+    formatBadge: (v) => `Inativos há ${v} dias`,
+  },
+  min_ticket: {
+    label: 'Ticket médio mínimo',
+    description: 'Clientes com ticket médio acima de um valor',
+    icon: 'trending-up',
+    inputType: 'number',
+    inputLabel: 'Valor mínimo (R$)',
+    placeholder: 'Ex: 100',
+    formatBadge: (v) => `Ticket médio >= R$ ${v}`,
+  },
+  top_spenders: {
+    label: 'Top clientes por faturamento',
+    description: 'Os clientes que mais gastaram na loja',
+    icon: 'crown',
+    inputType: 'number',
+    inputLabel: 'Quantidade de clientes',
+    placeholder: 'Ex: 100',
+    formatBadge: (v) => `Top ${v} clientes`,
+  },
+  min_purchases: {
+    label: 'Mínimo de compras',
+    description: 'Clientes com pelo menos X compras realizadas',
+    icon: 'shopping-bag',
+    inputType: 'number',
+    inputLabel: 'Mínimo de compras',
+    placeholder: 'Ex: 3',
+    formatBadge: (v) => `Mín. ${v} compras`,
+  },
+  birthday_month: {
+    label: 'Aniversariantes do mês',
+    description: 'Clientes que fazem aniversário em um mês específico',
+    icon: 'cake',
+    inputType: 'month',
+    inputLabel: 'Mês de aniversário',
+    placeholder: 'Selecione o mês',
+    options: [
+      { value: '1', label: 'Janeiro' },
+      { value: '2', label: 'Fevereiro' },
+      { value: '3', label: 'Março' },
+      { value: '4', label: 'Abril' },
+      { value: '5', label: 'Maio' },
+      { value: '6', label: 'Junho' },
+      { value: '7', label: 'Julho' },
+      { value: '8', label: 'Agosto' },
+      { value: '9', label: 'Setembro' },
+      { value: '10', label: 'Outubro' },
+      { value: '11', label: 'Novembro' },
+      { value: '12', label: 'Dezembro' },
+    ],
+    formatBadge: (v) => {
+      const months = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+      return `Aniversariantes de ${months[Number(v)] || v}`;
+    },
+  },
+};
+
+export const FILTER_OPTIONS = Object.entries(FILTER_DEFINITIONS).map(([type, def]) => ({
+  type,
+  label: def.label,
+  icon: def.icon,
+  description: def.description,
+}));
 
 export interface PrepareWebhookRequest {
   site_slug: string;
