@@ -66,6 +66,8 @@ interface CaixaLojaViewProps {
   vendidoMensal: number;
   vendidoHoje: number;
   dailyWeights?: Record<string, number> | null;
+  compensarDeficit?: boolean;
+  bonusFrente?: boolean;
 }
 
 export function CaixaLojaView({
@@ -77,6 +79,8 @@ export function CaixaLojaView({
   vendidoMensal,
   vendidoHoje: vendidoHojeProp,
   dailyWeights,
+  compensarDeficit = true,
+  bonusFrente = false,
 }: CaixaLojaViewProps) {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -129,44 +133,56 @@ export function CaixaLojaView({
     // 3. CALCULAR DIFERENÇA (pode ser déficit ou superávit)
     const diferenca = (vendidoMensal || 0) - metaEsperadaAteOntem;
     
-    let metaDinamica: number;
+    let metaDinamica: number = metaBaseDoDia;
     
     if (diferenca >= 0) {
       // CENÁRIO: À FRENTE DA META
-      // Meta do dia = Meta base × (1 + % à frente)
-      const percentualAFrente = metaEsperadaAteOntem > 0 
-        ? (diferenca / metaEsperadaAteOntem) 
-        : 0;
-      metaDinamica = metaBaseDoDia * (1 + percentualAFrente);
-      
-      console.log('[CaixaLojaView] À FRENTE da meta:', {
-        hojeStr,
-        metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
-        vendidoMensal,
-        percentualAFrente: (percentualAFrente * 100).toFixed(1) + '%',
-        metaBaseDoDia: metaBaseDoDia.toFixed(2),
-        metaDinamica: metaDinamica.toFixed(2)
-      });
+      if (bonusFrente) {
+        const percentualAFrente = metaEsperadaAteOntem > 0 
+          ? (diferenca / metaEsperadaAteOntem) 
+          : 0;
+        metaDinamica = metaBaseDoDia * (1 + percentualAFrente);
+        
+        console.log('[CaixaLojaView] À FRENTE da meta (bonus ATIVO):', {
+          hojeStr,
+          metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
+          vendidoMensal,
+          percentualAFrente: (percentualAFrente * 100).toFixed(1) + '%',
+          metaBaseDoDia: metaBaseDoDia.toFixed(2),
+          metaDinamica: metaDinamica.toFixed(2)
+        });
+      } else {
+        console.log('[CaixaLojaView] À FRENTE da meta (bonus desativado - usando meta base):', {
+          hojeStr,
+          metaBaseDoDia: metaBaseDoDia.toFixed(2)
+        });
+      }
     } else {
       // CENÁRIO: ATRÁS DA META
-      // Meta do dia = Meta base + déficit distribuído
-      const deficit = Math.abs(diferenca);
-      let metaAdicionalPorDia = 0;
-      if (deficit > 0 && diasRestantesComHoje > 0) {
-        metaAdicionalPorDia = deficit / diasRestantesComHoje;
+      if (compensarDeficit) {
+        const deficit = Math.abs(diferenca);
+        let metaAdicionalPorDia = 0;
+        if (deficit > 0 && diasRestantesComHoje > 0) {
+          metaAdicionalPorDia = deficit / diasRestantesComHoje;
+        }
+        metaDinamica = metaBaseDoDia + metaAdicionalPorDia;
+        
+        console.log('[CaixaLojaView] ATRÁS da meta (compensacao ATIVA):', {
+          hojeStr,
+          metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
+          vendidoMensal,
+          deficit: deficit.toFixed(2),
+          diasRestantesComHoje,
+          metaAdicionalPorDia: metaAdicionalPorDia.toFixed(2),
+          metaBaseDoDia: metaBaseDoDia.toFixed(2),
+          metaDinamica: metaDinamica.toFixed(2)
+        });
+      } else {
+        console.log('[CaixaLojaView] ATRÁS da meta (compensacao desativada - usando meta base):', {
+          hojeStr,
+          metaBaseDoDia: metaBaseDoDia.toFixed(2)
+        });
       }
-      metaDinamica = metaBaseDoDia + metaAdicionalPorDia;
-      
-      console.log('[CaixaLojaView] ATRÁS da meta:', {
-        hojeStr,
-        metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
-        vendidoMensal,
-        deficit: deficit.toFixed(2),
-        diasRestantesComHoje,
-        metaAdicionalPorDia: metaAdicionalPorDia.toFixed(2),
-        metaBaseDoDia: metaBaseDoDia.toFixed(2),
-        metaDinamica: metaDinamica.toFixed(2)
-      });
     }
     
     // PROTEÇÃO: Meta diária não pode ser maior que 50% da meta mensal
@@ -181,7 +197,7 @@ export function CaixaLojaView({
     }
     
     return metaDinamica;
-  }, [metaMensal, vendidoMensal, dailyWeights, hojeStr, diasNoMes]);
+  }, [metaMensal, vendidoMensal, dailyWeights, hojeStr, diasNoMes, compensarDeficit, bonusFrente]);
   
   // Usar o valor calculado diretamente ou o prop como fallback
   // Se já foi calculado, usar o valor calculado (mesmo que seja 0)

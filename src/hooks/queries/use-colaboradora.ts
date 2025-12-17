@@ -364,12 +364,25 @@ export function useColaboradoraPerformance(profileId: string | null | undefined)
       const today = now.toISOString().split('T')[0];
       const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
       const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const diaAtual = now.getDate();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
 
-      const [goalResult, salesMonthResult, salesTodayResult, rankingResult] = await Promise.all([
+      // Buscar perfil para obter store_id
+      const { data: profileData } = await supabase
+        .schema('sistemaretiradas')
+        .from('profiles')
+        .select('store_id')
+        .eq('id', profileId)
+        .maybeSingle();
+
+      const storeId = profileData?.store_id;
+
+      const [goalResult, salesMonthResult, salesTodayResult, rankingResult, storeSettingsResult] = await Promise.all([
         supabase
           .schema('sistemaretiradas')
           .from('goals')
-          .select('id, meta_valor, mes_referencia, tipo')
+          .select('id, meta_valor, mes_referencia, tipo, daily_weights')
           .eq('colaboradora_id', profileId)
           .eq('mes_referencia', mesAtual)
           .eq('tipo', 'INDIVIDUAL')
@@ -392,12 +405,24 @@ export function useColaboradoraPerformance(profileId: string | null | undefined)
           .from('sales')
           .select('colaboradora_id, valor')
           .gte('data_venda', `${startOfMonth}T00:00:00`),
+        storeId ? supabase
+          .schema('sistemaretiradas')
+          .from('stores')
+          .select('meta_compensar_deficit, meta_bonus_frente')
+          .eq('id', storeId)
+          .maybeSingle() : Promise.resolve({ data: null }),
       ]);
 
       const goal = goalResult.data;
       const salesMonth = salesMonthResult.data || [];
       const salesToday = salesTodayResult.data || [];
       const rankingData = rankingResult.data || [];
+      const storeSettings = storeSettingsResult.data;
+
+      // Configuracoes de calculo
+      const compensarDeficit = storeSettings?.meta_compensar_deficit ?? true;
+      const bonusFrente = storeSettings?.meta_bonus_frente ?? false;
+      const dailyWeights = (goal as any)?.daily_weights || null;
 
       const totalMes = salesMonth.reduce((sum, s) => sum + Number(s.valor || 0), 0);
       const totalHoje = salesToday.reduce((sum, s) => sum + Number(s.valor || 0), 0);
@@ -408,7 +433,70 @@ export function useColaboradoraPerformance(profileId: string | null | undefined)
 
       const metaValor = Number(goal?.meta_valor || 0);
       const percentualMeta = metaValor > 0 ? (totalMes / metaValor) * 100 : 0;
-      const dailyGoal = metaValor > 0 ? metaValor / daysInMonth : 0;
+
+      // Calcular meta diaria DINAMICA
+      let dailyGoal = metaValor > 0 ? metaValor / daysInMonth : 0;
+      
+      if (metaValor > 0) {
+        const diasRestantesComHoje = daysInMonth - diaAtual + 1;
+        
+        // Meta base do dia (por peso ou uniforme)
+        let metaBaseDoDia = metaValor / daysInMonth;
+        if (dailyWeights && Object.keys(dailyWeights).length > 0) {
+          const hojePeso = dailyWeights[today] || 0;
+          if (hojePeso > 0) {
+            metaBaseDoDia = (metaValor * hojePeso) / 100;
+          }
+        }
+        
+        // Meta esperada ate ontem
+        let metaEsperadaAteOntem = 0;
+        if (dailyWeights && Object.keys(dailyWeights).length > 0) {
+          for (let d = 1; d < diaAtual; d++) {
+            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const peso = dailyWeights[dateStr] || 0;
+            metaEsperadaAteOntem += (metaValor * peso) / 100;
+          }
+        } else {
+          metaEsperadaAteOntem = (metaValor / daysInMonth) * (diaAtual - 1);
+        }
+        
+        // Diferenca (pode ser deficit ou superavit)
+        const diferenca = totalMes - metaEsperadaAteOntem;
+        
+        if (diferenca >= 0) {
+          // A FRENTE DA META
+          if (bonusFrente) {
+            const percentualAFrente = metaEsperadaAteOntem > 0 ? (diferenca / metaEsperadaAteOntem) : 0;
+            dailyGoal = metaBaseDoDia * (1 + percentualAFrente);
+            console.log('[useColaboradoraPerformance] A FRENTE (bonus ATIVO):', {
+              today, percentualAFrente: (percentualAFrente * 100).toFixed(1) + '%',
+              metaBaseDoDia: metaBaseDoDia.toFixed(2), dailyGoal: dailyGoal.toFixed(2)
+            });
+          } else {
+            dailyGoal = metaBaseDoDia;
+          }
+        } else {
+          // ATRAS DA META
+          if (compensarDeficit) {
+            const deficit = Math.abs(diferenca);
+            const metaAdicionalPorDia = deficit > 0 && diasRestantesComHoje > 0 ? deficit / diasRestantesComHoje : 0;
+            dailyGoal = metaBaseDoDia + metaAdicionalPorDia;
+            console.log('[useColaboradoraPerformance] ATRAS (compensacao ATIVA):', {
+              today, deficit: deficit.toFixed(2), diasRestantesComHoje,
+              metaBaseDoDia: metaBaseDoDia.toFixed(2), dailyGoal: dailyGoal.toFixed(2)
+            });
+          } else {
+            dailyGoal = metaBaseDoDia;
+          }
+        }
+        
+        // Protecoes
+        const maxMetaDiaria = metaValor * 0.5;
+        if (dailyGoal > maxMetaDiaria) dailyGoal = maxMetaDiaria;
+        if (dailyGoal < metaBaseDoDia) dailyGoal = metaBaseDoDia;
+      }
+
       const dailyProgress = dailyGoal > 0 ? (totalHoje / dailyGoal) * 100 : 0;
 
       const grouped = rankingData.reduce((acc, sale) => {
