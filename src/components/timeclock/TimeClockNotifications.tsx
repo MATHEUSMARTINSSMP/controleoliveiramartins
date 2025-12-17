@@ -84,7 +84,7 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
     if (storeId && profile) {
       const loadData = async () => {
         await fetchConfig();
-        await fetchRecipients(); // Buscar destinatários após config (sobrescreve recipient_phones)
+        // recipient_phones já vem de time_clock_notification_config, não precisa buscar de outra tabela
         await fetchWhatsAppCredentials();
       };
       loadData();
@@ -106,7 +106,7 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
       }
 
       if (data) {
-        setConfig(prev => ({
+        setConfig({
           id: data.id,
           store_id: data.store_id,
           notifications_enabled: data.notifications_enabled ?? false,
@@ -115,9 +115,9 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
           notify_change_requests: data.notify_change_requests ?? true,
           notify_request_approved: data.notify_request_approved ?? true,
           notify_request_rejected: data.notify_request_rejected ?? true,
-          recipient_phones: prev.recipient_phones.length > 0 ? prev.recipient_phones : (data.recipient_phones || []), // Preservar se já foi carregado por fetchRecipients
+          recipient_phones: data.recipient_phones || [],
           use_global_whatsapp: data.use_global_whatsapp ?? false,
-        }));
+        });
       }
     } catch (err) {
       console.error('[TimeClockNotifications] Erro:', err);
@@ -198,35 +198,8 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
     }
   };
 
-  const fetchRecipients = async () => {
-    if (!profile || !storeId) return;
-    
-    try {
-      const { data, error } = await supabase
-        .schema('sistemaretiradas')
-        .from('whatsapp_notification_config')
-        .select('phone, active')
-        .eq('admin_id', profile.id)
-        .eq('notification_type', 'CONTROLE_PONTO')
-        .eq('store_id', storeId)
-        .eq('active', true);
-
-      if (error) {
-        console.error('[TimeClockNotifications] Erro ao buscar destinatários:', error);
-        return;
-      }
-
-      if (data && data.length > 0) {
-        const phones = data.map(item => item.phone).filter(Boolean) as string[];
-        setConfig(prev => ({
-          ...prev,
-          recipient_phones: phones,
-        }));
-      }
-    } catch (err) {
-      console.error('[TimeClockNotifications] Erro ao buscar destinatários:', err);
-    }
-  };
+  // NOTA: recipient_phones agora são carregados diretamente de time_clock_notification_config
+  // Não é mais necessário buscar de whatsapp_notification_config
 
   const handleSave = async () => {
     if (!profile) {
@@ -277,53 +250,9 @@ export function TimeClockNotifications({ storeId }: TimeClockNotificationsProps)
         }
       }
 
-      // 2. Salvar destinatários em whatsapp_notification_config
-      // Buscar destinatários existentes para esta loja
-      const { data: existingRecipients } = await supabase
-        .schema('sistemaretiradas')
-        .from('whatsapp_notification_config')
-        .select('id, phone')
-        .eq('admin_id', profile.id)
-        .eq('notification_type', 'CONTROLE_PONTO')
-        .eq('store_id', storeId);
-
-      const existingPhones = new Set((existingRecipients || []).map(r => r.phone));
-      const currentPhones = new Set(config.recipient_phones);
-
-      // Remover destinatários que não estão mais na lista
-      const toDelete = (existingRecipients || [])
-        .filter(r => !currentPhones.has(r.phone))
-        .map(r => r.id);
-
-      if (toDelete.length > 0) {
-        await supabase
-          .schema('sistemaretiradas')
-          .from('whatsapp_notification_config')
-          .delete()
-          .in('id', toDelete);
-      }
-
-      // Adicionar novos destinatários
-      const toInsert = config.recipient_phones
-        .filter(phone => !existingPhones.has(phone))
-        .map(phone => ({
-          admin_id: profile.id,
-          notification_type: 'CONTROLE_PONTO' as const,
-          phone: phone,
-          store_id: storeId,
-          active: true,
-        }));
-
-      if (toInsert.length > 0) {
-        const { error: insertError } = await supabase
-          .schema('sistemaretiradas')
-          .from('whatsapp_notification_config')
-          .insert(toInsert);
-
-        if (insertError && insertError.code !== '23505') { // Ignorar erro de duplicata
-          throw insertError;
-        }
-      }
+      // NOTA: Os telefones são salvos diretamente no array recipient_phones
+      // da tabela time_clock_notification_config (payload acima)
+      // Não é mais necessário duplicar em whatsapp_notification_config
 
       toast.success('Configuracoes salvas!');
     } catch (error: any) {
