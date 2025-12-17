@@ -272,7 +272,8 @@ export default function LojaDashboard() {
         // ========== PASSO 1: Calcular meta dinâmica INDIVIDUAL de cada colaboradora ==========
         const colabsComMetaDinamica = colaboradorasPerformance.map(perf => {
             const metaMensalColab = perf.meta || 0;
-            const vendidoMesColab = perf.vendidoMes || 0;
+            // Usar vendidoMes se existir, senão totalVendas (campo do hook)
+            const vendidoMesColab = perf.vendidoMes ?? perf.totalVendas ?? 0;
             const isOnLeaveToday = offColabIds.has(perf.id);
 
             // Meta base do dia (por peso ou uniforme)
@@ -474,7 +475,8 @@ export default function LojaDashboard() {
         // Calcular meta dinâmica individual para cada colaboradora
         const enrichedData = colaboradorasPerformanceCaixa.map(perf => {
             const metaMensalColab = perf.meta || 0;
-            const vendidoMesColab = perf.vendidoMes || 0;
+            // Usar vendidoMes se existir, senão totalVendas (campo do hook)
+            const vendidoMesColab = perf.vendidoMes ?? perf.totalVendas ?? 0;
             const isOnLeaveToday = offColabIds.has(perf.id);
 
             // Meta base do dia
