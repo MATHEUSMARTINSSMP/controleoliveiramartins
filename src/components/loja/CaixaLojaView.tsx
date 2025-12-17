@@ -65,6 +65,7 @@ interface CaixaLojaViewProps {
   metaMensal: number;
   vendidoMensal: number;
   vendidoHoje: number;
+  dailyWeights?: Record<string, number> | null;
 }
 
 export function CaixaLojaView({
@@ -75,6 +76,7 @@ export function CaixaLojaView({
   metaMensal,
   vendidoMensal,
   vendidoHoje: vendidoHojeProp,
+  dailyWeights,
 }: CaixaLojaViewProps) {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -92,7 +94,75 @@ export function CaixaLojaView({
   const diasNoMes = getDaysInMonth(hoje);
   const diasRestantes = differenceInDays(endOfMonth(hoje), hoje);
   const faltaMes = (metaMensal || 0) - (vendidoMensal || 0);
-  const diariaNecessaria = diasRestantes > 0 && !isNaN(faltaMes) ? (faltaMes / diasRestantes) : 0;
+  
+  // Calcular meta diária dinâmica (mesma fórmula do LojaDashboard)
+  const diariaNecessaria = useMemo(() => {
+    if (!metaMensal || metaMensal <= 0) return 0;
+    
+    const diaAtual = hoje.getDate();
+    const diasRestantesComHoje = diasNoMes - diaAtual + 1;
+    
+    // 1. META BASE DO DIA: Meta mínima pelo peso configurado
+    let metaBaseDoDia = metaMensal / diasNoMes;
+    if (dailyWeights && Object.keys(dailyWeights).length > 0) {
+      const hojePeso = dailyWeights[hojeStr] || 0;
+      if (hojePeso > 0) {
+        metaBaseDoDia = (metaMensal * hojePeso) / 100;
+      }
+    }
+    
+    // 2. CALCULAR META ESPERADA ATÉ ONTEM (soma dos pesos de dia 1 até ontem)
+    let metaEsperadaAteOntem = 0;
+    const year = hoje.getFullYear();
+    const month = hoje.getMonth() + 1;
+    
+    if (dailyWeights && Object.keys(dailyWeights).length > 0) {
+      for (let d = 1; d < diaAtual; d++) {
+        const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const peso = dailyWeights[dateStr] || 0;
+        metaEsperadaAteOntem += (metaMensal * peso) / 100;
+      }
+    } else {
+      metaEsperadaAteOntem = (metaMensal / diasNoMes) * (diaAtual - 1);
+    }
+    
+    // 3. CALCULAR DÉFICIT
+    const deficit = Math.max(0, metaEsperadaAteOntem - (vendidoMensal || 0));
+    
+    // 4. DISTRIBUIR DÉFICIT PELOS DIAS RESTANTES INCLUINDO HOJE
+    let metaAdicionalPorDia = 0;
+    if (deficit > 0 && diasRestantesComHoje > 0) {
+      metaAdicionalPorDia = deficit / diasRestantesComHoje;
+    }
+    
+    // 5. META DINÂMICA
+    let metaDinamica = metaBaseDoDia + metaAdicionalPorDia;
+    
+    // 6. PROTEÇÃO: Meta diária não pode ser maior que 50% da meta mensal
+    const maxMetaDiaria = metaMensal * 0.5;
+    if (metaDinamica > maxMetaDiaria) {
+      metaDinamica = maxMetaDiaria;
+    }
+    
+    // 7. PROTEÇÃO: Meta diária nunca menor que a meta base do dia
+    if (metaDinamica < metaBaseDoDia) {
+      metaDinamica = metaBaseDoDia;
+    }
+    
+    console.log('[CaixaLojaView] Meta Diária Dinâmica:', {
+      hojeStr,
+      diaAtual,
+      diasRestantesComHoje,
+      metaBaseDoDia: metaBaseDoDia.toFixed(2),
+      metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
+      vendidoMensal,
+      deficit: deficit.toFixed(2),
+      metaAdicionalPorDia: metaAdicionalPorDia.toFixed(2),
+      metaDinamica: metaDinamica.toFixed(2)
+    });
+    
+    return metaDinamica;
+  }, [metaMensal, vendidoMensal, dailyWeights, hojeStr, diasNoMes]);
   
   // Usar o valor calculado diretamente ou o prop como fallback
   // Se já foi calculado, usar o valor calculado (mesmo que seja 0)

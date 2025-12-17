@@ -4673,6 +4673,7 @@ export default function LojaDashboard() {
                                                 metaMensal={goals?.meta_valor || 0}
                                                 vendidoMensal={monthlyRealizado}
                                                 vendidoHoje={redistributedPerformanceCaixa.data.reduce((sum, p) => sum + (p.vendidoHoje || 0), 0) || metrics?.totalVendas || 0}
+                                                dailyWeights={goals?.daily_weights || null}
                                             />
                                         ) : (
                                             <div className="flex items-center justify-center py-8 text-muted-foreground">
