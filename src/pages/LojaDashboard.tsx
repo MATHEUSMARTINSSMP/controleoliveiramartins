@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, Fragment, lazy, Suspense, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { formatBRL, getBrazilDateString, BRAZIL_TIMEZONE } from "@/lib/utils";
+import { formatBRL, getBrazilDateString, getBrazilNow, BRAZIL_TIMEZONE } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -826,12 +826,15 @@ export default function LojaDashboard() {
             metaDinamica = metaBaseDoDia;
         }
 
-        console.log('[calculateDynamicDailyGoal] Cálculo:', {
+        console.log('[calculateDynamicDailyGoal] Cálculo DETALHADO:', {
+            today,
             metaMensal,
             vendidoMes,
             diaAtual,
             diasRestantes,
             diasRestantesComHoje,
+            hasDailyWeights: dailyWeights ? Object.keys(dailyWeights).length : 0,
+            hojePeso: dailyWeights ? dailyWeights[today] : 'N/A',
             metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
             deficit: deficit.toFixed(2),
             metaBaseDoDia: metaBaseDoDia.toFixed(2),
@@ -848,8 +851,8 @@ export default function LojaDashboard() {
             return;
         }
 
-        const mesAtual = format(new Date(), 'yyyyMM');
-        const hoje = new Date();
+        const hoje = getBrazilNow();
+        const mesAtual = format(hoje, 'yyyyMM');
         const startOfMonth = `${mesAtual.slice(0, 4)}-${mesAtual.slice(4, 6)}-01`;
         const today = format(hoje, 'yyyy-MM-dd');
 
