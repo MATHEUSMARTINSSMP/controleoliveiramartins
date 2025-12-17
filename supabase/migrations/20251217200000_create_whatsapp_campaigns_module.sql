@@ -373,5 +373,6 @@ $$;
 
 COMMENT ON TABLE sistemaretiradas.whatsapp_campaigns IS 'Campanhas de envio em massa de WhatsApp com IA';
 COMMENT ON TABLE sistemaretiradas.whatsapp_accounts IS 'Contas WhatsApp (principal + reservas para rotação)';
-COMMENT ON FUNCTION sistemaretiradas.calculate_campaign_risk IS 'Calcula nível de risco de banimento baseado em configurações';
-COMMENT ON FUNCTION sistemaretiradas.get_crm_customer_stats IS 'Retorna estatísticas CRM dos clientes para filtros inteligentes';
+COMMENT ON FUNCTION sistemaretiradas.calculate_campaign_risk(INTEGER, INTEGER, BOOLEAN, INTEGER) IS 'Calcula nível de risco de banimento baseado em configurações';
+COMMENT ON FUNCTION sistemaretiradas.get_next_campaign_messages(INTEGER) IS 'Busca próximas mensagens para envio';
+COMMENT ON FUNCTION sistemaretiradas.get_crm_customer_stats(UUID) IS 'Retorna estatísticas CRM dos clientes da tabela SALES unificada';
