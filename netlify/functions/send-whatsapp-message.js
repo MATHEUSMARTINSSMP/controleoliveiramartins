@@ -5,6 +5,24 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper para fetch com timeout
+const fetchWithTimeout = async (url, options, timeoutMs = 8000) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timeout);
+    return response;
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error.name === 'AbortError') {
+      throw new Error(`Timeout: requisicao excedeu ${timeoutMs}ms`);
+    }
+    throw error;
+  }
+};
+
 /**
  * Envia mensagem WhatsApp via Webhook n8n
  * 
@@ -168,17 +186,21 @@ exports.handler = async (event, context) => {
     // ============================================================================
     // LOGICA PRINCIPAL: Determinar credenciais a usar
     // ============================================================================
+    const functionStart = Date.now();
+    
     if (store_id && supabaseAvailable && supabase) {
       console.log('[WhatsApp] Buscando credenciais para store_id:', store_id);
 
       try {
         // 1. Buscar loja para obter nome, site_slug e status whatsapp_ativo
         // NOTA: NAO usamos admin_id da tabela stores (coluna nao existe)
+        const queryStart = Date.now();
         const { data: store, error: storeError } = await supabase
           .from('stores')
           .select('id, name, whatsapp_ativo, site_slug')
           .eq('id', store_id)
           .single();
+        console.log(`[WhatsApp] Query stores: ${Date.now() - queryStart}ms`);
 
         if (storeError) {
           console.warn('[WhatsApp] Erro ao buscar loja:', storeError.message);
@@ -224,6 +246,7 @@ exports.handler = async (event, context) => {
             let storeHasOwnCredentials = false;
 
             // 2. Buscar credenciais PROPRIAS da loja diretamente pelo site_slug (mais confiavel)
+            const credStart = Date.now();
             const { data: storeCreds, error: credError } = await supabase
               .from('whatsapp_credentials')
               .select('customer_id, site_slug, uazapi_status, is_global, admin_id')
@@ -231,6 +254,7 @@ exports.handler = async (event, context) => {
               .eq('status', 'active')
               .eq('is_global', false)
               .maybeSingle();
+            console.log(`[WhatsApp] Query credenciais: ${Date.now() - credStart}ms`);
 
             console.log('[WhatsApp] Busca credenciais por site_slug:', storeSlug, '| resultado:', storeCreds ? 'encontrado' : 'nao encontrado');
 
@@ -328,6 +352,8 @@ exports.handler = async (event, context) => {
       };
     }
 
+    const prepTime = Date.now() - functionStart;
+    console.log(`[WhatsApp] Tempo de preparacao: ${prepTime}ms`);
     console.log(`[WhatsApp] Enviando para: ${normalizedPhone}`);
     console.log(`[WhatsApp] Fonte das credenciais: ${credentialsSource}`);
     console.log(`[WhatsApp] siteSlug: ${siteSlug}, customerId: ${customerId}`);
@@ -356,13 +382,17 @@ exports.handler = async (event, context) => {
       headers['x-app-key'] = webhookAuth;
     }
 
-    const response = await fetch(webhookUrl, {
+    const startTime = Date.now();
+    console.log('[WhatsApp] Enviando para webhook N8N...');
+    
+    const response = await fetchWithTimeout(webhookUrl, {
       method: 'POST',
       headers: headers,
       body: JSON.stringify(payload),
-    });
+    }, 8000); // 8 segundos de timeout
 
-    console.log('[WhatsApp] Status:', response.status, response.statusText);
+    const elapsed = Date.now() - startTime;
+    console.log(`[WhatsApp] Status: ${response.status} ${response.statusText} (${elapsed}ms)`);
 
     let responseData;
     const responseText = await response.text();
