@@ -59,9 +59,9 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import heroImage from '@assets/stock_images/professional_woman_b_4e935334.jpg';
-import storeImage from '@assets/stock_images/modern_retail_store__7569e2ea.jpg';
-import teamImage from '@assets/stock_images/team_celebrating_suc_98e01156.jpg';
+const heroImage = '/images/professional_woman_b_4e935334.jpg';
+const storeImage = '/images/modern_retail_store__7569e2ea.jpg';
+const teamImage = '/images/team_celebrating_suc_98e01156.jpg';
 
 export default function Landing() {
   const navigate = useNavigate();
