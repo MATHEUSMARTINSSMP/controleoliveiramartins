@@ -30,6 +30,13 @@ import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
 import { sendWhatsAppMessage, formatFechamentoCaixaMessage, formatAberturaCaixaMessage } from '@/lib/whatsapp';
 import { LoadingButton } from '@/components/ui/loading-button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface Colaboradora {
   id: string;
@@ -92,6 +99,7 @@ export function CaixaLojaView({
   const [historicoHoje, setHistoricoHoje] = useState<CaixaOperacao[]>([]);
   const [vendidoHojeCalculado, setVendidoHojeCalculado] = useState<number | null>(null);
   const [vendidoHojeCalculadoFlag, setVendidoHojeCalculadoFlag] = useState<boolean>(false);
+  const [colaboradoraResponsavel, setColaboradoraResponsavel] = useState<string>('');
 
   const hoje = new Date();
   const hojeStr = format(hoje, 'yyyy-MM-dd');
@@ -355,6 +363,8 @@ export function CaixaLojaView({
           metaDiaria: c.metaDiaria,
         }));
 
+      const nomeResponsavel = colaboradoras.find(c => c.id === colaboradoraResponsavel)?.name;
+
       const mensagem = formatAberturaCaixaMessage({
         storeName: storeName || 'Loja',
         dataAbertura: new Date().toISOString(),
@@ -366,6 +376,7 @@ export function CaixaLojaView({
         diasRestantes: diasRestantes,
         metasColaboradoras,
         observacoes: observacoes || undefined,
+        colaboradoraResponsavel: nomeResponsavel,
       });
 
       const { data: storeData } = await supabase
@@ -407,6 +418,7 @@ export function CaixaLojaView({
       setUltimaOperacao(data as CaixaOperacao);
       setDinheiroCaixa('');
       setObservacoes('');
+      setColaboradoraResponsavel('');
       fetchCaixaStatus();
 
     } catch (err: any) {
@@ -470,6 +482,8 @@ export function CaixaLojaView({
         isOnLeave: c.isOnLeave,
       }));
 
+      const nomeResponsavel = colaboradoras.find(c => c.id === colaboradoraResponsavel)?.name;
+
       const mensagem = formatFechamentoCaixaMessage({
         storeName: storeName || 'Loja',
         dataFechamento: new Date().toISOString(),
@@ -482,6 +496,7 @@ export function CaixaLojaView({
         dinheiroCaixa: valorDinheiro,
         vendasColaboradoras,
         observacoes: observacoes || undefined,
+        colaboradoraResponsavel: nomeResponsavel,
       });
 
       const { data: storeData } = await supabase
@@ -522,6 +537,7 @@ export function CaixaLojaView({
       setCaixaAberto(false);
       setUltimaOperacao(data as CaixaOperacao);
       setObservacoes('');
+      setColaboradoraResponsavel('');
       fetchCaixaStatus();
 
     } catch (err: any) {
@@ -654,6 +670,25 @@ export function CaixaLojaView({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="colaboradora-responsavel">Colaboradora Responsável</Label>
+              <Select
+                value={colaboradoraResponsavel}
+                onValueChange={setColaboradoraResponsavel}
+              >
+                <SelectTrigger data-testid="select-colaboradora-responsavel">
+                  <SelectValue placeholder="Selecione a responsável" />
+                </SelectTrigger>
+                <SelectContent>
+                  {colaboradoras.map((colab) => (
+                    <SelectItem key={colab.id} value={colab.id}>
+                      {colab.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="dinheiro-caixa">
                 {caixaAberto ? 'Dinheiro em Caixa no Fechamento (R$)' : 'Dinheiro em Caixa (R$)'}

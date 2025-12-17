@@ -745,6 +745,7 @@ export function formatAberturaCaixaMessage(params: {
   diasRestantes: number;
   metasColaboradoras?: { nome: string; metaDiaria: number }[];
   observacoes?: string;
+  colaboradoraResponsavel?: string;
 }): string {
   const {
     storeName,
@@ -757,6 +758,7 @@ export function formatAberturaCaixaMessage(params: {
     diasRestantes,
     metasColaboradoras,
     observacoes,
+    colaboradoraResponsavel,
   } = params;
 
   const dataFormatada = new Date(dataAbertura).toLocaleDateString('pt-BR', {
@@ -778,7 +780,11 @@ export function formatAberturaCaixaMessage(params: {
 
   let message = `*ABERTURA DE CAIXA - ${dataFormatada}*\n`;
   message += `${storeName.toUpperCase()}\n`;
-  message += `Horário: ${horaFormatada}\n\n`;
+  message += `Horário: ${horaFormatada}\n`;
+  if (colaboradoraResponsavel) {
+    message += `*Responsável:* ${colaboradoraResponsavel}\n`;
+  }
+  message += `\n`;
 
   message += `*Dinheiro em Caixa:* ${formatarValor(dinheiroCaixa)}\n\n`;
 
@@ -821,6 +827,7 @@ export function formatFechamentoCaixaMessage(params: {
   dinheiroCaixa?: number;
   vendasColaboradoras?: { nome: string; vendidoHoje: number; isOnLeave: boolean }[];
   observacoes?: string;
+  colaboradoraResponsavel?: string;
 }): string {
   const {
     storeName,
@@ -834,6 +841,7 @@ export function formatFechamentoCaixaMessage(params: {
     dinheiroCaixa,
     vendasColaboradoras,
     observacoes,
+    colaboradoraResponsavel,
   } = params;
 
   const dataFormatada = new Date(dataFechamento).toLocaleDateString('pt-BR', {
@@ -856,7 +864,11 @@ export function formatFechamentoCaixaMessage(params: {
   };
 
   let message = `*FECHAMENTO - ${dataFormatada}*\n`;
-  message += `${storeName.toUpperCase()}\n\n`;
+  message += `${storeName.toUpperCase()}\n`;
+  if (colaboradoraResponsavel) {
+    message += `*Responsável:* ${colaboradoraResponsavel}\n`;
+  }
+  message += `\n`;
 
   message += `Meta Loja: ${formatarValorCurto(metaMes)}\n`;
   message += `Vendido: ${formatarValor(vendidoMes)}\n`;
