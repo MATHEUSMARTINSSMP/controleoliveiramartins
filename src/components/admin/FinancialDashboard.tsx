@@ -292,7 +292,7 @@ export const FinancialDashboard = () => {
                                             </TableCell>
                                             <TableCell>{formatCurrency(colab.limite_mensal)}</TableCell>
                                             <TableCell>
-                                                <div className="flex flex-col gap-1 min-w-[120px]">
+                                                <div className="flex flex-col gap-1 min-w-[80px] sm:min-w-[120px]">
                                                     <Progress
                                                         value={Math.min(percentual, 100)}
                                                         className={`h-2 ${percentual >= 90 ? "[&>div]:bg-destructive" :

@@ -52,7 +52,7 @@ export function ColaboradoraPerformanceCards({
     >
       {colaboradoras.map((perf) => (
         <motion.div key={perf.id} variants={item}>
-          <Card className="flex flex-col w-full max-w-[380px] h-[280px] hover:shadow-lg transition-shadow">
+          <Card className="flex flex-col w-full max-w-full sm:max-w-[380px] h-[280px] hover:shadow-lg transition-shadow">
             <CardHeader className="pb-4 p-5 sm:p-6 text-center border-b">
               <CardTitle className="text-lg font-semibold leading-snug min-h-[3.5rem] flex items-center justify-center">
                 {perf.name}

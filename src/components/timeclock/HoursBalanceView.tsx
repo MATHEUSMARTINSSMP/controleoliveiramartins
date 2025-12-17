@@ -133,7 +133,7 @@ export function HoursBalanceView({ storeId, colaboradoraId, isAdmin = false }: H
               <Button variant="outline" size="icon" onClick={goToPreviousMonth} data-testid="button-mes-anterior">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm font-medium min-w-[120px] text-center">
+              <span className="text-sm font-medium min-w-[80px] sm:min-w-[120px] text-center">
                 {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
               </span>
               <Button variant="outline" size="icon" onClick={goToNextMonth} data-testid="button-proximo-mes">

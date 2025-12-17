@@ -3961,7 +3961,7 @@ export default function LojaDashboard() {
                                                 };
 
                                                 return (
-                                                    <Card key={perf.id} className={`flex flex-col w-full max-w-[380px] ${isFolga ? 'opacity-60 border-dashed' : ''}`}>
+                                                    <Card key={perf.id} className={`flex flex-col w-full max-w-full sm:max-w-[380px] ${isFolga ? 'opacity-60 border-dashed' : ''}`}>
                                                         <CardHeader className="pb-4 p-5 sm:p-6 text-center border-b">
                                                             <div className="flex items-center justify-between gap-2">
                                                                 <CardTitle className={`text-lg font-semibold leading-snug min-h-[3.5rem] flex-1 ${isFolga ? 'line-through text-muted-foreground' : ''}`}>
@@ -4468,7 +4468,7 @@ export default function LojaDashboard() {
                                                     <Table>
                                                         <TableHeader>
                                                             <TableRow>
-                                                                <TableHead className="text-xs sm:text-sm sticky left-0 bg-background z-10 font-bold min-w-[140px]">Vendedora</TableHead>
+                                                                <TableHead className="text-xs sm:text-sm sticky left-0 bg-background z-10 font-bold min-w-[100px] sm:min-w-[140px]">Vendedora</TableHead>
                                                                 {(() => {
                                                                     const hoje = new Date();
                                                                     const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
@@ -4486,7 +4486,7 @@ export default function LojaDashboard() {
                                                                         </TableHead>
                                                                     ));
                                                                 })()}
-                                                                <TableHead className="text-xs sm:text-sm sticky right-0 bg-background z-10 font-bold text-primary min-w-[120px]">Total</TableHead>
+                                                                <TableHead className="text-xs sm:text-sm sticky right-0 bg-background z-10 font-bold text-primary min-w-[80px] sm:min-w-[120px]">Total</TableHead>
                                                             </TableRow>
                                                         </TableHeader>
                                                         <TableBody>
@@ -4506,7 +4506,7 @@ export default function LojaDashboard() {
 
                                                                     return (
                                                                         <TableRow key={data.colaboradoraId}>
-                                                                            <TableCell className="text-xs sm:text-sm font-medium sticky left-0 bg-background z-10 min-w-[140px]">
+                                                                            <TableCell className="text-xs sm:text-sm font-medium sticky left-0 bg-background z-10 min-w-[100px] sm:min-w-[140px]">
                                                                                 {data.colaboradoraName}
                                                                             </TableCell>
                                                                             {days.map(dayStr => {
@@ -4538,7 +4538,7 @@ export default function LojaDashboard() {
                                                                                     </TableCell>
                                                                                 );
                                                                             })}
-                                                                            <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-background z-10 min-w-[120px] text-right">
+                                                                            <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-background z-10 min-w-[80px] sm:min-w-[120px] text-right">
                                                                                 {formatBRL(data.totalMes)}
                                                                             </TableCell>
                                                                         </TableRow>
@@ -4546,7 +4546,7 @@ export default function LojaDashboard() {
                                                                 })}
                                                             {/* Linha de Total da Loja */}
                                                             <TableRow className="bg-primary/5 font-bold border-t-2 border-primary">
-                                                                <TableCell className="text-xs sm:text-sm font-bold sticky left-0 bg-primary/5 z-10 min-w-[140px]">
+                                                                <TableCell className="text-xs sm:text-sm font-bold sticky left-0 bg-primary/5 z-10 min-w-[100px] sm:min-w-[140px]">
                                                                     TOTAL DA LOJA
                                                                 </TableCell>
                                                                 {(() => {
@@ -4586,7 +4586,7 @@ export default function LojaDashboard() {
                                                                         </TableCell>
                                                                     ));
                                                                 })()}
-                                                                <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-primary/5 z-10 min-w-[120px] text-right">
+                                                                <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-primary/5 z-10 min-w-[80px] sm:min-w-[120px] text-right">
                                                                     {/* Usar monthlyRealizado que já inclui vendas de colaboradoras desativadas até a data de desativação */}
                                                                     {formatBRL(monthlyRealizado)}
                                                                 </TableCell>
@@ -5157,7 +5157,7 @@ export default function LojaDashboard() {
                                     <h2 className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8 text-center">Planejamento do Dia</h2>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 justify-items-center">
                                         {colaboradorasPerformance.map((perf) => (
-                                            <Card key={perf.id} className="flex flex-col w-full max-w-[380px] h-[280px]">
+                                            <Card key={perf.id} className="flex flex-col w-full max-w-full sm:max-w-[380px] h-[280px]">
                                                 <CardHeader className="pb-4 p-5 sm:p-6 text-center border-b">
                                                     <CardTitle className="text-lg font-semibold leading-snug min-h-[3.5rem]">{perf.name}</CardTitle>
                                                 </CardHeader>
@@ -5621,7 +5621,7 @@ export default function LojaDashboard() {
                                                 <Table>
                                                     <TableHeader>
                                                         <TableRow>
-                                                            <TableHead className="text-xs sm:text-sm sticky left-0 bg-background z-10 font-bold min-w-[140px]">Vendedora</TableHead>
+                                                            <TableHead className="text-xs sm:text-sm sticky left-0 bg-background z-10 font-bold min-w-[100px] sm:min-w-[140px]">Vendedora</TableHead>
                                                             {(() => {
                                                                 const hoje = new Date();
                                                                 const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
@@ -5639,7 +5639,7 @@ export default function LojaDashboard() {
                                                                     </TableHead>
                                                                 ));
                                                             })()}
-                                                            <TableHead className="text-xs sm:text-sm sticky right-0 bg-background z-10 font-bold text-primary min-w-[120px]">Total</TableHead>
+                                                            <TableHead className="text-xs sm:text-sm sticky right-0 bg-background z-10 font-bold text-primary min-w-[80px] sm:min-w-[120px]">Total</TableHead>
                                                         </TableRow>
                                                     </TableHeader>
                                                     <TableBody>
@@ -5659,7 +5659,7 @@ export default function LojaDashboard() {
 
                                                                 return (
                                                                     <TableRow key={data.colaboradoraId}>
-                                                                        <TableCell className="text-xs sm:text-sm font-medium sticky left-0 bg-background z-10 min-w-[140px]">
+                                                                        <TableCell className="text-xs sm:text-sm font-medium sticky left-0 bg-background z-10 min-w-[100px] sm:min-w-[140px]">
                                                                             {data.colaboradoraName}
                                                                         </TableCell>
                                                                         {days.map(dayStr => {
@@ -5691,7 +5691,7 @@ export default function LojaDashboard() {
                                                                                 </TableCell>
                                                                             );
                                                                         })}
-                                                                        <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-background z-10 min-w-[120px] text-right">
+                                                                        <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-background z-10 min-w-[80px] sm:min-w-[120px] text-right">
                                                                             {formatBRL(data.totalMes)}
                                                                         </TableCell>
                                                                     </TableRow>
@@ -5699,7 +5699,7 @@ export default function LojaDashboard() {
                                                             })}
                                                         {/* Linha de Total da Loja */}
                                                         <TableRow className="bg-primary/5 font-bold border-t-2 border-primary">
-                                                            <TableCell className="text-xs sm:text-sm font-bold sticky left-0 bg-primary/5 z-10 min-w-[140px]">
+                                                            <TableCell className="text-xs sm:text-sm font-bold sticky left-0 bg-primary/5 z-10 min-w-[100px] sm:min-w-[140px]">
                                                                 TOTAL DA LOJA
                                                             </TableCell>
                                                             {(() => {
@@ -5737,7 +5737,7 @@ export default function LojaDashboard() {
                                                                     </TableCell>
                                                                 ));
                                                             })()}
-                                                            <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-primary/5 z-10 min-w-[120px] text-right">
+                                                            <TableCell className="text-xs sm:text-sm font-bold text-primary sticky right-0 bg-primary/5 z-10 min-w-[80px] sm:min-w-[120px] text-right">
                                                                 R$ {monthlyRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                             </TableCell>
                                                         </TableRow>
