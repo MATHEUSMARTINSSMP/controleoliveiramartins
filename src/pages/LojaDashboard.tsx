@@ -244,6 +244,17 @@ export default function LojaDashboard() {
         bonusFrente: storeSettings?.meta_bonus_frente ?? false
     };
 
+    // Recalcular meta da loja quando storeSettings carregar/mudar
+    useEffect(() => {
+        if (storeId && storeSettings) {
+            console.log('[LojaDashboard] 🔄 storeSettings atualizado - recalculando metas...');
+            console.log('[LojaDashboard]   compensarDeficit:', storeSettings.meta_compensar_deficit);
+            console.log('[LojaDashboard]   bonusFrente:', storeSettings.meta_bonus_frente);
+            fetchGoalsWithStoreId(storeId);
+            fetchColaboradorasPerformanceWithStoreId(storeId, storeName || undefined);
+        }
+    }, [storeSettings?.meta_compensar_deficit, storeSettings?.meta_bonus_frente]);
+
     // REDISTRIBUIÇÃO DE METAS - PÓS-PROCESSAMENTO
     // Calcula redistribuição baseada na situação INDIVIDUAL de cada colaboradora
     // - Atrás: meta base + déficit individual distribuído
