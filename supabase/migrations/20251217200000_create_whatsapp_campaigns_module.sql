@@ -310,7 +310,7 @@ BEGIN
 END;
 $$;
 
--- FUNÇÃO: Estatísticas CRM para filtros
+-- FUNÇÃO: Estatísticas CRM para filtros (usa tabela SALES unificada - compatível com todos os ERPs)
 CREATE OR REPLACE FUNCTION sistemaretiradas.get_crm_customer_stats(
     p_store_id UUID
 )
@@ -332,22 +332,17 @@ SECURITY DEFINER
 AS $$
 BEGIN
     RETURN QUERY
-    WITH customer_orders AS (
+    WITH customer_sales AS (
+        -- Busca vendas da tabela SALES (unificada de todos os ERPs: Tiny, Bling, etc)
         SELECT 
-            o.cliente_id,
-            MAX(o.data_pedido::DATE) AS ultima_compra,
-            SUM(
-                CASE 
-                    WHEN o.valor_total ~ '^[0-9.,]+$' THEN 
-                        REPLACE(REPLACE(o.valor_total, '.', ''), ',', '.')::NUMERIC 
-                    ELSE 0 
-                END
-            ) AS total_compras,
+            s.cliente_id,
+            MAX(s.data_venda::DATE) AS ultima_compra,
+            SUM(COALESCE(s.valor, 0)) AS total_compras,
             COUNT(*) AS quantidade_compras
-        FROM sistemaretiradas.tiny_orders o
-        WHERE o.store_id = p_store_id
-        AND o.cliente_id IS NOT NULL
-        GROUP BY o.cliente_id
+        FROM sistemaretiradas.sales s
+        WHERE s.store_id = p_store_id
+        AND s.cliente_id IS NOT NULL
+        GROUP BY s.cliente_id
     )
     SELECT 
         c.id AS contact_id,
@@ -355,22 +350,22 @@ BEGIN
         COALESCE(c.telefone, c.celular) AS telefone,
         c.email,
         c.cpf,
-        co.ultima_compra,
-        COALESCE((CURRENT_DATE - co.ultima_compra), 9999)::INTEGER AS dias_sem_comprar,
-        COALESCE(co.total_compras, 0) AS total_compras,
-        COALESCE(co.quantidade_compras::INTEGER, 0) AS quantidade_compras,
-        CASE WHEN co.quantidade_compras > 0 
-            THEN ROUND(co.total_compras / co.quantidade_compras, 2) 
+        cs.ultima_compra,
+        COALESCE((CURRENT_DATE - cs.ultima_compra), 9999)::INTEGER AS dias_sem_comprar,
+        COALESCE(cs.total_compras, 0) AS total_compras,
+        COALESCE(cs.quantidade_compras::INTEGER, 0) AS quantidade_compras,
+        CASE WHEN cs.quantidade_compras > 0 
+            THEN ROUND(cs.total_compras / cs.quantidade_compras, 2) 
             ELSE 0 
         END AS ticket_medio,
         CASE 
-            WHEN co.total_compras >= 5000 THEN 'BLACK'
-            WHEN co.total_compras >= 2000 THEN 'PLATINUM'
-            WHEN co.total_compras >= 500 THEN 'VIP'
+            WHEN cs.total_compras >= 5000 THEN 'BLACK'
+            WHEN cs.total_compras >= 2000 THEN 'PLATINUM'
+            WHEN cs.total_compras >= 500 THEN 'VIP'
             ELSE 'REGULAR'
         END AS categoria
     FROM sistemaretiradas.crm_contacts c
-    LEFT JOIN customer_orders co ON c.id = co.cliente_id
+    LEFT JOIN customer_sales cs ON c.id = cs.cliente_id
     WHERE c.store_id = p_store_id
     AND (c.telefone IS NOT NULL OR c.celular IS NOT NULL);
 END;
