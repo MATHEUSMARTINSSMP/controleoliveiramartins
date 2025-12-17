@@ -64,6 +64,7 @@ export function WhatsAppManagement({ defaultTab = "conexoes" }: WhatsAppManageme
             <Bell className="h-3 w-3" />
             Alertas
           </TabsTrigger>
+{/* MÓDULO CAMPANHAS EM MASSA - TEMPORARIAMENTE DESABILITADO
           <TabsTrigger 
             value="campanhas" 
             className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[80px] flex items-center justify-center gap-1"
@@ -77,6 +78,7 @@ export function WhatsAppManagement({ defaultTab = "conexoes" }: WhatsAppManageme
               IA
             </Badge>
           </TabsTrigger>
+          */}
         </TabsList>
 
         <div className="mt-6">
@@ -132,6 +134,7 @@ export function WhatsAppManagement({ defaultTab = "conexoes" }: WhatsAppManageme
             </Card>
           </TabsContent>
 
+{/* MÓDULO CAMPANHAS EM MASSA - TEMPORARIAMENTE DESABILITADO
           <TabsContent value="campanhas" className="mt-0">
             <Card className="border-0 shadow-none bg-transparent">
               <CardHeader className="px-0 pt-0">
@@ -153,6 +156,7 @@ export function WhatsAppManagement({ defaultTab = "conexoes" }: WhatsAppManageme
               </CardContent>
             </Card>
           </TabsContent>
+          */}
         </div>
       </Tabs>
     </div>
