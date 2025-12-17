@@ -19,14 +19,18 @@ import { FilterStep } from "./steps/FilterStep";
 import { TemplateStep } from "./steps/TemplateStep";
 import { ScheduleStep } from "./steps/ScheduleStep";
 import { ReviewStep } from "./steps/ReviewStep";
-import { Campaign, FilterConfig, CustomerStats, TemplateVariation, ImportedContact, AudienceSource } from "./types";
+import { Campaign, FilterConfig, CustomerStats, TemplateVariation, ImportedContact, AudienceSource, PrepareWebhookResponse, PreparedContact } from "./types";
+import { toast } from "sonner";
 
 interface CampaignWizardProps {
   storeId: string;
   storeName: string;
+  siteSlug: string;
   onComplete: (campaign: Partial<Campaign>) => void;
   onCancel: () => void;
 }
+
+const N8N_PREPARE_WEBHOOK = "https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/campaign/prepare";
 
 const STEPS = [
   { id: 'filter', title: 'Seleção', icon: Users, description: 'Filtrar clientes' },
@@ -35,7 +39,7 @@ const STEPS = [
   { id: 'review', title: 'Revisão', icon: CheckCircle2, description: 'Confirmar envio' },
 ];
 
-export function CampaignWizard({ storeId, storeName, onComplete, onCancel }: CampaignWizardProps) {
+export function CampaignWizard({ storeId, storeName, siteSlug, onComplete, onCancel }: CampaignWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [campaignData, setCampaignData] = useState<Partial<Campaign>>({
     name: '',
@@ -56,6 +60,10 @@ export function CampaignWizard({ storeId, storeName, onComplete, onCancel }: Cam
   const [isGeneratingVariations, setIsGeneratingVariations] = useState(false);
   const [audienceSource, setAudienceSource] = useState<AudienceSource>('CRM');
   const [importedContacts, setImportedContacts] = useState<ImportedContact[]>([]);
+  
+  const [isPreparing, setIsPreparing] = useState(false);
+  const [preparedContacts, setPreparedContacts] = useState<PreparedContact[]>([]);
+  const [prepareResponse, setPrepareResponse] = useState<PrepareWebhookResponse | null>(null);
 
   const progress = ((currentStep + 1) / STEPS.length) * 100;
 
@@ -84,6 +92,82 @@ export function CampaignWizard({ storeId, storeName, onComplete, onCancel }: Cam
       return importedContacts.filter(c => c.selected).length;
     }
     return selectedContacts.length;
+  };
+
+  const getFiltersFromConfig = () => {
+    const filters = campaignData.filter_config?.filters || [];
+    let diasSemComprar = 0;
+    let valorMinimoCompras = 0;
+    
+    for (const filter of filters) {
+      if (filter.type === 'inactive_days') {
+        diasSemComprar = Number(filter.value) || 0;
+      }
+      if (filter.type === 'min_ticket') {
+        valorMinimoCompras = Number(filter.value) || 0;
+      }
+    }
+    
+    return { dias_sem_comprar: diasSemComprar, valor_minimo_compras: valorMinimoCompras };
+  };
+
+  const handlePrepareCampaign = async () => {
+    if (!siteSlug) {
+      toast.error("Site slug não encontrado");
+      return;
+    }
+    
+    setIsPreparing(true);
+    try {
+      const campaignId = campaignData.id || crypto.randomUUID();
+      const approvedVariations = variations.filter(v => v.approved);
+      
+      const requestBody = {
+        site_slug: siteSlug,
+        campaign_id: campaignId,
+        template_message: baseTemplate,
+        filters: getFiltersFromConfig(),
+        generate_variations: approvedVariations.length === 0,
+        variation_count: Math.max(3, approvedVariations.length),
+        limit: 5000,
+        preview_limit: 300,
+      };
+      
+      console.log('Preparando campanha:', requestBody);
+      
+      const response = await fetch(N8N_PREPARE_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+      
+      const data: PrepareWebhookResponse = await response.json();
+      console.log('Resposta do webhook:', data);
+      
+      if (data.success) {
+        setPrepareResponse(data);
+        setPreparedContacts(data.preview || []);
+        setCampaignData(prev => ({ ...prev, id: campaignId, total_recipients: data.total_contacts || 0 }));
+        
+        if (data.message_variations && data.message_variations.length > 0) {
+          setVariations(data.message_variations.map((text, i) => ({
+            id: `v${i + 1}`,
+            text,
+            approved: true,
+            created_at: new Date().toISOString(),
+          })));
+        }
+        
+        toast.success(`${data.total_contacts} contatos preparados para envio`);
+      } else {
+        toast.error(data.error || 'Erro ao preparar campanha');
+      }
+    } catch (error) {
+      console.error('Erro ao preparar campanha:', error);
+      toast.error('Erro ao conectar com o servidor');
+    } finally {
+      setIsPreparing(false);
+    }
   };
 
   const canProceed = () => {
@@ -228,6 +312,10 @@ export function CampaignWizard({ storeId, storeName, onComplete, onCancel }: Cam
             storeName={storeName}
             audienceSource={audienceSource}
             importedContacts={importedContacts.filter(c => c.selected)}
+            preparedContacts={preparedContacts}
+            isPreparing={isPreparing}
+            onPrepareCampaign={handlePrepareCampaign}
+            prepareResponse={prepareResponse}
           />
         )}
       </CardContent>

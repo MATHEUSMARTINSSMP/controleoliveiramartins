@@ -318,6 +318,7 @@ export function WhatsAppCampaigns() {
           <CampaignWizard
             storeId={selectedStoreId}
             storeName={selectedStore?.name || ''}
+            siteSlug={selectedStore?.site_slug || ''}
             onComplete={handleCreateCampaign}
             onCancel={() => setShowWizard(false)}
           />

@@ -154,6 +154,38 @@ export const FILTER_OPTIONS = [
   { type: 'not_purchased_period', label: 'NÃO compraram no período', icon: 'calendar-x', description: 'Clientes que NÃO compraram entre datas' },
 ];
 
+export interface PrepareWebhookRequest {
+  site_slug: string;
+  campaign_id: string;
+  template_message: string;
+  filters: {
+    dias_sem_comprar: number;
+    valor_minimo_compras: number;
+  };
+  generate_variations: boolean;
+  variation_count: number;
+  limit: number;
+  preview_limit: number;
+}
+
+export interface PrepareWebhookResponse {
+  success: boolean;
+  error?: string;
+  campaign_id?: string;
+  total_contacts?: number;
+  preview?: PreparedContact[];
+  message_variations?: string[];
+}
+
+export interface PreparedContact {
+  contact_name: string;
+  contact_phone: string;
+  message_variation: string;
+  variation_index: number;
+  last_purchase?: string;
+  total_spent?: number;
+}
+
 export const RISK_MATRIX = {
   interval: {
     1: { level: 'HIGH' as const, label: '1 msg/min', description: 'Risco muito alto de banimento' },

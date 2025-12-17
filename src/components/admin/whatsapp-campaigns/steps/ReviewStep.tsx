@@ -11,9 +11,11 @@ import {
   Shield,
   Sparkles
 } from "lucide-react";
-import { Campaign, CustomerStats, TemplateVariation, ImportedContact, AudienceSource } from "../types";
+import { Campaign, CustomerStats, TemplateVariation, ImportedContact, AudienceSource, PreparedContact, PrepareWebhookResponse } from "../types";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Loader2, Rocket, Eye } from "lucide-react";
 
 interface ReviewStepProps {
   campaignData: Partial<Campaign>;
@@ -23,6 +25,10 @@ interface ReviewStepProps {
   storeName: string;
   audienceSource?: AudienceSource;
   importedContacts?: ImportedContact[];
+  preparedContacts?: PreparedContact[];
+  isPreparing?: boolean;
+  onPrepareCampaign?: () => void;
+  prepareResponse?: PrepareWebhookResponse | null;
 }
 
 export function ReviewStep({ 
@@ -32,7 +38,11 @@ export function ReviewStep({
   variations,
   storeName,
   audienceSource = 'CRM',
-  importedContacts = []
+  importedContacts = [],
+  preparedContacts = [],
+  isPreparing = false,
+  onPrepareCampaign,
+  prepareResponse
 }: ReviewStepProps) {
   const approvedVariations = variations.filter(v => v.approved);
   const activeDays = campaignData.active_days || [];
@@ -226,6 +236,78 @@ export function ReviewStep({
               </div>
             </ScrollArea>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-2 border-primary">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Rocket className="h-4 w-4" />
+            Preparar Campanha
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!prepareResponse ? (
+            <div className="text-center py-4">
+              <p className="text-sm text-muted-foreground mb-4">
+                Clique para buscar os contatos e gerar as variações de mensagem.
+                Você poderá revisar antes de enviar.
+              </p>
+              <Button 
+                onClick={onPrepareCampaign}
+                disabled={isPreparing}
+                size="lg"
+                data-testid="button-prepare-campaign"
+              >
+                {isPreparing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Preparando...
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-4 w-4 mr-2" />
+                    Preparar e Visualizar
+                  </>
+                )}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <Alert className="border-green-500">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <AlertTitle>Campanha Preparada</AlertTitle>
+                <AlertDescription>
+                  {prepareResponse.total_contacts} contatos encontrados e prontos para envio.
+                </AlertDescription>
+              </Alert>
+              
+              {preparedContacts.length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Preview ({Math.min(5, preparedContacts.length)} de {prepareResponse.total_contacts}):
+                  </p>
+                  <ScrollArea className="h-[120px]">
+                    <div className="space-y-2 pr-4">
+                      {preparedContacts.slice(0, 5).map((contact, i) => (
+                        <div key={i} className="p-2 rounded border text-xs">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium">{contact.contact_name}</span>
+                            <Badge variant="outline" className="text-[10px]">
+                              V{contact.variation_index}
+                            </Badge>
+                          </div>
+                          <p className="text-muted-foreground truncate">
+                            {contact.message_variation.substring(0, 80)}...
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
