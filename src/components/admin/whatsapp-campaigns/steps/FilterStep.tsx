@@ -406,12 +406,19 @@ export function FilterStep({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="w-32">
-                  <Label className="text-xs">Valor</Label>
+                <div className="w-40">
+                  <Label className="text-xs">
+                    {newFilterType === 'inactive_days' ? 'Dias' :
+                     newFilterType === 'min_ticket' ? 'R$ mínimo' :
+                     newFilterType === 'max_ticket' ? 'R$ máximo' :
+                     newFilterType === 'min_purchases' ? 'Qtd mínima' :
+                     newFilterType === 'top_spenders' ? 'Top N' :
+                     newFilterType === 'category' ? 'Categoria' : 'Valor'}
+                  </Label>
                   {newFilterType === 'category' ? (
                     <Select value={newFilterValue} onValueChange={setNewFilterValue}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Categoria" />
+                        <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="BLACK">BLACK</SelectItem>
@@ -425,7 +432,11 @@ export function FilterStep({
                       type="number" 
                       value={newFilterValue} 
                       onChange={(e) => setNewFilterValue(e.target.value)}
-                      placeholder="Valor"
+                      placeholder={
+                        newFilterType === 'inactive_days' ? 'Ex: 30' :
+                        newFilterType === 'min_ticket' ? 'Ex: 100' :
+                        newFilterType === 'top_spenders' ? 'Ex: 100' : '0'
+                      }
                       data-testid="input-filter-value"
                     />
                   )}

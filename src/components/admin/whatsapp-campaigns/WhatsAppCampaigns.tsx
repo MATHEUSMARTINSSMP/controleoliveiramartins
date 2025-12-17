@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { 
   Plus, 
   Play, 
@@ -314,7 +314,8 @@ export function WhatsAppCampaigns() {
       </Tabs>
 
       <Dialog open={showWizard} onOpenChange={setShowWizard}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
+          <DialogTitle className="sr-only">Nova Campanha WhatsApp</DialogTitle>
           <CampaignWizard
             storeId={selectedStoreId}
             storeName={selectedStore?.name || ''}
