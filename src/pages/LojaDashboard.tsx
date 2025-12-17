@@ -238,6 +238,12 @@ export default function LojaDashboard() {
 
     const { redistributeGoalsForDate } = useGoalRedistribution({ storeId });
 
+    // Configurações de cálculo de metas (vem do storeSettings)
+    const metaCalcConfig = {
+        compensarDeficit: storeSettings?.meta_compensar_deficit ?? true,
+        bonusFrente: storeSettings?.meta_bonus_frente ?? false
+    };
+
     // REDISTRIBUIÇÃO DE METAS - PÓS-PROCESSAMENTO
     // Calcula redistribuição baseada na situação INDIVIDUAL de cada colaboradora
     // - Atrás: meta base + déficit individual distribuído
@@ -940,22 +946,25 @@ export default function LojaDashboard() {
     };
 
     // Função auxiliar para calcular meta diária dinâmica
-    // FÓRMULA CORRETA:
-    // 1. Calcular quanto DEVERIA ter vendido ATÉ HOJE (soma dos pesos acumulados)
-    // 2. Calcular DÉFICIT = metaEsperadaAteHoje - vendidoMes
-    // 3. Distribuir déficit pelos dias restantes
-    // 4. Meta Dinâmica = Meta Base do Dia + (Déficit / Dias Restantes)
+    // CONFIGURÁVEL POR LOJA:
+    // - compensarDeficit: distribui déficit quando está atrás
+    // - bonusFrente: aumenta meta quando está à frente
     const calculateDynamicDailyGoal = (
         metaMensal: number,
         vendidoMes: number,
         today: string,
         dailyWeights: Record<string, number> | null,
-        daysInMonth: number
+        daysInMonth: number,
+        config?: { compensarDeficit?: boolean; bonusFrente?: boolean }
     ): number => {
         const [year, month] = today.split('-').map(Number);
         const hoje = new Date(year, month - 1, parseInt(today.split('-')[2]));
         const diaAtual = hoje.getDate();
-        const diasRestantes = daysInMonth - diaAtual; // Dias DEPOIS de hoje
+        const diasRestantes = daysInMonth - diaAtual;
+
+        // Configurações com defaults
+        const compensarDeficit = config?.compensarDeficit ?? true;
+        const bonusFrente = config?.bonusFrente ?? false;
 
         // 1. META BASE DO DIA: Meta mínima pelo peso configurado
         let metaBaseDoDia = metaMensal / daysInMonth;
@@ -966,17 +975,15 @@ export default function LojaDashboard() {
             }
         }
 
-        // 2. CALCULAR META ESPERADA ATÉ ONTEM (soma dos pesos de dia 1 até ontem - NÃO inclui hoje)
+        // 2. CALCULAR META ESPERADA ATÉ ONTEM (soma dos pesos de dia 1 até ontem)
         let metaEsperadaAteOntem = 0;
         if (dailyWeights && Object.keys(dailyWeights).length > 0) {
-            // Com pesos configurados: somar pesos de todos os dias até ONTEM (dia 1 até dia-1)
             for (let d = 1; d < diaAtual; d++) {
                 const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                 const peso = dailyWeights[dateStr] || 0;
                 metaEsperadaAteOntem += (metaMensal * peso) / 100;
             }
         } else {
-            // Sem pesos: distribuição uniforme (dias anteriores a hoje)
             metaEsperadaAteOntem = (metaMensal / daysInMonth) * (diaAtual - 1);
         }
 
@@ -984,44 +991,62 @@ export default function LojaDashboard() {
         const diferenca = vendidoMes - metaEsperadaAteOntem;
         const diasRestantesComHoje = diasRestantes + 1;
         
-        let metaDinamica: number;
+        let metaDinamica: number = metaBaseDoDia;
 
         if (diferenca >= 0) {
             // CENÁRIO: À FRENTE DA META
-            // Meta do dia = Meta base × (1 + % à frente)
-            const percentualAFrente = metaEsperadaAteOntem > 0 
-                ? (diferenca / metaEsperadaAteOntem) 
-                : 0;
-            metaDinamica = metaBaseDoDia * (1 + percentualAFrente);
-            
-            console.log('[calculateDynamicDailyGoal] À FRENTE da meta:', {
-                today,
-                metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
-                vendidoMes,
-                percentualAFrente: (percentualAFrente * 100).toFixed(1) + '%',
-                metaBaseDoDia: metaBaseDoDia.toFixed(2),
-                metaDinamica: metaDinamica.toFixed(2)
-            });
+            if (bonusFrente) {
+                const percentualAFrente = metaEsperadaAteOntem > 0 
+                    ? (diferenca / metaEsperadaAteOntem) 
+                    : 0;
+                metaDinamica = metaBaseDoDia * (1 + percentualAFrente);
+                
+                console.log('[calculateDynamicDailyGoal] À FRENTE da meta (bonus ATIVO):', {
+                    today,
+                    metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
+                    vendidoMes,
+                    percentualAFrente: (percentualAFrente * 100).toFixed(1) + '%',
+                    metaBaseDoDia: metaBaseDoDia.toFixed(2),
+                    metaDinamica: metaDinamica.toFixed(2)
+                });
+            } else {
+                metaDinamica = metaBaseDoDia;
+                console.log('[calculateDynamicDailyGoal] À FRENTE da meta (bonus desativado - usando meta base):', {
+                    today,
+                    vendidoMes,
+                    metaBaseDoDia: metaBaseDoDia.toFixed(2),
+                    metaDinamica: metaDinamica.toFixed(2)
+                });
+            }
         } else {
             // CENÁRIO: ATRÁS DA META
-            // Meta do dia = Meta base + déficit distribuído
-            const deficit = Math.abs(diferenca);
-            let metaAdicionalPorDia = 0;
-            if (deficit > 0 && diasRestantesComHoje > 0) {
-                metaAdicionalPorDia = deficit / diasRestantesComHoje;
+            if (compensarDeficit) {
+                const deficit = Math.abs(diferenca);
+                let metaAdicionalPorDia = 0;
+                if (deficit > 0 && diasRestantesComHoje > 0) {
+                    metaAdicionalPorDia = deficit / diasRestantesComHoje;
+                }
+                metaDinamica = metaBaseDoDia + metaAdicionalPorDia;
+                
+                console.log('[calculateDynamicDailyGoal] ATRÁS da meta (compensacao ATIVA):', {
+                    today,
+                    metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
+                    vendidoMes,
+                    deficit: deficit.toFixed(2),
+                    diasRestantesComHoje,
+                    metaAdicionalPorDia: metaAdicionalPorDia.toFixed(2),
+                    metaBaseDoDia: metaBaseDoDia.toFixed(2),
+                    metaDinamica: metaDinamica.toFixed(2)
+                });
+            } else {
+                metaDinamica = metaBaseDoDia;
+                console.log('[calculateDynamicDailyGoal] ATRÁS da meta (compensacao desativada - usando meta base):', {
+                    today,
+                    vendidoMes,
+                    metaBaseDoDia: metaBaseDoDia.toFixed(2),
+                    metaDinamica: metaDinamica.toFixed(2)
+                });
             }
-            metaDinamica = metaBaseDoDia + metaAdicionalPorDia;
-            
-            console.log('[calculateDynamicDailyGoal] ATRÁS da meta:', {
-                today,
-                metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
-                vendidoMes,
-                deficit: deficit.toFixed(2),
-                diasRestantesComHoje,
-                metaAdicionalPorDia: metaAdicionalPorDia.toFixed(2),
-                metaBaseDoDia: metaBaseDoDia.toFixed(2),
-                metaDinamica: metaDinamica.toFixed(2)
-            });
         }
 
         // PROTEÇÃO: Meta diária não pode ser maior que 50% da meta mensal
@@ -1179,7 +1204,8 @@ export default function LojaDashboard() {
                 totalMes,
                 today,
                 Object.keys(dailyWeights).length > 0 ? dailyWeights : null,
-                daysInMonth
+                daysInMonth,
+                metaCalcConfig
             );
 
             console.log('[LojaDashboard]   ➡️ Meta diária dinâmica:', daily.toFixed(2));
@@ -1451,7 +1477,8 @@ export default function LojaDashboard() {
                             vendasMesAteOntem,
                             day,
                             Object.keys(dailyWeights).length > 0 ? dailyWeights : null,
-                            daysInMonth
+                            daysInMonth,
+                            metaCalcConfig
                         );
                     }
 
@@ -1515,7 +1542,8 @@ export default function LojaDashboard() {
                                 vendasAteOntem,
                                 dayStr,
                                 Object.keys(dailyWeights).length > 0 ? dailyWeights : null,
-                                daysInMonth
+                                daysInMonth,
+                                metaCalcConfig
                             );
 
                             data.dailySales[dayStr] = {
@@ -1899,7 +1927,8 @@ export default function LojaDashboard() {
                         vendidoMes,
                         today,
                         Object.keys(dailyWeights).length > 0 ? dailyWeights : null,
-                        daysInMonth
+                        daysInMonth,
+                        metaCalcConfig
                     );
 
                     // Aplicar redistribuição: se há colaboradoras de folga, adicionar parte redistribuída

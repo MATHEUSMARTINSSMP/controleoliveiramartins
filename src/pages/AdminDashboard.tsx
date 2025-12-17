@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet, RefreshCw, AlertTriangle, Plus, Link2 } from "lucide-react";
+import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet, RefreshCw, AlertTriangle, Plus, Link2, Target } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,7 @@ import { CRMManagement } from "@/components/admin/CRMManagement";
 import { TimeClockManagement } from "@/components/timeclock/TimeClockManagement";
 import { DailyGoalCheckReports } from "@/components/admin/DailyGoalCheckReports";
 import { ConditionalsAdjustmentsManager } from "@/components/admin/ConditionalsAdjustmentsManager";
+import GestaoMetasTab from "@/components/admin/GestaoMetasTab";
 import { BillingManagement } from "@/components/admin/BillingManagement";
 import { BillingAccessGuard } from "@/components/BillingAccessGuard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -413,6 +414,10 @@ const AdminDashboard = () => {
                     <Brain className="h-3 w-3 mr-1" />
                     <span className="hidden sm:inline">Clientes</span>
                   </TabsTrigger>
+                  <TabsTrigger value="config-metas" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] justify-center" data-testid="tab-gestao-metas">
+                    <Target className="h-3 w-3 mr-1" />
+                    <span className="hidden sm:inline">Metas</span>
+                  </TabsTrigger>
                   <TabsTrigger value="cashback" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] justify-center">
                     <Gift className="h-3 w-3 mr-1" />
                     <span className="hidden sm:inline">Cashback</span>
@@ -438,6 +443,10 @@ const AdminDashboard = () => {
 
                 <TabsContent value="clientes" className="space-y-4">
                   <CustomerIntelligence />
+                </TabsContent>
+
+                <TabsContent value="config-metas" className="space-y-4">
+                  <GestaoMetasTab />
                 </TabsContent>
 
                 <TabsContent value="cashback" className="space-y-4">
