@@ -343,26 +343,39 @@ export default function LojaDashboard() {
             };
         });
 
-        // ========== PASSO 2: Redistribuir metas de folga ==========
+        // ========== PASSO 2: Separar colaboradoras por situação ==========
+        // Colaboradoras ATRÁS têm meta obrigatória (não pode ser reduzida)
+        // Colaboradoras À FRENTE/NEUTRO podem ser ajustadas
+        const workingBehind = colabsComMetaDinamica.filter(p => !p.isOnLeave && p.situacao === 'atras');
+        const workingAheadOrNeutral = colabsComMetaDinamica.filter(p => !p.isOnLeave && p.situacao !== 'atras');
+
+        // Soma das metas OBRIGATÓRIAS (quem está atrás - não pode reduzir)
+        const somaMetasObrigatorias = workingBehind.reduce((sum, p) => sum + p.metaDinamicaIndividual, 0);
+
+        // Soma das metas AJUSTÁVEIS (quem está à frente ou neutro)
+        const somaMetasAjustaveis = workingAheadOrNeutral.reduce((sum, p) => sum + p.metaDinamicaIndividual, 0);
+
+        // ========== PASSO 3: Redistribuir metas de folga ==========
         const totalMetaFolga = colabsComMetaDinamica
             .filter(p => p.isOnLeave)
             .reduce((sum, p) => sum + p.metaDinamicaIndividual, 0);
 
         const redistribuicaoPorColab = working.length > 0 ? totalMetaFolga / working.length : 0;
 
-        // ========== PASSO 3: Ajustar proporcionalmente para bater com meta da loja ==========
-        // Soma das metas dinâmicas das que estão trabalhando (antes da redistribuição de folga)
-        const somaMetasDinamicasWorking = colabsComMetaDinamica
-            .filter(p => !p.isOnLeave)
-            .reduce((sum, p) => sum + p.metaDinamicaIndividual, 0);
-
+        // ========== PASSO 4: Ajustar APENAS as metas ajustáveis ==========
         // Meta dinâmica da loja (dailyGoal já calculado)
         const metaDinamicaLoja = dailyGoal || 0;
 
-        // Calcular fator de ajuste para garantir soma = meta da loja
-        let fatorAjuste = 1;
-        if (somaMetasDinamicasWorking > 0 && metaDinamicaLoja > 0) {
-            fatorAjuste = metaDinamicaLoja / somaMetasDinamicasWorking;
+        // Quanto sobra para as ajustáveis depois de garantir as obrigatórias
+        const metaDisponivelParaAjustaveis = Math.max(0, metaDinamicaLoja - somaMetasObrigatorias);
+
+        // Fator de ajuste APENAS para as ajustáveis
+        let fatorAjusteAjustaveis = 1;
+        if (somaMetasAjustaveis > 0 && metaDisponivelParaAjustaveis > 0) {
+            fatorAjusteAjustaveis = metaDisponivelParaAjustaveis / somaMetasAjustaveis;
+        } else if (somaMetasAjustaveis > 0 && metaDisponivelParaAjustaveis <= 0) {
+            // Não há espaço para ajustáveis - todas vão para meta base
+            fatorAjusteAjustaveis = 0;
         }
 
         // Criar array final com metas ajustadas
@@ -377,15 +390,29 @@ export default function LojaDashboard() {
                 };
             }
 
-            // Aplicar fator de ajuste + redistribuição de folga
-            const metaAjustadaFinal = (perf.metaDinamicaIndividual * fatorAjuste) + redistribuicaoPorColab;
+            let metaFinal: number;
+
+            if (perf.situacao === 'atras') {
+                // ATRÁS: meta obrigatória, não pode ser reduzida
+                metaFinal = perf.metaDinamicaIndividual;
+            } else {
+                // À FRENTE ou NEUTRO: pode ser ajustada
+                // Se fator = 0, usar meta base como mínimo
+                metaFinal = Math.max(
+                    perf.metaBaseDoDia,
+                    perf.metaDinamicaIndividual * fatorAjusteAjustaveis
+                );
+            }
+
+            // Adicionar redistribuição de folga
+            const metaAjustadaFinal = metaFinal + redistribuicaoPorColab;
 
             return {
                 ...perf,
                 metaDiariaRedistribuida: metaAjustadaFinal,
                 redistribuicaoExtra: redistribuicaoPorColab,
                 vendidoHoje: perf.vendidoHoje || 0,
-                metaDiaria: perf.metaDinamicaIndividual * fatorAjuste
+                metaDiaria: metaFinal
             };
         });
 
@@ -397,10 +424,14 @@ export default function LojaDashboard() {
         console.log('[RedistribuicaoMetas] INDIVIDUAL - Resumo:', {
             totalColaboradoras: colaboradorasPerformance.length,
             trabalhando: working.length,
+            atras: workingBehind.length,
+            aFrenteOuNeutro: workingAheadOrNeutral.length,
             folga: onLeave.length,
-            somaMetasDinamicasWorking: somaMetasDinamicasWorking.toFixed(2),
+            somaMetasObrigatorias: somaMetasObrigatorias.toFixed(2),
+            somaMetasAjustaveis: somaMetasAjustaveis.toFixed(2),
             metaDinamicaLoja: metaDinamicaLoja.toFixed(2),
-            fatorAjuste: fatorAjuste.toFixed(4),
+            metaDisponivelParaAjustaveis: metaDisponivelParaAjustaveis.toFixed(2),
+            fatorAjusteAjustaveis: fatorAjusteAjustaveis.toFixed(4),
             redistribuicaoPorColab: redistribuicaoPorColab.toFixed(2),
             totalMetaRedistribuida: totalMetaRedist.toFixed(2),
             detalhes: enrichedData.map(p => ({
@@ -415,7 +446,7 @@ export default function LojaDashboard() {
 
         return {
             data: enrichedData,
-            totalMetaDiariaOriginal: somaMetasDinamicasWorking,
+            totalMetaDiariaOriginal: somaMetasObrigatorias + somaMetasAjustaveis,
             totalMetaDiariaRedistribuida: totalMetaRedist,
             totalTrabalhando: working.length,
             totalFolga: onLeave.length
