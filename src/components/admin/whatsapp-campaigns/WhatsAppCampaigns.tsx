@@ -34,6 +34,7 @@ import { toast } from "sonner";
 interface Store {
   id: string;
   name: string;
+  slug?: string;
   whatsapp_connected?: boolean;
 }
 
@@ -63,27 +64,25 @@ export function WhatsAppCampaigns() {
       const { data: storesData, error } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, name')
+        .select('id, name, slug')
         .eq('admin_id', profile?.id)
         .order('name');
 
       if (error) throw error;
 
-      const storeIds = (storesData || []).map(s => s.id);
-      
       const { data: credentialsData } = await supabase
         .schema('sistemaretiradas')
         .from('whatsapp_credentials')
-        .select('store_id, uazapi_status')
-        .in('store_id', storeIds);
+        .select('site_slug, uazapi_status')
+        .eq('admin_id', profile?.id);
 
       const credentialsMap = new Map(
-        (credentialsData || []).map(c => [c.store_id, c.uazapi_status])
+        (credentialsData || []).map(c => [c.site_slug, c.uazapi_status])
       );
 
       const storesWithWhatsApp: Store[] = (storesData || []).map(store => ({
         ...store,
-        whatsapp_connected: credentialsMap.get(store.id) === 'connected',
+        whatsapp_connected: credentialsMap.get(store.slug) === 'connected',
       }));
 
       setStores(storesWithWhatsApp);
