@@ -8,7 +8,7 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "webhook-1",
+      "id": "a1",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -16,9 +16,9 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || $input.first().json;\n\nif (!body.action) {\n  return [{ json: { success: false, error: 'action é obrigatório' } }];\n}\n\nreturn [{\n  json: {\n    action: body.action,\n    store_id: body.store_id,\n    campaign_id: body.campaign_id,\n    data: body.data || {},\n    session_id: body.session_id || `session_${Date.now()}`\n  }\n}];"
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\nif (!body.action) {\n  return [{ json: { success: false, error: 'action é obrigatório' } }];\n}\nreturn [{\n  json: {\n    action: body.action,\n    store_id: body.store_id,\n    campaign_id: body.campaign_id,\n    data: body.data || {},\n    session_id: body.session_id || `session_${Date.now()}`\n  }\n}];"
       },
-      "id": "parse-1",
+      "id": "a2",
       "name": "Parse Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -26,529 +26,439 @@
     },
     {
       "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.action }}",
         "rules": {
-          "values": [
-            { "conditions": { "options": { "version": 2 }, "combinator": "and", "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "generate_variations", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "generate_variations" },
-            { "conditions": { "options": { "version": 2 }, "combinator": "and", "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "send_message", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "send_message" },
-            { "conditions": { "options": { "version": 2 }, "combinator": "and", "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "get_crm_stats", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "get_crm_stats" },
-            { "conditions": { "options": { "version": 2 }, "combinator": "and", "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "get_contacts_by_filter", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "get_contacts_by_filter" },
-            { "conditions": { "options": { "version": 2 }, "combinator": "and", "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "process_queue", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "process_queue" },
-            { "conditions": { "options": { "version": 2 }, "combinator": "and", "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "update_campaign_status", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "update_campaign_status" },
-            { "conditions": { "options": { "version": 2 }, "combinator": "and", "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "ai_chat", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "ai_chat" },
-            { "conditions": { "options": { "version": 2 }, "combinator": "and", "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "analyze_crm", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "analyze_crm" }
+          "rules": [
+            {"value2": "generate_variations"},
+            {"value2": "send_message"},
+            {"value2": "get_crm_stats"},
+            {"value2": "get_contacts_by_filter"},
+            {"value2": "process_queue"},
+            {"value2": "update_campaign_status"},
+            {"value2": "ai_chat"},
+            {"value2": "analyze_crm"}
           ]
-        },
-        "options": {}
+        }
       },
-      "id": "switch-1",
-      "name": "Action Router",
+      "id": "a3",
+      "name": "Router",
       "type": "n8n-nodes-base.switch",
-      "typeVersion": 3,
+      "typeVersion": 1,
       "position": [600, 500]
     },
     {
       "parameters": {
         "operation": "executeQuery",
         "query": "SELECT * FROM sistemaretiradas.get_crm_customer_stats($1::uuid)",
-        "options": {
-          "queryParams": "={{ $json.store_id }}"
-        }
+        "options": {}
       },
-      "id": "pg-crm-stats",
-      "name": "PG Get CRM Stats",
+      "id": "b1",
+      "name": "PG CRM Stats",
       "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [850, 200],
+      "typeVersion": 2.4,
+      "position": [850, 100],
       "credentials": {
         "postgres": {
-          "id": "postgres-cred",
-          "name": "Supabase PostgreSQL"
+          "id": "1",
+          "name": "Supabase DB"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const customers = $input.all().map(i => i.json);\n\nconst totalCustomers = customers.length;\nconst inactive30 = customers.filter(c => c.dias_sem_comprar >= 30).length;\nconst inactive60 = customers.filter(c => c.dias_sem_comprar >= 60).length;\nconst inactive90 = customers.filter(c => c.dias_sem_comprar >= 90).length;\nconst totalRevenue = customers.reduce((sum, c) => sum + (parseFloat(c.total_compras) || 0), 0);\nconst totalPurchases = customers.reduce((sum, c) => sum + (c.quantidade_compras || 0), 0);\nconst avgTicket = totalPurchases > 0 ? totalRevenue / totalPurchases : 0;\n\nconst categories = {\n  BLACK: customers.filter(c => c.categoria === 'BLACK').length,\n  PLATINUM: customers.filter(c => c.categoria === 'PLATINUM').length,\n  VIP: customers.filter(c => c.categoria === 'VIP').length,\n  REGULAR: customers.filter(c => c.categoria === 'REGULAR').length\n};\n\nreturn [{\n  json: {\n    success: true,\n    summary: {\n      total_customers: totalCustomers,\n      inactive_30_days: inactive30,\n      inactive_60_days: inactive60,\n      inactive_90_days: inactive90,\n      total_revenue: Math.round(totalRevenue * 100) / 100,\n      avg_ticket: Math.round(avgTicket * 100) / 100,\n      categories: categories\n    },\n    customers: customers.slice(0, 50)\n  }\n}];"
+        "jsCode": "const customers = $input.all().map(i => i.json);\nconst total = customers.length;\nconst inactive30 = customers.filter(c => c.dias_sem_comprar >= 30).length;\nconst inactive60 = customers.filter(c => c.dias_sem_comprar >= 60).length;\nconst inactive90 = customers.filter(c => c.dias_sem_comprar >= 90).length;\nconst totalRevenue = customers.reduce((s, c) => s + (parseFloat(c.total_compras) || 0), 0);\nconst totalPurchases = customers.reduce((s, c) => s + (c.quantidade_compras || 0), 0);\nconst avgTicket = totalPurchases > 0 ? totalRevenue / totalPurchases : 0;\nconst categories = {\n  BLACK: customers.filter(c => c.categoria === 'BLACK').length,\n  PLATINUM: customers.filter(c => c.categoria === 'PLATINUM').length,\n  VIP: customers.filter(c => c.categoria === 'VIP').length,\n  REGULAR: customers.filter(c => c.categoria === 'REGULAR').length\n};\nreturn [{json: {success: true, summary: {total_customers: total, inactive_30_days: inactive30, inactive_60_days: inactive60, inactive_90_days: inactive90, total_revenue: Math.round(totalRevenue * 100) / 100, avg_ticket: Math.round(avgTicket * 100) / 100, categories}, customers: customers.slice(0, 50)}}];"
       },
-      "id": "process-crm-stats",
-      "name": "Process CRM Stats",
+      "id": "b2",
+      "name": "Process CRM",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1050, 200]
+      "position": [1100, 100]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT * FROM sistemaretiradas.get_crm_customer_stats($1::uuid) WHERE dias_sem_comprar >= COALESCE($2::int, 0) AND (COALESCE($3::text, '') = '' OR categoria = $3::text)",
-        "options": {
-          "queryParams": "={{ [$json.store_id, $json.data?.filters?.inactive_days || 0, $json.data?.filters?.category || ''].join(',') }}"
-        }
+        "query": "SELECT * FROM sistemaretiradas.get_crm_customer_stats($1::uuid)",
+        "options": {}
       },
-      "id": "pg-contacts-filter",
-      "name": "PG Get Contacts Filtered",
+      "id": "c1",
+      "name": "PG Contacts",
       "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [850, 350],
+      "typeVersion": 2.4,
+      "position": [850, 250],
       "credentials": {
         "postgres": {
-          "id": "postgres-cred",
-          "name": "Supabase PostgreSQL"
+          "id": "1",
+          "name": "Supabase DB"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const contacts = $input.all().map(i => i.json);\nconst filters = $('Parse Request').first().json.data?.filters || {};\n\nlet result = contacts.filter(c => c.telefone && c.telefone.length >= 10);\n\nif (filters.min_ticket) {\n  result = result.filter(c => c.ticket_medio >= filters.min_ticket);\n}\nif (filters.max_ticket) {\n  result = result.filter(c => c.ticket_medio <= filters.max_ticket);\n}\nif (filters.min_purchases) {\n  result = result.filter(c => c.quantidade_compras >= filters.min_purchases);\n}\nif (filters.top_spenders) {\n  result = result.sort((a, b) => b.total_compras - a.total_compras).slice(0, filters.top_spenders);\n}\n\nreturn [{\n  json: {\n    success: true,\n    total_found: result.length,\n    contacts: result,\n    filters_applied: filters\n  }\n}];"
+        "jsCode": "const contacts = $input.all().map(i => i.json);\nconst request = $('Parse Request').first().json;\nconst filters = request.data?.filters || {};\nlet result = contacts.filter(c => c.telefone && c.telefone.length >= 10);\nif (filters.inactive_days) result = result.filter(c => c.dias_sem_comprar >= filters.inactive_days);\nif (filters.category) result = result.filter(c => c.categoria === filters.category);\nif (filters.min_ticket) result = result.filter(c => c.ticket_medio >= filters.min_ticket);\nif (filters.max_ticket) result = result.filter(c => c.ticket_medio <= filters.max_ticket);\nif (filters.min_purchases) result = result.filter(c => c.quantidade_compras >= filters.min_purchases);\nif (filters.top_spenders) result = result.sort((a, b) => b.total_compras - a.total_compras).slice(0, filters.top_spenders);\nreturn [{json: {success: true, total_found: result.length, contacts: result, filters_applied: filters}}];"
       },
-      "id": "apply-filters",
-      "name": "Apply Advanced Filters",
+      "id": "c2",
+      "name": "Apply Filters",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1050, 350]
+      "position": [1100, 250]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT * FROM sistemaretiradas.get_next_campaign_messages($1::int)",
-        "options": {
-          "queryParams": "={{ $json.data?.limit || 10 }}"
-        }
+        "query": "SELECT * FROM sistemaretiradas.get_next_campaign_messages(10)",
+        "options": {}
       },
-      "id": "pg-queue",
-      "name": "PG Get Queue",
+      "id": "d1",
+      "name": "PG Queue",
       "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [850, 500],
+      "typeVersion": 2.4,
+      "position": [850, 400],
       "credentials": {
         "postgres": {
-          "id": "postgres-cred",
-          "name": "Supabase PostgreSQL"
+          "id": "1",
+          "name": "Supabase DB"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const messages = $input.all().map(i => i.json);\n\nreturn [{\n  json: {\n    success: true,\n    messages_to_process: messages.length,\n    messages: messages,\n    processed_at: new Date().toISOString()\n  }\n}];"
+        "jsCode": "const messages = $input.all().map(i => i.json);\nreturn [{json: {success: true, messages_to_process: messages.length, messages, processed_at: new Date().toISOString()}}];"
       },
-      "id": "process-queue",
+      "id": "d2",
       "name": "Process Queue",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1050, 500]
+      "position": [1100, 400]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE sistemaretiradas.whatsapp_campaigns SET status = $2, updated_at = NOW(), started_at = CASE WHEN $2 = 'RUNNING' THEN NOW() ELSE started_at END, completed_at = CASE WHEN $2 IN ('COMPLETED', 'CANCELLED', 'FAILED') THEN NOW() ELSE completed_at END WHERE id = $1::uuid RETURNING *",
-        "options": {
-          "queryParams": "={{ [$json.campaign_id, $json.data?.new_status].join(',') }}"
-        }
+        "query": "UPDATE sistemaretiradas.whatsapp_campaigns SET status = $2, updated_at = NOW() WHERE id = $1::uuid RETURNING *",
+        "options": {}
       },
-      "id": "pg-update-status",
+      "id": "e1",
       "name": "PG Update Status",
       "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [850, 650],
+      "typeVersion": 2.4,
+      "position": [850, 550],
       "credentials": {
         "postgres": {
-          "id": "postgres-cred",
-          "name": "Supabase PostgreSQL"
+          "id": "1",
+          "name": "Supabase DB"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const updated = $input.first()?.json || {};\n\nreturn [{\n  json: {\n    success: true,\n    campaign_id: updated.id,\n    new_status: updated.status,\n    updated_at: updated.updated_at\n  }\n}];"
+        "jsCode": "const updated = $input.first()?.json || {};\nreturn [{json: {success: true, campaign_id: updated.id, new_status: updated.status, updated_at: updated.updated_at}}];"
       },
-      "id": "process-status",
+      "id": "e2",
       "name": "Process Status",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1050, 650]
+      "position": [1100, 550]
     },
     {
       "parameters": {
-        "jsCode": "const data = $input.first().json.data;\nconst phone = data.phone || '';\nconst message = data.message || '';\n\nlet formattedPhone = phone.replace(/\\D/g, '');\nif (!formattedPhone.startsWith('55')) {\n  formattedPhone = '55' + formattedPhone;\n}\n\nif (formattedPhone.length < 12 || formattedPhone.length > 13) {\n  return [{ json: { success: false, error: `Telefone inválido: ${phone}` } }];\n}\n\nreturn [{\n  json: {\n    formatted_phone: formattedPhone,\n    message: message,\n    instance_id: data.instance_id\n  }\n}];"
+        "jsCode": "const data = $input.first().json.data;\nconst phone = (data.phone || '').replace(/\\D/g, '');\nlet formatted = phone.startsWith('55') ? phone : '55' + phone;\nif (formatted.length < 12 || formatted.length > 13) {\n  return [{json: {success: false, error: 'Telefone inválido'}}];\n}\nreturn [{json: {formatted_phone: formatted, message: data.message, instance_id: data.instance_id}}];"
       },
-      "id": "prep-send",
+      "id": "f1",
       "name": "Prep Send",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [850, 800]
+      "position": [850, 700]
     },
     {
       "parameters": {
+        "method": "POST",
         "url": "=https://app.uazapi.com/api/{{ $json.instance_id }}/messages/text",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\"phone\": \"{{ $json.formatted_phone }}\", \"message\": \"{{ $json.message }}\"}",
-        "options": {}
+        "jsonBody": "={\"phone\": \"{{ $json.formatted_phone }}\", \"message\": \"{{ $json.message }}\"}"
       },
-      "id": "uazapi-send",
+      "id": "f2",
       "name": "Send WhatsApp",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [1050, 800],
+      "typeVersion": 4.2,
+      "position": [1100, 700],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "uazapi-auth",
-          "name": "uazapi Token"
+          "id": "2",
+          "name": "uazapi"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\n\nreturn [{\n  json: {\n    success: !response.error,\n    message_id: response.id || null,\n    sent_at: new Date().toISOString(),\n    error: response.error || null\n  }\n}];"
+        "jsCode": "const r = $input.first().json;\nreturn [{json: {success: !r.error, message_id: r.id || null, sent_at: new Date().toISOString(), error: r.error || null}}];"
       },
-      "id": "process-send",
+      "id": "f3",
       "name": "Process Send",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1250, 800]
-    },
-    {
-      "parameters": {
-        "agent": "conversationalAgent",
-        "promptType": "define",
-        "text": "={{ $json.data.user_message }}",
-        "options": {
-          "systemMessage": "Você é um assistente especialista em marketing de varejo brasileiro e campanhas WhatsApp.\n\nVocê ajuda a:\n1. Criar estratégias de campanhas de reativação\n2. Sugerir filtros CRM inteligentes\n3. Escrever mensagens persuasivas\n4. Analisar dados de clientes\n5. Otimizar horários de envio\n\nSempre considere:\n- Legislação brasileira (LGPD)\n- Boas práticas de WhatsApp Business\n- Evitar spam e banimentos\n- Personalização é chave\n\nQuando sugerir filtros, use o formato JSON:\n{\"filters\": [{\"type\": \"inactive_days\", \"value\": 60}]}\n\nQuando criar mensagens, use variáveis:\n{primeiro_nome}, {ultima_compra}, {dias_sem_comprar}, {total_gasto}, {categoria}, {loja}"
-        }
-      },
-      "id": "ai-agent",
-      "name": "AI Agent",
-      "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 1.7,
-      "position": [850, 950],
-      "credentials": {}
-    },
-    {
-      "parameters": {
-        "modelName": "models/gemini-1.5-pro-latest",
-        "options": {
-          "temperature": 0.7
-        }
-      },
-      "id": "gemini-model",
-      "name": "Gemini 1.5 Pro",
-      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
-      "typeVersion": 1,
-      "position": [700, 1100],
-      "credentials": {
-        "googleGeminiApi": {
-          "id": "gemini-cred",
-          "name": "Google Gemini API"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "sessionIdType": "customKey",
-        "sessionKey": "={{ $('Parse Request').first().json.session_id }}"
-      },
-      "id": "memory",
-      "name": "Window Buffer Memory",
-      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
-      "typeVersion": 1.3,
-      "position": [850, 1100]
-    },
-    {
-      "parameters": {
-        "name": "get_crm_data",
-        "description": "Busca estatísticas de clientes do CRM. Retorna total de clientes, inativos, ticket médio, categorias (BLACK, PLATINUM, VIP, REGULAR).",
-        "workflowId": "={{ $workflow.id }}",
-        "responsePropertyName": "crm_data"
-      },
-      "id": "tool-crm",
-      "name": "Tool CRM",
-      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
-      "typeVersion": 1.2,
-      "position": [1000, 1100]
-    },
-    {
-      "parameters": {
-        "jsCode": "const response = $input.first().json;\n\nreturn [{\n  json: {\n    success: true,\n    response: response.output || response.text || response,\n    session_id: $('Parse Request').first().json.session_id\n  }\n}];"
-      },
-      "id": "process-ai",
-      "name": "Process AI Response",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1050, 950]
+      "position": [1350, 700]
     },
     {
       "parameters": {
         "operation": "executeQuery",
         "query": "SELECT * FROM sistemaretiradas.get_crm_customer_stats($1::uuid)",
-        "options": {
-          "queryParams": "={{ $json.store_id }}"
-        }
+        "options": {}
       },
-      "id": "pg-analyze",
-      "name": "PG Analyze CRM",
+      "id": "g1",
+      "name": "PG For Variations",
       "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [850, 1250],
+      "typeVersion": 2.4,
+      "position": [850, 850],
       "credentials": {
         "postgres": {
-          "id": "postgres-cred",
-          "name": "Supabase PostgreSQL"
+          "id": "1",
+          "name": "Supabase DB"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const customers = $input.all().map(i => i.json);\nconst request = $('Parse Request').first().json;\n\nconst stats = {\n  total: customers.length,\n  inactive30: customers.filter(c => c.dias_sem_comprar >= 30).length,\n  inactive60: customers.filter(c => c.dias_sem_comprar >= 60).length,\n  inactive90: customers.filter(c => c.dias_sem_comprar >= 90).length,\n  black: customers.filter(c => c.categoria === 'BLACK').length,\n  platinum: customers.filter(c => c.categoria === 'PLATINUM').length,\n  vip: customers.filter(c => c.categoria === 'VIP').length,\n  regular: customers.filter(c => c.categoria === 'REGULAR').length,\n  avgTicket: customers.reduce((s, c) => s + (c.ticket_medio || 0), 0) / (customers.length || 1),\n  totalRevenue: customers.reduce((s, c) => s + (parseFloat(c.total_compras) || 0), 0)\n};\n\nreturn [{\n  json: {\n    stats: stats,\n    objective: request.data?.campaign_objective || 'Reativar clientes inativos'\n  }\n}];"
+        "jsCode": "const customers = $input.all().map(i => i.json);\nconst request = $('Parse Request').first().json;\nconst samples = customers.slice(0, 5).map(c => ({nome: c.nome?.split(' ')[0], dias: c.dias_sem_comprar, cat: c.categoria}));\nreturn [{json: {base_template: request.data?.base_template || 'Olá {primeiro_nome}!', context: request.data?.campaign_context || 'Reativação', samples, total: customers.length}}];"
       },
-      "id": "prep-analyze",
-      "name": "Prep Analyze",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1050, 1250]
-    },
-    {
-      "parameters": {
-        "modelName": "models/gemini-1.5-flash",
-        "options": {
-          "temperature": 0.5,
-          "maxOutputTokens": 2048
-        }
-      },
-      "id": "gemini-analyze",
-      "name": "Gemini Analyze",
-      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
-      "typeVersion": 1,
-      "position": [1250, 1250],
-      "credentials": {
-        "googleGeminiApi": {
-          "id": "gemini-cred",
-          "name": "Google Gemini API"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "inputSource": "passthrough",
-        "messages": {
-          "values": [
-            {
-              "type": "system",
-              "content": "Você é um analista de dados de varejo brasileiro especializado em campanhas de reativação via WhatsApp.\n\nAnalise os dados CRM fornecidos e sugira:\n1. Os 5 melhores segmentos de clientes para campanhar\n2. Filtros específicos para cada segmento\n3. Tom de mensagem recomendado\n4. Melhor horário de envio\n5. Frequência recomendada\n\nResponda em JSON estruturado."
-            },
-            {
-              "type": "human",
-              "content": "=Dados CRM da loja:\n- Total clientes: {{ $json.stats.total }}\n- Inativos >30d: {{ $json.stats.inactive30 }}\n- Inativos >60d: {{ $json.stats.inactive60 }}\n- Inativos >90d: {{ $json.stats.inactive90 }}\n- Clientes BLACK: {{ $json.stats.black }}\n- Clientes PLATINUM: {{ $json.stats.platinum }}\n- Clientes VIP: {{ $json.stats.vip }}\n- Clientes REGULAR: {{ $json.stats.regular }}\n- Ticket médio: R$ {{ $json.stats.avgTicket.toFixed(2) }}\n- Faturamento total: R$ {{ $json.stats.totalRevenue.toFixed(2) }}\n\nObjetivo: {{ $json.objective }}\n\nSugira os melhores segmentos e estratégias."
-            }
-          ]
-        }
-      },
-      "id": "gemini-chat",
-      "name": "Gemini Chat Analyze",
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.4,
-      "position": [1400, 1250]
-    },
-    {
-      "parameters": {
-        "jsCode": "const response = $input.first().json;\n\nlet analysis = {};\ntry {\n  const text = response.text || response.content || JSON.stringify(response);\n  const jsonMatch = text.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    analysis = JSON.parse(jsonMatch[0]);\n  } else {\n    analysis = { raw_response: text };\n  }\n} catch (e) {\n  analysis = { raw_response: response.text || response, parse_error: e.message };\n}\n\nreturn [{\n  json: {\n    success: true,\n    analysis: analysis,\n    analyzed_at: new Date().toISOString()\n  }\n}];"
-      },
-      "id": "parse-analysis",
-      "name": "Parse Analysis",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1550, 1250]
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT * FROM sistemaretiradas.get_crm_customer_stats($1::uuid)",
-        "options": {
-          "queryParams": "={{ $json.store_id }}"
-        }
-      },
-      "id": "pg-variations-context",
-      "name": "PG Get Context",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [850, 1400],
-      "credentials": {
-        "postgres": {
-          "id": "postgres-cred",
-          "name": "Supabase PostgreSQL"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const customers = $input.all().map(i => i.json);\nconst request = $('Parse Request').first().json;\n\nconst sampleCustomers = customers.slice(0, 5).map(c => ({\n  nome: c.nome?.split(' ')[0] || 'Cliente',\n  dias_sem_comprar: c.dias_sem_comprar,\n  categoria: c.categoria,\n  ticket_medio: c.ticket_medio\n}));\n\nreturn [{\n  json: {\n    base_template: request.data?.base_template || 'Olá {primeiro_nome}! Sentimos sua falta na {loja}.',\n    campaign_context: request.data?.campaign_context || 'Reativação de clientes',\n    sample_customers: sampleCustomers,\n    total_customers: customers.length\n  }\n}];"
-      },
-      "id": "prep-variations",
+      "id": "g2",
       "name": "Prep Variations",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1050, 1400]
+      "position": [1100, 850]
     },
     {
       "parameters": {
-        "modelName": "models/gemini-1.5-flash",
-        "options": {
-          "temperature": 0.8,
-          "maxOutputTokens": 2048
-        }
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"contents\":[{\"parts\":[{\"text\":\"Você é especialista em marketing varejo brasileiro. Crie 3 variações de mensagens WhatsApp.\\n\\nREGRAS:\\n1. Tom amigável\\n2. Variáveis: {primeiro_nome}, {ultima_compra}, {dias_sem_comprar}, {categoria}, {loja}\\n3. Max 280 caracteres\\n4. Max 2 emojis\\n5. Call-to-action sutil\\n\\nTemplate: {{ $json.base_template }}\\nContexto: {{ $json.context }}\\nTotal destinatários: {{ $json.total }}\\n\\nResponda em JSON:\\n{\\\"variations\\\":[{\\\"id\\\":\\\"v1\\\",\\\"text\\\":\\\"msg\\\"}]}\"}]}],\"generationConfig\":{\"temperature\":0.8,\"maxOutputTokens\":1500}}"
       },
-      "id": "gemini-variations",
+      "id": "g3",
       "name": "Gemini Variations",
-      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
-      "typeVersion": 1,
-      "position": [1250, 1400],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1350, 850],
       "credentials": {
-        "googleGeminiApi": {
-          "id": "gemini-cred",
-          "name": "Google Gemini API"
+        "httpQueryAuth": {
+          "id": "3",
+          "name": "Gemini API Key"
         }
       }
     },
     {
       "parameters": {
-        "inputSource": "passthrough",
-        "messages": {
-          "values": [
-            {
-              "type": "system",
-              "content": "Você é um especialista em marketing de varejo brasileiro. Crie 3 variações naturais de mensagens WhatsApp.\n\nREGRAS OBRIGATÓRIAS:\n1. Tom amigável mas profissional\n2. Variáveis disponíveis: {primeiro_nome}, {ultima_compra}, {dias_sem_comprar}, {total_gasto}, {categoria}, {loja}\n3. Máximo 280 caracteres por mensagem\n4. Use no máximo 2 emojis por mensagem\n5. Nunca use linguagem agressiva ou apelativa\n6. Inclua call-to-action sutil\n7. Adapte ao perfil do cliente (VIP recebe tratamento especial)\n\nResponda APENAS em JSON válido:\n{\"variations\": [{\"id\": \"v1\", \"text\": \"mensagem 1\", \"target_profile\": \"perfil ideal\"}, ...]}"
-            },
-            {
-              "type": "human",
-              "content": "=Template base: {{ $json.base_template }}\n\nContexto da campanha: {{ $json.campaign_context }}\n\nExemplos de clientes que receberão:\n{{ JSON.stringify($json.sample_customers) }}\n\nTotal de destinatários: {{ $json.total_customers }}\n\nGere 3 variações criativas e personalizadas."
-            }
-          ]
-        }
+        "jsCode": "const r = $input.first().json;\nlet variations = [];\ntry {\n  const text = r.candidates?.[0]?.content?.parts?.[0]?.text || '';\n  const match = text.match(/\\{[\\s\\S]*\\}/);\n  if (match) variations = JSON.parse(match[0]).variations || [];\n} catch (e) {\n  variations = [{id: 'v1', text: 'Erro ao gerar', error: e.message}];\n}\nvariations = variations.map((v, i) => ({id: v.id || `v${i+1}`, text: v.text, approved: false, created_at: new Date().toISOString()}));\nreturn [{json: {success: true, variations, count: variations.length}}];"
       },
-      "id": "gemini-chat-variations",
-      "name": "Gemini Chat Variations",
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.4,
-      "position": [1400, 1400]
-    },
-    {
-      "parameters": {
-        "jsCode": "const response = $input.first().json;\n\nlet variations = [];\ntry {\n  const text = response.text || response.content || JSON.stringify(response);\n  const jsonMatch = text.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    const parsed = JSON.parse(jsonMatch[0]);\n    variations = parsed.variations || [];\n  }\n} catch (e) {\n  variations = [{ id: 'v1', text: response.text?.substring(0, 300) || 'Erro ao gerar', error: e.message }];\n}\n\nvariations = variations.map((v, i) => ({\n  id: v.id || `v${i + 1}`,\n  text: v.text || v,\n  target_profile: v.target_profile || 'Geral',\n  approved: false,\n  created_at: new Date().toISOString()\n}));\n\nreturn [{\n  json: {\n    success: true,\n    variations: variations,\n    count: variations.length,\n    generated_at: new Date().toISOString()\n  }\n}];"
-      },
-      "id": "parse-variations",
+      "id": "g4",
       "name": "Parse Variations",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1550, 1400]
+      "position": [1600, 850]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM sistemaretiradas.get_crm_customer_stats($1::uuid)",
+        "options": {}
+      },
+      "id": "h1",
+      "name": "PG For Analysis",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [850, 1000],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Supabase DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const customers = $input.all().map(i => i.json);\nconst request = $('Parse Request').first().json;\nconst stats = {\n  total: customers.length,\n  inactive30: customers.filter(c => c.dias_sem_comprar >= 30).length,\n  inactive60: customers.filter(c => c.dias_sem_comprar >= 60).length,\n  inactive90: customers.filter(c => c.dias_sem_comprar >= 90).length,\n  black: customers.filter(c => c.categoria === 'BLACK').length,\n  platinum: customers.filter(c => c.categoria === 'PLATINUM').length,\n  vip: customers.filter(c => c.categoria === 'VIP').length,\n  regular: customers.filter(c => c.categoria === 'REGULAR').length,\n  avgTicket: Math.round(customers.reduce((s, c) => s + (c.ticket_medio || 0), 0) / (customers.length || 1)),\n  totalRevenue: Math.round(customers.reduce((s, c) => s + (parseFloat(c.total_compras) || 0), 0))\n};\nreturn [{json: {stats, objective: request.data?.campaign_objective || 'Reativar clientes'}}];"
+      },
+      "id": "h2",
+      "name": "Prep Analysis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 1000]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"contents\":[{\"parts\":[{\"text\":\"Analise estes dados CRM e sugira 5 segmentos para campanha WhatsApp:\\n\\nTotal: {{ $json.stats.total }}\\nInativos >30d: {{ $json.stats.inactive30 }}\\nInativos >60d: {{ $json.stats.inactive60 }}\\nInativos >90d: {{ $json.stats.inactive90 }}\\nBLACK: {{ $json.stats.black }}\\nPLATINUM: {{ $json.stats.platinum }}\\nVIP: {{ $json.stats.vip }}\\nREGULAR: {{ $json.stats.regular }}\\nTicket médio: R$ {{ $json.stats.avgTicket }}\\nFaturamento: R$ {{ $json.stats.totalRevenue }}\\n\\nObjetivo: {{ $json.objective }}\\n\\nResponda em JSON:\\n{\\\"segments\\\":[{\\\"name\\\":\\\"\\\",\\\"filter\\\":{},\\\"priority\\\":\\\"\\\",\\\"message_tone\\\":\\\"\\\"}],\\\"recommendation\\\":\\\"\\\"}\"}]}],\"generationConfig\":{\"temperature\":0.5,\"maxOutputTokens\":2000}}"
+      },
+      "id": "h3",
+      "name": "Gemini Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1350, 1000],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "3",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nlet analysis = {};\ntry {\n  const text = r.candidates?.[0]?.content?.parts?.[0]?.text || '';\n  const match = text.match(/\\{[\\s\\S]*\\}/);\n  if (match) analysis = JSON.parse(match[0]);\n  else analysis = {raw: text};\n} catch (e) {\n  analysis = {error: e.message, raw: r.candidates?.[0]?.content?.parts?.[0]?.text};\n}\nreturn [{json: {success: true, analysis, analyzed_at: new Date().toISOString()}}];"
+      },
+      "id": "h4",
+      "name": "Parse Analysis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1600, 1000]
+    },
+    {
+      "parameters": {
+        "jsCode": "const request = $input.first().json;\nconst userMessage = request.data?.user_message || '';\nconst context = request.data?.context || {};\nreturn [{json: {user_message: userMessage, context, session_id: request.session_id}}];"
+      },
+      "id": "i1",
+      "name": "Prep AI Chat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 1150]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"{{ $json.user_message }}\"}]}],\"systemInstruction\":{\"parts\":[{\"text\":\"Você é um assistente especialista em marketing varejo brasileiro e campanhas WhatsApp.\\n\\nVocê ajuda a:\\n1. Criar estratégias de campanhas de reativação\\n2. Sugerir filtros CRM inteligentes\\n3. Escrever mensagens persuasivas\\n4. Analisar dados de clientes\\n5. Otimizar horários de envio\\n\\nConsidere:\\n- LGPD\\n- Boas práticas WhatsApp Business\\n- Evitar spam e banimentos\\n- Personalização\\n\\nPara filtros use JSON: {\\\"filters\\\": [{\\\"type\\\": \\\"inactive_days\\\", \\\"value\\\": 60}]}\\nPara mensagens use variáveis: {primeiro_nome}, {ultima_compra}, {dias_sem_comprar}, {total_gasto}, {categoria}, {loja}\"}]},\"generationConfig\":{\"temperature\":0.7,\"maxOutputTokens\":2000}}"
+      },
+      "id": "i2",
+      "name": "Gemini Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 1150],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "3",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst text = r.candidates?.[0]?.content?.parts?.[0]?.text || 'Sem resposta';\nconst session = $('Prep AI Chat').first().json.session_id;\nreturn [{json: {success: true, response: text, session_id: session}}];"
+      },
+      "id": "i3",
+      "name": "Process AI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1350, 1150]
     },
     {
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify($json) }}"
       },
-      "id": "respond-1",
+      "id": "z1",
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [1750, 700]
+      "position": [1850, 600]
     }
   ],
   "connections": {
     "Webhook": {
-      "main": [[{ "node": "Parse Request", "type": "main", "index": 0 }]]
+      "main": [[{"node": "Parse Request", "type": "main", "index": 0}]]
     },
     "Parse Request": {
-      "main": [[{ "node": "Action Router", "type": "main", "index": 0 }]]
+      "main": [[{"node": "Router", "type": "main", "index": 0}]]
     },
-    "Action Router": {
+    "Router": {
       "main": [
-        [{ "node": "PG Get Context", "type": "main", "index": 0 }],
-        [{ "node": "Prep Send", "type": "main", "index": 0 }],
-        [{ "node": "PG Get CRM Stats", "type": "main", "index": 0 }],
-        [{ "node": "PG Get Contacts Filtered", "type": "main", "index": 0 }],
-        [{ "node": "PG Get Queue", "type": "main", "index": 0 }],
-        [{ "node": "PG Update Status", "type": "main", "index": 0 }],
-        [{ "node": "AI Agent", "type": "main", "index": 0 }],
-        [{ "node": "PG Analyze CRM", "type": "main", "index": 0 }]
+        [{"node": "PG For Variations", "type": "main", "index": 0}],
+        [{"node": "Prep Send", "type": "main", "index": 0}],
+        [{"node": "PG CRM Stats", "type": "main", "index": 0}],
+        [{"node": "PG Contacts", "type": "main", "index": 0}],
+        [{"node": "PG Queue", "type": "main", "index": 0}],
+        [{"node": "PG Update Status", "type": "main", "index": 0}],
+        [{"node": "Prep AI Chat", "type": "main", "index": 0}],
+        [{"node": "PG For Analysis", "type": "main", "index": 0}]
       ]
     },
-    "PG Get CRM Stats": {
-      "main": [[{ "node": "Process CRM Stats", "type": "main", "index": 0 }]]
+    "PG CRM Stats": {
+      "main": [[{"node": "Process CRM", "type": "main", "index": 0}]]
     },
-    "Process CRM Stats": {
-      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    "Process CRM": {
+      "main": [[{"node": "Respond", "type": "main", "index": 0}]]
     },
-    "PG Get Contacts Filtered": {
-      "main": [[{ "node": "Apply Advanced Filters", "type": "main", "index": 0 }]]
+    "PG Contacts": {
+      "main": [[{"node": "Apply Filters", "type": "main", "index": 0}]]
     },
-    "Apply Advanced Filters": {
-      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    "Apply Filters": {
+      "main": [[{"node": "Respond", "type": "main", "index": 0}]]
     },
-    "PG Get Queue": {
-      "main": [[{ "node": "Process Queue", "type": "main", "index": 0 }]]
+    "PG Queue": {
+      "main": [[{"node": "Process Queue", "type": "main", "index": 0}]]
     },
     "Process Queue": {
-      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+      "main": [[{"node": "Respond", "type": "main", "index": 0}]]
     },
     "PG Update Status": {
-      "main": [[{ "node": "Process Status", "type": "main", "index": 0 }]]
+      "main": [[{"node": "Process Status", "type": "main", "index": 0}]]
     },
     "Process Status": {
-      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+      "main": [[{"node": "Respond", "type": "main", "index": 0}]]
     },
     "Prep Send": {
-      "main": [[{ "node": "Send WhatsApp", "type": "main", "index": 0 }]]
+      "main": [[{"node": "Send WhatsApp", "type": "main", "index": 0}]]
     },
     "Send WhatsApp": {
-      "main": [[{ "node": "Process Send", "type": "main", "index": 0 }]]
+      "main": [[{"node": "Process Send", "type": "main", "index": 0}]]
     },
     "Process Send": {
-      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+      "main": [[{"node": "Respond", "type": "main", "index": 0}]]
     },
-    "AI Agent": {
-      "main": [[{ "node": "Process AI Response", "type": "main", "index": 0 }]]
-    },
-    "Gemini 1.5 Pro": {
-      "ai_languageModel": [[{ "node": "AI Agent", "type": "ai_languageModel", "index": 0 }]]
-    },
-    "Window Buffer Memory": {
-      "ai_memory": [[{ "node": "AI Agent", "type": "ai_memory", "index": 0 }]]
-    },
-    "Tool CRM": {
-      "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]]
-    },
-    "Process AI Response": {
-      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
-    },
-    "PG Analyze CRM": {
-      "main": [[{ "node": "Prep Analyze", "type": "main", "index": 0 }]]
-    },
-    "Prep Analyze": {
-      "main": [[{ "node": "Gemini Chat Analyze", "type": "main", "index": 0 }]]
-    },
-    "Gemini Analyze": {
-      "ai_languageModel": [[{ "node": "Gemini Chat Analyze", "type": "ai_languageModel", "index": 0 }]]
-    },
-    "Gemini Chat Analyze": {
-      "main": [[{ "node": "Parse Analysis", "type": "main", "index": 0 }]]
-    },
-    "Parse Analysis": {
-      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
-    },
-    "PG Get Context": {
-      "main": [[{ "node": "Prep Variations", "type": "main", "index": 0 }]]
+    "PG For Variations": {
+      "main": [[{"node": "Prep Variations", "type": "main", "index": 0}]]
     },
     "Prep Variations": {
-      "main": [[{ "node": "Gemini Chat Variations", "type": "main", "index": 0 }]]
+      "main": [[{"node": "Gemini Variations", "type": "main", "index": 0}]]
     },
     "Gemini Variations": {
-      "ai_languageModel": [[{ "node": "Gemini Chat Variations", "type": "ai_languageModel", "index": 0 }]]
-    },
-    "Gemini Chat Variations": {
-      "main": [[{ "node": "Parse Variations", "type": "main", "index": 0 }]]
+      "main": [[{"node": "Parse Variations", "type": "main", "index": 0}]]
     },
     "Parse Variations": {
-      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+      "main": [[{"node": "Respond", "type": "main", "index": 0}]]
+    },
+    "PG For Analysis": {
+      "main": [[{"node": "Prep Analysis", "type": "main", "index": 0}]]
+    },
+    "Prep Analysis": {
+      "main": [[{"node": "Gemini Analysis", "type": "main", "index": 0}]]
+    },
+    "Gemini Analysis": {
+      "main": [[{"node": "Parse Analysis", "type": "main", "index": 0}]]
+    },
+    "Parse Analysis": {
+      "main": [[{"node": "Respond", "type": "main", "index": 0}]]
+    },
+    "Prep AI Chat": {
+      "main": [[{"node": "Gemini Chat", "type": "main", "index": 0}]]
+    },
+    "Gemini Chat": {
+      "main": [[{"node": "Process AI", "type": "main", "index": 0}]]
+    },
+    "Process AI": {
+      "main": [[{"node": "Respond", "type": "main", "index": 0}]]
     }
   },
   "settings": {
