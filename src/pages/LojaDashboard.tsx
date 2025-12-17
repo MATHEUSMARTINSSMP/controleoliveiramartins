@@ -363,23 +363,13 @@ export default function LojaDashboard() {
 
         const redistribuicaoPorColab = working.length > 0 ? totalMetaFolga / working.length : 0;
 
-        // ========== PASSO 4: Ajustar APENAS as metas ajustáveis ==========
-        // Meta dinâmica da loja (dailyGoal já calculado)
+        // ========== PASSO 4: Usar meta dinâmica individual SEM normalização ==========
+        // CADA colaboradora tem sua meta calculada INDIVIDUALMENTE
+        // NÃO normalizamos pela meta da loja - isso reduzia injustamente as metas
         const metaDinamicaLoja = dailyGoal || 0;
+        const somaMetasIndividuais = somaMetasObrigatorias + somaMetasAjustaveis;
 
-        // Quanto sobra para as ajustáveis depois de garantir as obrigatórias
-        const metaDisponivelParaAjustaveis = Math.max(0, metaDinamicaLoja - somaMetasObrigatorias);
-
-        // Fator de ajuste APENAS para as ajustáveis
-        let fatorAjusteAjustaveis = 1;
-        if (somaMetasAjustaveis > 0 && metaDisponivelParaAjustaveis > 0) {
-            fatorAjusteAjustaveis = metaDisponivelParaAjustaveis / somaMetasAjustaveis;
-        } else if (somaMetasAjustaveis > 0 && metaDisponivelParaAjustaveis <= 0) {
-            // Não há espaço para ajustáveis - todas vão para meta base
-            fatorAjusteAjustaveis = 0;
-        }
-
-        // Criar array final com metas ajustadas
+        // Criar array final com metas - SEM fator de ajuste
         const enrichedData = colabsComMetaDinamica.map(perf => {
             if (perf.isOnLeave) {
                 return {
@@ -391,19 +381,8 @@ export default function LojaDashboard() {
                 };
             }
 
-            let metaFinal: number;
-
-            if (perf.situacao === 'atras') {
-                // ATRÁS: meta obrigatória, não pode ser reduzida
-                metaFinal = perf.metaDinamicaIndividual;
-            } else {
-                // À FRENTE ou NEUTRO: pode ser ajustada
-                // Se fator = 0, usar meta base como mínimo
-                metaFinal = Math.max(
-                    perf.metaBaseDoDia,
-                    perf.metaDinamicaIndividual * fatorAjusteAjustaveis
-                );
-            }
+            // Usar meta dinâmica individual diretamente (sem normalização)
+            const metaFinal = perf.metaDinamicaIndividual;
 
             // Adicionar redistribuição de folga
             const metaAjustadaFinal = metaFinal + redistribuicaoPorColab;
@@ -430,9 +409,8 @@ export default function LojaDashboard() {
             folga: onLeave.length,
             somaMetasObrigatorias: somaMetasObrigatorias.toFixed(2),
             somaMetasAjustaveis: somaMetasAjustaveis.toFixed(2),
+            somaMetasIndividuais: somaMetasIndividuais.toFixed(2),
             metaDinamicaLoja: metaDinamicaLoja.toFixed(2),
-            metaDisponivelParaAjustaveis: metaDisponivelParaAjustaveis.toFixed(2),
-            fatorAjusteAjustaveis: fatorAjusteAjustaveis.toFixed(4),
             redistribuicaoPorColab: redistribuicaoPorColab.toFixed(2),
             totalMetaRedistribuida: totalMetaRedist.toFixed(2),
             detalhes: enrichedData.map(p => ({
