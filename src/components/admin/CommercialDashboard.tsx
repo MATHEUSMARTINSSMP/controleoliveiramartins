@@ -115,24 +115,25 @@ export const CommercialDashboard = () => {
         try {
             const today = format(new Date(), 'yyyy-MM-dd');
             
-            // Buscar vendas de hoje por loja
-            const { data: dailyData, error } = await supabase
+            // Buscar vendas de hoje diretamente da tabela sales
+            const { data: salesData, error } = await supabase
                 .schema('sistemaretiradas')
-                .from('analytics_daily_performance')
-                .select('*')
-                .eq('data_referencia', today)
-                .order('store_name', { ascending: true });
+                .from('sales')
+                .select('store_id, valor, qtd_pecas, stores(name)')
+                .gte('data_venda', `${today}T00:00:00`)
+                .lte('data_venda', `${today}T23:59:59`);
 
             if (error) throw error;
 
             // Agregar por loja
             const storeAgg: Record<string, TodaySales> = {};
 
-            dailyData?.forEach((day: any) => {
-                if (!storeAgg[day.store_id]) {
-                    storeAgg[day.store_id] = {
-                        store_id: day.store_id,
-                        store_name: day.store_name,
+            salesData?.forEach((sale: any) => {
+                const storeName = sale.stores?.name || 'Loja Desconhecida';
+                if (!storeAgg[sale.store_id]) {
+                    storeAgg[sale.store_id] = {
+                        store_id: sale.store_id,
+                        store_name: storeName,
                         total_vendas: 0,
                         total_valor: 0,
                         total_pecas: 0,
@@ -141,9 +142,9 @@ export const CommercialDashboard = () => {
                     };
                 }
 
-                storeAgg[day.store_id].total_vendas += day.total_vendas;
-                storeAgg[day.store_id].total_valor += day.total_valor;
-                storeAgg[day.store_id].total_pecas += day.total_pecas;
+                storeAgg[sale.store_id].total_vendas += 1;
+                storeAgg[sale.store_id].total_valor += Number(sale.valor || 0);
+                storeAgg[sale.store_id].total_pecas += Number(sale.qtd_pecas || 0);
             });
 
             // Calcular KPIs finais
@@ -193,13 +194,13 @@ export const CommercialDashboard = () => {
                     start = format(startOfDay(hoje), 'yyyy-MM-dd');
             }
 
-            const { data: dailyData, error } = await supabase
+            // Buscar diretamente da tabela sales
+            const { data: salesData, error } = await supabase
                 .schema('sistemaretiradas')
-                .from('analytics_daily_performance')
-                .select('*')
-                .gte('data_referencia', start)
-                .lte('data_referencia', end)
-                .order('store_name', { ascending: true });
+                .from('sales')
+                .select('store_id, valor, qtd_pecas, stores(name)')
+                .gte('data_venda', `${start}T00:00:00`)
+                .lte('data_venda', `${end}T23:59:59`);
 
             if (error) throw error;
 
@@ -209,11 +210,12 @@ export const CommercialDashboard = () => {
             let totalVendas = 0;
             let totalPecas = 0;
 
-            dailyData?.forEach((day: any) => {
-                if (!storeAgg[day.store_id]) {
-                    storeAgg[day.store_id] = {
-                        store_id: day.store_id,
-                        store_name: day.store_name,
+            salesData?.forEach((sale: any) => {
+                const storeName = sale.stores?.name || 'Loja Desconhecida';
+                if (!storeAgg[sale.store_id]) {
+                    storeAgg[sale.store_id] = {
+                        store_id: sale.store_id,
+                        store_name: storeName,
                         total_vendas: 0,
                         total_valor: 0,
                         total_pecas: 0,
@@ -222,13 +224,16 @@ export const CommercialDashboard = () => {
                     };
                 }
 
-                storeAgg[day.store_id].total_vendas += day.total_vendas;
-                storeAgg[day.store_id].total_valor += day.total_valor;
-                storeAgg[day.store_id].total_pecas += day.total_pecas;
+                const valor = Number(sale.valor || 0);
+                const pecas = Number(sale.qtd_pecas || 0);
+                
+                storeAgg[sale.store_id].total_vendas += 1;
+                storeAgg[sale.store_id].total_valor += valor;
+                storeAgg[sale.store_id].total_pecas += pecas;
 
-                totalVendas += day.total_vendas;
-                totalValor += day.total_valor;
-                totalPecas += day.total_pecas;
+                totalVendas += 1;
+                totalValor += valor;
+                totalPecas += pecas;
             });
 
             // Calcular KPIs finais por loja
@@ -312,25 +317,26 @@ export const CommercialDashboard = () => {
             goalsData?.forEach((g: any) => goalsMap[g.store_id] = g);
             setGoals(goalsMap);
 
-            // 3. Fetch Sales Analytics (Aggregated by Store)
-            const { data: dailyData, error } = await supabase
+            // 3. Fetch Sales directly from sales table
+            const { data: salesData, error } = await supabase
                 .schema('sistemaretiradas')
-                .from('analytics_daily_performance')
-                .select('*')
-                .gte('data_referencia', start)
-                .lte('data_referencia', end)
-                .order('data_referencia', { ascending: true });
+                .from('sales')
+                .select('store_id, valor, qtd_pecas, data_venda, stores(name)')
+                .gte('data_venda', `${start}T00:00:00`)
+                .lte('data_venda', `${end}T23:59:59`)
+                .order('data_venda', { ascending: true });
 
             if (error) throw error;
 
             // Aggregate by Store
             const storeAgg: Record<string, StoreAnalytics> = {};
 
-            dailyData?.forEach((day: any) => {
-                if (!storeAgg[day.store_id]) {
-                    storeAgg[day.store_id] = {
-                        store_id: day.store_id,
-                        store_name: day.store_name,
+            salesData?.forEach((sale: any) => {
+                const storeName = sale.stores?.name || 'Loja Desconhecida';
+                if (!storeAgg[sale.store_id]) {
+                    storeAgg[sale.store_id] = {
+                        store_id: sale.store_id,
+                        store_name: storeName,
                         total_vendas: 0,
                         total_valor: 0,
                         total_pecas: 0,
@@ -340,9 +346,9 @@ export const CommercialDashboard = () => {
                     };
                 }
 
-                storeAgg[day.store_id].total_vendas += day.total_vendas;
-                storeAgg[day.store_id].total_valor += day.total_valor;
-                storeAgg[day.store_id].total_pecas += day.total_pecas;
+                storeAgg[sale.store_id].total_vendas += 1;
+                storeAgg[sale.store_id].total_valor += Number(sale.valor || 0);
+                storeAgg[sale.store_id].total_pecas += Number(sale.qtd_pecas || 0);
             });
 
             // Calculate Final KPIs
@@ -358,14 +364,20 @@ export const CommercialDashboard = () => {
             // Prepare daily trends data for charts (with total)
             // Usar data original como chave para garantir ordenação correta
             const trendsMap: Record<string, any> = {};
-            dailyData?.forEach((day: any) => {
-                const sortKey = day.data_referencia; // yyyy-MM-dd para ordenação
-                const dateKey = format(new Date(day.data_referencia), 'dd/MM');
+            salesData?.forEach((sale: any) => {
+                const storeName = sale.stores?.name || 'Loja Desconhecida';
+                const saleDate = sale.data_venda.split('T')[0]; // yyyy-MM-dd
+                const sortKey = saleDate;
+                const dateKey = format(new Date(saleDate), 'dd/MM');
                 if (!trendsMap[sortKey]) {
                     trendsMap[sortKey] = { date: dateKey, sortKey, total: 0 };
                 }
-                trendsMap[sortKey][day.store_name] = day.total_valor;
-                trendsMap[sortKey].total += day.total_valor;
+                if (!trendsMap[sortKey][storeName]) {
+                    trendsMap[sortKey][storeName] = 0;
+                }
+                const valor = Number(sale.valor || 0);
+                trendsMap[sortKey][storeName] += valor;
+                trendsMap[sortKey].total += valor;
             });
             // Ordenar por data original antes de exibir
             const sortedTrends = Object.values(trendsMap).sort((a, b) => 
@@ -380,14 +392,14 @@ export const CommercialDashboard = () => {
             
             const { data: monthlyData } = await supabase
                 .schema('sistemaretiradas')
-                .from('analytics_daily_performance')
-                .select('store_id, total_valor')
-                .gte('data_referencia', monthStart)
-                .lte('data_referencia', monthEnd);
+                .from('sales')
+                .select('store_id, valor')
+                .gte('data_venda', `${monthStart}T00:00:00`)
+                .lte('data_venda', `${monthEnd}T23:59:59`);
 
             const monthlySalesMap: Record<string, number> = {};
-            monthlyData?.forEach((day: any) => {
-                monthlySalesMap[day.store_id] = (monthlySalesMap[day.store_id] || 0) + (day.total_valor || 0);
+            monthlyData?.forEach((sale: any) => {
+                monthlySalesMap[sale.store_id] = (monthlySalesMap[sale.store_id] || 0) + Number(sale.valor || 0);
             });
             setMonthlySalesByStore(monthlySalesMap);
 
