@@ -154,14 +154,16 @@ export const useGoalCalculation = (
           superMetaDiariaPadrao = (superMetaMensal * hojePeso) / 100;
         }
 
-        // 7. Calcular déficit acumulado (considerando daily_weights)
+        // 7. Calcular déficit acumulado ATÉ ONTEM (considerando daily_weights)
+        // CORREÇÃO: Calcular meta esperada ATÉ ONTEM (dia 1 até dia-1, não inclui hoje)
         let deficit = 0;
-        let vendidoAcumulado = 0;
-        const metaEsperadaAcumulada = goal.daily_weights && Object.keys(goal.daily_weights).length > 0
+        const diasRestantesComHoje = diasRestantes + 1; // Inclui hoje na distribuição
+        
+        const metaEsperadaAteOntem = goal.daily_weights && Object.keys(goal.daily_weights).length > 0
           ? (() => {
-              // Somar metas esperadas até hoje usando daily_weights
+              // Somar metas esperadas até ONTEM usando daily_weights
               let soma = 0;
-              for (let dia = 1; dia <= diaAtual; dia++) {
+              for (let dia = 1; dia < diaAtual; dia++) {
                 const dataDia = new Date(hoje.getFullYear(), hoje.getMonth(), dia);
                 const dataStr = format(dataDia, 'yyyy-MM-dd');
                 const peso = dailyWeights[dataStr] || 0;
@@ -169,51 +171,40 @@ export const useGoalCalculation = (
               }
               return soma;
             })()
-          : metaDiariaPadrao * diaAtual; // Distribuição simples
+          : metaDiariaPadrao * (diaAtual - 1); // Distribuição simples até ontem
 
-        // Calcular vendido acumulado até ontem
-        const vendidoAteOntem = vendas
-          .filter(v => {
-            const dataVenda = new Date(v.data_venda);
-            return dataVenda < new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-          })
-          .reduce((sum, v) => sum + v.valor, 0);
+        // Calcular vendido acumulado total no mês (para comparar com metaEsperadaAteOntem)
+        const vendidoMes = vendas.reduce((sum, v) => sum + v.valor, 0);
 
-        deficit = metaEsperadaAcumulada - vendidoAteOntem;
+        deficit = Math.max(0, metaEsperadaAteOntem - vendidoMes);
 
         // 8. Calcular meta diária ajustada
+        // CORREÇÃO: Distribuir déficit incluindo HOJE nos dias restantes
         let metaDiariaAjustada = metaDiariaPadrao;
         
-        if (diasRestantes > 0) {
-          if (deficit > 0) {
-            // Se está atrasada, distribuir déficit nos dias restantes
-            metaDiariaAjustada = metaDiariaPadrao + (deficit / diasRestantes);
-          } else {
-            // Se está à frente, não reduzir a meta (mantém padrão)
-            metaDiariaAjustada = metaDiariaPadrao;
-          }
+        if (diasRestantesComHoje > 0 && deficit > 0) {
+          // Se está atrasada, distribuir déficit nos dias restantes INCLUINDO hoje
+          metaDiariaAjustada = metaDiariaPadrao + (deficit / diasRestantesComHoje);
         }
 
-        // 8.1. Calcular super meta diária ajustada
+        // 8.1. Calcular super meta diária ajustada (mesma lógica corrigida)
         let superMetaDiariaAjustada = superMetaDiariaPadrao;
-        const deficitSuperMeta = (() => {
-          const metaEsperadaSuperMeta = goal.daily_weights && Object.keys(goal.daily_weights).length > 0
-            ? (() => {
-                let soma = 0;
-                for (let dia = 1; dia <= diaAtual; dia++) {
-                  const dataDia = new Date(hoje.getFullYear(), hoje.getMonth(), dia);
-                  const dataStr = format(dataDia, 'yyyy-MM-dd');
-                  const peso = dailyWeights[dataStr] || 0;
-                  soma += (superMetaMensal * peso) / 100;
-                }
-                return soma;
-              })()
-            : superMetaDiariaPadrao * diaAtual;
-          return metaEsperadaSuperMeta - vendidoAteOntem;
-        })();
+        const metaEsperadaSuperMetaAteOntem = goal.daily_weights && Object.keys(goal.daily_weights).length > 0
+          ? (() => {
+              let soma = 0;
+              for (let dia = 1; dia < diaAtual; dia++) {
+                const dataDia = new Date(hoje.getFullYear(), hoje.getMonth(), dia);
+                const dataStr = format(dataDia, 'yyyy-MM-dd');
+                const peso = dailyWeights[dataStr] || 0;
+                soma += (superMetaMensal * peso) / 100;
+              }
+              return soma;
+            })()
+          : superMetaDiariaPadrao * (diaAtual - 1);
+        const deficitSuperMeta = Math.max(0, metaEsperadaSuperMetaAteOntem - vendidoMes);
 
-        if (diasRestantes > 0 && deficitSuperMeta > 0) {
-          superMetaDiariaAjustada = superMetaDiariaPadrao + (deficitSuperMeta / diasRestantes);
+        if (diasRestantesComHoje > 0 && deficitSuperMeta > 0) {
+          superMetaDiariaAjustada = superMetaDiariaPadrao + (deficitSuperMeta / diasRestantesComHoje);
         }
 
         // 9. Calcular progresso hoje

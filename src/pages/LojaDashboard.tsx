@@ -787,30 +787,29 @@ export default function LojaDashboard() {
             }
         }
 
-        // 2. CALCULAR META ESPERADA ATÉ HOJE (soma dos pesos de dia 1 até hoje)
-        let metaEsperadaAteHoje = 0;
+        // 2. CALCULAR META ESPERADA ATÉ ONTEM (soma dos pesos de dia 1 até ontem - NÃO inclui hoje)
+        let metaEsperadaAteOntem = 0;
         if (dailyWeights && Object.keys(dailyWeights).length > 0) {
-            // Com pesos configurados: somar pesos de todos os dias até hoje (inclusive)
-            for (let d = 1; d <= diaAtual; d++) {
+            // Com pesos configurados: somar pesos de todos os dias até ONTEM (dia 1 até dia-1)
+            for (let d = 1; d < diaAtual; d++) {
                 const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                 const peso = dailyWeights[dateStr] || 0;
-                metaEsperadaAteHoje += (metaMensal * peso) / 100;
+                metaEsperadaAteOntem += (metaMensal * peso) / 100;
             }
         } else {
-            // Sem pesos: distribuição uniforme
-            metaEsperadaAteHoje = (metaMensal / daysInMonth) * diaAtual;
+            // Sem pesos: distribuição uniforme (dias anteriores a hoje)
+            metaEsperadaAteOntem = (metaMensal / daysInMonth) * (diaAtual - 1);
         }
 
-        // 3. CALCULAR DÉFICIT: quanto está atrás do esperado
-        const deficit = Math.max(0, metaEsperadaAteHoje - vendidoMes);
+        // 3. CALCULAR DÉFICIT: quanto está atrás do esperado ATÉ ONTEM
+        const deficit = Math.max(0, metaEsperadaAteOntem - vendidoMes);
 
-        // 4. DISTRIBUIR DÉFICIT PELOS DIAS RESTANTES (não incluindo hoje, pois hoje já tem sua meta base)
+        // 4. DISTRIBUIR DÉFICIT PELOS DIAS RESTANTES INCLUINDO HOJE
+        // diasRestantesComHoje = daysInMonth - diaAtual + 1 (inclui hoje)
+        const diasRestantesComHoje = diasRestantes + 1;
         let metaAdicionalPorDia = 0;
-        if (deficit > 0 && diasRestantes > 0) {
-            metaAdicionalPorDia = deficit / diasRestantes;
-        } else if (deficit > 0 && diasRestantes === 0) {
-            // Último dia do mês: todo o déficit é para hoje
-            metaAdicionalPorDia = deficit;
+        if (deficit > 0 && diasRestantesComHoje > 0) {
+            metaAdicionalPorDia = deficit / diasRestantesComHoje;
         }
 
         // 5. META DINÂMICA = Meta Base do Dia + Adicional para compensar déficit
@@ -832,7 +831,8 @@ export default function LojaDashboard() {
             vendidoMes,
             diaAtual,
             diasRestantes,
-            metaEsperadaAteHoje: metaEsperadaAteHoje.toFixed(2),
+            diasRestantesComHoje,
+            metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
             deficit: deficit.toFixed(2),
             metaBaseDoDia: metaBaseDoDia.toFixed(2),
             metaAdicionalPorDia: metaAdicionalPorDia.toFixed(2),
@@ -957,24 +957,25 @@ export default function LojaDashboard() {
             const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
             const dailyWeights = data.daily_weights || {};
             
-            // Calcular peso acumulado até hoje para log
-            let pesoAcumulado = 0;
+            // Calcular peso acumulado até ONTEM para log (nova lógica corrigida)
+            let pesoAcumuladoAteOntem = 0;
             const diaAtual = hoje.getDate();
-            for (let d = 1; d <= diaAtual; d++) {
+            for (let d = 1; d < diaAtual; d++) {
                 const dateStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), d), 'yyyy-MM-dd');
-                pesoAcumulado += (dailyWeights[dateStr] || 0);
+                pesoAcumuladoAteOntem += (dailyWeights[dateStr] || 0);
             }
-            const metaEsperadaAteHoje = (Number(data.meta_valor) * pesoAcumulado) / 100;
-            const deficit = Math.max(0, metaEsperadaAteHoje - totalMes);
+            const metaEsperadaAteOntem = (Number(data.meta_valor) * pesoAcumuladoAteOntem) / 100;
+            const deficit = Math.max(0, metaEsperadaAteOntem - totalMes);
+            const diasRestantesComHoje = daysInMonth - diaAtual + 1;
             
-            console.log('[LojaDashboard] 📊 CÁLCULO META DIÁRIA:');
+            console.log('[LojaDashboard] 📊 CÁLCULO META DIÁRIA (CORRIGIDO):');
             console.log('[LojaDashboard]   Meta mensal:', Number(data.meta_valor));
             console.log('[LojaDashboard]   Vendido no mês:', totalMes);
             console.log('[LojaDashboard]   Dia atual:', diaAtual);
-            console.log('[LojaDashboard]   Peso acumulado até hoje:', pesoAcumulado.toFixed(2) + '%');
-            console.log('[LojaDashboard]   Meta ESPERADA até hoje:', metaEsperadaAteHoje.toFixed(2));
-            console.log('[LojaDashboard]   DÉFICIT:', deficit.toFixed(2));
-            console.log('[LojaDashboard]   Dias restantes:', daysInMonth - diaAtual);
+            console.log('[LojaDashboard]   Peso acumulado até ONTEM:', pesoAcumuladoAteOntem.toFixed(2) + '%');
+            console.log('[LojaDashboard]   Meta ESPERADA até ONTEM:', metaEsperadaAteOntem.toFixed(2));
+            console.log('[LojaDashboard]   DÉFICIT (atraso):', deficit.toFixed(2));
+            console.log('[LojaDashboard]   Dias restantes COM hoje:', diasRestantesComHoje);
             console.log('[LojaDashboard]   Daily weights keys:', Object.keys(dailyWeights).length);
             
             const daily = calculateDynamicDailyGoal(
