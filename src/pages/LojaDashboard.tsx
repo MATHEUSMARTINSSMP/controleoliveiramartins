@@ -22,7 +22,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
-import { format, startOfWeek, getWeek, getYear } from "date-fns";
+import { format, startOfWeek, getWeek, getYear, getDaysInMonth } from "date-fns";
 import { StoreLogo } from "@/lib/storeLogo";
 import {
     validateFormasPagamento,
@@ -239,7 +239,7 @@ export default function LojaDashboard() {
     const { redistributeGoalsForDate } = useGoalRedistribution({ storeId });
 
     // REDISTRIBUIÇÃO DE METAS - PÓS-PROCESSAMENTO
-    // Calcula redistribuição baseada nas metas dinâmicas já calculadas em colaboradorasPerformance
+    // Calcula redistribuição baseada nas metas dinâmicas + ajuste proporcional (à frente/atrás)
     const redistributedPerformance = useMemo(() => {
         if (!colaboradorasPerformance || colaboradorasPerformance.length === 0) {
             return {
@@ -251,6 +251,75 @@ export default function LojaDashboard() {
             };
         }
 
+        // ========== CÁLCULO DO MULTIPLICADOR DINÂMICO ==========
+        // Mesma lógica de calculateDynamicDailyGoal, mas retorna o multiplicador
+        const hoje = getBrazilNow();
+        const todayStr = format(hoje, 'yyyy-MM-dd');
+        const daysInMonth = getDaysInMonth(hoje);
+        const diaAtual = hoje.getDate();
+        const metaMensal = goals?.meta_valor || 0;
+        const dailyWeights = goals?.daily_weights || null;
+        
+        // Meta base do dia (sem ajuste)
+        let metaBaseDoDia = metaMensal > 0 ? metaMensal / daysInMonth : 0;
+        if (dailyWeights && Object.keys(dailyWeights).length > 0) {
+            const hojePeso = dailyWeights[todayStr] || 0;
+            if (hojePeso > 0) {
+                metaBaseDoDia = (metaMensal * hojePeso) / 100;
+            }
+        }
+        
+        // Calcular meta esperada até ontem
+        let metaEsperadaAteOntem = 0;
+        const year = hoje.getFullYear();
+        const month = hoje.getMonth() + 1;
+        
+        if (dailyWeights && Object.keys(dailyWeights).length > 0) {
+            for (let d = 1; d < diaAtual; d++) {
+                const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const peso = dailyWeights[dateStr] || 0;
+                metaEsperadaAteOntem += (metaMensal * peso) / 100;
+            }
+        } else {
+            metaEsperadaAteOntem = (metaMensal / daysInMonth) * (diaAtual - 1);
+        }
+        
+        // Diferença: positivo = à frente, negativo = atrás
+        const diferenca = monthlyRealizado - metaEsperadaAteOntem;
+        
+        // Calcular multiplicador ou adicional por colaboradora
+        let multiplicadorAjuste = 1; // Padrão: sem ajuste
+        let adicionalPorColabBase = 0;
+        let estaAFrente = false;
+        
+        if (diferenca >= 0 && metaEsperadaAteOntem > 0) {
+            // À FRENTE: multiplicador = 1 + % à frente
+            const percentualAFrente = diferenca / metaEsperadaAteOntem;
+            multiplicadorAjuste = 1 + percentualAFrente;
+            estaAFrente = true;
+            
+            console.log('[RedistribuicaoMetas] À FRENTE da meta:', {
+                metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
+                vendidoMes: monthlyRealizado,
+                percentualAFrente: (percentualAFrente * 100).toFixed(1) + '%',
+                multiplicadorAjuste: multiplicadorAjuste.toFixed(3)
+            });
+        } else if (diferenca < 0) {
+            // ATRÁS: calcular déficit a distribuir
+            const deficit = Math.abs(diferenca);
+            const diasRestantesComHoje = daysInMonth - diaAtual + 1;
+            if (diasRestantesComHoje > 0) {
+                adicionalPorColabBase = deficit / diasRestantesComHoje;
+            }
+            
+            console.log('[RedistribuicaoMetas] ATRÁS da meta:', {
+                metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
+                vendidoMes: monthlyRealizado,
+                deficit: deficit.toFixed(2),
+                adicionalTotal: adicionalPorColabBase.toFixed(2)
+            });
+        }
+
         // Identificar quem está de folga hoje
         const offColabIds = new Set(offDays.map(od => od.colaboradora_id));
 
@@ -258,18 +327,39 @@ export default function LojaDashboard() {
         const working = colaboradorasPerformance.filter(p => !offColabIds.has(p.id));
         const onLeave = colaboradorasPerformance.filter(p => offColabIds.has(p.id));
 
-        // Somar meta das colaboradoras de folga
-        const totalMetaFolga = onLeave.reduce((sum, p) => sum + (p.metaDiaria || 0), 0);
-
-        // Somar meta original total (para validação)
+        // Somar meta original total (para calcular proporções)
         const totalMetaOriginal = colaboradorasPerformance.reduce((sum, p) => sum + (p.metaDiaria || 0), 0);
+        const totalMetaWorking = working.reduce((sum, p) => sum + (p.metaDiaria || 0), 0);
 
-        // Calcular redistribuição para cada colaboradora trabalhando
-        const redistribuicaoPorColab = working.length > 0 ? totalMetaFolga / working.length : 0;
+        // Somar meta das colaboradoras de folga (já com ajuste dinâmico)
+        let totalMetaFolgaAjustada = 0;
+        onLeave.forEach(p => {
+            let metaAjustada = p.metaDiaria || 0;
+            if (estaAFrente) {
+                metaAjustada = metaAjustada * multiplicadorAjuste;
+            } else if (adicionalPorColabBase > 0 && totalMetaOriginal > 0) {
+                const proporcao = (p.metaDiaria || 0) / totalMetaOriginal;
+                metaAjustada = metaAjustada + (adicionalPorColabBase * proporcao);
+            }
+            totalMetaFolgaAjustada += metaAjustada;
+        });
 
-        // Criar array enriquecido com metas redistribuídas
+        // Redistribuir meta de folga entre quem está trabalhando
+        const redistribuicaoPorColab = working.length > 0 ? totalMetaFolgaAjustada / working.length : 0;
+
+        // Criar array enriquecido com metas ajustadas e redistribuídas
         const enrichedData = colaboradorasPerformance.map(perf => {
             const isOnLeaveToday = offColabIds.has(perf.id);
+            const metaBase = perf.metaDiaria || 0;
+            
+            // Calcular meta ajustada dinamicamente
+            let metaAjustada = metaBase;
+            if (estaAFrente) {
+                metaAjustada = metaBase * multiplicadorAjuste;
+            } else if (adicionalPorColabBase > 0 && totalMetaOriginal > 0) {
+                const proporcao = metaBase / totalMetaOriginal;
+                metaAjustada = metaBase + (adicionalPorColabBase * proporcao);
+            }
 
             if (isOnLeaveToday) {
                 // Colaboradora de folga: meta redistribuída = 0
@@ -278,35 +368,38 @@ export default function LojaDashboard() {
                     metaDiariaRedistribuida: 0,
                     redistribuicaoExtra: 0,
                     isOnLeave: true,
-                    vendidoHoje: perf.vendidoHoje || 0, // Preservar vendidoHoje
-                    metaDiaria: perf.metaDiaria || 0 // Preservar metaDiaria
+                    vendidoHoje: perf.vendidoHoje || 0,
+                    metaDiaria: metaAjustada // Meta já ajustada
                 };
             } else {
-                // Colaboradora trabalhando: recebe parte da meta redistribuída
+                // Colaboradora trabalhando: meta ajustada + redistribuição
                 return {
                     ...perf,
-                    metaDiariaRedistribuida: (perf.metaDiaria || 0) + redistribuicaoPorColab,
+                    metaDiariaRedistribuida: metaAjustada + redistribuicaoPorColab,
                     redistribuicaoExtra: redistribuicaoPorColab,
                     isOnLeave: false,
-                    vendidoHoje: perf.vendidoHoje || 0, // Preservar vendidoHoje
-                    metaDiaria: perf.metaDiaria || 0 // Preservar metaDiaria original
+                    vendidoHoje: perf.vendidoHoje || 0,
+                    metaDiaria: metaAjustada // Meta já ajustada
                 };
             }
         });
 
-        // Somar meta redistribuída total (deve ser igual à original)
+        // Somar meta redistribuída total
         const totalMetaRedist = enrichedData
             .filter(p => !p.isOnLeave)
             .reduce((sum, p) => sum + (p.metaDiariaRedistribuida || 0), 0);
 
-        console.log('[RedistribuicaoMetas] Resumo:', {
+        console.log('[RedistribuicaoMetas] Resumo FINAL:', {
             totalColaboradoras: colaboradorasPerformance.length,
             trabalhando: working.length,
             folga: onLeave.length,
-            metaFolgaSomada: totalMetaFolga,
-            redistribuicaoPorColab,
-            metaOriginalTotal: totalMetaOriginal,
-            metaRedistribuidaTotal: totalMetaRedist
+            estaAFrente,
+            multiplicadorAjuste: multiplicadorAjuste.toFixed(3),
+            metaFolgaAjustada: totalMetaFolgaAjustada.toFixed(2),
+            redistribuicaoPorColab: redistribuicaoPorColab.toFixed(2),
+            metaOriginalTotal: totalMetaOriginal.toFixed(2),
+            metaRedistribuidaTotal: totalMetaRedist.toFixed(2),
+            metaDinamicaLoja: dailyGoal.toFixed(2)
         });
 
         return {
@@ -316,7 +409,7 @@ export default function LojaDashboard() {
             totalTrabalhando: working.length,
             totalFolga: onLeave.length
         };
-    }, [colaboradorasPerformance, offDays]);
+    }, [colaboradorasPerformance, offDays, goals, monthlyRealizado, dailyGoal]);
 
     // REDISTRIBUIÇÃO PARA CAIXA - LISTA COMPLETA (inclui gerentes sem meta)
     // Usado na aba Caixa para mostrar todas as colaboradoras que venderam
@@ -325,19 +418,73 @@ export default function LojaDashboard() {
             return { data: [] };
         }
 
+        // ========== CÁLCULO DO MULTIPLICADOR DINÂMICO (mesmo de redistributedPerformance) ==========
+        const hoje = getBrazilNow();
+        const todayStr = format(hoje, 'yyyy-MM-dd');
+        const daysInMonth = getDaysInMonth(hoje);
+        const diaAtual = hoje.getDate();
+        const metaMensal = goals?.meta_valor || 0;
+        const dailyWeights = goals?.daily_weights || null;
+        
+        let metaEsperadaAteOntem = 0;
+        const year = hoje.getFullYear();
+        const month = hoje.getMonth() + 1;
+        
+        if (dailyWeights && Object.keys(dailyWeights).length > 0) {
+            for (let d = 1; d < diaAtual; d++) {
+                const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const peso = dailyWeights[dateStr] || 0;
+                metaEsperadaAteOntem += (metaMensal * peso) / 100;
+            }
+        } else {
+            metaEsperadaAteOntem = (metaMensal / daysInMonth) * (diaAtual - 1);
+        }
+        
+        const diferenca = monthlyRealizado - metaEsperadaAteOntem;
+        
+        let multiplicadorAjuste = 1;
+        let adicionalPorColabBase = 0;
+        let estaAFrente = false;
+        
+        const totalMetaOriginal = colaboradorasPerformanceCaixa.reduce((sum, p) => sum + (p.metaDiaria || 0), 0);
+        
+        if (diferenca >= 0 && metaEsperadaAteOntem > 0) {
+            const percentualAFrente = diferenca / metaEsperadaAteOntem;
+            multiplicadorAjuste = 1 + percentualAFrente;
+            estaAFrente = true;
+        } else if (diferenca < 0 && totalMetaOriginal > 0) {
+            const deficit = Math.abs(diferenca);
+            const diasRestantesComHoje = daysInMonth - diaAtual + 1;
+            if (diasRestantesComHoje > 0) {
+                adicionalPorColabBase = deficit / diasRestantesComHoje;
+            }
+        }
+
         const offColabIds = new Set(offDays.map(od => od.colaboradora_id));
 
         return {
-            data: colaboradorasPerformanceCaixa.map(perf => ({
-                ...perf,
-                metaDiariaRedistribuida: perf.metaDiaria || 0,
-                redistribuicaoExtra: 0,
-                isOnLeave: offColabIds.has(perf.id),
-                vendidoHoje: perf.vendidoHoje || 0,
-                metaDiaria: perf.metaDiaria || 0
-            }))
+            data: colaboradorasPerformanceCaixa.map(perf => {
+                const metaBase = perf.metaDiaria || 0;
+                
+                let metaAjustada = metaBase;
+                if (estaAFrente) {
+                    metaAjustada = metaBase * multiplicadorAjuste;
+                } else if (adicionalPorColabBase > 0 && totalMetaOriginal > 0) {
+                    const proporcao = metaBase / totalMetaOriginal;
+                    metaAjustada = metaBase + (adicionalPorColabBase * proporcao);
+                }
+                
+                return {
+                    ...perf,
+                    metaDiariaRedistribuida: metaAjustada,
+                    redistribuicaoExtra: 0,
+                    isOnLeave: offColabIds.has(perf.id),
+                    vendidoHoje: perf.vendidoHoje || 0,
+                    metaDiaria: metaAjustada
+                };
+            })
         };
-    }, [colaboradorasPerformanceCaixa, offDays]);
+    }, [colaboradorasPerformanceCaixa, offDays, goals, monthlyRealizado]);
 
     useEffect(() => {
         if (salesData) {
