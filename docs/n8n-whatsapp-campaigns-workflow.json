@@ -1,0 +1,189 @@
+{
+  "name": "EleveaOne - WhatsApp Campaigns AI",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-campaign",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-entry",
+      "name": "Webhook Entry",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Router based on action type\nconst body = $input.first().json.body || $input.first().json;\nconst action = body.action;\n\nreturn {\n  action: action,\n  store_id: body.store_id,\n  campaign_id: body.campaign_id,\n  data: body.data || {},\n  auth_header: body.auth_header\n};"
+      },
+      "id": "parse-request",
+      "name": "Parse Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            { "outputKey": "generate_variations", "conditions": { "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "generate_variations", "operator": { "type": "string", "operation": "equals" }}]}},
+            { "outputKey": "send_message", "conditions": { "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "send_message", "operator": { "type": "string", "operation": "equals" }}]}},
+            { "outputKey": "analyze_crm", "conditions": { "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "analyze_crm", "operator": { "type": "string", "operation": "equals" }}]}},
+            { "outputKey": "suggest_filters", "conditions": { "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "suggest_filters", "operator": { "type": "string", "operation": "equals" }}]}},
+            { "outputKey": "process_queue", "conditions": { "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "process_queue", "operator": { "type": "string", "operation": "equals" }}]}}
+          ]
+        }
+      },
+      "id": "action-router",
+      "name": "Action Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "messages": {
+          "values": [
+            {
+              "content": "Você é um especialista em marketing de varejo brasileiro. Sua tarefa é criar variações naturais e personalizadas de mensagens de WhatsApp para campanhas de reativação de clientes.\n\nREGRAS:\n1. Mantenha o tom amigável mas profissional\n2. Use variáveis disponíveis: {primeiro_nome}, {nome_completo}, {ultima_compra}, {dias_sem_comprar}, {total_gasto}, {categoria}, {loja}\n3. Evite parecer spam - cada variação deve ser única e natural\n4. Limite de 300 caracteres por mensagem\n5. Use emojis com moderação (máximo 2-3)\n6. Nunca use linguagem agressiva ou urgência excessiva\n7. Inclua call-to-action sutil\n\nResposta em JSON com array de variações.",
+              "role": "system"
+            },
+            {
+              "content": "=Template base: {{ $json.data.base_template }}\n\nContexto da campanha: {{ $json.data.campaign_context }}\n\nGere 3 variações naturais desta mensagem mantendo a intenção original.",
+              "role": "user"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.8,
+          "maxTokens": 1000
+        }
+      },
+      "id": "openai-variations",
+      "name": "OpenAI - Generate Variations",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.4,
+      "position": [900, 100],
+      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI API" }}
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI response and format variations\nconst aiResponse = $input.first().json.message?.content || $input.first().json.text;\nlet variations = [];\n\ntry {\n  // Try to parse JSON from response\n  const jsonMatch = aiResponse.match(/\\[.*\\]/s);\n  if (jsonMatch) {\n    variations = JSON.parse(jsonMatch[0]);\n  } else {\n    // Fallback: split by numbered items\n    const lines = aiResponse.split(/\\d+\\./).filter(l => l.trim());\n    variations = lines.map((text, i) => ({\n      id: `v${i + 1}`,\n      text: text.trim(),\n      approved: false,\n      created_at: new Date().toISOString()\n    }));\n  }\n} catch (e) {\n  variations = [{\n    id: 'v1',\n    text: aiResponse,\n    approved: false,\n    created_at: new Date().toISOString(),\n    error: e.message\n  }];\n}\n\nreturn {\n  success: true,\n  variations: variations,\n  generated_at: new Date().toISOString()\n};"
+      },
+      "id": "format-variations",
+      "name": "Format Variations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 100]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "messages": {
+          "values": [
+            {
+              "content": "Você é um analista de dados de varejo. Analise os dados CRM fornecidos e sugira os melhores filtros para campanhas de WhatsApp.\n\nConsidere:\n- Clientes inativos com alto valor histórico são prioridade\n- Aniversariantes têm alta taxa de conversão\n- Clientes VIP/BLACK precisam de abordagem diferenciada\n- Evitar spam: focar em qualidade, não quantidade\n\nRetorne sugestões em JSON com:\n- filter_type: tipo do filtro\n- description: descrição amigável\n- estimated_contacts: estimativa de contatos\n- priority: LOW/MEDIUM/HIGH\n- risk_notes: riscos potenciais",
+              "role": "system"
+            },
+            {
+              "content": "=Dados CRM da loja:\n- Total de clientes: {{ $json.data.total_customers }}\n- Clientes inativos (>30 dias): {{ $json.data.inactive_30 }}\n- Clientes inativos (>60 dias): {{ $json.data.inactive_60 }}\n- Ticket médio geral: R$ {{ $json.data.avg_ticket }}\n- Clientes VIP/BLACK: {{ $json.data.vip_count }}\n\nSugira os 5 melhores filtros para uma campanha de reativação.",
+              "role": "user"
+            }
+          ]
+        },
+        "options": { "temperature": 0.5 }
+      },
+      "id": "openai-analyze-crm",
+      "name": "OpenAI - Analyze CRM",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.4,
+      "position": [900, 300],
+      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI API" }}
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "messages": {
+          "values": [
+            {
+              "content": "Você é um consultor de marketing digital especializado em varejo. Baseado no objetivo da campanha, sugira filtros inteligentes de CRM.\n\nFiltros disponíveis:\n- inactive_days: Clientes que não compram há X dias\n- min_ticket: Ticket médio mínimo\n- max_ticket: Ticket médio máximo\n- min_purchases: Mínimo de compras\n- category: Categoria (BLACK, PLATINUM, VIP, REGULAR)\n- purchased_period: Comprou entre datas\n- not_purchased_period: NÃO comprou entre datas\n- birthday_month: Aniversariantes do mês\n- top_spenders: Top X por faturamento\n\nRetorne JSON com array de filtros sugeridos.",
+              "role": "system"
+            },
+            {
+              "content": "=Objetivo da campanha: {{ $json.data.campaign_objective }}\n\nSugira combinação de filtros para atingir este objetivo.",
+              "role": "user"
+            }
+          ]
+        }
+      },
+      "id": "openai-suggest-filters",
+      "name": "OpenAI - Suggest Filters",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.4,
+      "position": [900, 500],
+      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI API" }}
+    },
+    {
+      "parameters": {
+        "jsCode": "// Send WhatsApp message via uazapi\nconst data = $input.first().json;\nconst phone = data.data.phone;\nconst message = data.data.message;\nconst token = data.data.uazapi_token;\nconst instanceId = data.data.instance_id;\n\nconst response = await fetch(`https://app.uazapi.com/api/${instanceId}/messages/text`, {\n  method: 'POST',\n  headers: {\n    'Content-Type': 'application/json',\n    'Authorization': `Bearer ${token}`\n  },\n  body: JSON.stringify({\n    phone: phone,\n    message: message\n  })\n});\n\nconst result = await response.json();\n\nreturn {\n  success: response.ok,\n  message_id: result.id || null,\n  phone: phone,\n  error: response.ok ? null : result.message,\n  sent_at: new Date().toISOString()\n};"
+      },
+      "id": "send-whatsapp",
+      "name": "Send WhatsApp",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 700]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process campaign queue - get next messages and send\nconst data = $input.first().json;\nconst supabaseUrl = data.data.supabase_url;\nconst supabaseKey = data.data.supabase_service_key;\n\n// 1. Get campaigns that need processing\nconst campaignsResponse = await fetch(\n  `${supabaseUrl}/rest/v1/rpc/get_next_campaign_messages?p_limit=10`,\n  {\n    method: 'POST',\n    headers: {\n      'Content-Type': 'application/json',\n      'apikey': supabaseKey,\n      'Authorization': `Bearer ${supabaseKey}`\n    }\n  }\n);\n\nconst messages = await campaignsResponse.json();\n\nreturn {\n  messages_to_process: messages.length,\n  messages: messages,\n  processed_at: new Date().toISOString()\n};"
+      },
+      "id": "process-queue",
+      "name": "Process Queue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 900]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Entry": { "main": [[{ "node": "Parse Request", "type": "main", "index": 0 }]]},
+    "Parse Request": { "main": [[{ "node": "Action Router", "type": "main", "index": 0 }]]},
+    "Action Router": {
+      "main": [
+        [{ "node": "OpenAI - Generate Variations", "type": "main", "index": 0 }],
+        [{ "node": "Send WhatsApp", "type": "main", "index": 0 }],
+        [{ "node": "OpenAI - Analyze CRM", "type": "main", "index": 0 }],
+        [{ "node": "OpenAI - Suggest Filters", "type": "main", "index": 0 }],
+        [{ "node": "Process Queue", "type": "main", "index": 0 }]
+      ]
+    },
+    "OpenAI - Generate Variations": { "main": [[{ "node": "Format Variations", "type": "main", "index": 0 }]]},
+    "Format Variations": { "main": [[{ "node": "Respond Success", "type": "main", "index": 0 }]]},
+    "OpenAI - Analyze CRM": { "main": [[{ "node": "Respond Success", "type": "main", "index": 0 }]]},
+    "OpenAI - Suggest Filters": { "main": [[{ "node": "Respond Success", "type": "main", "index": 0 }]]},
+    "Send WhatsApp": { "main": [[{ "node": "Respond Success", "type": "main", "index": 0 }]]},
+    "Process Queue": { "main": [[{ "node": "Respond Success", "type": "main", "index": 0 }]]}
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [{ "name": "EleveaOne" }, { "name": "WhatsApp" }, { "name": "AI" }],
+  "triggerCount": 1,
+  "pinData": {}
+}

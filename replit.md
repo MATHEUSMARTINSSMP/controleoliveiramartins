@@ -29,6 +29,14 @@ The system is built with a modern web stack, emphasizing a chic, minimalist, and
     -   Store Task Alerts System: Allows admins to schedule recurring WhatsApp task reminders for stores.
     -   Daily Goal Check Module: Gamified system for collaborators to confirm daily goal viewing, with configurable bonuses and time limits.
     -   WhatsApp Global Fallback System: Ensures notifications can be sent from a global number if a store lacks its own connected WhatsApp credentials.
+    -   **WhatsApp Campaigns Module**: Advanced mass messaging system with:
+        -   Dual audience source: CRM filters OR custom spreadsheet import (primeiro_nome + telefone)
+        -   AI-powered message variations via n8n webhook integration
+        -   Risk monitoring matrix (LOW/MEDIUM/HIGH) based on sending rate and volume
+        -   Phone number rotation with multiple strategies (EQUAL, PRIMARY_FIRST, RANDOM)
+        -   4-step campaign wizard: Filter → Template → Schedule → Review
+        -   Downloadable CSV/XLSX template for custom contact import
+        -   Campaign lifecycle management (pause, resume, cancel)
 
 ## External Dependencies
 -   **Supabase**: Core backend for database (PostgreSQL), authentication, and Edge Functions.

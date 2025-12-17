@@ -8,11 +8,14 @@ import {
   Users, 
   Bell,
   Phone,
-  Settings
+  Settings,
+  Send,
+  Sparkles
 } from "lucide-react";
 import { WhatsAppStoreConfig } from "./WhatsAppStoreConfig";
 import { WhatsAppNotificationConfig } from "./WhatsAppNotificationConfig";
 import { StoreTaskAlertsManager } from "./StoreTaskAlertsManager";
+import { WhatsAppCampaigns } from "./whatsapp-campaigns";
 
 interface WhatsAppManagementProps {
   defaultTab?: string;
@@ -60,6 +63,19 @@ export function WhatsAppManagement({ defaultTab = "conexoes" }: WhatsAppManageme
           >
             <Bell className="h-3 w-3" />
             Alertas
+          </TabsTrigger>
+          <TabsTrigger 
+            value="campanhas" 
+            className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[80px] flex items-center justify-center gap-1"
+            data-testid="tab-campanhas"
+          >
+            <Send className="h-3 w-3" />
+            <span className="hidden sm:inline">Campanhas</span>
+            <span className="sm:hidden">Camp.</span>
+            <Badge variant="secondary" className="ml-1 text-[8px] px-1 py-0 hidden sm:inline">
+              <Sparkles className="h-2 w-2 mr-0.5 inline" />
+              IA
+            </Badge>
           </TabsTrigger>
         </TabsList>
 
@@ -112,6 +128,28 @@ export function WhatsAppManagement({ defaultTab = "conexoes" }: WhatsAppManageme
               </CardHeader>
               <CardContent className="px-0">
                 <StoreTaskAlertsManager />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="campanhas" className="mt-0">
+            <Card className="border-0 shadow-none bg-transparent">
+              <CardHeader className="px-0 pt-0">
+                <div className="flex items-center gap-2">
+                  <Send className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  <CardTitle className="text-lg sm:text-xl">Campanhas em Massa</CardTitle>
+                  <Badge variant="secondary" className="text-xs">
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    IA
+                  </Badge>
+                </div>
+                <CardDescription className="text-sm">
+                  Crie campanhas inteligentes com filtros CRM, variações de mensagens geradas por IA, 
+                  rotação de números e monitoramento de risco. Importe lista personalizada ou use filtros do CRM.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="px-0">
+                <WhatsAppCampaigns />
               </CardContent>
             </Card>
           </TabsContent>
