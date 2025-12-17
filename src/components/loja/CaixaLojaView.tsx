@@ -126,40 +126,59 @@ export function CaixaLojaView({
       metaEsperadaAteOntem = (metaMensal / diasNoMes) * (diaAtual - 1);
     }
     
-    // 3. CALCULAR DÉFICIT
-    const deficit = Math.max(0, metaEsperadaAteOntem - (vendidoMensal || 0));
+    // 3. CALCULAR DIFERENÇA (pode ser déficit ou superávit)
+    const diferenca = (vendidoMensal || 0) - metaEsperadaAteOntem;
     
-    // 4. DISTRIBUIR DÉFICIT PELOS DIAS RESTANTES INCLUINDO HOJE
-    let metaAdicionalPorDia = 0;
-    if (deficit > 0 && diasRestantesComHoje > 0) {
-      metaAdicionalPorDia = deficit / diasRestantesComHoje;
+    let metaDinamica: number;
+    
+    if (diferenca >= 0) {
+      // CENÁRIO: À FRENTE DA META
+      // Meta do dia = Meta base × (1 + % à frente)
+      const percentualAFrente = metaEsperadaAteOntem > 0 
+        ? (diferenca / metaEsperadaAteOntem) 
+        : 0;
+      metaDinamica = metaBaseDoDia * (1 + percentualAFrente);
+      
+      console.log('[CaixaLojaView] À FRENTE da meta:', {
+        hojeStr,
+        metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
+        vendidoMensal,
+        percentualAFrente: (percentualAFrente * 100).toFixed(1) + '%',
+        metaBaseDoDia: metaBaseDoDia.toFixed(2),
+        metaDinamica: metaDinamica.toFixed(2)
+      });
+    } else {
+      // CENÁRIO: ATRÁS DA META
+      // Meta do dia = Meta base + déficit distribuído
+      const deficit = Math.abs(diferenca);
+      let metaAdicionalPorDia = 0;
+      if (deficit > 0 && diasRestantesComHoje > 0) {
+        metaAdicionalPorDia = deficit / diasRestantesComHoje;
+      }
+      metaDinamica = metaBaseDoDia + metaAdicionalPorDia;
+      
+      console.log('[CaixaLojaView] ATRÁS da meta:', {
+        hojeStr,
+        metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
+        vendidoMensal,
+        deficit: deficit.toFixed(2),
+        diasRestantesComHoje,
+        metaAdicionalPorDia: metaAdicionalPorDia.toFixed(2),
+        metaBaseDoDia: metaBaseDoDia.toFixed(2),
+        metaDinamica: metaDinamica.toFixed(2)
+      });
     }
     
-    // 5. META DINÂMICA
-    let metaDinamica = metaBaseDoDia + metaAdicionalPorDia;
-    
-    // 6. PROTEÇÃO: Meta diária não pode ser maior que 50% da meta mensal
+    // PROTEÇÃO: Meta diária não pode ser maior que 50% da meta mensal
     const maxMetaDiaria = metaMensal * 0.5;
     if (metaDinamica > maxMetaDiaria) {
       metaDinamica = maxMetaDiaria;
     }
     
-    // 7. PROTEÇÃO: Meta diária nunca menor que a meta base do dia
+    // PROTEÇÃO: Meta diária nunca menor que a meta base do dia
     if (metaDinamica < metaBaseDoDia) {
       metaDinamica = metaBaseDoDia;
     }
-    
-    console.log('[CaixaLojaView] Meta Diária Dinâmica:', {
-      hojeStr,
-      diaAtual,
-      diasRestantesComHoje,
-      metaBaseDoDia: metaBaseDoDia.toFixed(2),
-      metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
-      vendidoMensal,
-      deficit: deficit.toFixed(2),
-      metaAdicionalPorDia: metaAdicionalPorDia.toFixed(2),
-      metaDinamica: metaDinamica.toFixed(2)
-    });
     
     return metaDinamica;
   }, [metaMensal, vendidoMensal, dailyWeights, hojeStr, diasNoMes]);
