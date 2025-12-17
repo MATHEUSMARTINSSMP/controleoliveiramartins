@@ -956,6 +956,27 @@ export default function LojaDashboard() {
             // Calcular meta diária DINÂMICA
             const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
             const dailyWeights = data.daily_weights || {};
+            
+            // Calcular peso acumulado até hoje para log
+            let pesoAcumulado = 0;
+            const diaAtual = hoje.getDate();
+            for (let d = 1; d <= diaAtual; d++) {
+                const dateStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), d), 'yyyy-MM-dd');
+                pesoAcumulado += (dailyWeights[dateStr] || 0);
+            }
+            const metaEsperadaAteHoje = (Number(data.meta_valor) * pesoAcumulado) / 100;
+            const deficit = Math.max(0, metaEsperadaAteHoje - totalMes);
+            
+            console.log('[LojaDashboard] 📊 CÁLCULO META DIÁRIA:');
+            console.log('[LojaDashboard]   Meta mensal:', Number(data.meta_valor));
+            console.log('[LojaDashboard]   Vendido no mês:', totalMes);
+            console.log('[LojaDashboard]   Dia atual:', diaAtual);
+            console.log('[LojaDashboard]   Peso acumulado até hoje:', pesoAcumulado.toFixed(2) + '%');
+            console.log('[LojaDashboard]   Meta ESPERADA até hoje:', metaEsperadaAteHoje.toFixed(2));
+            console.log('[LojaDashboard]   DÉFICIT:', deficit.toFixed(2));
+            console.log('[LojaDashboard]   Dias restantes:', daysInMonth - diaAtual);
+            console.log('[LojaDashboard]   Daily weights keys:', Object.keys(dailyWeights).length);
+            
             const daily = calculateDynamicDailyGoal(
                 Number(data.meta_valor),
                 totalMes,
@@ -964,12 +985,7 @@ export default function LojaDashboard() {
                 daysInMonth
             );
 
-            console.log('[LojaDashboard] 📊 Meta diária calculada dinamicamente:');
-            console.log('[LojaDashboard]   Meta mensal:', Number(data.meta_valor));
-            console.log('[LojaDashboard]   Vendido no mês:', totalMes);
-            console.log('[LojaDashboard]   Faltando:', Math.max(0, Number(data.meta_valor) - totalMes));
-            console.log('[LojaDashboard]   Dias restantes:', daysInMonth - hoje.getDate() + 1);
-            console.log('[LojaDashboard]   Meta diária dinâmica:', daily);
+            console.log('[LojaDashboard]   ➡️ Meta diária dinâmica:', daily.toFixed(2));
 
             setDailyGoal(daily);
 
