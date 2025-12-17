@@ -171,6 +171,14 @@ ALTER TABLE sistemaretiradas.whatsapp_campaign_messages ENABLE ROW LEVEL SECURIT
 ALTER TABLE sistemaretiradas.whatsapp_campaign_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sistemaretiradas.whatsapp_campaign_recipient_snapshots ENABLE ROW LEVEL SECURITY;
 
+-- Drop policies se existirem (para permitir re-execução)
+DROP POLICY IF EXISTS whatsapp_campaigns_admin ON sistemaretiradas.whatsapp_campaigns;
+DROP POLICY IF EXISTS whatsapp_accounts_admin ON sistemaretiradas.whatsapp_accounts;
+DROP POLICY IF EXISTS whatsapp_templates_admin ON sistemaretiradas.whatsapp_campaign_templates;
+DROP POLICY IF EXISTS whatsapp_messages_admin ON sistemaretiradas.whatsapp_campaign_messages;
+DROP POLICY IF EXISTS whatsapp_events_admin ON sistemaretiradas.whatsapp_campaign_events;
+DROP POLICY IF EXISTS whatsapp_snapshots_admin ON sistemaretiradas.whatsapp_campaign_recipient_snapshots;
+
 -- Política: Admin pode ver/editar campanhas das suas lojas
 CREATE POLICY whatsapp_campaigns_admin ON sistemaretiradas.whatsapp_campaigns
     FOR ALL USING (
