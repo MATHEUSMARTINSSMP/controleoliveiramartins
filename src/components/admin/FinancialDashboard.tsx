@@ -41,50 +41,74 @@ export const FinancialDashboard = () => {
     const [limiteForm, setLimiteForm] = useState({ limite_total: "", limite_mensal: "" });
 
     useEffect(() => {
-        fetchKPIs();
-        fetchColaboradorasLimites();
+        // Executar ambas as funções em paralelo para melhor performance
+        Promise.all([fetchKPIs(), fetchColaboradorasLimites()]).catch(error => {
+            console.error("Erro ao carregar dados do dashboard:", error);
+        });
     }, []);
 
     const fetchKPIs = async () => {
         try {
-            const { data: parcelas, error: parcelasError } = await supabase
-                .schema("sistemaretiradas")
-                .from("parcelas")
-                .select("valor_parcela, status_parcela, competencia");
+            const mesAtual = format(new Date(), "yyyyMM");
+
+            // Buscar todas as queries em paralelo para melhor performance
+            const [
+                { data: allParcelas, error: parcelasError },
+                { data: parcelasDescontadas, error: descontadasError },
+                { data: parcelasPendentes, error: pendentesError },
+                { data: parcelasMesAtual, error: mesAtualError },
+                { data: adiantamentos, error: adiantamentosError }
+            ] = await Promise.all([
+                // Total previsto: todas as parcelas
+                supabase
+                    .schema("sistemaretiradas")
+                    .from("parcelas")
+                    .select("valor_parcela"),
+                
+                // Total descontado: apenas parcelas descontadas
+                supabase
+                    .schema("sistemaretiradas")
+                    .from("parcelas")
+                    .select("valor_parcela")
+                    .eq("status_parcela", "DESCONTADO"),
+                
+                // Parcelas pendentes/agendadas
+                supabase
+                    .schema("sistemaretiradas")
+                    .from("parcelas")
+                    .select("valor_parcela")
+                    .in("status_parcela", ["PENDENTE", "AGENDADO"]),
+                
+                // Parcelas do mês atual (pendentes/agendadas)
+                supabase
+                    .schema("sistemaretiradas")
+                    .from("parcelas")
+                    .select("valor_parcela")
+                    .eq("competencia", mesAtual)
+                    .in("status_parcela", ["PENDENTE", "AGENDADO"]),
+                
+                // Adiantamentos aprovados
+                supabase
+                    .schema("sistemaretiradas")
+                    .from("adiantamentos")
+                    .select("valor, status, mes_competencia")
+                    .eq("status", "APROVADO")
+            ]);
 
             if (parcelasError) throw parcelasError;
-
-            // Buscar adiantamentos aprovados (incluindo meses futuros)
-            const { data: adiantamentos, error: adiantamentosError } = await supabase
-                .schema("sistemaretiradas")
-                .from("adiantamentos")
-                .select("valor, status, mes_competencia")
-                .eq("status", "APROVADO");
-
+            if (descontadasError) throw descontadasError;
+            if (pendentesError) throw pendentesError;
+            if (mesAtualError) throw mesAtualError;
             if (adiantamentosError) {
                 console.error("Error fetching adiantamentos:", adiantamentosError);
             }
 
-            const mesAtual = format(new Date(), "yyyyMM");
-
-            const previsto = parcelas?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
-            const descontado = parcelas
-                ?.filter(p => p.status_parcela === "DESCONTADO")
-                .reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
-            
-            // Calcular pendente: parcelas pendentes/agendadas + adiantamentos aprovados
-            const pendenteParcelas = parcelas
-                ?.filter(p => p.status_parcela === "PENDENTE" || p.status_parcela === "AGENDADO")
-                .reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
-            
-            const pendenteAdiantamentos = adiantamentos
-                ?.reduce((sum, a) => sum + Number(a.valor || 0), 0) || 0;
-            
+            const previsto = allParcelas?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
+            const descontado = parcelasDescontadas?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
+            const pendenteParcelas = parcelasPendentes?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
+            const pendenteAdiantamentos = adiantamentos?.reduce((sum, a) => sum + Number(a.valor || 0), 0) || 0;
             const pendente = pendenteParcelas + pendenteAdiantamentos;
-            
-            const mesAtualTotal = parcelas
-                ?.filter(p => p.competencia === mesAtual && (p.status_parcela === "PENDENTE" || p.status_parcela === "AGENDADO"))
-                .reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
+            const mesAtualTotal = parcelasMesAtual?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
 
             setKpis({ previsto, descontado, pendente, mesAtual: mesAtualTotal });
         } catch (error) {
@@ -95,6 +119,7 @@ export const FinancialDashboard = () => {
 
     const fetchColaboradorasLimites = async () => {
         try {
+            // Buscar todas as colaboradoras ativas de uma vez
             const { data: profiles, error } = await supabase
                 .schema("sistemaretiradas")
                 .from("profiles")
@@ -108,55 +133,89 @@ export const FinancialDashboard = () => {
                 return;
             }
 
-            if (!profiles || profiles.length === 0) return;
+            if (!profiles || profiles.length === 0) {
+                setColaboradoras([]);
+                return;
+            }
 
-            const limites: ColaboradoraLimite[] = [];
+            const profileIds = profiles.map(p => p.id);
 
-            for (const prof of profiles) {
-                const { data: purchases } = await supabase
-                    .schema("sistemaretiradas")
-                    .from("purchases")
-                    .select("id")
-                    .eq("colaboradora_id", prof.id);
+            // Buscar TODAS as purchases de TODAS as colaboradoras de uma vez
+            const { data: allPurchases } = await supabase
+                .schema("sistemaretiradas")
+                .from("purchases")
+                .select("id, colaboradora_id")
+                .in("colaboradora_id", profileIds);
 
-                const purchaseIds = purchases?.map(p => p.id) || [];
+            // Agrupar purchases por colaboradora
+            const purchasesByColaboradora = new Map<string, string[]>();
+            allPurchases?.forEach(p => {
+                const existing = purchasesByColaboradora.get(p.colaboradora_id) || [];
+                existing.push(p.id);
+                purchasesByColaboradora.set(p.colaboradora_id, existing);
+            });
 
-                let parcelas = null;
-                if (purchaseIds.length > 0) {
-                    const { data } = await supabase
-                        .schema("sistemaretiradas")
-                        .from("parcelas")
-                        .select("valor_parcela")
-                        .in("compra_id", purchaseIds)
-                        .in("status_parcela", ["PENDENTE", "AGENDADO"]);
-                    parcelas = data;
-                }
+            const allPurchaseIds = allPurchases?.map(p => p.id) || [];
 
-                const { data: adiantamentos } = await supabase
-                    .schema("sistemaretiradas")
-                    .from("adiantamentos")
-                    .select("valor")
-                    .eq("colaboradora_id", prof.id)
-                    .in("status", ["APROVADO", "DESCONTADO"]);
+            // Buscar TODAS as parcelas pendentes/agendadas de uma vez
+            const { data: allParcelas } = allPurchaseIds.length > 0 ? await supabase
+                .schema("sistemaretiradas")
+                .from("parcelas")
+                .select("valor_parcela, compra_id")
+                .in("compra_id", allPurchaseIds)
+                .in("status_parcela", ["PENDENTE", "AGENDADO"]) : { data: null };
 
-                const totalParcelas = parcelas?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
-                const totalAdiantamentos = adiantamentos?.reduce((sum, a) => sum + Number(a.valor), 0) || 0;
+            // Agrupar parcelas por compra_id, depois por colaboradora
+            const parcelasByPurchase = new Map<string, number>();
+            allParcelas?.forEach(p => {
+                const existing = parcelasByPurchase.get(p.compra_id) || 0;
+                parcelasByPurchase.set(p.compra_id, existing + Number(p.valor_parcela));
+            });
+
+            const parcelasByColaboradora = new Map<string, number>();
+            purchasesByColaboradora.forEach((purchaseIds, colaboradoraId) => {
+                const total = purchaseIds.reduce((sum, purchaseId) => {
+                    return sum + (parcelasByPurchase.get(purchaseId) || 0);
+                }, 0);
+                parcelasByColaboradora.set(colaboradoraId, total);
+            });
+
+            // Buscar TODOS os adiantamentos de TODAS as colaboradoras de uma vez
+            const { data: allAdiantamentos } = await supabase
+                .schema("sistemaretiradas")
+                .from("adiantamentos")
+                .select("valor, colaboradora_id")
+                .in("colaboradora_id", profileIds)
+                .in("status", ["APROVADO", "DESCONTADO"]);
+
+            // Agrupar adiantamentos por colaboradora
+            const adiantamentosByColaboradora = new Map<string, number>();
+            allAdiantamentos?.forEach(a => {
+                const existing = adiantamentosByColaboradora.get(a.colaboradora_id) || 0;
+                adiantamentosByColaboradora.set(a.colaboradora_id, existing + Number(a.valor));
+            });
+
+            // Calcular limites de cada colaboradora
+            const limites: ColaboradoraLimite[] = profiles.map(prof => {
+                const totalParcelas = parcelasByColaboradora.get(prof.id) || 0;
+                const totalAdiantamentos = adiantamentosByColaboradora.get(prof.id) || 0;
                 const usado_total = totalParcelas + totalAdiantamentos;
                 const disponivel = Number(prof.limite_total) - usado_total;
 
-                limites.push({
+                return {
                     id: prof.id,
                     name: prof.name,
                     limite_total: Number(prof.limite_total),
                     limite_mensal: Number(prof.limite_mensal),
                     usado_total,
                     disponivel,
-                });
-            }
+                };
+            });
 
             setColaboradoras(limites);
         } catch (error) {
             console.error("Erro ao buscar limites:", error);
+            toast.error("Erro ao carregar limites das colaboradoras");
         }
     };
 
