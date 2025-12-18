@@ -223,9 +223,9 @@ export default function BonusManagement() {
                 const { data: allCollaborators, error } = await supabase
                     .schema("sistemaretiradas")
                     .from("profiles")
-                    .select("id, name, active, store_id")
+                    .select("id, name, is_active, store_id")
                     .eq("role", "COLABORADORA")
-                    .eq("active", true)
+                    .eq("is_active", true)
                     .order("name");
 
                 if (error) throw error;
@@ -281,10 +281,10 @@ export default function BonusManagement() {
                 const { data, error } = await supabase
                     .schema("sistemaretiradas")
                     .from("profiles")
-                    .select("id, name, active")
+                    .select("id, name, is_active")
                     .eq("store_id", storeId)
                     .eq("role", "COLABORADORA")
-                    .eq("active", true)
+                    .eq("is_active", true)
                     .order("name");
 
                 if (error) throw error;
@@ -538,7 +538,7 @@ export default function BonusManagement() {
                                     .select('id, name, whatsapp')
                                     .eq('store_default', formData.store_id)
                                     .eq('role', 'LOJA')
-                                    .eq('active', true)
+                                    .eq('is_active', true)
                                     .maybeSingle();
                                 
                                 if (lojaData && lojaData.whatsapp && lojaData.whatsapp.trim()) {
