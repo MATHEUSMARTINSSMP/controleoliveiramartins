@@ -547,6 +547,7 @@ export const CRMManagement = () => {
         data_nascimento: formData.data_nascimento || null,
         observacoes: formData.observacoes || null,
         store_id: formData.store_id,
+        source: 'CRM', // Campo obrigatório para tabela contacts
       };
 
       console.log('[CRMManagement] Salvando contato:', {
@@ -582,11 +583,11 @@ export const CRMManagement = () => {
 
             if (!checkError || checkError.code !== '42P01') {
               if (existingContact) {
-                // Contato existe em contacts, atualizar
+                // Contato existe em contacts, atualizar (garantir que source está presente)
                 const { error: updateErrorContacts } = await supabase
                   .schema('sistemaretiradas')
                   .from('contacts')
-                  .update(contactData)
+                  .update({ ...contactData, source: 'CRM' })
                   .eq('id', editingId);
 
                 if (updateErrorContacts && updateErrorContacts.code !== '42P01') {
@@ -607,7 +608,7 @@ export const CRMManagement = () => {
                   const { error: insertErrorContacts } = await supabase
                     .schema('sistemaretiradas')
                     .from('contacts')
-                    .insert([{ ...contactData, id: editingId }]);
+                    .insert([{ ...contactData, id: editingId, source: 'CRM' }]);
 
                   if (insertErrorContacts && insertErrorContacts.code !== '42P01') {
                     console.warn('Aviso: não foi possível inserir em contacts:', insertErrorContacts);
@@ -709,7 +710,7 @@ export const CRMManagement = () => {
                   const { error: insertErrorContacts } = await supabase
                     .schema('sistemaretiradas')
                     .from('contacts')
-                    .insert([contactData]);
+                    .insert([{ ...contactData, source: 'CRM' }]);
 
                   if (insertErrorContacts && insertErrorContacts.code !== '42P01') {
                     console.warn('Aviso: não foi possível inserir em contacts (continuando):', insertErrorContacts);
@@ -997,6 +998,7 @@ export const CRMManagement = () => {
           data_nascimento: dataNascimento,
           observacoes: observacoes || null,
           store_id: importStoreId,
+          source: 'CRM', // Campo obrigatório para tabela contacts
         });
       }
 
@@ -1069,7 +1071,7 @@ export const CRMManagement = () => {
                     const { error: updateErrorContacts } = await supabase
                       .schema('sistemaretiradas')
                       .from('contacts')
-                      .update(updateData)
+                      .update({ ...updateData, source: 'CRM' })
                       .eq('id', id);
 
                     if (updateErrorContacts && updateErrorContacts.code !== '42P01') {
@@ -1131,10 +1133,16 @@ export const CRMManagement = () => {
                     });
 
                     if (toInsertInContacts.length > 0) {
+                      // Adicionar campo source para cada contato
+                      const toInsertWithSource = toInsertInContacts.map(contact => ({
+                        ...contact,
+                        source: 'CRM'
+                      }));
+                      
                       const { error: insertErrorContacts } = await supabase
                         .schema('sistemaretiradas')
                         .from('contacts')
-                        .insert(toInsertInContacts);
+                        .insert(toInsertWithSource);
 
                       if (insertErrorContacts && insertErrorContacts.code !== '42P01') {
                         // Erro diferente de "tabela não existe" - logar mas não bloquear

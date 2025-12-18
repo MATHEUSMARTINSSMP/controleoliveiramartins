@@ -266,56 +266,60 @@ export default function Landing() {
       price: "249",
       period: "/mês",
       description: "Para operações que buscam organização e controle inicial",
+      checkoutUrl: "https://pay.cakto.com.br/32v862z",
       features: [
         "1 Loja",
         "Até 5 colaboradoras",
         "Dashboard completo de vendas",
         "Sistema de metas diárias",
         "Controle de ponto digital (CLT)",
+        "Programa de cashback automatizado",
+        "DRE com IA integrado",
         "Relatórios básicos em PDF",
         "Suporte por e-mail em horário comercial"
       ],
       notIncluded: [
-        "Integração WhatsApp",
-        "Programa de cashback",
-        "DRE financeiro automatizado",
-        "Integração Tiny ERP"
+        "WhatsApp próprio para envio de mensagens",
+        "Integração com ERP"
       ],
       popular: false,
-      cta: "Iniciar Período de Testes"
+      cta: "Assinar Agora"
     },
     {
       name: "Business",
       price: "499",
       period: "/mês",
       description: "Para negócios em crescimento que exigem automação completa",
+      checkoutUrl: "https://pay.cakto.com.br/aapmyzd_625482",
       features: [
         "Até 3 Lojas",
         "Até 25 colaboradoras",
         "Todas as funcionalidades Starter",
-        "Integração WhatsApp Business",
+        "WhatsApp próprio para envio de mensagens",
         "Programa de cashback automatizado",
-        "Integração completa Tiny ERP",
+        "DRE com IA integrado",
+        "Integração com ERP (Tiny, Bling e outros)",
         "Gincanas e competições gamificadas",
         "CRM completo com histórico de clientes",
         "Suporte prioritário via WhatsApp"
       ],
-      notIncluded: [
-        "DRE financeiro avançado"
-      ],
+      notIncluded: [],
       popular: true,
-      cta: "Começar Agora — 14 Dias Grátis"
+      cta: "Assinar Agora"
     },
     {
       name: "Enterprise",
       price: "799",
       period: "/mês",
       description: "Para redes que dominam o mercado e exigem excelência operacional",
+      checkoutUrl: "https://pay.cakto.com.br/pzpdgb7",
       features: [
         "Até 10 Lojas (7 + 3 bônus)",
         "Até 90 colaboradoras (80 + 10 bônus)",
         "Todas as funcionalidades Business",
-        "DRE financeiro automatizado completo",
+        "Programa de cashback automatizado",
+        "DRE com IA integrado",
+        "Integração com ERP (Tiny, Bling e outros)",
         "Suporte prioritário 24/7",
         "Treinamento completo da equipe",
         "Onboarding dedicado com especialista",
@@ -324,7 +328,7 @@ export default function Landing() {
       ],
       notIncluded: [],
       popular: false,
-      cta: "Falar com Especialista"
+      cta: "Assinar Agora"
     }
   ];
 
@@ -797,7 +801,13 @@ export default function Landing() {
                   <Button 
                     className="w-full" 
                     variant={plan.popular ? "default" : "outline"}
-                    onClick={() => navigate('/auth')}
+                    onClick={() => {
+                      if (plan.checkoutUrl) {
+                        window.open(plan.checkoutUrl, '_blank');
+                      } else {
+                        navigate('/auth');
+                      }
+                    }}
                     data-testid={`button-plan-${plan.name.toLowerCase()}`}
                   >
                     {plan.cta}
