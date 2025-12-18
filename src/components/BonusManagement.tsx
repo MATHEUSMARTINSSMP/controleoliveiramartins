@@ -622,10 +622,10 @@ export default function BonusManagement() {
                                     } else if (recipientsData && recipientsData.length > 0) {
                                         console.log(`📱 [BonusManagement] ${recipientsData.length} número(s) encontrado(s) (VENDA + PARABENS) após remoção de duplicatas`);
                                         
-                                        const temPremiosPorPosicao = formData.categoria_condicao === "BASICA" && 
-                                                                     formData.condicao_ranking && 
-                                                                     formData.condicao_ranking !== "" &&
-                                                                     parseInt(formData.condicao_ranking) > 0;
+                                        const temPremiosPorPosicao = (
+                                            (formData.categoria_condicao === "BASICA" && formData.condicao_ranking && formData.condicao_ranking !== "" && parseInt(formData.condicao_ranking) > 0) ||
+                                            (formData.categoria_condicao === "AVANCADA" && formData.condicao_meta_tipo === "FATURAMENTO" && !formData.condicao_faturamento && formData.condicao_ranking && formData.condicao_ranking !== "" && parseInt(formData.condicao_ranking) > 0)
+                                        );
                                         
                                         const notificationMessage = formatBonusMessage({
                                             colaboradoraName: "Administrador",
@@ -770,10 +770,10 @@ export default function BonusManagement() {
                                     if (allPhones.size > 0) {
                                         console.log(`📱 [BonusManagement] ${allPhones.size} número(s) encontrado(s) para TODAS as lojas`);
                                         
-                                        const temPremiosPorPosicao = formData.categoria_condicao === "BASICA" && 
-                                                                     formData.condicao_ranking && 
-                                                                     formData.condicao_ranking !== "" &&
-                                                                     parseInt(formData.condicao_ranking) > 0;
+                                        const temPremiosPorPosicao = (
+                                            (formData.categoria_condicao === "BASICA" && formData.condicao_ranking && formData.condicao_ranking !== "" && parseInt(formData.condicao_ranking) > 0) ||
+                                            (formData.categoria_condicao === "AVANCADA" && formData.condicao_meta_tipo === "FATURAMENTO" && !formData.condicao_faturamento && formData.condicao_ranking && formData.condicao_ranking !== "" && parseInt(formData.condicao_ranking) > 0)
+                                        );
                                         
                                         const notificationMessage = formatBonusMessage({
                                             colaboradoraName: "Administrador",
@@ -1476,20 +1476,68 @@ export default function BonusManagement() {
                                 </div>
 
                                 {formData.condicao_tipo === "FATURAMENTO" && (
-                                    <div>
-                                        <Label className="text-xs sm:text-sm">Valor de Faturamento (R$)</Label>
-                                        <Input
-                                            type="number"
-                                            step="0.01"
-                                            value={formData.condicao_faturamento}
-                                            onChange={(e) => setFormData({ ...formData, condicao_faturamento: e.target.value })}
-                                            placeholder="Ex: 50000"
-                                            className="text-xs sm:text-sm"
-                                        />
-                                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
-                                            💡 Exemplo: Consultora que mais vender no período X (R$ 50.000)
-                                        </p>
-                                    </div>
+                                    <>
+                                        <div>
+                                            <Label className="text-xs sm:text-sm">Tipo de Condição</Label>
+                                            <Select
+                                                value={formData.condicao_faturamento ? "VALOR_FIXO" : "RANKING"}
+                                                onValueChange={(v) => {
+                                                    if (v === "RANKING") {
+                                                        setFormData({ ...formData, condicao_faturamento: "", condicao_ranking: formData.condicao_ranking || "1" });
+                                                    } else {
+                                                        setFormData({ ...formData, condicao_ranking: "" });
+                                                    }
+                                                }}
+                                            >
+                                                <SelectTrigger className="text-xs sm:text-sm">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="RANKING">Ranking (quem mais vender)</SelectItem>
+                                                    <SelectItem value="VALOR_FIXO">Valor Fixo (quem atingir X)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        
+                                        {formData.condicao_faturamento ? (
+                                            // Modo: Valor Fixo
+                                            <div>
+                                                <Label className="text-xs sm:text-sm">Valor de Faturamento (R$)</Label>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={formData.condicao_faturamento}
+                                                    onChange={(e) => setFormData({ ...formData, condicao_faturamento: e.target.value })}
+                                                    placeholder="Ex: 50000"
+                                                    className="text-xs sm:text-sm"
+                                                />
+                                                <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                                                    💡 Colaboradora que atingir este valor no período definido ganha o bônus
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            // Modo: Ranking
+                                            <div>
+                                                <Label className="text-xs sm:text-sm">Ranking</Label>
+                                                <Select
+                                                    value={formData.condicao_ranking}
+                                                    onValueChange={(v) => setFormData({ ...formData, condicao_ranking: v })}
+                                                >
+                                                    <SelectTrigger className="text-xs sm:text-sm">
+                                                        <SelectValue placeholder="Selecione o ranking" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="1">Melhor (1º lugar)</SelectItem>
+                                                        <SelectItem value="2">Top 2</SelectItem>
+                                                        <SelectItem value="3">Top 3</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                                                    💡 Colaboradora que mais vender no período definido (ranking por posição)
+                                                </p>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
 
                                 {formData.condicao_tipo && formData.condicao_tipo !== "FATURAMENTO" && (
@@ -1593,21 +1641,69 @@ export default function BonusManagement() {
                                             </Select>
                                         </div>
 
-                                        {(formData.condicao_meta_tipo === "FATURAMENTO" || formData.condicao_tipo === "FATURAMENTO") && (
-                                            <div>
-                                                <Label className="text-xs sm:text-sm">Valor de Faturamento (R$)</Label>
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
-                                                    value={formData.condicao_faturamento}
-                                                    onChange={(e) => setFormData({ ...formData, condicao_faturamento: e.target.value })}
-                                                    placeholder="Ex: 50000"
-                                                    className="text-xs sm:text-sm"
-                                                />
-                                                <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
-                                                    💡 Exemplo: {formData.condicao_escopo === "COLABORADORA" ? "Consultora" : "Loja"} que mais vender no período X (R$ 50.000)
-                                                </p>
-                                            </div>
+                                        {formData.condicao_meta_tipo === "FATURAMENTO" && (
+                                            <>
+                                                <div>
+                                                    <Label className="text-xs sm:text-sm">Tipo de Condição</Label>
+                                                    <Select
+                                                        value={formData.condicao_faturamento ? "VALOR_FIXO" : "RANKING"}
+                                                        onValueChange={(v) => {
+                                                            if (v === "RANKING") {
+                                                                setFormData({ ...formData, condicao_faturamento: "", condicao_ranking: "1" });
+                                                            } else {
+                                                                setFormData({ ...formData, condicao_ranking: "" });
+                                                            }
+                                                        }}
+                                                    >
+                                                        <SelectTrigger className="text-xs sm:text-sm">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="RANKING">Ranking (quem mais vender)</SelectItem>
+                                                            <SelectItem value="VALOR_FIXO">Valor Fixo (quem atingir X)</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                
+                                                {formData.condicao_faturamento ? (
+                                                    // Modo: Valor Fixo
+                                                    <div>
+                                                        <Label className="text-xs sm:text-sm">Valor de Faturamento (R$)</Label>
+                                                        <Input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={formData.condicao_faturamento}
+                                                            onChange={(e) => setFormData({ ...formData, condicao_faturamento: e.target.value })}
+                                                            placeholder="Ex: 50000"
+                                                            className="text-xs sm:text-sm"
+                                                        />
+                                                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                                                            💡 {formData.condicao_escopo === "COLABORADORA" ? "Colaboradora" : "Loja"} que atingir este valor no período definido ganha o bônus
+                                                        </p>
+                                                    </div>
+                                                ) : (
+                                                    // Modo: Ranking
+                                                    <div>
+                                                        <Label className="text-xs sm:text-sm">Ranking</Label>
+                                                        <Select
+                                                            value={formData.condicao_ranking || "1"}
+                                                            onValueChange={(v) => setFormData({ ...formData, condicao_ranking: v })}
+                                                        >
+                                                            <SelectTrigger className="text-xs sm:text-sm">
+                                                                <SelectValue placeholder="Selecione o ranking" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="1">Melhor (1º lugar)</SelectItem>
+                                                                <SelectItem value="2">Top 2</SelectItem>
+                                                                <SelectItem value="3">Top 3</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                                                            💡 {formData.condicao_escopo === "COLABORADORA" ? "Colaboradora" : "Loja"} que mais vender no período definido (ranking por posição)
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
                                     </>
                                 )}
@@ -1936,7 +2032,10 @@ export default function BonusManagement() {
                         )}
 
                         {/* Valor do Bônus - Mostrar apenas se NÃO for prêmio por posição */}
-                        {!(formData.categoria_condicao === "BASICA" && formData.condicao_ranking && formData.condicao_ranking !== "") && (
+                        {!(
+                            (formData.categoria_condicao === "BASICA" && formData.condicao_ranking && formData.condicao_ranking !== "") ||
+                            (formData.categoria_condicao === "AVANCADA" && formData.condicao_meta_tipo === "FATURAMENTO" && !formData.condicao_faturamento && formData.condicao_ranking && formData.condicao_ranking !== "")
+                        ) && (
                             <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
                                 <Label className="text-xs sm:text-sm font-semibold">Valor do Bônus</Label>
 
@@ -2025,8 +2124,11 @@ export default function BonusManagement() {
                             </div>
                         )}
 
-                        {/* Prêmios por Posição (Top 1, 2, 3) - Apenas para Condições Básicas com Ranking */}
-                        {formData.categoria_condicao === "BASICA" && formData.condicao_ranking && formData.condicao_ranking !== "" && (
+                        {/* Prêmios por Posição (Top 1, 2, 3) - Para Condições Básicas ou Avançadas com Ranking */}
+                        {(
+                            (formData.categoria_condicao === "BASICA" && formData.condicao_ranking && formData.condicao_ranking !== "") ||
+                            (formData.categoria_condicao === "AVANCADA" && formData.condicao_meta_tipo === "FATURAMENTO" && !formData.condicao_faturamento && formData.condicao_ranking && formData.condicao_ranking !== "")
+                        ) && (
                                 <div className="space-y-3 mt-4 p-3 bg-primary/10 dark:bg-primary/5 rounded-lg border border-primary/20 dark:border-primary/30">
                                     <Label className="text-xs sm:text-sm font-semibold">Prêmios por Posição</Label>
                                     <p className="text-[10px] sm:text-xs text-muted-foreground">
