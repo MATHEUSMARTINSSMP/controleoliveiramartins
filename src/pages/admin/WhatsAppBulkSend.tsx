@@ -185,16 +185,38 @@ export default function WhatsAppBulkSend() {
     
     setLoadingContacts(true);
     try {
-      // Tentar usar a função RPC que já calcula tudo (mais eficiente)
-      // Supabase tem limite padrão de 1000, então fazemos busca com range para pegar todos
-      const { data: contactsWithStatsRPC, error: rpcError } = await supabase
-        .schema("sistemaretiradas")
-        .rpc("get_crm_customer_stats", { p_store_id: selectedStoreId })
-        .range(0, 99999); // Buscar até 100k contatos (bem mais que suficiente)
+      // Usar função RPC com paginação - buscar em lotes de 1000
+      const BATCH_SIZE = 1000;
+      let allContacts: any[] = [];
+      let offset = 0;
+      let hasMore = true;
 
-      if (!rpcError && contactsWithStatsRPC && contactsWithStatsRPC.length > 0) {
+      while (hasMore) {
+        const { data: batch, error: rpcError } = await supabase
+          .schema("sistemaretiradas")
+          .rpc("get_crm_customer_stats", {
+            p_store_id: selectedStoreId,
+            p_offset: offset,
+            p_limit: BATCH_SIZE
+          });
+
+        if (rpcError) {
+          console.error('[WhatsAppBulkSend] Erro ao buscar contatos via RPC:', rpcError);
+          throw rpcError;
+        }
+
+        if (batch && batch.length > 0) {
+          allContacts = [...allContacts, ...batch];
+          offset += BATCH_SIZE;
+          hasMore = batch.length === BATCH_SIZE; // Se retornou menos que BATCH_SIZE, não há mais
+        } else {
+          hasMore = false;
+        }
+      }
+
+      if (allContacts.length > 0) {
         // Usar dados da RPC (já vem com estatísticas calculadas)
-        const contactsMapped = contactsWithStatsRPC.map((c: any) => ({
+        const contactsMapped = allContacts.map((c: any) => ({
           id: c.contact_id,
           nome: c.nome,
           telefone: c.telefone,
