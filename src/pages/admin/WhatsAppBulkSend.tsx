@@ -129,6 +129,7 @@ export default function WhatsAppBulkSend() {
   
   const [loading, setLoading] = useState(false);
   const [loadingContacts, setLoadingContacts] = useState(false);
+  const [loadingFilters, setLoadingFilters] = useState(false);
   const [currentStep, setCurrentStep] = useState<"store" | "contacts" | "messages" | "settings" | "review">("store");
 
   useEffect(() => {
@@ -405,8 +406,14 @@ export default function WhatsAppBulkSend() {
     }
   };
 
-  const applyFilters = () => {
-    let filtered = [...contacts];
+  const applyFilters = async () => {
+    setLoadingFilters(true);
+    
+    // Pequeno delay para garantir que a UI atualize
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    try {
+      let filtered = [...contacts];
 
     // Filtro de busca (sempre aplicado)
     if (searchTerm) {
@@ -496,8 +503,11 @@ export default function WhatsAppBulkSend() {
       }
     }
 
-    setFilteredContacts(filtered);
-    setFiltersApplied(true);
+      setFilteredContacts(filtered);
+      setFiltersApplied(true);
+    } finally {
+      setLoadingFilters(false);
+    }
   };
 
   const handleToggleContact = (contactId: string) => {
@@ -774,8 +784,19 @@ export default function WhatsAppBulkSend() {
                           <SelectItem value="OR">OU (OR)</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Button onClick={applyFilters} className="ml-2">
-                        Aplicar Filtros
+                      <Button 
+                        onClick={applyFilters} 
+                        className="ml-2"
+                        disabled={loadingFilters || loadingContacts}
+                      >
+                        {loadingFilters ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Aplicando...
+                          </>
+                        ) : (
+                          "Aplicar Filtros"
+                        )}
                       </Button>
                     </div>
                   </div>
