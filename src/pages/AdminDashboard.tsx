@@ -532,6 +532,17 @@ const AdminDashboard = () => {
               {/* Seção 2: Central WhatsApp (Conexões + Destinatários + Alertas) */}
               <BillingAccessGuard allowReadOnly>
                 <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">WhatsApp</h3>
+                    <Button
+                      onClick={() => navigate("/admin/whatsapp-bulk-send")}
+                      size="sm"
+                      variant="default"
+                    >
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Envio em Massa
+                    </Button>
+                  </div>
                   <WhatsAppManagement />
                 </div>
               </BillingAccessGuard>
