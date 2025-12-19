@@ -522,14 +522,14 @@ async function handleCaktoPurchaseApproved(supabase, data) {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     // Verificar se perfil existe, se não existir, criar
-    const { data: existingProfile, error: profileCheckError } = await supabase
+    const { data: existingProfileCheck, error: profileCheckError } = await supabase
       .schema('sistemaretiradas')
       .from('profiles')
       .select('id')
       .eq('id', userId)
       .maybeSingle();
 
-    if (!existingProfile) {
+    if (!existingProfileCheck) {
       // Criar perfil se não existe (caso o trigger não tenha criado)
       console.log('[Payment Webhook] CAKTO: Profile does not exist, creating...');
       const { error: profileCreateError } = await supabase
