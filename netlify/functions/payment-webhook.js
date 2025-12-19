@@ -412,6 +412,12 @@ async function handleCaktoEvent(supabase, rawEventData) {
     return await handleCaktoPurchaseApproved(supabase, caktoData);
   }
   
+  if (eventType === 'subscription_created' || eventType === 'subscription_renewed') {
+    // Criação ou renovação de assinatura - processar como purchase_approved
+    console.log('[Payment Webhook] CAKTO: Processing subscription_created/renewed as purchase_approved');
+    return await handleCaktoPurchaseApproved(supabase, caktoData);
+  }
+  
   if (eventType === 'subscription_canceled') {
     // Cancelamento de assinatura - atualizar subscription
     return await handleCaktoSubscriptionCanceled(supabase, caktoData);
@@ -486,10 +492,10 @@ async function handleCaktoPurchaseApproved(supabase, data) {
       };
     }
 
-    // Mapear plano do Cakto para plano do sistema
-    const planId = mapCaktoPlanToSystemPlan(planName, amount);
+    // Mapear plano do Cakto para nome do plano do sistema
+    const planNameMapped = mapCaktoPlanToSystemPlanName(planName, amount);
     
-    console.log('[Payment Webhook] CAKTO: Creating new admin user with plan:', planId);
+    console.log('[Payment Webhook] CAKTO: Creating new admin user with plan:', planNameMapped);
 
     // Gerar senha aleatória
     const generatedPassword = generateRandomPassword();
@@ -587,7 +593,7 @@ async function handleCaktoPurchaseApproved(supabase, data) {
     }
 
     // Criar subscription paga do Cakto (substitui trial se existir)
-    await createCaktoSubscription(supabase, userId, data, planId);
+    await createCaktoSubscription(supabase, userId, data, planNameMapped);
 
     // Enviar email com credenciais
     // Tentar usar Netlify Function primeiro (mais confiável)
@@ -649,9 +655,10 @@ async function handleCaktoPurchaseApproved(supabase, data) {
 }
 
 /**
- * Mapeia o plano do Cakto para o plano do sistema
+ * Mapeia o plano do Cakto para o nome do plano do sistema
+ * Retorna o nome do plano (STARTER, BUSINESS, ENTERPRISE)
  */
-function mapCaktoPlanToSystemPlan(planName, amount) {
+function mapCaktoPlanToSystemPlanName(planName, amount) {
   if (!planName) {
     // Tentar identificar pelo valor
     const amountNum = parseFloat(amount) || 0;
@@ -682,22 +689,42 @@ function mapCaktoPlanToSystemPlan(planName, amount) {
 /**
  * Cria subscription no sistema para usuário Cakto
  */
-async function createCaktoSubscription(supabase, adminId, data, planId) {
+async function createCaktoSubscription(supabase, adminId, data, planName) {
   // Estrutura do Cakto: data.id ou data.refId para purchase ID
   const purchaseId = data.id || data.refId;
   const externalSubscriptionId = data.subscription?.id || purchaseId;
 
-  // Buscar dados do plano
-  const { data: plan } = await supabase
+  // Buscar dados do plano pelo nome (não pelo ID)
+  const { data: plan, error: planError } = await supabase
     .schema('sistemaretiradas')
     .from('subscription_plans')
     .select('id, name')
-    .eq('id', planId)
+    .eq('name', planName)
+    .eq('is_active', true)
     .single();
 
-  if (!plan) {
-    console.error('[Payment Webhook] CAKTO: Plan not found:', planId);
-    return;
+  let planId;
+  
+  if (planError || !plan) {
+    console.error('[Payment Webhook] CAKTO: Plan not found (active):', planName, planError);
+    // Tentar buscar sem filtro is_active como fallback
+    const { data: planFallback, error: fallbackError } = await supabase
+      .schema('sistemaretiradas')
+      .from('subscription_plans')
+      .select('id, name')
+      .eq('name', planName)
+      .single();
+    
+    if (fallbackError || !planFallback) {
+      console.error('[Payment Webhook] CAKTO: Plan not found even with fallback:', planName, fallbackError);
+      return;
+    }
+    
+    console.log('[Payment Webhook] CAKTO: Plan found (inactive):', planFallback);
+    planId = planFallback.id;
+  } else {
+    console.log('[Payment Webhook] CAKTO: Plan found (active):', plan);
+    planId = plan.id;
   }
 
   // Verificar se já existe subscription para este admin
@@ -720,7 +747,7 @@ async function createCaktoSubscription(supabase, adminId, data, planId) {
         external_subscription_id: externalSubscriptionId?.toString(),
         status: 'ACTIVE',
         payment_status: 'PAID',
-        gateway_data: data,
+        gateway_metadata: data,
         updated_at: new Date().toISOString(),
       })
       .eq('id', existingSubscription.id);
@@ -742,7 +769,7 @@ async function createCaktoSubscription(supabase, adminId, data, planId) {
         external_subscription_id: externalSubscriptionId?.toString(),
         status: 'ACTIVE',
         payment_status: 'PAID',
-        gateway_data: data,
+        gateway_metadata: data,
       });
 
     if (subError) {
@@ -761,7 +788,39 @@ async function updateCaktoSubscription(supabase, adminId, data, planName) {
   const purchaseId = data.id || data.refId;
   const externalSubscriptionId = data.subscription?.id || purchaseId;
 
-  const planId = mapCaktoPlanToSystemPlan(planName, data.amount || data.baseAmount);
+  const planNameMapped = mapCaktoPlanToSystemPlanName(planName, data.amount || data.baseAmount);
+
+  // Buscar ID do plano pelo nome
+  const { data: plan, error: planError } = await supabase
+    .schema('sistemaretiradas')
+    .from('subscription_plans')
+    .select('id, name')
+    .eq('name', planNameMapped)
+    .single();
+
+  let planId;
+  
+  if (planError || !plan) {
+    console.error('[Payment Webhook] CAKTO: Plan not found in updateCaktoSubscription:', planNameMapped, planError);
+    // Tentar buscar sem filtro is_active como fallback
+    const { data: planFallback, error: fallbackError } = await supabase
+      .schema('sistemaretiradas')
+      .from('subscription_plans')
+      .select('id, name')
+      .eq('name', planNameMapped)
+      .single();
+    
+    if (fallbackError || !planFallback) {
+      console.error('[Payment Webhook] CAKTO: Plan not found even with fallback in updateCaktoSubscription:', planNameMapped, fallbackError);
+      // Tentar criar subscription mesmo assim (vai falhar mas será logado)
+      await createCaktoSubscription(supabase, adminId, data, planNameMapped);
+      return;
+    }
+    
+    planId = planFallback.id;
+  } else {
+    planId = plan.id;
+  }
 
   // Atualizar ou criar subscription
   const { data: existingSub } = await supabase
@@ -769,7 +828,6 @@ async function updateCaktoSubscription(supabase, adminId, data, planName) {
     .from('admin_subscriptions')
     .select('id')
     .eq('admin_id', adminId)
-    .eq('payment_gateway', 'CAKTO')
     .maybeSingle();
 
   if (existingSub) {
@@ -779,11 +837,13 @@ async function updateCaktoSubscription(supabase, adminId, data, planName) {
       .update({
         plan_id: planId,
         status: 'ACTIVE',
-        gateway_data: data,
+        payment_gateway: 'CAKTO',
+        gateway_metadata: data,
+        updated_at: new Date().toISOString(),
       })
       .eq('id', existingSub.id);
   } else {
-    await createCaktoSubscription(supabase, adminId, eventData, planId);
+    await createCaktoSubscription(supabase, adminId, data, planNameMapped);
   }
 }
 
