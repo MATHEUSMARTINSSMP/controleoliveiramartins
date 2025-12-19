@@ -192,8 +192,7 @@ export default function WhatsAppBulkSend() {
         .from("crm_contacts")
         .select("*", { count: "exact", head: true })
         .eq("store_id", selectedStoreId)
-        .not("telefone", "is", null)
-        .or("celular.not.is.null");
+        .not("telefone", "is", null);
 
       if (countError) {
         console.error('[WhatsAppBulkSend] Erro ao contar contatos:', countError);
