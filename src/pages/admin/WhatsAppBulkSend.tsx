@@ -206,16 +206,23 @@ export default function WhatsAppBulkSend() {
             .eq("cliente_id", contact.id)
             .order("data_venda", { ascending: false });
 
-          // 2. Buscar também por cliente_nome (caso cliente_id não esteja preenchido)
-          // Usar ilike para busca case-insensitive e parcial
-          const { data: salesDataByName } = await supabase
-            .schema("sistemaretiradas")
-            .from("sales")
-            .select("data_venda, valor")
-            .eq("store_id", selectedStoreId)
-            .ilike("cliente_nome", `%${contact.nome}%`)
-            .is("cliente_id", null) // Apenas se não tiver cliente_id
-            .order("data_venda", { ascending: false });
+          // 2. Buscar também por cliente_nome (caso cliente_id não esteja preenchido ou diferente)
+          // Buscar todas as vendas com esse nome, independente de ter cliente_id ou não
+          let salesDataByName: any[] = [];
+          if (contact.nome) {
+            const { data: salesByName } = await supabase
+              .schema("sistemaretiradas")
+              .from("sales")
+              .select("data_venda, valor, cliente_id")
+              .eq("store_id", selectedStoreId)
+              .ilike("cliente_nome", `%${contact.nome}%`)
+              .order("data_venda", { ascending: false });
+            
+            // Filtrar para não incluir as que já foram encontradas por cliente_id
+            if (salesByName) {
+              salesDataByName = salesByName.filter(sale => sale.cliente_id !== contact.id);
+            }
+          }
 
           // 3. Buscar por CPF: encontrar outros contatos com mesmo CPF e buscar suas vendas
           let salesDataByCpf: any[] = [];
@@ -276,9 +283,16 @@ export default function WhatsAppBulkSend() {
           });
           const salesData = Array.from(salesMap.values());
 
-          // Debug: log para contatos com vendas encontradas
-          if (salesData.length > 0) {
-            console.log(`[WhatsAppBulkSend] Contato ${contact.nome} (${contact.id}): ${salesData.length} vendas encontradas`);
+          // Debug: log detalhado (apenas para primeiros 3 contatos para não poluir o console)
+          if (contactsData.indexOf(contact) < 3) {
+            console.log(`[WhatsAppBulkSend] Contato ${contact.nome} (${contact.id}):`, {
+              vendasPorId: salesDataById?.length || 0,
+              vendasPorNome: salesDataByName?.length || 0,
+              vendasPorCpf: salesDataByCpf?.length || 0,
+              totalVendas: salesData.length,
+              cpf: contact.cpf,
+              nome: contact.nome
+            });
           }
 
           if (!salesData || salesData.length === 0) {
