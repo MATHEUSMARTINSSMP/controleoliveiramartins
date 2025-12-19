@@ -15,6 +15,14 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const stripe = require('stripe');
+
+// Import helper da API do Cakto (com tratamento de erro caso não exista)
+let caktoApiClient = null;
+try {
+  caktoApiClient = require('./cakto-api-client');
+} catch (error) {
+  console.warn('[Payment Webhook] Cakto API client not available:', error.message);
+}
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, stripe-signature, x-signature, x-asaas-signature, x-cakto-signature',
@@ -318,6 +326,35 @@ async function handleCaktoEvent(supabase, event) {
   
   console.log('[Payment Webhook] CAKTO Event Type:', eventType);
   console.log('[Payment Webhook] CAKTO Event Data:', JSON.stringify(caktoEvent, null, 2));
+
+  // Se tivermos purchase_id mas faltarem dados, tentar buscar da API do Cakto
+  const purchaseId = caktoEvent.purchase_id || caktoEvent.id || caktoEvent.purchase?.id;
+  if (purchaseId && caktoApiClient && (!caktoEvent.customer?.email || !caktoEvent.customer?.name)) {
+    try {
+      console.log('[Payment Webhook] CAKTO: Fetching purchase details from API:', purchaseId);
+      // Obtém access token e busca detalhes da compra
+      const accessToken = await caktoApiClient.getCaktoAccessToken(
+        process.env.CAKTO_CLIENT_ID,
+        process.env.CAKTO_CLIENT_SECRET
+      );
+      const purchaseDetails = await caktoApiClient.getCaktoPurchase(purchaseId, accessToken);
+      console.log('[Payment Webhook] CAKTO: Purchase details from API:', purchaseDetails);
+      
+      // Enriquecer evento com dados da API
+      if (purchaseDetails.customer && !caktoEvent.customer) {
+        caktoEvent.customer = purchaseDetails.customer;
+      }
+      if (purchaseDetails.product && !caktoEvent.product) {
+        caktoEvent.product = purchaseDetails.product;
+      }
+      if (purchaseDetails.amount && !caktoEvent.amount) {
+        caktoEvent.amount = purchaseDetails.amount;
+      }
+    } catch (apiError) {
+      console.error('[Payment Webhook] CAKTO: Error fetching from API (continuing with webhook data):', apiError.message);
+      // Continuar com os dados do webhook mesmo se a API falhar
+    }
+  }
 
   // Processar evento de compra aprovada (quando cliente faz checkout e pagamento é aprovado)
   if (eventType === 'purchase.approved' || eventType === 'purchase_approved' || 
