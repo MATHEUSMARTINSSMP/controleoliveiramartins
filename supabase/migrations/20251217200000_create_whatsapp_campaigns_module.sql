@@ -355,7 +355,7 @@ BEGIN
     SELECT 
         c.id AS contact_id,
         c.nome,
-        COALESCE(c.telefone, c.celular) AS telefone,
+        c.telefone AS telefone,
         c.email,
         c.cpf,
         cs.ultima_compra,
@@ -375,7 +375,7 @@ BEGIN
     FROM sistemaretiradas.crm_contacts c
     LEFT JOIN customer_sales cs ON c.id = cs.cliente_id
     WHERE c.store_id = p_store_id
-    AND (c.telefone IS NOT NULL OR c.celular IS NOT NULL);
+    AND c.telefone IS NOT NULL;
 END;
 $$;
 
