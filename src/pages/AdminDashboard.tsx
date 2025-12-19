@@ -279,6 +279,11 @@ const AdminDashboard = () => {
                 <span className="hidden sm:inline">Configuracoes</span>
                 <span className="sm:hidden">Config</span>
               </TabsTrigger>
+              <TabsTrigger value="whatsapp-massa" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[50px] justify-center">
+                <MessageSquare className="h-3 w-3 mr-1" />
+                <span className="hidden sm:inline">WhatsApp Massa</span>
+                <span className="sm:hidden">WhatsApp</span>
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="gestao-metas" className="space-y-4">
@@ -532,17 +537,7 @@ const AdminDashboard = () => {
               {/* Seção 2: Central WhatsApp (Conexões + Destinatários + Alertas) */}
               <BillingAccessGuard allowReadOnly>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">WhatsApp</h3>
-                    <Button
-                      onClick={() => navigate("/admin/whatsapp-bulk-send")}
-                      size="sm"
-                      variant="default"
-                    >
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Envio em Massa
-                    </Button>
-                  </div>
+                  <h3 className="text-lg font-semibold">WhatsApp</h3>
                   <WhatsAppManagement />
                 </div>
               </BillingAccessGuard>
