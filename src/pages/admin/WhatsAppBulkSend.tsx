@@ -1,0 +1,1163 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  ArrowLeft, 
+  Search, 
+  Send, 
+  Users, 
+  MessageSquare, 
+  Clock,
+  Settings,
+  CheckCircle2,
+  AlertTriangle,
+  Loader2,
+  Plus,
+  X,
+  Phone,
+  Calendar
+} from "lucide-react";
+import { toast } from "sonner";
+import { formatCurrency } from "@/lib/utils";
+
+interface Store {
+  id: string;
+  name: string;
+}
+
+interface CRMContact {
+  id: string;
+  nome: string;
+  telefone: string | null;
+  email: string | null;
+  cpf: string | null;
+  selected?: boolean;
+  // Estatísticas calculadas
+  ultima_compra?: string | null;
+  dias_sem_comprar?: number;
+  total_compras?: number;
+  quantidade_compras?: number;
+  ticket_medio?: number;
+  categoria?: string;
+}
+
+interface WhatsAppAccount {
+  id: string;
+  phone: string;
+  account_type: string;
+}
+
+interface FilterConfig {
+  compraram_ha_x_dias?: number;
+  nao_compraram_desde?: string;
+  maior_faturamento?: {
+    enabled: boolean;
+    quantidade?: number;
+    todos?: boolean;
+  };
+  maior_ticket_medio?: {
+    enabled: boolean;
+    quantidade?: number;
+    todos?: boolean;
+  };
+  maior_numero_visitas?: {
+    enabled: boolean;
+    quantidade?: number;
+    todos?: boolean;
+  };
+}
+
+interface MessageVariation {
+  id: string;
+  content: string;
+}
+
+export default function WhatsAppBulkSend() {
+  const { profile, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  
+  // Estados principais
+  const [stores, setStores] = useState<Store[]>([]);
+  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
+  const [contacts, setContacts] = useState<CRMContact[]>([]);
+  const [filteredContacts, setFilteredContacts] = useState<CRMContact[]>([]);
+  const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
+  const [whatsappAccounts, setWhatsappAccounts] = useState<WhatsAppAccount[]>([]);
+  
+  // Filtros
+  const [filterConfig, setFilterConfig] = useState<FilterConfig>({});
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  // Mensagens
+  const [numVariations, setNumVariations] = useState(1);
+  const [messageVariations, setMessageVariations] = useState<MessageVariation[]>([
+    { id: "1", content: "" }
+  ]);
+  const [randomizeMessages, setRandomizeMessages] = useState(false);
+  
+  // Números WhatsApp
+  const [primaryPhoneId, setPrimaryPhoneId] = useState<string>("");
+  const [backupPhoneIds, setBackupPhoneIds] = useState<string[]>(["", "", ""]);
+  
+  // Configurações de envio
+  const [messagesPerNumber, setMessagesPerNumber] = useState(50);
+  const [alternateNumbers, setAlternateNumbers] = useState(false);
+  const [scheduledDate, setScheduledDate] = useState<string>("");
+  const [scheduledTime, setScheduledTime] = useState<string>("");
+  const [sendInTimeRange, setSendInTimeRange] = useState(false);
+  const [startHour, setStartHour] = useState(8);
+  const [endHour, setEndHour] = useState(22);
+  const [intervalMinutes, setIntervalMinutes] = useState(5);
+  const [maxMessagesPerContactPerDay, setMaxMessagesPerContactPerDay] = useState(1);
+  const [maxTotalMessagesPerDay, setMaxTotalMessagesPerDay] = useState<number | null>(null);
+  
+  const [loading, setLoading] = useState(false);
+  const [loadingContacts, setLoadingContacts] = useState(false);
+  const [currentStep, setCurrentStep] = useState<"store" | "contacts" | "messages" | "settings" | "review">("store");
+
+  useEffect(() => {
+    if (!authLoading && (!profile || profile.role !== "ADMIN")) {
+      navigate("/");
+    }
+  }, [profile, authLoading, navigate]);
+
+  useEffect(() => {
+    if (profile?.id) {
+      fetchStores();
+    }
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (selectedStoreId) {
+      fetchContacts();
+      fetchWhatsAppAccounts();
+    }
+  }, [selectedStoreId]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [contacts, filterConfig, searchTerm]);
+
+  const fetchStores = async () => {
+    try {
+      const { data, error } = await supabase
+        .schema("sistemaretiradas")
+        .from("stores")
+        .select("id, name")
+        .eq("admin_id", profile?.id)
+        .eq("active", true)
+        .order("name");
+
+      if (error) throw error;
+      setStores(data || []);
+    } catch (error: any) {
+      console.error("Erro ao buscar lojas:", error);
+      toast.error("Erro ao buscar lojas");
+    }
+  };
+
+  const fetchContacts = async () => {
+    setLoadingContacts(true);
+    try {
+      // Buscar contatos CRM
+      const { data: contactsData, error: contactsError } = await supabase
+        .schema("sistemaretiradas")
+        .from("crm_contacts")
+        .select("id, nome, telefone, email, cpf")
+        .eq("store_id", selectedStoreId)
+        .not("telefone", "is", null)
+        .order("nome");
+
+      if (contactsError) throw contactsError;
+
+      // Buscar estatísticas de vendas para cada contato
+      const contactsWithStats = await Promise.all(
+        (contactsData || []).map(async (contact) => {
+          const { data: salesData } = await supabase
+            .schema("sistemaretiradas")
+            .from("sales")
+            .select("data_venda, valor")
+            .eq("store_id", selectedStoreId)
+            .eq("cliente_id", contact.id)
+            .order("data_venda", { ascending: false });
+
+          if (!salesData || salesData.length === 0) {
+            return {
+              ...contact,
+              ultima_compra: null,
+              dias_sem_comprar: 9999,
+              total_compras: 0,
+              quantidade_compras: 0,
+              ticket_medio: 0,
+              categoria: "REGULAR",
+              selected: false
+            };
+          }
+
+          const totalCompras = salesData.reduce((sum, sale) => sum + (Number(sale.valor) || 0), 0);
+          const quantidadeCompras = salesData.length;
+          const ticketMedio = quantidadeCompras > 0 ? totalCompras / quantidadeCompras : 0;
+          const ultimaCompra = salesData[0].data_venda;
+          const diasSemComprar = ultimaCompra 
+            ? Math.floor((Date.now() - new Date(ultimaCompra).getTime()) / (1000 * 60 * 60 * 24))
+            : 9999;
+
+          let categoria = "REGULAR";
+          if (totalCompras >= 5000) categoria = "BLACK";
+          else if (totalCompras >= 2000) categoria = "PLATINUM";
+          else if (totalCompras >= 500) categoria = "VIP";
+
+          return {
+            ...contact,
+            ultima_compra: ultimaCompra,
+            dias_sem_comprar: diasSemComprar,
+            total_compras: totalCompras,
+            quantidade_compras: quantidadeCompras,
+            ticket_medio: ticketMedio,
+            categoria,
+            selected: false
+          };
+        })
+      );
+
+      setContacts(contactsWithStats);
+      setFilteredContacts(contactsWithStats);
+    } catch (error: any) {
+      console.error("Erro ao buscar contatos:", error);
+      toast.error("Erro ao buscar contatos");
+    } finally {
+      setLoadingContacts(false);
+    }
+  };
+
+  const fetchWhatsAppAccounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .schema("sistemaretiradas")
+        .from("whatsapp_accounts")
+        .select("id, phone, account_type")
+        .eq("store_id", selectedStoreId)
+        .eq("is_connected", true)
+        .order("account_type");
+
+      if (error) {
+        // Tabela pode não existir ainda
+        console.warn("Erro ao buscar contas WhatsApp:", error);
+        setWhatsappAccounts([]);
+        return;
+      }
+
+      setWhatsappAccounts(data || []);
+      
+      // Auto-selecionar número principal
+      const primary = data?.find(a => a.account_type === "PRIMARY");
+      if (primary) {
+        setPrimaryPhoneId(primary.id);
+      }
+    } catch (error: any) {
+      console.error("Erro ao buscar contas WhatsApp:", error);
+    }
+  };
+
+  const applyFilters = () => {
+    let filtered = [...contacts];
+
+    // Filtro de busca
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (c) =>
+          c.nome?.toLowerCase().includes(term) ||
+          c.telefone?.includes(term) ||
+          c.cpf?.includes(term)
+      );
+    }
+
+    // Filtro: Compraram há X dias
+    if (filterConfig.compraram_ha_x_dias) {
+      filtered = filtered.filter(
+        (c) => c.dias_sem_comprar !== undefined && c.dias_sem_comprar <= filterConfig.compraram_ha_x_dias!
+      );
+    }
+
+    // Filtro: Não compram desde
+    if (filterConfig.nao_compraram_desde) {
+      const dataLimite = new Date(filterConfig.nao_compraram_desde);
+      filtered = filtered.filter((c) => {
+        if (!c.ultima_compra) return true;
+        return new Date(c.ultima_compra) < dataLimite;
+      });
+    }
+
+    // Filtro: Maior faturamento
+    if (filterConfig.maior_faturamento?.enabled) {
+      const sorted = [...filtered].sort((a, b) => (b.total_compras || 0) - (a.total_compras || 0));
+      if (filterConfig.maior_faturamento.todos) {
+        filtered = sorted;
+      } else if (filterConfig.maior_faturamento.quantidade) {
+        filtered = sorted.slice(0, filterConfig.maior_faturamento.quantidade);
+      }
+    }
+
+    // Filtro: Maior ticket médio
+    if (filterConfig.maior_ticket_medio?.enabled) {
+      const sorted = [...filtered].sort((a, b) => (b.ticket_medio || 0) - (a.ticket_medio || 0));
+      if (filterConfig.maior_ticket_medio.todos) {
+        filtered = sorted;
+      } else if (filterConfig.maior_ticket_medio.quantidade) {
+        filtered = sorted.slice(0, filterConfig.maior_ticket_medio.quantidade);
+      }
+    }
+
+    // Filtro: Maior número de visitas
+    if (filterConfig.maior_numero_visitas?.enabled) {
+      const sorted = [...filtered].sort((a, b) => (b.quantidade_compras || 0) - (a.quantidade_compras || 0));
+      if (filterConfig.maior_numero_visitas.todos) {
+        filtered = sorted;
+      } else if (filterConfig.maior_numero_visitas.quantidade) {
+        filtered = sorted.slice(0, filterConfig.maior_numero_visitas.quantidade);
+      }
+    }
+
+    setFilteredContacts(filtered);
+  };
+
+  const handleToggleContact = (contactId: string) => {
+    const newSelected = new Set(selectedContacts);
+    if (newSelected.has(contactId)) {
+      newSelected.delete(contactId);
+    } else {
+      newSelected.add(contactId);
+    }
+    setSelectedContacts(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedContacts.size === filteredContacts.length) {
+      setSelectedContacts(new Set());
+    } else {
+      setSelectedContacts(new Set(filteredContacts.map((c) => c.id)));
+    }
+  };
+
+  const handleNumVariationsChange = (num: number) => {
+    setNumVariations(num);
+    const newVariations: MessageVariation[] = [];
+    for (let i = 0; i < num; i++) {
+      if (messageVariations[i]) {
+        newVariations.push(messageVariations[i]);
+      } else {
+        newVariations.push({ id: String(i + 1), content: "" });
+      }
+    }
+    setMessageVariations(newVariations);
+  };
+
+  const replacePlaceholders = (text: string, contact: CRMContact): string => {
+    const firstName = contact.nome?.split(" ")[0] || "Cliente";
+    const now = new Date();
+    const hour = now.getHours() - 3; // UTC-3 Brasil
+    let greeting = "Olá";
+    if (hour >= 5 && hour < 12) greeting = "Bom dia";
+    else if (hour >= 12 && hour < 18) greeting = "Boa tarde";
+    else if (hour >= 18 || hour < 5) greeting = "Boa noite";
+
+    // Buscar saldo de cashback
+    // TODO: Implementar busca de cashback quando necessário
+
+    return text
+      .replace(/{primeiro_nome}/g, firstName)
+      .replace(/{nome_completo}/g, contact.nome || "Cliente")
+      .replace(/{saudacao}/g, greeting);
+  };
+
+  const handleSend = async () => {
+    if (!selectedStoreId) {
+      toast.error("Selecione uma loja");
+      return;
+    }
+
+    if (selectedContacts.size === 0) {
+      toast.error("Selecione pelo menos um contato");
+      return;
+    }
+
+    if (messageVariations.some((v) => !v.content.trim())) {
+      toast.error("Preencha todas as variações de mensagem");
+      return;
+    }
+
+    if (!primaryPhoneId) {
+      toast.error("Selecione um número WhatsApp principal");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Preparar mensagens para cada contato selecionado
+      const selectedContactsData = filteredContacts.filter((c) => selectedContacts.has(c.id));
+      
+      // Criar campanha
+      const { data: campaign, error: campaignError } = await supabase
+        .schema("sistemaretiradas")
+        .from("whatsapp_campaigns")
+        .insert({
+          store_id: selectedStoreId,
+          created_by: profile?.id,
+          name: `Campanha ${new Date().toLocaleDateString("pt-BR")}`,
+          status: scheduledDate ? "SCHEDULED" : "RUNNING",
+          filter_config: filterConfig,
+          daily_limit: maxTotalMessagesPerDay || messagesPerNumber,
+          start_hour: sendInTimeRange ? startHour : null,
+          end_hour: sendInTimeRange ? endHour : null,
+          min_interval_minutes: intervalMinutes,
+          total_recipients: selectedContactsData.length,
+          scheduled_start_at: scheduledDate && scheduledTime 
+            ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
+            : null,
+        })
+        .select()
+        .single();
+
+      if (campaignError) throw campaignError;
+
+      // Criar mensagens na fila com prioridade baixa (7-10 para campanhas)
+      const messagesToInsert = [];
+      
+      for (const contact of selectedContactsData) {
+        // Escolher variação de mensagem
+        let messageContent = "";
+        if (randomizeMessages) {
+          const randomVariation = messageVariations[Math.floor(Math.random() * messageVariations.length)];
+          messageContent = replacePlaceholders(randomVariation.content, contact);
+        } else {
+          const variationIndex = selectedContactsData.indexOf(contact) % messageVariations.length;
+          messageContent = replacePlaceholders(messageVariations[variationIndex].content, contact);
+        }
+
+        // Determinar número WhatsApp a usar
+        let whatsappAccountId = primaryPhoneId;
+        if (alternateNumbers && backupPhoneIds.length > 0) {
+          const availableIds = [primaryPhoneId, ...backupPhoneIds.filter(id => id)].filter(Boolean);
+          const index = selectedContactsData.indexOf(contact) % availableIds.length;
+          whatsappAccountId = availableIds[index];
+        }
+
+        messagesToInsert.push({
+          phone: contact.telefone,
+          message: messageContent,
+          store_id: selectedStoreId,
+          priority: 8, // Prioridade média-baixa para campanhas
+          message_type: "CAMPAIGN",
+          campaign_id: campaign.id,
+          whatsapp_account_id: whatsappAccountId,
+          scheduled_for: scheduledDate && scheduledTime 
+            ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
+            : null,
+          allowed_start_hour: sendInTimeRange ? startHour : null,
+          allowed_end_hour: sendInTimeRange ? endHour : null,
+          interval_seconds: intervalMinutes * 60,
+          max_per_day_per_contact: maxMessagesPerContactPerDay,
+          max_total_per_day: maxTotalMessagesPerDay,
+          status: scheduledDate ? "SCHEDULED" : "PENDING",
+          metadata: {
+            contact_id: contact.id,
+            contact_name: contact.nome,
+            variation_id: randomizeMessages ? "random" : String(selectedContactsData.indexOf(contact) % messageVariations.length)
+          }
+        });
+      }
+
+      // Inserir mensagens na fila em lotes
+      const batchSize = 100;
+      for (let i = 0; i < messagesToInsert.length; i += batchSize) {
+        const batch = messagesToInsert.slice(i, i + batchSize);
+        const { error: insertError } = await supabase
+          .schema("sistemaretiradas")
+          .from("whatsapp_message_queue")
+          .insert(batch);
+
+        if (insertError) throw insertError;
+      }
+
+      toast.success(`Campanha criada! ${selectedContactsData.length} mensagens agendadas`);
+      navigate("/admin");
+    } catch (error: any) {
+      console.error("Erro ao criar campanha:", error);
+      toast.error("Erro ao criar campanha: " + (error.message || "Erro desconhecido"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold">Envio em Massa - WhatsApp</h1>
+          <p className="text-muted-foreground">Envie mensagens para múltiplos clientes de uma vez</p>
+        </div>
+      </div>
+
+      <Tabs value={currentStep} onValueChange={(v) => setCurrentStep(v as any)} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="store">1. Loja</TabsTrigger>
+          <TabsTrigger value="contacts">2. Contatos</TabsTrigger>
+          <TabsTrigger value="messages">3. Mensagens</TabsTrigger>
+          <TabsTrigger value="settings">4. Configurações</TabsTrigger>
+          <TabsTrigger value="review">5. Revisar</TabsTrigger>
+        </TabsList>
+
+        {/* PASSO 1: Seleção de Loja */}
+        <TabsContent value="store">
+          <Card>
+            <CardHeader>
+              <CardTitle>Selecione a Loja</CardTitle>
+              <CardDescription>Escolha a loja para a campanha de envio</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma loja" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stores.map((store) => (
+                    <SelectItem key={store.id} value={store.id}>
+                      {store.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedStoreId && (
+                <div className="mt-4">
+                  <Button onClick={() => setCurrentStep("contacts")}>
+                    Continuar para Seleção de Contatos
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* PASSO 2: Seleção de Contatos */}
+        <TabsContent value="contacts">
+          <Card>
+            <CardHeader>
+              <CardTitle>Selecione os Contatos</CardTitle>
+              <CardDescription>
+                {filteredContacts.length} contato(s) encontrado(s) | {selectedContacts.size} selecionado(s)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Busca */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nome, telefone ou CPF..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+                <Button variant="outline" onClick={handleSelectAll}>
+                  {selectedContacts.size === filteredContacts.length ? "Desmarcar Todos" : "Selecionar Todos"}
+                </Button>
+              </div>
+
+              {/* Filtros */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Filtros</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Compraram há X dias (máximo)</Label>
+                      <Input
+                        type="number"
+                        placeholder="Ex: 30"
+                        value={filterConfig.compraram_ha_x_dias || ""}
+                        onChange={(e) =>
+                          setFilterConfig({
+                            ...filterConfig,
+                            compraram_ha_x_dias: e.target.value ? parseInt(e.target.value) : undefined,
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Não compram desde</Label>
+                      <Input
+                        type="date"
+                        value={filterConfig.nao_compraram_desde || ""}
+                        onChange={(e) =>
+                          setFilterConfig({
+                            ...filterConfig,
+                            nao_compraram_desde: e.target.value || undefined,
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Maior Faturamento</Label>
+                      <div className="flex gap-2">
+                        <Checkbox
+                          checked={filterConfig.maior_faturamento?.enabled || false}
+                          onCheckedChange={(checked) =>
+                            setFilterConfig({
+                              ...filterConfig,
+                              maior_faturamento: {
+                                enabled: checked as boolean,
+                                todos: filterConfig.maior_faturamento?.todos || false,
+                                quantidade: filterConfig.maior_faturamento?.quantidade || 10,
+                              },
+                            })
+                          }
+                        />
+                        <Input
+                          type="number"
+                          placeholder="Quantidade"
+                          disabled={!filterConfig.maior_faturamento?.enabled}
+                          value={filterConfig.maior_faturamento?.quantidade || ""}
+                          onChange={(e) =>
+                            setFilterConfig({
+                              ...filterConfig,
+                              maior_faturamento: {
+                                ...filterConfig.maior_faturamento!,
+                                quantidade: e.target.value ? parseInt(e.target.value) : undefined,
+                                todos: false,
+                              },
+                            })
+                          }
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!filterConfig.maior_faturamento?.enabled}
+                          onClick={() =>
+                            setFilterConfig({
+                              ...filterConfig,
+                              maior_faturamento: {
+                                ...filterConfig.maior_faturamento!,
+                                todos: true,
+                              },
+                            })
+                          }
+                        >
+                          Todos
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label>Maior Ticket Médio</Label>
+                      <div className="flex gap-2">
+                        <Checkbox
+                          checked={filterConfig.maior_ticket_medio?.enabled || false}
+                          onCheckedChange={(checked) =>
+                            setFilterConfig({
+                              ...filterConfig,
+                              maior_ticket_medio: {
+                                enabled: checked as boolean,
+                                todos: filterConfig.maior_ticket_medio?.todos || false,
+                                quantidade: filterConfig.maior_ticket_medio?.quantidade || 10,
+                              },
+                            })
+                          }
+                        />
+                        <Input
+                          type="number"
+                          placeholder="Quantidade"
+                          disabled={!filterConfig.maior_ticket_medio?.enabled}
+                          value={filterConfig.maior_ticket_medio?.quantidade || ""}
+                          onChange={(e) =>
+                            setFilterConfig({
+                              ...filterConfig,
+                              maior_ticket_medio: {
+                                ...filterConfig.maior_ticket_medio!,
+                                quantidade: e.target.value ? parseInt(e.target.value) : undefined,
+                                todos: false,
+                              },
+                            })
+                          }
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!filterConfig.maior_ticket_medio?.enabled}
+                          onClick={() =>
+                            setFilterConfig({
+                              ...filterConfig,
+                              maior_ticket_medio: {
+                                ...filterConfig.maior_ticket_medio!,
+                                todos: true,
+                              },
+                            })
+                          }
+                        >
+                          Todos
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label>Maior Número de Visitas</Label>
+                      <div className="flex gap-2">
+                        <Checkbox
+                          checked={filterConfig.maior_numero_visitas?.enabled || false}
+                          onCheckedChange={(checked) =>
+                            setFilterConfig({
+                              ...filterConfig,
+                              maior_numero_visitas: {
+                                enabled: checked as boolean,
+                                todos: filterConfig.maior_numero_visitas?.todos || false,
+                                quantidade: filterConfig.maior_numero_visitas?.quantidade || 10,
+                              },
+                            })
+                          }
+                        />
+                        <Input
+                          type="number"
+                          placeholder="Quantidade"
+                          disabled={!filterConfig.maior_numero_visitas?.enabled}
+                          value={filterConfig.maior_numero_visitas?.quantidade || ""}
+                          onChange={(e) =>
+                            setFilterConfig({
+                              ...filterConfig,
+                              maior_numero_visitas: {
+                                ...filterConfig.maior_numero_visitas!,
+                                quantidade: e.target.value ? parseInt(e.target.value) : undefined,
+                                todos: false,
+                              },
+                            })
+                          }
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!filterConfig.maior_numero_visitas?.enabled}
+                          onClick={() =>
+                            setFilterConfig({
+                              ...filterConfig,
+                              maior_numero_visitas: {
+                                ...filterConfig.maior_numero_visitas!,
+                                todos: true,
+                              },
+                            })
+                          }
+                        >
+                          Todos
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Lista de Contatos */}
+              <ScrollArea className="h-[400px] border rounded-lg p-4">
+                <div className="space-y-2">
+                  {loadingContacts ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    </div>
+                  ) : filteredContacts.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">
+                      Nenhum contato encontrado
+                    </p>
+                  ) : (
+                    filteredContacts.map((contact) => (
+                      <div
+                        key={contact.id}
+                        className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent"
+                      >
+                        <Checkbox
+                          checked={selectedContacts.has(contact.id)}
+                          onCheckedChange={() => handleToggleContact(contact.id)}
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium">{contact.nome}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {contact.telefone} {contact.cpf && `• ${contact.cpf}`}
+                          </div>
+                          {contact.ultima_compra && (
+                            <div className="text-xs text-muted-foreground">
+                              Última compra: {new Date(contact.ultima_compra).toLocaleDateString("pt-BR")} 
+                              ({contact.dias_sem_comprar} dias atrás)
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-right text-sm">
+                          <div>Total: {formatCurrency(contact.total_compras || 0)}</div>
+                          <div>Ticket: {formatCurrency(contact.ticket_medio || 0)}</div>
+                          <Badge variant="outline">{contact.categoria}</Badge>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={() => setCurrentStep("store")}>
+                  Voltar
+                </Button>
+                <Button
+                  onClick={() => setCurrentStep("messages")}
+                  disabled={selectedContacts.size === 0}
+                >
+                  Continuar para Mensagens ({selectedContacts.size} selecionados)
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* PASSO 3: Mensagens */}
+        <TabsContent value="messages">
+          <Card>
+            <CardHeader>
+              <CardTitle>Configure as Mensagens</CardTitle>
+              <CardDescription>
+                Crie variações de mensagem. Use {`{primeiro_nome}`}, {`{nome_completo}`}, {`{saudacao}`} para personalização
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>Número de variações de mensagem</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={numVariations}
+                  onChange={(e) => handleNumVariationsChange(parseInt(e.target.value) || 1)}
+                />
+              </div>
+
+              <div className="space-y-4">
+                {messageVariations.map((variation, index) => (
+                  <div key={variation.id} className="space-y-2">
+                    <Label>Variação {index + 1}</Label>
+                    <Textarea
+                      value={variation.content}
+                      onChange={(e) => {
+                        const newVariations = [...messageVariations];
+                        newVariations[index].content = e.target.value;
+                        setMessageVariations(newVariations);
+                      }}
+                      placeholder={`Ex: Olá {primeiro_nome}! {saudacao}! Temos novidades para você...`}
+                      rows={4}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={randomizeMessages}
+                  onCheckedChange={(checked) => setRandomizeMessages(checked as boolean)}
+                />
+                <Label>Randomizar mensagens (ou enviar em ordem)</Label>
+              </div>
+
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={() => setCurrentStep("contacts")}>
+                  Voltar
+                </Button>
+                <Button onClick={() => setCurrentStep("settings")}>
+                  Continuar para Configurações
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* PASSO 4: Configurações */}
+        <TabsContent value="settings">
+          <Card>
+            <CardHeader>
+              <CardTitle>Configurações de Envio</CardTitle>
+              <CardDescription>Configure números, horários e limites de envio</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Números WhatsApp */}
+              <div className="space-y-4">
+                <h3 className="font-semibold">Números WhatsApp</h3>
+                <div>
+                  <Label>Número Principal *</Label>
+                  <Select value={primaryPhoneId} onValueChange={setPrimaryPhoneId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o número principal" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {whatsappAccounts
+                        .filter((a) => a.account_type === "PRIMARY")
+                        .map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.phone}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Números Reserva (opcional, até 3)</Label>
+                  {backupPhoneIds.map((backupId, index) => (
+                    <div key={index} className="flex gap-2 mt-2">
+                      <Select
+                        value={backupId}
+                        onValueChange={(value) => {
+                          const newBackups = [...backupPhoneIds];
+                          newBackups[index] = value;
+                          setBackupPhoneIds(newBackups);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={`Reserva ${index + 1}`} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">Nenhum</SelectItem>
+                          {whatsappAccounts
+                            .filter((a) => a.account_type !== "PRIMARY")
+                            .map((account) => (
+                              <SelectItem key={account.id} value={account.id}>
+                                {account.phone}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={alternateNumbers}
+                    onCheckedChange={(checked) => setAlternateNumbers(checked as boolean)}
+                  />
+                  <Label>Alternar entre números (ou enviar X mensagens por número)</Label>
+                </div>
+
+                {!alternateNumbers && (
+                  <div>
+                    <Label>Mensagens por número antes de trocar</Label>
+                    <Input
+                      type="number"
+                      value={messagesPerNumber}
+                      onChange={(e) => setMessagesPerNumber(parseInt(e.target.value) || 50)}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Agendamento */}
+              <div className="space-y-4">
+                <h3 className="font-semibold">Agendamento</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Data de início (opcional)</Label>
+                    <Input
+                      type="date"
+                      value={scheduledDate}
+                      onChange={(e) => setScheduledDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label>Hora de início (opcional)</Label>
+                    <Input
+                      type="time"
+                      value={scheduledTime}
+                      onChange={(e) => setScheduledTime(e.target.value)}
+                      disabled={!scheduledDate}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Horário permitido */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={sendInTimeRange}
+                    onCheckedChange={(checked) => setSendInTimeRange(checked as boolean)}
+                  />
+                  <Label>Enviar apenas em horário específico</Label>
+                </div>
+                {sendInTimeRange && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Das</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={startHour}
+                        onChange={(e) => setStartHour(parseInt(e.target.value) || 8)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Às</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={endHour}
+                        onChange={(e) => setEndHour(parseInt(e.target.value) || 22)}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Intervalo e limites */}
+              <div className="space-y-4">
+                <h3 className="font-semibold">Intervalos e Limites</h3>
+                <div>
+                  <Label>Intervalo entre mensagens (minutos)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={intervalMinutes}
+                    onChange={(e) => setIntervalMinutes(parseInt(e.target.value) || 5)}
+                  />
+                </div>
+
+                <div>
+                  <Label>Máximo de mensagens por contato por dia</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={maxMessagesPerContactPerDay}
+                    onChange={(e) => setMaxMessagesPerContactPerDay(parseInt(e.target.value) || 1)}
+                  />
+                </div>
+
+                <div>
+                  <Label>Máximo total de mensagens por dia (todos os números)</Label>
+                  <Input
+                    type="number"
+                    placeholder="Sem limite"
+                    value={maxTotalMessagesPerDay || ""}
+                    onChange={(e) =>
+                      setMaxTotalMessagesPerDay(e.target.value ? parseInt(e.target.value) : null)
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={() => setCurrentStep("messages")}>
+                  Voltar
+                </Button>
+                <Button onClick={() => setCurrentStep("review")}>
+                  Continuar para Revisão
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* PASSO 5: Revisão */}
+        <TabsContent value="review">
+          <Card>
+            <CardHeader>
+              <CardTitle>Revisão Final</CardTitle>
+              <CardDescription>Revise as configurações antes de enviar</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  As mensagens serão enfileiradas com prioridade baixa para não bloquear outras mensagens
+                  (cashback, notificações, etc). O envio ocorrerá gradualmente conforme as configurações.
+                </AlertDescription>
+              </Alert>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Loja</Label>
+                  <p className="font-medium">{stores.find((s) => s.id === selectedStoreId)?.name}</p>
+                </div>
+                <div>
+                  <Label>Contatos Selecionados</Label>
+                  <p className="font-medium">{selectedContacts.size} contatos</p>
+                </div>
+                <div>
+                  <Label>Variações de Mensagem</Label>
+                  <p className="font-medium">{numVariations} variação(ões)</p>
+                </div>
+                <div>
+                  <Label>Modo de Envio</Label>
+                  <p className="font-medium">{randomizeMessages ? "Aleatório" : "Em ordem"}</p>
+                </div>
+                {scheduledDate && (
+                  <div>
+                    <Label>Agendamento</Label>
+                    <p className="font-medium">
+                      {new Date(`${scheduledDate}T${scheduledTime || "00:00"}`).toLocaleString("pt-BR")}
+                    </p>
+                  </div>
+                )}
+                {sendInTimeRange && (
+                  <div>
+                    <Label>Horário Permitido</Label>
+                    <p className="font-medium">
+                      Das {startHour}h às {endHour}h
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={() => setCurrentStep("settings")}>
+                  Voltar
+                </Button>
+                <Button onClick={handleSend} disabled={loading}>
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Criando campanha...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-2 h-4 w-4" />
+                      Confirmar e Enviar
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
