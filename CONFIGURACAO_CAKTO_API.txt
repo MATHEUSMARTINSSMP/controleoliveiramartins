@@ -1,0 +1,31 @@
+═══════════════════════════════════════════════════════════════
+🔧 CONFIGURAÇÃO RÁPIDA DA API DO CAKTO
+═══════════════════════════════════════════════════════════════
+
+📋 PASSO A PASSO RESUMIDO:
+
+1️⃣ OBTER CREDENCIAIS:
+   └─ Acesse: https://app.cakto.com.br/dashboard/cakto-api
+   └─ Copie CLIENT ID e CLIENT SECRET
+
+2️⃣ CONFIGURAR NO NETLIFY:
+   └─ Site settings → Environment variables
+   └─ Adicione:
+      • CAKTO_CLIENT_ID = Xtzkipk7FSN7RdERL04gvHuABPzD19BmcDdjBXBZ
+      • CAKTO_CLIENT_SECRET = iYF9CyF3JYwPIM5ttv9OfyasrDjNBxeqkO5AVvwajDIz...
+
+3️⃣ REDEPLOY:
+   └─ Deploys → Trigger deploy
+   └─ IMPORTANTE: Variáveis só funcionam após redeploy!
+
+4️⃣ TESTAR:
+   └─ Faça uma compra de teste
+   └─ Verifique logs: Netlify → Functions → payment-webhook → Logs
+
+5️⃣ CONFIGURAR WEBHOOK (OPCIONAL):
+   └─ Cakto → Integrações → Webhooks
+   └─ URL: https://eleveaone.com.br/.netlify/functions/payment-webhook?gateway=CAKTO
+
+═══════════════════════════════════════════════════════════════
+✅ Para guia completo, veja: docs/CAKTO_API_SETUP.md
+═══════════════════════════════════════════════════════════════

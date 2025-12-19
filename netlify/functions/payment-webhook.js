@@ -42,6 +42,21 @@ exports.handler = async (event, context) => {
     console.log('[Payment Webhook] Gateway:', gateway);
     console.log('[Payment Webhook] Method:', event.httpMethod);
 
+    // Aceitar GET como health check / validação de webhook (Cakto pode usar para testar)
+    if (event.httpMethod === 'GET') {
+      console.log('[Payment Webhook] GET request received - treating as health check');
+      return {
+        statusCode: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          success: true, 
+          message: 'Webhook endpoint is active',
+          gateway: gateway,
+          note: 'Webhooks should be sent as POST requests'
+        }),
+      };
+    }
+
     // Criar cliente Supabase
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -83,38 +98,64 @@ exports.handler = async (event, context) => {
 
     // Processar body (pode ser JSON ou string)
     let eventData;
+    let rawEventData;
     try {
-      eventData = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+      rawEventData = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+      eventData = rawEventData;
     } catch (e) {
+      rawEventData = event.body;
       eventData = event.body;
     }
 
+    // Para CAKTO, extrair dados corretamente
+    // Estrutura: { "secret": "...", "event": "purchase_approved", "data": {...} }
+    if (gateway.toUpperCase() === 'CAKTO' && rawEventData?.data) {
+      eventData = rawEventData.data; // Usar data do Cakto como eventData
+    }
+
     // Gerar ID único do evento (gateway pode não ter)
-    const eventId = eventData.id || 
-                   eventData.data?.id || 
-                   `${gateway}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Para CAKTO, usar data.id ou id do root
+    const eventId = (gateway.toUpperCase() === 'CAKTO' && rawEventData?.data?.id) 
+                   ? rawEventData.data.id 
+                   : eventData.id || 
+                     eventData.data?.id || 
+                     rawEventData?.id ||
+                     `${gateway}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    const eventType = eventData.type || 
-                     eventData.action || 
-                     eventData.event || 
-                     'unknown';
+    // Para CAKTO, extrair event type do campo "event" do root
+    const eventType = (gateway.toUpperCase() === 'CAKTO' && rawEventData?.event)
+                     ? rawEventData.event
+                     : eventData.type || 
+                       eventData.action || 
+                       eventData.event || 
+                       'unknown';
 
     console.log('[Payment Webhook] Event ID:', eventId);
     console.log('[Payment Webhook] Event Type:', eventType);
 
     // Registrar evento no banco (para auditoria)
-    const { error: eventError } = await supabase
-      .from('billing_events')
-      .insert({
-        payment_gateway: gateway,
-        event_type: eventType,
-        external_event_id: eventId.toString(),
-        event_data: eventData,
-        processed: false,
-      });
+    // Nota: Se der erro de schema cache, continuar mesmo assim (não bloqueia processamento)
+    try {
+      const { error: eventError } = await supabase
+        .schema('sistemaretiradas')
+        .from('billing_events')
+        .insert({
+          payment_gateway: gateway,
+          event_type: eventType,
+          external_event_id: eventId.toString(),
+          event_data: eventData,
+          processed: false,
+        });
 
-    if (eventError) {
-      console.error('[Payment Webhook] Error saving event:', eventError);
+      if (eventError) {
+        console.error('[Payment Webhook] Error saving event:', eventError);
+        console.warn('[Payment Webhook] Continuando processamento mesmo com erro ao salvar evento (não crítico)');
+      } else {
+        console.log('[Payment Webhook] Event saved to billing_events');
+      }
+    } catch (saveError) {
+      console.error('[Payment Webhook] Exception saving event:', saveError);
+      console.warn('[Payment Webhook] Continuando processamento mesmo com exceção ao salvar evento');
     }
 
     // Processar evento de acordo com gateway
@@ -124,18 +165,25 @@ exports.handler = async (event, context) => {
         result = await handleStripeEvent(supabase, eventData);
         break;
       case 'CAKTO':
-        result = await handleCaktoEvent(supabase, eventData);
+        // Para Cakto, passar rawEventData (com event, secret, data)
+        result = await handleCaktoEvent(supabase, rawEventData);
         break;
       default:
         result = await handleGenericEvent(supabase, gateway, eventData);
     }
 
-    // Marcar evento como processado
-    await supabase
-      .from('billing_events')
-      .update({ processed: true })
-      .eq('payment_gateway', gateway)
-      .eq('external_event_id', eventId.toString());
+    // Marcar evento como processado (opcional, não bloqueia se falhar)
+    try {
+      await supabase
+        .schema('sistemaretiradas')
+        .from('billing_events')
+        .update({ processed: true })
+        .eq('payment_gateway', gateway)
+        .eq('external_event_id', eventId.toString());
+    } catch (updateError) {
+      // Não bloquear resposta se falhar ao marcar como processado
+      console.warn('[Payment Webhook] Could not mark event as processed:', updateError);
+    }
 
     return {
       statusCode: 200,
@@ -219,7 +267,8 @@ async function validateCaktoSignature(supabase, event) {
     eventData = event.body;
   }
 
-  const signature = eventData.secret || eventData.webhook_secret || eventData.signature;
+  // O secret vem no nível raiz, não dentro de data
+  const signature = eventData?.secret;
 
   // Também verificar header (caso o CAKTO mude no futuro)
   const headerSignature = event.headers['x-cakto-signature'];
@@ -314,95 +363,89 @@ async function handleStripeEvent(supabase, event) {
   return { success: true, message: 'Stripe event processed' };
 }
 
-async function handleCaktoEvent(supabase, event) {
+async function handleCaktoEvent(supabase, rawEventData) {
   console.log('[Payment Webhook] Processing CAKTO event');
+  console.log('[Payment Webhook] rawEventData type:', typeof rawEventData);
+  console.log('[Payment Webhook] rawEventData keys:', rawEventData ? Object.keys(rawEventData) : 'null/undefined');
   
-  // Extrair dados do evento Cakto
-  const caktoEvent = event.data || event;
+  // Se rawEventData é undefined/null, tentar extrair do objeto raiz
+  if (!rawEventData || typeof rawEventData !== 'object') {
+    console.error('[Payment Webhook] CAKTO: rawEventData is invalid:', rawEventData);
+    return { 
+      success: false, 
+      message: 'Invalid event data',
+      error: 'rawEventData is missing or invalid'
+    };
+  }
   
-  // Mapear eventos do Cakto (ajustar conforme documentação oficial)
-  // Eventos possíveis: purchase.approved, purchase.cancelled, subscription.created, etc.
-  const eventType = caktoEvent.type || caktoEvent.event || caktoEvent.action || 'unknown';
+  // Estrutura oficial do Cakto (conforme documentação):
+  // {
+  //   "secret": "123",
+  //   "event": "purchase_approved",
+  //   "data": { ... }
+  // }
+  
+  // O evento vem no campo "event" (não "type")
+  const eventType = rawEventData.event || rawEventData.type || 'unknown';
+  
+  // Os dados principais vêm em "data"
+  const caktoData = rawEventData.data || rawEventData;
   
   console.log('[Payment Webhook] CAKTO Event Type:', eventType);
-  console.log('[Payment Webhook] CAKTO Event Data:', JSON.stringify(caktoEvent, null, 2));
+  console.log('[Payment Webhook] CAKTO Event Data (first 500 chars):', JSON.stringify(caktoData).substring(0, 500));
 
-  // Se tivermos purchase_id mas faltarem dados, tentar buscar da API do Cakto
-  const purchaseId = caktoEvent.purchase_id || caktoEvent.id || caktoEvent.purchase?.id;
-  if (purchaseId && caktoApiClient && (!caktoEvent.customer?.email || !caktoEvent.customer?.name)) {
-    try {
-      console.log('[Payment Webhook] CAKTO: Fetching purchase details from API:', purchaseId);
-      // Obtém access token e busca detalhes da compra
-      const accessToken = await caktoApiClient.getCaktoAccessToken(
-        process.env.CAKTO_CLIENT_ID,
-        process.env.CAKTO_CLIENT_SECRET
-      );
-      const purchaseDetails = await caktoApiClient.getCaktoPurchase(purchaseId, accessToken);
-      console.log('[Payment Webhook] CAKTO: Purchase details from API:', purchaseDetails);
-      
-      // Enriquecer evento com dados da API
-      if (purchaseDetails.customer && !caktoEvent.customer) {
-        caktoEvent.customer = purchaseDetails.customer;
-      }
-      if (purchaseDetails.product && !caktoEvent.product) {
-        caktoEvent.product = purchaseDetails.product;
-      }
-      if (purchaseDetails.amount && !caktoEvent.amount) {
-        caktoEvent.amount = purchaseDetails.amount;
-      }
-    } catch (apiError) {
-      console.error('[Payment Webhook] CAKTO: Error fetching from API (continuing with webhook data):', apiError.message);
-      // Continuar com os dados do webhook mesmo se a API falhar
-    }
+  // Processar eventos específicos do Cakto
+  // Eventos disponíveis conforme documentação:
+  // - purchase_approved: Compra aprovada
+  // - subscription_renewed: Renovação de assinatura
+  // - subscription_canceled: Cancelamento de assinatura
+  // - purchase_refused: Compra recusada
+  // - refund: Reembolso
+  // - chargeback: Chargeback
+  
+  if (eventType === 'purchase_approved') {
+    return await handleCaktoPurchaseApproved(supabase, caktoData);
   }
-
-  // Processar evento de compra aprovada (quando cliente faz checkout e pagamento é aprovado)
-  if (eventType === 'purchase.approved' || eventType === 'purchase_approved' || 
-      (eventType === 'unknown' && caktoEvent.status === 'approved')) {
-    
-    return await handleCaktoPurchaseApproved(supabase, caktoEvent);
+  
+  if (eventType === 'subscription_renewed') {
+    // Renovação de assinatura - similar a purchase_approved
+    return await handleCaktoPurchaseApproved(supabase, caktoData);
   }
-
-  // Processar outros eventos com handler genérico
-  return await handleGenericEvent(supabase, 'CAKTO', event);
+  
+  if (eventType === 'subscription_canceled') {
+    // Cancelamento de assinatura - atualizar subscription
+    return await handleCaktoSubscriptionCanceled(supabase, caktoData);
+  }
+  
+  // Outros eventos
+  console.log('[Payment Webhook] CAKTO: Unhandled event type:', eventType);
+  return { 
+    success: true, 
+    message: `Event ${eventType} received but not processed`,
+    eventType 
+  };
 }
 
 /**
  * Cria usuário ADMIN automaticamente quando compra é aprovada no Cakto
  */
-async function handleCaktoPurchaseApproved(supabase, eventData) {
+async function handleCaktoPurchaseApproved(supabase, data) {
   console.log('[Payment Webhook] Processing CAKTO purchase approved - creating admin user');
 
   try {
-    // Extrair dados do cliente e da compra
-    // Ajustar campos conforme estrutura real do webhook do Cakto
-    const customerEmail = eventData.customer?.email || 
-                         eventData.email || 
-                         eventData.customer_email ||
-                         eventData.purchase?.customer?.email;
+    // Estrutura oficial do Cakto (baseado na documentação):
+    // data.customer.email, data.customer.name
+    // data.product.name, data.product.id
+    // data.id (purchase ID), data.refId
+    // data.amount, data.status
     
-    const customerName = eventData.customer?.name || 
-                        eventData.name || 
-                        eventData.customer_name ||
-                        eventData.purchase?.customer?.name ||
-                        customerEmail?.split('@')[0]; // Fallback: usar parte do email
-
-    const purchaseId = eventData.purchase_id || 
-                      eventData.id || 
-                      eventData.purchase?.id;
-
-    const productId = eventData.product_id || 
-                     eventData.product?.id ||
-                     eventData.purchase?.product_id;
-
-    const planName = eventData.plan_name ||
-                    eventData.product?.name ||
-                    eventData.purchase?.product_name ||
-                    eventData.plan;
-
-    const amount = eventData.amount || 
-                  eventData.value || 
-                  eventData.purchase?.amount;
+    const customerEmail = data.customer?.email;
+    const customerName = data.customer?.name || customerEmail?.split('@')[0];
+    
+    const purchaseId = data.id || data.refId;
+    const productId = data.product?.id;
+    const planName = data.product?.name || data.offer?.name;
+    const amount = data.amount || data.baseAmount;
 
     console.log('[Payment Webhook] CAKTO Purchase Data:', {
       customerEmail,
@@ -434,7 +477,7 @@ async function handleCaktoPurchaseApproved(supabase, eventData) {
       console.log('[Payment Webhook] CAKTO: User already exists, updating subscription:', existingProfile.id);
       
       // Atualizar subscription existente
-      await updateCaktoSubscription(supabase, existingProfile.id, eventData, planName);
+      await updateCaktoSubscription(supabase, existingProfile.id, data, planName);
       
       return { 
         success: true, 
@@ -475,33 +518,92 @@ async function handleCaktoPurchaseApproved(supabase, eventData) {
     const userId = userData.user.id;
     console.log('[Payment Webhook] CAKTO: ✅ User created:', userId);
 
-    // Atualizar perfil para garantir role ADMIN
-    const { error: profileError } = await supabase
+    // Aguardar um pouco para garantir que o trigger criou o perfil
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Verificar se perfil existe, se não existir, criar
+    const { data: existingProfile, error: profileCheckError } = await supabase
       .schema('sistemaretiradas')
       .from('profiles')
-      .update({
-        role: 'ADMIN',
-        name: customerName || 'Cliente',
-        email: customerEmail.toLowerCase(),
-      })
-      .eq('id', userId);
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
 
-    if (profileError) {
-      console.error('[Payment Webhook] CAKTO: Error updating profile:', profileError);
+    if (!existingProfile) {
+      // Criar perfil se não existe (caso o trigger não tenha criado)
+      console.log('[Payment Webhook] CAKTO: Profile does not exist, creating...');
+      const { error: profileCreateError } = await supabase
+        .schema('sistemaretiradas')
+        .from('profiles')
+        .insert({
+          id: userId,
+          email: customerEmail.toLowerCase(),
+          name: customerName || 'Cliente',
+          role: 'ADMIN',
+        });
+
+      if (profileCreateError) {
+        console.error('[Payment Webhook] CAKTO: Error creating profile:', profileCreateError);
+        // Continuar mesmo com erro, pode ser que já exista
+      } else {
+        console.log('[Payment Webhook] CAKTO: ✅ Profile created');
+      }
+    } else {
+      // Atualizar perfil existente para garantir role ADMIN
+      const { error: profileUpdateError } = await supabase
+        .schema('sistemaretiradas')
+        .from('profiles')
+        .update({
+          role: 'ADMIN',
+          name: customerName || 'Cliente',
+          email: customerEmail.toLowerCase(),
+        })
+        .eq('id', userId);
+
+      if (profileUpdateError) {
+        console.error('[Payment Webhook] CAKTO: Error updating profile:', profileUpdateError);
+      } else {
+        console.log('[Payment Webhook] CAKTO: ✅ Profile updated to ADMIN');
+      }
     }
 
-    // Criar subscription
-    await createCaktoSubscription(supabase, userId, eventData, planId);
+    // IMPORTANTE: Verificar se há subscription trial criada pelo trigger
+    // Se houver, deletar antes de criar a subscription paga do Cakto
+    const { data: trialSubscription } = await supabase
+      .schema('sistemaretiradas')
+      .from('admin_subscriptions')
+      .select('id, plan_id')
+      .eq('admin_id', userId)
+      .eq('payment_status', 'TRIAL')
+      .maybeSingle();
+
+    if (trialSubscription) {
+      console.log('[Payment Webhook] CAKTO: Trial subscription found, deleting before creating paid subscription');
+      await supabase
+        .schema('sistemaretiradas')
+        .from('admin_subscriptions')
+        .delete()
+        .eq('id', trialSubscription.id);
+    }
+
+    // Criar subscription paga do Cakto (substitui trial se existir)
+    await createCaktoSubscription(supabase, userId, data, planId);
 
     // Enviar email com credenciais
+    // Tentar usar Netlify Function primeiro (mais confiável)
     try {
-      const welcomeEmailUrl = `${process.env.SUPABASE_URL || 'https://kktsbnrnlnzyofupegjc.supabase.co'}/functions/v1/send-welcome-email`;
+      const netlifyUrl = process.env.NETLIFY_URL || 
+                        process.env.DEPLOY_PRIME_URL || 
+                        'https://eleveaone.com.br';
       
-      await fetch(welcomeEmailUrl, {
+      const welcomeEmailUrl = `${netlifyUrl}/.netlify/functions/send-welcome-email`;
+      
+      console.log('[Payment Webhook] CAKTO: Sending welcome email via Netlify Function:', welcomeEmailUrl);
+      
+      const emailResponse = await fetch(welcomeEmailUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
         },
         body: JSON.stringify({
           email: customerEmail.toLowerCase(),
@@ -510,10 +612,23 @@ async function handleCaktoPurchaseApproved(supabase, eventData) {
         }),
       });
 
-      console.log('[Payment Webhook] CAKTO: ✅ Welcome email sent');
+      if (emailResponse.ok) {
+        console.log('[Payment Webhook] CAKTO: ✅ Welcome email sent via Netlify Function');
+      } else {
+        const errorText = await emailResponse.text();
+        console.error('[Payment Webhook] CAKTO: Error sending welcome email via Netlify:', errorText);
+        // Tentar Supabase Function como fallback
+        await sendWelcomeEmailViaSupabase(supabase, customerEmail.toLowerCase(), customerName || 'Cliente', generatedPassword);
+      }
     } catch (emailError) {
-      console.error('[Payment Webhook] CAKTO: Error sending welcome email:', emailError);
-      // Não bloquear o processo por erro de email
+      console.error('[Payment Webhook] CAKTO: Error sending welcome email via Netlify:', emailError);
+      // Tentar Supabase Function como fallback
+      try {
+        await sendWelcomeEmailViaSupabase(supabase, customerEmail.toLowerCase(), customerName || 'Cliente', generatedPassword);
+      } catch (supabaseEmailError) {
+        console.error('[Payment Webhook] CAKTO: Error sending welcome email via Supabase:', supabaseEmailError);
+        // Não bloquear o processo por erro de email
+      }
     }
 
     return { 
@@ -567,11 +682,10 @@ function mapCaktoPlanToSystemPlan(planName, amount) {
 /**
  * Cria subscription no sistema para usuário Cakto
  */
-async function createCaktoSubscription(supabase, adminId, eventData, planId) {
-  const purchaseId = eventData.purchase_id || eventData.id || eventData.purchase?.id;
-  const externalSubscriptionId = eventData.subscription_id || 
-                                eventData.subscription?.id || 
-                                purchaseId;
+async function createCaktoSubscription(supabase, adminId, data, planId) {
+  // Estrutura do Cakto: data.id ou data.refId para purchase ID
+  const purchaseId = data.id || data.refId;
+  const externalSubscriptionId = data.subscription?.id || purchaseId;
 
   // Buscar dados do plano
   const { data: plan } = await supabase
@@ -586,36 +700,68 @@ async function createCaktoSubscription(supabase, adminId, eventData, planId) {
     return;
   }
 
-  // Criar subscription
-  const { error: subError } = await supabase
+  // Verificar se já existe subscription para este admin
+  const { data: existingSubscription } = await supabase
     .schema('sistemaretiradas')
     .from('admin_subscriptions')
-    .insert({
-      admin_id: adminId,
-      plan_id: planId,
-      payment_gateway: 'CAKTO',
-      external_subscription_id: externalSubscriptionId?.toString(),
-      status: 'ACTIVE',
-      gateway_data: eventData,
-    });
+    .select('id')
+    .eq('admin_id', adminId)
+    .maybeSingle();
 
-  if (subError) {
-    console.error('[Payment Webhook] CAKTO: Error creating subscription:', subError);
+  if (existingSubscription) {
+    // Atualizar subscription existente
+    console.log('[Payment Webhook] CAKTO: Updating existing subscription');
+    const { error: updateError } = await supabase
+      .schema('sistemaretiradas')
+      .from('admin_subscriptions')
+      .update({
+        plan_id: planId,
+        payment_gateway: 'CAKTO',
+        external_subscription_id: externalSubscriptionId?.toString(),
+        status: 'ACTIVE',
+        payment_status: 'PAID',
+        gateway_data: data,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existingSubscription.id);
+
+    if (updateError) {
+      console.error('[Payment Webhook] CAKTO: Error updating subscription:', updateError);
+    } else {
+      console.log('[Payment Webhook] CAKTO: ✅ Subscription updated');
+    }
   } else {
-    console.log('[Payment Webhook] CAKTO: ✅ Subscription created');
+    // Criar nova subscription
+    const { error: subError } = await supabase
+      .schema('sistemaretiradas')
+      .from('admin_subscriptions')
+      .insert({
+        admin_id: adminId,
+        plan_id: planId,
+        payment_gateway: 'CAKTO',
+        external_subscription_id: externalSubscriptionId?.toString(),
+        status: 'ACTIVE',
+        payment_status: 'PAID',
+        gateway_data: data,
+      });
+
+    if (subError) {
+      console.error('[Payment Webhook] CAKTO: Error creating subscription:', subError);
+    } else {
+      console.log('[Payment Webhook] CAKTO: ✅ Subscription created');
+    }
   }
 }
 
 /**
  * Atualiza subscription existente
  */
-async function updateCaktoSubscription(supabase, adminId, eventData, planName) {
-  const purchaseId = eventData.purchase_id || eventData.id;
-  const externalSubscriptionId = eventData.subscription_id || 
-                                eventData.subscription?.id || 
-                                purchaseId;
+async function updateCaktoSubscription(supabase, adminId, data, planName) {
+  // Estrutura do Cakto: data.id ou data.refId para purchase ID
+  const purchaseId = data.id || data.refId;
+  const externalSubscriptionId = data.subscription?.id || purchaseId;
 
-  const planId = mapCaktoPlanToSystemPlan(planName, eventData.amount);
+  const planId = mapCaktoPlanToSystemPlan(planName, data.amount || data.baseAmount);
 
   // Atualizar ou criar subscription
   const { data: existingSub } = await supabase
@@ -633,7 +779,7 @@ async function updateCaktoSubscription(supabase, adminId, eventData, planName) {
       .update({
         plan_id: planId,
         status: 'ACTIVE',
-        gateway_data: eventData,
+        gateway_data: data,
       })
       .eq('id', existingSub.id);
   } else {
@@ -751,4 +897,122 @@ function mapGenericStatus(status) {
   }
   
   return 'PENDING';
+}
+
+/**
+ * Envia email de boas-vindas via Supabase Function (fallback)
+ */
+async function sendWelcomeEmailViaSupabase(supabase, email, name, password) {
+  const supabaseUrl = process.env.SUPABASE_URL || 'https://kktsbnrnlnzyofupegjc.supabase.co';
+  const welcomeEmailUrl = `${supabaseUrl}/functions/v1/send-welcome-email`;
+  
+  console.log('[Payment Webhook] CAKTO: Trying Supabase Function for welcome email:', welcomeEmailUrl);
+  
+  const response = await fetch(welcomeEmailUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+    },
+    body: JSON.stringify({
+      email: email,
+      name: name,
+      password: password,
+    }),
+  });
+
+  if (response.ok) {
+    console.log('[Payment Webhook] CAKTO: ✅ Welcome email sent via Supabase Function');
+  } else {
+    const errorText = await response.text();
+    throw new Error(`Supabase Function error: ${response.status} - ${errorText}`);
+  }
+}
+
+/**
+ * Trata cancelamento de assinatura do Cakto
+ */
+async function handleCaktoSubscriptionCanceled(supabase, data) {
+  console.log('[Payment Webhook] Processing CAKTO subscription canceled');
+
+  try {
+    const customerEmail = data.customer?.email;
+    
+    if (!customerEmail) {
+      console.error('[Payment Webhook] CAKTO: Missing customer email in subscription canceled event');
+      return { 
+        success: false, 
+        message: 'Missing customer email',
+        error: 'Cannot process cancellation without email'
+      };
+    }
+
+    // Buscar usuário
+    const { data: profile } = await supabase
+      .schema('sistemaretiradas')
+      .from('profiles')
+      .select('id')
+      .eq('email', customerEmail.toLowerCase())
+      .maybeSingle();
+
+    if (!profile) {
+      console.warn('[Payment Webhook] CAKTO: User not found for cancellation:', customerEmail);
+      return { 
+        success: true, 
+        message: 'User not found, nothing to cancel',
+      };
+    }
+
+    // Buscar subscription ativa
+    const { data: subscription } = await supabase
+      .schema('sistemaretiradas')
+      .from('admin_subscriptions')
+      .select('id')
+      .eq('admin_id', profile.id)
+      .eq('payment_gateway', 'CAKTO')
+      .eq('status', 'ACTIVE')
+      .maybeSingle();
+
+    if (subscription) {
+      // Atualizar subscription para CANCELED
+      const { error: updateError } = await supabase
+        .schema('sistemaretiradas')
+        .from('admin_subscriptions')
+        .update({ 
+          status: 'CANCELED',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', subscription.id);
+
+      if (updateError) {
+        console.error('[Payment Webhook] CAKTO: Error canceling subscription:', updateError);
+        return { 
+          success: false, 
+          message: 'Error canceling subscription',
+          error: updateError.message
+        };
+      }
+
+      console.log('[Payment Webhook] CAKTO: ✅ Subscription canceled:', subscription.id);
+      return { 
+        success: true, 
+        message: 'Subscription canceled successfully',
+        subscriptionId: subscription.id
+      };
+    } else {
+      console.warn('[Payment Webhook] CAKTO: No active subscription found to cancel');
+      return { 
+        success: true, 
+        message: 'No active subscription found',
+      };
+    }
+
+  } catch (error) {
+    console.error('[Payment Webhook] CAKTO: Error in handleCaktoSubscriptionCanceled:', error);
+    return { 
+      success: false, 
+      message: 'Error processing cancellation',
+      error: error.message
+    };
+  }
 }

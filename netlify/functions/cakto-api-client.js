@@ -5,8 +5,9 @@
  * Usa OAuth2 com Client Credentials flow
  */
 
-const CAKTO_API_BASE_URL = 'https://api.cakto.com.br'; // Ajustar conforme documentação real
-const CAKTO_AUTH_URL = 'https://api.cakto.com.br/oauth/token'; // Ajustar conforme documentação real
+// URL Base da API Cakto conforme documentação: https://docs.cakto.com.br/introduction
+const CAKTO_API_BASE_URL = 'https://api.cakto.com.br';
+const CAKTO_AUTH_URL = 'https://api.cakto.com.br/oauth/token';
 
 /**
  * Obtém access token usando Client Credentials
@@ -41,11 +42,15 @@ async function getCaktoAccessToken(clientId, clientSecret) {
 }
 
 /**
- * Busca informações de uma compra/pedido pelo ID
+ * Busca informações de um pedido pelo ID
+ * Endpoint conforme documentação: GET /api/orders/{id}
+ * Docs: https://docs.cakto.com.br/
  */
 async function getCaktoPurchase(purchaseId, accessToken) {
   try {
-    const response = await fetch(`${CAKTO_API_BASE_URL}/purchases/${purchaseId}`, {
+    // Tentar endpoint conforme documentação oficial
+    const endpoint = `/api/orders/${purchaseId}`;
+    const response = await fetch(`${CAKTO_API_BASE_URL}${endpoint}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
