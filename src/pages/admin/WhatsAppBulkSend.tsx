@@ -185,34 +185,64 @@ export default function WhatsAppBulkSend() {
     
     setLoadingContacts(true);
     try {
-      // Usar função RPC com paginação - buscar em lotes de 1000
-      const BATCH_SIZE = 1000;
-      let allContacts: any[] = [];
-      let offset = 0;
-      let hasMore = true;
+      // 1. Primeiro contar quantos contatos existem no total
+      const { data: totalCount, error: countError } = await supabase
+        .schema("sistemaretiradas")
+        .rpc("get_crm_customer_stats_count", { p_store_id: selectedStoreId });
 
-      while (hasMore) {
-        const { data: batch, error: rpcError } = await supabase
+      if (countError) {
+        console.error('[WhatsAppBulkSend] Erro ao contar contatos:', countError);
+        throw countError;
+      }
+
+      const totalContacts = totalCount || 0;
+      console.log(`[WhatsAppBulkSend] Total de contatos: ${totalContacts}`);
+
+      if (totalContacts === 0) {
+        toast.info('Nenhum contato encontrado para esta loja');
+        setContacts([]);
+        setFilteredContacts([]);
+        setLoadingContacts(false);
+        return;
+      }
+
+      // 2. Calcular quantas páginas são necessárias (1000 por página)
+      const BATCH_SIZE = 1000;
+      const totalPages = Math.ceil(totalContacts / BATCH_SIZE);
+      console.log(`[WhatsAppBulkSend] Carregando ${totalPages} página(s) de ${BATCH_SIZE} contatos cada`);
+
+      // 3. Carregar todas as páginas necessárias
+      const allContacts: any[] = [];
+      const pagePromises: Promise<any>[] = [];
+
+      for (let page = 0; page < totalPages; page++) {
+        const offset = page * BATCH_SIZE;
+        const promise = supabase
           .schema("sistemaretiradas")
           .rpc("get_crm_customer_stats", {
             p_store_id: selectedStoreId,
             p_offset: offset,
             p_limit: BATCH_SIZE
+          })
+          .then(({ data, error }) => {
+            if (error) {
+              console.error(`[WhatsAppBulkSend] Erro ao buscar página ${page + 1}:`, error);
+              throw error;
+            }
+            return data || [];
           });
-
-        if (rpcError) {
-          console.error('[WhatsAppBulkSend] Erro ao buscar contatos via RPC:', rpcError);
-          throw rpcError;
-        }
-
-        if (batch && batch.length > 0) {
-          allContacts = [...allContacts, ...batch];
-          offset += BATCH_SIZE;
-          hasMore = batch.length === BATCH_SIZE; // Se retornou menos que BATCH_SIZE, não há mais
-        } else {
-          hasMore = false;
-        }
+        
+        pagePromises.push(promise);
       }
+
+      // Carregar todas as páginas em paralelo (mais rápido)
+      const pagesResults = await Promise.all(pagePromises);
+      
+      // Combinar todos os resultados
+      pagesResults.forEach((pageData, index) => {
+        allContacts.push(...pageData);
+        console.log(`[WhatsAppBulkSend] Página ${index + 1}/${totalPages}: ${pageData.length} contatos carregados`);
+      });
 
       if (allContacts.length > 0) {
         // Usar dados da RPC (já vem com estatísticas calculadas)
