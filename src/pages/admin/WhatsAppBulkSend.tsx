@@ -186,9 +186,11 @@ export default function WhatsAppBulkSend() {
     setLoadingContacts(true);
     try {
       // Tentar usar a função RPC que já calcula tudo (mais eficiente)
+      // Supabase tem limite padrão de 1000, então fazemos busca com range para pegar todos
       const { data: contactsWithStatsRPC, error: rpcError } = await supabase
         .schema("sistemaretiradas")
-        .rpc("get_crm_customer_stats", { p_store_id: selectedStoreId });
+        .rpc("get_crm_customer_stats", { p_store_id: selectedStoreId })
+        .range(0, 99999); // Buscar até 100k contatos (bem mais que suficiente)
 
       if (!rpcError && contactsWithStatsRPC && contactsWithStatsRPC.length > 0) {
         // Usar dados da RPC (já vem com estatísticas calculadas)
