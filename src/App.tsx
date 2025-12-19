@@ -62,6 +62,8 @@ const ForgotPassword = lazyWithRetry(() => import("./pages/ForgotPassword"));
 const Landing = lazyWithRetry(() => import("./pages/Landing"));
 const LandingPage = lazyWithRetry(() => import("./pages/LandingPage"));
 const Onboarding = lazyWithRetry(() => import("./pages/Onboarding"));
+const CaktoAccess = lazyWithRetry(() => import("./pages/CaktoAccess"));
+const CaktoAccessTest = lazyWithRetry(() => import("./pages/CaktoAccessTest"));
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 const ERPVendorMapping = lazyWithRetry(() => import("./pages/ERPVendorMapping"));
 
@@ -104,6 +106,8 @@ const App = () => (
                 <Route path="/seed" element={<Suspense fallback={<PageLoader />}><Seed /></Suspense>} />
                 <Route path="/forgot-password" element={<Suspense fallback={<PageLoader />}><ForgotPassword /></Suspense>} />
                 <Route path="/obrigado" element={<Suspense fallback={<PageLoader />}><Onboarding /></Suspense>} />
+                <Route path="/acesso" element={<Suspense fallback={<PageLoader />}><CaktoAccess /></Suspense>} />
+                <Route path="/acesso-test" element={<Suspense fallback={<PageLoader />}><CaktoAccessTest /></Suspense>} />
 
                 <Route path="/admin" element={<Suspense fallback={<SkeletonAdminDashboard />}><AdminDashboard /></Suspense>} />
                 <Route path="/admin/nova-compra" element={<Suspense fallback={<PageLoader />}><NovaCompra /></Suspense>} />
