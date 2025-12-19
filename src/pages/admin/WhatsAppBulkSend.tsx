@@ -186,13 +186,30 @@ export default function WhatsAppBulkSend() {
     setLoadingContacts(true);
     try {
       // 1. Primeiro contar quantos contatos existem no total
-      const { data: totalCount, error: countError } = await supabase
+      // Usar busca direta na tabela se a função RPC não estiver disponível
+      const { count: totalCount, error: countError } = await supabase
         .schema("sistemaretiradas")
-        .rpc("get_crm_customer_stats_count", { p_store_id: selectedStoreId });
+        .from("crm_contacts")
+        .select("*", { count: "exact", head: true })
+        .eq("store_id", selectedStoreId)
+        .not("telefone", "is", null)
+        .or("celular.not.is.null");
 
       if (countError) {
         console.error('[WhatsAppBulkSend] Erro ao contar contatos:', countError);
-        throw countError;
+        // Se falhar, tenta usar a função RPC como fallback
+        try {
+          const { data: rpcCount } = await supabase
+            .schema("sistemaretiradas")
+            .rpc("get_crm_customer_stats_count", { p_store_id: selectedStoreId });
+          if (rpcCount) {
+            totalCount = rpcCount;
+          } else {
+            throw countError;
+          }
+        } catch {
+          throw countError;
+        }
       }
 
       const totalContacts = totalCount || 0;
