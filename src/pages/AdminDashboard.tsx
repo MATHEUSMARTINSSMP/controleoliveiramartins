@@ -97,7 +97,13 @@ const AdminDashboard = () => {
 
       if (error) throw error;
       setAdminStores(data || []);
-      
+
+      if (!data || data.length === 0) {
+        // Se não tem loja, redirecionar para onboarding
+        navigate("/obrigado");
+        return;
+      }
+
       if (data && data.length > 0) {
         fetchUnmappedVendors(data);
       }
@@ -108,7 +114,7 @@ const AdminDashboard = () => {
 
   const fetchUnmappedVendors = async (stores: { id: string; name: string }[]) => {
     const results: UnmappedVendorInfo[] = [];
-    
+
     for (const store of stores) {
       try {
         const response = await fetch("/.netlify/functions/list-erp-vendors", {
@@ -134,7 +140,7 @@ const AdminDashboard = () => {
         console.warn(`[AdminDashboard] Erro ao verificar vendedores da loja ${store.name}:`, err);
       }
     }
-    
+
     setUnmappedVendors(results);
   };
 
@@ -549,7 +555,7 @@ const AdminDashboard = () => {
                     <AlertTitle>Vendedores ERP sem mapeamento</AlertTitle>
                     <AlertDescription className="mt-2 space-y-2">
                       <p>
-                        Existem vendedores do ERP que nao estao vinculados a colaboradoras. 
+                        Existem vendedores do ERP que nao estao vinculados a colaboradoras.
                         Isso impede o registro correto das vendas.
                       </p>
                       <ul className="text-sm list-disc pl-4">

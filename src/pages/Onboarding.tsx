@@ -24,13 +24,10 @@ const Onboarding = () => {
 
   useEffect(() => {
     if (!authLoading) {
-      if (!profile || !user) {
-        navigate("/", { replace: true });
-        return;
+      if (profile && user) {
+        // Se já tem loja cadastrada, redirecionar para dashboard
+        checkExistingStore();
       }
-
-      // Se já tem loja cadastrada, redirecionar para dashboard
-      checkExistingStore();
     }
   }, [profile, user, authLoading, navigate]);
 
@@ -58,11 +55,20 @@ const Onboarding = () => {
 
   // Preencher dados do admin automaticamente
   useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const emailFromUrl = searchParams.get('email');
+
     if (profile && user) {
       setFormData((prev) => ({
         ...prev,
-        admin_email: user.email || "",
+        admin_email: user.email || emailFromUrl || "",
         admin_name: profile.name || "",
+      }));
+    } else if (emailFromUrl) {
+      // Se não estiver logado mas tiver email na URL
+      setFormData((prev) => ({
+        ...prev,
+        admin_email: emailFromUrl,
       }));
     }
   }, [profile, user]);
@@ -212,7 +218,7 @@ const Onboarding = () => {
       }
 
       toast.success("Configuração inicial concluída com sucesso!");
-      
+
       // Aguardar um pouco antes de redirecionar
       setTimeout(() => {
         navigate("/admin", { replace: true });
@@ -228,6 +234,47 @@ const Onboarding = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Se não estiver logado, mostrar tela de boas-vindas/login
+  if (!authLoading && (!profile || !user)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10 flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md"
+        >
+          <Card className="border-primary/20 shadow-2xl">
+            <CardHeader className="text-center space-y-4 pb-6">
+              <div className="flex justify-center">
+                <div className="rounded-full bg-primary/10 p-4">
+                  <Sparkles className="h-8 w-8 text-primary" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl font-bold">Pagamento Confirmado!</CardTitle>
+              <CardDescription className="text-base">
+                Sua conta foi criada com sucesso. Verifique seu email para pegar sua senha de acesso.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-muted/50 p-4 rounded-lg text-sm text-center">
+                <p className="text-muted-foreground mb-2">Email cadastrado:</p>
+                <p className="font-medium text-foreground">{formData.admin_email || "Verifique seu email"}</p>
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={() => navigate(`/?email=${encodeURIComponent(formData.admin_email)}`)}
+              >
+                Fazer Login para Configurar Loja
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
     );
   }
