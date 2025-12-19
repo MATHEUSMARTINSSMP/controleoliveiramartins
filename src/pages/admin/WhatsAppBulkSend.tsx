@@ -276,6 +276,11 @@ export default function WhatsAppBulkSend() {
           });
           const salesData = Array.from(salesMap.values());
 
+          // Debug: log para contatos com vendas encontradas
+          if (salesData.length > 0) {
+            console.log(`[WhatsAppBulkSend] Contato ${contact.nome} (${contact.id}): ${salesData.length} vendas encontradas`);
+          }
+
           if (!salesData || salesData.length === 0) {
             return {
               ...contact,
@@ -398,11 +403,30 @@ export default function WhatsAppBulkSend() {
     // Filtros de ordenação (aplicados após os filtros de exclusão)
     // Filtro: Maior faturamento
     if (filterConfig.maior_faturamento?.enabled) {
-      const sorted = [...filtered].sort((a, b) => (b.total_compras || 0) - (a.total_compras || 0));
+      // Filtrar apenas contatos que têm faturamento > 0
+      let contatosComFaturamento = filtered.filter(c => (c.total_compras || 0) > 0);
+      
+      // Se não houver contatos com faturamento, usar todos (mas ordenar)
+      if (contatosComFaturamento.length === 0) {
+        contatosComFaturamento = filtered;
+      }
+      
+      // Ordenar por faturamento (maior para menor)
+      const sorted = [...contatosComFaturamento].sort((a, b) => {
+        const faturamentoA = a.total_compras || 0;
+        const faturamentoB = b.total_compras || 0;
+        return faturamentoB - faturamentoA;
+      });
+      
       if (filterConfig.maior_faturamento.todos) {
+        // Mostrar todos ordenados por faturamento
         filtered = sorted;
-      } else if (filterConfig.maior_faturamento.quantidade) {
+      } else if (filterConfig.maior_faturamento.quantidade && filterConfig.maior_faturamento.quantidade > 0) {
+        // Mostrar apenas os top N com maior faturamento
         filtered = sorted.slice(0, filterConfig.maior_faturamento.quantidade);
+      } else {
+        // Se quantidade não especificada, usar padrão de 10
+        filtered = sorted.slice(0, 10);
       }
     }
 
