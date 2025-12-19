@@ -77,6 +77,7 @@ interface FilterConfig {
     quantidade?: number;
     todos?: boolean;
   };
+  combineLogic?: "AND" | "OR"; // Lógica de combinação dos filtros
 }
 
 interface MessageVariation {
@@ -97,8 +98,11 @@ export default function WhatsAppBulkSend() {
   const [whatsappAccounts, setWhatsappAccounts] = useState<WhatsAppAccount[]>([]);
   
   // Filtros
-  const [filterConfig, setFilterConfig] = useState<FilterConfig>({});
+  const [filterConfig, setFilterConfig] = useState<FilterConfig>({
+    combineLogic: "AND"
+  });
   const [searchTerm, setSearchTerm] = useState("");
+  const [filtersApplied, setFiltersApplied] = useState(false);
   
   // Mensagens
   const [numVariations, setNumVariations] = useState(1);
@@ -143,12 +147,19 @@ export default function WhatsAppBulkSend() {
     if (selectedStoreId) {
       fetchContacts();
       fetchWhatsAppAccounts();
+      setFiltersApplied(false);
     }
   }, [selectedStoreId]);
 
   useEffect(() => {
-    applyFilters();
-  }, [contacts, filterConfig, searchTerm]);
+    // Aplicar filtros automaticamente apenas para busca (não para outros filtros)
+    if (searchTerm) {
+      applyFilters();
+    } else if (!filtersApplied) {
+      // Se filtros não foram aplicados e não há busca, mostrar todos
+      setFilteredContacts(contacts);
+    }
+  }, [searchTerm, contacts]);
 
   const fetchStores = async () => {
     try {
@@ -183,15 +194,87 @@ export default function WhatsAppBulkSend() {
       if (contactsError) throw contactsError;
 
       // Buscar estatísticas de vendas para cada contato
+      // IMPORTANTE: Buscar por cliente_id, cliente_nome OU CPF
       const contactsWithStats = await Promise.all(
         (contactsData || []).map(async (contact) => {
-          const { data: salesData } = await supabase
+          // 1. Buscar vendas por cliente_id (preferencial)
+          const { data: salesDataById } = await supabase
             .schema("sistemaretiradas")
             .from("sales")
             .select("data_venda, valor")
             .eq("store_id", selectedStoreId)
             .eq("cliente_id", contact.id)
             .order("data_venda", { ascending: false });
+
+          // 2. Buscar também por cliente_nome (caso cliente_id não esteja preenchido)
+          // Usar ilike para busca case-insensitive e parcial
+          const { data: salesDataByName } = await supabase
+            .schema("sistemaretiradas")
+            .from("sales")
+            .select("data_venda, valor")
+            .eq("store_id", selectedStoreId)
+            .ilike("cliente_nome", `%${contact.nome}%`)
+            .is("cliente_id", null) // Apenas se não tiver cliente_id
+            .order("data_venda", { ascending: false });
+
+          // 3. Buscar por CPF: encontrar outros contatos com mesmo CPF e buscar suas vendas
+          let salesDataByCpf: any[] = [];
+          if (contact.cpf) {
+            // Normalizar CPF (remover caracteres especiais para comparação)
+            const cpfNormalizado = contact.cpf.replace(/\D/g, '');
+            if (cpfNormalizado.length >= 11) {
+              // Buscar todos os contatos com o mesmo CPF na mesma loja
+              // Tentar buscar tanto com CPF normalizado quanto com formatação
+              // (pois pode estar armazenado de diferentes formas)
+              const { data: contatosMesmoCpf } = await supabase
+                .schema("sistemaretiradas")
+                .from("crm_contacts")
+                .select("id, cpf")
+                .eq("store_id", selectedStoreId)
+                .or(`cpf.eq.${cpfNormalizado},cpf.eq.${contact.cpf}`);
+
+              if (contatosMesmoCpf && contatosMesmoCpf.length > 0) {
+                // Buscar vendas de todos os contatos com esse CPF
+                const idsContatos = contatosMesmoCpf.map(c => c.id);
+                // Evitar duplicar IDs que já foram buscados por cliente_id
+                const idsParaBuscar = idsContatos.filter(id => id !== contact.id);
+                
+                if (idsParaBuscar.length > 0) {
+                  const { data: salesDataByCpfIds } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("sales")
+                    .select("data_venda, valor")
+                    .eq("store_id", selectedStoreId)
+                    .in("cliente_id", idsParaBuscar)
+                    .order("data_venda", { ascending: false });
+                  
+                  salesDataByCpf = salesDataByCpfIds || [];
+                }
+              }
+            }
+          }
+
+          // Combinar resultados (remover duplicatas por data_venda e valor)
+          const salesMap = new Map<string, any>();
+          (salesDataById || []).forEach(sale => {
+            const key = `${sale.data_venda}_${sale.valor}`;
+            if (!salesMap.has(key)) {
+              salesMap.set(key, sale);
+            }
+          });
+          (salesDataByName || []).forEach(sale => {
+            const key = `${sale.data_venda}_${sale.valor}`;
+            if (!salesMap.has(key)) {
+              salesMap.set(key, sale);
+            }
+          });
+          (salesDataByCpf || []).forEach(sale => {
+            const key = `${sale.data_venda}_${sale.valor}`;
+            if (!salesMap.has(key)) {
+              salesMap.set(key, sale);
+            }
+          });
+          const salesData = Array.from(salesMap.values());
 
           if (!salesData || salesData.length === 0) {
             return {
@@ -274,7 +357,7 @@ export default function WhatsAppBulkSend() {
   const applyFilters = () => {
     let filtered = [...contacts];
 
-    // Filtro de busca
+    // Filtro de busca (sempre aplicado)
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
@@ -285,22 +368,34 @@ export default function WhatsAppBulkSend() {
       );
     }
 
+    const combineLogic = filterConfig.combineLogic || "AND";
+    const activeFilters: ((c: CRMContact) => boolean)[] = [];
+
     // Filtro: Compraram há X dias
     if (filterConfig.compraram_ha_x_dias) {
-      filtered = filtered.filter(
-        (c) => c.dias_sem_comprar !== undefined && c.dias_sem_comprar <= filterConfig.compraram_ha_x_dias!
-      );
+      activeFilters.push((c) => c.dias_sem_comprar !== undefined && c.dias_sem_comprar <= filterConfig.compraram_ha_x_dias!);
     }
 
     // Filtro: Não compram desde
     if (filterConfig.nao_compraram_desde) {
       const dataLimite = new Date(filterConfig.nao_compraram_desde);
-      filtered = filtered.filter((c) => {
+      activeFilters.push((c) => {
         if (!c.ultima_compra) return true;
         return new Date(c.ultima_compra) < dataLimite;
       });
     }
 
+    // Aplicar filtros com lógica AND ou OR
+    if (activeFilters.length > 0) {
+      if (combineLogic === "AND") {
+        filtered = filtered.filter((c) => activeFilters.every(f => f(c)));
+      } else {
+        // OR: pelo menos um filtro deve passar
+        filtered = filtered.filter((c) => activeFilters.some(f => f(c)));
+      }
+    }
+
+    // Filtros de ordenação (aplicados após os filtros de exclusão)
     // Filtro: Maior faturamento
     if (filterConfig.maior_faturamento?.enabled) {
       const sorted = [...filtered].sort((a, b) => (b.total_compras || 0) - (a.total_compras || 0));
@@ -332,6 +427,7 @@ export default function WhatsAppBulkSend() {
     }
 
     setFilteredContacts(filtered);
+    setFiltersApplied(true);
   };
 
   const handleToggleContact = (contactId: string) => {
@@ -591,7 +687,33 @@ export default function WhatsAppBulkSend() {
               {/* Filtros */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Filtros</CardTitle>
+                  <div className="flex justify-between items-center">
+                    <CardTitle className="text-lg">Filtros</CardTitle>
+                    <div className="flex gap-2 items-center">
+                      <Select
+                        value={filterConfig.combineLogic || "AND"}
+                        onValueChange={(value: "AND" | "OR") =>
+                          setFilterConfig({ ...filterConfig, combineLogic: value })
+                        }
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="AND">E (AND)</SelectItem>
+                          <SelectItem value="OR">OU (OR)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button onClick={applyFilters} className="ml-2">
+                        Aplicar Filtros
+                      </Button>
+                    </div>
+                  </div>
+                  <CardDescription className="text-xs mt-1">
+                    {filterConfig.combineLogic === "AND" 
+                      ? "Filtros combinados: TODOS devem ser verdadeiros"
+                      : "Filtros combinados: PELO MENOS UM deve ser verdadeiro"}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
