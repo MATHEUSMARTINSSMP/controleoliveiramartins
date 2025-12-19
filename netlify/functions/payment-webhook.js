@@ -407,11 +407,6 @@ async function handleCaktoEvent(supabase, rawEventData) {
     return await handleCaktoPurchaseApproved(supabase, caktoData);
   }
   
-  if (eventType === 'subscription_renewed') {
-    // Renovação de assinatura - similar a purchase_approved
-    return await handleCaktoPurchaseApproved(supabase, caktoData);
-  }
-  
   if (eventType === 'subscription_created' || eventType === 'subscription_renewed') {
     // Criação ou renovação de assinatura - processar como purchase_approved
     console.log('[Payment Webhook] CAKTO: Processing subscription_created/renewed as purchase_approved');
@@ -471,24 +466,78 @@ async function handleCaktoPurchaseApproved(supabase, data) {
       };
     }
 
-    // Verificar se usuário já existe
+    // Verificar se usuário já existe no Auth OU no Profile
+    let existingUserId = null;
+    
+    // 1. Verificar se existe no Auth
+    try {
+      const { data: authUsers } = await supabase.auth.admin.listUsers();
+      const existingAuthUser = authUsers?.users?.find(u => u.email?.toLowerCase() === customerEmail.toLowerCase());
+      if (existingAuthUser) {
+        existingUserId = existingAuthUser.id;
+        console.log('[Payment Webhook] CAKTO: User exists in Auth:', existingUserId);
+      }
+    } catch (authCheckError) {
+      console.warn('[Payment Webhook] CAKTO: Error checking Auth users:', authCheckError);
+    }
+    
+    // 2. Verificar se existe no Profile
     const { data: existingProfile } = await supabase
       .schema('sistemaretiradas')
       .from('profiles')
       .select('id, role, email')
       .eq('email', customerEmail.toLowerCase())
-      .single();
+      .maybeSingle();
 
     if (existingProfile) {
-      console.log('[Payment Webhook] CAKTO: User already exists, updating subscription:', existingProfile.id);
+      existingUserId = existingProfile.id;
+      console.log('[Payment Webhook] CAKTO: User exists in Profile:', existingUserId);
+    }
+
+    // Se usuário já existe (em Auth ou Profile), atualizar subscription
+    if (existingUserId) {
+      console.log('[Payment Webhook] CAKTO: User already exists, updating subscription:', existingUserId);
+      
+      // Garantir que o profile existe e está como ADMIN
+      if (!existingProfile) {
+        // Profile não existe, criar
+        const { error: profileCreateError } = await supabase
+          .schema('sistemaretiradas')
+          .from('profiles')
+          .insert({
+            id: existingUserId,
+            email: customerEmail.toLowerCase(),
+            name: customerName || 'Cliente',
+            role: 'ADMIN',
+          });
+
+        if (profileCreateError) {
+          console.error('[Payment Webhook] CAKTO: Error creating profile for existing user:', profileCreateError);
+        } else {
+          console.log('[Payment Webhook] CAKTO: ✅ Profile created for existing Auth user');
+        }
+      } else {
+        // Profile existe, garantir que é ADMIN
+        const { error: profileUpdateError } = await supabase
+          .schema('sistemaretiradas')
+          .from('profiles')
+          .update({
+            role: 'ADMIN',
+          })
+          .eq('id', existingUserId);
+
+        if (profileUpdateError) {
+          console.error('[Payment Webhook] CAKTO: Error updating profile to ADMIN:', profileUpdateError);
+        }
+      }
       
       // Atualizar subscription existente
-      await updateCaktoSubscription(supabase, existingProfile.id, data, planName);
+      await updateCaktoSubscription(supabase, existingUserId, data, planName);
       
       return { 
         success: true, 
         message: 'Subscription updated for existing user',
-        userId: existingProfile.id
+        userId: existingUserId
       };
     }
 
@@ -538,21 +587,44 @@ async function handleCaktoPurchaseApproved(supabase, data) {
     if (!existingProfileCheck) {
       // Criar perfil se não existe (caso o trigger não tenha criado)
       console.log('[Payment Webhook] CAKTO: Profile does not exist, creating...');
-      const { error: profileCreateError } = await supabase
-        .schema('sistemaretiradas')
-        .from('profiles')
-        .insert({
-          id: userId,
-          email: customerEmail.toLowerCase(),
-          name: customerName || 'Cliente',
-          role: 'ADMIN',
-        });
+      
+      // Tentar criar profile com retry
+      let profileCreated = false;
+      for (let attempt = 0; attempt < 3 && !profileCreated; attempt++) {
+        const { error: profileCreateError } = await supabase
+          .schema('sistemaretiradas')
+          .from('profiles')
+          .insert({
+            id: userId,
+            email: customerEmail.toLowerCase(),
+            name: customerName || 'Cliente',
+            role: 'ADMIN',
+          });
 
-      if (profileCreateError) {
-        console.error('[Payment Webhook] CAKTO: Error creating profile:', profileCreateError);
-        // Continuar mesmo com erro, pode ser que já exista
-      } else {
-        console.log('[Payment Webhook] CAKTO: ✅ Profile created');
+        if (profileCreateError) {
+          if (profileCreateError.code === '23505') {
+            // Duplicate key - profile já existe (trigger criou entre tentativas)
+            console.log('[Payment Webhook] CAKTO: Profile already exists (created by trigger)');
+            profileCreated = true;
+          } else {
+            console.error(`[Payment Webhook] CAKTO: Error creating profile (attempt ${attempt + 1}):`, profileCreateError);
+            if (attempt < 2) {
+              await new Promise(resolve => setTimeout(resolve, 300)); // Esperar 300ms antes de tentar novamente
+            }
+          }
+        } else {
+          console.log('[Payment Webhook] CAKTO: ✅ Profile created');
+          profileCreated = true;
+        }
+      }
+      
+      if (!profileCreated) {
+        console.error('[Payment Webhook] CAKTO: Failed to create profile after 3 attempts');
+        return {
+          success: false,
+          message: 'Failed to create profile',
+          error: 'Profile creation failed'
+        };
       }
     } else {
       // Atualizar perfil existente para garantir role ADMIN
@@ -571,6 +643,26 @@ async function handleCaktoPurchaseApproved(supabase, data) {
       } else {
         console.log('[Payment Webhook] CAKTO: ✅ Profile updated to ADMIN');
       }
+    }
+
+    // Aguardar um pouco mais para garantir que o profile está totalmente criado
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Verificar novamente se profile existe antes de criar subscription
+    const { data: profileCheck } = await supabase
+      .schema('sistemaretiradas')
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single();
+
+    if (!profileCheck) {
+      console.error('[Payment Webhook] CAKTO: Profile still does not exist after creation attempts');
+      return {
+        success: false,
+        message: 'Profile not found after creation',
+        error: 'Cannot create subscription without profile'
+      };
     }
 
     // IMPORTANTE: Verificar se há subscription trial criada pelo trigger
@@ -748,7 +840,6 @@ async function createCaktoSubscription(supabase, adminId, data, planName) {
         status: 'ACTIVE',
         payment_status: 'PAID',
         gateway_metadata: data,
-        updated_at: new Date().toISOString(),
       })
       .eq('id', existingSubscription.id);
 
@@ -839,7 +930,6 @@ async function updateCaktoSubscription(supabase, adminId, data, planName) {
         status: 'ACTIVE',
         payment_gateway: 'CAKTO',
         gateway_metadata: data,
-        updated_at: new Date().toISOString(),
       })
       .eq('id', existingSub.id);
   } else {
@@ -1040,7 +1130,6 @@ async function handleCaktoSubscriptionCanceled(supabase, data) {
         .from('admin_subscriptions')
         .update({ 
           status: 'CANCELED',
-          updated_at: new Date().toISOString(),
         })
         .eq('id', subscription.id);
 

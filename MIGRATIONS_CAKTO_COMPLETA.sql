@@ -280,6 +280,32 @@ BEGIN
 END $$;
 
 -- ============================================================================
+-- PARTE 4: REMOVER COLUNA stripe_event_id (legado do Stripe)
+-- ============================================================================
+-- A coluna stripe_event_id não deveria existir - usamos external_event_id genérico
+-- Removemos ela se existir, pois causa erro ao inserir eventos do CAKTO
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 
+    FROM information_schema.columns 
+    WHERE table_schema = 'sistemaretiradas' 
+    AND table_name = 'billing_events' 
+    AND column_name = 'stripe_event_id'
+  ) THEN
+    -- Remover constraint se existir
+    ALTER TABLE sistemaretiradas.billing_events
+    DROP CONSTRAINT IF EXISTS billing_events_stripe_event_id_key;
+    
+    -- Remover a coluna
+    ALTER TABLE sistemaretiradas.billing_events
+    DROP COLUMN stripe_event_id;
+    
+    RAISE NOTICE 'Coluna stripe_event_id removida (substituída por external_event_id)';
+  END IF;
+END $$;
+
+-- ============================================================================
 -- FIM DAS MIGRAÇÕES
 -- ============================================================================
 -- Execute esta migration completa no Supabase SQL Editor
