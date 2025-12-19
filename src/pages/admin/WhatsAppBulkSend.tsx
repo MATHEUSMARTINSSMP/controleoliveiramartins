@@ -180,9 +180,41 @@ export default function WhatsAppBulkSend() {
   };
 
   const fetchContacts = async () => {
+    if (!selectedStoreId) return;
+    
     setLoadingContacts(true);
     try {
-      // Buscar contatos CRM
+      // Tentar usar a função RPC que já calcula tudo (mais eficiente)
+      const { data: contactsWithStatsRPC, error: rpcError } = await supabase
+        .schema("sistemaretiradas")
+        .rpc("get_crm_customer_stats", { p_store_id: selectedStoreId });
+
+      if (!rpcError && contactsWithStatsRPC && contactsWithStatsRPC.length > 0) {
+        // Usar dados da RPC (já vem com estatísticas calculadas)
+        const contactsMapped = contactsWithStatsRPC.map((c: any) => ({
+          id: c.contact_id,
+          nome: c.nome,
+          telefone: c.telefone,
+          email: c.email,
+          cpf: c.cpf,
+          ultima_compra: c.ultima_compra,
+          dias_sem_comprar: c.dias_sem_comprar || 9999,
+          total_compras: Number(c.total_compras || 0),
+          quantidade_compras: Number(c.quantidade_compras || 0),
+          ticket_medio: Number(c.ticket_medio || 0),
+          categoria: c.categoria || "REGULAR",
+          selected: false
+        }));
+        
+        console.log(`[WhatsAppBulkSend] ✅ Carregados ${contactsMapped.length} contatos via RPC get_crm_customer_stats`);
+        setContacts(contactsMapped);
+        setFilteredContacts(contactsMapped);
+        setLoadingContacts(false);
+        return;
+      }
+
+      // Fallback: busca manual se RPC não funcionar (mantém compatibilidade)
+      console.warn('[WhatsAppBulkSend] RPC não disponível, usando busca manual');
       const { data: contactsData, error: contactsError } = await supabase
         .schema("sistemaretiradas")
         .from("crm_contacts")
@@ -193,7 +225,7 @@ export default function WhatsAppBulkSend() {
 
       if (contactsError) throw contactsError;
 
-      // Buscar estatísticas de vendas para cada contato
+      // Buscar estatísticas de vendas para cada contato (método manual)
       // IMPORTANTE: Buscar por cliente_id, cliente_nome OU CPF
       const contactsWithStats = await Promise.all(
         (contactsData || []).map(async (contact) => {
