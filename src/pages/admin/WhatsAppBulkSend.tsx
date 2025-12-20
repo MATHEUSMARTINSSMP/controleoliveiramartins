@@ -1095,7 +1095,7 @@ export default function WhatsAppBulkSend() {
 
         setBackupAccountStatus(prev => ({ ...prev, [accountId]: status }));
 
-        // Atualizar lista de contas
+        // Atualizar lista de contas (incluindo phone se conectado)
         setWhatsappAccounts(prev => prev.map(acc => 
           acc.id === accountId 
             ? { 
@@ -1103,11 +1103,12 @@ export default function WhatsAppBulkSend() {
                 uazapi_status: status.status,
                 uazapi_qr_code: status.qrCode,
                 is_connected: status.connected,
+                phone: status.phoneNumber || acc.phone, // Atualizar phone quando conectar
               }
             : acc
         ));
 
-        // Se status terminal, parar polling e atualizar no Supabase
+        // Se status terminal, parar polling e atualizar no Supabase (igual WhatsAppStoreConfig)
         if (isTerminalStatus(status.status)) {
           clearInterval(pollInterval);
           setPollingAccounts(prev => {
@@ -1116,20 +1117,33 @@ export default function WhatsAppBulkSend() {
             return newSet;
           });
 
-          // Atualizar no Supabase
+          // Atualizar no Supabase (igual WhatsAppStoreConfig)
+          const updateData: Record<string, any> = {
+            uazapi_status: status.status,
+            is_connected: status.connected,
+            updated_at: new Date().toISOString(),
+          };
+
+          // Limpar QR code quando conecta (igual WhatsAppStoreConfig)
+          updateData.uazapi_qr_code = null;
+
+          if (status.phoneNumber) {
+            updateData.phone = status.phoneNumber; // Atualizar phone quando conectar
+            updateData.uazapi_phone_number = status.phoneNumber;
+          }
+
+          if (status.instanceId) {
+            updateData.uazapi_instance_id = status.instanceId;
+          }
+
+          if (status.token && status.connected) {
+            updateData.uazapi_token = status.token;
+          }
+
           await supabase
             .schema("sistemaretiradas")
             .from("whatsapp_accounts")
-            .update({
-              uazapi_status: status.status,
-              uazapi_qr_code: status.qrCode || null,
-              uazapi_phone_number: status.phoneNumber || null,
-              uazapi_instance_id: status.instanceId || null,
-              uazapi_token: status.token || null,
-              is_connected: status.connected,
-              phone: status.phoneNumber || null, // Atualizar phone quando conectar
-              updated_at: new Date().toISOString(),
-            })
+            .update(updateData)
             .eq('id', accountId);
           
           // Se conectou, recarregar lista de contas para atualizar phone
