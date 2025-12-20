@@ -2189,7 +2189,7 @@ export default function WhatsAppBulkSend() {
               Cancelar
             </Button>
             <Button
-              onClick={handleCreateBackup}
+              onClick={handleCreateBackupAccount}
               disabled={creatingBackup || !newBackupPhone.trim()}
             >
               {creatingBackup ? (
