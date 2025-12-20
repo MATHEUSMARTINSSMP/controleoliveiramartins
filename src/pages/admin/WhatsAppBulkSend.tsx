@@ -498,9 +498,12 @@ export default function WhatsAppBulkSend() {
       // Para números principais, não usamos ID de whatsapp_accounts (eles estão em whatsapp_credentials)
       // Usamos "PRIMARY" como identificador especial
       if (credentials) {
-        // Mostrar número conectado se existir, caso contrário mostrar placeholder
-        const phoneDisplay = credentials.uazapi_phone_number || "Número não conectado";
+        // Sempre mostrar o número principal se existe registro
+        // Se está conectado, mostrar o número real; caso contrário, mostrar placeholder
         const isConnected = credentials.uazapi_status === "connected";
+        const phoneDisplay = credentials.uazapi_phone_number 
+          ? credentials.uazapi_phone_number 
+          : (isConnected ? "Número conectado" : "Número não conectado");
         
         accounts.push({
           id: "PRIMARY", // Identificador especial para números principais
