@@ -826,7 +826,7 @@ export default function WhatsAppBulkSend() {
           .from("whatsapp_accounts")
           .insert({
             store_id: selectedStoreId,
-            phone: "", // Será preenchido quando conectar
+            phone: null, // Será preenchido quando conectar
             is_backup1: backupType === "BACKUP_1",
             is_backup2: backupType === "BACKUP_2",
             is_backup3: backupType === "BACKUP_3",
@@ -836,7 +836,10 @@ export default function WhatsAppBulkSend() {
           .select()
           .single();
 
-        if (createError) throw createError;
+        if (createError) {
+          console.error('[WhatsAppBulkSend] Erro ao criar conta reserva:', createError);
+          throw createError;
+        }
         accountId = newAccount.id;
         
         // Recarregar contas para incluir o novo
@@ -1748,22 +1751,47 @@ export default function WhatsAppBulkSend() {
               {/* Números WhatsApp */}
               <div className="space-y-4">
                 <h3 className="font-semibold">Números WhatsApp</h3>
-                <div>
+                <div className="space-y-2">
                   <Label>Número Principal *</Label>
-                  <Select value={primaryPhoneId} onValueChange={setPrimaryPhoneId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o número principal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {whatsappAccounts
-                        .filter((a) => a.account_type === "PRIMARY")
-                        .map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.phone}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                  {(() => {
+                    const primaryAccount = whatsappAccounts.find(a => a.account_type === "PRIMARY");
+                    const isConnected = primaryAccount?.is_connected || primaryAccount?.uazapi_status === "connected";
+                    const phoneDisplay = primaryAccount?.phone || "Nenhum número configurado";
+                    
+                    return (
+                      <div className="space-y-2">
+                        <Select value={primaryPhoneId} onValueChange={setPrimaryPhoneId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o número principal" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {whatsappAccounts
+                              .filter((a) => a.account_type === "PRIMARY")
+                              .map((account) => (
+                                <SelectItem key={account.id} value={account.id}>
+                                  {account.phone}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        {primaryAccount && (
+                          <div className="flex items-center gap-2">
+                            {isConnected ? (
+                              <Badge variant="default" className="bg-green-500">
+                                <Wifi className="h-3 w-3 mr-1" />
+                                Conectado: {phoneDisplay}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline">
+                                <WifiOff className="h-3 w-3 mr-1" />
+                                Desconectado
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Gestão de Números Reserva - 3 botões fixos */}
@@ -1772,7 +1800,7 @@ export default function WhatsAppBulkSend() {
                   
                   {/* BACKUP 1, 2, 3 - Cards fixos */}
                   {(["BACKUP_1", "BACKUP_2", "BACKUP_3"] as const).map((backupType) => {
-                    // Buscar account correspondente
+                    // Buscar account correspondente usando account_type (que foi mapeado em fetchWhatsAppAccounts)
                     const account = whatsappAccounts.find(acc => {
                       if (backupType === "BACKUP_1") return acc.account_type === "BACKUP_1";
                       if (backupType === "BACKUP_2") return acc.account_type === "BACKUP_2";
