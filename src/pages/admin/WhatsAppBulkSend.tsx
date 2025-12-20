@@ -1904,6 +1904,42 @@ export default function WhatsAppBulkSend() {
                             </div>
                           )}
 
+                          {/* Checkbox para usar na campanha (só aparece se conectado) */}
+                          {isConnected && status === 'connected' && accountId && (
+                            <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                              <Checkbox
+                                id={`use-backup-${backupType}`}
+                                checked={backupPhoneIds.includes(accountId)}
+                                onCheckedChange={(checked) => {
+                                  if (checked && accountId) {
+                                    // Adicionar à lista de backups selecionados
+                                    const newBackups = [...backupPhoneIds];
+                                    const emptyIndex = newBackups.findIndex(id => id === "none" || !id);
+                                    if (emptyIndex >= 0) {
+                                      newBackups[emptyIndex] = accountId;
+                                    } else if (newBackups.length < 3) {
+                                      newBackups.push(accountId);
+                                    } else {
+                                      // Já tem 3, substituir o primeiro "none" se houver
+                                      const firstNone = newBackups.findIndex(id => id === "none");
+                                      if (firstNone >= 0) {
+                                        newBackups[firstNone] = accountId;
+                                      }
+                                    }
+                                    setBackupPhoneIds(newBackups);
+                                  } else if (!checked && accountId) {
+                                    // Remover da lista
+                                    setBackupPhoneIds(prev => prev.map(id => id === accountId ? "none" : id));
+                                  }
+                                }}
+                                disabled={!isConnected || status !== 'connected'}
+                              />
+                              <Label htmlFor={`use-backup-${backupType}`} className="cursor-pointer text-sm font-medium">
+                                Usar este número na campanha
+                              </Label>
+                            </div>
+                          )}
+
                           {/* Botão para conectar */}
                           {!isConnected && status === 'disconnected' && !qrCode && (
                             <Button
@@ -1927,33 +1963,6 @@ export default function WhatsAppBulkSend() {
                             </Button>
                           )}
 
-                          {/* Checkbox para usar na campanha (só aparece se conectado) */}
-                          {isConnected && (
-                            <div className="flex items-center gap-2">
-                              <Checkbox
-                                checked={backupPhoneIds.includes(accountId || "")}
-                                onCheckedChange={(checked) => {
-                                  if (checked && accountId) {
-                                    // Adicionar à lista de backups selecionados
-                                    const newBackups = [...backupPhoneIds];
-                                    const emptyIndex = newBackups.findIndex(id => id === "none" || !id);
-                                    if (emptyIndex >= 0) {
-                                      newBackups[emptyIndex] = accountId;
-                                    } else if (newBackups.length < 3) {
-                                      newBackups.push(accountId);
-                                    }
-                                    setBackupPhoneIds(newBackups);
-                                  } else if (!checked && accountId) {
-                                    // Remover da lista
-                                    setBackupPhoneIds(prev => prev.map(id => id === accountId ? "none" : id));
-                                  }
-                                }}
-                              />
-                              <Label className="cursor-pointer">
-                                Usar este número na campanha
-                              </Label>
-                            </div>
-                          )}
                         </CardContent>
                       </Card>
                     );
@@ -2110,39 +2119,6 @@ export default function WhatsAppBulkSend() {
                     </div>
                   )}
 
-                  {/* Seleção de números reserva para uso na campanha */}
-                  <div>
-                    <Label>Selecionar Números Reserva para Campanha (opcional, até 3)</Label>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Apenas números conectados estarão disponíveis para seleção
-                    </p>
-                    {backupPhoneIds.map((backupId, index) => (
-                      <div key={index} className="flex gap-2 mt-2">
-                        <Select
-                          value={backupId}
-                          onValueChange={(value) => {
-                            const newBackups = [...backupPhoneIds];
-                            newBackups[index] = value;
-                            setBackupPhoneIds(newBackups);
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder={`Reserva ${index + 1}`} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Nenhum</SelectItem>
-                            {whatsappAccounts
-                              .filter((a) => a.account_type !== "PRIMARY" && a.is_connected)
-                              .map((account) => (
-                                <SelectItem key={account.id} value={account.id}>
-                                  {account.phone} ✓
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ))}
-                  </div>
                 </div>
 
                 <div className="flex items-center gap-2">
