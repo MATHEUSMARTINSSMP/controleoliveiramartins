@@ -569,17 +569,26 @@ export default function WhatsAppBulkSend() {
             
             console.log('[WhatsAppBulkSend] Status N8N para backup', acc.id, ':', status);
             
-            // Atualizar estado local IMEDIATAMENTE
-            setWhatsappAccounts(prev => prev.map(a => 
-              a.id === acc.id 
-                ? { 
-                    ...a, 
-                    uazapi_status: status.status,
-                    is_connected: status.connected,
-                    phone: status.phoneNumber || a.phone,
-                  }
-                : a
-            ));
+            // Atualizar estado local IMEDIATAMENTE (com proteção contra downgrade)
+            setWhatsappAccounts(prev => prev.map(a => {
+              if (a.id !== acc.id) return a;
+              
+              const currentStatus = a.uazapi_status;
+              const isConnectedInDb = currentStatus === 'connected';
+              const isDisconnectedFromN8N = status.status === 'disconnected' || status.status === 'error' || !status.status;
+              
+              // PROTEÇÃO UI: Não fazer downgrade de connected para disconnected
+              const finalStatus = (isConnectedInDb && isDisconnectedFromN8N) 
+                ? 'connected'  // Manter connected se estava connected
+                : (status.status || currentStatus); // Usar novo status ou manter atual
+              
+              return {
+                ...a,
+                uazapi_status: finalStatus,
+                is_connected: finalStatus === 'connected' || status.connected,
+                phone: status.phoneNumber || a.phone,
+              };
+            }));
             
             // PROTEÇÃO CRÍTICA: NUNCA fazer downgrade de "connected" para "disconnected/error"
             // Buscar status atual no banco antes de atualizar
@@ -840,18 +849,27 @@ export default function WhatsAppBulkSend() {
       // Atualizar estado local
       setBackupAccountStatus(prev => ({ ...prev, [accountId]: status }));
 
-      // Atualizar lista de contas (incluindo phone se conectado)
-      setWhatsappAccounts(prev => prev.map(acc => 
-        acc.id === accountId 
-          ? { 
-              ...acc, 
-              uazapi_status: status.status,
-              uazapi_qr_code: status.qrCode,
-              is_connected: status.connected,
-              phone: status.phoneNumber || acc.phone, // Atualizar phone quando conectar
-            }
-          : acc
-      ));
+      // Atualizar lista de contas (incluindo phone se conectado) - com proteção contra downgrade
+      setWhatsappAccounts(prev => prev.map(acc => {
+        if (acc.id !== accountId) return acc;
+        
+        const currentStatus = acc.uazapi_status;
+        const isConnectedInDb = currentStatus === 'connected';
+        const isDisconnectedFromN8N = status.status === 'disconnected' || status.status === 'error' || !status.status;
+        
+        // PROTEÇÃO UI: Não fazer downgrade de connected para disconnected
+        const finalStatus = (isConnectedInDb && isDisconnectedFromN8N) 
+          ? 'connected'  // Manter connected se estava connected
+          : (status.status || currentStatus); // Usar novo status ou manter atual
+        
+        return {
+          ...acc,
+          uazapi_status: finalStatus,
+          uazapi_qr_code: status.qrCode,
+          is_connected: finalStatus === 'connected' || status.connected,
+          phone: status.phoneNumber || acc.phone, // Atualizar phone quando conectar
+        };
+      }));
 
       // PROTEÇÃO CRÍTICA: NUNCA fazer downgrade de "connected" para "disconnected/error"
       // Buscar status atual no banco antes de atualizar
