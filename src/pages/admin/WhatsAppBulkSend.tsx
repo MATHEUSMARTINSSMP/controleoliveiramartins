@@ -542,7 +542,7 @@ export default function WhatsAppBulkSend() {
           
           return {
             id: acc.id,
-            phone: acc.phone,
+            phone: acc.phone || "Não conectado",
             account_type: backupType,
             is_connected: acc.is_connected || false,
             uazapi_qr_code: acc.uazapi_qr_code || null,
@@ -552,6 +552,77 @@ export default function WhatsAppBulkSend() {
       }
 
       setWhatsappAccounts(accounts);
+
+      // Verificar status via N8N para números reserva (igual WhatsAppStoreConfig)
+      // Isso garante que números conectados no N8N sejam detectados mesmo sem status atualizado no banco
+      if (backupAccounts && backupAccounts.length > 0 && profile?.email && selectedStore?.site_slug) {
+        console.log('[WhatsAppBulkSend] Verificando status via N8N para', backupAccounts.length, 'números reserva...');
+        
+        // Verificar status de todos os números reserva em paralelo
+        const statusPromises = backupAccounts.map(async (acc) => {
+          try {
+            const status = await fetchBackupWhatsAppStatus({
+              siteSlug: selectedStore.site_slug!,
+              customerId: profile.email!,
+              whatsapp_account_id: acc.id,
+            });
+            
+            console.log('[WhatsAppBulkSend] Status N8N para backup', acc.id, ':', status);
+            
+            // Atualizar estado local IMEDIATAMENTE
+            setWhatsappAccounts(prev => prev.map(a => 
+              a.id === acc.id 
+                ? { 
+                    ...a, 
+                    uazapi_status: status.status,
+                    is_connected: status.connected,
+                    phone: status.phoneNumber || a.phone,
+                  }
+                : a
+            ));
+            
+            // Atualizar no Supabase se houver mudanças
+            const updateData: Record<string, any> = {
+              updated_at: new Date().toISOString(),
+            };
+            
+            if (status.status) {
+              updateData.uazapi_status = status.status;
+            }
+            
+            if (status.phoneNumber) {
+              updateData.phone = status.phoneNumber;
+              updateData.uazapi_phone_number = status.phoneNumber;
+            }
+            
+            if (status.instanceId) {
+              updateData.uazapi_instance_id = status.instanceId;
+            }
+            
+            if (status.token && status.connected) {
+              updateData.uazapi_token = status.token;
+            }
+            
+            updateData.is_connected = status.connected;
+            
+            await supabase
+              .schema("sistemaretiradas")
+              .from("whatsapp_accounts")
+              .update(updateData)
+              .eq('id', acc.id);
+            
+            return { accountId: acc.id, status };
+          } catch (err) {
+            console.error('[WhatsAppBulkSend] Erro ao verificar status de backup', acc.id, ':', err);
+            return { accountId: acc.id, error: err };
+          }
+        });
+        
+        // Aguardar todas as verificações (não bloquear UI)
+        Promise.all(statusPromises).then(() => {
+          console.log('[WhatsAppBulkSend] Todas as verificações de status concluídas');
+        });
+      }
       
       // Auto-selecionar número principal
       const primary = accounts.find(a => a.account_type === "PRIMARY");
@@ -736,7 +807,7 @@ export default function WhatsAppBulkSend() {
       // Atualizar estado local
       setBackupAccountStatus(prev => ({ ...prev, [accountId]: status }));
 
-      // Atualizar lista de contas
+      // Atualizar lista de contas (incluindo phone se conectado)
       setWhatsappAccounts(prev => prev.map(acc => 
         acc.id === accountId 
           ? { 
@@ -744,20 +815,42 @@ export default function WhatsAppBulkSend() {
               uazapi_status: status.status,
               uazapi_qr_code: status.qrCode,
               is_connected: status.connected,
+              phone: status.phoneNumber || acc.phone, // Atualizar phone quando conectar
             }
           : acc
       ));
 
-      // Atualizar no Supabase
+      // Atualizar no Supabase com TODOS os campos retornados (igual WhatsAppStoreConfig)
+      const updateData: Record<string, any> = {
+        uazapi_status: status.status,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Atualizar QR code se fornecido
+      if (status.qrCode !== undefined) {
+        updateData.uazapi_qr_code = status.qrCode;
+      }
+
+      // Atualizar campos adicionais se conectado
+      if (status.connected && status.phoneNumber) {
+        updateData.phone = status.phoneNumber; // Atualizar phone quando conectar
+        updateData.uazapi_phone_number = status.phoneNumber;
+      }
+
+      if (status.instanceId) {
+        updateData.uazapi_instance_id = status.instanceId;
+      }
+
+      if (status.token && status.connected) {
+        updateData.uazapi_token = status.token;
+      }
+
+      updateData.is_connected = status.connected;
+
       await supabase
         .schema("sistemaretiradas")
         .from("whatsapp_accounts")
-        .update({
-          uazapi_status: status.status,
-          uazapi_qr_code: status.qrCode,
-          is_connected: status.connected,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', accountId);
 
       // Se não é status terminal, iniciar polling
