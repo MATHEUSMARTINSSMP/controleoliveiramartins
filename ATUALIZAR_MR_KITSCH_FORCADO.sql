@@ -6,11 +6,13 @@
 -- =====================================================
 
 -- ATUALIZAR DIRETAMENTE NO BANCO
+-- IMPORTANTE: Corrigir token também (token no banco estava incorreto)
 UPDATE sistemaretiradas.whatsapp_credentials
 SET 
     uazapi_status = 'connected',
     uazapi_phone_number = '559699741090',
     uazapi_instance_id = 'mr_kitsch_matheusmartinss_icloud_com',
+    uazapi_token = '2fada9de-3960-4dbb-b47c-be72d00eb1e4', -- Token correto do UazAPI
     updated_at = NOW()
 WHERE site_slug = 'mrkitsch'
 AND customer_id = 'matheusmartinss@icloud.com';
@@ -26,6 +28,7 @@ SELECT
     END as status_final,
     wc.uazapi_phone_number,
     wc.uazapi_instance_id,
+    wc.uazapi_token,
     wc.updated_at,
     NOW() as agora,
     EXTRACT(EPOCH FROM (NOW() - wc.updated_at)) as segundos_atras
