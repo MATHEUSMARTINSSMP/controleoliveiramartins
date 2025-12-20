@@ -1164,12 +1164,23 @@ export default function WhatsAppBulkSend() {
                 ))}
               </div>
 
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={randomizeMessages}
-                  onCheckedChange={(checked) => setRandomizeMessages(checked as boolean)}
-                />
-                <Label>Randomizar mensagens (ou enviar em ordem)</Label>
+              <div className="space-y-2">
+                <Label>Distribuição das Variações</Label>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={randomizeMessages}
+                    onCheckedChange={(checked) => setRandomizeMessages(checked as boolean)}
+                    id="randomize-messages"
+                  />
+                  <Label htmlFor="randomize-messages" className="cursor-pointer font-normal">
+                    Randomizar mensagens
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground ml-6">
+                  {randomizeMessages 
+                    ? "✅ Cada contato receberá uma variação aleatória"
+                    : "✅ As variações serão enviadas em ordem sequencial (1ª variação para 1º contato, 2ª para 2º, e assim por diante, voltando ao início quando necessário)"}
+                </p>
               </div>
 
               <div className="flex justify-between">
