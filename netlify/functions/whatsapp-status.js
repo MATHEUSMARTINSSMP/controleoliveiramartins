@@ -243,19 +243,27 @@ exports.handler = async (event) => {
               }
             }
 
-            // Atualizar status se fornecido, MAS:
-            // - Não fazer downgrade de "connected" para "disconnected/error" se o token foi atualizado
-            //   (o "disconnected" pode ter sido causado pelo token antigo/errado)
-            // - Se token foi atualizado e status no banco é "connected", manter "connected"
-            const shouldUpdateStatus = !(currentStatus === 'connected' && 
-              (normalizedStatus === 'disconnected' || normalizedStatus === 'error') && tokenWasUpdated);
+            // PROTEÇÃO CRÍTICA: NUNCA fazer downgrade de "connected" para "disconnected/error"
+            // Regra 1: Se status no banco é "connected", SEMPRE manter "connected"
+            // Regra 2: Se token foi atualizado, o "disconnected" pode ser por token antigo
+            // Regra 3: Apenas atualizar status se for UPGRADE (disconnected -> connected) ou status consistente
             
-            if (shouldUpdateStatus && normalizedStatus) {
+            const isConnectedInDb = currentStatus === 'connected';
+            const isDisconnectedFromN8N = normalizedStatus === 'disconnected' || normalizedStatus === 'error' || !normalizedStatus;
+            const isConnectedFromN8N = normalizedStatus === 'connected';
+            
+            // NUNCA fazer downgrade de connected para disconnected/error
+            if (isConnectedInDb && isDisconnectedFromN8N) {
+              console.log('[whatsapp-status] 🛡️ PROTEÇÃO: Status no banco é "connected", N8N retornou "' + normalizedStatus + '" - IGNORANDO downgrade');
+              console.log('[whatsapp-status] 🛡️ Token atualizado:', tokenWasUpdated, '| Mantendo status "connected" no banco');
+              // NÃO atualizar status - manter "connected"
+              // Mas ainda atualizar token, phone, instance_id se fornecidos
+            } else if (isConnectedFromN8N || (!isConnectedInDb && normalizedStatus)) {
+              // Apenas atualizar se for upgrade (connected do N8N) ou se não estava connected
               updateData.uazapi_status = normalizedStatus;
-            } else if (currentStatus === 'connected' && tokenWasUpdated && 
-                       (normalizedStatus === 'disconnected' || normalizedStatus === 'error')) {
-              console.log('[whatsapp-status] ⚠️ Token atualizado mas status no banco é connected - mantendo connected (disconnected pode ser por token antigo)');
-              // Não atualizar status, manter "connected"
+              console.log('[whatsapp-status] ✅ Atualizando status para:', normalizedStatus, '| Status anterior:', currentStatus);
+            } else {
+              console.log('[whatsapp-status] ⏭️ Mantendo status atual:', currentStatus, '| N8N retornou:', normalizedStatus);
             }
 
             // Só fazer update se houver algo além de updated_at

@@ -486,14 +486,23 @@ export const WhatsAppStoreConfig = () => {
                                     updated_at: new Date().toISOString(),
                                 };
                                 
-                                // Só atualizar status se for uma melhoria ou confirmação
-                                // Não fazer downgrade de connected para disconnected/error
+                                // PROTEÇÃO CRÍTICA: NUNCA fazer downgrade de "connected"
                                 const currentDbStatus = existingCred.uazapi_status;
-                                const shouldUpdateStatus = !(currentDbStatus === 'connected' && 
-                                    (newStatus === 'disconnected' || newStatus === 'error' || !newStatus));
+                                const isConnectedInDb = currentDbStatus === 'connected';
+                                const isDisconnectedFromN8N = newStatus === 'disconnected' || newStatus === 'error' || !newStatus;
+                                const isConnectedFromN8N = newStatus === 'connected';
                                 
-                                if (shouldUpdateStatus) {
+                                // Regra: Apenas atualizar status se:
+                                // 1. É upgrade (N8N retornou "connected") OU
+                                // 2. Não estava connected no banco E N8N retornou um status válido
+                                // NUNCA fazer downgrade de connected -> disconnected/error
+                                if (isConnectedInDb && isDisconnectedFromN8N) {
+                                    console.log('[fetchStoresAndCredentials] 🛡️ PROTEÇÃO DB: Status no banco é "connected", N8N retornou "' + newStatus + '" - NÃO atualizando status');
+                                    // NÃO adicionar uazapi_status ao updateData - manter connected
+                                } else if (isConnectedFromN8N || (!isConnectedInDb && newStatus)) {
+                                    // Apenas atualizar se for upgrade ou se não estava connected
                                     updateData.uazapi_status = newStatus;
+                                    console.log('[fetchStoresAndCredentials] ✅ Atualizando status para:', newStatus, '| Status anterior:', currentDbStatus);
                                 }
                                 
                                 if (status.phoneNumber) {
