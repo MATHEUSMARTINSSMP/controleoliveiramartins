@@ -148,16 +148,6 @@ export default function WhatsAppBulkSend() {
   const [checkingStatus, setCheckingStatus] = useState<string | null>(null);
   const [pollingAccounts, setPollingAccounts] = useState<Set<string>>(new Set());
   
-  // Estados para criar novo número reserva
-  const [showCreateBackupDialog, setShowCreateBackupDialog] = useState(false);
-  const [newBackupPhone, setNewBackupPhone] = useState("");
-  const [newBackupType, setNewBackupType] = useState<"BACKUP_1" | "BACKUP_2" | "BACKUP_3">("BACKUP_1");
-  const [creatingBackup, setCreatingBackup] = useState(false);
-
-  // Função helper para gerar slug (usado para criar identificadores únicos para números reserva)
-  const generateBackupSlug = (storeId: string, accountType: string): string => {
-    return `${storeId}-${accountType.toLowerCase()}`;
-  };
 
   useEffect(() => {
     if (!authLoading && (!profile || profile.role !== "ADMIN")) {
@@ -487,11 +477,11 @@ export default function WhatsAppBulkSend() {
       }
 
       // 1. Buscar número principal da loja (whatsapp_credentials)
-      // IMPORTANTE: Mostrar mesmo se não estiver conectado ou se uazapi_phone_number não estiver preenchido
+      // Buscar TODOS os campos para ter informações completas
       const { data: credentials, error: credError } = await supabase
         .schema("sistemaretiradas")
         .from("whatsapp_credentials")
-        .select("uazapi_phone_number, uazapi_status, uazapi_instance_id, uazapi_token")
+        .select("*")
         .eq("admin_id", profile.id)
         .eq("site_slug", selectedStore.site_slug)
         .maybeSingle();
@@ -508,13 +498,15 @@ export default function WhatsAppBulkSend() {
       // Para números principais, não usamos ID de whatsapp_accounts (eles estão em whatsapp_credentials)
       // Usamos "PRIMARY" como identificador especial
       if (credentials) {
-        // Se não tiver phone_number ainda, mostrar placeholder
+        // Mostrar número conectado se existir, caso contrário mostrar placeholder
         const phoneDisplay = credentials.uazapi_phone_number || "Número não conectado";
+        const isConnected = credentials.uazapi_status === "connected";
+        
         accounts.push({
           id: "PRIMARY", // Identificador especial para números principais
           phone: phoneDisplay,
           account_type: "PRIMARY",
-          is_connected: credentials.uazapi_status === "connected",
+          is_connected: isConnected,
           uazapi_status: credentials.uazapi_status || "disconnected",
         });
       }
@@ -793,73 +785,108 @@ export default function WhatsAppBulkSend() {
     }
   };
 
-  // Função para gerar QR code de número reserva
-  // Função para criar novo número reserva
-  const handleCreateBackupAccount = async () => {
-    if (!selectedStoreId || !newBackupPhone.trim()) {
-      toast.error("Preencha o número do WhatsApp");
+  // Conectar número reserva (1, 2 ou 3) - cria/atualiza no banco automaticamente
+  const handleConnectBackupNumber = async (backupType: "BACKUP_1" | "BACKUP_2" | "BACKUP_3") => {
+    if (!selectedStoreId || !profile?.email || !profile?.id) {
+      toast.error("Dados da loja ou perfil não disponíveis");
       return;
     }
 
-    // Validar formato do número (apenas números, 10-13 dígitos)
-    const normalizedPhone = newBackupPhone.replace(/\D/g, '');
-    if (normalizedPhone.length < 10 || normalizedPhone.length > 13) {
-      toast.error("Número inválido. Digite apenas números (10-13 dígitos)");
-      return;
-    }
+    setConnectingBackup(backupType);
+    toast.info(`Gerando QR Code para número reserva ${backupType.replace("BACKUP_", "")}...`);
 
-    setCreatingBackup(true);
     try {
-      // Verificar se já existe um número reserva deste tipo para esta loja
-      const { data: existing } = await supabase
+      // Buscar loja para obter site_slug
+      const selectedStore = stores.find(s => s.id === selectedStoreId);
+      if (!selectedStore?.site_slug) {
+        toast.error("Loja não tem site_slug configurado");
+        return;
+      }
+
+      // Verificar se já existe número reserva deste tipo
+      const { data: existingAccount } = await supabase
         .schema("sistemaretiradas")
         .from("whatsapp_accounts")
         .select("id")
         .eq("store_id", selectedStoreId)
-        .eq(newBackupType === "BACKUP_1" ? "is_backup1" : newBackupType === "BACKUP_2" ? "is_backup2" : "is_backup3", true)
+        .eq(backupType === "BACKUP_1" ? "is_backup1" : backupType === "BACKUP_2" ? "is_backup2" : "is_backup3", true)
         .maybeSingle();
 
-      if (existing) {
-        toast.error(`Já existe um número ${newBackupType} para esta loja`);
-        setCreatingBackup(false);
-        return;
+      let accountId = existingAccount?.id;
+
+      // Se não existe, criar registro vazio (phone será preenchido após conectar)
+      if (!accountId) {
+        const { data: newAccount, error: createError } = await supabase
+          .schema("sistemaretiradas")
+          .from("whatsapp_accounts")
+          .insert({
+            store_id: selectedStoreId,
+            phone: "", // Será preenchido quando conectar
+            is_backup1: backupType === "BACKUP_1",
+            is_backup2: backupType === "BACKUP_2",
+            is_backup3: backupType === "BACKUP_3",
+            is_connected: false,
+            uazapi_status: "disconnected",
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+        accountId = newAccount.id;
+        
+        // Recarregar contas para incluir o novo
+        await fetchWhatsAppAccounts();
       }
 
-      // Criar novo número reserva
-      const { data: newAccount, error: createError } = await supabase
-        .schema("sistemaretiradas")
-        .from("whatsapp_accounts")
-        .insert({
-          store_id: selectedStoreId,
-          phone: normalizedPhone,
-          is_backup1: newBackupType === "BACKUP_1",
-          is_backup2: newBackupType === "BACKUP_2",
-          is_backup3: newBackupType === "BACKUP_3",
-          is_connected: false,
-          uazapi_status: "disconnected",
-        })
-        .select()
-        .single();
+      // Chamar função de conexão com whatsapp_account_id
+      const result = await connectBackupWhatsApp({
+        siteSlug: selectedStore.site_slug,
+        customerId: profile.email,
+        whatsapp_account_id: accountId,
+      });
 
-      if (createError) throw createError;
+      console.log('[WhatsAppBulkSend] Resultado conexao backup:', result);
 
-      toast.success(`Número reserva ${newBackupType} criado com sucesso!`);
-      
-      // Atualizar lista de contas
-      await fetchWhatsAppAccounts();
-      
-      // Fechar dialog e limpar campos
-      setShowCreateBackupDialog(false);
-      setNewBackupPhone("");
-      setNewBackupType("BACKUP_1");
+      if (result.qrCode) {
+        // Salvar QR code no estado
+        setBackupQRCodes(prev => ({ ...prev, [backupType]: result.qrCode! }));
+        
+        // Atualizar estado local do account
+        setBackupAccountStatus(prev => ({
+          ...prev,
+          [accountId!]: {
+            success: true,
+            ok: true,
+            connected: false,
+            status: 'qr_required',
+            qrCode: result.qrCode,
+            instanceId: result.instanceId || null,
+            phoneNumber: null,
+            token: null,
+          },
+        }));
+
+        // Iniciar polling
+        setPollingAccounts(prev => new Set(prev).add(accountId!));
+        startPollingForBackupAccount(accountId!);
+
+        toast.success(`QR Code gerado! Escaneie para conectar número reserva ${backupType.replace("BACKUP_", "")}`);
+      } else if (result.error) {
+        toast.error(`Erro ao gerar QR Code: ${result.error}`);
+      } else {
+        toast.info("Aguardando resposta do servidor...");
+        setPollingAccounts(prev => new Set(prev).add(accountId!));
+        startPollingForBackupAccount(accountId!);
+      }
     } catch (error: any) {
-      console.error('Erro ao criar número reserva:', error);
-      toast.error('Erro ao criar número reserva: ' + (error.message || 'Erro desconhecido'));
+      console.error('Erro ao conectar número reserva:', error);
+      toast.error('Erro ao conectar: ' + error.message);
     } finally {
-      setCreatingBackup(false);
+      setConnectingBackup(null);
     }
   };
 
+  // Função para gerar QR code de número reserva (mantida para compatibilidade)
   const handleGenerateBackupQRCode = async (accountId: string) => {
     if (!selectedStoreId || !profile?.email || !profile?.id) {
       toast.error("Dados da loja ou perfil não disponíveis");
@@ -994,11 +1021,21 @@ export default function WhatsAppBulkSend() {
             .from("whatsapp_accounts")
             .update({
               uazapi_status: status.status,
-              uazapi_qr_code: status.qrCode,
+              uazapi_qr_code: status.qrCode || null,
+              uazapi_phone_number: status.phoneNumber || null,
+              uazapi_instance_id: status.instanceId || null,
+              uazapi_token: status.token || null,
               is_connected: status.connected,
+              phone: status.phoneNumber || null, // Atualizar phone quando conectar
               updated_at: new Date().toISOString(),
             })
             .eq('id', accountId);
+          
+          // Se conectou, recarregar lista de contas para atualizar phone
+          if (status.connected) {
+            await fetchWhatsAppAccounts();
+            toast.success(`Número reserva conectado: ${status.phoneNumber || account.phone}`);
+          }
         }
       } catch (error: any) {
         console.error('Erro no polling backup:', error);
@@ -1724,25 +1761,173 @@ export default function WhatsAppBulkSend() {
                   </Select>
                 </div>
 
-                {/* Gestão de Números Reserva */}
+                {/* Gestão de Números Reserva - 3 botões fixos */}
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-base font-semibold">Números Reserva</Label>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">{whatsappAccounts.filter(a => a.account_type !== "PRIMARY").length} disponível(is)</Badge>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowCreateBackupDialog(true)}
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Adicionar Número Reserva
-                      </Button>
-                    </div>
-                  </div>
+                  <Label className="text-base font-semibold">Números Reserva</Label>
                   
-                  {/* Lista de números reserva com autenticação */}
-                  {whatsappAccounts
+                  {/* BACKUP 1, 2, 3 - Cards fixos */}
+                  {(["BACKUP_1", "BACKUP_2", "BACKUP_3"] as const).map((backupType) => {
+                    // Buscar account correspondente
+                    const account = whatsappAccounts.find(acc => {
+                      if (backupType === "BACKUP_1") return acc.account_type === "BACKUP_1";
+                      if (backupType === "BACKUP_2") return acc.account_type === "BACKUP_2";
+                      if (backupType === "BACKUP_3") return acc.account_type === "BACKUP_3";
+                      return false;
+                    });
+
+                    const accountId = account?.id;
+                    const accountStatus = accountId ? backupAccountStatus[accountId] : null;
+                    const status = accountStatus?.status || account?.uazapi_status || 'disconnected';
+                    const qrCode = backupQRCodes[backupType] || accountStatus?.qrCode || account?.uazapi_qr_code;
+                    const isConnected = accountStatus?.connected || account?.is_connected || false;
+                    const isLoading = connectingBackup === backupType;
+                    const isPolling = accountId ? pollingAccounts.has(accountId) : false;
+                    const phoneDisplay = account?.phone || accountStatus?.phoneNumber || "Não conectado";
+
+                    return (
+                      <Card key={backupType} className="border-2">
+                        <CardContent className="p-4 space-y-4">
+                          {/* Header */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Phone className="h-5 w-5 text-muted-foreground" />
+                              <div>
+                                <div className="font-semibold">Número Reserva {backupType.replace("BACKUP_", "")}</div>
+                                {isConnected && phoneDisplay && (
+                                  <div className="text-sm text-muted-foreground">{phoneDisplay}</div>
+                                )}
+                              </div>
+                            </div>
+                            {/* Badge de status */}
+                            {status === 'connected' && (
+                              <Badge variant="default" className="bg-green-500">
+                                <Wifi className="h-3 w-3 mr-1" />
+                                Conectado
+                              </Badge>
+                            )}
+                            {status === 'qr_required' && (
+                              <Badge variant="secondary">
+                                <QrCode className="h-3 w-3 mr-1" />
+                                QR Code necessário
+                              </Badge>
+                            )}
+                            {status === 'disconnected' && (
+                              <Badge variant="outline">
+                                <WifiOff className="h-3 w-3 mr-1" />
+                                Desconectado
+                              </Badge>
+                            )}
+                            {status === 'error' && (
+                              <Badge variant="destructive">
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                Erro
+                              </Badge>
+                            )}
+                            {status === 'connecting' && (
+                              <Badge variant="secondary">
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                Conectando...
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* QR Code display */}
+                          {qrCode && status === 'qr_required' && (
+                            <div className="p-4 bg-muted rounded-lg text-center border-2 border-dashed">
+                              <p className="text-sm font-medium mb-2">Escaneie o QR Code para conectar:</p>
+                              <img 
+                                src={qrCode} 
+                                alt="QR Code WhatsApp" 
+                                className="max-w-[200px] mx-auto rounded-lg"
+                              />
+                              <p className="text-xs text-muted-foreground mt-2">
+                                Abra o WhatsApp no celular, vá em Configurações → Dispositivos Conectados e escaneie
+                              </p>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="mt-2"
+                                onClick={() => {
+                                  setBackupQRCodes(prev => {
+                                    const newCodes = { ...prev };
+                                    delete newCodes[backupType];
+                                    return newCodes;
+                                  });
+                                }}
+                              >
+                                <X className="h-4 w-4 mr-1" />
+                                Esconder QR Code
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Mensagem de status conectado */}
+                          {isConnected && status === 'connected' && (
+                            <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg text-center">
+                              <Wifi className="h-8 w-8 mx-auto text-green-500 mb-1" />
+                              <p className="text-sm font-medium text-green-700 dark:text-green-400">
+                                WhatsApp Conectado
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Botão para conectar */}
+                          {!isConnected && status === 'disconnected' && !qrCode && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => handleConnectBackupNumber(backupType)}
+                              disabled={isLoading}
+                              className="w-full"
+                            >
+                              {isLoading ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                  Gerando QR Code...
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Conectar Número Reserva {backupType.replace("BACKUP_", "")}
+                                </>
+                              )}
+                            </Button>
+                          )}
+
+                          {/* Checkbox para usar na campanha (só aparece se conectado) */}
+                          {isConnected && (
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                checked={backupPhoneIds.includes(accountId || "")}
+                                onCheckedChange={(checked) => {
+                                  if (checked && accountId) {
+                                    // Adicionar à lista de backups selecionados
+                                    const newBackups = [...backupPhoneIds];
+                                    const emptyIndex = newBackups.findIndex(id => id === "none" || !id);
+                                    if (emptyIndex >= 0) {
+                                      newBackups[emptyIndex] = accountId;
+                                    } else if (newBackups.length < 3) {
+                                      newBackups.push(accountId);
+                                    }
+                                    setBackupPhoneIds(newBackups);
+                                  } else if (!checked && accountId) {
+                                    // Remover da lista
+                                    setBackupPhoneIds(prev => prev.map(id => id === accountId ? "none" : id));
+                                  }
+                                }}
+                              />
+                              <Label className="cursor-pointer">
+                                Usar este número na campanha
+                              </Label>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                  
+                  {/* Lista antiga mantida por enquanto para referência */}
+                  {false && whatsappAccounts
                     .filter((a) => a.account_type !== "PRIMARY")
                     .map((account) => {
                       const accountStatus = backupAccountStatus[account.id];
@@ -1886,17 +2071,9 @@ export default function WhatsAppBulkSend() {
                   {whatsappAccounts.filter((a) => a.account_type !== "PRIMARY").length === 0 && (
                     <div className="p-4 bg-muted rounded-lg text-center border border-dashed">
                       <Phone className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground mb-3">
-                        Nenhum número reserva configurado. Clique em "Adicionar Número Reserva" acima para criar um.
+                      <p className="text-sm text-muted-foreground">
+                        Nenhum número reserva configurado. Configure números reserva no banco de dados para aparecerem aqui.
                       </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowCreateBackupDialog(true)}
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Criar Primeiro Número Reserva
-                      </Button>
                     </div>
                   )}
 
@@ -2135,78 +2312,6 @@ export default function WhatsAppBulkSend() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Dialog para criar número reserva */}
-      <Dialog open={showCreateBackupDialog} onOpenChange={setShowCreateBackupDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Adicionar Número Reserva</DialogTitle>
-            <DialogDescription>
-              Configure um novo número WhatsApp reserva para esta loja
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Número de Telefone *</Label>
-              <Input
-                type="tel"
-                placeholder="5599123456789"
-                value={newBackupPhone}
-                onChange={(e) => setNewBackupPhone(e.target.value)}
-                disabled={creatingBackup}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Digite o número completo com código do país (ex: 5599123456789)
-              </p>
-            </div>
-            <div>
-              <Label>Tipo de Reserva *</Label>
-              <Select
-                value={newBackupType}
-                onValueChange={(value: "BACKUP_1" | "BACKUP_2" | "BACKUP_3") => setNewBackupType(value)}
-                disabled={creatingBackup}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="BACKUP_1">Reserva 1</SelectItem>
-                  <SelectItem value="BACKUP_2">Reserva 2</SelectItem>
-                  <SelectItem value="BACKUP_3">Reserva 3</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground mt-1">
-                Escolha qual posição de reserva este número ocupará (1, 2 ou 3)
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowCreateBackupDialog(false)}
-              disabled={creatingBackup}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleCreateBackupAccount}
-              disabled={creatingBackup || !newBackupPhone.trim()}
-            >
-              {creatingBackup ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Criando...
-                </>
-              ) : (
-                <>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Criar Número Reserva
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
