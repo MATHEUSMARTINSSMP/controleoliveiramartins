@@ -126,9 +126,10 @@ const App = () => (
                 <Route path="/admin/dre" element={<Suspense fallback={<PageLoader />}><GestaoDRE /></Suspense>} />
                 <Route path="/admin/erp-integrations" element={<Suspense fallback={<PageLoader />}><ERPIntegrationsConfig /></Suspense>} />
                 <Route path="/admin/erp-mapping" element={<Suspense fallback={<PageLoader />}><ERPVendorMapping /></Suspense>} />
+                <Route path="/admin/campanhas" element={<Suspense fallback={<PageLoader />}><Campanhas /></Suspense>} />
                 <Route path="/admin/whatsapp-bulk-send" element={<Suspense fallback={<PageLoader />}><WhatsAppBulkSend /></Suspense>} />
                 <Route path="/admin/whatsapp-campaigns" element={<Suspense fallback={<PageLoader />}><WhatsAppCampaigns /></Suspense>} />
-            <Route path="/admin/whatsapp-analytics" element={<Suspense fallback={<PageLoader />}><WhatsAppAnalytics /></Suspense>} />
+                <Route path="/admin/whatsapp-analytics" element={<Suspense fallback={<PageLoader />}><WhatsAppAnalytics /></Suspense>} />
 
                 <Route path="/dev/login" element={<Suspense fallback={<PageLoader />}><DevLogin /></Suspense>} />
                 <Route path="/dev/erp-config" element={<Suspense fallback={<PageLoader />}><ERPConfig /></Suspense>} />
