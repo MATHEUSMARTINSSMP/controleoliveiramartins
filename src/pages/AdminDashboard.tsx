@@ -30,9 +30,6 @@ import { ConditionalsAdjustmentsManager } from "@/components/admin/ConditionalsA
 import GestaoMetasTab from "@/components/admin/GestaoMetasTab";
 import { BillingManagement } from "@/components/admin/BillingManagement";
 import { BillingAccessGuard } from "@/components/BillingAccessGuard";
-import WhatsAppAnalytics from "@/pages/admin/WhatsAppAnalytics";
-import WhatsAppBulkSend from "@/pages/admin/WhatsAppBulkSend";
-import WhatsAppCampaigns from "@/pages/admin/WhatsAppCampaigns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -505,71 +502,27 @@ const AdminDashboard = () => {
 
             <TabsContent value="campanhas" className="animate-fade-in space-y-4 sm:space-y-6">
               <BillingAccessGuard allowReadOnly>
-                <Tabs defaultValue="overview" className="space-y-4">
-                  <TabsList>
-                    <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-                    <TabsTrigger value="create">Criar Campanha</TabsTrigger>
-                    <TabsTrigger value="manage">Gerenciar Campanhas</TabsTrigger>
-                    <TabsTrigger value="analytics">Analytics</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="overview" className="space-y-4">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                          <MessageSquare className="h-5 w-5" />
-                          Campanhas WhatsApp
-                        </CardTitle>
-                        <CardDescription>
-                          Sistema completo de campanhas de envio em massa com filtros avançados, analytics e controle total
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="grid gap-4 md:grid-cols-2">
-                          <div className="space-y-2">
-                            <h4 className="font-semibold flex items-center gap-2">
-                              <Users className="h-4 w-4" />
-                              Filtros Avançados
-                            </h4>
-                            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                              <li>Clientes que compraram há X dias</li>
-                              <li>Clientes que não compram desde data</li>
-                              <li>Maior faturamento (top N ou todos)</li>
-                              <li>Maior ticket médio</li>
-                              <li>Maior número de visitas</li>
-                            </ul>
-                          </div>
-                          <div className="space-y-2">
-                            <h4 className="font-semibold flex items-center gap-2">
-                              <Settings className="h-4 w-4" />
-                              Recursos
-                            </h4>
-                            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                              <li>Múltiplas variações de mensagem</li>
-                              <li>Placeholders automáticos</li>
-                              <li>Agendamento de envios</li>
-                              <li>Controle de horários</li>
-                              <li>Rotação de números WhatsApp</li>
-                              <li>Limites por contato e total</li>
-                            </ul>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-
-                  <TabsContent value="create" className="space-y-4">
-                    <WhatsAppBulkSend />
-                  </TabsContent>
-
-                  <TabsContent value="manage" className="space-y-4">
-                    <WhatsAppCampaigns />
-                  </TabsContent>
-
-                  <TabsContent value="analytics" className="space-y-4">
-                    <WhatsAppAnalytics />
-                  </TabsContent>
-                </Tabs>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <MessageSquare className="h-5 w-5" />
+                      Campanhas WhatsApp
+                    </CardTitle>
+                    <CardDescription>
+                      Sistema completo de campanhas de envio em massa com filtros avançados, analytics e controle total
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button 
+                      onClick={() => navigate("/admin/campanhas")} 
+                      className="w-full sm:w-auto"
+                      size="lg"
+                    >
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Abrir Gerenciador de Campanhas
+                    </Button>
+                  </CardContent>
+                </Card>
               </BillingAccessGuard>
             </TabsContent>
 

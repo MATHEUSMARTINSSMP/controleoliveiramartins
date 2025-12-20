@@ -69,6 +69,7 @@ const ERPVendorMapping = lazyWithRetry(() => import("./pages/ERPVendorMapping"))
 const WhatsAppBulkSend = lazyWithRetry(() => import("./pages/admin/WhatsAppBulkSend"));
 const WhatsAppCampaigns = lazyWithRetry(() => import("./pages/admin/WhatsAppCampaigns"));
 const WhatsAppAnalytics = lazyWithRetry(() => import("./pages/admin/WhatsAppAnalytics"));
+const Campanhas = lazyWithRetry(() => import("./pages/admin/Campanhas"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
