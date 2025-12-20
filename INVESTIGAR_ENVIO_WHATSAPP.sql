@@ -134,13 +134,13 @@ SELECT
     s.name as loja_nome,
     wc.uazapi_status as status_principal,
     wc.uazapi_phone_number as numero_principal,
-    wc.whatsapp_ativo as principal_ativo,
+    s.whatsapp_ativo as principal_ativo,
     COUNT(wa.id) as total_backups,
     COUNT(CASE WHEN wa.is_connected = true THEN 1 END) as backups_conectados
 FROM sistemaretiradas.stores s
 LEFT JOIN sistemaretiradas.whatsapp_credentials wc ON wc.admin_id = s.admin_id AND wc.is_global = false
 LEFT JOIN sistemaretiradas.whatsapp_accounts wa ON wa.store_id = s.id
-GROUP BY s.id, s.name, wc.uazapi_status, wc.uazapi_phone_number, wc.whatsapp_ativo
+GROUP BY s.id, s.name, wc.uazapi_status, wc.uazapi_phone_number, s.whatsapp_ativo
 ORDER BY s.name;
 
 -- 9. VERIFICAR FUNÇÃO get_next_whatsapp_messages (teste manual)
