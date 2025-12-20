@@ -1066,6 +1066,64 @@ export default function WhatsAppBulkSend() {
                 </CardContent>
               </Card>
 
+              {/* Contatos Selecionados - Lista Completa */}
+              {selectedContacts.size > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base font-semibold">Contatos Selecionados ({selectedContacts.size})</Label>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setSelectedContacts(new Set())}
+                      className="h-8 text-xs"
+                    >
+                      Limpar seleção
+                    </Button>
+                  </div>
+                  <ScrollArea className="h-[200px] border rounded-lg p-4 bg-blue-50 dark:bg-blue-950/20">
+                    <div className="space-y-2">
+                      {filteredContacts
+                        .filter(c => selectedContacts.has(c.id))
+                        .map((contact) => (
+                          <div
+                            key={`selected-${contact.id}`}
+                            className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent bg-white dark:bg-gray-900"
+                          >
+                            <Checkbox
+                              checked={true}
+                              onCheckedChange={() => handleToggleContact(contact.id)}
+                            />
+                            <div className="flex-1">
+                              <div className="font-medium">{contact.nome}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {contact.telefone}
+                                {contact.cpf && ` • ${contact.cpf}`}
+                              </div>
+                              {contact.ultima_compra && (
+                                <div className="text-xs text-muted-foreground">
+                                  Última compra: {new Date(contact.ultima_compra).toLocaleDateString("pt-BR")} 
+                                  ({contact.dias_sem_comprar} dias atrás)
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right space-y-1">
+                              <div className="text-sm">
+                                Total: {formatCurrency(contact.total_compras || 0)}
+                              </div>
+                              <div className="text-sm">
+                                Ticket: {formatCurrency(contact.ticket_medio || 0)}
+                              </div>
+                              <Badge variant="outline" className="text-xs">
+                                {contact.categoria || "REGULAR"}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+
               {/* Lista de Contatos */}
               <ScrollArea className="h-[400px] border rounded-lg p-4">
                 <div className="space-y-2">
