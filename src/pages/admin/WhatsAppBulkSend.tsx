@@ -581,15 +581,37 @@ export default function WhatsAppBulkSend() {
                 : a
             ));
             
+            // PROTEÇÃO CRÍTICA: NUNCA fazer downgrade de "connected" para "disconnected/error"
+            // Buscar status atual no banco antes de atualizar
+            const { data: currentAccount } = await supabase
+              .schema("sistemaretiradas")
+              .from("whatsapp_accounts")
+              .select("uazapi_status, uazapi_token")
+              .eq('id', acc.id)
+              .single();
+            
+            const currentStatus = currentAccount?.uazapi_status;
+            const isConnectedInDb = currentStatus === 'connected';
+            const isDisconnectedFromN8N = status.status === 'disconnected' || status.status === 'error' || !status.status;
+            const isConnectedFromN8N = status.status === 'connected';
+            
             // Atualizar no Supabase se houver mudanças
             const updateData: Record<string, any> = {
               updated_at: new Date().toISOString(),
             };
             
-            if (status.status) {
+            // PROTEÇÃO: NUNCA fazer downgrade de connected
+            if (isConnectedInDb && isDisconnectedFromN8N) {
+              console.log('[WhatsAppBulkSend] 🛡️ PROTEÇÃO: Backup', acc.id, 'está "connected" no banco, N8N retornou "' + status.status + '" - IGNORANDO downgrade');
+              // NÃO atualizar status - manter "connected"
+              // Mas ainda atualizar outros campos (phone, instance_id, token) se fornecidos
+            } else if (isConnectedFromN8N || (!isConnectedInDb && status.status)) {
+              // Apenas atualizar status se for upgrade ou se não estava connected
               updateData.uazapi_status = status.status;
+              updateData.is_connected = status.connected;
             }
             
+            // SEMPRE atualizar phone, instance_id e token se fornecidos (mesmo se status não mudar)
             if (status.phoneNumber) {
               updateData.phone = status.phoneNumber;
               updateData.uazapi_phone_number = status.phoneNumber;
@@ -599,17 +621,28 @@ export default function WhatsAppBulkSend() {
               updateData.uazapi_instance_id = status.instanceId;
             }
             
-            if (status.token && status.connected) {
-              updateData.uazapi_token = status.token;
+            // SEMPRE atualizar token se fornecido (mesmo se disconnected)
+            // Token pode ter mudado na UazAPI e precisa ser atualizado
+            if (status.token && status.token.trim() !== '') {
+              const tokenChanged = currentAccount?.uazapi_token !== status.token;
+              if (tokenChanged) {
+                updateData.uazapi_token = status.token;
+                console.log('[WhatsAppBulkSend] 🔑 Token atualizado para backup', acc.id);
+                // Se token foi atualizado e status no banco é "connected", manter "connected"
+                if (isConnectedInDb && isDisconnectedFromN8N) {
+                  console.log('[WhatsAppBulkSend] 🛡️ Token atualizado mas status é "connected" - mantendo connected');
+                }
+              }
             }
             
-            updateData.is_connected = status.connected;
-            
-            await supabase
-              .schema("sistemaretiradas")
-              .from("whatsapp_accounts")
-              .update(updateData)
-              .eq('id', acc.id);
+            // Só fazer update se houver algo além de updated_at
+            if (Object.keys(updateData).length > 1) {
+              await supabase
+                .schema("sistemaretiradas")
+                .from("whatsapp_accounts")
+                .update(updateData)
+                .eq('id', acc.id);
+            }
             
             return { accountId: acc.id, status };
           } catch (err) {
@@ -820,20 +853,44 @@ export default function WhatsAppBulkSend() {
           : acc
       ));
 
+      // PROTEÇÃO CRÍTICA: NUNCA fazer downgrade de "connected" para "disconnected/error"
+      // Buscar status atual no banco antes de atualizar
+      const { data: currentAccount } = await supabase
+        .schema("sistemaretiradas")
+        .from("whatsapp_accounts")
+        .select("uazapi_status, uazapi_token")
+        .eq('id', accountId)
+        .single();
+      
+      const currentStatus = currentAccount?.uazapi_status;
+      const isConnectedInDb = currentStatus === 'connected';
+      const isDisconnectedFromN8N = status.status === 'disconnected' || status.status === 'error' || !status.status;
+      const isConnectedFromN8N = status.status === 'connected';
+      
       // Atualizar no Supabase com TODOS os campos retornados (igual WhatsAppStoreConfig)
       const updateData: Record<string, any> = {
-        uazapi_status: status.status,
         updated_at: new Date().toISOString(),
       };
+
+      // PROTEÇÃO: NUNCA fazer downgrade de connected
+      if (isConnectedInDb && isDisconnectedFromN8N) {
+        console.log('[WhatsAppBulkSend] 🛡️ PROTEÇÃO: Backup', accountId, 'está "connected" no banco, N8N retornou "' + status.status + '" - IGNORANDO downgrade');
+        // NÃO atualizar status - manter "connected"
+        // Mas ainda atualizar outros campos (phone, instance_id, token) se fornecidos
+      } else if (isConnectedFromN8N || (!isConnectedInDb && status.status)) {
+        // Apenas atualizar status se for upgrade ou se não estava connected
+        updateData.uazapi_status = status.status;
+        updateData.is_connected = status.connected;
+      }
 
       // Atualizar QR code se fornecido
       if (status.qrCode !== undefined) {
         updateData.uazapi_qr_code = status.qrCode;
       }
 
-      // Atualizar campos adicionais se conectado
-      if (status.connected && status.phoneNumber) {
-        updateData.phone = status.phoneNumber; // Atualizar phone quando conectar
+      // SEMPRE atualizar phone e instance_id se fornecidos (mesmo se status não mudar)
+      if (status.phoneNumber) {
+        updateData.phone = status.phoneNumber;
         updateData.uazapi_phone_number = status.phoneNumber;
       }
 
@@ -841,11 +898,19 @@ export default function WhatsAppBulkSend() {
         updateData.uazapi_instance_id = status.instanceId;
       }
 
-      if (status.token && status.connected) {
-        updateData.uazapi_token = status.token;
+      // SEMPRE atualizar token se fornecido (mesmo se disconnected)
+      // Token pode ter mudado na UazAPI e precisa ser atualizado
+      if (status.token && status.token.trim() !== '') {
+        const tokenChanged = currentAccount?.uazapi_token !== status.token;
+        if (tokenChanged) {
+          updateData.uazapi_token = status.token;
+          console.log('[WhatsAppBulkSend] 🔑 Token atualizado para backup', accountId);
+          // Se token foi atualizado e status no banco é "connected", manter "connected"
+          if (isConnectedInDb && isDisconnectedFromN8N) {
+            console.log('[WhatsAppBulkSend] 🛡️ Token atualizado mas status é "connected" - mantendo connected');
+          }
+        }
       }
-
-      updateData.is_connected = status.connected;
 
       await supabase
         .schema("sistemaretiradas")
@@ -1117,18 +1182,44 @@ export default function WhatsAppBulkSend() {
             return newSet;
           });
 
+          // PROTEÇÃO CRÍTICA: NUNCA fazer downgrade de "connected" para "disconnected/error"
+          // Buscar status atual no banco antes de atualizar
+          const { data: currentAccount } = await supabase
+            .schema("sistemaretiradas")
+            .from("whatsapp_accounts")
+            .select("uazapi_status, uazapi_token")
+            .eq('id', accountId)
+            .single();
+          
+          const currentStatus = currentAccount?.uazapi_status;
+          const isConnectedInDb = currentStatus === 'connected';
+          const isDisconnectedFromN8N = status.status === 'disconnected' || status.status === 'error' || !status.status;
+          const isConnectedFromN8N = status.status === 'connected';
+          
           // Atualizar no Supabase (igual WhatsAppStoreConfig)
           const updateData: Record<string, any> = {
-            uazapi_status: status.status,
-            is_connected: status.connected,
             updated_at: new Date().toISOString(),
           };
 
-          // Limpar QR code quando conecta (igual WhatsAppStoreConfig)
-          updateData.uazapi_qr_code = null;
+          // PROTEÇÃO: NUNCA fazer downgrade de connected
+          if (isConnectedInDb && isDisconnectedFromN8N) {
+            console.log('[WhatsAppBulkSend] 🛡️ PROTEÇÃO POLLING: Backup', accountId, 'está "connected" no banco, N8N retornou "' + status.status + '" - IGNORANDO downgrade');
+            // NÃO atualizar status - manter "connected"
+            // Mas ainda atualizar outros campos (phone, instance_id, token) se fornecidos
+          } else if (isConnectedFromN8N || (!isConnectedInDb && status.status)) {
+            // Apenas atualizar status se for upgrade ou se não estava connected
+            updateData.uazapi_status = status.status;
+            updateData.is_connected = status.connected;
+          }
 
+          // Limpar QR code quando conecta (igual WhatsAppStoreConfig)
+          if (status.status === 'connected' || status.connected) {
+            updateData.uazapi_qr_code = null;
+          }
+
+          // SEMPRE atualizar phone e instance_id se fornecidos (mesmo se status não mudar)
           if (status.phoneNumber) {
-            updateData.phone = status.phoneNumber; // Atualizar phone quando conectar
+            updateData.phone = status.phoneNumber;
             updateData.uazapi_phone_number = status.phoneNumber;
           }
 
@@ -1136,8 +1227,18 @@ export default function WhatsAppBulkSend() {
             updateData.uazapi_instance_id = status.instanceId;
           }
 
-          if (status.token && status.connected) {
-            updateData.uazapi_token = status.token;
+          // SEMPRE atualizar token se fornecido (mesmo se disconnected)
+          // Token pode ter mudado na UazAPI e precisa ser atualizado
+          if (status.token && status.token.trim() !== '') {
+            const tokenChanged = currentAccount?.uazapi_token !== status.token;
+            if (tokenChanged) {
+              updateData.uazapi_token = status.token;
+              console.log('[WhatsAppBulkSend] 🔑 Token atualizado no polling para backup', accountId);
+              // Se token foi atualizado e status no banco é "connected", manter "connected"
+              if (isConnectedInDb && isDisconnectedFromN8N) {
+                console.log('[WhatsAppBulkSend] 🛡️ Token atualizado mas status é "connected" - mantendo connected');
+              }
+            }
           }
 
           await supabase

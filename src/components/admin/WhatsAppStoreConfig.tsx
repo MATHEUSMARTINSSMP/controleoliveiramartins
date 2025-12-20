@@ -456,19 +456,20 @@ export const WhatsAppStoreConfig = () => {
                             );
                         }
                         
-                        // Salvar no Supabase se status diferente ou se encontrou dados novos
-                        // IMPORTANTE: Não sobrescrever status "connected" com status de erro ou indefinido
+                        // PROTEÇÃO CRÍTICA: NUNCA fazer downgrade de "connected" para "disconnected/error"
+                        // Se status no banco é "connected", SEMPRE manter "connected" mesmo que N8N retorne diferente
                         const currentStatus = store.credentials?.uazapi_status;
                         const newStatus = status.status;
                         
-                        // Se já está connected e o N8N retornou erro/disconnected/undefined, NÃO atualizar
-                        const isDowngrade = currentStatus === 'connected' && 
-                            (newStatus === 'error' || newStatus === 'disconnected' || !newStatus);
+                        const isConnectedInDb = currentStatus === 'connected';
+                        const isDisconnectedFromN8N = newStatus === 'disconnected' || newStatus === 'error' || !newStatus;
                         
-                        if (isDowngrade) {
-                            console.log('[fetchStoresAndCredentials] IGNORANDO downgrade de status para', store.slug, 
-                                '- mantendo connected ao invés de', newStatus);
-                            return { slug: store.slug, status, skipped: true };
+                        // PROTEÇÃO: Se está connected no banco, NUNCA fazer downgrade
+                        if (isConnectedInDb && isDisconnectedFromN8N) {
+                            console.log('[fetchStoresAndCredentials] 🛡️ PROTEÇÃO: Status no banco é "connected", N8N retornou "' + newStatus + '" - IGNORANDO downgrade');
+                            console.log('[fetchStoresAndCredentials] 🛡️ Mantendo status "connected" para', store.slug);
+                            // Não fazer update de status, mas ainda atualizar outros campos se necessário
+                            // (isso será tratado abaixo, não retornar early para permitir atualização de outros campos)
                         }
                         
                         const hasStatusChange = newStatus !== currentStatus;
