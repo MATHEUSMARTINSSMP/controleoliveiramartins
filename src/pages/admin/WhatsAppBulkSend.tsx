@@ -1257,6 +1257,7 @@ export default function WhatsAppBulkSend() {
         }
 
         // Determinar número WhatsApp a usar
+        // SEMPRE incluir principal + backups selecionados na rotação
         // Para números principais (account_type = PRIMARY), usar null
         // Para números reserva (BACKUP_1/2/3), usar UUID de whatsapp_accounts
         let whatsappAccountId: string | null = null;
@@ -1264,37 +1265,33 @@ export default function WhatsAppBulkSend() {
         const primaryAccount = whatsappAccounts.find(a => a.id === primaryPhoneId);
         const isPrimary = primaryAccount?.account_type === "PRIMARY";
         
-        if (isPrimary) {
-          // Número principal: usar null (será buscado em whatsapp_credentials)
-          whatsappAccountId = null;
-        } else {
-          // Número reserva: usar o ID real
-          whatsappAccountId = primaryPhoneId;
-        }
+        // Filtrar backups selecionados e válidos
+        const validBackupIds = backupPhoneIds.filter(id => id && id !== "none" && id !== "PRIMARY");
         
-        if (alternateNumbers && backupPhoneIds.length > 0) {
-          // ROTAÇÃO DE NÚMEROS:
-          // - Se número principal for selecionado, incluir null na lista (null = PRIMARY)
-          // - Filtrar apenas IDs válidos de reservas (não "none" ou "PRIMARY" ou vazios)
-          // - null será usado para número principal, UUIDs para reservas
+        // Se houver backups selecionados, fazer rotação: PRINCIPAL + BACKUPS
+        if (validBackupIds.length > 0) {
           const availableIds: (string | null)[] = [];
           
-          // Adicionar número principal se for PRIMARY (null na fila = PRIMARY)
+          // SEMPRE incluir número principal primeiro (null = PRIMARY em whatsapp_credentials)
           if (isPrimary) {
             availableIds.push(null); // null indica número principal
           } else {
-            // Se não for PRIMARY, adicionar como reserva
+            // Se primaryPhoneId não for PRIMARY, adicionar como reserva também
             availableIds.push(primaryPhoneId);
           }
           
-          // Adicionar números reserva válidos
-          backupPhoneIds
-            .filter(id => id && id !== "none" && id !== "PRIMARY")
-            .forEach(id => availableIds.push(id));
+          // Adicionar números reserva selecionados
+          validBackupIds.forEach(id => availableIds.push(id));
           
-          if (availableIds.length > 0) {
-            const index = selectedContactsData.indexOf(contact) % availableIds.length;
-            whatsappAccountId = availableIds[index]; // Pode ser null (PRIMARY) ou UUID (reserva)
+          // Rotação baseada no índice do contato
+          const index = selectedContactsData.indexOf(contact) % availableIds.length;
+          whatsappAccountId = availableIds[index]; // Pode ser null (PRIMARY) ou UUID (reserva)
+        } else {
+          // Se não houver backups selecionados, usar apenas o número principal
+          if (isPrimary) {
+            whatsappAccountId = null; // null = número principal
+          } else {
+            whatsappAccountId = primaryPhoneId; // Reserva selecionado como principal
           }
         }
 
