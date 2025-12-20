@@ -147,6 +147,8 @@ export default function WhatsAppBulkSend() {
   const [backupAccountStatus, setBackupAccountStatus] = useState<Record<string, WhatsAppStatusResponse | null>>({});
   const [checkingStatus, setCheckingStatus] = useState<string | null>(null);
   const [pollingAccounts, setPollingAccounts] = useState<Set<string>>(new Set());
+  const [backupQRCodes, setBackupQRCodes] = useState<Record<string, string>>({});
+  const [connectingBackup, setConnectingBackup] = useState<"BACKUP_1" | "BACKUP_2" | "BACKUP_3" | null>(null);
   
 
   useEffect(() => {
