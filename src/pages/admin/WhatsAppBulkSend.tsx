@@ -1082,7 +1082,7 @@ export default function WhatsAppBulkSend() {
                   </div>
                   <ScrollArea className="h-[200px] border rounded-lg p-4 bg-blue-50 dark:bg-blue-950/20">
                     <div className="space-y-2">
-                      {filteredContacts
+                      {contacts
                         .filter(c => selectedContacts.has(c.id))
                         .map((contact) => (
                           <div
