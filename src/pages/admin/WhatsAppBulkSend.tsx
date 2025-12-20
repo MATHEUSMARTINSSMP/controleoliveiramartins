@@ -496,6 +496,12 @@ export default function WhatsAppBulkSend() {
         .eq("site_slug", selectedStore.site_slug)
         .maybeSingle();
 
+      // Tratar erro ao buscar credenciais (não bloquear UI)
+      if (credError) {
+        console.warn("[WhatsAppBulkSend] Erro ao buscar credenciais:", credError);
+        // Continuar - número principal pode não estar configurado ainda
+      }
+
       const accounts: WhatsAppAccount[] = [];
 
       // Adicionar número principal se existir registro em whatsapp_credentials
@@ -523,6 +529,12 @@ export default function WhatsAppBulkSend() {
         .order("is_backup1", { ascending: false })
         .order("is_backup2", { ascending: false })
         .order("is_backup3", { ascending: false });
+
+      // Tratar erro ao buscar números reserva (não bloquear UI)
+      if (backupError) {
+        console.warn("[WhatsAppBulkSend] Erro ao buscar números reserva:", backupError);
+        // Continuar - números reserva podem não existir ainda
+      }
 
       if (backupAccounts) {
         accounts.push(...backupAccounts.map(acc => {
@@ -1109,15 +1121,28 @@ export default function WhatsAppBulkSend() {
         }
         
         if (alternateNumbers && backupPhoneIds.length > 0) {
-          // Filtrar apenas IDs válidos (não "none" ou "PRIMARY" ou vazios)
-          const availableIds = [
-            isPrimary ? null : primaryPhoneId, 
-            ...backupPhoneIds.filter(id => id && id !== "none" && id !== "PRIMARY")
-          ].filter(id => id !== null && id !== undefined) as string[];
+          // ROTAÇÃO DE NÚMEROS:
+          // - Se número principal for selecionado, incluir null na lista (null = PRIMARY)
+          // - Filtrar apenas IDs válidos de reservas (não "none" ou "PRIMARY" ou vazios)
+          // - null será usado para número principal, UUIDs para reservas
+          const availableIds: (string | null)[] = [];
+          
+          // Adicionar número principal se for PRIMARY (null na fila = PRIMARY)
+          if (isPrimary) {
+            availableIds.push(null); // null indica número principal
+          } else {
+            // Se não for PRIMARY, adicionar como reserva
+            availableIds.push(primaryPhoneId);
+          }
+          
+          // Adicionar números reserva válidos
+          backupPhoneIds
+            .filter(id => id && id !== "none" && id !== "PRIMARY")
+            .forEach(id => availableIds.push(id));
           
           if (availableIds.length > 0) {
             const index = selectedContactsData.indexOf(contact) % availableIds.length;
-            whatsappAccountId = availableIds[index];
+            whatsappAccountId = availableIds[index]; // Pode ser null (PRIMARY) ou UUID (reserva)
           }
         }
 
