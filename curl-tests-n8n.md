@@ -107,6 +107,12 @@ curl -X GET \
   -v | jq '.'
 ```
 
+**Observação:** O endpoint do N8N retorna um formato diferente do esperado:
+- **Resposta atual do N8N:** `{"admin_id":"...","site_slug":"...","uazapi_status":"connected"}`
+- **Resposta esperada pelo código:** `{"status":"connected","connected":true,"phoneNumber":"...","instanceId":"..."}`
+
+Isso pode causar problemas na normalização do status.
+
 ## 6. Teste Específico: Sacada (Status)
 
 ```bash
