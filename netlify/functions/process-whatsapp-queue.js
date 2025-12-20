@@ -158,6 +158,8 @@ exports.handler = async (event, context) => {
           .eq('id', item.queue_id);
 
         // Chamar função de envio
+        // NOTA: whatsapp_account_id é IGNORADO - números reserva devem ser implementados diretamente aqui
+        // Por enquanto, campanhas usam números principais (whatsapp_credentials)
         const sendMessageUrl = `${netlifyUrl}/.netlify/functions/send-whatsapp-message`;
         
         const response = await fetch(sendMessageUrl, {
@@ -166,8 +168,8 @@ exports.handler = async (event, context) => {
           body: JSON.stringify({
             phone: item.phone,
             message: item.message,
-            store_id: item.store_id,
-            whatsapp_account_id: item.whatsapp_account_id
+            store_id: item.store_id
+            // whatsapp_account_id removido - números reserva serão implementados diretamente aqui no futuro
           }),
         });
 
