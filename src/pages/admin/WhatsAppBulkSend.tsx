@@ -820,6 +820,36 @@ export default function WhatsAppBulkSend() {
                 {filteredContacts.length} contato(s) encontrado(s) | {selectedContacts.size} selecionado(s)
               </CardDescription>
             </CardHeader>
+            {selectedContacts.size > 0 && (
+              <div className="px-6 pb-4 border-b">
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-sm font-semibold">Contatos Selecionados ({selectedContacts.size})</Label>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setSelectedContacts(new Set())}
+                    className="h-7 text-xs"
+                  >
+                    Limpar seleção
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                  {filteredContacts
+                    .filter(c => selectedContacts.has(c.id))
+                    .map(contact => (
+                      <Badge 
+                        key={contact.id} 
+                        variant="secondary"
+                        className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                        onClick={() => handleToggleContact(contact.id)}
+                      >
+                        {contact.nome}
+                        <X className="h-3 w-3 ml-1" />
+                      </Badge>
+                    ))}
+                </div>
+              </div>
+            )}
             <CardContent className="space-y-4">
               {/* Busca */}
               <div className="flex items-center gap-2">
