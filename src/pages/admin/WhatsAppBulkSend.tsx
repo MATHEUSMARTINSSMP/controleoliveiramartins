@@ -1226,7 +1226,7 @@ export default function WhatsAppBulkSend() {
                           <SelectValue placeholder={`Reserva ${index + 1}`} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Nenhum</SelectItem>
+                          <SelectItem value="none">Nenhum</SelectItem>
                           {whatsappAccounts
                             .filter((a) => a.account_type !== "PRIMARY")
                             .map((account) => (
