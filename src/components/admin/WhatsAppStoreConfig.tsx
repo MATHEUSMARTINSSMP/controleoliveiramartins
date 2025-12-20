@@ -503,11 +503,30 @@ export const WhatsAppStoreConfig = () => {
                                     updateData.uazapi_instance_id = status.instanceId;
                                 }
                                 
-                                // IMPORTANTE: Só salvar token se tiver valor E status connected
-                                // NUNCA limpar token existente
-                                if (status.token && status.token.trim() !== '' && status.connected) {
-                                    updateData.uazapi_token = status.token;
+                                // IMPORTANTE: SEMPRE atualizar token se N8N retornar (mesmo se disconnected)
+                                // O token pode ter mudado na UazAPI (reconexão, renovação) e precisa ser atualizado
+                                // Isso previne que o banco fique com token desatualizado e cause erros de autorização
+                                let tokenWasUpdated = false;
+                                if (status.token && status.token.trim() !== '') {
+                                    // Verificar se o token mudou para evitar updates desnecessários
+                                    if (existingCred.uazapi_token !== status.token) {
+                                        updateData.uazapi_token = status.token;
+                                        tokenWasUpdated = true;
+                                        console.log('[fetchStoresAndCredentials] 🔑 Token atualizado para', store.slug, '| token antigo:', existingCred.uazapi_token?.substring(0, 20) + '...', '| token novo:', status.token.substring(0, 20) + '...');
+                                        
+                                        // Se o token foi atualizado e o status no banco é "connected",
+                                        // manter "connected" (não fazer downgrade) porque o "disconnected" 
+                                        // pode ter sido causado pelo token errado
+                                        if (currentDbStatus === 'connected' && newStatus === 'disconnected') {
+                                            console.log('[fetchStoresAndCredentials] ⚠️ Token atualizado mas status no banco é connected - mantendo connected (disconnected pode ser por token antigo)');
+                                            // Não adicionar uazapi_status ao updateData, mantendo o connected existente
+                                            delete updateData.uazapi_status; // Se foi adicionado antes, remover
+                                        }
+                                    }
                                 }
+                                
+                                // Se token foi atualizado e status é "connected" no banco, verificar novamente após um delay
+                                // (isso será feito em uma próxima verificação automática)
                                 
                                 // Só fazer update se houver algo além de updated_at
                                 if (Object.keys(updateData).length > 1) {

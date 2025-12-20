@@ -82,11 +82,11 @@ exports.handler = async (event, context) => {
     // Processar cada mensagem
     for (const item of queueItems) {
       try {
-        // Buscar item completo da fila para verificar limites
+        // Buscar item completo da fila para verificar limites e obter metadados da campanha
         const { data: queueItem, error: queueItemError } = await supabase
           .schema('sistemaretiradas')
           .from('whatsapp_message_queue')
-          .select('max_per_day_per_contact, max_total_per_day, interval_seconds, retry_count, max_retries')
+          .select('max_per_day_per_contact, max_total_per_day, interval_seconds, retry_count, max_retries, campaign_id, message_type')
           .eq('id', item.queue_id)
           .single();
 
@@ -158,19 +158,28 @@ exports.handler = async (event, context) => {
           .eq('id', item.queue_id);
 
         // Chamar função de envio
-        // Se whatsapp_account_id estiver presente (campanhas), será usado número reserva
-        // Se não estiver presente, usará número principal (mensagens normais)
+        // IMPORTANTE: Passar campaign_id e message_type para validação rigorosa
+        // A função send-whatsapp-message só aceitará whatsapp_account_id se for campanha válida
         const sendMessageUrl = `${netlifyUrl}/.netlify/functions/send-whatsapp-message`;
+        
+        const payload = {
+          phone: item.phone,
+          message: item.message,
+          store_id: item.store_id,
+        };
+        
+        // Só passar whatsapp_account_id, campaign_id e message_type se realmente for campanha
+        // Isso garante que números reserva só sejam usados em campanhas
+        if (item.campaign_id && item.message_type === 'CAMPAIGN') {
+          payload.whatsapp_account_id = item.whatsapp_account_id;
+          payload.campaign_id = item.campaign_id;
+          payload.message_type = item.message_type;
+        }
         
         const response = await fetch(sendMessageUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            phone: item.phone,
-            message: item.message,
-            store_id: item.store_id,
-            whatsapp_account_id: item.whatsapp_account_id
-          }),
+          body: JSON.stringify(payload),
         });
 
         const result = await response.json();

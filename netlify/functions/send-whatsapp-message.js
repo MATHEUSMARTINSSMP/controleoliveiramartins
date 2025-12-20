@@ -55,7 +55,7 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const { phone, message, store_id, use_global_whatsapp, whatsapp_account_id } = JSON.parse(event.body || '{}');
+    const { phone, message, store_id, use_global_whatsapp, whatsapp_account_id, campaign_id, message_type } = JSON.parse(event.body || '{}');
 
     if (!phone || !message) {
       return {
@@ -66,6 +66,31 @@ exports.handler = async (event, context) => {
           success: false,
         }),
       };
+    }
+
+    // ============================================================================
+    // VALIDAÇÃO CRÍTICA: whatsapp_account_id só pode ser usado em CAMPANHAS
+    // ============================================================================
+    // Números reserva são EXCLUSIVOS para envio em massa (campanhas)
+    // Mensagens normais (ponto, venda, ajuste, abertura/fechamento de caixa, cashback, notificações)
+    // DEVEM usar números principais (whatsapp_credentials) ou global
+    if (whatsapp_account_id && whatsapp_account_id !== 'null' && whatsapp_account_id !== '') {
+      // Verificar se realmente é de uma campanha válida
+      const isCampaignMessage = campaign_id && message_type === 'CAMPAIGN';
+      
+      if (!isCampaignMessage) {
+        console.error('[WhatsApp] 🚨 BLOQUEADO: whatsapp_account_id fornecido mas NÃO é campanha!');
+        console.error('[WhatsApp] 🚨 Detalhes:', {
+          whatsapp_account_id,
+          campaign_id,
+          message_type,
+          store_id,
+          phone: phone.substring(0, 15) + '...'
+        });
+        console.error('[WhatsApp] 🚨 Mensagens normais DEVEM usar números principais. Ignorando whatsapp_account_id.');
+        // IGNORAR whatsapp_account_id e continuar com lógica normal (números principais)
+        // Não retornar erro, apenas ignorar o parâmetro incorreto
+      }
     }
 
     const normalizePhone = (phoneNumber) => {
@@ -220,14 +245,26 @@ exports.handler = async (event, context) => {
           }
         }
 
-        // Determinar tipo de backup
+        // Determinar tipo de backup e gerar siteSlug único com sufixo
+        // Isso garante que números reserva tenham instâncias únicas no N8N/UazAPI
         let accountType = "BACKUP_1";
-        if (backupAccount.is_backup2) accountType = "BACKUP_2";
-        else if (backupAccount.is_backup3) accountType = "BACKUP_3";
+        let backupSuffix = '_backup1';
+        if (backupAccount.is_backup2) {
+          accountType = "BACKUP_2";
+          backupSuffix = '_backup2';
+        } else if (backupAccount.is_backup3) {
+          accountType = "BACKUP_3";
+          backupSuffix = '_backup3';
+        }
+        
+        // SiteSlug único para número reserva (com sufixo para diferenciar do principal)
+        const uniqueSiteSlug = storeSlug + backupSuffix;
 
         console.log('[WhatsApp] Número reserva encontrado e conectado:', backupAccount.phone);
+        console.log('[WhatsApp] SiteSlug único para número reserva:', uniqueSiteSlug, '| Tipo:', accountType);
+        
         return {
-          siteSlug: storeSlug,
+          siteSlug: uniqueSiteSlug, // Usar siteSlug único com sufixo
           customerId: customerId,
           token: backupAccount.uazapi_token,
           instanceId: backupAccount.uazapi_instance_id,
@@ -288,18 +325,27 @@ exports.handler = async (event, context) => {
     const functionStart = Date.now();
     
     // PRIORIDADE 1: Se whatsapp_account_id fornecido (e não é null/undefined/vazio), buscar número reserva
-    if (whatsapp_account_id && whatsapp_account_id !== 'null' && whatsapp_account_id !== '' && supabaseAvailable && supabase) {
-      console.log('[WhatsApp] whatsapp_account_id fornecido, buscando número reserva...');
+    // IMPORTANTE: Só usar número reserva se for MENSAGEM DE CAMPANHA (message_type === 'CAMPAIGN' e campaign_id presente)
+    const isValidCampaign = campaign_id && message_type === 'CAMPAIGN';
+    const shouldUseBackup = whatsapp_account_id && whatsapp_account_id !== 'null' && whatsapp_account_id !== '' && isValidCampaign;
+    
+    if (shouldUseBackup && supabaseAvailable && supabase) {
+      console.log('[WhatsApp] ✅ whatsapp_account_id fornecido para CAMPANHA, buscando número reserva...');
+      console.log('[WhatsApp] Detalhes da campanha:', { campaign_id, message_type, whatsapp_account_id });
       const backupCred = await fetchBackupAccountCredential(whatsapp_account_id);
       if (backupCred) {
         siteSlug = backupCred.siteSlug;
         customerId = backupCred.customerId;
         credentialsSource = backupCred.source;
-        console.log('[WhatsApp] ✅ Usando número reserva:', backupCred.phone, '| Tipo:', backupCred.accountType);
+        console.log('[WhatsApp] ✅ Usando número reserva para campanha:', backupCred.phone, '| Tipo:', backupCred.accountType);
       } else {
-        console.warn('[WhatsApp] Número reserva não encontrado ou não conectado, caindo para busca normal');
+        console.warn('[WhatsApp] ⚠️ Número reserva não encontrado ou não conectado, caindo para número principal');
         // Continuar para lógica normal abaixo - siteSlug e customerId ainda são null
       }
+    } else if (whatsapp_account_id && whatsapp_account_id !== 'null' && whatsapp_account_id !== '') {
+      // whatsapp_account_id fornecido mas NÃO é campanha - IGNORAR e usar números principais
+      console.warn('[WhatsApp] ⚠️ whatsapp_account_id fornecido mas NÃO é campanha válida. Ignorando e usando números principais.');
+      console.warn('[WhatsApp] ⚠️ Parâmetros recebidos:', { whatsapp_account_id, campaign_id, message_type });
     }
     
     // PRIORIDADE 2: Se não encontrou número reserva (ou não foi fornecido), buscar credencial normal

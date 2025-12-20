@@ -179,8 +179,9 @@ exports.handler = async (event) => {
     const phoneNumber = data.phoneNumber || data.uazapi_phone_number || null;
     const token = data.token || data.uazapi_token || null;
 
-    // Se for número reserva, atualizar whatsapp_accounts com o status
-    if (isBackupAccount && backupAccountId && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    // Atualizar banco de dados com dados retornados do N8N
+    // Isso garante que tokens, instance_ids e outros dados sejam sempre sincronizados
+    if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
       try {
         const supabase = createClient(
           process.env.SUPABASE_URL,
@@ -188,22 +189,90 @@ exports.handler = async (event) => {
           { db: { schema: 'sistemaretiradas' } }
         );
 
-        await supabase
-          .schema('sistemaretiradas')
-          .from('whatsapp_accounts')
-          .update({
+        // Se for número reserva, atualizar whatsapp_accounts
+        if (isBackupAccount && backupAccountId) {
+          const updateData = {
             uazapi_status: normalizedStatus,
             uazapi_qr_code: qrCode,
-            uazapi_instance_id: instanceId,
-            uazapi_token: token,
             is_connected: isConnected,
             updated_at: new Date().toISOString()
-          })
-          .eq('id', backupAccountId);
+          };
 
-        console.log('[whatsapp-status] ✅ Atualizado whatsapp_accounts:', backupAccountId, '| status:', normalizedStatus);
+          // Sempre atualizar instance_id, phone_number e token se fornecidos
+          // Isso previne dados desatualizados mesmo quando há erro de autorização
+          if (instanceId) updateData.uazapi_instance_id = instanceId;
+          if (phoneNumber) updateData.uazapi_phone_number = phoneNumber;
+          if (token) updateData.uazapi_token = token;
+
+          await supabase
+            .schema('sistemaretiradas')
+            .from('whatsapp_accounts')
+            .update(updateData)
+            .eq('id', backupAccountId);
+
+          console.log('[whatsapp-status] ✅ Atualizado whatsapp_accounts:', backupAccountId, '| status:', normalizedStatus, '| token atualizado:', !!token);
+        } else if (finalSiteSlug && finalCustomerId) {
+          // Se for número principal, atualizar whatsapp_credentials
+          // Buscar registro por customer_id e site_slug (chave única)
+          const { data: existingCred } = await supabase
+            .schema('sistemaretiradas')
+            .from('whatsapp_credentials')
+            .select('uazapi_token, uazapi_status')
+            .eq('customer_id', finalCustomerId)
+            .eq('site_slug', finalSiteSlug)
+            .maybeSingle();
+
+          if (existingCred) {
+            const updateData = {
+              updated_at: new Date().toISOString()
+            };
+
+            const currentStatus = existingCred.uazapi_status;
+            let tokenWasUpdated = false;
+
+            // SEMPRE atualizar instance_id, phone_number e token se fornecidos
+            // Isso é CRÍTICO para prevenir tokens desatualizados
+            if (instanceId) updateData.uazapi_instance_id = instanceId;
+            if (phoneNumber) updateData.uazapi_phone_number = phoneNumber;
+            if (token && token.trim() !== '') {
+              // Verificar se o token mudou para evitar updates desnecessários
+              if (existingCred.uazapi_token !== token) {
+                updateData.uazapi_token = token;
+                tokenWasUpdated = true;
+                console.log('[whatsapp-status] 🔑 Token atualizado para', finalSiteSlug, '| token antigo:', existingCred.uazapi_token?.substring(0, 20) + '...', '| token novo:', token.substring(0, 20) + '...');
+              }
+            }
+
+            // Atualizar status se fornecido, MAS:
+            // - Não fazer downgrade de "connected" para "disconnected/error" se o token foi atualizado
+            //   (o "disconnected" pode ter sido causado pelo token antigo/errado)
+            // - Se token foi atualizado e status no banco é "connected", manter "connected"
+            const shouldUpdateStatus = !(currentStatus === 'connected' && 
+              (normalizedStatus === 'disconnected' || normalizedStatus === 'error') && tokenWasUpdated);
+            
+            if (shouldUpdateStatus && normalizedStatus) {
+              updateData.uazapi_status = normalizedStatus;
+            } else if (currentStatus === 'connected' && tokenWasUpdated && 
+                       (normalizedStatus === 'disconnected' || normalizedStatus === 'error')) {
+              console.log('[whatsapp-status] ⚠️ Token atualizado mas status no banco é connected - mantendo connected (disconnected pode ser por token antigo)');
+              // Não atualizar status, manter "connected"
+            }
+
+            // Só fazer update se houver algo além de updated_at
+            if (Object.keys(updateData).length > 1) {
+              await supabase
+                .schema('sistemaretiradas')
+                .from('whatsapp_credentials')
+                .update(updateData)
+                .eq('customer_id', finalCustomerId)
+                .eq('site_slug', finalSiteSlug);
+
+              console.log('[whatsapp-status] ✅ Atualizado whatsapp_credentials:', finalSiteSlug, '| status:', normalizedStatus, '| token atualizado:', !!updateData.uazapi_token);
+            }
+          }
+        }
       } catch (updateError) {
-        console.warn('[whatsapp-status] Erro ao atualizar whatsapp_accounts:', updateError.message);
+        console.warn('[whatsapp-status] Erro ao atualizar banco:', updateError.message);
         // Não falhar se atualização der erro, retornar status mesmo assim
       }
     }
