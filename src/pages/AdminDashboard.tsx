@@ -30,6 +30,7 @@ import { ConditionalsAdjustmentsManager } from "@/components/admin/ConditionalsA
 import GestaoMetasTab from "@/components/admin/GestaoMetasTab";
 import { BillingManagement } from "@/components/admin/BillingManagement";
 import { BillingAccessGuard } from "@/components/BillingAccessGuard";
+import WhatsAppAnalytics from "@/pages/admin/WhatsAppAnalytics";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -599,28 +600,7 @@ const AdminDashboard = () => {
                   </TabsContent>
 
                   <TabsContent value="analytics" className="space-y-4">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <TrendingUp className="h-5 w-5" />
-                          Analytics de Campanhas
-                        </CardTitle>
-                        <CardDescription>
-                          Análise profunda do desempenho das campanhas e comportamento dos clientes
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <Button 
-                          onClick={() => navigate("/admin/whatsapp-analytics")} 
-                          className="w-full sm:w-auto"
-                          size="lg"
-                          variant="outline"
-                        >
-                          <TrendingUp className="h-4 w-4 mr-2" />
-                          Ver Analytics Completo
-                        </Button>
-                      </CardContent>
-                    </Card>
+                    <WhatsAppAnalytics />
                   </TabsContent>
                 </Tabs>
               </BillingAccessGuard>
