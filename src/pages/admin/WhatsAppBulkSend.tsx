@@ -206,7 +206,8 @@ export default function WhatsAppBulkSend() {
     try {
       // 1. Primeiro contar quantos contatos existem no total
       // Usar busca direta na tabela se a função RPC não estiver disponível
-      const { count: totalCount, error: countError } = await supabase
+      let totalCount: number = 0;
+      const { count: countResult, error: countError } = await supabase
         .schema("sistemaretiradas")
         .from("crm_contacts")
         .select("*", { count: "exact", head: true })
@@ -228,6 +229,8 @@ export default function WhatsAppBulkSend() {
         } catch {
           throw countError;
         }
+      } else {
+        totalCount = countResult || 0;
       }
 
       const totalContacts = totalCount || 0;
@@ -252,20 +255,21 @@ export default function WhatsAppBulkSend() {
 
       for (let page = 0; page < totalPages; page++) {
         const offset = page * BATCH_SIZE;
-        const promise = supabase
-          .schema("sistemaretiradas")
-          .rpc("get_crm_customer_stats", {
-            p_store_id: selectedStoreId,
-            p_offset: offset,
-            p_limit: BATCH_SIZE
-          })
-          .then(({ data, error }) => {
-            if (error) {
-              console.error(`[WhatsAppBulkSend] Erro ao buscar página ${page + 1}:`, error);
-              throw error;
-            }
-            return data || [];
-          });
+        const promise = Promise.resolve(
+          supabase
+            .schema("sistemaretiradas")
+            .rpc("get_crm_customer_stats", {
+              p_store_id: selectedStoreId,
+              p_offset: offset,
+              p_limit: BATCH_SIZE
+            })
+        ).then(({ data, error }) => {
+          if (error) {
+            console.error(`[WhatsAppBulkSend] Erro ao buscar página ${page + 1}:`, error);
+            throw error;
+          }
+          return data || [];
+        });
         
         pagePromises.push(promise);
       }
@@ -1335,7 +1339,94 @@ export default function WhatsAppBulkSend() {
     setLoading(true);
     try {
       // Preparar mensagens para cada contato selecionado
-      const selectedContactsData = filteredContacts.filter((c) => selectedContacts.has(c.id));
+      // IMPORTANTE: Buscar contatos selecionados de TODAS as fontes possíveis
+      // (filteredContacts pode não ter todos se filtros mudaram)
+      const selectedContactIds = Array.from(selectedContacts);
+      console.log('[handleSend] IDs selecionados:', selectedContactIds.length, selectedContactIds);
+      
+      // Buscar contatos selecionados de todas as listas disponíveis
+      const allContactsSource = [...contacts, ...filteredContacts];
+      const selectedContactsData: CRMContact[] = [];
+      
+      // Para cada ID selecionado, buscar o contato em qualquer uma das listas
+      for (const contactId of selectedContactIds) {
+        const found = allContactsSource.find(c => c.id === contactId);
+        if (found && !selectedContactsData.find(c => c.id === contactId)) {
+          selectedContactsData.push(found);
+        }
+      }
+      
+      // Se ainda faltar algum, tentar buscar diretamente do banco
+      if (selectedContactsData.length < selectedContactIds.length) {
+        console.log('[handleSend] Alguns contatos não encontrados nas listas, buscando do banco...');
+        try {
+          const missingIds = selectedContactIds.filter(id => !selectedContactsData.find(c => c.id === id));
+          const { data: missingContacts, error: fetchError } = await supabase
+            .schema("sistemaretiradas")
+            .from("crm_contacts")
+            .select("*")
+            .in("id", missingIds)
+            .eq("store_id", selectedStoreId);
+          
+          if (!fetchError && missingContacts) {
+            // Converter para formato CRMContact com stats
+            const missingWithStats = await Promise.all(
+              missingContacts.map(async (contact) => {
+                // Buscar stats se necessário
+                const stats = await supabase
+                  .schema("sistemaretiradas")
+                  .rpc("get_crm_customer_stats", {
+                    p_store_id: selectedStoreId,
+                    p_offset: 0,
+                    p_limit: 1
+                  })
+                  .eq("id", contact.id)
+                  .single();
+                
+                return {
+                  ...contact,
+                  ...(stats.data?.[0] || {})
+                } as CRMContact;
+              })
+            );
+            
+            selectedContactsData.push(...missingWithStats);
+          }
+        } catch (fetchErr) {
+          console.error('[handleSend] Erro ao buscar contatos faltantes:', fetchErr);
+        }
+      }
+      
+      console.log('[handleSend] Contatos selecionados encontrados:', {
+        selectedIdsCount: selectedContactIds.length,
+        foundCount: selectedContactsData.length,
+        contactsLength: contacts.length,
+        filteredContactsLength: filteredContacts.length
+      });
+      
+      // Validar que há contatos selecionados
+      if (selectedContactsData.length === 0) {
+        toast.error("Nenhum contato selecionado encontrado. Verifique se os contatos ainda existem.");
+        setLoading(false);
+        return;
+      }
+      
+      // Validar que todos têm telefone
+      const contactsWithoutPhone = selectedContactsData.filter(c => !c.telefone || c.telefone.trim() === '');
+      if (contactsWithoutPhone.length > 0) {
+        console.warn('[handleSend] Contatos sem telefone encontrados:', contactsWithoutPhone.length);
+        toast.warning(`${contactsWithoutPhone.length} contato(s) sem telefone serão ignorados`);
+      }
+      
+      const validContacts = selectedContactsData.filter(c => c.telefone && c.telefone.trim() !== '');
+      
+      if (validContacts.length === 0) {
+        toast.error("Nenhum contato válido com telefone encontrado");
+        setLoading(false);
+        return;
+      }
+      
+      console.log('[handleSend] Contatos válidos para envio:', validContacts.length);
       
       // Criar campanha
       const { data: campaign, error: campaignError } = await supabase
@@ -1364,7 +1455,9 @@ export default function WhatsAppBulkSend() {
       // Criar mensagens na fila com prioridade baixa (7-10 para campanhas)
       const messagesToInsert = [];
       
-      for (const contact of selectedContactsData) {
+      console.log('[handleSend] Criando mensagens para', validContacts.length, 'contatos válidos');
+      
+      for (const contact of validContacts) {
         // Escolher variação de mensagem
         let messageContent = "";
         if (randomizeMessages) {
@@ -1403,7 +1496,7 @@ export default function WhatsAppBulkSend() {
           validBackupIds.forEach(id => availableIds.push(id));
           
           // Rotação baseada no índice do contato
-          const index = selectedContactsData.indexOf(contact) % availableIds.length;
+          const index = validContacts.indexOf(contact) % availableIds.length;
           whatsappAccountId = availableIds[index]; // Pode ser null (PRIMARY) ou UUID (reserva)
         } else {
           // Se não houver backups selecionados, usar apenas o número principal
@@ -1434,7 +1527,7 @@ export default function WhatsAppBulkSend() {
           metadata: {
             contact_id: contact.id,
             contact_name: contact.nome,
-            variation_id: randomizeMessages ? "random" : String(selectedContactsData.indexOf(contact) % messageVariations.length)
+            variation_id: randomizeMessages ? "random" : String(validContacts.indexOf(contact) % messageVariations.length)
           }
         });
       }
@@ -1448,10 +1541,22 @@ export default function WhatsAppBulkSend() {
           .from("whatsapp_message_queue")
           .insert(batch);
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('[handleSend] Erro ao inserir lote', i, ':', insertError);
+          throw insertError;
+        }
+        console.log('[handleSend] Lote', Math.floor(i / batchSize) + 1, 'inserido:', batch.length, 'mensagens');
       }
 
-      toast.success(`Campanha criada! ${selectedContactsData.length} mensagens agendadas`);
+      console.log('[handleSend] ✅ Total de mensagens inseridas na fila:', messagesToInsert.length);
+      
+      if (messagesToInsert.length === 0) {
+        toast.error("Nenhuma mensagem foi criada. Verifique se os contatos têm telefone válido.");
+        setLoading(false);
+        return;
+      }
+
+      toast.success(`Campanha criada! ${messagesToInsert.length} mensagens agendadas`);
       navigate("/admin");
     } catch (error: any) {
       console.error("Erro ao criar campanha:", error);
