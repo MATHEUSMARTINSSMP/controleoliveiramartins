@@ -92,6 +92,19 @@ export const WhatsAppStoreConfig = () => {
 
             setStatusMap(prev => ({ ...prev, [store.slug]: status }));
 
+            // Verificar se devemos ignorar o downgrade ANTES de atualizar a UI
+            const currentStatusLocal = store.credentials?.uazapi_status;
+            const isDowngradeLocal = currentStatusLocal === 'connected' && 
+                (status.status === 'error' || status.status === 'disconnected' || !status.status);
+            
+            // Se for downgrade, manter status atual e não atualizar
+            if (isDowngradeLocal) {
+                console.log('[handleCheckStatus] IGNORANDO downgrade de status para', store.slug, 
+                    '- mantendo connected ao invés de', status.status);
+                toast.warning(`${store.name}: Status mantido como conectado (N8N retornou: ${status.status})`);
+                return;
+            }
+
             // Atualizar credenciais locais com status do N8N
             setStoresWithCredentials(prev =>
                 prev.map(s => s.slug === store.slug ? {
@@ -106,8 +119,8 @@ export const WhatsAppStoreConfig = () => {
                 } : s)
             );
 
-            // Salvar status no Supabase para persistencia
-            await saveStatusToSupabase(store.slug, status.status, status.phoneNumber, status.qrCode);
+            // Salvar status no Supabase para persistencia (com prevenção de downgrade)
+            await saveStatusToSupabase(store.slug, status.status, status.phoneNumber, status.qrCode, currentStatusLocal);
 
             // Se nao e terminal, iniciar polling
             if (!isTerminalStatus(status.status)) {
@@ -197,6 +210,18 @@ export const WhatsAppStoreConfig = () => {
 
                 setStatusMap(prev => ({ ...prev, [store.slug]: status }));
 
+                // Verificar se devemos ignorar o downgrade ANTES de atualizar a UI
+                const currentStatusLocal = store.credentials?.uazapi_status;
+                const isDowngradeLocal = currentStatusLocal === 'connected' && 
+                    (status.status === 'error' || status.status === 'disconnected' || !status.status);
+                
+                // Se for downgrade, manter status atual e não atualizar
+                if (isDowngradeLocal) {
+                    console.log('[startPollingForStore] IGNORANDO downgrade de status para', store.slug, 
+                        '- mantendo connected ao invés de', status.status);
+                    return; // Não atualizar UI nem banco
+                }
+
                 // Atualizar UI
                 setStoresWithCredentials(prev =>
                     prev.map(s => s.slug === store.slug ? {
@@ -220,18 +245,8 @@ export const WhatsAppStoreConfig = () => {
                         return newSet;
                     });
 
-                    // Salvar status final no Supabase para persistencia
-                    await supabase
-                        .schema('sistemaretiradas')
-                        .from('whatsapp_credentials')
-                        .update({
-                            uazapi_status: status.status,
-                            uazapi_phone_number: status.phoneNumber || null,
-                            uazapi_qr_code: null,
-                            updated_at: new Date().toISOString(),
-                        })
-                        .eq('admin_id', profile.id)
-                        .eq('site_slug', store.slug);
+                    // Salvar status final no Supabase para persistencia (com prevenção de downgrade)
+                    await saveStatusToSupabase(store.slug, status.status, status.phoneNumber, null, currentStatusLocal);
 
                     if (status.connected) {
                         toast.success(`${store.name} conectado com sucesso!`);
@@ -534,14 +549,41 @@ export const WhatsAppStoreConfig = () => {
         }));
     };
 
-    const saveStatusToSupabase = async (slug: string, status: string, phoneNumber?: string | null, qrCode?: string | null) => {
+    const saveStatusToSupabase = async (slug: string, status: string, phoneNumber?: string | null, qrCode?: string | null, currentStatus?: string) => {
         if (!profile?.email) return;
         
         try {
+            // Se currentStatus não foi fornecido, buscar do banco
+            let dbStatus = currentStatus;
+            if (!dbStatus) {
+                const { data: existing } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('whatsapp_credentials')
+                    .select('uazapi_status')
+                    .eq('admin_id', profile.id)
+                    .eq('site_slug', slug)
+                    .maybeSingle();
+                dbStatus = existing?.uazapi_status;
+            }
+            
+            // Prevenir downgrade: se já está connected, não fazer downgrade para disconnected/error
+            const isDowngrade = dbStatus === 'connected' && 
+                (status === 'error' || status === 'disconnected' || !status);
+            
+            if (isDowngrade) {
+                console.log('[saveStatusToSupabase] IGNORANDO downgrade de status para', slug, 
+                    '- mantendo connected ao invés de', status);
+                return; // Não atualizar o status no banco
+            }
+            
             const updateData: Record<string, any> = {
-                uazapi_status: status,
                 updated_at: new Date().toISOString(),
             };
+            
+            // Só atualizar status se não for downgrade
+            if (!isDowngrade) {
+                updateData.uazapi_status = status;
+            }
             
             if (phoneNumber) {
                 updateData.uazapi_phone_number = phoneNumber;
@@ -551,17 +593,20 @@ export const WhatsAppStoreConfig = () => {
                 updateData.uazapi_qr_code = qrCode;
             }
             
-            const { error } = await supabase
-                .schema('sistemaretiradas')
-                .from('whatsapp_credentials')
-                .update(updateData)
-                .eq('admin_id', profile.id)
-                .eq('site_slug', slug);
-                
-            if (error) {
-                console.error('[saveStatusToSupabase] Erro ao salvar status:', error);
-            } else {
-                console.log('[saveStatusToSupabase] Status salvo no Supabase:', { slug, status });
+            // Só fazer update se houver algo além de updated_at
+            if (Object.keys(updateData).length > 1) {
+                const { error } = await supabase
+                    .schema('sistemaretiradas')
+                    .from('whatsapp_credentials')
+                    .update(updateData)
+                    .eq('admin_id', profile.id)
+                    .eq('site_slug', slug);
+                    
+                if (error) {
+                    console.error('[saveStatusToSupabase] Erro ao salvar status:', error);
+                } else {
+                    console.log('[saveStatusToSupabase] Status salvo no Supabase:', { slug, status: isDowngrade ? dbStatus : status });
+                }
             }
         } catch (error) {
             console.error('[saveStatusToSupabase] Erro:', error);
