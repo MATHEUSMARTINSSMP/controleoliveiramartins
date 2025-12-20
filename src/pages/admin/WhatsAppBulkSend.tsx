@@ -1446,6 +1446,7 @@ export default function WhatsAppBulkSend() {
           scheduled_start_at: scheduledDate && scheduledTime 
             ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
             : null,
+          category: campaignCategory,
         })
         .select()
         .single();

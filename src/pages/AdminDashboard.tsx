@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet, RefreshCw, AlertTriangle, Plus, Link2, Target } from "lucide-react";
+import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet, RefreshCw, AlertTriangle, Plus, Link2, Target, Send } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -279,10 +279,10 @@ const AdminDashboard = () => {
                 <span className="hidden sm:inline">Configuracoes</span>
                 <span className="sm:hidden">Config</span>
               </TabsTrigger>
-              <TabsTrigger value="whatsapp-massa" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[50px] justify-center">
+              <TabsTrigger value="campanhas" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[50px] justify-center">
                 <MessageSquare className="h-3 w-3 mr-1" />
-                <span className="hidden sm:inline">WhatsApp Massa</span>
-                <span className="sm:hidden">WhatsApp</span>
+                <span className="hidden sm:inline">Campanhas</span>
+                <span className="sm:hidden">Camp.</span>
               </TabsTrigger>
             </TabsList>
 
@@ -500,60 +500,129 @@ const AdminDashboard = () => {
               </Card>
             </TabsContent>
 
-            <TabsContent value="whatsapp-massa" className="animate-fade-in space-y-4 sm:space-y-6">
+            <TabsContent value="campanhas" className="animate-fade-in space-y-4 sm:space-y-6">
               <BillingAccessGuard allowReadOnly>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <MessageSquare className="h-5 w-5" />
-                      Envio em Massa - WhatsApp
-                    </CardTitle>
-                    <CardDescription>
-                      Envie mensagens personalizadas para múltiplos clientes de uma vez com filtros avançados e controle total
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <h4 className="font-semibold flex items-center gap-2">
-                          <Users className="h-4 w-4" />
-                          Filtros Avançados
-                        </h4>
-                        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                          <li>Clientes que compraram há X dias</li>
-                          <li>Clientes que não compram desde data</li>
-                          <li>Maior faturamento (top N ou todos)</li>
-                          <li>Maior ticket médio</li>
-                          <li>Maior número de visitas</li>
-                        </ul>
-                      </div>
-                      <div className="space-y-2">
-                        <h4 className="font-semibold flex items-center gap-2">
-                          <Settings className="h-4 w-4" />
-                          Recursos
-                        </h4>
-                        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                          <li>Múltiplas variações de mensagem</li>
-                          <li>Placeholders automáticos</li>
-                          <li>Agendamento de envios</li>
-                          <li>Controle de horários</li>
-                          <li>Rotação de números WhatsApp</li>
-                          <li>Limites por contato e total</li>
-                        </ul>
-                      </div>
-                    </div>
-                    <div className="pt-4 border-t">
-                      <Button 
-                        onClick={() => navigate("/admin/whatsapp-bulk-send")} 
-                        className="w-full sm:w-auto"
-                        size="lg"
-                      >
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                        Criar Campanha de Envio em Massa
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                <Tabs defaultValue="overview" className="space-y-4">
+                  <TabsList>
+                    <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+                    <TabsTrigger value="create">Criar Campanha</TabsTrigger>
+                    <TabsTrigger value="manage">Gerenciar Campanhas</TabsTrigger>
+                    <TabsTrigger value="analytics">Analytics</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="overview" className="space-y-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <MessageSquare className="h-5 w-5" />
+                          Campanhas WhatsApp
+                        </CardTitle>
+                        <CardDescription>
+                          Sistema completo de campanhas de envio em massa com filtros avançados, analytics e controle total
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <h4 className="font-semibold flex items-center gap-2">
+                              <Users className="h-4 w-4" />
+                              Filtros Avançados
+                            </h4>
+                            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                              <li>Clientes que compraram há X dias</li>
+                              <li>Clientes que não compram desde data</li>
+                              <li>Maior faturamento (top N ou todos)</li>
+                              <li>Maior ticket médio</li>
+                              <li>Maior número de visitas</li>
+                            </ul>
+                          </div>
+                          <div className="space-y-2">
+                            <h4 className="font-semibold flex items-center gap-2">
+                              <Settings className="h-4 w-4" />
+                              Recursos
+                            </h4>
+                            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                              <li>Múltiplas variações de mensagem</li>
+                              <li>Placeholders automáticos</li>
+                              <li>Agendamento de envios</li>
+                              <li>Controle de horários</li>
+                              <li>Rotação de números WhatsApp</li>
+                              <li>Limites por contato e total</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="create" className="space-y-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Criar Nova Campanha</CardTitle>
+                        <CardDescription>
+                          Crie uma nova campanha de envio em massa para seus clientes
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <Button 
+                          onClick={() => navigate("/admin/whatsapp-bulk-send")} 
+                          className="w-full sm:w-auto"
+                          size="lg"
+                        >
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Criar Campanha
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="manage" className="space-y-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Gerenciar Campanhas</CardTitle>
+                        <CardDescription>
+                          Visualize, pause, retome, cancele ou duplique suas campanhas existentes
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <Button 
+                          onClick={() => navigate("/admin/whatsapp-campaigns")} 
+                          className="w-full sm:w-auto"
+                          size="lg"
+                          variant="outline"
+                        >
+                          <BarChart className="h-4 w-4 mr-2" />
+                          Gerenciar Campanhas
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="analytics" className="space-y-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <TrendingUp className="h-5 w-5" />
+                          Analytics de Campanhas
+                        </CardTitle>
+                        <CardDescription>
+                          Análise profunda do desempenho das campanhas e comportamento dos clientes
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <Button 
+                          onClick={() => navigate("/admin/whatsapp-analytics")} 
+                          className="w-full sm:w-auto"
+                          size="lg"
+                          variant="outline"
+                        >
+                          <TrendingUp className="h-4 w-4 mr-2" />
+                          Ver Analytics Completo
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
               </BillingAccessGuard>
             </TabsContent>
 
