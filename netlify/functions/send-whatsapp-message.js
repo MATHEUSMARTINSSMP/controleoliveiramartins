@@ -287,8 +287,8 @@ exports.handler = async (event, context) => {
     // ============================================================================
     const functionStart = Date.now();
     
-    // PRIORIDADE 1: Se whatsapp_account_id fornecido, buscar número reserva
-    if (whatsapp_account_id && supabaseAvailable && supabase) {
+    // PRIORIDADE 1: Se whatsapp_account_id fornecido (e não é null/undefined/vazio), buscar número reserva
+    if (whatsapp_account_id && whatsapp_account_id !== 'null' && whatsapp_account_id !== '' && supabaseAvailable && supabase) {
       console.log('[WhatsApp] whatsapp_account_id fornecido, buscando número reserva...');
       const backupCred = await fetchBackupAccountCredential(whatsapp_account_id);
       if (backupCred) {
@@ -298,7 +298,7 @@ exports.handler = async (event, context) => {
         console.log('[WhatsApp] ✅ Usando número reserva:', backupCred.phone, '| Tipo:', backupCred.accountType);
       } else {
         console.warn('[WhatsApp] Número reserva não encontrado ou não conectado, caindo para busca normal');
-        // Continuar para lógica normal abaixo
+        // Continuar para lógica normal abaixo - siteSlug e customerId ainda são null
       }
     }
     
