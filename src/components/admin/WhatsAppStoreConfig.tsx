@@ -349,12 +349,14 @@ export const WhatsAppStoreConfig = () => {
 
             const slugs = storesWithSlugs.map(s => s.slug);
 
+            // Buscar credenciais com cache desabilitado para garantir dados atualizados
             const { data: credentials, error: credError } = await supabase
                 .schema('sistemaretiradas')
                 .from('whatsapp_credentials')
                 .select('*')
                 .eq('admin_id', profile.id)
-                .in('site_slug', slugs);
+                .in('site_slug', slugs)
+                .order('updated_at', { ascending: false }); // Ordenar por mais recente
 
             if (credError) {
                 console.error('Erro ao buscar credenciais:', credError);
@@ -399,23 +401,47 @@ export const WhatsAppStoreConfig = () => {
                 const statusPromises = storesToCheck.map(async (store) => {
                     try {
                         console.log('[fetchStoresAndCredentials] Verificando status N8N para:', store.slug);
+                        console.log('[fetchStoresAndCredentials] Status atual do banco:', store.credentials?.uazapi_status);
+                        
                         const status = await fetchWhatsAppStatus({
                             siteSlug: store.slug,
                             customerId: profile.email!,
                         });
                         
                         console.log('[fetchStoresAndCredentials] Resposta N8N para', store.slug, ':', status);
+                        console.log('[fetchStoresAndCredentials] Comparação: Banco =', store.credentials?.uazapi_status, '| N8N =', status.status);
                         
                         // Verificar se devemos ignorar o downgrade ANTES de atualizar a UI
+                        // IMPORTANTE: Se o banco tem "connected", NUNCA fazer downgrade, mesmo se N8N retornar diferente
                         const currentStatusLocal = store.credentials?.uazapi_status;
                         const isDowngradeLocal = currentStatusLocal === 'connected' && 
                             (status.status === 'error' || status.status === 'disconnected' || !status.status);
                         
+                        console.log('[fetchStoresAndCredentials] isDowngradeLocal?', isDowngradeLocal, 
+                            '(banco:', currentStatusLocal, '| N8N:', status.status, ')');
+                        
                         if (isDowngradeLocal) {
-                            console.log('[fetchStoresAndCredentials] UI: Mantendo status connected para', store.slug);
-                            // Não atualizar UI, manter status atual
+                            console.log('[fetchStoresAndCredentials] UI: Mantendo status connected para', store.slug, 
+                                '- N8N retornou:', status.status, 'mas banco tem connected');
+                            // Não atualizar UI, manter status atual do banco
+                            // Mas ainda atualizar outros campos úteis (phone, instance_id) se vierem do N8N
+                            if (status.phoneNumber || status.instanceId) {
+                                setStoresWithCredentials(prev =>
+                                    prev.map(s => s.slug === store.slug ? {
+                                        ...s,
+                                        credentials: {
+                                            ...s.credentials,
+                                            uazapi_phone_number: status.phoneNumber || s.credentials?.uazapi_phone_number,
+                                            uazapi_instance_id: status.instanceId || s.credentials?.uazapi_instance_id,
+                                            // MANTER status connected do banco, não atualizar
+                                            uazapi_status: 'connected',
+                                            updated_at: new Date().toISOString(),
+                                        } as WhatsAppCredential
+                                    } : s)
+                                );
+                            }
                         } else {
-                            // Atualizar estado local IMEDIATAMENTE
+                            // Atualizar estado local IMEDIATAMENTE (upgrade ou status consistente)
                             setStoresWithCredentials(prev =>
                                 prev.map(s => s.slug === store.slug ? {
                                     ...s,
@@ -424,6 +450,7 @@ export const WhatsAppStoreConfig = () => {
                                         uazapi_status: status.status,
                                         uazapi_phone_number: status.phoneNumber || s.credentials?.uazapi_phone_number,
                                         uazapi_instance_id: status.instanceId || s.credentials?.uazapi_instance_id,
+                                        updated_at: new Date().toISOString(),
                                     } as WhatsAppCredential
                                 } : s)
                             );

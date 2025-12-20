@@ -9,15 +9,16 @@
 -- 1. VERIFICAR TODAS AS CREDENCIAIS WHATSAPP (PRINCIPAIS)
 -- =====================================================
 SELECT 
-    wc.id,
+    wc.customer_id || '|' || wc.site_slug as chave_primaria,
     wc.admin_id,
+    wc.customer_id,
     wc.site_slug,
     wc.uazapi_status,
     wc.uazapi_phone_number,
     wc.uazapi_instance_id,
     wc.uazapi_token IS NOT NULL as has_token,
     LEFT(wc.uazapi_token, 20) || '...' as token_preview,
-    wc.is_global,
+    COALESCE(wc.is_global, false) as is_global,
     wc.status,
     wc.created_at,
     wc.updated_at,
@@ -136,16 +137,15 @@ SELECT
     wa.store_id,
     wa.phone as numero_reserva,
     wa.uazapi_status,
-    wa.uazapi_phone_number,
     wa.uazapi_instance_id,
     wa.is_connected,
-    wa.is_backup1,
-    wa.is_backup2,
-    wa.is_backup3,
+    COALESCE(wa.is_backup1, false) as is_backup1,
+    COALESCE(wa.is_backup2, false) as is_backup2,
+    COALESCE(wa.is_backup3, false) as is_backup3,
     CASE 
-        WHEN wa.is_backup1 THEN 'Backup 1'
-        WHEN wa.is_backup2 THEN 'Backup 2'
-        WHEN wa.is_backup3 THEN 'Backup 3'
+        WHEN COALESCE(wa.is_backup1, false) THEN 'Backup 1'
+        WHEN COALESCE(wa.is_backup2, false) THEN 'Backup 2'
+        WHEN COALESCE(wa.is_backup3, false) THEN 'Backup 3'
         ELSE 'Não definido'
     END as tipo_backup,
     wa.created_at,
@@ -226,9 +226,9 @@ UNION ALL
 -- Números reserva sem status
 SELECT 
     '⚠️ Número reserva sem status' as problema,
-    s.name as loja,
-    wa.phone as numero,
-    COALESCE(wa.uazapi_status, 'NULL') as status
+    COALESCE(s.name, 'Loja não encontrada') as loja,
+    COALESCE(wa.phone, 'Sem número') as numero,
+    COALESCE(wa.uazapi_status::text, 'NULL') as status
 FROM sistemaretiradas.whatsapp_accounts wa
 LEFT JOIN sistemaretiradas.stores s ON s.id = wa.store_id
 WHERE wa.uazapi_status IS NULL;
@@ -257,8 +257,8 @@ RETURNING *;
 -- =====================================================
 SELECT 
     'Credencial Principal' as tipo,
-    COALESCE(s.name, wc.site_slug) as loja,
-    wc.uazapi_status,
+    COALESCE(s.name, wc.site_slug, '') as loja,
+    COALESCE(wc.uazapi_status, '') as uazapi_status,
     wc.updated_at,
     ROUND(EXTRACT(EPOCH FROM (NOW() - wc.updated_at))/60, 1) as minutos_atras
 FROM sistemaretiradas.whatsapp_credentials wc
@@ -268,8 +268,8 @@ UNION ALL
 
 SELECT 
     'Número Reserva' as tipo,
-    COALESCE(s.name, wa.phone, 'Sem número') as loja,
-    wa.uazapi_status,
+    COALESCE(s.name, wa.phone, 'Sem número', '') as loja,
+    COALESCE(wa.uazapi_status::text, '') as uazapi_status,
     wa.updated_at,
     ROUND(EXTRACT(EPOCH FROM (NOW() - wa.updated_at))/60, 1) as minutos_atras
 FROM sistemaretiradas.whatsapp_accounts wa
@@ -315,7 +315,51 @@ CROSS JOIN uazapi_data u
 WHERE wc.site_slug = 'mrkitsch';
 
 -- =====================================================
--- 12. VERIFICAR SE HÁ DIFERENÇAS ENTRE UAZAPI E SUPABASE
+-- 12. DIAGNÓSTICO COMPLETO - PROBLEMAS IDENTIFICADOS
+-- =====================================================
+SELECT 
+    '🔍 DIAGNÓSTICO: Mr. Kitsch' as diagnostico,
+    CASE 
+        WHEN wc.uazapi_status != 'connected' THEN 
+            '❌ PROBLEMA: Status no Supabase (' || wc.uazapi_status || ') diferente do UazAPI (connected)'
+        ELSE '✅ Status correto'
+    END as problema_status,
+    CASE 
+        WHEN wc.uazapi_phone_number IS NULL THEN 
+            '❌ PROBLEMA: Número está NULL no Supabase, deveria ser 559699741090'
+        WHEN wc.uazapi_phone_number != '559699741090' THEN 
+            '⚠️ ATENÇÃO: Número diferente (Supabase: ' || wc.uazapi_phone_number || ', Esperado: 559699741090)'
+        ELSE '✅ Número correto'
+    END as problema_numero,
+    CASE 
+        WHEN wc.uazapi_instance_id != 'mr_kitsch_matheusmartinss_icloud_com' THEN 
+            '❌ PROBLEMA: Instance ID diferente (Supabase: ' || COALESCE(wc.uazapi_instance_id, 'NULL') || ', Esperado: mr_kitsch_matheusmartinss_icloud_com)'
+        ELSE '✅ Instance ID correto'
+    END as problema_instance_id,
+    CASE 
+        WHEN wc.updated_at < NOW() - INTERVAL '30 minutes' THEN 
+            '⚠️ ATENÇÃO: Última atualização foi há ' || ROUND(EXTRACT(EPOCH FROM (NOW() - wc.updated_at))/60, 0) || ' minutos'
+        ELSE '✅ Atualizado recentemente'
+    END as problema_atualizacao,
+    'SOLUÇÃO: Executar verificação de status no sistema ou atualizar manualmente (query #9)' as recomendacao
+FROM sistemaretiradas.whatsapp_credentials wc
+WHERE wc.site_slug = 'mrkitsch'
+
+UNION ALL
+
+SELECT 
+    '🔍 DIAGNÓSTICO: Registros com dados inválidos' as diagnostico,
+    '❌ PROBLEMA: Registro com customer_id e site_slug vazios encontrado' as problema_status,
+    'Este registro deve ser removido ou corrigido' as problema_numero,
+    'Instance ID: ' || COALESCE(wc.uazapi_instance_id, 'NULL') as problema_instance_id,
+    'Criado em: ' || wc.created_at::text as problema_atualizacao,
+    'SOLUÇÃO: Verificar origem deste registro e removê-lo se não for necessário' as recomendacao
+FROM sistemaretiradas.whatsapp_credentials wc
+WHERE (wc.customer_id IS NULL OR wc.customer_id = '')
+   OR (wc.site_slug IS NULL OR wc.site_slug = '');
+
+-- =====================================================
+-- 13. VERIFICAR SE HÁ DIFERENÇAS ENTRE UAZAPI E SUPABASE
 -- =====================================================
 SELECT 
     wc.site_slug,
