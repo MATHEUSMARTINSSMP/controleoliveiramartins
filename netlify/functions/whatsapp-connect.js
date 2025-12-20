@@ -41,11 +41,11 @@ exports.handler = async (event) => {
           { db: { schema: 'sistemaretiradas' } }
         );
 
-        // Buscar número reserva
+        // Buscar número reserva (incluindo flags de backup para gerar nome único)
         const { data: backupAccount, error: backupError } = await supabase
           .schema('sistemaretiradas')
           .from('whatsapp_accounts')
-          .select('id, phone, store_id, uazapi_status, is_connected')
+          .select('id, phone, store_id, uazapi_status, is_connected, is_backup1, is_backup2, is_backup3')
           .eq('id', whatsapp_account_id)
           .single();
 
@@ -87,12 +87,19 @@ exports.handler = async (event) => {
               }
             }
 
-            finalSiteSlug = storeSlug;
+            // Para números reserva, modificar siteSlug para diferenciar do principal
+            // Isso garante que o N8N gere um nome de instância único
+            let backupSuffix = '';
+            if (backupAccount.is_backup1) backupSuffix = '_backup1';
+            else if (backupAccount.is_backup2) backupSuffix = '_backup2';
+            else if (backupAccount.is_backup3) backupSuffix = '_backup3';
+            
+            finalSiteSlug = storeSlug + backupSuffix;
             finalCustomerId = customerIdValue;
             isBackupAccount = true;
             backupAccountId = backupAccount.id;
 
-            console.log('[whatsapp-connect] Usando número reserva:', backupAccount.phone, '| siteSlug:', finalSiteSlug);
+            console.log('[whatsapp-connect] Usando número reserva:', backupAccount.phone, '| siteSlug:', finalSiteSlug, '| backupSuffix:', backupSuffix);
           }
         }
       } catch (err) {
