@@ -31,6 +31,8 @@ import GestaoMetasTab from "@/components/admin/GestaoMetasTab";
 import { BillingManagement } from "@/components/admin/BillingManagement";
 import { BillingAccessGuard } from "@/components/BillingAccessGuard";
 import WhatsAppAnalytics from "@/pages/admin/WhatsAppAnalytics";
+import WhatsAppBulkSend from "@/pages/admin/WhatsAppBulkSend";
+import WhatsAppCampaigns from "@/pages/admin/WhatsAppCampaigns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -557,46 +559,11 @@ const AdminDashboard = () => {
                   </TabsContent>
 
                   <TabsContent value="create" className="space-y-4">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Criar Nova Campanha</CardTitle>
-                        <CardDescription>
-                          Crie uma nova campanha de envio em massa para seus clientes
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <Button 
-                          onClick={() => navigate("/admin/whatsapp-bulk-send")} 
-                          className="w-full sm:w-auto"
-                          size="lg"
-                        >
-                          <MessageSquare className="h-4 w-4 mr-2" />
-                          Criar Campanha
-                        </Button>
-                      </CardContent>
-                    </Card>
+                    <WhatsAppBulkSend />
                   </TabsContent>
 
                   <TabsContent value="manage" className="space-y-4">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Gerenciar Campanhas</CardTitle>
-                        <CardDescription>
-                          Visualize, pause, retome, cancele ou duplique suas campanhas existentes
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <Button 
-                          onClick={() => navigate("/admin/whatsapp-campaigns")} 
-                          className="w-full sm:w-auto"
-                          size="lg"
-                          variant="outline"
-                        >
-                          <BarChart className="h-4 w-4 mr-2" />
-                          Gerenciar Campanhas
-                        </Button>
-                      </CardContent>
-                    </Card>
+                    <WhatsAppCampaigns />
                   </TabsContent>
 
                   <TabsContent value="analytics" className="space-y-4">
