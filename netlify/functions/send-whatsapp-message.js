@@ -116,8 +116,7 @@ exports.handler = async (event, context) => {
 
     // ============================================================================
     // MULTI-TENANCY COM FALLBACK PARA CREDENCIAL GLOBAL
-    // NOTA: Números reserva (backup) são gerenciados APENAS por process-whatsapp-queue.js
-    // Esta função usa APENAS números principais (whatsapp_credentials)
+    // Suporte para números reserva via whatsapp_account_id
     // ============================================================================
     let siteSlug = null;
     let customerId = null;
@@ -145,12 +144,102 @@ exports.handler = async (event, context) => {
     }
 
     // ============================================================================
-    // IMPORTANTE: IGNORAR whatsapp_account_id - números reserva são apenas para campanhas
-    // A função process-whatsapp-queue.js é responsável por usar números reserva
+    // FUNCAO HELPER: Buscar credencial de número reserva (whatsapp_accounts)
     // ============================================================================
-    if (whatsapp_account_id) {
-      console.warn('[WhatsApp] ⚠️ whatsapp_account_id fornecido mas IGNORADO - números reserva são apenas para campanhas via process-whatsapp-queue.js');
-    }
+    const fetchBackupAccountCredential = async (accountId) => {
+      if (!supabase || !supabaseAvailable || !accountId) {
+        return null;
+      }
+
+      console.log('[WhatsApp] Buscando credencial de número reserva:', accountId);
+      
+      try {
+        // 1. Buscar número reserva em whatsapp_accounts
+        const { data: backupAccount, error: backupError } = await supabase
+          .schema('sistemaretiradas')
+          .from('whatsapp_accounts')
+          .select('id, phone, is_backup1, is_backup2, is_backup3, uazapi_token, uazapi_instance_id, uazapi_status, store_id, is_connected')
+          .eq('id', accountId)
+          .single();
+
+        if (backupError) {
+          console.warn('[WhatsApp] Erro ao buscar número reserva:', backupError.message);
+          return null;
+        }
+
+        if (!backupAccount || !backupAccount.is_connected || backupAccount.uazapi_status !== 'connected') {
+          console.log('[WhatsApp] Número reserva não encontrado ou não conectado (status:', backupAccount?.uazapi_status || 'não existe', ')');
+          return null;
+        }
+
+        if (!backupAccount.uazapi_token || !backupAccount.uazapi_instance_id) {
+          console.warn('[WhatsApp] Número reserva sem token ou instance_id');
+          return null;
+        }
+
+        // 2. Buscar loja para obter site_slug
+        const { data: store } = await supabase
+          .schema('sistemaretiradas')
+          .from('stores')
+          .select('site_slug, name')
+          .eq('id', backupAccount.store_id)
+          .single();
+
+        if (!store) {
+          console.warn('[WhatsApp] Loja não encontrada para número reserva');
+          return null;
+        }
+
+        // 3. Buscar credencial principal da loja para obter customer_id (email do admin)
+        // Usar site_slug da loja para buscar em whatsapp_credentials
+        const storeSlug = store.site_slug || generateSlug(store.name);
+        const { data: primaryCredential } = await supabase
+          .schema('sistemaretiradas')
+          .from('whatsapp_credentials')
+          .select('customer_id, admin_id')
+          .eq('site_slug', storeSlug)
+          .eq('status', 'active')
+          .eq('is_global', false)
+          .maybeSingle();
+
+        // Se não encontrar credencial principal, usar site_slug como customer_id (fallback)
+        // O N8N pode aceitar site_slug como customer_id em alguns casos
+        let customerId = primaryCredential?.customer_id || storeSlug;
+
+        // Se temos admin_id, buscar email do profile
+        if (primaryCredential?.admin_id && !primaryCredential?.customer_id) {
+          const { data: adminProfile } = await supabase
+            .schema('sistemaretiradas')
+            .from('profiles')
+            .select('email')
+            .eq('id', primaryCredential.admin_id)
+            .single();
+
+          if (adminProfile?.email) {
+            customerId = adminProfile.email;
+          }
+        }
+
+        // Determinar tipo de backup
+        let accountType = "BACKUP_1";
+        if (backupAccount.is_backup2) accountType = "BACKUP_2";
+        else if (backupAccount.is_backup3) accountType = "BACKUP_3";
+
+        console.log('[WhatsApp] Número reserva encontrado e conectado:', backupAccount.phone);
+        return {
+          siteSlug: storeSlug,
+          customerId: customerId,
+          token: backupAccount.uazapi_token,
+          instanceId: backupAccount.uazapi_instance_id,
+          phone: backupAccount.phone,
+          source: `backup_account:${accountType}`,
+          accountType: accountType
+        };
+      } catch (err) {
+        console.warn('[WhatsApp] Erro ao buscar número reserva:', err.message);
+        return null;
+      }
+    };
 
     // ============================================================================
     // FUNCAO HELPER: Buscar credencial global do banco
@@ -195,125 +284,142 @@ exports.handler = async (event, context) => {
 
     // ============================================================================
     // LOGICA PRINCIPAL: Determinar credenciais a usar
-    // APENAS números principais (whatsapp_credentials) - números reserva são gerenciados pela fila
     // ============================================================================
     const functionStart = Date.now();
     
-    if (store_id && supabaseAvailable && supabase) {
-      console.log('[WhatsApp] Buscando credenciais para store_id:', store_id);
+    // PRIORIDADE 1: Se whatsapp_account_id fornecido (e não é null/undefined/vazio), buscar número reserva
+    if (whatsapp_account_id && whatsapp_account_id !== 'null' && whatsapp_account_id !== '' && supabaseAvailable && supabase) {
+      console.log('[WhatsApp] whatsapp_account_id fornecido, buscando número reserva...');
+      const backupCred = await fetchBackupAccountCredential(whatsapp_account_id);
+      if (backupCred) {
+        siteSlug = backupCred.siteSlug;
+        customerId = backupCred.customerId;
+        credentialsSource = backupCred.source;
+        console.log('[WhatsApp] ✅ Usando número reserva:', backupCred.phone, '| Tipo:', backupCred.accountType);
+      } else {
+        console.warn('[WhatsApp] Número reserva não encontrado ou não conectado, caindo para busca normal');
+        // Continuar para lógica normal abaixo - siteSlug e customerId ainda são null
+      }
+    }
+    
+    // PRIORIDADE 2: Se não encontrou número reserva (ou não foi fornecido), buscar credencial normal
+    if (!siteSlug || !customerId) {
+      if (store_id && supabaseAvailable && supabase) {
+        console.log('[WhatsApp] Buscando credenciais para store_id:', store_id);
 
-      try {
-        // 1. Buscar loja para obter nome, site_slug e status whatsapp_ativo
-        // NOTA: NAO usamos admin_id da tabela stores (coluna nao existe)
-        const queryStart = Date.now();
-        const { data: store, error: storeError } = await supabase
-          .from('stores')
-          .select('id, name, whatsapp_ativo, site_slug')
-          .eq('id', store_id)
-          .single();
-        console.log(`[WhatsApp] Query stores: ${Date.now() - queryStart}ms`);
+        try {
+          // 1. Buscar loja para obter nome, site_slug e status whatsapp_ativo
+          // NOTA: NAO usamos admin_id da tabela stores (coluna nao existe)
+          const queryStart = Date.now();
+          const { data: store, error: storeError } = await supabase
+            .from('stores')
+            .select('id, name, whatsapp_ativo, site_slug')
+            .eq('id', store_id)
+            .single();
+          console.log(`[WhatsApp] Query stores: ${Date.now() - queryStart}ms`);
 
-        if (storeError) {
-          console.warn('[WhatsApp] Erro ao buscar loja:', storeError.message);
-          // FALLBACK: Erro ao buscar loja - tentar credencial global
-          console.log('[WhatsApp] Tentando credencial global como fallback...');
-          const globalCred = await fetchGlobalCredential();
-          if (globalCred) {
-            siteSlug = globalCred.siteSlug;
-            customerId = globalCred.customerId;
-            credentialsSource = 'global_db (fallback erro loja)';
-          }
-        } else if (!store) {
-          console.log('[WhatsApp] Loja nao encontrada, tentando credencial global...');
-          const globalCred = await fetchGlobalCredential();
-          if (globalCred) {
-            siteSlug = globalCred.siteSlug;
-            customerId = globalCred.customerId;
-            credentialsSource = 'global_db (loja nao encontrada)';
-          }
-        } else if (store.whatsapp_ativo === false) {
-          // Loja existe mas WhatsApp esta EXPLICITAMENTE desativado - NAO envia
-          console.log('[WhatsApp] Loja', store.name, 'tem whatsapp_ativo = false. NAO enviando.');
-          shouldSend = false;
-          skipReason = 'whatsapp_desativado';
-        } else {
-          // Loja existe e tem WhatsApp ATIVO (ou nao definido = ativo por padrao)
-          console.log('[WhatsApp] Loja', store.name, '- WhatsApp ativo. Buscando credenciais...');
-          
-          // Se use_global_whatsapp = true, usar global diretamente sem verificar credenciais da loja
-          if (use_global_whatsapp === true) {
-            console.log('[WhatsApp] use_global_whatsapp=true, usando credencial GLOBAL diretamente');
+          if (storeError) {
+            console.warn('[WhatsApp] Erro ao buscar loja:', storeError.message);
+            // FALLBACK: Erro ao buscar loja - tentar credencial global
+            console.log('[WhatsApp] Tentando credencial global como fallback...');
             const globalCred = await fetchGlobalCredential();
             if (globalCred) {
               siteSlug = globalCred.siteSlug;
               customerId = globalCred.customerId;
-              credentialsSource = `global_db (escolhido pelo usuario)`;
+              credentialsSource = 'global_db (fallback erro loja)';
             }
+          } else if (!store) {
+            console.log('[WhatsApp] Loja nao encontrada, tentando credencial global...');
+            const globalCred = await fetchGlobalCredential();
+            if (globalCred) {
+              siteSlug = globalCred.siteSlug;
+              customerId = globalCred.customerId;
+              credentialsSource = 'global_db (loja nao encontrada)';
+            }
+          } else if (store.whatsapp_ativo === false) {
+            // Loja existe mas WhatsApp esta EXPLICITAMENTE desativado - NAO envia
+            console.log('[WhatsApp] Loja', store.name, 'tem whatsapp_ativo = false. NAO enviando.');
+            shouldSend = false;
+            skipReason = 'whatsapp_desativado';
           } else {
-            // Buscar credenciais da loja DIRETAMENTE pelo site_slug
-            // IMPORTANTE: Usar site_slug da tabela stores se existir, caso contrario gerar
-            const storeSlug = store.site_slug || generateSlug(store.name);
-            console.log('[WhatsApp] Usando slug:', storeSlug, '(fonte:', store.site_slug ? 'site_slug' : 'generateSlug', ')');
-            let storeHasOwnCredentials = false;
-
-            // 2. Buscar credenciais PROPRIAS da loja diretamente pelo site_slug (mais confiavel)
-            const credStart = Date.now();
-            const { data: storeCreds, error: credError } = await supabase
-              .from('whatsapp_credentials')
-              .select('customer_id, site_slug, uazapi_status, is_global, admin_id')
-              .eq('site_slug', storeSlug)
-              .eq('status', 'active')
-              .eq('is_global', false)
-              .maybeSingle();
-            console.log(`[WhatsApp] Query credenciais: ${Date.now() - credStart}ms`);
-
-            console.log('[WhatsApp] Busca credenciais por site_slug:', storeSlug, '| resultado:', storeCreds ? 'encontrado' : 'nao encontrado');
-
-            // Verificar se esta conectada
-            if (!credError && storeCreds && storeCreds.uazapi_status === 'connected') {
-              siteSlug = storeCreds.site_slug;
-              customerId = storeCreds.customer_id || storeSlug;
-              credentialsSource = `loja:${store.name}`;
-              storeHasOwnCredentials = true;
-              console.log('[WhatsApp] Usando credenciais PROPRIAS da loja:', store.name, '| status:', storeCreds.uazapi_status);
-            } else {
-              console.log('[WhatsApp] Loja sem credenciais proprias conectadas (status:', storeCreds?.uazapi_status || 'nao encontrado', ')');
-            }
-
-            // 3. Se loja NAO tem credenciais proprias, usar GLOBAL como fallback
-            if (!storeHasOwnCredentials) {
-              console.log('[WhatsApp] Loja', store.name, 'vai usar credencial GLOBAL (fallback)');
+            // Loja existe e tem WhatsApp ATIVO (ou nao definido = ativo por padrao)
+            console.log('[WhatsApp] Loja', store.name, '- WhatsApp ativo. Buscando credenciais...');
+            
+            // Se use_global_whatsapp = true, usar global diretamente sem verificar credenciais da loja
+            if (use_global_whatsapp === true) {
+              console.log('[WhatsApp] use_global_whatsapp=true, usando credencial GLOBAL diretamente');
               const globalCred = await fetchGlobalCredential();
               if (globalCred) {
                 siteSlug = globalCred.siteSlug;
                 customerId = globalCred.customerId;
-                credentialsSource = `global_db (loja: ${store.name})`;
+                credentialsSource = `global_db (escolhido pelo usuario)`;
+              }
+            } else {
+              // Buscar credenciais da loja DIRETAMENTE pelo site_slug
+              // IMPORTANTE: Usar site_slug da tabela stores se existir, caso contrario gerar
+              const storeSlug = store.site_slug || generateSlug(store.name);
+              console.log('[WhatsApp] Usando slug:', storeSlug, '(fonte:', store.site_slug ? 'site_slug' : 'generateSlug', ')');
+              let storeHasOwnCredentials = false;
+
+              // 2. Buscar credenciais PROPRIAS da loja diretamente pelo site_slug (mais confiavel)
+              const credStart = Date.now();
+              const { data: storeCreds, error: credError } = await supabase
+                .from('whatsapp_credentials')
+                .select('customer_id, site_slug, uazapi_status, is_global, admin_id')
+                .eq('site_slug', storeSlug)
+                .eq('status', 'active')
+                .eq('is_global', false)
+                .maybeSingle();
+              console.log(`[WhatsApp] Query credenciais: ${Date.now() - credStart}ms`);
+
+              console.log('[WhatsApp] Busca credenciais por site_slug:', storeSlug, '| resultado:', storeCreds ? 'encontrado' : 'nao encontrado');
+
+              // Verificar se esta conectada
+              if (!credError && storeCreds && storeCreds.uazapi_status === 'connected') {
+                siteSlug = storeCreds.site_slug;
+                customerId = storeCreds.customer_id || storeSlug;
+                credentialsSource = `loja:${store.name}`;
+                storeHasOwnCredentials = true;
+                console.log('[WhatsApp] Usando credenciais PROPRIAS da loja:', store.name, '| status:', storeCreds.uazapi_status);
+              } else {
+                console.log('[WhatsApp] Loja sem credenciais proprias conectadas (status:', storeCreds?.uazapi_status || 'nao encontrado', ')');
+              }
+
+              // 3. Se loja NAO tem credenciais proprias, usar GLOBAL como fallback
+              if (!storeHasOwnCredentials) {
+                console.log('[WhatsApp] Loja', store.name, 'vai usar credencial GLOBAL (fallback)');
+                const globalCred = await fetchGlobalCredential();
+                if (globalCred) {
+                  siteSlug = globalCred.siteSlug;
+                  customerId = globalCred.customerId;
+                  credentialsSource = `global_db (loja: ${store.name})`;
+                }
               }
             }
           }
+        } catch (err) {
+          console.warn('[WhatsApp] Erro ao processar store_id:', err.message);
+          // FALLBACK: Erro geral - tentar credencial global
+          console.log('[WhatsApp] Tentando credencial global como fallback apos erro...');
+          const globalCred = await fetchGlobalCredential();
+          if (globalCred) {
+            siteSlug = globalCred.siteSlug;
+            customerId = globalCred.customerId;
+            credentialsSource = 'global_db (fallback erro)';
+          }
         }
-      } catch (err) {
-        console.warn('[WhatsApp] Erro ao processar store_id:', err.message);
-        // FALLBACK: Erro geral - tentar credencial global
-        console.log('[WhatsApp] Tentando credencial global como fallback apos erro...');
+      } else if (!store_id && supabaseAvailable && supabase) {
+        // Sem store_id - usar credencial global
+        console.log('[WhatsApp] Sem store_id, usando credencial global');
         const globalCred = await fetchGlobalCredential();
         if (globalCred) {
           siteSlug = globalCred.siteSlug;
           customerId = globalCred.customerId;
-          credentialsSource = 'global_db (fallback erro)';
+          credentialsSource = globalCred.source;
         }
+      } else if (!supabaseAvailable) {
+        console.log('[WhatsApp] Supabase indisponivel, pulando busca de credenciais');
       }
-    } else if (!store_id && supabaseAvailable && supabase) {
-      // Sem store_id - usar credencial global
-      console.log('[WhatsApp] Sem store_id, usando credencial global');
-      const globalCred = await fetchGlobalCredential();
-      if (globalCred) {
-        siteSlug = globalCred.siteSlug;
-        customerId = globalCred.customerId;
-        credentialsSource = globalCred.source;
-      }
-    } else if (!supabaseAvailable) {
-      console.log('[WhatsApp] Supabase indisponivel, pulando busca de credenciais');
     }
 
     // ============================================================================
