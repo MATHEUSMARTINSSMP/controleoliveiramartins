@@ -1501,17 +1501,17 @@ export default function BonusManagement() {
                                         
                                         {formData.condicao_faturamento ? (
                                             // Modo: Valor Fixo
-                                            <div>
-                                                <Label className="text-xs sm:text-sm">Valor de Faturamento (R$)</Label>
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
-                                                    value={formData.condicao_faturamento}
-                                                    onChange={(e) => setFormData({ ...formData, condicao_faturamento: e.target.value })}
-                                                    placeholder="Ex: 50000"
-                                                    className="text-xs sm:text-sm"
-                                                />
-                                                <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                                    <div>
+                                        <Label className="text-xs sm:text-sm">Valor de Faturamento (R$)</Label>
+                                        <Input
+                                            type="number"
+                                            step="0.01"
+                                            value={formData.condicao_faturamento}
+                                            onChange={(e) => setFormData({ ...formData, condicao_faturamento: e.target.value })}
+                                            placeholder="Ex: 50000"
+                                            className="text-xs sm:text-sm"
+                                        />
+                                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
                                                     💡 Colaboradora que atingir este valor no período definido ganha o bônus
                                                 </p>
                                             </div>
@@ -1534,8 +1534,8 @@ export default function BonusManagement() {
                                                 </Select>
                                                 <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
                                                     💡 Colaboradora que mais vender no período definido (ranking por posição)
-                                                </p>
-                                            </div>
+                                        </p>
+                                    </div>
                                         )}
                                     </>
                                 )}
@@ -1667,17 +1667,17 @@ export default function BonusManagement() {
                                                 
                                                 {formData.condicao_faturamento ? (
                                                     // Modo: Valor Fixo
-                                                    <div>
-                                                        <Label className="text-xs sm:text-sm">Valor de Faturamento (R$)</Label>
-                                                        <Input
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={formData.condicao_faturamento}
-                                                            onChange={(e) => setFormData({ ...formData, condicao_faturamento: e.target.value })}
-                                                            placeholder="Ex: 50000"
-                                                            className="text-xs sm:text-sm"
-                                                        />
-                                                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                                            <div>
+                                                <Label className="text-xs sm:text-sm">Valor de Faturamento (R$)</Label>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={formData.condicao_faturamento}
+                                                    onChange={(e) => setFormData({ ...formData, condicao_faturamento: e.target.value })}
+                                                    placeholder="Ex: 50000"
+                                                    className="text-xs sm:text-sm"
+                                                />
+                                                <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
                                                             💡 {formData.condicao_escopo === "COLABORADORA" ? "Colaboradora" : "Loja"} que atingir este valor no período definido ganha o bônus
                                                         </p>
                                                     </div>
@@ -1700,8 +1700,8 @@ export default function BonusManagement() {
                                                         </Select>
                                                         <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
                                                             💡 {formData.condicao_escopo === "COLABORADORA" ? "Colaboradora" : "Loja"} que mais vender no período definido (ranking por posição)
-                                                        </p>
-                                                    </div>
+                                                </p>
+                                            </div>
                                                 )}
                                             </>
                                         )}

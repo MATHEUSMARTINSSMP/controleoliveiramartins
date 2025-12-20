@@ -562,6 +562,73 @@ export interface FetchStatusParams {
 /**
  * Fetch WhatsApp connection status from N8N endpoint
  */
+/**
+ * Busca status de WhatsApp para número reserva (aceita whatsapp_account_id)
+ */
+export async function fetchBackupWhatsAppStatus(params: FetchStatusParams & { whatsapp_account_id?: string }): Promise<WhatsAppStatusResponse> {
+  const { siteSlug, customerId, whatsapp_account_id } = params;
+  
+  if (!siteSlug || !customerId) {
+    return {
+      success: false,
+      ok: false,
+      connected: false,
+      status: 'error',
+      qrCode: null,
+      instanceId: null,
+      phoneNumber: null,
+      token: null,
+    };
+  }
+
+  try {
+    const endpoint = getStatusEndpoint();
+    let url = `${endpoint}?siteSlug=${encodeURIComponent(siteSlug)}&customerId=${encodeURIComponent(customerId)}`;
+    
+    // Se whatsapp_account_id fornecido, adicionar à URL
+    if (whatsapp_account_id) {
+      url += `&whatsapp_account_id=${encodeURIComponent(whatsapp_account_id)}`;
+    }
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('[WhatsApp] Status (backup):', data);
+    
+    return {
+      success: data.success ?? true,
+      ok: data.ok ?? true,
+      connected: data.connected ?? false,
+      status: data.status || 'disconnected',
+      qrCode: data.qrCode || null,
+      instanceId: data.instanceId || null,
+      phoneNumber: data.phoneNumber || null,
+      token: data.token || null,
+    };
+  } catch (error: any) {
+    console.error('Erro ao buscar status WhatsApp (backup):', error);
+    return {
+      success: false,
+      ok: false,
+      connected: false,
+      status: 'error',
+      qrCode: null,
+      instanceId: null,
+      phoneNumber: null,
+      token: null,
+    };
+  }
+}
+
 export async function fetchWhatsAppStatus(params: FetchStatusParams): Promise<WhatsAppStatusResponse> {
   const { siteSlug, customerId } = params;
   
@@ -676,6 +743,69 @@ export interface WhatsAppConnectResponse {
 /**
  * Iniciar conexao WhatsApp e gerar QR Code
  */
+/**
+ * Conecta WhatsApp para número reserva (aceita whatsapp_account_id)
+ */
+export async function connectBackupWhatsApp(params: FetchStatusParams & { whatsapp_account_id?: string }): Promise<WhatsAppConnectResponse> {
+  const { siteSlug, customerId, whatsapp_account_id } = params;
+  
+  if (!siteSlug || !customerId) {
+    return {
+      success: false,
+      qrCode: null,
+      instanceId: null,
+      status: 'error',
+      message: 'Parametros invalidos',
+      error: 'Missing siteSlug or customerId',
+    };
+  }
+
+  try {
+    const endpoint = getConnectEndpoint();
+    let url = `${endpoint}?siteSlug=${encodeURIComponent(siteSlug)}&customerId=${encodeURIComponent(customerId)}`;
+    
+    // Se whatsapp_account_id fornecido, adicionar à URL
+    if (whatsapp_account_id) {
+      url += `&whatsapp_account_id=${encodeURIComponent(whatsapp_account_id)}`;
+    }
+
+    console.log('[WhatsApp] Iniciando conexao (backup):', url);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('[WhatsApp] Resposta conexao (backup):', data);
+    
+    return {
+      success: data.success ?? false,
+      qrCode: data.qrCode || null,
+      instanceId: data.instanceId || null,
+      status: data.status || 'connecting',
+      message: data.message || null,
+      error: data.error || undefined,
+    };
+  } catch (error: any) {
+    console.error('Erro ao conectar WhatsApp (backup):', error);
+    return {
+      success: false,
+      qrCode: null,
+      instanceId: null,
+      status: 'error',
+      message: 'Erro ao conectar',
+      error: error.message,
+    };
+  }
+}
+
 export async function connectWhatsApp(params: FetchStatusParams): Promise<WhatsAppConnectResponse> {
   const { siteSlug, customerId } = params;
   

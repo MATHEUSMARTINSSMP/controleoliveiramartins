@@ -1,4 +1,16 @@
+const { createClient } = require('@supabase/supabase-js');
+
 const N8N_CONNECT_ENDPOINT = 'https://fluxos.eleveaagencia.com.br/webhook/api/whatsapp/auth/connect';
+
+const generateSlug = (name) => {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/(^_|_$)/g, '')
+    .replace(/_+/g, '_');
+};
 
 exports.handler = async (event) => {
   const headers = {
@@ -13,9 +25,83 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { siteSlug, customerId } = event.queryStringParameters || {};
+    const { siteSlug, customerId, whatsapp_account_id } = event.queryStringParameters || {};
 
-    if (!siteSlug || !customerId) {
+    let finalSiteSlug = siteSlug;
+    let finalCustomerId = customerId;
+    let isBackupAccount = false;
+    let backupAccountId = null;
+
+    // Se whatsapp_account_id fornecido, buscar dados do número reserva
+    if (whatsapp_account_id && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const supabase = createClient(
+          process.env.SUPABASE_URL,
+          process.env.SUPABASE_SERVICE_ROLE_KEY,
+          { db: { schema: 'sistemaretiradas' } }
+        );
+
+        // Buscar número reserva
+        const { data: backupAccount, error: backupError } = await supabase
+          .schema('sistemaretiradas')
+          .from('whatsapp_accounts')
+          .select('id, phone, store_id, uazapi_status, is_connected')
+          .eq('id', whatsapp_account_id)
+          .single();
+
+        if (!backupError && backupAccount) {
+          // Buscar loja para obter site_slug
+          const { data: store } = await supabase
+            .schema('sistemaretiradas')
+            .from('stores')
+            .select('site_slug, name')
+            .eq('id', backupAccount.store_id)
+            .single();
+
+          if (store) {
+            const storeSlug = store.site_slug || generateSlug(store.name);
+
+            // Buscar credencial principal da loja para obter customer_id
+            const { data: primaryCredential } = await supabase
+              .schema('sistemaretiradas')
+              .from('whatsapp_credentials')
+              .select('customer_id, admin_id')
+              .eq('site_slug', storeSlug)
+              .eq('status', 'active')
+              .eq('is_global', false)
+              .maybeSingle();
+
+            let customerIdValue = primaryCredential?.customer_id || storeSlug;
+
+            // Se temos admin_id, buscar email do profile
+            if (primaryCredential?.admin_id && !primaryCredential?.customer_id) {
+              const { data: adminProfile } = await supabase
+                .schema('sistemaretiradas')
+                .from('profiles')
+                .select('email')
+                .eq('id', primaryCredential.admin_id)
+                .single();
+
+              if (adminProfile?.email) {
+                customerIdValue = adminProfile.email;
+              }
+            }
+
+            finalSiteSlug = storeSlug;
+            finalCustomerId = customerIdValue;
+            isBackupAccount = true;
+            backupAccountId = backupAccount.id;
+
+            console.log('[whatsapp-connect] Usando número reserva:', backupAccount.phone, '| siteSlug:', finalSiteSlug);
+          }
+        }
+      } catch (err) {
+        console.warn('[whatsapp-connect] Erro ao buscar número reserva:', err.message);
+        // Continuar com siteSlug/customerId originais se fornecidos
+      }
+    }
+
+    if (!finalSiteSlug || !finalCustomerId) {
       return {
         statusCode: 200,
         headers,
@@ -28,6 +114,7 @@ exports.handler = async (event) => {
     }
 
     console.log('Calling N8N connect endpoint:', N8N_CONNECT_ENDPOINT);
+    console.log('[whatsapp-connect] Parâmetros:', { siteSlug: finalSiteSlug, customerId: finalCustomerId, isBackupAccount });
 
     const response = await fetch(N8N_CONNECT_ENDPOINT, { 
       method: 'POST',
@@ -35,7 +122,7 @@ exports.handler = async (event) => {
         'Content-Type': 'application/json',
         'Accept': 'application/json' 
       },
-      body: JSON.stringify({ siteSlug, customerId }),
+      body: JSON.stringify({ siteSlug: finalSiteSlug, customerId: finalCustomerId }),
     });
     
     const responseText = await response.text();
@@ -70,14 +157,45 @@ exports.handler = async (event) => {
       };
     }
 
+    const qrCode = data.qrCode || data.qr_code || data.qr || null;
+    const instanceId = data.instanceId || data.instance_id || null;
+    const status = qrCode ? 'qr_required' : 'connecting';
+
+    // Se for número reserva, atualizar whatsapp_accounts ao invés de whatsapp_credentials
+    if (isBackupAccount && backupAccountId && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const supabase = createClient(
+          process.env.SUPABASE_URL,
+          process.env.SUPABASE_SERVICE_ROLE_KEY,
+          { db: { schema: 'sistemaretiradas' } }
+        );
+
+        await supabase
+          .schema('sistemaretiradas')
+          .from('whatsapp_accounts')
+          .update({
+            uazapi_qr_code: qrCode,
+            uazapi_status: status,
+            uazapi_instance_id: instanceId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', backupAccountId);
+
+        console.log('[whatsapp-connect] ✅ Atualizado whatsapp_accounts:', backupAccountId);
+      } catch (updateError) {
+        console.warn('[whatsapp-connect] Erro ao atualizar whatsapp_accounts:', updateError.message);
+        // Não falhar se atualização der erro, retornar QR code mesmo assim
+      }
+    }
+
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         success: data.success ?? true,
-        qrCode: data.qrCode || data.qr_code || data.qr || null,
-        instanceId: data.instanceId || data.instance_id || null,
-        status: data.qrCode ? 'qr_required' : 'connecting',
+        qrCode: qrCode,
+        instanceId: instanceId,
+        status: status,
         message: data.message || null,
       }),
     };

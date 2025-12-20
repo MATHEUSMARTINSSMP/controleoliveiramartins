@@ -74,8 +74,8 @@ export const FinancialDashboard = () => {
                 
                 // Parcelas pendentes/agendadas
                 supabase
-                    .schema("sistemaretiradas")
-                    .from("parcelas")
+                .schema("sistemaretiradas")
+                .from("parcelas")
                     .select("valor_parcela")
                     .in("status_parcela", ["PENDENTE", "AGENDADO"]),
                 
@@ -89,9 +89,9 @@ export const FinancialDashboard = () => {
                 
                 // Adiantamentos aprovados
                 supabase
-                    .schema("sistemaretiradas")
-                    .from("adiantamentos")
-                    .select("valor, status, mes_competencia")
+                .schema("sistemaretiradas")
+                .from("adiantamentos")
+                .select("valor, status, mes_competencia")
                     .eq("status", "APROVADO")
             ]);
 
@@ -142,8 +142,8 @@ export const FinancialDashboard = () => {
 
             // Buscar TODAS as purchases de TODAS as colaboradoras de uma vez
             const { data: allPurchases } = await supabase
-                .schema("sistemaretiradas")
-                .from("purchases")
+                    .schema("sistemaretiradas")
+                    .from("purchases")
                 .select("id, colaboradora_id")
                 .in("colaboradora_id", profileIds);
 
@@ -159,8 +159,8 @@ export const FinancialDashboard = () => {
 
             // Buscar TODAS as parcelas pendentes/agendadas de uma vez
             const { data: allParcelas } = allPurchaseIds.length > 0 ? await supabase
-                .schema("sistemaretiradas")
-                .from("parcelas")
+                        .schema("sistemaretiradas")
+                        .from("parcelas")
                 .select("valor_parcela, compra_id")
                 .in("compra_id", allPurchaseIds)
                 .in("status_parcela", ["PENDENTE", "AGENDADO"]) : { data: null };
@@ -182,11 +182,11 @@ export const FinancialDashboard = () => {
 
             // Buscar TODOS os adiantamentos de TODAS as colaboradoras de uma vez
             const { data: allAdiantamentos } = await supabase
-                .schema("sistemaretiradas")
-                .from("adiantamentos")
+                    .schema("sistemaretiradas")
+                    .from("adiantamentos")
                 .select("valor, colaboradora_id")
                 .in("colaboradora_id", profileIds)
-                .in("status", ["APROVADO", "DESCONTADO"]);
+                    .in("status", ["APROVADO", "DESCONTADO"]);
 
             // Agrupar adiantamentos por colaboradora
             const adiantamentosByColaboradora = new Map<string, number>();
@@ -210,7 +210,7 @@ export const FinancialDashboard = () => {
                     usado_total,
                     disponivel,
                 };
-            });
+                });
 
             setColaboradoras(limites);
         } catch (error) {

@@ -55,7 +55,7 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const { phone, message, store_id, use_global_whatsapp } = JSON.parse(event.body || '{}');
+    const { phone, message, store_id, use_global_whatsapp, whatsapp_account_id } = JSON.parse(event.body || '{}');
 
     if (!phone || !message) {
       return {
@@ -116,6 +116,7 @@ exports.handler = async (event, context) => {
 
     // ============================================================================
     // MULTI-TENANCY COM FALLBACK PARA CREDENCIAL GLOBAL
+    // Suporte para números reserva via whatsapp_account_id
     // ============================================================================
     let siteSlug = null;
     let customerId = null;
@@ -141,6 +142,104 @@ exports.handler = async (event, context) => {
       console.warn('[WhatsApp] Erro ao criar cliente Supabase:', err.message);
       supabaseAvailable = false;
     }
+
+    // ============================================================================
+    // FUNCAO HELPER: Buscar credencial de número reserva (whatsapp_accounts)
+    // ============================================================================
+    const fetchBackupAccountCredential = async (accountId) => {
+      if (!supabase || !supabaseAvailable || !accountId) {
+        return null;
+      }
+
+      console.log('[WhatsApp] Buscando credencial de número reserva:', accountId);
+      
+      try {
+        // 1. Buscar número reserva em whatsapp_accounts
+        const { data: backupAccount, error: backupError } = await supabase
+          .schema('sistemaretiradas')
+          .from('whatsapp_accounts')
+          .select('id, phone, is_backup1, is_backup2, is_backup3, uazapi_token, uazapi_instance_id, uazapi_status, store_id, is_connected')
+          .eq('id', accountId)
+          .single();
+
+        if (backupError) {
+          console.warn('[WhatsApp] Erro ao buscar número reserva:', backupError.message);
+          return null;
+        }
+
+        if (!backupAccount || !backupAccount.is_connected || backupAccount.uazapi_status !== 'connected') {
+          console.log('[WhatsApp] Número reserva não encontrado ou não conectado (status:', backupAccount?.uazapi_status || 'não existe', ')');
+          return null;
+        }
+
+        if (!backupAccount.uazapi_token || !backupAccount.uazapi_instance_id) {
+          console.warn('[WhatsApp] Número reserva sem token ou instance_id');
+          return null;
+        }
+
+        // 2. Buscar loja para obter site_slug
+        const { data: store } = await supabase
+          .schema('sistemaretiradas')
+          .from('stores')
+          .select('site_slug, name')
+          .eq('id', backupAccount.store_id)
+          .single();
+
+        if (!store) {
+          console.warn('[WhatsApp] Loja não encontrada para número reserva');
+          return null;
+        }
+
+        // 3. Buscar credencial principal da loja para obter customer_id (email do admin)
+        // Usar site_slug da loja para buscar em whatsapp_credentials
+        const storeSlug = store.site_slug || generateSlug(store.name);
+        const { data: primaryCredential } = await supabase
+          .schema('sistemaretiradas')
+          .from('whatsapp_credentials')
+          .select('customer_id, admin_id')
+          .eq('site_slug', storeSlug)
+          .eq('status', 'active')
+          .eq('is_global', false)
+          .maybeSingle();
+
+        // Se não encontrar credencial principal, usar site_slug como customer_id (fallback)
+        // O N8N pode aceitar site_slug como customer_id em alguns casos
+        let customerId = primaryCredential?.customer_id || storeSlug;
+
+        // Se temos admin_id, buscar email do profile
+        if (primaryCredential?.admin_id && !primaryCredential?.customer_id) {
+          const { data: adminProfile } = await supabase
+            .schema('sistemaretiradas')
+            .from('profiles')
+            .select('email')
+            .eq('id', primaryCredential.admin_id)
+            .single();
+
+          if (adminProfile?.email) {
+            customerId = adminProfile.email;
+          }
+        }
+
+        // Determinar tipo de backup
+        let accountType = "BACKUP_1";
+        if (backupAccount.is_backup2) accountType = "BACKUP_2";
+        else if (backupAccount.is_backup3) accountType = "BACKUP_3";
+
+        console.log('[WhatsApp] Número reserva encontrado e conectado:', backupAccount.phone);
+        return {
+          siteSlug: storeSlug,
+          customerId: customerId,
+          token: backupAccount.uazapi_token,
+          instanceId: backupAccount.uazapi_instance_id,
+          phone: backupAccount.phone,
+          source: `backup_account:${accountType}`,
+          accountType: accountType
+        };
+      } catch (err) {
+        console.warn('[WhatsApp] Erro ao buscar número reserva:', err.message);
+        return null;
+      }
+    };
 
     // ============================================================================
     // FUNCAO HELPER: Buscar credencial global do banco
@@ -188,7 +287,24 @@ exports.handler = async (event, context) => {
     // ============================================================================
     const functionStart = Date.now();
     
-    if (store_id && supabaseAvailable && supabase) {
+    // PRIORIDADE 1: Se whatsapp_account_id fornecido, buscar número reserva
+    if (whatsapp_account_id && supabaseAvailable && supabase) {
+      console.log('[WhatsApp] whatsapp_account_id fornecido, buscando número reserva...');
+      const backupCred = await fetchBackupAccountCredential(whatsapp_account_id);
+      if (backupCred) {
+        siteSlug = backupCred.siteSlug;
+        customerId = backupCred.customerId;
+        credentialsSource = backupCred.source;
+        console.log('[WhatsApp] ✅ Usando número reserva:', backupCred.phone, '| Tipo:', backupCred.accountType);
+      } else {
+        console.warn('[WhatsApp] Número reserva não encontrado ou não conectado, caindo para busca normal');
+        // Continuar para lógica normal abaixo
+      }
+    }
+    
+    // PRIORIDADE 2: Se não encontrou número reserva (ou não foi fornecido), buscar credencial normal
+    if (!siteSlug || !customerId) {
+      if (store_id && supabaseAvailable && supabase) {
       console.log('[WhatsApp] Buscando credenciais para store_id:', store_id);
 
       try {

@@ -4,6 +4,11 @@
 -- Data: 2025-12-19
 -- Descrição: Adiciona parâmetros opcionais de paginação (offset e limit)
 --            para permitir buscar contatos em lotes
+-- 
+-- NOTA IMPORTANTE: Se existir uma tabela/view 'contacts' que agrega todos os
+--                  contatos (como 'sales' agrega todas as vendas), deve-se usar
+--                  ela ao invés de 'crm_contacts' diretamente. 'contacts' seria
+--                  o hub central de todos os contatos (crm_contacts, tiny_contacts, etc)
 -- ============================================================================
 
 -- Atualizar função para aceitar paginação

@@ -118,17 +118,17 @@ exports.handler = async (event, context) => {
     const eventId = (gateway.toUpperCase() === 'CAKTO' && rawEventData?.data?.id) 
                    ? rawEventData.data.id 
                    : eventData.id || 
-                     eventData.data?.id || 
+                   eventData.data?.id || 
                      rawEventData?.id ||
-                     `${gateway}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                   `${gateway}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     // Para CAKTO, extrair event type do campo "event" do root
     const eventType = (gateway.toUpperCase() === 'CAKTO' && rawEventData?.event)
                      ? rawEventData.event
                      : eventData.type || 
-                       eventData.action || 
-                       eventData.event || 
-                       'unknown';
+                     eventData.action || 
+                     eventData.event || 
+                     'unknown';
 
     console.log('[Payment Webhook] Event ID:', eventId);
     console.log('[Payment Webhook] Event Type:', eventType);
@@ -136,19 +136,19 @@ exports.handler = async (event, context) => {
     // Registrar evento no banco (para auditoria)
     // Nota: Se der erro de schema cache, continuar mesmo assim (não bloqueia processamento)
     try {
-      const { error: eventError } = await supabase
+    const { error: eventError } = await supabase
         .schema('sistemaretiradas')
-        .from('billing_events')
-        .insert({
-          payment_gateway: gateway,
-          event_type: eventType,
+      .from('billing_events')
+      .insert({
+        payment_gateway: gateway,
+        event_type: eventType,
           external_event_id: eventId.toString(),
-          event_data: eventData,
-          processed: false,
-        });
+        event_data: eventData,
+        processed: false,
+      });
 
-      if (eventError) {
-        console.error('[Payment Webhook] Error saving event:', eventError);
+    if (eventError) {
+      console.error('[Payment Webhook] Error saving event:', eventError);
         console.warn('[Payment Webhook] Continuando processamento mesmo com erro ao salvar evento (não crítico)');
       } else {
         console.log('[Payment Webhook] Event saved to billing_events');
@@ -174,11 +174,11 @@ exports.handler = async (event, context) => {
 
     // Marcar evento como processado (opcional, não bloqueia se falhar)
     try {
-      await supabase
+    await supabase
         .schema('sistemaretiradas')
-        .from('billing_events')
-        .update({ processed: true })
-        .eq('payment_gateway', gateway)
+      .from('billing_events')
+      .update({ processed: true })
+      .eq('payment_gateway', gateway)
         .eq('external_event_id', eventId.toString());
     } catch (updateError) {
       // Não bloquear resposta se falhar ao marcar como processado
@@ -212,11 +212,11 @@ exports.handler = async (event, context) => {
 
 async function validateWebhookSignature(supabase, gateway, event) {
   switch (gateway.toUpperCase()) {
-    case 'STRIPE':
-      return await validateStripeSignature(supabase, event);
-    case 'CAKTO':
-      return await validateCaktoSignature(supabase, event);
-    default:
+      case 'STRIPE':
+        return await validateStripeSignature(supabase, event);
+      case 'CAKTO':
+        return await validateCaktoSignature(supabase, event);
+      default:
       // Para outros gateways, pode validar ou aceitar (conforme política de segurança)
       console.warn('[Payment Webhook] No signature validation for gateway:', gateway);
       return { valid: true };
@@ -229,14 +229,14 @@ async function validateStripeSignature(supabase, event) {
   
   if (!webhookSecret) {
     const { data: gatewayConfig } = await supabase
-      .from('payment_gateways')
+    .from('payment_gateways')
       .select('webhook_secret')
-      .eq('id', 'STRIPE')
-      .single();
-    
+    .eq('id', 'STRIPE')
+    .single();
+
     webhookSecret = gatewayConfig?.webhook_secret;
   }
-
+  
   if (!webhookSecret) {
     console.warn('[Payment Webhook] Stripe webhook secret not configured');
     return { valid: false, error: 'Webhook secret not configured' };
@@ -272,7 +272,7 @@ async function validateCaktoSignature(supabase, event) {
 
   // Também verificar header (caso o CAKTO mude no futuro)
   const headerSignature = event.headers['x-cakto-signature'];
-
+  
   if (!signature && !headerSignature) {
     console.warn('[Payment Webhook] CAKTO: No secret found in body or header');
     // CAKTO pode não enviar signature em alguns eventos - aceitar se configurado
@@ -284,15 +284,15 @@ async function validateCaktoSignature(supabase, event) {
 
   if (!webhookSecret) {
     const { data: gatewayConfig } = await supabase
-      .from('payment_gateways')
+    .from('payment_gateways')
       .select('webhook_secret, active')
       .eq('id', 'CAKTO')
-      .single();
+    .single();
 
     if (!gatewayConfig) {
       console.warn('[Payment Webhook] CAKTO gateway config not found, skipping signature validation');
       return { valid: true }; // Aceitar se não configurado (para facilitar setup inicial)
-    }
+  }
 
     if (!gatewayConfig.active) {
       console.warn('[Payment Webhook] CAKTO gateway is not active, but validating signature anyway');
@@ -300,7 +300,7 @@ async function validateCaktoSignature(supabase, event) {
 
     webhookSecret = gatewayConfig.webhook_secret;
   }
-
+  
   if (!webhookSecret) {
     console.warn('[Payment Webhook] CAKTO webhook secret not configured, skipping validation');
     return { valid: true }; // Aceitar se não configurado (modo permissivo)
@@ -309,8 +309,8 @@ async function validateCaktoSignature(supabase, event) {
   // CAKTO validação: comparar o secret recebido com o configurado
   if (signature === webhookSecret || headerSignature === webhookSecret) {
     console.log('[Payment Webhook] CAKTO signature validated successfully');
-    return { valid: true };
-  }
+  return { valid: true };
+}
 
   console.error('[Payment Webhook] CAKTO signature mismatch. Received:', signature?.substring(0, 4) + '...', 'Expected:', webhookSecret?.substring(0, 4) + '...');
   return { valid: false, error: 'Invalid CAKTO webhook secret' };
@@ -331,7 +331,7 @@ async function handleStripeEvent(supabase, event) {
         p_external_subscription_id: subscriptionId.toString(),
         p_gateway_data: event.data.object,
       });
-    }
+  }
   }
 
   if (event.type === 'invoice.payment_succeeded') {
@@ -345,7 +345,7 @@ async function handleStripeEvent(supabase, event) {
         .select('id, admin_id')
         .eq('payment_gateway', 'STRIPE')
         .eq('external_subscription_id', subscriptionId.toString())
-        .single();
+    .single();
 
       if (subscription) {
         await supabase.rpc('record_payment', {
@@ -361,7 +361,7 @@ async function handleStripeEvent(supabase, event) {
   }
 
   return { success: true, message: 'Stripe event processed' };
-}
+  }
 
 async function handleCaktoEvent(supabase, rawEventData) {
   console.log('[Payment Webhook] Processing CAKTO event');
@@ -377,7 +377,7 @@ async function handleCaktoEvent(supabase, rawEventData) {
       error: 'rawEventData is missing or invalid'
     };
   }
-  
+
   // Estrutura oficial do Cakto (conforme documentação):
   // {
   //   "secret": "123",
@@ -405,8 +405,8 @@ async function handleCaktoEvent(supabase, rawEventData) {
   
   if (eventType === 'purchase_approved') {
     return await handleCaktoPurchaseApproved(supabase, caktoData);
-  }
-  
+}
+
   if (eventType === 'subscription_created' || eventType === 'subscription_renewed') {
     // Criação ou renovação de assinatura - processar como purchase_approved
     console.log('[Payment Webhook] CAKTO: Processing subscription_created/renewed as purchase_approved');
@@ -543,7 +543,7 @@ async function handleCaktoPurchaseApproved(supabase, data) {
             role: 'ADMIN',
           })
           .eq('id', existingUserId);
-
+  
         if (profileUpdateError) {
           console.error('[Payment Webhook] CAKTO: Error updating profile to ADMIN:', profileUpdateError);
         }
@@ -589,7 +589,7 @@ async function handleCaktoPurchaseApproved(supabase, data) {
         message: 'Failed to create user',
         error: authError?.message || 'Unknown error'
       };
-    }
+  }
 
     const userId = userData.user.id;
     console.log('[Payment Webhook] CAKTO: ✅ User created:', userId);
@@ -621,7 +621,7 @@ async function handleCaktoPurchaseApproved(supabase, data) {
             name: customerName || 'Cliente',
             role: 'ADMIN',
           });
-
+  
         if (profileCreateError) {
           if (profileCreateError.code === '23505') {
             // Duplicate key - profile já existe (trigger criou entre tentativas)
@@ -838,7 +838,7 @@ async function createCaktoSubscription(supabase, adminId, data, planName) {
   } else {
     console.log('[Payment Webhook] CAKTO: Plan found (active):', plan);
     planId = plan.id;
-  }
+}
 
   // Verificar se já existe subscription para este admin
   const { data: existingSubscription } = await supabase
@@ -888,7 +888,7 @@ async function createCaktoSubscription(supabase, adminId, data, planName) {
       console.error('[Payment Webhook] CAKTO: Error creating subscription:', subError);
     } else {
       console.log('[Payment Webhook] CAKTO: ✅ Subscription created');
-    }
+}
   }
 }
 

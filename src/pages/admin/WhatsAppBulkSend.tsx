@@ -27,14 +27,21 @@ import {
   Plus,
   X,
   Phone,
-  Calendar
+  Calendar,
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  Eye,
+  QrCode
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
+import { fetchWhatsAppStatus, connectWhatsApp, isTerminalStatus, type WhatsAppStatusResponse, connectBackupWhatsApp, fetchBackupWhatsAppStatus } from "@/lib/whatsapp";
 
 interface Store {
   id: string;
   name: string;
+  site_slug?: string;
 }
 
 interface CRMContact {
@@ -57,6 +64,9 @@ interface WhatsAppAccount {
   id: string;
   phone: string;
   account_type: string;
+  is_connected?: boolean;
+  uazapi_qr_code?: string | null;
+  uazapi_status?: string | null;
 }
 
 interface FilterConfig {
@@ -131,6 +141,16 @@ export default function WhatsAppBulkSend() {
   const [loadingContacts, setLoadingContacts] = useState(false);
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [currentStep, setCurrentStep] = useState<"store" | "contacts" | "messages" | "settings" | "review">("store");
+  
+  // Estados para autenticação de números reserva
+  const [backupAccountStatus, setBackupAccountStatus] = useState<Record<string, WhatsAppStatusResponse | null>>({});
+  const [checkingStatus, setCheckingStatus] = useState<string | null>(null);
+  const [pollingAccounts, setPollingAccounts] = useState<Set<string>>(new Set());
+
+  // Função helper para gerar slug (usado para criar identificadores únicos para números reserva)
+  const generateBackupSlug = (storeId: string, accountType: string): string => {
+    return `${storeId}-${accountType.toLowerCase()}`;
+  };
 
   useEffect(() => {
     if (!authLoading && (!profile || profile.role !== "ADMIN")) {
@@ -167,7 +187,7 @@ export default function WhatsAppBulkSend() {
       const { data, error } = await supabase
         .schema("sistemaretiradas")
         .from("stores")
-        .select("id, name")
+        .select("id, name, site_slug")
         .eq("admin_id", profile?.id)
         .eq("active", true)
         .order("name");
@@ -448,31 +468,81 @@ export default function WhatsAppBulkSend() {
   };
 
   const fetchWhatsAppAccounts = async () => {
+    if (!selectedStoreId || !profile?.id || !profile?.email) return;
+    
     try {
-      const { data, error } = await supabase
-        .schema("sistemaretiradas")
-        .from("whatsapp_accounts")
-        .select("id, phone, account_type")
-        .eq("store_id", selectedStoreId)
-        .eq("is_connected", true)
-        .order("account_type");
-
-      if (error) {
-        // Tabela pode não existir ainda
-        console.warn("Erro ao buscar contas WhatsApp:", error);
+      // Buscar slug da loja
+      const selectedStore = stores.find(s => s.id === selectedStoreId);
+      if (!selectedStore?.site_slug) {
+        console.warn("Loja selecionada não tem site_slug");
         setWhatsappAccounts([]);
         return;
       }
 
-      setWhatsappAccounts(data || []);
+      // 1. Buscar número principal da loja (whatsapp_credentials)
+      const { data: credentials, error: credError } = await supabase
+        .schema("sistemaretiradas")
+        .from("whatsapp_credentials")
+        .select("uazapi_phone_number, uazapi_status")
+        .eq("admin_id", profile.id)
+        .eq("site_slug", selectedStore.site_slug)
+        .eq("uazapi_status", "connected")
+        .maybeSingle();
+
+      const accounts: WhatsAppAccount[] = [];
+
+      // Adicionar número principal se estiver conectado
+      // Para números principais, não usamos ID de whatsapp_accounts (eles estão em whatsapp_credentials)
+      // Usamos null como identificador especial
+      if (credentials?.uazapi_phone_number) {
+        accounts.push({
+          id: "PRIMARY", // Identificador especial para números principais
+          phone: credentials.uazapi_phone_number,
+          account_type: "PRIMARY",
+          is_connected: true,
+          uazapi_status: credentials.uazapi_status,
+        });
+      }
+
+      // 2. Buscar números reserva (whatsapp_accounts) usando colunas booleanas
+      const { data: backupAccounts, error: backupError } = await supabase
+        .schema("sistemaretiradas")
+        .from("whatsapp_accounts")
+        .select("id, phone, is_backup1, is_backup2, is_backup3, is_connected, uazapi_qr_code, uazapi_status")
+        .eq("store_id", selectedStoreId)
+        .or("is_backup1.eq.true,is_backup2.eq.true,is_backup3.eq.true")
+        .order("is_backup1", { ascending: false })
+        .order("is_backup2", { ascending: false })
+        .order("is_backup3", { ascending: false });
+
+      if (backupAccounts) {
+        accounts.push(...backupAccounts.map(acc => {
+          // Determinar qual backup é baseado nas colunas booleanas
+          let backupType = "BACKUP_1";
+          if (acc.is_backup2) backupType = "BACKUP_2";
+          else if (acc.is_backup3) backupType = "BACKUP_3";
+          
+          return {
+            id: acc.id,
+            phone: acc.phone,
+            account_type: backupType,
+            is_connected: acc.is_connected || false,
+            uazapi_qr_code: acc.uazapi_qr_code || null,
+            uazapi_status: acc.uazapi_status || null,
+          };
+        }));
+      }
+
+      setWhatsappAccounts(accounts);
       
       // Auto-selecionar número principal
-      const primary = data?.find(a => a.account_type === "PRIMARY");
+      const primary = accounts.find(a => a.account_type === "PRIMARY");
       if (primary) {
         setPrimaryPhoneId(primary.id);
       }
     } catch (error: any) {
       console.error("Erro ao buscar contas WhatsApp:", error);
+      setWhatsappAccounts([]);
     }
   };
 
@@ -611,6 +681,260 @@ export default function WhatsAppBulkSend() {
     setMessageVariations(newVariations);
   };
 
+  // Função para verificar status de número reserva
+  const handleCheckBackupStatus = async (accountId: string) => {
+    if (!selectedStoreId || !profile?.email || !profile?.id) {
+      toast.error("Dados da loja ou perfil não disponíveis");
+      return;
+    }
+
+    setCheckingStatus(accountId);
+    toast.info("Verificando status do número reserva...");
+
+    try {
+      // Buscar dados do número reserva
+      const account = whatsappAccounts.find(acc => acc.id === accountId);
+      if (!account) {
+        toast.error("Número reserva não encontrado");
+        return;
+      }
+
+      // Buscar loja para obter site_slug
+      const selectedStore = stores.find(s => s.id === selectedStoreId);
+      if (!selectedStore?.site_slug) {
+        toast.error("Loja não tem site_slug configurado");
+        return;
+      }
+
+      // Chamar função de status com whatsapp_account_id
+      const status = await fetchBackupWhatsAppStatus({
+        siteSlug: selectedStore.site_slug,
+        customerId: profile.email,
+        whatsapp_account_id: accountId,
+      });
+
+      console.log('[WhatsAppBulkSend] Status backup recebido:', status);
+
+      // Atualizar estado local
+      setBackupAccountStatus(prev => ({ ...prev, [accountId]: status }));
+
+      // Atualizar lista de contas
+      setWhatsappAccounts(prev => prev.map(acc => 
+        acc.id === accountId 
+          ? { 
+              ...acc, 
+              uazapi_status: status.status,
+              uazapi_qr_code: status.qrCode,
+              is_connected: status.connected,
+            }
+          : acc
+      ));
+
+      // Atualizar no Supabase
+      await supabase
+        .schema("sistemaretiradas")
+        .from("whatsapp_accounts")
+        .update({
+          uazapi_status: status.status,
+          uazapi_qr_code: status.qrCode,
+          is_connected: status.connected,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', accountId);
+
+      // Se não é status terminal, iniciar polling
+      if (!isTerminalStatus(status.status)) {
+        setPollingAccounts(prev => new Set(prev).add(accountId));
+        startPollingForBackupAccount(accountId);
+      } else {
+        setPollingAccounts(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(accountId);
+          return newSet;
+        });
+      }
+
+      // Toast de feedback
+      if (status.connected) {
+        toast.success(`Número ${account.phone} está conectado!`);
+      } else if (status.status === 'qr_required') {
+        toast.info(`Número ${account.phone}: Escaneie o QR Code para conectar`);
+      } else if (status.status === 'error') {
+        toast.error(`Número ${account.phone}: Erro na conexão`);
+      } else {
+        toast.info(`Número ${account.phone}: Status: ${status.status}`);
+      }
+    } catch (error: any) {
+      console.error('Erro ao verificar status backup:', error);
+      toast.error('Erro ao verificar status: ' + error.message);
+    } finally {
+      setCheckingStatus(null);
+    }
+  };
+
+  // Função para gerar QR code de número reserva
+  const handleGenerateBackupQRCode = async (accountId: string) => {
+    if (!selectedStoreId || !profile?.email || !profile?.id) {
+      toast.error("Dados da loja ou perfil não disponíveis");
+      return;
+    }
+
+    setCheckingStatus(accountId);
+    toast.info("Gerando QR Code para número reserva...");
+
+    try {
+      // Buscar dados do número reserva
+      const account = whatsappAccounts.find(acc => acc.id === accountId);
+      if (!account) {
+        toast.error("Número reserva não encontrado");
+        return;
+      }
+
+      // Buscar loja para obter site_slug
+      const selectedStore = stores.find(s => s.id === selectedStoreId);
+      if (!selectedStore?.site_slug) {
+        toast.error("Loja não tem site_slug configurado");
+        return;
+      }
+
+      // Chamar função de conexão com whatsapp_account_id
+      const result = await connectBackupWhatsApp({
+        siteSlug: selectedStore.site_slug,
+        customerId: profile.email,
+        whatsapp_account_id: accountId,
+      });
+
+      console.log('[WhatsAppBulkSend] Resultado conexao backup:', result);
+
+      if (result.qrCode) {
+        // Atualizar estado local
+        setBackupAccountStatus(prev => ({
+          ...prev,
+          [accountId]: {
+            success: true,
+            ok: true,
+            connected: false,
+            status: 'qr_required',
+            qrCode: result.qrCode,
+            instanceId: result.instanceId || null,
+            phoneNumber: account.phone,
+            token: null,
+          },
+        }));
+
+        // Atualizar lista de contas
+        setWhatsappAccounts(prev => prev.map(acc => 
+          acc.id === accountId 
+            ? { ...acc, uazapi_qr_code: result.qrCode, uazapi_status: 'qr_required' }
+            : acc
+        ));
+
+        // Iniciar polling
+        setPollingAccounts(prev => new Set(prev).add(accountId));
+        startPollingForBackupAccount(accountId);
+
+        toast.success(`QR Code gerado! Escaneie para conectar número ${account.phone}`);
+      } else if (result.error) {
+        toast.error(`Erro ao gerar QR Code: ${result.error}`);
+      } else {
+        toast.info("Aguardando resposta do servidor...");
+        setPollingAccounts(prev => new Set(prev).add(accountId));
+        startPollingForBackupAccount(accountId);
+      }
+    } catch (error: any) {
+      console.error('Erro ao gerar QR Code backup:', error);
+      toast.error('Erro ao gerar QR Code: ' + error.message);
+    } finally {
+      setCheckingStatus(null);
+    }
+  };
+
+  // Função para polling de status de número reserva
+  const startPollingForBackupAccount = (accountId: string) => {
+    if (!selectedStoreId || !profile?.email) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const account = whatsappAccounts.find(acc => acc.id === accountId);
+        if (!account) {
+          clearInterval(pollInterval);
+          setPollingAccounts(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(accountId);
+            return newSet;
+          });
+          return;
+        }
+
+        const selectedStore = stores.find(s => s.id === selectedStoreId);
+        if (!selectedStore?.site_slug) {
+          clearInterval(pollInterval);
+          return;
+        }
+
+        const status = await fetchBackupWhatsAppStatus({
+          siteSlug: selectedStore.site_slug,
+          customerId: profile.email!,
+          whatsapp_account_id: accountId,
+        });
+
+        setBackupAccountStatus(prev => ({ ...prev, [accountId]: status }));
+
+        // Atualizar lista de contas
+        setWhatsappAccounts(prev => prev.map(acc => 
+          acc.id === accountId 
+            ? { 
+                ...acc, 
+                uazapi_status: status.status,
+                uazapi_qr_code: status.qrCode,
+                is_connected: status.connected,
+              }
+            : acc
+        ));
+
+        // Se status terminal, parar polling e atualizar no Supabase
+        if (isTerminalStatus(status.status)) {
+          clearInterval(pollInterval);
+          setPollingAccounts(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(accountId);
+            return newSet;
+          });
+
+          // Atualizar no Supabase
+          await supabase
+            .schema("sistemaretiradas")
+            .from("whatsapp_accounts")
+            .update({
+              uazapi_status: status.status,
+              uazapi_qr_code: status.qrCode,
+              is_connected: status.connected,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', accountId);
+        }
+      } catch (error: any) {
+        console.error('Erro no polling backup:', error);
+        clearInterval(pollInterval);
+        setPollingAccounts(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(accountId);
+          return newSet;
+        });
+      }
+        }, 12000); // Polling a cada 12 segundos (igual aos números principais)
+
+    // Limpar após 2 minutos (igual aos números principais)
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      setPollingAccounts(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(accountId);
+        return newSet;
+      });
+    }, 120000); // 2 minutos
+  };
+
   const replacePlaceholders = (text: string, contact: CRMContact): string => {
     const firstName = contact.nome?.split(" ")[0] || "Cliente";
     const now = new Date();
@@ -694,10 +1018,28 @@ export default function WhatsAppBulkSend() {
         }
 
         // Determinar número WhatsApp a usar
-        let whatsappAccountId = primaryPhoneId;
+        // Para números principais (account_type = PRIMARY), usar null
+        // Para números reserva (BACKUP_1/2/3), usar UUID de whatsapp_accounts
+        let whatsappAccountId: string | null = null;
+        
+        const primaryAccount = whatsappAccounts.find(a => a.id === primaryPhoneId);
+        const isPrimary = primaryAccount?.account_type === "PRIMARY";
+        
+        if (isPrimary) {
+          // Número principal: usar null (será buscado em whatsapp_credentials)
+          whatsappAccountId = null;
+        } else {
+          // Número reserva: usar o ID real
+          whatsappAccountId = primaryPhoneId;
+        }
+        
         if (alternateNumbers && backupPhoneIds.length > 0) {
-          // Filtrar apenas IDs válidos (não "none" ou vazios)
-          const availableIds = [primaryPhoneId, ...backupPhoneIds.filter(id => id && id !== "none")].filter(Boolean);
+          // Filtrar apenas IDs válidos (não "none" ou "PRIMARY" ou vazios)
+          const availableIds = [
+            isPrimary ? null : primaryPhoneId, 
+            ...backupPhoneIds.filter(id => id && id !== "none" && id !== "PRIMARY")
+          ].filter(id => id !== null && id !== undefined) as string[];
+          
           if (availableIds.length > 0) {
             const index = selectedContactsData.indexOf(contact) % availableIds.length;
             whatsappAccountId = availableIds[index];
@@ -1282,34 +1624,197 @@ export default function WhatsAppBulkSend() {
                   </Select>
                 </div>
 
-                <div>
-                  <Label>Números Reserva (opcional, até 3)</Label>
-                  {backupPhoneIds.map((backupId, index) => (
-                    <div key={index} className="flex gap-2 mt-2">
-                      <Select
-                        value={backupId}
-                        onValueChange={(value) => {
-                          const newBackups = [...backupPhoneIds];
-                          newBackups[index] = value;
-                          setBackupPhoneIds(newBackups);
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={`Reserva ${index + 1}`} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Nenhum</SelectItem>
-                          {whatsappAccounts
-                            .filter((a) => a.account_type !== "PRIMARY")
-                            .map((account) => (
-                              <SelectItem key={account.id} value={account.id}>
-                                {account.phone}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
+                {/* Gestão de Números Reserva */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base font-semibold">Números Reserva</Label>
+                    <Badge variant="outline">{whatsappAccounts.filter(a => a.account_type !== "PRIMARY").length} disponível(is)</Badge>
+                  </div>
+                  
+                  {/* Lista de números reserva com autenticação */}
+                  {whatsappAccounts
+                    .filter((a) => a.account_type !== "PRIMARY")
+                    .map((account) => {
+                      const accountStatus = backupAccountStatus[account.id];
+                      const status = accountStatus?.status || account.uazapi_status || 'disconnected';
+                      const qrCode = accountStatus?.qrCode || account.uazapi_qr_code;
+                      const isConnected = accountStatus?.connected || account.is_connected || false;
+                      const isLoading = checkingStatus === account.id;
+                      const isPolling = pollingAccounts.has(account.id);
+
+                      return (
+                        <Card key={account.id} className="border-2">
+                          <CardContent className="p-4 space-y-4">
+                            {/* Header do número */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <Phone className="h-5 w-5 text-muted-foreground" />
+                                <div>
+                                  <div className="font-semibold">{account.phone}</div>
+                                  <div className="text-sm text-muted-foreground">{account.account_type}</div>
+                                </div>
+                              </div>
+                              {/* Badge de status */}
+                              {status === 'connected' && (
+                                <Badge variant="default" className="bg-green-500">
+                                  <Wifi className="h-3 w-3 mr-1" />
+                                  Conectado
+                                </Badge>
+                              )}
+                              {status === 'qr_required' && (
+                                <Badge variant="secondary">
+                                  <QrCode className="h-3 w-3 mr-1" />
+                                  QR Code necessário
+                                </Badge>
+                              )}
+                              {status === 'disconnected' && (
+                                <Badge variant="outline">
+                                  <WifiOff className="h-3 w-3 mr-1" />
+                                  Desconectado
+                                </Badge>
+                              )}
+                              {status === 'error' && (
+                                <Badge variant="destructive">
+                                  <AlertTriangle className="h-3 w-3 mr-1" />
+                                  Erro
+                                </Badge>
+                              )}
+                              {status === 'connecting' && (
+                                <Badge variant="secondary">
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                  Conectando...
+                                </Badge>
+                              )}
+                            </div>
+
+                            {/* QR Code display */}
+                            {qrCode && status === 'qr_required' && (
+                              <div className="p-4 bg-muted rounded-lg text-center border-2 border-dashed">
+                                <p className="text-sm font-medium mb-2">Escaneie o QR Code para conectar:</p>
+                                <img 
+                                  src={qrCode} 
+                                  alt="QR Code WhatsApp" 
+                                  className="max-w-[200px] mx-auto rounded-lg"
+                                />
+                                <p className="text-xs text-muted-foreground mt-2">
+                                  Abra o WhatsApp no celular, vá em Configurações → Dispositivos Conectados e escaneie
+                                </p>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="mt-2"
+                                  onClick={() => {
+                                    // Esconder QR code (não cancelar conexão, apenas esconder da UI)
+                                    setBackupAccountStatus(prev => ({
+                                      ...prev,
+                                      [account.id]: prev[account.id] ? { ...prev[account.id]!, qrCode: null } : null
+                                    }));
+                                  }}
+                                >
+                                  <X className="h-4 w-4 mr-1" />
+                                  Esconder QR Code
+                                </Button>
+                              </div>
+                            )}
+
+                            {/* Mensagem de status */}
+                            {isConnected && status === 'connected' && (
+                              <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg text-center">
+                                <Wifi className="h-8 w-8 mx-auto text-green-500 mb-1" />
+                                <p className="text-sm font-medium text-green-700 dark:text-green-400">
+                                  WhatsApp Conectado
+                                </p>
+                              </div>
+                            )}
+
+                            {!qrCode && !isConnected && status === 'disconnected' && (
+                              <div className="p-3 bg-muted rounded-lg text-center">
+                                <WifiOff className="h-8 w-8 mx-auto text-muted-foreground mb-1" />
+                                <p className="text-xs text-muted-foreground">
+                                  Clique em "Gerar QR Code" para conectar este número
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Botões de ação */}
+                            <div className="flex gap-2 flex-wrap">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCheckBackupStatus(account.id)}
+                                disabled={isLoading || isPolling}
+                                className="flex-1 min-w-[120px]"
+                              >
+                                {isLoading ? (
+                                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                ) : (
+                                  <Eye className="h-4 w-4 mr-1" />
+                                )}
+                                Verificar Status
+                              </Button>
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => handleGenerateBackupQRCode(account.id)}
+                                disabled={isLoading || isPolling}
+                                className="flex-1 min-w-[140px]"
+                              >
+                                {isLoading || isPolling ? (
+                                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                ) : (
+                                  <RefreshCw className="h-4 w-4 mr-1" />
+                                )}
+                                {isPolling ? 'Conectando...' : 'Gerar QR Code'}
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+
+                  {/* Mensagem se não há números reserva */}
+                  {whatsappAccounts.filter((a) => a.account_type !== "PRIMARY").length === 0 && (
+                    <div className="p-4 bg-muted rounded-lg text-center border border-dashed">
+                      <Phone className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        Nenhum número reserva configurado. Configure números reserva no banco de dados.
+                      </p>
                     </div>
-                  ))}
+                  )}
+
+                  {/* Seleção de números reserva para uso na campanha */}
+                  <div>
+                    <Label>Selecionar Números Reserva para Campanha (opcional, até 3)</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Apenas números conectados estarão disponíveis para seleção
+                    </p>
+                    {backupPhoneIds.map((backupId, index) => (
+                      <div key={index} className="flex gap-2 mt-2">
+                        <Select
+                          value={backupId}
+                          onValueChange={(value) => {
+                            const newBackups = [...backupPhoneIds];
+                            newBackups[index] = value;
+                            setBackupPhoneIds(newBackups);
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={`Reserva ${index + 1}`} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Nenhum</SelectItem>
+                            {whatsappAccounts
+                              .filter((a) => a.account_type !== "PRIMARY" && a.is_connected)
+                              .map((account) => (
+                                <SelectItem key={account.id} value={account.id}>
+                                  {account.phone} ✓
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2">
