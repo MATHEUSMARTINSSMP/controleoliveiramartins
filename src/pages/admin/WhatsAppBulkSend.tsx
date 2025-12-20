@@ -113,7 +113,7 @@ export default function WhatsAppBulkSend() {
   
   // Números WhatsApp
   const [primaryPhoneId, setPrimaryPhoneId] = useState<string>("");
-  const [backupPhoneIds, setBackupPhoneIds] = useState<string[]>(["", "", ""]);
+  const [backupPhoneIds, setBackupPhoneIds] = useState<string[]>(["none", "none", "none"]);
   
   // Configurações de envio
   const [messagesPerNumber, setMessagesPerNumber] = useState(50);
@@ -696,9 +696,12 @@ export default function WhatsAppBulkSend() {
         // Determinar número WhatsApp a usar
         let whatsappAccountId = primaryPhoneId;
         if (alternateNumbers && backupPhoneIds.length > 0) {
-          const availableIds = [primaryPhoneId, ...backupPhoneIds.filter(id => id)].filter(Boolean);
-          const index = selectedContactsData.indexOf(contact) % availableIds.length;
-          whatsappAccountId = availableIds[index];
+          // Filtrar apenas IDs válidos (não "none" ou vazios)
+          const availableIds = [primaryPhoneId, ...backupPhoneIds.filter(id => id && id !== "none")].filter(Boolean);
+          if (availableIds.length > 0) {
+            const index = selectedContactsData.indexOf(contact) % availableIds.length;
+            whatsappAccountId = availableIds[index];
+          }
         }
 
         messagesToInsert.push({
