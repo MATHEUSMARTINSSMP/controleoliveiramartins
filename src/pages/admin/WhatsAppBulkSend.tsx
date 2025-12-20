@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { 
   ArrowLeft, 
   Search, 
@@ -146,6 +147,12 @@ export default function WhatsAppBulkSend() {
   const [backupAccountStatus, setBackupAccountStatus] = useState<Record<string, WhatsAppStatusResponse | null>>({});
   const [checkingStatus, setCheckingStatus] = useState<string | null>(null);
   const [pollingAccounts, setPollingAccounts] = useState<Set<string>>(new Set());
+  
+  // Estados para criar novo número reserva
+  const [showCreateBackupDialog, setShowCreateBackupDialog] = useState(false);
+  const [newBackupPhone, setNewBackupPhone] = useState("");
+  const [newBackupType, setNewBackupType] = useState<"BACKUP_1" | "BACKUP_2" | "BACKUP_3">("BACKUP_1");
+  const [creatingBackup, setCreatingBackup] = useState(false);
 
   // Função helper para gerar slug (usado para criar identificadores únicos para números reserva)
   const generateBackupSlug = (storeId: string, accountType: string): string => {
@@ -480,27 +487,29 @@ export default function WhatsAppBulkSend() {
       }
 
       // 1. Buscar número principal da loja (whatsapp_credentials)
+      // IMPORTANTE: Mostrar mesmo se não estiver conectado ou se uazapi_phone_number não estiver preenchido
       const { data: credentials, error: credError } = await supabase
         .schema("sistemaretiradas")
         .from("whatsapp_credentials")
-        .select("uazapi_phone_number, uazapi_status")
+        .select("uazapi_phone_number, uazapi_status, uazapi_instance_id, uazapi_token")
         .eq("admin_id", profile.id)
         .eq("site_slug", selectedStore.site_slug)
-        .eq("uazapi_status", "connected")
         .maybeSingle();
 
       const accounts: WhatsAppAccount[] = [];
 
-      // Adicionar número principal se estiver conectado
+      // Adicionar número principal se existir registro em whatsapp_credentials
       // Para números principais, não usamos ID de whatsapp_accounts (eles estão em whatsapp_credentials)
-      // Usamos null como identificador especial
-      if (credentials?.uazapi_phone_number) {
+      // Usamos "PRIMARY" como identificador especial
+      if (credentials) {
+        // Se não tiver phone_number ainda, mostrar placeholder
+        const phoneDisplay = credentials.uazapi_phone_number || "Número não conectado";
         accounts.push({
           id: "PRIMARY", // Identificador especial para números principais
-          phone: credentials.uazapi_phone_number,
+          phone: phoneDisplay,
           account_type: "PRIMARY",
-          is_connected: true,
-          uazapi_status: credentials.uazapi_status,
+          is_connected: credentials.uazapi_status === "connected",
+          uazapi_status: credentials.uazapi_status || "disconnected",
         });
       }
 
@@ -773,6 +782,72 @@ export default function WhatsAppBulkSend() {
   };
 
   // Função para gerar QR code de número reserva
+  // Função para criar novo número reserva
+  const handleCreateBackupAccount = async () => {
+    if (!selectedStoreId || !newBackupPhone.trim()) {
+      toast.error("Preencha o número do WhatsApp");
+      return;
+    }
+
+    // Validar formato do número (apenas números, 10-13 dígitos)
+    const normalizedPhone = newBackupPhone.replace(/\D/g, '');
+    if (normalizedPhone.length < 10 || normalizedPhone.length > 13) {
+      toast.error("Número inválido. Digite apenas números (10-13 dígitos)");
+      return;
+    }
+
+    setCreatingBackup(true);
+    try {
+      // Verificar se já existe um número reserva deste tipo para esta loja
+      const { data: existing } = await supabase
+        .schema("sistemaretiradas")
+        .from("whatsapp_accounts")
+        .select("id")
+        .eq("store_id", selectedStoreId)
+        .eq(newBackupType === "BACKUP_1" ? "is_backup1" : newBackupType === "BACKUP_2" ? "is_backup2" : "is_backup3", true)
+        .maybeSingle();
+
+      if (existing) {
+        toast.error(`Já existe um número ${newBackupType} para esta loja`);
+        setCreatingBackup(false);
+        return;
+      }
+
+      // Criar novo número reserva
+      const { data: newAccount, error: createError } = await supabase
+        .schema("sistemaretiradas")
+        .from("whatsapp_accounts")
+        .insert({
+          store_id: selectedStoreId,
+          phone: normalizedPhone,
+          is_backup1: newBackupType === "BACKUP_1",
+          is_backup2: newBackupType === "BACKUP_2",
+          is_backup3: newBackupType === "BACKUP_3",
+          is_connected: false,
+          uazapi_status: "disconnected",
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      toast.success(`Número reserva ${newBackupType} criado com sucesso!`);
+      
+      // Atualizar lista de contas
+      await fetchWhatsAppAccounts();
+      
+      // Fechar dialog e limpar campos
+      setShowCreateBackupDialog(false);
+      setNewBackupPhone("");
+      setNewBackupType("BACKUP_1");
+    } catch (error: any) {
+      console.error('Erro ao criar número reserva:', error);
+      toast.error('Erro ao criar número reserva: ' + (error.message || 'Erro desconhecido'));
+    } finally {
+      setCreatingBackup(false);
+    }
+  };
+
   const handleGenerateBackupQRCode = async (accountId: string) => {
     if (!selectedStoreId || !profile?.email || !profile?.id) {
       toast.error("Dados da loja ou perfil não disponíveis");
@@ -1628,7 +1703,17 @@ export default function WhatsAppBulkSend() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <Label className="text-base font-semibold">Números Reserva</Label>
-                    <Badge variant="outline">{whatsappAccounts.filter(a => a.account_type !== "PRIMARY").length} disponível(is)</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{whatsappAccounts.filter(a => a.account_type !== "PRIMARY").length} disponível(is)</Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowCreateBackupDialog(true)}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Adicionar Número Reserva
+                      </Button>
+                    </div>
                   </div>
                   
                   {/* Lista de números reserva com autenticação */}
@@ -1776,9 +1861,17 @@ export default function WhatsAppBulkSend() {
                   {whatsappAccounts.filter((a) => a.account_type !== "PRIMARY").length === 0 && (
                     <div className="p-4 bg-muted rounded-lg text-center border border-dashed">
                       <Phone className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground">
-                        Nenhum número reserva configurado. Configure números reserva no banco de dados.
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Nenhum número reserva configurado. Clique em "Adicionar Número Reserva" acima para criar um.
                       </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowCreateBackupDialog(true)}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Criar Primeiro Número Reserva
+                      </Button>
                     </div>
                   )}
 
@@ -2017,6 +2110,78 @@ export default function WhatsAppBulkSend() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Dialog para criar número reserva */}
+      <Dialog open={showCreateBackupDialog} onOpenChange={setShowCreateBackupDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar Número Reserva</DialogTitle>
+            <DialogDescription>
+              Configure um novo número WhatsApp reserva para esta loja
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Número de Telefone *</Label>
+              <Input
+                type="tel"
+                placeholder="5599123456789"
+                value={newBackupPhone}
+                onChange={(e) => setNewBackupPhone(e.target.value)}
+                disabled={creatingBackup}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Digite o número completo com código do país (ex: 5599123456789)
+              </p>
+            </div>
+            <div>
+              <Label>Tipo de Reserva *</Label>
+              <Select
+                value={newBackupType}
+                onValueChange={(value: "BACKUP_1" | "BACKUP_2" | "BACKUP_3") => setNewBackupType(value)}
+                disabled={creatingBackup}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="BACKUP_1">Reserva 1</SelectItem>
+                  <SelectItem value="BACKUP_2">Reserva 2</SelectItem>
+                  <SelectItem value="BACKUP_3">Reserva 3</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Escolha qual posição de reserva este número ocupará (1, 2 ou 3)
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowCreateBackupDialog(false)}
+              disabled={creatingBackup}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCreateBackup}
+              disabled={creatingBackup || !newBackupPhone.trim()}
+            >
+              {creatingBackup ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Criando...
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Criar Número Reserva
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
