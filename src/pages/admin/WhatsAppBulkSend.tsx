@@ -1228,7 +1228,7 @@ export default function WhatsAppBulkSend() {
                 ...acc, 
                 uazapi_qr_code: result.qrCode, 
                 uazapi_status: 'qr_required',
-                uazapi_instance_id: result.instanceId || acc.uazapi_instance_id,
+                // instance_id não é armazenado no estado local (apenas no banco via N8N)
               }
             : acc
         ));
@@ -1323,7 +1323,7 @@ export default function WhatsAppBulkSend() {
                 ...acc, 
                 uazapi_qr_code: result.qrCode, 
                 uazapi_status: 'qr_required',
-                uazapi_instance_id: result.instanceId || acc.uazapi_instance_id,
+                // instance_id não é armazenado no estado local (apenas no banco via N8N)
               }
             : acc
         ));
