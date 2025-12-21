@@ -2937,45 +2937,73 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     console.log(`[SyncBackground] 📱 [WHATSAPP] Data formatada: ${dataFormatada}`);
     console.log(`[SyncBackground] 📱 [WHATSAPP] Observações (primeiros 200 chars): ${observacoes?.substring(0, 200) || 'NENHUMA'}`);
 
-    // 8. Enviar WhatsApp para todos os destinatários
-    // ✅ USAR EXATAMENTE O MESMO MECANISMO DO ENVIO MANUAL
-    // Mesma URL, mesmo formato de payload, mesmo tratamento de resposta
-    const baseUrl = process.env.URL || 'https://eleveaone.com.br';
-    const whatsappFunctionUrl = `${baseUrl}/.netlify/functions/send-whatsapp-message`;
+    // 8. ✅ INSERIR NA FILA COM PRIORIDADE ALTA (1 = crítica) para garantir processamento imediato
+    // NOTIFICAÇÕES DE VENDA SÃO CRÍTICAS e não podem ser bloqueadas por campanhas
+    console.log(`[SyncBackground] 📱 Inserindo ${adminPhones.length} notificação(ões) de venda na fila com PRIORIDADE CRÍTICA...`);
 
-    console.log(`[SyncBackground] 📱 Enviando WhatsApp para ${adminPhones.length} destinatário(s)...`);
-    console.log(`[SyncBackground] 📱 URL da função: ${whatsappFunctionUrl}`);
+    const queueInserts = adminPhones.map(phone => ({
+      phone: phone.trim(),
+      message: message,
+      store_id: storeId,
+      priority: 1, // ✅ PRIORIDADE CRÍTICA (1-3 = crítico) - processa ANTES de campanhas (7-10)
+      message_type: 'NOTIFICATION', // ✅ Tipo: NOTIFICATION (não CAMPAIGN)
+      status: 'PENDING',
+      // Não precisa de campaign_id, scheduled_for, interval_seconds para notificações
+      metadata: {
+        source: 'sync-tiny-orders',
+        order_id: tinyOrderId || orderData.numero_pedido,
+        notification_type: 'VENDA',
+        colaboradora: colaboradoraName,
+      }
+    }));
 
-    // ✅ MESMO FORMATO DO ENVIO MANUAL: Promise.all com tratamento de sucesso/erro
-    await Promise.all(
-      adminPhones.map(async (phone) => {
-        try {
-          const response = await fetch(whatsappFunctionUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              phone,
-              message,
-              store_id: storeId, // ✅ Passar store_id para usar WhatsApp da loja se disponível, Global como fallback
-            }),
-          });
+    const { data: insertedQueue, error: queueError } = await supabase
+      .schema('sistemaretiradas')
+      .from('whatsapp_message_queue')
+      .insert(queueInserts)
+      .select('id');
 
-          // ✅ MESMO TRATAMENTO DE RESPOSTA DO ENVIO MANUAL
-          const data = await response.json();
-
-          if (response.ok && data.success) {
-            console.log(`[SyncBackground] ✅ WhatsApp enviado com sucesso para ${phone}`);
-          } else {
-            console.warn(`[SyncBackground] ⚠️ Falha ao enviar WhatsApp para ${phone}:`, data.error || 'Erro desconhecido');
+    if (queueError) {
+      console.error(`[SyncBackground] ❌ Erro ao inserir notificações na fila:`, queueError);
+      // ✅ FALLBACK: Tentar enviar diretamente se a fila falhar (não perder notificação)
+      console.log(`[SyncBackground] ⚠️ Tentando fallback: enviar diretamente sem fila...`);
+      const baseUrl = process.env.URL || 'https://eleveaone.com.br';
+      const whatsappFunctionUrl = `${baseUrl}/.netlify/functions/send-whatsapp-message`;
+      
+      await Promise.all(
+        adminPhones.map(async (phone) => {
+          try {
+            const response = await fetch(whatsappFunctionUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ phone, message, store_id: storeId }),
+            });
+            const data = await response.json();
+            if (response.ok && data.success) {
+              console.log(`[SyncBackground] ✅ WhatsApp enviado (fallback) para ${phone}`);
+            }
+          } catch (err) {
+            console.error(`[SyncBackground] ❌ Erro no fallback para ${phone}:`, err);
           }
-        } catch (err) {
-          console.error(`[SyncBackground] ❌ Erro ao enviar WhatsApp para ${phone}:`, err);
-          // Não bloquear processo se um telefone falhar
-        }
-      })
-    );
+        })
+      );
+    } else {
+      console.log(`[SyncBackground] ✅ ${insertedQueue?.length || 0} notificação(ões) inserida(s) na fila com PRIORIDADE CRÍTICA`);
+      console.log(`[SyncBackground] ✅ Queue IDs: ${insertedQueue?.map(q => q.id).join(', ') || 'N/A'}`);
+      
+      // ✅ Processar fila imediatamente para notificações críticas (não esperar cron)
+      // Isso garante que notificações sejam enviadas rapidamente, mesmo com campanhas rodando
+      try {
+        const queueUrl = `${process.env.URL || 'https://eleveaone.com.br'}/.netlify/functions/process-whatsapp-queue`;
+        await fetch(queueUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        console.log(`[SyncBackground] ✅ Fila processada imediatamente para garantir envio rápido de notificações`);
+      } catch (processError) {
+        console.warn(`[SyncBackground] ⚠️ Erro ao processar fila imediatamente (não crítico, será processado pelo cron):`, processError.message);
+      }
+    }
 
     console.log(`[SyncBackground] 📱 Processo de envio de WhatsApp concluído`);
   } catch (error) {
