@@ -1185,6 +1185,15 @@ export default function WhatsAppBulkSend() {
   const startPollingForBackupAccount = (accountId: string) => {
     if (!selectedStoreId || !profile?.email) return;
 
+    // Evitar múltiplos pollings para o mesmo accountId
+    if (pollingAccounts.has(accountId)) {
+      console.log('[WhatsAppBulkSend] Polling já está ativo para', accountId);
+      return;
+    }
+
+    // Adicionar ao conjunto ANTES de iniciar o intervalo
+    setPollingAccounts(prev => new Set(prev).add(accountId));
+
     let disconnectedCount = 0;
     const MAX_DISCONNECTED_ATTEMPTS = 3; // Parar após 3 tentativas com disconnected
 
@@ -1213,12 +1222,16 @@ export default function WhatsAppBulkSend() {
           whatsapp_account_id: accountId,
         });
 
-        // Contar tentativas com disconnected
-        if (status.status === 'disconnected' || (!status.connected && !status.qrCode)) {
+        // Contar tentativas com disconnected (sem QR code pendente)
+        const isDisconnected = status.status === 'disconnected' || (!status.connected && !status.qrCode);
+        
+        if (isDisconnected) {
           disconnectedCount++;
+          console.log('[WhatsAppBulkSend] 🔄 Tentativa', disconnectedCount, '/', MAX_DISCONNECTED_ATTEMPTS, 'com disconnected para', accountId);
+          
           // Se já tentou várias vezes e continua disconnected, parar polling
           if (disconnectedCount >= MAX_DISCONNECTED_ATTEMPTS) {
-            console.log('[WhatsAppBulkSend] Parando polling - múltiplas tentativas com disconnected para', accountId);
+            console.log('[WhatsAppBulkSend] 🛑 Parando polling após', MAX_DISCONNECTED_ATTEMPTS, 'tentativas com disconnected para', accountId);
             clearInterval(pollInterval);
             setPollingAccounts(prev => {
               const newSet = new Set(prev);
@@ -1228,8 +1241,11 @@ export default function WhatsAppBulkSend() {
             return;
           }
         } else {
-          // Resetar contador se status mudou
-          disconnectedCount = 0;
+          // Resetar contador se status mudou (connected, qr_required, etc)
+          if (disconnectedCount > 0) {
+            console.log('[WhatsAppBulkSend] ✅ Status mudou para', status.status, '- resetando contador disconnected para', accountId);
+            disconnectedCount = 0;
+          }
         }
 
         // Determinar backupType baseado no account para atualizar backupQRCodes
