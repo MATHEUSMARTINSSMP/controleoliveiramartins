@@ -602,9 +602,9 @@ export default function WhatsAppBulkSend() {
       // IMPORTANTE: Só verificar números que NÃO estão connected no banco, para evitar downgrades
       if (backupAccounts && backupAccounts.length > 0 && profile?.email && selectedStore?.site_slug) {
         // Filtrar apenas números que não estão connected para verificar
+        // Usar diretamente acc.uazapi_status do banco de dados
         const accountsToCheck = backupAccounts.filter(acc => {
-          const account = accounts.find(a => a.id === acc.id);
-          return account && account.uazapi_status !== 'connected';
+          return acc.uazapi_status !== 'connected';
         });
         
         if (accountsToCheck.length > 0) {
@@ -1274,6 +1274,35 @@ export default function WhatsAppBulkSend() {
           return;
         }
 
+        // PROTEÇÃO: Verificar status no banco ANTES de consultar N8N
+        // Se já está connected no banco, parar polling imediatamente
+        const { data: currentAccount } = await supabase
+          .schema("sistemaretiradas")
+          .from("whatsapp_accounts")
+          .select("uazapi_status")
+          .eq('id', accountId)
+          .single();
+        
+        const currentStatusInDb = currentAccount?.uazapi_status;
+        if (currentStatusInDb === 'connected') {
+          console.log('[WhatsAppBulkSend] 🛡️ Polling: Backup', accountId, 'já está connected no banco - PARANDO polling para evitar downgrade');
+          clearInterval(pollInterval);
+          setPollingAccounts(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(accountId);
+            return newSet;
+          });
+          // Atualizar UI para garantir que mostra como connected
+          setWhatsappAccounts(prev => prev.map(acc => 
+            acc.id === accountId 
+              ? { ...acc, uazapi_status: 'connected', is_connected: true }
+              : acc
+          ));
+          // Recarregar contas para garantir sincronização
+          await fetchWhatsAppAccounts();
+          return;
+        }
+
         const selectedStore = stores.find(s => s.id === selectedStoreId);
         if (!selectedStore?.site_slug) {
           clearInterval(pollInterval);
@@ -1336,17 +1365,32 @@ export default function WhatsAppBulkSend() {
         setBackupAccountStatus(prev => ({ ...prev, [accountId]: status }));
 
         // Atualizar lista de contas (incluindo phone se conectado)
-        setWhatsappAccounts(prev => prev.map(acc => 
-          acc.id === accountId 
-            ? { 
-                ...acc, 
-                uazapi_status: status.status,
-                uazapi_qr_code: status.qrCode,
-                is_connected: status.connected,
-                phone: status.phoneNumber || acc.phone, // Atualizar phone quando conectar
-              }
-            : acc
-        ));
+        // PROTEÇÃO UI: Não fazer downgrade se status no banco é "connected"
+        setWhatsappAccounts(prev => prev.map(acc => {
+          if (acc.id !== accountId) return acc;
+          
+          // Se status no banco é "connected" e N8N retorna "disconnected", manter connected
+          const isConnectedInDb = currentStatusInDb === 'connected';
+          const isDisconnectedFromN8N = status.status === 'disconnected' || status.status === 'error' || !status.status;
+          
+          if (isConnectedInDb && isDisconnectedFromN8N) {
+            console.log('[WhatsAppBulkSend] 🛡️ UI POLLING: Backup', accountId, 'está connected no banco, N8N retornou disconnected - MANTENDO connected na UI');
+            // Manter status connected, apenas atualizar phone se fornecido
+            return {
+              ...acc,
+              phone: status.phoneNumber || acc.phone,
+            };
+          }
+          
+          // Caso contrário, atualizar normalmente
+          return {
+            ...acc,
+            uazapi_status: status.status,
+            uazapi_qr_code: status.qrCode,
+            is_connected: status.connected,
+            phone: status.phoneNumber || acc.phone, // Atualizar phone quando conectar
+          };
+        }));
 
         // Se status terminal, parar polling e atualizar no Supabase (igual WhatsAppStoreConfig)
         if (isTerminalStatus(status.status)) {
