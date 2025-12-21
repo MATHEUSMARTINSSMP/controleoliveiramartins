@@ -17,7 +17,7 @@ interface CampaignAnalyticsByCategory {
   total_recipients: number;
   successful_messages: number;
   failed_messages: number;
-  conversion_rate: number;
+  conversion_rate: number | null;
   avg_days_to_return: number;
   total_revenue_generated: number;
   avg_ticket_post_campaign: number;
@@ -53,7 +53,7 @@ interface CampaignDetailedAnalytics {
   messages_failed: number;
   unique_customers_reached: number;
   customers_who_returned: number;
-  conversion_rate: number;
+  conversion_rate: number | null;
   avg_days_to_return: number;
   total_revenue_30_days: number;
   total_revenue_60_days: number;
