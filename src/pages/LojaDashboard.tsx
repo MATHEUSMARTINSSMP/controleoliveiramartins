@@ -1342,7 +1342,8 @@ export default function LojaDashboard() {
 
             setDailyGoal(daily);
             setDailyProgress((totalHoje / daily) * 100);
-            } else if (salesErr) {
+            
+            if (salesErr) {
                 console.error('[LojaDashboard] ❌ Erro ao buscar vendas de hoje:', salesErr);
             }
         } else {
