@@ -2928,6 +2928,9 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
       priority: 1, // ✅ PRIORIDADE CRÍTICA (1-3 = crítico) - processa ANTES de campanhas (7-10)
       message_type: 'NOTIFICATION', // ✅ Tipo: NOTIFICATION (não CAMPAIGN)
       status: 'PENDING',
+      // ✅ LIMITES: NULL para notificações (limites são APENAS para campanhas)
+      max_per_day_per_contact: null, // ✅ Sempre NULL para notificações
+      max_total_per_day: null, // ✅ Sempre NULL para notificações
       // Não precisa de campaign_id, scheduled_for, interval_seconds para notificações
       metadata: {
         source: 'sync-tiny-orders',
