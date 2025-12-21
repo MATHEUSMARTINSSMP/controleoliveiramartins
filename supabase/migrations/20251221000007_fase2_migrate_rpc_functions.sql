@@ -2,14 +2,28 @@
 -- FASE 2: MIGRAR FUNÇÕES RPC PARA external_order_id + order_source
 -- =====================================================
 
--- 1. Remover todas as versões antigas da função gerar_cashback
--- PostgreSQL permite function overloading, então precisamos especificar todas as assinaturas
-DROP FUNCTION IF EXISTS sistemaretiradas.gerar_cashback(UUID, UUID);
-DROP FUNCTION IF EXISTS sistemaretiradas.gerar_cashback(UUID, TEXT, TEXT);
-DROP FUNCTION IF EXISTS sistemaretiradas.gerar_cashback(UUID, TEXT, TEXT, UUID);
-DROP FUNCTION IF EXISTS sistemaretiradas.gerar_cashback(p_sale_id UUID, p_tiny_order_id UUID);
-DROP FUNCTION IF EXISTS sistemaretiradas.gerar_cashback(p_sale_id UUID DEFAULT NULL, p_tiny_order_id UUID DEFAULT NULL);
-DROP FUNCTION IF EXISTS sistemaretiradas.gerar_cashback(p_sale_id UUID DEFAULT NULL, p_external_order_id TEXT DEFAULT NULL, p_order_source TEXT DEFAULT NULL, p_tiny_order_id UUID DEFAULT NULL);
+-- 1. Remover TODAS as versões antigas da função gerar_cashback
+-- PostgreSQL permite function overloading, então precisamos remover todas as assinaturas
+DO $$
+DECLARE
+    r RECORD;
+    func_signature TEXT;
+BEGIN
+    -- Buscar todas as funções gerar_cashback no schema sistemaretiradas
+    FOR r IN (
+        SELECT 
+            p.proname as funcname,
+            pg_get_function_identity_arguments(p.oid) as args
+        FROM pg_proc p
+        JOIN pg_namespace n ON p.pronamespace = n.oid
+        WHERE n.nspname = 'sistemaretiradas'
+          AND p.proname = 'gerar_cashback'
+    ) LOOP
+        func_signature := 'sistemaretiradas.' || r.funcname || '(' || r.args || ')';
+        EXECUTE format('DROP FUNCTION IF EXISTS %s CASCADE', func_signature);
+        RAISE NOTICE 'Função removida: %', func_signature;
+    END LOOP;
+END $$;
 
 -- 2. Criar nova versão da função gerar_cashback com suporte a external_order_id + order_source
 CREATE FUNCTION sistemaretiradas.gerar_cashback(
