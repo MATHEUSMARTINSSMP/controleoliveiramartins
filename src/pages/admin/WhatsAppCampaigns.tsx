@@ -31,10 +31,6 @@ export default function WhatsAppCampaigns() {
   const { campaigns, loading: campaignsLoading, refetch } = useCampaigns(profile?.id);
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   const [detailsModalCampaign, setDetailsModalCampaign] = useState<WhatsAppCampaign | null>(null);
-  // Calcular stats para todas as campanhas ativas (RUNNING, PAUSED) para manter números consistentes
-  const activeCampaignIds = campaigns
-    .filter(c => c.status === 'RUNNING' || c.status === 'PAUSED')
-    .map(c => c.id);
   const { stats, loading: loadingStats, refetch: refetchStats } = useCampaignStats(selectedCampaign);
   const [allCampaignsStats, setAllCampaignsStats] = useState<Record<string, any>>({});
   const [campaignToDelete, setCampaignToDelete] = useState<WhatsAppCampaign | null>(null);
