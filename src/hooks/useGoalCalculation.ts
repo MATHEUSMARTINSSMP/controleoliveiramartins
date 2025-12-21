@@ -212,7 +212,8 @@ export const useGoalCalculation = (
               return soma;
             })()
           : superMetaDiariaPadrao * (diaAtual - 1);
-        const deficitSuperMeta = Math.max(0, metaEsperadaSuperMetaAteOntem - vendidoMes);
+        // CRÍTICO: Usar vendidoAteOntem (não inclui vendas de hoje) para garantir que a meta seja fixa
+        const deficitSuperMeta = Math.max(0, metaEsperadaSuperMetaAteOntem - vendidoAteOntem);
 
         if (diasRestantesSemHoje > 0 && deficitSuperMeta > 0) {
           // Distribuir déficit super meta apenas nos dias FUTUROS (não inclui hoje)
