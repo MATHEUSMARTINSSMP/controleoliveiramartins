@@ -489,30 +489,29 @@ export default function WhatsAppBulkSend() {
 
       // 1. Buscar número principal da loja (whatsapp_credentials)
       // CRÍTICO: Números principais NUNCA devem ter site_slug com "_backup"
-      // Garantir que apenas números principais sejam retornados (não backups)
-      // Buscar todos os registros e filtrar no código para garantir que não há backup
+      // BUSCAR APENAS O REGISTRO PRINCIPAL (sem _backup) usando filtro direto no banco
       const { data: credentialsData, error: credError } = await supabase
         .schema("sistemaretiradas")
         .from("whatsapp_credentials")
         .select("*")
         .eq("admin_id", profile.id)
-        .eq("site_slug", selectedStore.site_slug); // site_slug exato da loja (ex: "mrkitsch")
+        .eq("site_slug", selectedStore.site_slug) // site_slug exato da loja (ex: "mrkitsch")
+        .not("site_slug", "ilike", "%_backup%") // GARANTIR que NUNCA pega backup (case insensitive)
+        .maybeSingle(); // Usar maybeSingle para garantir apenas 1 resultado (ou null)
       
-      // FILTRAR NO CÓDIGO: Garantir que NUNCA pegamos um backup como principal
-      const credentials = credentialsData?.find(cred => 
-        cred.site_slug === selectedStore.site_slug && 
-        !cred.site_slug?.includes("_backup")
-      ) || null;
+      // VALIDAÇÃO FINAL CRÍTICA: Garantir que o registro retornado NÃO é backup
+      const credentials = credentialsData && !credentialsData.site_slug?.includes("_backup") 
+        ? credentialsData 
+        : null;
       
-      // Se encontrou um registro mas é backup, reportar erro crítico
-      if (credentialsData && credentialsData.length > 0 && !credentials) {
-        const backupCred = credentialsData.find(cred => cred.site_slug?.includes("_backup"));
-        if (backupCred) {
-          console.error('[WhatsAppBulkSend] ⚠️ ERRO CRÍTICO: Tentativa de usar número reserva como principal!', {
-            site_slug: backupCred.site_slug,
-            admin_id: backupCred.admin_id
-          });
-        }
+      // Se encontrou registro mas é backup (não deveria acontecer com o filtro acima), reportar erro crítico
+      if (credentialsData && credentialsData.site_slug?.includes("_backup")) {
+        console.error('[WhatsAppBulkSend] ⚠️⚠️⚠️ ERRO CRÍTICO: Query retornou número RESERVA como PRINCIPAL!', {
+          site_slug: credentialsData.site_slug,
+          admin_id: credentialsData.admin_id,
+          phone: credentialsData.uazapi_phone_number
+        });
+        // NÃO usar este registro - é um backup, não principal
       }
 
       // Tratar erro ao buscar credenciais (não bloquear UI)
@@ -524,36 +523,50 @@ export default function WhatsAppBulkSend() {
       const accounts: WhatsAppAccount[] = [];
 
       // Adicionar número principal se existir registro em whatsapp_credentials
-      // CRÍTICO: Verificar que NÃO é um backup (site_slug não deve conter "_backup")
+      // CRÍTICO: VALIDAÇÃO FINAL - NUNCA adicionar backup como principal
       // Para números principais, não usamos ID de whatsapp_accounts (eles estão em whatsapp_credentials)
       // Usamos "PRIMARY" como identificador especial
       if (credentials) {
-        // VALIDAÇÃO CRÍTICA: Garantir que este NÃO é um número reserva
-        if (credentials.site_slug && credentials.site_slug.includes("_backup")) {
-          console.error('[WhatsAppBulkSend] ⚠️ ERRO CRÍTICO: Tentativa de usar número reserva como principal! site_slug:', credentials.site_slug);
-          // NÃO adicionar como principal se for backup
+        // VALIDAÇÃO FINAL CRÍTICA: Garantir que este NÃO é um número reserva
+        // Esta validação é redundante mas CRÍTICA para segurança
+        const isBackup = credentials.site_slug && (
+          credentials.site_slug.includes("_backup") || 
+          credentials.site_slug.includes("_backup1") ||
+          credentials.site_slug.includes("_backup2") ||
+          credentials.site_slug.includes("_backup3")
+        );
+        
+        if (isBackup) {
+          console.error('[WhatsAppBulkSend] ⚠️⚠️⚠️ ERRO CRÍTICO BLOQUEADO: Tentativa de usar número RESERVA como PRINCIPAL!', {
+            site_slug: credentials.site_slug,
+            phone: credentials.uazapi_phone_number
+          });
+          // BLOQUEAR COMPLETAMENTE - NÃO adicionar como principal
+          // Se chegou aqui, há um bug crítico na query ou no banco de dados
         } else {
-          // Sempre mostrar o número principal se existe registro
-          // Se está conectado, mostrar o número real; caso contrário, mostrar placeholder
+          // REGISTRO É PRINCIPAL VÁLIDO - adicionar
           const isConnected = credentials.uazapi_status === "connected";
           const phoneDisplay = credentials.uazapi_phone_number 
             ? credentials.uazapi_phone_number 
             : (isConnected ? "Número conectado" : "Número não conectado");
           
-          console.log('[WhatsAppBulkSend] ✅ Número principal encontrado:', {
+          console.log('[WhatsAppBulkSend] ✅✅✅ Número PRINCIPAL VÁLIDO encontrado:', {
             site_slug: credentials.site_slug,
             phone: phoneDisplay,
-            status: credentials.uazapi_status
+            status: credentials.uazapi_status,
+            admin_id: credentials.admin_id
           });
           
           accounts.push({
-            id: "PRIMARY", // Identificador especial para números principais
+            id: "PRIMARY", // Identificador especial IMUTÁVEL para números principais
             phone: phoneDisplay,
-            account_type: "PRIMARY",
+            account_type: "PRIMARY", // Tipo IMUTÁVEL
             is_connected: isConnected,
             uazapi_status: credentials.uazapi_status || "disconnected",
           });
         }
+      } else {
+        console.warn('[WhatsAppBulkSend] ⚠️ Nenhum número principal encontrado para loja:', selectedStore.site_slug);
       }
 
       // 2. Buscar números reserva (whatsapp_accounts) usando colunas booleanas
@@ -791,10 +804,14 @@ export default function WhatsAppBulkSend() {
         });
       }
       
-      // Auto-selecionar número principal
-      const primary = accounts.find(a => a.account_type === "PRIMARY");
-      if (primary) {
-        setPrimaryPhoneId(primary.id);
+      // Auto-selecionar número principal (APENAS se for realmente PRIMARY)
+      const primary = accounts.find(a => a.account_type === "PRIMARY" && a.id === "PRIMARY");
+      if (primary && primary.id === "PRIMARY") {
+        setPrimaryPhoneId("PRIMARY"); // FORÇAR "PRIMARY" - nunca usar ID de backup
+      } else {
+        // Se não encontrou principal válido, limpar seleção
+        setPrimaryPhoneId("");
+        console.warn('[WhatsAppBulkSend] ⚠️ Nenhum número principal válido encontrado - limpando seleção');
       }
     } catch (error: any) {
       console.error("Erro ao buscar contas WhatsApp:", error);
