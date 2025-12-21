@@ -80,7 +80,9 @@ export function CampaignCard({
 
   const getProgressPercentage = () => {
     if (campaign.total_recipients === 0) return 0;
-    return Math.round((campaign.sent_count / campaign.total_recipients) * 100);
+    // Usar stats quando disponível (mais preciso), senão usar sent_count da campanha
+    const sentCount = stats?.sent ?? campaign.sent_count;
+    return Math.round((sentCount / campaign.total_recipients) * 100);
   };
 
   const getEstimatedCompletionTime = () => {
@@ -225,14 +227,18 @@ export function CampaignCard({
             <CheckCircle2 className="h-4 w-4 text-green-500" />
             <div>
               <p className="text-sm text-muted-foreground">Enviadas</p>
-              <p className="text-lg font-semibold">{campaign.sent_count}</p>
+              <p className="text-lg font-semibold">
+                {stats?.sent ?? campaign.sent_count}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <XCircle className="h-4 w-4 text-red-500" />
             <div>
               <p className="text-sm text-muted-foreground">Falhas</p>
-              <p className="text-lg font-semibold">{campaign.failed_count}</p>
+              <p className="text-lg font-semibold">
+                {stats?.failed ?? campaign.failed_count}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
