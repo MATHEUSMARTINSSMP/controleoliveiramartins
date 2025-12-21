@@ -177,13 +177,16 @@ export const useGoalCalculation = (
           : metaDiariaPadrao * (diaAtual - 1); // Distribuição simples até ontem
 
         // Calcular vendido acumulado total no mês (inclui vendas de hoje)
-        // Mas comparamos com metaEsperadaAteOntem (que não inclui hoje)
         const vendidoMes = vendas.reduce((sum, v) => sum + v.valor, 0);
+        
+        // CRÍTICO: Excluir vendas de hoje para garantir que a meta seja fixa durante o dia
+        // A diferença deve comparar: VENDIDO ATÉ ONTEM - META ESPERADA ATÉ ONTEM
+        const vendidoAteOntem = vendidoMes - vendidoHoje;
 
-        // Déficit calculado comparando vendido (inclui hoje) com meta esperada (até ontem)
-        // Se vendidoMes > metaEsperadaAteOntem, significa que está à frente (déficit negativo)
-        // Se vendidoMes < metaEsperadaAteOntem, significa que está atrás (déficit positivo)
-        deficit = Math.max(0, metaEsperadaAteOntem - vendidoMes);
+        // Déficit calculado comparando vendido ATÉ ONTEM com meta esperada (até ontem)
+        // Se vendidoAteOntem > metaEsperadaAteOntem, significa que está à frente (déficit negativo)
+        // Se vendidoAteOntem < metaEsperadaAteOntem, significa que está atrás (déficit positivo)
+        deficit = Math.max(0, metaEsperadaAteOntem - vendidoAteOntem);
 
         // 8. Calcular meta diária ajustada
         // CRÍTICO: Distribuir déficit apenas pelos dias RESTANTES (SEM hoje)
