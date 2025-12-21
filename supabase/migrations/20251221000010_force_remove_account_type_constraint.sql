@@ -10,6 +10,7 @@ DO $$
 DECLARE
     constraint_exists BOOLEAN;
     index_exists BOOLEAN;
+    r RECORD;
 BEGIN
     -- Verificar e remover constraint se existir
     SELECT EXISTS (
