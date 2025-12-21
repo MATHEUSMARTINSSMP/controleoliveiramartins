@@ -843,11 +843,13 @@ exports.handler = async (event, context) => {
               await new Promise(resolve => setTimeout(resolve, 500));
 
               // Verificar se o cashback já foi gerado pelo trigger
+              // ✅ Usar external_order_id + order_source (nova estrutura genérica)
               const { data: existingCashback } = await supabase
                 .schema('sistemaretiradas')
                 .from('cashback_transactions')
                 .select('id')
-                .eq('tiny_order_id', orderSavedId)
+                .eq('external_order_id', orderSavedId.toString())
+                .eq('order_source', 'TINY')
                 .eq('transaction_type', 'EARNED')
                 .maybeSingle();
 
@@ -858,13 +860,16 @@ exports.handler = async (event, context) => {
                 // O trigger já valida cancelados, então aqui tentamos gerar para qualquer situação
                 console.log(`[SyncBackground] ⚠️ Cashback não foi gerado pelo trigger, tentando FALLBACK manual para pedido ${tinyId}`);
 
+                // ✅ Usar external_order_id + order_source (nova estrutura genérica)
+                // p_tiny_order_id ainda funciona por compatibilidade, mas preferir nova estrutura
                 const { data: cashbackResult, error: cashbackError } = await supabase
                   .schema('sistemaretiradas')
                   .rpc('gerar_cashback', {
-                    p_tiny_order_id: orderSavedId,
+                    p_external_order_id: orderSavedId.toString(),
+                    p_order_source: 'TINY',
                     p_cliente_id: clienteId,
                     p_store_id: storeId,
-                    p_colaboradora_id: colaboradoraId, // ✅ NOVO: Passar colaboradora
+                    p_colaboradora_id: colaboradoraId,
                     p_valor_total: orderData.valor_total
                   });
 
@@ -2655,7 +2660,7 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
           v.external_order_id === tinyOrderId.toString() && v.order_source === 'TINY'
         ) || false;
         
-        // Fallback para tiny_order_id (compatibilidade com dados antigos)
+        // Fallback para tiny_order_id (compatibilidade com dados antigos durante migração)
         if (!vendaJaExiste) {
           vendaJaExiste = vendasHoje?.some(v => v.tiny_order_id === tinyOrderId) || false;
         }
@@ -2670,7 +2675,7 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
       } else {
         // Venda já está em sales, usar apenas o totalDia
         totalDiaComVendaAtual = totalDia;
-        console.log(`[SyncBackground] 📊 Total do dia: ${totalDia.toFixed(2)} (venda atual já estava incluída em sales via tiny_order_id: ${tinyOrderId})`);
+        console.log(`[SyncBackground] 📊 Total do dia: ${totalDia.toFixed(2)} (venda atual já estava incluída em sales via external_order_id: ${tinyOrderId})`);
       }
     } else {
       console.log(`[SyncBackground] 📊 Total do dia (venda não é de hoje): ${totalDia.toFixed(2)} (dataPedido: ${dataPedido}, hojeStr: ${hojeStr})`);
