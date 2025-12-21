@@ -119,7 +119,7 @@ export function CampaignMessages({ campaignId }: CampaignMessagesProps) {
   };
 
   return (
-    <div className="w-full mt-4">
+    <div className="w-full mt-4" onClick={(e) => e.stopPropagation()}>
         <div className="space-y-4">
           {/* Filtros Avançados */}
           <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
@@ -136,6 +136,7 @@ export function CampaignMessages({ campaignId }: CampaignMessagesProps) {
                 value={searchPhone}
                 onChange={(e) => setSearchPhone(e.target.value)}
                 className="pl-9"
+                onClick={(e) => e.stopPropagation()}
               />
             </div>
 
@@ -147,6 +148,7 @@ export function CampaignMessages({ campaignId }: CampaignMessagesProps) {
                   type="date"
                   value={filterDateFrom}
                   onChange={(e) => setFilterDateFrom(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
                 />
               </div>
               <div>
@@ -155,6 +157,7 @@ export function CampaignMessages({ campaignId }: CampaignMessagesProps) {
                   type="date"
                   value={filterDateTo}
                   onChange={(e) => setFilterDateTo(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
                 />
               </div>
             </div>
@@ -165,42 +168,60 @@ export function CampaignMessages({ campaignId }: CampaignMessagesProps) {
             <Button
               size="sm"
               variant={filterStatus === 'all' ? 'default' : 'outline'}
-              onClick={() => setFilterStatus('all')}
+              onClick={(e) => {
+                e.stopPropagation();
+                setFilterStatus('all');
+              }}
             >
               Todas ({messages.length})
             </Button>
             <Button
               size="sm"
               variant={filterStatus === 'SENT' ? 'default' : 'outline'}
-              onClick={() => setFilterStatus('SENT')}
+              onClick={(e) => {
+                e.stopPropagation();
+                setFilterStatus('SENT');
+              }}
             >
               Enviadas
             </Button>
             <Button
               size="sm"
               variant={filterStatus === 'FAILED' ? 'default' : 'outline'}
-              onClick={() => setFilterStatus('FAILED')}
+              onClick={(e) => {
+                e.stopPropagation();
+                setFilterStatus('FAILED');
+              }}
             >
               Erros
             </Button>
             <Button
               size="sm"
               variant={filterStatus === 'PENDING' ? 'default' : 'outline'}
-              onClick={() => setFilterStatus('PENDING')}
+              onClick={(e) => {
+                e.stopPropagation();
+                setFilterStatus('PENDING');
+              }}
             >
               Pendentes
             </Button>
             <Button
               size="sm"
               variant={filterStatus === 'SCHEDULED' ? 'default' : 'outline'}
-              onClick={() => setFilterStatus('SCHEDULED')}
+              onClick={(e) => {
+                e.stopPropagation();
+                setFilterStatus('SCHEDULED');
+              }}
             >
               Agendadas
             </Button>
             <Button
               size="sm"
               variant={filterStatus === 'CANCELLED' ? 'default' : 'outline'}
-              onClick={() => setFilterStatus('CANCELLED')}
+              onClick={(e) => {
+                e.stopPropagation();
+                setFilterStatus('CANCELLED');
+              }}
             >
               Canceladas
             </Button>
@@ -215,7 +236,10 @@ export function CampaignMessages({ campaignId }: CampaignMessagesProps) {
                 <div
                   key={msg.id}
                   className="p-3 border rounded-lg text-sm cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => setSelectedMessage(msg)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedMessage(msg);
+                  }}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="font-medium">{msg.phone}</div>
@@ -277,7 +301,8 @@ export function CampaignMessages({ campaignId }: CampaignMessagesProps) {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         const nextPage = page + 1;
                         setPage(nextPage);
                         fetchMessages(nextPage);
