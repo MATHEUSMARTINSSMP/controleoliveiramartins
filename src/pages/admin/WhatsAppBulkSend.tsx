@@ -620,14 +620,15 @@ export default function WhatsAppBulkSend() {
 
       setWhatsappAccounts(accounts);
 
-      // Verificar status via N8N para número principal (igual WhatsAppStoreConfig)
-      // Isso garante que números conectados no N8N sejam detectados mesmo sem status atualizado no banco
-      // IMPORTANTE: Só verificar se não está connected no banco, para evitar downgrades
+      // PROTEÇÃO CRÍTICA: Número principal NUNCA pode ser alterado nesta página (BulkSend)
+      // Apenas WhatsAppStoreConfig pode alterar números principais
+      // Esta página apenas LÊ o status do principal para exibir na UI
+      // NUNCA fazemos UPDATE/INSERT/UPSERT em whatsapp_credentials para números principais aqui
       if (credentials && profile?.email && selectedStore?.site_slug) {
         const currentStatus = credentials.uazapi_status;
         const isConnectedInDb = currentStatus === 'connected';
         
-        // Só verificar via N8N se NÃO está connected no banco
+        // Só verificar status via N8N para ATUALIZAR UI (não banco de dados)
         // Se está connected, confiar no banco e não fazer verificação que pode causar downgrade
         if (!isConnectedInDb) {
           try {
@@ -636,12 +637,14 @@ export default function WhatsAppBulkSend() {
               customerId: profile.email,
             });
 
-            // Atualizar estado do número principal apenas se for upgrade (não fazer downgrade)
+            // ATUALIZAR APENAS UI LOCAL (não banco de dados)
+            // PROTEÇÃO: NUNCA fazer UPDATE em whatsapp_credentials aqui
             const isConnectedFromN8N = status.status === 'connected' || status.connected;
             
             if (isConnectedFromN8N) {
+              console.log('[WhatsAppBulkSend] 📖 Apenas atualizando UI do número principal (NÃO alterando banco)');
               setWhatsappAccounts(prev => prev.map(acc => 
-                acc.account_type === "PRIMARY"
+                acc.account_type === "PRIMARY" && acc.id === "PRIMARY" // DUPLA VALIDAÇÃO
                   ? {
                       ...acc,
                       uazapi_status: 'connected',
@@ -652,10 +655,10 @@ export default function WhatsAppBulkSend() {
               ));
             }
           } catch (error) {
-            console.error('[WhatsAppBulkSend] Erro ao verificar status do número principal:', error);
+            console.error('[WhatsAppBulkSend] Erro ao verificar status do número principal (apenas leitura UI):', error);
           }
         } else {
-          console.log('[WhatsAppBulkSend] Número principal está connected no banco, pulando verificação N8N para evitar downgrade');
+          console.log('[WhatsAppBulkSend] 📖 Número principal está connected no banco - apenas exibindo na UI (sem alterações)');
         }
       }
 
