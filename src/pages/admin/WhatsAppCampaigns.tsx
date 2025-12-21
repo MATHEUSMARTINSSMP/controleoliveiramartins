@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useCampaigns, useCampaignStats } from "@/components/admin/whatsapp-campaigns/useCampaigns";
+import { useCampaigns } from "@/components/admin/whatsapp-campaigns/useCampaigns";
 import { useCampaignActions } from "@/components/admin/whatsapp-campaigns/useCampaignActions";
 import { CampaignCard } from "@/components/admin/whatsapp-campaigns/CampaignCard";
 import { CampaignFilters } from "@/components/admin/whatsapp-campaigns/CampaignFilters";
