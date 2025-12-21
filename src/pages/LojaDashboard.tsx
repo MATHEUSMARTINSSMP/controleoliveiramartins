@@ -333,8 +333,11 @@ export default function LojaDashboard() {
                 situacao = 'afrente';
             } else if (diferencaIndividual < 0) {
                 // ATRÁS: meta base + déficit distribuído
+                // CRÍTICO: Dividir déficit apenas pelos dias RESTANTES (SEM hoje)
+                // Isso garante que a meta dinâmica seja fixa no início do dia
                 const deficit = Math.abs(diferencaIndividual);
-                const adicionalPorDia = diasRestantesComHoje > 0 ? deficit / diasRestantesComHoje : 0;
+                const diasRestantesSemHoje = daysInMonth - diaAtual; // SEM incluir hoje
+                const adicionalPorDia = diasRestantesSemHoje > 0 ? deficit / diasRestantesSemHoje : 0;
                 metaDinamica = metaBaseDoDia + adicionalPorDia;
                 situacao = 'atras';
             } else {
@@ -507,8 +510,11 @@ export default function LojaDashboard() {
                     metaDinamica = metaBaseDoDia * (1 + percentualAFrente);
                 } else if (diferencaIndividual < 0) {
                     // Atrás: compensar déficit distribuído
+                    // CRÍTICO: Dividir déficit apenas pelos dias RESTANTES (SEM hoje)
+                    // Isso garante que a meta dinâmica seja fixa no início do dia
                     const deficit = Math.abs(diferencaIndividual);
-                    const adicionalPorDia = diasRestantesComHoje > 0 ? deficit / diasRestantesComHoje : 0;
+                    const diasRestantesSemHoje = daysInMonth - diaAtual; // SEM incluir hoje
+                    const adicionalPorDia = diasRestantesSemHoje > 0 ? deficit / diasRestantesSemHoje : 0;
                     metaDinamica = metaBaseDoDia + adicionalPorDia;
                 }
 
@@ -1208,7 +1214,7 @@ export default function LojaDashboard() {
             }
             const metaEsperadaAteOntem = (Number(data.meta_valor) * pesoAcumuladoAteOntem) / 100;
             const deficit = Math.max(0, metaEsperadaAteOntem - totalMes);
-            const diasRestantesComHoje = daysInMonth - diaAtual + 1;
+            // Nota: diasRestantesComHoje não é mais usado (corrigido para usar apenas diasRestantes na função)
             
             console.log('[LojaDashboard] 📊 CÁLCULO META DIÁRIA (CORRIGIDO):');
             console.log('[LojaDashboard]   Meta mensal:', Number(data.meta_valor));
