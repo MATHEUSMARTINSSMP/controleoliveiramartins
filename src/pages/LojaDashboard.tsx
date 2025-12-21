@@ -277,7 +277,6 @@ export default function LojaDashboard() {
         const todayStr = format(hoje, 'yyyy-MM-dd');
         const daysInMonth = getDaysInMonth(hoje);
         const diaAtual = hoje.getDate();
-        const diasRestantesComHoje = daysInMonth - diaAtual + 1;
         const metaMensalLoja = goals?.meta_valor || 0;
         const dailyWeights = goals?.daily_weights || null;
         const year = hoje.getFullYear();
