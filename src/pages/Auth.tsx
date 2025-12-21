@@ -233,12 +233,13 @@ const Auth = () => {
         className="w-full max-w-md relative z-10"
       >
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 dark:from-violet-500 dark:to-purple-600 mb-4 shadow-lg shadow-amber-500/20 dark:shadow-violet-500/25">
-            <Sparkles className="w-8 h-8 text-white" />
+          <div className="mb-4 flex justify-center">
+            <img 
+              src="/elevea.png" 
+              alt="EleveaOne" 
+              className="h-24 w-auto"
+            />
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-1">
-            EleveaOne
-          </h1>
           <p className="text-muted-foreground">
             Sistema de Gestao Inteligente
           </p>
