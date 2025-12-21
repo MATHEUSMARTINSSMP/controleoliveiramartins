@@ -107,9 +107,9 @@ BEGIN
     -- 4. GARANTIR QUE NENHUM BACKUP TENHA ESTE NÚMERO COMO PRINCIPAL
     -- Verificar se há backups em whatsapp_accounts com este número
     -- Se houver, limpar ou corrigir
+    -- NOTA: whatsapp_accounts tem apenas 'phone', não 'uazapi_phone_number'
     UPDATE sistemaretiradas.whatsapp_accounts
     SET phone = NULL,
-        uazapi_phone_number = NULL,
         uazapi_status = 'disconnected'
     WHERE store_id = _store_id
       AND (is_backup1 = true OR is_backup2 = true OR is_backup3 = true)
