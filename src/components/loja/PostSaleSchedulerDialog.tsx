@@ -138,10 +138,11 @@ export default function PostSaleSchedulerDialog({
   const fetchSaleInfo = async () => {
     try {
       // Buscar venda (incluindo cliente_id, cliente_nome, valor e qtd_pecas)
+      // ✅ Incluir external_order_id + order_source para compatibilidade
       const { data: saleData } = await supabase
         .schema("sistemaretiradas")
         .from("sales")
-        .select("tiny_order_id, observacoes, cliente_id, cliente_nome, valor, qtd_pecas")
+        .select("external_order_id, order_source, tiny_order_id, observacoes, cliente_id, cliente_nome, valor, qtd_pecas")
         .eq("id", saleId)
         .single();
 
@@ -181,13 +182,17 @@ export default function PostSaleSchedulerDialog({
         }
       }
 
-      // Se veio do ERP (tiny_order_id), buscar dados do cliente do Tiny
-      if (saleData?.tiny_order_id) {
+      // Se veio do ERP (Tiny), buscar dados do cliente do Tiny
+      // ✅ Usar external_order_id com fallback para tiny_order_id (compatibilidade)
+      const tinyOrderId = (saleData?.order_source === 'TINY' && saleData?.external_order_id) 
+        ? saleData.external_order_id 
+        : saleData?.tiny_order_id;
+      if (tinyOrderId) {
         const { data: tinyOrder } = await supabase
           .schema("sistemaretiradas")
           .from("tiny_orders")
           .select("cliente_nome, cliente_telefone, cliente_celular")
-          .eq("id", saleData.tiny_order_id)
+          .eq("id", tinyOrderId)
           .single();
 
         if (tinyOrder) {

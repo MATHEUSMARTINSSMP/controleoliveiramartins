@@ -456,18 +456,23 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
         const orderIds = data.map(o => o.id);
 
         // Buscar transações de cashback relacionadas aos pedidos
+        // ✅ Usar external_order_id + order_source (nova estrutura genérica)
+        const orderIdsStr = orderIds.map(id => id.toString());
         const { data: cashbackTransactions } = await supabase
           .schema('sistemaretiradas')
           .from('cashback_transactions')
-          .select('tiny_order_id, amount, data_expiracao, transaction_type')
-          .in('tiny_order_id', orderIds)
+          .select('external_order_id, order_source, tiny_order_id, amount, data_expiracao, transaction_type')
+          .in('external_order_id', orderIdsStr)
+          .eq('order_source', 'TINY')
           .eq('transaction_type', 'EARNED');
 
         // Criar mapa de cashback por pedido
         const cashbackMap = new Map<string, { amount: number; expiracao: string | null }>();
         cashbackTransactions?.forEach((transaction: any) => {
-          if (transaction.tiny_order_id) {
-            const existing = cashbackMap.get(transaction.tiny_order_id);
+          // ✅ Usar external_order_id (nova estrutura) com fallback para tiny_order_id (compatibilidade)
+          const orderId = transaction.external_order_id || transaction.tiny_order_id?.toString();
+          if (orderId) {
+            const existing = cashbackMap.get(orderId);
             if (existing) {
               existing.amount += Number(transaction.amount || 0);
               // Pegar a data de expiração mais próxima
@@ -475,7 +480,7 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
                 existing.expiracao = transaction.data_expiracao;
               }
             } else {
-              cashbackMap.set(transaction.tiny_order_id, {
+              cashbackMap.set(orderId, {
                 amount: Number(transaction.amount || 0),
                 expiracao: transaction.data_expiracao || null,
               });

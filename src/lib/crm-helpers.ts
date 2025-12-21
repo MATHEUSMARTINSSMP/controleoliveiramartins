@@ -36,21 +36,26 @@ export async function createPostSaleFromSale(
     // Se não houver nome do cliente, tentar buscar do tiny_order ou usar um padrão
     let clienteNomeFinal = clienteNome || 'Cliente não identificado';
 
-    // Se a venda veio do ERP (tiny_order_id), tentar buscar nome do cliente
+    // Se a venda veio do ERP (Tiny), tentar buscar nome do cliente
+    // ✅ Usar external_order_id + order_source (nova estrutura genérica)
     if (!clienteNome) {
       const { data: saleData } = await supabase
         .schema('sistemaretiradas')
         .from('sales')
-        .select('tiny_order_id')
+        .select('external_order_id, order_source, tiny_order_id')
         .eq('id', saleId)
         .single();
 
-      if (saleData?.tiny_order_id) {
+      // ✅ Usar external_order_id com fallback para tiny_order_id (compatibilidade)
+      const tinyOrderId = (saleData?.order_source === 'TINY' && saleData?.external_order_id) 
+        ? saleData.external_order_id 
+        : saleData?.tiny_order_id;
+      if (tinyOrderId) {
         const { data: tinyOrderData } = await supabase
           .schema('sistemaretiradas')
           .from('tiny_orders')
           .select('cliente_nome')
-          .eq('id', saleData.tiny_order_id)
+          .eq('id', tinyOrderId)
           .single();
 
         if (tinyOrderData?.cliente_nome) {

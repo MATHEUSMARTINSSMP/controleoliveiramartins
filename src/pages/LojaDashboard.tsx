@@ -3125,11 +3125,12 @@ export default function LojaDashboard() {
             return;
         }
 
-        // Buscar a venda para verificar se tem tiny_order_id
+        // Buscar a venda para verificar se tem external_order_id + order_source
+        // ✅ Usar nova estrutura com fallback para tiny_order_id (compatibilidade)
         const { data: sale, error: saleError } = await supabase
             .schema("sistemaretiradas")
             .from('sales')
-            .select('id, tiny_order_id')
+            .select('id, external_order_id, order_source, tiny_order_id')
             .eq('id', editingSaleId!)
             .single();
 
@@ -3173,8 +3174,22 @@ export default function LojaDashboard() {
                 return;
             }
 
-            // Se for venda do ERP, atualizar também o tiny_orders
-            if (sale.tiny_order_id) {
+            // Se for venda do ERP (Tiny), atualizar também o tiny_orders
+            // ✅ Usar external_order_id com fallback para tiny_order_id (compatibilidade)
+            const tinyOrderId = (sale.order_source === 'TINY' && sale.external_order_id) 
+                ? sale.external_order_id 
+                : sale.tiny_order_id;
+            if (tinyOrderId) {
+                // Converter para UUID se necessário (external_order_id é TEXT)
+                let orderIdForUpdate = tinyOrderId;
+                if (sale.order_source === 'TINY' && sale.external_order_id) {
+                    try {
+                        orderIdForUpdate = sale.external_order_id as any; // Tentar usar como UUID
+                    } catch {
+                        orderIdForUpdate = sale.tiny_order_id!; // Fallback
+                    }
+                }
+                
                 const { error: orderError } = await supabase
                     .schema("sistemaretiradas")
                     .from('tiny_orders')
@@ -3187,7 +3202,7 @@ export default function LojaDashboard() {
                         formas_pagamento_json: formasPagamento,
                         updated_at: new Date().toISOString(),
                     })
-                    .eq('id', sale.tiny_order_id);
+                    .eq('id', orderIdForUpdate);
 
                 if (orderError) {
                     console.error('Erro ao atualizar pedido do Tiny:', orderError);
@@ -3241,11 +3256,12 @@ export default function LojaDashboard() {
     };
 
     const handleDelete = async (saleId: string) => {
-        // Buscar a venda para verificar se tem tiny_order_id
+        // Buscar a venda para verificar se tem external_order_id + order_source
+        // ✅ Usar nova estrutura com fallback para tiny_order_id (compatibilidade)
         const { data: sale, error: saleError } = await supabase
             .schema("sistemaretiradas")
             .from('sales')
-            .select('id, tiny_order_id')
+            .select('id, external_order_id, order_source, tiny_order_id')
             .eq('id', saleId)
             .single();
 
@@ -3255,7 +3271,8 @@ export default function LojaDashboard() {
             return;
         }
 
-        const isVendaERP = sale.tiny_order_id !== null;
+        // ✅ Verificar se é venda do ERP usando nova estrutura
+        const isVendaERP = (sale.order_source === 'TINY' && sale.external_order_id) || sale.tiny_order_id !== null;
         const confirmMessage = isVendaERP
             ? 'Tem certeza que deseja deletar esta venda do ERP? Isso excluirá a venda e o pedido do Tiny.'
             : 'Tem certeza que deseja deletar esta venda?';
@@ -3263,13 +3280,27 @@ export default function LojaDashboard() {
         if (!confirm(confirmMessage)) return;
 
         try {
-            // Se for venda do ERP, excluir também do tiny_orders
-            if (isVendaERP && sale.tiny_order_id) {
+            // Se for venda do ERP (Tiny), excluir também do tiny_orders
+            // ✅ Usar external_order_id com fallback para tiny_order_id (compatibilidade)
+            const tinyOrderId = (sale.order_source === 'TINY' && sale.external_order_id) 
+                ? sale.external_order_id 
+                : sale.tiny_order_id;
+            if (isVendaERP && tinyOrderId) {
+                // Converter para UUID se necessário
+                let orderIdForDelete = tinyOrderId;
+                if (sale.order_source === 'TINY' && sale.external_order_id) {
+                    try {
+                        orderIdForDelete = sale.external_order_id as any;
+                    } catch {
+                        orderIdForDelete = sale.tiny_order_id!;
+                    }
+                }
+                
                 const { error: orderError } = await supabase
                     .schema("sistemaretiradas")
                     .from('tiny_orders')
                     .delete()
-                    .eq('id', sale.tiny_order_id);
+                    .eq('id', orderIdForDelete);
 
                 if (orderError) {
                     console.error('Erro ao excluir pedido do Tiny:', orderError);
