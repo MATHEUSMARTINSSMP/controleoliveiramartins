@@ -1262,33 +1262,9 @@ export default function WhatsAppBulkSend() {
 
       console.log('[WhatsAppBulkSend] Resultado conexao backup:', result);
 
-      if (result.qrCode || result.instanceId) {
-        // Preparar dados para salvar no banco
-        const updateData: Record<string, any> = {
-          updated_at: new Date().toISOString(),
-        };
-        
-        if (result.qrCode) {
-          updateData.uazapi_qr_code = result.qrCode;
-        }
-        if (result.instanceId) {
-          updateData.uazapi_instance_id = result.instanceId;
-        }
-        if (result.status) {
-          updateData.uazapi_status = result.status;
-        }
-
-        // Salvar em whatsapp_accounts
-        await supabase
-          .schema("sistemaretiradas")
-          .from("whatsapp_accounts")
-          .update(updateData)
-          .eq('id', accountId!);
-
-        // Sincronizar com whatsapp_credentials
-        await syncBackupToWhatsAppCredentials(accountId!, backupType, updateData);
-
-        // Salvar QR code no estado
+      if (result.qrCode) {
+        // Apenas atualizar estado local (igual WhatsAppStoreConfig)
+        // O N8N já salvou os dados no banco, o polling vai sincronizar quando necessário
         setBackupQRCodes(prev => ({ ...prev, [backupType]: result.qrCode! }));
         
         // Atualizar estado local do account
@@ -1298,15 +1274,27 @@ export default function WhatsAppBulkSend() {
             success: true,
             ok: true,
             connected: false,
-            status: result.status || 'qr_required',
-            qrCode: result.qrCode || null,
+            status: 'qr_required',
+            qrCode: result.qrCode,
             instanceId: result.instanceId || null,
             phoneNumber: null,
             token: null,
           },
         }));
 
-        // Iniciar polling
+        // Atualizar lista de contas localmente
+        setWhatsappAccounts(prev => prev.map(acc => 
+          acc.id === accountId 
+            ? { 
+                ...acc, 
+                uazapi_qr_code: result.qrCode, 
+                uazapi_status: 'qr_required',
+                uazapi_instance_id: result.instanceId || acc.uazapi_instance_id,
+              }
+            : acc
+        ));
+
+        // Iniciar polling (igual WhatsAppStoreConfig)
         setPollingAccounts(prev => new Set(prev).add(accountId!));
         startPollingForBackupAccount(accountId!);
 
@@ -1360,42 +1348,17 @@ export default function WhatsAppBulkSend() {
 
       console.log('[WhatsAppBulkSend] Resultado conexao backup:', result);
 
-      if (result.qrCode || result.instanceId) {
+      if (result.qrCode) {
+        // Apenas atualizar estado local (igual WhatsAppStoreConfig)
+        // O N8N já salvou os dados no banco, o polling vai sincronizar quando necessário
         // Determinar backupType baseado no account
         let backupType: "BACKUP_1" | "BACKUP_2" | "BACKUP_3" | null = null;
         if (account.account_type === "BACKUP_1") backupType = "BACKUP_1";
         else if (account.account_type === "BACKUP_2") backupType = "BACKUP_2";
         else if (account.account_type === "BACKUP_3") backupType = "BACKUP_3";
         
-        // Preparar dados para salvar no banco
-        const updateData: Record<string, any> = {
-          updated_at: new Date().toISOString(),
-        };
-        
-        if (result.qrCode) {
-          updateData.uazapi_qr_code = result.qrCode;
-        }
-        if (result.instanceId) {
-          updateData.uazapi_instance_id = result.instanceId;
-        }
-        if (result.status) {
-          updateData.uazapi_status = result.status;
-        }
-
-        // Salvar em whatsapp_accounts
-        await supabase
-          .schema("sistemaretiradas")
-          .from("whatsapp_accounts")
-          .update(updateData)
-          .eq('id', accountId);
-
-        // Sincronizar com whatsapp_credentials se backupType foi identificado
-        if (backupType) {
-          await syncBackupToWhatsAppCredentials(accountId, backupType, updateData);
-        }
-        
         // Atualizar backupQRCodes se backupType foi identificado
-        if (backupType && result.qrCode) {
+        if (backupType) {
           setBackupQRCodes(prev => ({ ...prev, [backupType!]: result.qrCode! }));
         }
 
@@ -1406,26 +1369,27 @@ export default function WhatsAppBulkSend() {
             success: true,
             ok: true,
             connected: false,
-            status: result.status || 'qr_required',
-            qrCode: result.qrCode || null,
+            status: 'qr_required',
+            qrCode: result.qrCode,
             instanceId: result.instanceId || null,
             phoneNumber: account.phone,
             token: null,
           },
         }));
 
-        // Atualizar lista de contas
+        // Atualizar lista de contas localmente
         setWhatsappAccounts(prev => prev.map(acc => 
           acc.id === accountId 
             ? { 
                 ...acc, 
-                uazapi_qr_code: result.qrCode || acc.uazapi_qr_code, 
-                uazapi_status: result.status || 'qr_required' 
+                uazapi_qr_code: result.qrCode, 
+                uazapi_status: 'qr_required',
+                uazapi_instance_id: result.instanceId || acc.uazapi_instance_id,
               }
             : acc
         ));
 
-        // Iniciar polling
+        // Iniciar polling (igual WhatsAppStoreConfig)
         setPollingAccounts(prev => new Set(prev).add(accountId));
         startPollingForBackupAccount(accountId);
 
