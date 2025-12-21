@@ -851,6 +851,24 @@ export default function WhatsAppBulkSend() {
 
       console.log('[WhatsAppBulkSend] Status backup recebido:', status);
 
+      // Determinar backupType baseado no account para atualizar backupQRCodes
+      let backupType: "BACKUP_1" | "BACKUP_2" | "BACKUP_3" | null = null;
+      if (account.account_type === "BACKUP_1") backupType = "BACKUP_1";
+      else if (account.account_type === "BACKUP_2") backupType = "BACKUP_2";
+      else if (account.account_type === "BACKUP_3") backupType = "BACKUP_3";
+      
+      // Atualizar backupQRCodes se houver QR code e backupType foi identificado
+      if (status.qrCode && backupType) {
+        setBackupQRCodes(prev => ({ ...prev, [backupType!]: status.qrCode! }));
+      } else if (!status.qrCode && backupType) {
+        // Limpar QR code se não houver mais
+        setBackupQRCodes(prev => {
+          const newCodes = { ...prev };
+          delete newCodes[backupType!];
+          return newCodes;
+        });
+      }
+
       // Atualizar estado local
       setBackupAccountStatus(prev => ({ ...prev, [accountId]: status }));
 
@@ -1110,6 +1128,17 @@ export default function WhatsAppBulkSend() {
       console.log('[WhatsAppBulkSend] Resultado conexao backup:', result);
 
       if (result.qrCode) {
+        // Determinar backupType baseado no account
+        let backupType: "BACKUP_1" | "BACKUP_2" | "BACKUP_3" | null = null;
+        if (account.account_type === "BACKUP_1") backupType = "BACKUP_1";
+        else if (account.account_type === "BACKUP_2") backupType = "BACKUP_2";
+        else if (account.account_type === "BACKUP_3") backupType = "BACKUP_3";
+        
+        // Atualizar backupQRCodes se backupType foi identificado
+        if (backupType) {
+          setBackupQRCodes(prev => ({ ...prev, [backupType!]: result.qrCode! }));
+        }
+
         // Atualizar estado local
         setBackupAccountStatus(prev => ({
           ...prev,
@@ -2268,6 +2297,16 @@ export default function WhatsAppBulkSend() {
                             </div>
                           )}
 
+                          {/* Mensagem quando desconectado e sem QR code */}
+                          {!qrCode && !isConnected && status === 'disconnected' && (
+                            <div className="p-3 bg-muted rounded-lg text-center">
+                              <WifiOff className="h-8 w-8 mx-auto text-muted-foreground mb-1" />
+                              <p className="text-xs text-muted-foreground">
+                                Clique em "Gerar QR Code" para conectar este número
+                              </p>
+                            </div>
+                          )}
+
                           {/* Checkbox para usar na campanha (só aparece se conectado) */}
                           {isConnected && status === 'connected' && accountId && (
                             <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
@@ -2304,28 +2343,49 @@ export default function WhatsAppBulkSend() {
                             </div>
                           )}
 
-                          {/* Botão para conectar */}
-                          {!isConnected && status === 'disconnected' && !qrCode && (
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => handleConnectBackupNumber(backupType)}
-                              disabled={isLoading}
-                              className="w-full"
-                            >
-                              {isLoading ? (
-                                <>
+                          {/* Botões de ação */}
+                          <div className="flex gap-2 flex-wrap">
+                            {/* Botão Verificar Status - só aparece se há accountId */}
+                            {accountId && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCheckBackupStatus(accountId)}
+                                disabled={checkingStatus === accountId || isLoading}
+                                className="flex-1 min-w-[120px]"
+                              >
+                                {checkingStatus === accountId ? (
                                   <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                                  Gerando QR Code...
-                                </>
+                                ) : (
+                                  <Eye className="h-4 w-4 mr-1" />
+                                )}
+                                Verificar Status
+                              </Button>
+                            )}
+                            {/* Botão Gerar QR Code - sempre visível */}
+                            <Button
+                              variant={!qrCode && !isConnected ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => {
+                                if (accountId) {
+                                  // Se já tem accountId, usar handleGenerateBackupQRCode
+                                  handleGenerateBackupQRCode(accountId);
+                                } else {
+                                  // Se não tem accountId ainda, usar handleConnectBackupNumber para criar
+                                  handleConnectBackupNumber(backupType);
+                                }
+                              }}
+                              disabled={isLoading || isPolling}
+                              className={accountId ? "flex-1 min-w-[140px]" : "w-full"}
+                            >
+                              {isLoading || isPolling ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-1" />
                               ) : (
-                                <>
-                                  <Plus className="h-4 w-4 mr-1" />
-                                  Conectar Número Reserva {backupType.replace("BACKUP_", "")}
-                                </>
+                                <RefreshCw className="h-4 w-4 mr-1" />
                               )}
+                              {isLoading ? 'Gerando QR Code...' : isPolling ? 'Conectando...' : (qrCode ? 'Gerar Novo QR Code' : (accountId ? 'Gerar QR Code' : `Conectar Número Reserva ${backupType.replace("BACKUP_", "")}`))}
                             </Button>
-                          )}
+                          </div>
 
                         </CardContent>
                       </Card>
