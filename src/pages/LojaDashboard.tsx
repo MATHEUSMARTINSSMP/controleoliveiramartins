@@ -316,7 +316,10 @@ export default function LojaDashboard() {
             }
 
             // Diferença individual
-            const diferencaIndividual = vendidoMesColab - metaEsperadaAteOntem;
+            // CRÍTICO: Excluir vendas de hoje para garantir que a meta seja fixa durante o dia
+            const vendidoHojeColab = perf.vendidoHoje || 0;
+            const vendidoAteOntemColab = vendidoMesColab - vendidoHojeColab;
+            const diferencaIndividual = vendidoAteOntemColab - metaEsperadaAteOntem;
             
             let metaDinamica: number;
             let situacao: 'afrente' | 'atras' | 'neutro';
