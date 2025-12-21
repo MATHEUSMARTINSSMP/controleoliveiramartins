@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pause, Play, X, CheckCircle2, XCircle, Users, TrendingUp, Clock, RefreshCw } from "lucide-react";
-import { format, addMinutes, startOfDay, addDays } from "date-fns";
+import { format, addMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { WhatsAppCampaign } from "./types";
 import { CampaignActions } from "./CampaignActions";
