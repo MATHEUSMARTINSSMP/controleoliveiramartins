@@ -31,9 +31,51 @@ export default function WhatsAppCampaigns() {
   const { campaigns, loading: campaignsLoading, refetch } = useCampaigns(profile?.id);
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   const [detailsModalCampaign, setDetailsModalCampaign] = useState<WhatsAppCampaign | null>(null);
-  const { stats, loading: loadingStats, refetch: refetchStats } = useCampaignStats(selectedCampaign);
   const [allCampaignsStats, setAllCampaignsStats] = useState<Record<string, CampaignStats>>({});
   const [loadingAllStats, setLoadingAllStats] = useState(false);
+  
+  // Função para atualizar stats manualmente quando necessário
+  const refetchAllStats = async () => {
+    const activeCampaignIds = campaigns
+      .filter(c => c.status === 'RUNNING' || c.status === 'PAUSED')
+      .map(c => c.id);
+
+    if (activeCampaignIds.length === 0) {
+      setAllCampaignsStats({});
+      return;
+    }
+
+    setLoadingAllStats(true);
+    try {
+      const { data: messages, error } = await supabase
+        .schema("sistemaretiradas")
+        .from("whatsapp_message_queue")
+        .select("campaign_id, status")
+        .in("campaign_id", activeCampaignIds);
+
+      if (error) throw error;
+
+      // Agrupar por campaign_id e calcular stats
+      const statsMap: Record<string, CampaignStats> = {};
+      activeCampaignIds.forEach(campaignId => {
+        const campaignMessages = messages?.filter(m => m.campaign_id === campaignId) || [];
+        statsMap[campaignId] = {
+          total: campaignMessages.length,
+          pending: campaignMessages.filter(m => m.status === 'PENDING' || m.status === 'SCHEDULED').length,
+          sending: campaignMessages.filter(m => m.status === 'SENDING').length,
+          sent: campaignMessages.filter(m => m.status === 'SENT').length,
+          failed: campaignMessages.filter(m => m.status === 'FAILED').length,
+          cancelled: campaignMessages.filter(m => m.status === 'CANCELLED' || m.status === 'SKIPPED').length,
+        };
+      });
+
+      setAllCampaignsStats(statsMap);
+    } catch (error: any) {
+      console.error("Erro ao buscar estatísticas de todas as campanhas:", error);
+    } finally {
+      setLoadingAllStats(false);
+    }
+  };
   const [campaignToDelete, setCampaignToDelete] = useState<WhatsAppCampaign | null>(null);
   const [campaignToDuplicate, setCampaignToDuplicate] = useState<WhatsAppCampaign | null>(null);
   
@@ -48,43 +90,10 @@ export default function WhatsAppCampaigns() {
       return;
     }
 
-    const fetchAllStats = async () => {
-      setLoadingAllStats(true);
-      try {
-        const { data: messages, error } = await supabase
-          .schema("sistemaretiradas")
-          .from("whatsapp_message_queue")
-          .select("campaign_id, status")
-          .in("campaign_id", activeCampaignIds);
-
-        if (error) throw error;
-
-        // Agrupar por campaign_id e calcular stats
-        const statsMap: Record<string, CampaignStats> = {};
-        activeCampaignIds.forEach(campaignId => {
-          const campaignMessages = messages?.filter(m => m.campaign_id === campaignId) || [];
-          statsMap[campaignId] = {
-            total: campaignMessages.length,
-            pending: campaignMessages.filter(m => m.status === 'PENDING' || m.status === 'SCHEDULED').length,
-            sending: campaignMessages.filter(m => m.status === 'SENDING').length,
-            sent: campaignMessages.filter(m => m.status === 'SENT').length,
-            failed: campaignMessages.filter(m => m.status === 'FAILED').length,
-            cancelled: campaignMessages.filter(m => m.status === 'CANCELLED' || m.status === 'SKIPPED').length,
-          };
-        });
-
-        setAllCampaignsStats(statsMap);
-      } catch (error: any) {
-        console.error("Erro ao buscar estatísticas de todas as campanhas:", error);
-      } finally {
-        setLoadingAllStats(false);
-      }
-    };
-
-    fetchAllStats();
+    refetchAllStats();
 
     // Polling: atualizar stats a cada 10 segundos para campanhas ativas
-    const interval = setInterval(fetchAllStats, 10000);
+    const interval = setInterval(refetchAllStats, 10000);
     return () => clearInterval(interval);
   }, [campaigns]);
   
@@ -399,8 +408,8 @@ export default function WhatsAppCampaigns() {
               onDuplicate={() => setCampaignToDuplicate(campaign)}
               onDelete={() => setCampaignToDelete(campaign)}
               onEdit={() => navigate(`/admin/whatsapp-bulk-send?campaignId=${campaign.id}`)}
-              stats={selectedCampaign === campaign.id ? (stats || undefined) : (allCampaignsStats[campaign.id] || undefined)}
-              loadingStats={selectedCampaign === campaign.id ? loadingStats : loadingAllStats}
+              stats={allCampaignsStats[campaign.id] || undefined}
+              loadingStats={loadingAllStats}
               loadingPause={loadingActions[campaign.id] === 'pause'}
               loadingResume={loadingActions[campaign.id] === 'resume'}
               loadingCancel={loadingActions[campaign.id] === 'cancel'}
