@@ -984,11 +984,24 @@ export default function LojaDashboard() {
         const bonusFrente = config?.bonusFrente ?? false;
 
         // 1. META BASE DO DIA: Meta mínima pelo peso configurado
+        // Proteção: garantir que daysInMonth seja válido
+        if (daysInMonth <= 0) {
+            console.error('[calculateDynamicDailyGoal] ⚠️ daysInMonth inválido:', daysInMonth, { today, metaMensal });
+            return 0;
+        }
+        
+        if (metaMensal <= 0) {
+            console.warn('[calculateDynamicDailyGoal] ⚠️ metaMensal é zero ou negativa:', metaMensal, { today });
+            return 0;
+        }
+        
         let metaBaseDoDia = metaMensal / daysInMonth;
         if (dailyWeights && Object.keys(dailyWeights).length > 0) {
             const hojePeso = dailyWeights[today] || 0;
             if (hojePeso > 0) {
                 metaBaseDoDia = (metaMensal * hojePeso) / 100;
+            } else {
+                console.warn('[calculateDynamicDailyGoal] ⚠️ dailyWeights configurado mas hoje não tem peso, usando divisão uniforme:', { today, hojePeso, metaBaseDoDia: metaBaseDoDia.toFixed(2) });
             }
         }
 
@@ -1074,15 +1087,28 @@ export default function LojaDashboard() {
             }
         }
 
-        // PROTEÇÃO: Meta diária não pode ser maior que 50% da meta mensal
-        const maxMetaDiaria = metaMensal * 0.5;
-        if (metaDinamica > maxMetaDiaria) {
-            metaDinamica = maxMetaDiaria;
-        }
-
         // PROTEÇÃO: Meta diária nunca menor que a meta base do dia
         if (metaDinamica < metaBaseDoDia) {
             metaDinamica = metaBaseDoDia;
+        }
+
+        // PROTEÇÃO: Meta diária não pode ser maior que 50% da meta mensal (apenas se metaMensal > 0)
+        if (metaMensal > 0) {
+            const maxMetaDiaria = metaMensal * 0.5;
+            if (metaDinamica > maxMetaDiaria) {
+                metaDinamica = maxMetaDiaria;
+            }
+        }
+
+        // PROTEÇÃO FINAL: Garantir que não retornamos NaN ou Infinity
+        if (!isFinite(metaDinamica) || metaDinamica < 0) {
+            console.error('[calculateDynamicDailyGoal] ⚠️ Valor inválido calculado:', metaDinamica, {
+                metaMensal,
+                metaBaseDoDia,
+                daysInMonth,
+                today
+            });
+            return metaBaseDoDia > 0 ? metaBaseDoDia : 0;
         }
 
         return metaDinamica;
