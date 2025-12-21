@@ -164,14 +164,17 @@ BEGIN
     END IF;
     
     -- Mostrar detalhes do registro principal
-    FOR _updated_count IN
+    FOR _principal_record IN
         SELECT uazapi_phone_number, uazapi_status, site_slug
         FROM sistemaretiradas.whatsapp_credentials
         WHERE admin_id = _admin_id
           AND site_slug = _site_slug
           AND site_slug NOT LIKE '%_backup%'
     LOOP
-        RAISE NOTICE '   Phone: %, Status: %, Slug: %', _updated_count;
+        RAISE NOTICE '   Phone: %, Status: %, Slug: %', 
+            _principal_record.uazapi_phone_number, 
+            _principal_record.uazapi_status, 
+            _principal_record.site_slug;
     END LOOP;
     
     RAISE NOTICE '========================================';
