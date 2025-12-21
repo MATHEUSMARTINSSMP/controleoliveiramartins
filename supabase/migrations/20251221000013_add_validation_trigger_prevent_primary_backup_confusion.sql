@@ -53,8 +53,6 @@ CREATE TRIGGER trigger_validate_whatsapp_primary_site_slug
     FOR EACH ROW
     EXECUTE FUNCTION sistemaretiradas.validate_whatsapp_primary_site_slug();
 
-RAISE NOTICE '✅ Trigger de validação criado para prevenir confusão entre principal e backup';
-
 -- Adicionar comentário na função
 COMMENT ON FUNCTION sistemaretiradas.validate_whatsapp_primary_site_slug() IS 
 'Valida que números principais (site_slug sem "_backup") não sejam confundidos com backups (site_slug com "_backup"). Esta função é executada via trigger antes de INSERT/UPDATE em whatsapp_credentials.';
