@@ -52,7 +52,10 @@ Esta migration adiciona as colunas `external_order_id` e `order_source` na tabel
 ## 📋 Checklist Final
 
 - [x] Migration para adicionar `external_order_id` + `order_source` em `cashback_transactions` criada
-- [x] Código JavaScript atualizado para usar nova estrutura
+- [x] Código JavaScript atualizado para usar nova estrutura:
+  - [x] `sync-tiny-orders-background.js`
+  - [x] `TinyOrdersList.tsx`
+  - [x] `cashback-generate-retroactive.js`
 - [x] Funções RPC migradas (fase 2)
 - [x] Trigger de sincronização criado (fase 3)
 - [x] Remoção de `tiny_order_id` preparada (fase 4)

@@ -102,10 +102,13 @@ exports.handler = async (event, context) => {
                 }
 
                 // Verificar se já existe cashback para este pedido
+                // ✅ Usar external_order_id + order_source (nova estrutura genérica)
                 const { data: existingCashback } = await supabase
+                    .schema('sistemaretiradas')
                     .from('cashback_transactions')
                     .select('id')
-                    .eq('tiny_order_id', pedido.id)
+                    .eq('external_order_id', pedido.id.toString())
+                    .eq('order_source', 'TINY')
                     .eq('transaction_type', 'EARNED')
                     .maybeSingle();
 
@@ -115,13 +118,17 @@ exports.handler = async (event, context) => {
                 }
 
                 // Gerar cashback
-                const { data: result, error: gerarError } = await supabase.rpc('gerar_cashback', {
-                    p_tiny_order_id: pedido.id,
-                    p_cliente_id: pedido.cliente_id,
-                    p_store_id: pedido.store_id,
-                    p_colaboradora_id: pedido.colaboradora_id,
-                    p_valor_total: pedido.valor_total,
-                });
+                // ✅ Usar external_order_id + order_source (nova estrutura genérica)
+                const { data: result, error: gerarError } = await supabase
+                    .schema('sistemaretiradas')
+                    .rpc('gerar_cashback', {
+                        p_external_order_id: pedido.id.toString(),
+                        p_order_source: 'TINY',
+                        p_cliente_id: pedido.cliente_id,
+                        p_store_id: pedido.store_id,
+                        p_colaboradora_id: pedido.colaboradora_id,
+                        p_valor_total: pedido.valor_total,
+                    });
 
                 if (gerarError || !result?.success) {
                     console.error(`[CashbackRetroactive] ❌ Erro no pedido ${pedido.numero_pedido}:`, gerarError || result?.error);

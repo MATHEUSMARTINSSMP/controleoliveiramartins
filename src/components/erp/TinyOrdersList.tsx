@@ -114,11 +114,13 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
       setDeleting(true);
 
       // Verificar se há cashback relacionado
+      // ✅ Usar external_order_id + order_source (nova estrutura genérica)
       const { data: cashbackData } = await supabase
         .schema('sistemaretiradas')
         .from('cashback_transactions')
         .select('id')
-        .eq('tiny_order_id', orderToDelete.id)
+        .eq('external_order_id', orderToDelete.id.toString())
+        .eq('order_source', 'TINY')
         .limit(1);
 
       const hasCashback = cashbackData && cashbackData.length > 0;
