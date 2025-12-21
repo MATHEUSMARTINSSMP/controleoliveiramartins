@@ -827,7 +827,7 @@ exports.handler = async (event, context) => {
             // Executar em background (não bloquear sincronização)
             (async () => {
               try {
-                await enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensProcessados, pedidoCompleto);
+                await enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensProcessados, pedidoCompleto, orderSavedId);
               } catch (error) {
                 console.error(`[SyncBackground] ❌ Erro ao enviar WhatsApp (não bloqueia sincronização):`, error);
               }
@@ -2450,7 +2450,7 @@ function formatarProdutosParaObservacoes(itens) {
  * Envia WhatsApp quando uma nova venda do Tiny chega
  * Usa a mesma estrutura de mensagem do LojaDashboard
  */
-async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensComCategorias, pedidoCompleto = null) {
+async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensComCategorias, pedidoCompleto = null, tinyOrderId = null) {
   try {
     console.log(`[SyncBackground] 📱 ========== INICIANDO ENVIO WHATSAPP ==========`);
     console.log(`[SyncBackground] 📱 Pedido: ${orderData.numero_pedido}`);
