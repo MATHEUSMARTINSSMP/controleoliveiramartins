@@ -15,6 +15,7 @@ DECLARE
     _uazapi_phone_number TEXT := '559699741090';
     _uazapi_instance_id TEXT;
     _updated_count INTEGER;
+    _principal_record RECORD;
 BEGIN
     RAISE NOTICE '========================================';
     RAISE NOTICE 'FORÇAR NÚMERO PRINCIPAL MR KITSCH';
