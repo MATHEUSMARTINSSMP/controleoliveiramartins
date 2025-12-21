@@ -508,6 +508,21 @@ export default function WhatsAppBulkSend() {
       credUpdateData.uazapi_qr_code = updateData.uazapi_qr_code;
     }
 
+    // Buscar admin_id da loja
+    let adminId = profile.id;
+    if (selectedStoreId) {
+      const { data: storeData } = await supabase
+        .schema("sistemaretiradas")
+        .from("stores")
+        .select("admin_id")
+        .eq("id", selectedStoreId)
+        .single();
+      
+      if (storeData?.admin_id) {
+        adminId = storeData.admin_id;
+      }
+    }
+
     // Atualizar ou criar registro em whatsapp_credentials
     const { error: credError } = await supabase
       .schema("sistemaretiradas")
@@ -515,6 +530,7 @@ export default function WhatsAppBulkSend() {
       .upsert({
         customer_id: profile.email,
         site_slug: backupSiteSlug,
+        admin_id: adminId,
         ...credUpdateData,
         status: "active",
       }, {
@@ -1174,6 +1190,16 @@ export default function WhatsAppBulkSend() {
         }
         accountId = newAccount.id;
         
+        // Buscar admin_id da loja
+        const { data: storeData } = await supabase
+          .schema("sistemaretiradas")
+          .from("stores")
+          .select("admin_id")
+          .eq("id", selectedStoreId)
+          .single();
+        
+        const adminId = storeData?.admin_id || profile.id;
+
         // Criar registro correspondente em whatsapp_credentials para o N8N poder buscar
         const { error: credCreateError } = await supabase
           .schema("sistemaretiradas")
@@ -1181,6 +1207,7 @@ export default function WhatsAppBulkSend() {
           .upsert({
             customer_id: profile.email,
             site_slug: backupSiteSlug,
+            admin_id: adminId,
             uazapi_status: "disconnected",
             status: "active",
             updated_at: new Date().toISOString(),
@@ -1198,12 +1225,23 @@ export default function WhatsAppBulkSend() {
         await fetchWhatsAppAccounts();
       } else {
         // Se já existe, garantir que também existe em whatsapp_credentials
+        // Buscar admin_id da loja
+        const { data: storeData } = await supabase
+          .schema("sistemaretiradas")
+          .from("stores")
+          .select("admin_id")
+          .eq("id", selectedStoreId)
+          .single();
+        
+        const adminId = storeData?.admin_id || profile.id;
+
         const { error: credUpsertError } = await supabase
           .schema("sistemaretiradas")
           .from("whatsapp_credentials")
           .upsert({
             customer_id: profile.email,
             site_slug: backupSiteSlug,
+            admin_id: adminId,
             status: "active",
             updated_at: new Date().toISOString(),
           }, {
@@ -1224,7 +1262,32 @@ export default function WhatsAppBulkSend() {
 
       console.log('[WhatsAppBulkSend] Resultado conexao backup:', result);
 
-      if (result.qrCode) {
+      if (result.qrCode || result.instanceId) {
+        // Preparar dados para salvar no banco
+        const updateData: Record<string, any> = {
+          updated_at: new Date().toISOString(),
+        };
+        
+        if (result.qrCode) {
+          updateData.uazapi_qr_code = result.qrCode;
+        }
+        if (result.instanceId) {
+          updateData.uazapi_instance_id = result.instanceId;
+        }
+        if (result.status) {
+          updateData.uazapi_status = result.status;
+        }
+
+        // Salvar em whatsapp_accounts
+        await supabase
+          .schema("sistemaretiradas")
+          .from("whatsapp_accounts")
+          .update(updateData)
+          .eq('id', accountId!);
+
+        // Sincronizar com whatsapp_credentials
+        await syncBackupToWhatsAppCredentials(accountId!, backupType, updateData);
+
         // Salvar QR code no estado
         setBackupQRCodes(prev => ({ ...prev, [backupType]: result.qrCode! }));
         
@@ -1235,8 +1298,8 @@ export default function WhatsAppBulkSend() {
             success: true,
             ok: true,
             connected: false,
-            status: 'qr_required',
-            qrCode: result.qrCode,
+            status: result.status || 'qr_required',
+            qrCode: result.qrCode || null,
             instanceId: result.instanceId || null,
             phoneNumber: null,
             token: null,
@@ -1297,15 +1360,42 @@ export default function WhatsAppBulkSend() {
 
       console.log('[WhatsAppBulkSend] Resultado conexao backup:', result);
 
-      if (result.qrCode) {
+      if (result.qrCode || result.instanceId) {
         // Determinar backupType baseado no account
         let backupType: "BACKUP_1" | "BACKUP_2" | "BACKUP_3" | null = null;
         if (account.account_type === "BACKUP_1") backupType = "BACKUP_1";
         else if (account.account_type === "BACKUP_2") backupType = "BACKUP_2";
         else if (account.account_type === "BACKUP_3") backupType = "BACKUP_3";
         
-        // Atualizar backupQRCodes se backupType foi identificado
+        // Preparar dados para salvar no banco
+        const updateData: Record<string, any> = {
+          updated_at: new Date().toISOString(),
+        };
+        
+        if (result.qrCode) {
+          updateData.uazapi_qr_code = result.qrCode;
+        }
+        if (result.instanceId) {
+          updateData.uazapi_instance_id = result.instanceId;
+        }
+        if (result.status) {
+          updateData.uazapi_status = result.status;
+        }
+
+        // Salvar em whatsapp_accounts
+        await supabase
+          .schema("sistemaretiradas")
+          .from("whatsapp_accounts")
+          .update(updateData)
+          .eq('id', accountId);
+
+        // Sincronizar com whatsapp_credentials se backupType foi identificado
         if (backupType) {
+          await syncBackupToWhatsAppCredentials(accountId, backupType, updateData);
+        }
+        
+        // Atualizar backupQRCodes se backupType foi identificado
+        if (backupType && result.qrCode) {
           setBackupQRCodes(prev => ({ ...prev, [backupType!]: result.qrCode! }));
         }
 
@@ -1316,8 +1406,8 @@ export default function WhatsAppBulkSend() {
             success: true,
             ok: true,
             connected: false,
-            status: 'qr_required',
-            qrCode: result.qrCode,
+            status: result.status || 'qr_required',
+            qrCode: result.qrCode || null,
             instanceId: result.instanceId || null,
             phoneNumber: account.phone,
             token: null,
@@ -1327,7 +1417,11 @@ export default function WhatsAppBulkSend() {
         // Atualizar lista de contas
         setWhatsappAccounts(prev => prev.map(acc => 
           acc.id === accountId 
-            ? { ...acc, uazapi_qr_code: result.qrCode, uazapi_status: 'qr_required' }
+            ? { 
+                ...acc, 
+                uazapi_qr_code: result.qrCode || acc.uazapi_qr_code, 
+                uazapi_status: result.status || 'qr_required' 
+              }
             : acc
         ));
 
