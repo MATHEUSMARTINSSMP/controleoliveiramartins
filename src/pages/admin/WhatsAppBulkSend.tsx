@@ -560,43 +560,61 @@ export default function WhatsAppBulkSend() {
 
       // Verificar status via N8N para número principal (igual WhatsAppStoreConfig)
       // Isso garante que números conectados no N8N sejam detectados mesmo sem status atualizado no banco
+      // IMPORTANTE: Só verificar se não está connected no banco, para evitar downgrades
       if (credentials && profile?.email && selectedStore?.site_slug) {
-        try {
-          const status = await fetchWhatsAppStatus({
-            siteSlug: selectedStore.site_slug,
-            customerId: profile.email,
-          });
+        const currentStatus = credentials.uazapi_status;
+        const isConnectedInDb = currentStatus === 'connected';
+        
+        // Só verificar via N8N se NÃO está connected no banco
+        // Se está connected, confiar no banco e não fazer verificação que pode causar downgrade
+        if (!isConnectedInDb) {
+          try {
+            const status = await fetchWhatsAppStatus({
+              siteSlug: selectedStore.site_slug,
+              customerId: profile.email,
+            });
 
-          // Atualizar estado do número principal se status mudou (com proteção contra downgrade)
-          const currentStatus = credentials.uazapi_status;
-          const isConnectedInDb = currentStatus === 'connected';
-          const isDisconnectedFromN8N = status.status === 'error' || status.status === 'disconnected' || !status.status;
-          
-          // PROTEÇÃO: Não fazer downgrade de connected para disconnected
-          if (!(isConnectedInDb && isDisconnectedFromN8N)) {
-            setWhatsappAccounts(prev => prev.map(acc => 
-              acc.account_type === "PRIMARY"
-                ? {
-                    ...acc,
-                    uazapi_status: status.status || acc.uazapi_status,
-                    is_connected: status.connected || (status.status === 'connected'),
-                    phone: status.phoneNumber || acc.phone,
-                  }
-                : acc
-            ));
+            // Atualizar estado do número principal apenas se for upgrade (não fazer downgrade)
+            const isConnectedFromN8N = status.status === 'connected' || status.connected;
+            
+            if (isConnectedFromN8N) {
+              setWhatsappAccounts(prev => prev.map(acc => 
+                acc.account_type === "PRIMARY"
+                  ? {
+                      ...acc,
+                      uazapi_status: 'connected',
+                      is_connected: true,
+                      phone: status.phoneNumber || acc.phone,
+                    }
+                  : acc
+              ));
+            }
+          } catch (error) {
+            console.error('[WhatsAppBulkSend] Erro ao verificar status do número principal:', error);
           }
-        } catch (error) {
-          console.error('[WhatsAppBulkSend] Erro ao verificar status do número principal:', error);
+        } else {
+          console.log('[WhatsAppBulkSend] Número principal está connected no banco, pulando verificação N8N para evitar downgrade');
         }
       }
 
       // Verificar status via N8N para números reserva (igual WhatsAppStoreConfig)
       // Isso garante que números conectados no N8N sejam detectados mesmo sem status atualizado no banco
+      // IMPORTANTE: Só verificar números que NÃO estão connected no banco, para evitar downgrades
       if (backupAccounts && backupAccounts.length > 0 && profile?.email && selectedStore?.site_slug) {
-        console.log('[WhatsAppBulkSend] Verificando status via N8N para', backupAccounts.length, 'números reserva...');
+        // Filtrar apenas números que não estão connected para verificar
+        const accountsToCheck = backupAccounts.filter(acc => {
+          const account = accounts.find(a => a.id === acc.id);
+          return account && account.uazapi_status !== 'connected';
+        });
         
-        // Verificar status de todos os números reserva em paralelo
-        const statusPromises = backupAccounts.map(async (acc) => {
+        if (accountsToCheck.length > 0) {
+          console.log('[WhatsAppBulkSend] Verificando status via N8N para', accountsToCheck.length, 'números reserva (pulando', backupAccounts.length - accountsToCheck.length, 'já conectados)...');
+        } else {
+          console.log('[WhatsAppBulkSend] Todos os números reserva estão connected no banco, pulando verificação N8N para evitar downgrades');
+        }
+        
+        // Verificar status de todos os números reserva em paralelo (apenas os que não estão connected)
+        const statusPromises = accountsToCheck.map(async (acc) => {
           try {
             const status = await fetchBackupWhatsAppStatus({
               siteSlug: selectedStore.site_slug!,
@@ -613,16 +631,30 @@ export default function WhatsAppBulkSend() {
               const currentStatus = a.uazapi_status;
               const isConnectedInDb = currentStatus === 'connected';
               const isDisconnectedFromN8N = status.status === 'disconnected' || status.status === 'error' || !status.status;
+              const isConnectedFromN8N = status.status === 'connected' || status.connected;
               
-              // PROTEÇÃO UI: Não fazer downgrade de connected para disconnected
-              const finalStatus = (isConnectedInDb && isDisconnectedFromN8N) 
-                ? 'connected'  // Manter connected se estava connected
-                : (status.status || currentStatus); // Usar novo status ou manter atual
+              // PROTEÇÃO UI: Se está connected no banco e N8N retorna disconnected, IGNORAR completamente
+              if (isConnectedInDb && isDisconnectedFromN8N) {
+                console.log('[WhatsAppBulkSend] 🛡️ UI: Backup', acc.id, 'está connected no banco, N8N retornou disconnected - MANTENDO connected na UI');
+                // Não atualizar nada, manter status atual
+                return a;
+              }
               
+              // Se N8N retornou connected, fazer upgrade
+              if (isConnectedFromN8N) {
+                return {
+                  ...a,
+                  uazapi_status: 'connected',
+                  is_connected: true,
+                  phone: status.phoneNumber || a.phone,
+                };
+              }
+              
+              // Para outros casos (disconnected quando não estava connected), atualizar normalmente
               return {
                 ...a,
-                uazapi_status: finalStatus,
-                is_connected: finalStatus === 'connected' || status.connected,
+                uazapi_status: status.status || currentStatus,
+                is_connected: status.connected || false,
                 phone: status.phoneNumber || a.phone,
               };
             }));
