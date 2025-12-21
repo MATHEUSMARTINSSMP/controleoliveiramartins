@@ -2630,7 +2630,7 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     const { data: vendasHoje } = await supabase
       .schema('sistemaretiradas')
       .from('sales')
-      .select('valor')
+      .select('valor, tiny_order_id')
       .eq('store_id', storeId)
       .gte('data_venda', `${hojeStr}T00:00:00`)
       .lte('data_venda', `${hojeStr}T23:59:59`);
@@ -2643,15 +2643,13 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     // Se a venda é de hoje, verificar se já está incluída no total
     let totalDiaComVendaAtual = totalDia;
     if (dataPedido === hojeStr) {
-      // Verificar se a venda atual já está em sales (para evitar duplicação)
-      // Buscar vendas com mesmo valor (aproximado) e mesmo dia para esta loja
-      const valorMinimo = valorVendaAtual * 0.99; // 1% de tolerância
-      const valorMaximo = valorVendaAtual * 1.01;
-      
-      const vendaJaExiste = vendasHoje?.some(v => {
-        const valorVenda = parseFloat(v.valor) || 0;
-        return valorVenda >= valorMinimo && valorVenda <= valorMaximo;
-      });
+      // ✅ Verificar se a venda atual já está em sales usando tiny_order_id
+      // Isso é mais confiável do que comparar valores (duas vendas podem ter o mesmo valor)
+      let vendaJaExiste = false;
+      if (tinyOrderId) {
+        vendaJaExiste = vendasHoje?.some(v => v.tiny_order_id === tinyOrderId) || false;
+        console.log(`[SyncBackground] 📊 Verificando se venda já está em sales (tiny_order_id: ${tinyOrderId}): ${vendaJaExiste}`);
+      }
 
       if (!vendaJaExiste) {
         // Venda ainda não está em sales, precisamos adicioná-la
@@ -2660,7 +2658,7 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
       } else {
         // Venda já está em sales, usar apenas o totalDia
         totalDiaComVendaAtual = totalDia;
-        console.log(`[SyncBackground] 📊 Total do dia: ${totalDia.toFixed(2)} (venda atual já estava incluída em sales)`);
+        console.log(`[SyncBackground] 📊 Total do dia: ${totalDia.toFixed(2)} (venda atual já estava incluída em sales via tiny_order_id: ${tinyOrderId})`);
       }
     } else {
       console.log(`[SyncBackground] 📊 Total do dia (venda não é de hoje): ${totalDia.toFixed(2)} (dataPedido: ${dataPedido}, hojeStr: ${hojeStr})`);
