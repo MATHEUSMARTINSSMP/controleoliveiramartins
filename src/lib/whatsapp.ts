@@ -156,7 +156,7 @@ export function formatVendaMessage(params: {
 
   message += `*Data:* ${dataFormatada}\n`;
 
-  // Adicionar totais se disponíveis
+  // Adicionar totais se disponíveis (sempre incluir se fornecido, mesmo se for 0)
   if (totalDia !== undefined && totalDia !== null) {
     const totalDiaFormatado = new Intl.NumberFormat('pt-BR', {
       style: 'currency',

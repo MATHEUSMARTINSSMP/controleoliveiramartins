@@ -2637,12 +2637,22 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
 
     const totalDia = vendasHoje?.reduce((sum, v) => sum + (parseFloat(v.valor) || 0), 0) || 0;
 
-    // ✅ CORRIGIDO: A venda atual JÁ está em sales quando esta função é chamada
-    // Não precisamos adicionar novamente, senão duplica o valor
+    // ✅ Garantir que sempre incluímos a venda atual no total do dia
+    // Se a venda atual ainda não foi salva em sales, precisamos adicioná-la
     const valorVendaAtual = parseFloat(orderData.valor_total) || 0;
     const dataPedido = orderData.data_pedido ? new Date(orderData.data_pedido).toISOString().split('T')[0] : null;
-    let totalDiaComVendaAtual = totalDia; // Usar o total que já inclui a venda atual
-    console.log(`[SyncBackground] 📊 Total do dia (já inclui venda atual): ${totalDia.toFixed(2)}`);
+    const hojeStr2 = new Date().toISOString().split('T')[0];
+    
+    // Se a venda é de hoje, garantir que está incluída no total
+    let totalDiaComVendaAtual = totalDia;
+    if (dataPedido === hojeStr2) {
+      // Verificar se a venda atual já está no total (pode não estar se foi recém criada)
+      // Sempre incluir para garantir que o total está correto
+      totalDiaComVendaAtual = totalDia + valorVendaAtual;
+      console.log(`[SyncBackground] 📊 Total do dia calculado: ${totalDia.toFixed(2)} + venda atual ${valorVendaAtual.toFixed(2)} = ${totalDiaComVendaAtual.toFixed(2)}`);
+    } else {
+      console.log(`[SyncBackground] 📊 Total do dia (venda não é de hoje): ${totalDia.toFixed(2)}`);
+    }
 
     // ✅ BUSCAR TOTAL DO MÊS DE SALES (não tiny_orders)
     const mesAtual = new Date().toISOString().slice(0, 7); // Formato: YYYY-MM
@@ -2859,8 +2869,8 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
 
     message += `*Data:* ${dataFormatada}\n`;
 
-    // ✅ Usar total do dia COM a venda atual incluída
-    if (totalDiaComVendaAtual > 0) {
+    // ✅ Sempre mostrar total do dia se a venda é de hoje e temos um valor
+    if (dataPedido === hojeStr2 && totalDiaComVendaAtual !== undefined && totalDiaComVendaAtual !== null) {
       const totalDiaFormatado = new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: 'BRL',
