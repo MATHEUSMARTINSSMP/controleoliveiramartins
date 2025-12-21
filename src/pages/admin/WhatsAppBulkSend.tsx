@@ -488,14 +488,32 @@ export default function WhatsAppBulkSend() {
       }
 
       // 1. Buscar número principal da loja (whatsapp_credentials)
-      // Buscar TODOS os campos para ter informações completas
-      const { data: credentials, error: credError } = await supabase
+      // CRÍTICO: Números principais NUNCA devem ter site_slug com "_backup"
+      // Garantir que apenas números principais sejam retornados (não backups)
+      // Buscar todos os registros e filtrar no código para garantir que não há backup
+      const { data: credentialsData, error: credError } = await supabase
         .schema("sistemaretiradas")
         .from("whatsapp_credentials")
         .select("*")
         .eq("admin_id", profile.id)
-        .eq("site_slug", selectedStore.site_slug)
-        .maybeSingle();
+        .eq("site_slug", selectedStore.site_slug); // site_slug exato da loja (ex: "mrkitsch")
+      
+      // FILTRAR NO CÓDIGO: Garantir que NUNCA pegamos um backup como principal
+      const credentials = credentialsData?.find(cred => 
+        cred.site_slug === selectedStore.site_slug && 
+        !cred.site_slug?.includes("_backup")
+      ) || null;
+      
+      // Se encontrou um registro mas é backup, reportar erro crítico
+      if (credentialsData && credentialsData.length > 0 && !credentials) {
+        const backupCred = credentialsData.find(cred => cred.site_slug?.includes("_backup"));
+        if (backupCred) {
+          console.error('[WhatsAppBulkSend] ⚠️ ERRO CRÍTICO: Tentativa de usar número reserva como principal!', {
+            site_slug: backupCred.site_slug,
+            admin_id: backupCred.admin_id
+          });
+        }
+      }
 
       // Tratar erro ao buscar credenciais (não bloquear UI)
       if (credError) {
@@ -506,23 +524,36 @@ export default function WhatsAppBulkSend() {
       const accounts: WhatsAppAccount[] = [];
 
       // Adicionar número principal se existir registro em whatsapp_credentials
+      // CRÍTICO: Verificar que NÃO é um backup (site_slug não deve conter "_backup")
       // Para números principais, não usamos ID de whatsapp_accounts (eles estão em whatsapp_credentials)
       // Usamos "PRIMARY" como identificador especial
       if (credentials) {
-        // Sempre mostrar o número principal se existe registro
-        // Se está conectado, mostrar o número real; caso contrário, mostrar placeholder
-        const isConnected = credentials.uazapi_status === "connected";
-        const phoneDisplay = credentials.uazapi_phone_number 
-          ? credentials.uazapi_phone_number 
-          : (isConnected ? "Número conectado" : "Número não conectado");
-        
-        accounts.push({
-          id: "PRIMARY", // Identificador especial para números principais
-          phone: phoneDisplay,
-          account_type: "PRIMARY",
-          is_connected: isConnected,
-          uazapi_status: credentials.uazapi_status || "disconnected",
-        });
+        // VALIDAÇÃO CRÍTICA: Garantir que este NÃO é um número reserva
+        if (credentials.site_slug && credentials.site_slug.includes("_backup")) {
+          console.error('[WhatsAppBulkSend] ⚠️ ERRO CRÍTICO: Tentativa de usar número reserva como principal! site_slug:', credentials.site_slug);
+          // NÃO adicionar como principal se for backup
+        } else {
+          // Sempre mostrar o número principal se existe registro
+          // Se está conectado, mostrar o número real; caso contrário, mostrar placeholder
+          const isConnected = credentials.uazapi_status === "connected";
+          const phoneDisplay = credentials.uazapi_phone_number 
+            ? credentials.uazapi_phone_number 
+            : (isConnected ? "Número conectado" : "Número não conectado");
+          
+          console.log('[WhatsAppBulkSend] ✅ Número principal encontrado:', {
+            site_slug: credentials.site_slug,
+            phone: phoneDisplay,
+            status: credentials.uazapi_status
+          });
+          
+          accounts.push({
+            id: "PRIMARY", // Identificador especial para números principais
+            phone: phoneDisplay,
+            account_type: "PRIMARY",
+            is_connected: isConnected,
+            uazapi_status: credentials.uazapi_status || "disconnected",
+          });
+        }
       }
 
       // 2. Buscar números reserva (whatsapp_accounts) usando colunas booleanas
@@ -543,11 +574,25 @@ export default function WhatsAppBulkSend() {
       }
 
       if (backupAccounts) {
+        console.log('[WhatsAppBulkSend] 📱 Números reserva encontrados:', backupAccounts.length);
         accounts.push(...backupAccounts.map(acc => {
           // Determinar qual backup é baseado nas colunas booleanas
           let backupType = "BACKUP_1";
           if (acc.is_backup2) backupType = "BACKUP_2";
           else if (acc.is_backup3) backupType = "BACKUP_3";
+          
+          // VALIDAÇÃO CRÍTICA: Garantir que este é realmente um backup
+          const isValidBackup = acc.is_backup1 || acc.is_backup2 || acc.is_backup3;
+          if (!isValidBackup) {
+            console.error('[WhatsAppBulkSend] ⚠️ ERRO CRÍTICO: Registro em whatsapp_accounts não é um backup válido! ID:', acc.id);
+          }
+          
+          console.log('[WhatsAppBulkSend] ✅ Backup adicionado:', {
+            id: acc.id,
+            type: backupType,
+            phone: acc.phone,
+            status: acc.uazapi_status
+          });
           
           return {
             id: acc.id,
@@ -1317,11 +1362,13 @@ export default function WhatsAppBulkSend() {
         const { data: currentAccount } = await supabase
           .schema("sistemaretiradas")
           .from("whatsapp_accounts")
-          .select("uazapi_status")
+          .select("uazapi_status, uazapi_qr_code")
           .eq('id', accountId)
           .single();
         
         const currentStatusInDb = currentAccount?.uazapi_status;
+        const currentQrCodeInDb = currentAccount?.uazapi_qr_code;
+        
         if (currentStatusInDb === 'connected') {
           console.log('[WhatsAppBulkSend] 🛡️ Polling: Backup', accountId, 'já está connected no banco - PARANDO polling para evitar downgrade');
           clearInterval(pollInterval);
@@ -1336,9 +1383,17 @@ export default function WhatsAppBulkSend() {
               ? { ...acc, uazapi_status: 'connected', is_connected: true }
               : acc
           ));
-          // Recarregar contas para garantir sincronização
-          await fetchWhatsAppAccounts();
-          return;
+          return; // NÃO recarregar fetchWhatsAppAccounts aqui para evitar loop
+        }
+        
+        // Se há QR code pendente, verificar menos frequentemente (usuário precisa escanear)
+        const hasQrCodePending = currentQrCodeInDb || account.uazapi_qr_code || backupAccountStatus[accountId]?.qrCode;
+        const isQrPendingStatus = currentStatusInDb === 'qr_required' || currentStatusInDb === 'connecting';
+        
+        if (hasQrCodePending && isQrPendingStatus) {
+          // Se há QR code pendente há menos de 30 segundos, pular verificação (usuário precisa tempo para escanear)
+          console.log('[WhatsAppBulkSend] ⏸️ QR code pendente para', accountId, '- aguardando usuário escanear, pulando verificação N8N');
+          return; // Pular verificação N8N, intervalo continuará rodando
         }
 
         const selectedStore = stores.find(s => s.id === selectedStoreId);
@@ -1354,7 +1409,9 @@ export default function WhatsAppBulkSend() {
         });
 
         // Contar tentativas com disconnected (sem QR code pendente)
-        const isDisconnected = status.status === 'disconnected' || (!status.connected && !status.qrCode);
+        // IMPORTANTE: Se há QR code, NÃO considerar como disconnected
+        const hasQrCode = status.qrCode || currentQrCodeInDb || account.uazapi_qr_code;
+        const isDisconnected = !hasQrCode && (status.status === 'disconnected' || (!status.connected && !status.qrCode));
         
         if (isDisconnected) {
           disconnectedCount++;
@@ -1506,9 +1563,13 @@ export default function WhatsAppBulkSend() {
           
           // Nota: Não sincronizamos whatsapp_credentials - o N8N já faz isso
           
-          // Se conectou, recarregar lista de contas para atualizar phone
+          // Se conectou, atualizar UI local (NÃO recarregar fetchWhatsAppAccounts para evitar loops)
           if (status.connected) {
-            await fetchWhatsAppAccounts();
+            setWhatsappAccounts(prev => prev.map(acc => 
+              acc.id === accountId 
+                ? { ...acc, uazapi_status: 'connected', is_connected: true, phone: status.phoneNumber || acc.phone }
+                : acc
+            ));
             toast.success(`Número reserva conectado: ${status.phoneNumber || account.phone}`);
           }
         }
@@ -1521,7 +1582,7 @@ export default function WhatsAppBulkSend() {
           return newSet;
         });
       }
-        }, 12000); // Polling a cada 12 segundos (igual aos números principais)
+        }, 30000); // Polling a cada 30 segundos para reduzir requisições desnecessárias (especialmente quando há QR code pendente)
 
     // Limpar após 2 minutos (igual aos números principais)
     setTimeout(() => {
