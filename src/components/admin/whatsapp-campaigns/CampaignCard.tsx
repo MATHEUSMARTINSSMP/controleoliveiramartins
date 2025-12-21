@@ -237,9 +237,9 @@ export function CampaignCard({
           <div className="flex items-center gap-2">
             <XCircle className="h-4 w-4 text-red-500" />
             <div>
-              <p className="text-sm text-muted-foreground">Falhas</p>
+              <p className="text-sm text-muted-foreground">Erros</p>
               <p className="text-lg font-semibold">
-                {stats?.failed ?? campaign.failed_count}
+                {stats ? (stats.failed + stats.cancelled) : campaign.failed_count}
               </p>
             </div>
           </div>
