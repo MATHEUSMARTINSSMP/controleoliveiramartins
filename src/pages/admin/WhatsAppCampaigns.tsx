@@ -56,6 +56,7 @@ export default function WhatsAppCampaigns() {
       if (error) throw error;
 
       // Agrupar por campaign_id e calcular stats
+      // IMPORTANTE: Erros incluem FAILED, CANCELLED e SKIPPED (qualquer status que não seja sucesso)
       const statsMap: Record<string, CampaignStats> = {};
       activeCampaignIds.forEach(campaignId => {
         const campaignMessages = messages?.filter(m => m.campaign_id === campaignId) || [];

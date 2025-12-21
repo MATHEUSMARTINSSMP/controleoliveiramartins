@@ -217,38 +217,39 @@ export function CampaignCard({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <p className="text-sm text-muted-foreground">Destinatários</p>
-              <p className="text-lg font-semibold">{campaign.total_recipients}</p>
+        {/* Métricas principais - sempre visíveis */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <div className="flex flex-col p-3 bg-muted/30 rounded-lg">
+            <div className="flex items-center gap-2 mb-1">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">Destinatários</p>
             </div>
+            <p className="text-2xl font-bold">{campaign.total_recipients}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
-            <div>
-              <p className="text-sm text-muted-foreground">Enviadas</p>
-              <p className="text-lg font-semibold">
-                {stats?.sent ?? campaign.sent_count}
-              </p>
+          <div className="flex flex-col p-3 bg-green-500/10 rounded-lg border border-green-500/20">
+            <div className="flex items-center gap-2 mb-1">
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <p className="text-xs text-muted-foreground">Enviadas</p>
             </div>
+            <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+              {stats?.sent ?? campaign.sent_count}
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <XCircle className="h-4 w-4 text-red-500" />
-            <div>
-              <p className="text-sm text-muted-foreground">Erros</p>
-              <p className="text-lg font-semibold">
-                {stats ? (stats.failed + stats.cancelled) : campaign.failed_count}
-              </p>
+          <div className="flex flex-col p-3 bg-red-500/10 rounded-lg border border-red-500/20">
+            <div className="flex items-center gap-2 mb-1">
+              <XCircle className="h-4 w-4 text-red-500" />
+              <p className="text-xs text-muted-foreground">Erros</p>
             </div>
+            <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+              {stats ? (stats.failed + stats.cancelled) : campaign.failed_count}
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-blue-500" />
-            <div>
-              <p className="text-sm text-muted-foreground">Progresso</p>
-              <p className="text-lg font-semibold">{getProgressPercentage()}%</p>
+          <div className="flex flex-col p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+            <div className="flex items-center gap-2 mb-1">
+              <TrendingUp className="h-4 w-4 text-blue-500" />
+              <p className="text-xs text-muted-foreground">Progresso</p>
             </div>
+            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{getProgressPercentage()}%</p>
           </div>
         </div>
 
@@ -260,7 +261,7 @@ export function CampaignCard({
           />
         </div>
 
-        {/* Estatísticas detalhadas (expandidas) */}
+        {/* Estatísticas detalhadas (expandidas) - mostra apenas informações adicionais */}
         {isExpanded && (
           <div className="mt-4 pt-4 border-t">
             {loadingStats ? (
@@ -268,33 +269,28 @@ export function CampaignCard({
                 <RefreshCw className="h-4 w-4 animate-spin" />
               </div>
             ) : stats && (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-yellow-500" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Pendentes</p>
-                    <p className="text-lg font-semibold">
-                      {stats.pending + stats.sending}
+              <div className="mb-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col p-4 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock className="h-5 w-5 text-yellow-500" />
+                      <p className="text-sm font-medium text-muted-foreground">Pendentes</p>
+                    </div>
+                    <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
+                      {Math.max(0, campaign.total_recipients - stats.sent - (stats.failed + stats.cancelled))}
                     </p>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Enviadas</p>
-                    <p className="text-lg font-semibold">
-                      {stats.sent}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <XCircle className="h-4 w-4 text-red-500" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Falhas</p>
-                    <p className="text-lg font-semibold">
-                      {stats.failed}
-                    </p>
-                  </div>
+                  {stats.sending > 0 && (
+                    <div className="flex flex-col p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <RefreshCw className="h-5 w-5 text-blue-500 animate-spin" />
+                        <p className="text-sm font-medium text-muted-foreground">Sendo enviadas</p>
+                      </div>
+                      <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                        {stats.sending}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
