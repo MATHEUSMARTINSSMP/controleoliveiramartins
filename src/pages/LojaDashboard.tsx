@@ -1242,13 +1242,13 @@ export default function LojaDashboard() {
             // Calcular peso acumulado até ONTEM para log (nova lógica corrigida)
             let pesoAcumuladoAteOntem = 0;
             const diaAtual = hoje.getDate();
+            const diasRestantes = daysInMonth - diaAtual; // Dias restantes SEM incluir hoje
             for (let d = 1; d < diaAtual; d++) {
                 const dateStr = format(new Date(hoje.getFullYear(), hoje.getMonth(), d), 'yyyy-MM-dd');
                 pesoAcumuladoAteOntem += (dailyWeights[dateStr] || 0);
             }
             const metaEsperadaAteOntem = (Number(data.meta_valor) * pesoAcumuladoAteOntem) / 100;
             const deficit = Math.max(0, metaEsperadaAteOntem - totalMes);
-            // Nota: diasRestantesComHoje não é mais usado (corrigido para usar apenas diasRestantes na função)
             
             console.log('[LojaDashboard] 📊 CÁLCULO META DIÁRIA (CORRIGIDO):');
             console.log('[LojaDashboard]   Meta mensal:', Number(data.meta_valor));
