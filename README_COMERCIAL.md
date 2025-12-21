@@ -17,7 +17,7 @@
 
 ## 🎯 Visão Geral
 
-O **EleveaOne** é uma plataforma SaaS completa para gestão de varejo, desenvolvida especialmente para lojas de moda, acessórios e comércio em geral. O sistema oferece uma solução integrada que combina gestão de vendas, metas, fidelização, CRM, controle de ponto e muito mais em uma única plataforma intuitiva e poderosa.
+O **EleveaOne** é uma plataforma SaaS completa para gestão de varejo, desenvolvida especialmente para lojas de moda, acessórios e comércio em geral. O sistema oferece uma solução integrada que combina gestão de vendas, metas, fidelização, CRM, controle de ponto, automações para notificar administradores, envio de campanhas por whatsapp, sistema de cashback e muito mais em uma única plataforma intuitiva e poderosa.
 
 ### Benefícios Principais
 
@@ -46,7 +46,7 @@ Sistema completo de definição e acompanhamento de metas para colaboradoras e l
 - **Metas Mensais**: Defina metas mensais para cada colaboradora e para a loja como um todo
 - **Super Metas**: Configure metas desafiadoras com bônus especiais
 - **Pesos Diários**: Distribua a meta mensal proporcionalmente ao longo do mês usando pesos personalizados por dia da semana
-- **Metas Dinâmicas**: Sistema que ajusta automaticamente a meta diária com base no desempenho mensal (compensação de atraso)
+- **Metas Dinâmicas**: Sistema que ajusta automaticamente a meta diária com base no desempenho mensal (compensação de atraso ou majoração caso esteja desempenhando bem)
 - **Redistribuição Automática**: Quando uma colaboradora está de folga, sua meta é automaticamente redistribuída entre as outras
 
 #### Gerenciar Metas
@@ -92,7 +92,7 @@ Sistema de competições semanais para aumentar a motivação e vendas:
 
 - **Metas Semanais**: Definição de meta e super meta por semana
 - **Cálculo Automático**: Baseado nos pesos diários da meta mensal
-- **Prêmios Configuráveis**: Prêmio para 1º lugar e prêmio final
+- **Prêmios Configuráveis**: Prêmio para 1º, 2 e 3 lugar e prêmio final, de forma totalmente personalizável.
 - **Ranking Semanal**: Acompanhamento em tempo real das posições
 - **Histórico Completo**: Registro de todas as gincanas anteriores
 - **Troféus Automáticos**: Sistema cria troféus automaticamente para os vencedores
@@ -104,7 +104,7 @@ Sistema de competições semanais para aumentar a motivação e vendas:
 - Vinculação com lojas
 - Reset de senha pelo admin
 - Ativação e desativação de colaboradoras
-- Controle de limites por plano de assinatura
+- Controle de limites do número de colabodoras por plano de assinatura
 
 #### Financeiro
 
@@ -112,7 +112,6 @@ Sistema de competições semanais para aumentar a motivação e vendas:
 - Controle completo de adiantamentos salariais
 - Solicitação pela colaboradora através do portal
 - Aprovação pelo admin com justificativa
-- Parcelamento automático em parcelas mensais
 - Limite máximo configurável por colaboradora
 - Controle de competência (parcelas vinculadas ao mês de desconto)
 - Histórico completo de todas as solicitações
@@ -415,6 +414,165 @@ Controle completo de vendas e caixa:
 - **Performance Individual**: Cada colaboradora vê suas vendas do dia
 - **Total da Loja**: Visualização do total vendido pela loja
 - **Métricas**: Quantidade de vendas, peças, ticket médio
+
+#### Fechamento de Caixa
+- **Abertura e Fechamento**: Registre abertura e fechamento do caixa diariamente
+- **Dinheiro em Caixa**: Registre o valor em dinheiro no caixa
+- **Resumo Automático**: Sistema gera resumo completo do dia ao fechar
+- **Vendas por Forma de Pagamento**: Total vendido por cada forma de pagamento (Crédito, Débito, PIX, Dinheiro, Boleto)
+- **Envio WhatsApp**: Envio automático de mensagem com resumo do dia para administradores
+
+---
+
+## 👤 Dashboard da Colaboradora
+
+O Dashboard da Colaboradora é o portal pessoal onde cada colaboradora acompanha seu desempenho, metas, compras, adiantamentos e muito mais.
+
+### KPIs Principais
+
+No topo do dashboard, a colaboradora visualiza seus principais indicadores:
+
+- **Limite Total**: Limite total disponível para compras
+- **Limite Disponível**: Quanto ainda pode usar do limite total
+- **Limite Mensal**: Limite disponível para o mês atual
+- **Próximas Parcelas**: Valor total das parcelas que serão descontadas
+- **Total Pendente**: Total de compras e adiantamentos pendentes de desconto
+- **Total Pago**: Total já descontado em compras e adiantamentos
+
+### Aba: Minhas Metas
+
+Acompanhamento completo de metas e desempenho individual:
+
+#### Visão Geral de Metas
+- **Meta Mensal**: Meta mensal definida pela administração
+- **Meta Semanal**: Meta da gincana semanal (quando ativa)
+- **Vendido no Mês**: Total vendido até o momento no mês
+- **Percentual de Atingimento**: Progresso visual em relação à meta mensal
+- **Falta para Meta**: Quanto falta para atingir a meta do mês
+- **Ritmo Necessário**: Valor médio que precisa vender por dia para atingir a meta
+
+#### Meta do Dia
+- **Meta Diária**: Meta do dia calculada automaticamente (pode ser dinâmica)
+- **Vendido Hoje**: Valor vendido no dia atual
+- **Percentual do Dia**: Progresso em relação à meta diária
+- **Indicadores Visuais**: Cores indicam se está à frente, atrás ou na meta
+
+#### Projeções e Análises
+- **Projeção Mensal**: Projeção de quanto vai vender no mês baseado no ritmo atual
+- **Ritmo Necessário**: Valor médio necessário por dia para atingir a meta
+- **Análise de Super Meta**: Se está próximo de atingir super meta
+
+#### Gincanas Semanais
+- **Meta Semanal**: Meta da gincana semanal
+- **Super Meta Semanal**: Super meta semanal (quando configurada)
+- **Progresso Semanal**: Quanto já vendeu na semana
+- **Posição no Ranking**: Posição atual na gincana semanal
+- **Resultados Anteriores**: Histórico de gincanas anteriores
+
+#### Troféus e Conquistas
+- **Galeria de Troféus**: Visualização de todos os troféus conquistados
+- **Troféus Mensais**: Troféus por meta mensal atingida
+- **Troféus Semanais**: Troféus de gincanas semanais
+- **Histórico Permanente**: Todas as conquistas ficam registradas
+
+#### Check de Meta Diária
+- **Notificação Diária**: Lembrete para confirmar que visualizou a meta do dia
+- **Horário Limite**: Configurável por loja (ex: até 10h)
+- **Bônus por Consistência**: Bônus configurável para quem confirma no prazo
+- **Histórico Mensal**: Registro de todas as confirmações
+
+### Aba: Resumo
+
+Visão consolidada de informações importantes da colaboradora.
+
+### Aba: Compras
+
+Gestão completa de compras parceladas dentro da loja:
+
+#### Lista de Compras
+- **Todas as Compras**: Histórico completo de todas as compras feitas
+- **Detalhes**: Data, item comprado, loja, valor total, número de parcelas, status
+- **Status**: Pendente (ainda não descontado), Descontado (já foi descontado)
+
+#### Filtros Avançados
+- **Por Data**: Filtre por data de início e fim
+- **Por Loja**: Filtre compras de lojas específicas (quando colaboradora trabalha em múltiplas lojas)
+- **Por Status**: Filtre por status (Pendente, Descontado)
+- **Busca por Item**: Busque compras específicas pelo nome do item
+
+#### Totais
+- **Total de Compras**: Soma de todas as compras listadas (respeitando filtros)
+- **Resumo Visual**: Cards mostrando informações resumidas
+
+### Aba: Parcelas
+
+Acompanhamento detalhado de todas as parcelas de compras:
+
+#### Lista de Parcelas
+- **Todas as Parcelas**: Lista completa de todas as parcelas de todas as compras
+- **Detalhes**: Competência (mês de desconto), item da compra, loja, número da parcela (ex: 1/3, 2/3, 3/3), valor da parcela, status
+
+#### Status das Parcelas
+- **Pendente**: Parcela ainda não foi descontada
+- **Agendado**: Parcela agendada para desconto
+- **Descontado**: Parcela já foi descontada
+- **Estornado**: Parcela foi estornada
+
+#### Filtros Avançados
+- **Por Competência**: Filtre por mês/ano de desconto
+- **Por Status**: Filtre por status da parcela
+- **Por Valor**: Filtre por valor mínimo e máximo
+
+#### Totais
+- **Total de Parcelas**: Soma de todas as parcelas listadas (respeitando filtros)
+
+### Aba: Adiantamentos
+
+Gestão completa de adiantamentos salariais:
+
+#### Solicitar Adiantamento
+- **Botão de Solicitação**: Acesso direto para solicitar novo adiantamento
+- **Validação de Limites**: Sistema valida automaticamente se há limite disponível
+- **Fluxo Simplificado**: Interface intuitiva para solicitar adiantamento
+
+#### Lista de Adiantamentos
+- **Todos os Adiantamentos**: Histórico completo de todas as solicitações
+- **Detalhes**: Data de solicitação, valor, mês de competência (quando será descontado), status
+- **Status**: Pendente (aguardando aprovação), Aprovado (aprovado e aguardando desconto), Descontado (já foi descontado), Recusado (negado pelo admin), Cancelado
+
+#### Filtros Avançados
+- **Por Data**: Filtre por data de início e fim da solicitação
+- **Por Status**: Filtre por status do adiantamento
+- **Por Competência**: Filtre por mês/ano de desconto
+
+#### Informações Importantes
+- **Limite Total**: Valor máximo que pode ter em adiantamentos pendentes
+- **Limite Mensal**: Valor máximo que pode ser descontado por mês
+- **Validações Automáticas**: Sistema bloqueia solicitações que excedem limites
+
+#### Calendário Mensal
+- **Visualização Mensal**: Calendário mostrando parcelas e adiantamentos por mês
+- **Agrupamento Inteligente**: Parcelas e adiantamentos agrupados por competência
+- **Status Visual**: Cores indicam status (previsto, parcial, descontado, atrasado)
+- **Expandir/Colapsar**: Expanda meses para ver detalhes de cada parcela/adiantamento
+
+### Aba: Ponto (se ativo)
+
+Controle de ponto digital (quando o módulo está ativo para a loja):
+
+- **Registro de Ponto**: Entrada, saída, intervalos
+- **Assinatura Digital**: PIN separado da senha (conformidade legal REP-P)
+- **Banco de Horas**: Visualização de crédito/débito de horas
+- **Solicitação de Alteração**: Solicite correções quando necessário
+- **Visualização de Registros**: Veja todos os registros de ponto do mês
+
+### Funcionalidades Gerais
+
+- **Alteração de Senha**: Botão no header para alterar senha facilmente
+- **Sair**: Logout seguro do sistema
+- **Tema Claro/Escuro**: Alternância entre temas
+- **Interface Responsiva**: Funciona perfeitamente em mobile e desktop
+- **Atualização de Dados**: Botão para recarregar dados manualmente
 
 ---
 
