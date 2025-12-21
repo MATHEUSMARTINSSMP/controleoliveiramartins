@@ -974,6 +974,16 @@ export default function LojaDashboard() {
         daysInMonth: number,
         config?: { compensarDeficit?: boolean; bonusFrente?: boolean }
     ): number => {
+        console.log('[calculateDynamicDailyGoal] 📥 ENTRADA:', {
+            metaMensal,
+            vendidoMes,
+            today,
+            dailyWeightsKeys: dailyWeights ? Object.keys(dailyWeights).length : null,
+            dailyWeightsToday: dailyWeights ? dailyWeights[today] : null,
+            daysInMonth,
+            config
+        });
+
         const [year, month] = today.split('-').map(Number);
         const hoje = new Date(year, month - 1, parseInt(today.split('-')[2]));
         const diaAtual = hoje.getDate();
@@ -1250,6 +1260,16 @@ export default function LojaDashboard() {
             console.log('[LojaDashboard]   Dias restantes (SEM hoje, para distribuição déficit):', diasRestantes);
             console.log('[LojaDashboard]   Daily weights keys:', Object.keys(dailyWeights).length);
             
+            console.log('[LojaDashboard] 🔍 Antes de calcular meta diária dinâmica:', {
+                metaMensal: Number(data.meta_valor),
+                totalMes,
+                today,
+                dailyWeightsKeysCount: Object.keys(dailyWeights).length,
+                dailyWeightsToday: dailyWeights[today],
+                daysInMonth,
+                metaCalcConfig
+            });
+
             const daily = calculateDynamicDailyGoal(
                 Number(data.meta_valor),
                 totalMes,
@@ -1259,7 +1279,12 @@ export default function LojaDashboard() {
                 metaCalcConfig
             );
 
-            console.log('[LojaDashboard]   ➡️ Meta diária dinâmica:', daily.toFixed(2));
+            console.log('[LojaDashboard]   ➡️ Meta diária dinâmica calculada:', daily, '(valor bruto)');
+            console.log('[LojaDashboard]   ➡️ Meta diária dinâmica formatada:', daily.toFixed(2));
+
+            if (daily === 0) {
+                console.warn('[LojaDashboard] ⚠️ ATENÇÃO: Meta diária calculada como 0! Verificar logs acima para identificar o problema.');
+            }
 
             setDailyGoal(daily);
 
