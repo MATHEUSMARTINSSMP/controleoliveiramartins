@@ -121,6 +121,7 @@ export default function WhatsAppBulkSend() {
     { id: "1", content: "" }
   ]);
   const [randomizeMessages, setRandomizeMessages] = useState(false);
+  const [campaignCategory, setCampaignCategory] = useState<string>("OUTROS");
   
   // Números WhatsApp
   const [primaryPhoneId, setPrimaryPhoneId] = useState<string>("");
@@ -2009,6 +2010,40 @@ export default function WhatsAppBulkSend() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div>
+                <Label>Categoria da Campanha *</Label>
+                <Select value={campaignCategory} onValueChange={setCampaignCategory}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DESCONTO">Desconto</SelectItem>
+                    <SelectItem value="PROMOCAO">Promoção</SelectItem>
+                    <SelectItem value="CASHBACK">Cashback</SelectItem>
+                    <SelectItem value="SAUDACAO">Saudação</SelectItem>
+                    <SelectItem value="REATIVACAO">Reativação</SelectItem>
+                    <SelectItem value="NOVIDADES">Novidades</SelectItem>
+                    <SelectItem value="DATAS_COMEMORATIVAS">Datas Comemorativas</SelectItem>
+                    <SelectItem value="ANIVERSARIO">Aniversário</SelectItem>
+                    <SelectItem value="ABANDONO_CARRINHO">Abandono de Carrinho</SelectItem>
+                    <SelectItem value="FIDELIDADE">Fidelidade</SelectItem>
+                    <SelectItem value="PESQUISA">Pesquisa</SelectItem>
+                    <SelectItem value="LEMBRETE">Lembrete</SelectItem>
+                    <SelectItem value="EDUCACIONAL">Educacional</SelectItem>
+                    <SelectItem value="SURVEY">Survey</SelectItem>
+                    <SelectItem value="VIP">VIP</SelectItem>
+                    <SelectItem value="SEGMENTACAO">Segmentação</SelectItem>
+                    <SelectItem value="SAZONAL">Sazonal</SelectItem>
+                    <SelectItem value="LANCAMENTO">Lançamento</SelectItem>
+                    <SelectItem value="ESGOTANDO">Esgotando</SelectItem>
+                    <SelectItem value="OUTROS">Outros</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Categoria usada para analytics e relatórios de desempenho
+                </p>
+              </div>
+
               <div>
                 <Label>Número de variações de mensagem</Label>
                 <Input
