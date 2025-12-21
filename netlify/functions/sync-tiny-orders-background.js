@@ -2627,10 +2627,12 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
 
     // 4. Calcular totais (dia e mês) - ✅ BUSCAR DE SALES (não tiny_orders)
     const hojeStr = new Date().toISOString().split('T')[0];
+    // ✅ Usar external_order_id + order_source (genérico para múltiplos ERPs)
+    // Para compatibilidade, também busca tiny_order_id
     const { data: vendasHoje } = await supabase
       .schema('sistemaretiradas')
       .from('sales')
-      .select('valor, tiny_order_id')
+      .select('valor, external_order_id, order_source, tiny_order_id')
       .eq('store_id', storeId)
       .gte('data_venda', `${hojeStr}T00:00:00`)
       .lte('data_venda', `${hojeStr}T23:59:59`);
@@ -2643,12 +2645,22 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     // Se a venda é de hoje, verificar se já está incluída no total
     let totalDiaComVendaAtual = totalDia;
     if (dataPedido === hojeStr) {
-      // ✅ Verificar se a venda atual já está em sales usando tiny_order_id
+      // ✅ Verificar se a venda atual já está em sales usando external_order_id + order_source
       // Isso é mais confiável do que comparar valores (duas vendas podem ter o mesmo valor)
+      // Compatível com múltiplos ERPs (TINY, LINX, MICROVIX, etc)
       let vendaJaExiste = false;
       if (tinyOrderId) {
-        vendaJaExiste = vendasHoje?.some(v => v.tiny_order_id === tinyOrderId) || false;
-        console.log(`[SyncBackground] 📊 Verificando se venda já está em sales (tiny_order_id: ${tinyOrderId}): ${vendaJaExiste}`);
+        // Verificar por external_order_id (nova estrutura genérica)
+        vendaJaExiste = vendasHoje?.some(v => 
+          v.external_order_id === tinyOrderId.toString() && v.order_source === 'TINY'
+        ) || false;
+        
+        // Fallback para tiny_order_id (compatibilidade com dados antigos)
+        if (!vendaJaExiste) {
+          vendaJaExiste = vendasHoje?.some(v => v.tiny_order_id === tinyOrderId) || false;
+        }
+        
+        console.log(`[SyncBackground] 📊 Verificando se venda já está em sales (external_order_id: ${tinyOrderId}, order_source: TINY): ${vendaJaExiste}`);
       }
 
       if (!vendaJaExiste) {
