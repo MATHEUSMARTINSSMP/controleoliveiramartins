@@ -47,23 +47,59 @@ export function useCampaigns(profileId: string | undefined) {
           end_hour,
           min_interval_minutes,
           daily_limit,
-          category,
-          stores (
-            name
-          )
+          category
         `)
         .in("store_id", storeIds)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      // Transformar dados (stores é um array)
-      const transformedCampaigns = (data || []).map(campaign => ({
-        ...campaign,
-        store: Array.isArray(campaign.stores) && campaign.stores[0] 
-          ? { name: campaign.stores[0].name }
-          : undefined,
-      }));
+      // Buscar nomes das lojas separadamente
+      const storeIdsFromCampaigns = [...new Set((data || []).map(c => c.store_id).filter(Boolean))];
+      const { data: storesData } = await supabase
+        .schema("sistemaretiradas")
+        .from("stores")
+        .select("id, name")
+        .in("id", storeIdsFromCampaigns);
+
+      const storesMap = new Map((storesData || []).map(s => [s.id, s.name]));
+
+      // Identificar campanhas que precisam ter status atualizado para COMPLETED
+      const campaignsToUpdate = (data || []).filter(c => 
+        c.total_recipients > 0 && 
+        c.sent_count >= c.total_recipients && 
+        c.status !== 'COMPLETED' && 
+        c.status !== 'CANCELLED'
+      );
+
+      // Atualizar status das campanhas completas em lote
+      if (campaignsToUpdate.length > 0) {
+        const campaignIdsToUpdate = campaignsToUpdate.map(c => c.id);
+        await supabase
+          .schema("sistemaretiradas")
+          .from("whatsapp_campaigns")
+          .update({ 
+            status: 'COMPLETED',
+            completed_at: new Date().toISOString()
+          })
+          .in("id", campaignIdsToUpdate);
+      }
+
+      // Transformar dados
+      const transformedCampaigns = (data || []).map(campaign => {
+        const storeName = storesMap.get(campaign.store_id);
+        
+        // Se a campanha estava na lista para atualizar, usar status COMPLETED
+        const finalStatus = campaignsToUpdate.find(c => c.id === campaign.id) 
+          ? 'COMPLETED' 
+          : campaign.status;
+
+        return {
+          ...campaign,
+          status: finalStatus,
+          store: storeName ? { name: storeName } : undefined,
+        };
+      });
 
       setCampaigns(transformedCampaigns as WhatsAppCampaign[]);
     } catch (error: any) {
