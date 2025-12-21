@@ -1217,7 +1217,7 @@ export default function LojaDashboard() {
             console.log('[LojaDashboard]   Peso acumulado até ONTEM:', pesoAcumuladoAteOntem.toFixed(2) + '%');
             console.log('[LojaDashboard]   Meta ESPERADA até ONTEM:', metaEsperadaAteOntem.toFixed(2));
             console.log('[LojaDashboard]   DÉFICIT (atraso):', deficit.toFixed(2));
-            console.log('[LojaDashboard]   Dias restantes COM hoje:', diasRestantesComHoje);
+            console.log('[LojaDashboard]   Dias restantes (SEM hoje, para distribuição déficit):', diasRestantes);
             console.log('[LojaDashboard]   Daily weights keys:', Object.keys(dailyWeights).length);
             
             const daily = calculateDynamicDailyGoal(
