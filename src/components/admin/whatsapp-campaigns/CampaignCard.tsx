@@ -6,6 +6,7 @@ import { format, addMinutes, startOfDay, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { WhatsAppCampaign } from "./types";
 import { CampaignActions } from "./CampaignActions";
+import { CampaignMessages } from "./CampaignMessages";
 
 interface CampaignCardProps {
   campaign: WhatsAppCampaign;
