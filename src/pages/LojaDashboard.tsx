@@ -1001,8 +1001,14 @@ export default function LojaDashboard() {
         }
 
         // 3. CALCULAR DIFERENÇA (pode ser déficit ou superávit)
+        // CRÍTICO: vendidoMes aqui JÁ INCLUI vendas de hoje, mas metaEsperadaAteOntem NÃO inclui hoje
+        // Então a diferença mostra quanto falta ou sobra considerando até ONTEM
         const diferenca = vendidoMes - metaEsperadaAteOntem;
-        const diasRestantesComHoje = diasRestantes + 1;
+        
+        // CRÍTICO: Dividir déficit apenas pelos dias RESTANTES (SEM incluir hoje)
+        // O dia atual tem sua meta fixa (metaBaseDoDia) e não deve ser incluído na distribuição do déficit
+        // Isso garante que a meta dinâmica seja fixa no início do dia e não mude conforme as vendas do dia aumentam
+        const diasRestantesSemHoje = diasRestantes; // SEM incluir hoje na distribuição do déficit
         
         let metaDinamica: number = metaBaseDoDia;
 
@@ -1036,8 +1042,10 @@ export default function LojaDashboard() {
             if (compensarDeficit) {
                 const deficit = Math.abs(diferenca);
                 let metaAdicionalPorDia = 0;
-                if (deficit > 0 && diasRestantesComHoje > 0) {
-                    metaAdicionalPorDia = deficit / diasRestantesComHoje;
+                // DIVIDIR déficit apenas pelos dias RESTANTES (SEM hoje)
+                // Isso garante que a meta do dia atual seja fixa
+                if (deficit > 0 && diasRestantesSemHoje > 0) {
+                    metaAdicionalPorDia = deficit / diasRestantesSemHoje;
                 }
                 metaDinamica = metaBaseDoDia + metaAdicionalPorDia;
                 
@@ -1046,7 +1054,7 @@ export default function LojaDashboard() {
                     metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
                     vendidoMes,
                     deficit: deficit.toFixed(2),
-                    diasRestantesComHoje,
+                    diasRestantesSemHoje, // Dias SEM incluir hoje
                     metaAdicionalPorDia: metaAdicionalPorDia.toFixed(2),
                     metaBaseDoDia: metaBaseDoDia.toFixed(2),
                     metaDinamica: metaDinamica.toFixed(2)

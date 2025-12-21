@@ -155,9 +155,12 @@ export const useGoalCalculation = (
         }
 
         // 7. Calcular déficit acumulado ATÉ ONTEM (considerando daily_weights)
-        // CORREÇÃO: Calcular meta esperada ATÉ ONTEM (dia 1 até dia-1, não inclui hoje)
+        // CRÍTICO: Calcular meta esperada ATÉ ONTEM (dia 1 até dia-1, não inclui hoje)
         let deficit = 0;
-        const diasRestantesComHoje = diasRestantes + 1; // Inclui hoje na distribuição
+        // CRÍTICO: Dividir déficit apenas pelos dias RESTANTES (SEM incluir hoje)
+        // O dia atual tem sua meta fixa (metaDiariaPadrao) e não deve ser incluído na distribuição do déficit
+        // Isso garante que a meta dinâmica seja fixa no início do dia e não mude conforme as vendas do dia aumentam
+        const diasRestantesSemHoje = diasRestantes; // SEM incluir hoje na distribuição do déficit
         
         const metaEsperadaAteOntem = goal.daily_weights && Object.keys(goal.daily_weights).length > 0
           ? (() => {
@@ -173,18 +176,23 @@ export const useGoalCalculation = (
             })()
           : metaDiariaPadrao * (diaAtual - 1); // Distribuição simples até ontem
 
-        // Calcular vendido acumulado total no mês (para comparar com metaEsperadaAteOntem)
+        // Calcular vendido acumulado total no mês (inclui vendas de hoje)
+        // Mas comparamos com metaEsperadaAteOntem (que não inclui hoje)
         const vendidoMes = vendas.reduce((sum, v) => sum + v.valor, 0);
 
+        // Déficit calculado comparando vendido (inclui hoje) com meta esperada (até ontem)
+        // Se vendidoMes > metaEsperadaAteOntem, significa que está à frente (déficit negativo)
+        // Se vendidoMes < metaEsperadaAteOntem, significa que está atrás (déficit positivo)
         deficit = Math.max(0, metaEsperadaAteOntem - vendidoMes);
 
         // 8. Calcular meta diária ajustada
-        // CORREÇÃO: Distribuir déficit incluindo HOJE nos dias restantes
+        // CRÍTICO: Distribuir déficit apenas pelos dias RESTANTES (SEM hoje)
+        // O dia atual mantém sua meta base fixa
         let metaDiariaAjustada = metaDiariaPadrao;
         
-        if (diasRestantesComHoje > 0 && deficit > 0) {
-          // Se está atrasada, distribuir déficit nos dias restantes INCLUINDO hoje
-          metaDiariaAjustada = metaDiariaPadrao + (deficit / diasRestantesComHoje);
+        if (diasRestantesSemHoje > 0 && deficit > 0) {
+          // Se está atrasada, distribuir déficit apenas nos dias FUTUROS (não inclui hoje)
+          metaDiariaAjustada = metaDiariaPadrao + (deficit / diasRestantesSemHoje);
         }
 
         // 8.1. Calcular super meta diária ajustada (mesma lógica corrigida)
@@ -203,8 +211,9 @@ export const useGoalCalculation = (
           : superMetaDiariaPadrao * (diaAtual - 1);
         const deficitSuperMeta = Math.max(0, metaEsperadaSuperMetaAteOntem - vendidoMes);
 
-        if (diasRestantesComHoje > 0 && deficitSuperMeta > 0) {
-          superMetaDiariaAjustada = superMetaDiariaPadrao + (deficitSuperMeta / diasRestantesComHoje);
+        if (diasRestantesSemHoje > 0 && deficitSuperMeta > 0) {
+          // Distribuir déficit super meta apenas nos dias FUTUROS (não inclui hoje)
+          superMetaDiariaAjustada = superMetaDiariaPadrao + (deficitSuperMeta / diasRestantesSemHoje);
         }
 
         // 9. Calcular progresso hoje
