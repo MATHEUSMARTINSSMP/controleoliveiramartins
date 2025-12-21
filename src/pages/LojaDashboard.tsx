@@ -501,7 +501,10 @@ export default function LojaDashboard() {
                 metaEsperadaAteOntem = (metaMensalColab / daysInMonth) * (diaAtual - 1);
             }
 
-            const diferencaIndividual = vendidoMesColab - metaEsperadaAteOntem;
+            // CRÍTICO: Excluir vendas de hoje para garantir que a meta seja fixa durante o dia
+            const vendidoHojeColab = perf.vendidoHoje || 0;
+            const vendidoAteOntemColab = vendidoMesColab - vendidoHojeColab;
+            const diferencaIndividual = vendidoAteOntemColab - metaEsperadaAteOntem;
             let metaDinamica = metaBaseDoDia;
 
             if (metaMensalColab > 0) {
