@@ -29,6 +29,7 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
 import { sendWhatsAppMessage, formatFechamentoCaixaMessage, formatAberturaCaixaMessage } from '@/lib/whatsapp';
+import type { FormaPagamento } from '@/lib/payment-validation';
 import { LoadingButton } from '@/components/ui/loading-button';
 import {
   Select,
@@ -484,6 +485,43 @@ export function CaixaLojaView({
 
       const nomeResponsavel = colaboradoras.find(c => c.id === colaboradoraResponsavel)?.name;
 
+      // ✅ Buscar vendas do dia para calcular total por forma de pagamento
+      const hojeStr = format(new Date(), 'yyyy-MM-dd');
+      const { data: vendasHoje } = await supabase
+        .schema('sistemaretiradas')
+        .from('sales')
+        .select('valor, formas_pagamento_json')
+        .eq('store_id', storeId)
+        .gte('data_venda', `${hojeStr}T00:00:00`)
+        .lte('data_venda', `${hojeStr}T23:59:59`);
+
+      // Agrupar e somar por forma de pagamento
+      const vendasPorFormaPagamento: Record<string, number> = {};
+      if (vendasHoje && vendasHoje.length > 0) {
+        vendasHoje.forEach((venda: any) => {
+          if (venda.formas_pagamento_json && Array.isArray(venda.formas_pagamento_json)) {
+            venda.formas_pagamento_json.forEach((forma: FormaPagamento) => {
+              const tipo = forma.tipo;
+              const valor = parseFloat(forma.valor?.toString() || '0') || 0;
+              
+              if (!vendasPorFormaPagamento[tipo]) {
+                vendasPorFormaPagamento[tipo] = 0;
+              }
+              vendasPorFormaPagamento[tipo] += valor;
+            });
+          } else if (venda.forma_pagamento) {
+            // Fallback: se não tiver formas_pagamento_json, usar forma_pagamento simples
+            const tipo = venda.forma_pagamento;
+            const valor = parseFloat(venda.valor?.toString() || '0') || 0;
+            
+            if (!vendasPorFormaPagamento[tipo]) {
+              vendasPorFormaPagamento[tipo] = 0;
+            }
+            vendasPorFormaPagamento[tipo] += valor;
+          }
+        });
+      }
+
       const mensagem = formatFechamentoCaixaMessage({
         storeName: storeName || 'Loja',
         dataFechamento: new Date().toISOString(),
@@ -497,6 +535,7 @@ export function CaixaLojaView({
         vendasColaboradoras,
         observacoes: observacoes || undefined,
         colaboradoraResponsavel: nomeResponsavel,
+        vendasPorFormaPagamento: Object.keys(vendasPorFormaPagamento).length > 0 ? vendasPorFormaPagamento : undefined,
       });
 
       const { data: storeData } = await supabase

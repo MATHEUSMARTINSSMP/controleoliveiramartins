@@ -1008,6 +1008,7 @@ export function formatFechamentoCaixaMessage(params: {
   vendasColaboradoras?: { nome: string; vendidoHoje: number; isOnLeave: boolean }[];
   observacoes?: string;
   colaboradoraResponsavel?: string;
+  vendasPorFormaPagamento?: Record<string, number>;
 }): string {
   const {
     storeName,
@@ -1022,6 +1023,7 @@ export function formatFechamentoCaixaMessage(params: {
     vendasColaboradoras,
     observacoes,
     colaboradoraResponsavel,
+    vendasPorFormaPagamento,
   } = params;
 
   const dataFormatada = new Date(dataFechamento).toLocaleDateString('pt-BR', {
@@ -1069,6 +1071,29 @@ export function formatFechamentoCaixaMessage(params: {
       } else {
         message += `${colab.nome}: ${formatarValor(colab.vendidoHoje)}\n`;
       }
+    });
+  }
+
+  // ✅ Adicionar vendas por forma de pagamento
+  if (vendasPorFormaPagamento && Object.keys(vendasPorFormaPagamento).length > 0) {
+    message += `\n*Vendas por Forma de Pagamento:*\n`;
+    
+    // Labels das formas de pagamento
+    const labels: Record<string, string> = {
+      'CREDITO': 'Cartão de Crédito',
+      'DEBITO': 'Cartão de Débito',
+      'DINHEIRO': 'Dinheiro',
+      'PIX': 'PIX',
+      'BOLETO': 'Boleto',
+    };
+
+    // Ordenar por valor (maior para menor)
+    const formasOrdenadas = Object.entries(vendasPorFormaPagamento)
+      .sort(([, a], [, b]) => b - a);
+
+    formasOrdenadas.forEach(([tipo, valor]) => {
+      const label = labels[tipo] || tipo;
+      message += `${label}: ${formatarValor(valor)}\n`;
     });
   }
 
