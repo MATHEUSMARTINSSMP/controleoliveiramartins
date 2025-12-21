@@ -471,6 +471,63 @@ export default function WhatsAppBulkSend() {
     }
   };
 
+  // Função auxiliar para sincronizar whatsapp_credentials quando atualizamos whatsapp_accounts
+  const syncBackupToWhatsAppCredentials = async (
+    accountId: string,
+    backupAccountType: string,
+    updateData: Record<string, any>
+  ) => {
+    if (!selectedStoreId || !profile?.email) return;
+
+    const selectedStore = stores.find(s => s.id === selectedStoreId);
+    if (!selectedStore?.site_slug) return;
+
+    // Determinar número do backup (1, 2 ou 3)
+    const backupNumber = backupAccountType === "BACKUP_1" ? "1" : backupAccountType === "BACKUP_2" ? "2" : "3";
+    const backupSiteSlug = `${selectedStore.site_slug}_backup${backupNumber}`;
+
+    // Preparar dados para sincronizar com whatsapp_credentials
+    const credUpdateData: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    // Mapear campos de whatsapp_accounts para whatsapp_credentials
+    if (updateData.uazapi_status !== undefined) {
+      credUpdateData.uazapi_status = updateData.uazapi_status;
+    }
+    if (updateData.uazapi_token !== undefined) {
+      credUpdateData.uazapi_token = updateData.uazapi_token;
+    }
+    if (updateData.uazapi_instance_id !== undefined) {
+      credUpdateData.uazapi_instance_id = updateData.uazapi_instance_id;
+    }
+    if (updateData.uazapi_phone_number !== undefined || updateData.phone !== undefined) {
+      credUpdateData.uazapi_phone_number = updateData.uazapi_phone_number || updateData.phone;
+    }
+    if (updateData.uazapi_qr_code !== undefined) {
+      credUpdateData.uazapi_qr_code = updateData.uazapi_qr_code;
+    }
+
+    // Atualizar ou criar registro em whatsapp_credentials
+    const { error: credError } = await supabase
+      .schema("sistemaretiradas")
+      .from("whatsapp_credentials")
+      .upsert({
+        customer_id: profile.email,
+        site_slug: backupSiteSlug,
+        ...credUpdateData,
+        status: "active",
+      }, {
+        onConflict: "customer_id,site_slug"
+      });
+
+    if (credError) {
+      console.warn('[WhatsAppBulkSend] Erro ao sincronizar whatsapp_credentials para backup', accountId, ':', credError);
+    } else {
+      console.log('[WhatsAppBulkSend] ✅ whatsapp_credentials sincronizado para', backupSiteSlug);
+    }
+  };
+
   const fetchWhatsAppAccounts = async () => {
     if (!selectedStoreId || !profile?.id || !profile?.email) return;
     
@@ -616,6 +673,11 @@ export default function WhatsAppBulkSend() {
         // Verificar status de todos os números reserva em paralelo (apenas os que não estão connected)
         const statusPromises = accountsToCheck.map(async (acc) => {
           try {
+            // Determinar account_type baseado nas colunas booleanas
+            let backupAccountType = "BACKUP_1";
+            if (acc.is_backup2) backupAccountType = "BACKUP_2";
+            else if (acc.is_backup3) backupAccountType = "BACKUP_3";
+            
             const status = await fetchBackupWhatsAppStatus({
               siteSlug: selectedStore.site_slug!,
               customerId: profile.email!,
@@ -720,6 +782,9 @@ export default function WhatsAppBulkSend() {
                 .from("whatsapp_accounts")
                 .update(updateData)
                 .eq('id', acc.id);
+              
+              // Sincronizar com whatsapp_credentials para o N8N poder buscar
+              await syncBackupToWhatsAppCredentials(acc.id, backupAccountType, updateData);
             }
             
             return { accountId: acc.id, status };
@@ -1082,6 +1147,10 @@ export default function WhatsAppBulkSend() {
 
       let accountId = existingAccount?.id;
 
+      // Determinar número do backup (1, 2 ou 3)
+      const backupNumber = backupType === "BACKUP_1" ? "1" : backupType === "BACKUP_2" ? "2" : "3";
+      const backupSiteSlug = `${selectedStore.site_slug}_backup${backupNumber}`;
+
       // Se não existe, criar registro vazio (phone será preenchido após conectar)
       if (!accountId) {
         const { data: newAccount, error: createError } = await supabase
@@ -1105,8 +1174,45 @@ export default function WhatsAppBulkSend() {
         }
         accountId = newAccount.id;
         
+        // Criar registro correspondente em whatsapp_credentials para o N8N poder buscar
+        const { error: credCreateError } = await supabase
+          .schema("sistemaretiradas")
+          .from("whatsapp_credentials")
+          .upsert({
+            customer_id: profile.email,
+            site_slug: backupSiteSlug,
+            uazapi_status: "disconnected",
+            status: "active",
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: "customer_id,site_slug"
+          });
+
+        if (credCreateError) {
+          console.warn('[WhatsAppBulkSend] Erro ao criar credencial para backup (não crítico):', credCreateError);
+        } else {
+          console.log('[WhatsAppBulkSend] ✅ Credencial criada em whatsapp_credentials com site_slug:', backupSiteSlug);
+        }
+        
         // Recarregar contas para incluir o novo
         await fetchWhatsAppAccounts();
+      } else {
+        // Se já existe, garantir que também existe em whatsapp_credentials
+        const { error: credUpsertError } = await supabase
+          .schema("sistemaretiradas")
+          .from("whatsapp_credentials")
+          .upsert({
+            customer_id: profile.email,
+            site_slug: backupSiteSlug,
+            status: "active",
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: "customer_id,site_slug"
+          });
+
+        if (credUpsertError) {
+          console.warn('[WhatsAppBulkSend] Erro ao garantir credencial para backup (não crítico):', credUpsertError);
+        }
       }
 
       // Chamar função de conexão com whatsapp_account_id
@@ -1465,6 +1571,9 @@ export default function WhatsAppBulkSend() {
             .from("whatsapp_accounts")
             .update(updateData)
             .eq('id', accountId);
+          
+          // Sincronizar com whatsapp_credentials para o N8N poder buscar
+          await syncBackupToWhatsAppCredentials(accountId, account.account_type, updateData);
           
           // Se conectou, recarregar lista de contas para atualizar phone
           if (status.connected) {

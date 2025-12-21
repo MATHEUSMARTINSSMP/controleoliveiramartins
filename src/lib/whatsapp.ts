@@ -582,10 +582,35 @@ export async function fetchBackupWhatsAppStatus(params: FetchStatusParams & { wh
   }
 
   try {
+    // Se whatsapp_account_id fornecido, buscar no banco para determinar o número do backup
+    // e construir o site_slug no formato {site_slug}_backup{numero}
+    let backupSiteSlug = siteSlug;
+    if (whatsapp_account_id) {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      if (supabaseUrl && supabaseAnonKey) {
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+        const { data: backupAccount } = await supabase
+          .schema("sistemaretiradas")
+          .from("whatsapp_accounts")
+          .select("is_backup1, is_backup2, is_backup3")
+          .eq('id', whatsapp_account_id)
+          .single();
+        
+        if (backupAccount) {
+          const backupNumber = backupAccount.is_backup1 ? "1" : backupAccount.is_backup2 ? "2" : backupAccount.is_backup3 ? "3" : "1";
+          backupSiteSlug = `${siteSlug}_backup${backupNumber}`;
+          console.log('[WhatsApp] Backup site_slug construído:', backupSiteSlug, 'para account_id:', whatsapp_account_id);
+        }
+      }
+    }
+
     const endpoint = getStatusEndpoint();
-    let url = `${endpoint}?siteSlug=${encodeURIComponent(siteSlug)}&customerId=${encodeURIComponent(customerId)}`;
+    let url = `${endpoint}?siteSlug=${encodeURIComponent(backupSiteSlug)}&customerId=${encodeURIComponent(customerId)}`;
     
-    // Se whatsapp_account_id fornecido, adicionar à URL
+    // Se whatsapp_account_id fornecido, ainda adicionar à URL (pode ser usado pelo N8N para validação)
     if (whatsapp_account_id) {
       url += `&whatsapp_account_id=${encodeURIComponent(whatsapp_account_id)}`;
     }
@@ -761,10 +786,35 @@ export async function connectBackupWhatsApp(params: FetchStatusParams & { whatsa
   }
 
   try {
+    // Se whatsapp_account_id fornecido, buscar no banco para determinar o número do backup
+    // e construir o site_slug no formato {site_slug}_backup{numero}
+    let backupSiteSlug = siteSlug;
+    if (whatsapp_account_id) {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      if (supabaseUrl && supabaseAnonKey) {
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+        const { data: backupAccount } = await supabase
+          .schema("sistemaretiradas")
+          .from("whatsapp_accounts")
+          .select("is_backup1, is_backup2, is_backup3")
+          .eq('id', whatsapp_account_id)
+          .single();
+        
+        if (backupAccount) {
+          const backupNumber = backupAccount.is_backup1 ? "1" : backupAccount.is_backup2 ? "2" : backupAccount.is_backup3 ? "3" : "1";
+          backupSiteSlug = `${siteSlug}_backup${backupNumber}`;
+          console.log('[WhatsApp] Backup site_slug construído para conexão:', backupSiteSlug, 'para account_id:', whatsapp_account_id);
+        }
+      }
+    }
+
     const endpoint = getConnectEndpoint();
-    let url = `${endpoint}?siteSlug=${encodeURIComponent(siteSlug)}&customerId=${encodeURIComponent(customerId)}`;
+    let url = `${endpoint}?siteSlug=${encodeURIComponent(backupSiteSlug)}&customerId=${encodeURIComponent(customerId)}`;
     
-    // Se whatsapp_account_id fornecido, adicionar à URL
+    // Se whatsapp_account_id fornecido, ainda adicionar à URL (pode ser usado pelo N8N para validação)
     if (whatsapp_account_id) {
       url += `&whatsapp_account_id=${encodeURIComponent(whatsapp_account_id)}`;
     }
