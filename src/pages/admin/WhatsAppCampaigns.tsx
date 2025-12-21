@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { useCampaignActions } from "@/components/admin/whatsapp-campaigns/useCam
 import { CampaignCard } from "@/components/admin/whatsapp-campaigns/CampaignCard";
 import { CampaignFilters } from "@/components/admin/whatsapp-campaigns/CampaignFilters";
 import { CampaignDetailsModal } from "@/components/admin/whatsapp-campaigns/CampaignDetailsModal";
-import { WhatsAppCampaign } from "@/components/admin/whatsapp-campaigns/types";
+import { WhatsAppCampaign, CampaignStats } from "@/components/admin/whatsapp-campaigns/types";
 import { EmptyState } from "@/components/admin/whatsapp-campaigns/EmptyState";
 import { CampaignListSkeleton } from "@/components/admin/whatsapp-campaigns/LoadingSkeleton";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,7 +31,12 @@ export default function WhatsAppCampaigns() {
   const { campaigns, loading: campaignsLoading, refetch } = useCampaigns(profile?.id);
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   const [detailsModalCampaign, setDetailsModalCampaign] = useState<WhatsAppCampaign | null>(null);
+  // Calcular stats para todas as campanhas ativas (RUNNING, PAUSED) para manter números consistentes
+  const activeCampaignIds = campaigns
+    .filter(c => c.status === 'RUNNING' || c.status === 'PAUSED')
+    .map(c => c.id);
   const { stats, loading: loadingStats, refetch: refetchStats } = useCampaignStats(selectedCampaign);
+  const [allCampaignsStats, setAllCampaignsStats] = useState<Record<string, any>>({});
   const [campaignToDelete, setCampaignToDelete] = useState<WhatsAppCampaign | null>(null);
   const [campaignToDuplicate, setCampaignToDuplicate] = useState<WhatsAppCampaign | null>(null);
   
@@ -346,8 +351,8 @@ export default function WhatsAppCampaigns() {
               onDuplicate={() => setCampaignToDuplicate(campaign)}
               onDelete={() => setCampaignToDelete(campaign)}
               onEdit={() => navigate(`/admin/whatsapp-bulk-send?campaignId=${campaign.id}`)}
-              stats={selectedCampaign === campaign.id ? stats || undefined : undefined}
-              loadingStats={selectedCampaign === campaign.id && loadingStats}
+              stats={selectedCampaign === campaign.id ? (stats || undefined) : (allCampaignsStats[campaign.id] || undefined)}
+              loadingStats={selectedCampaign === campaign.id ? loadingStats : loadingAllStats}
               loadingPause={loadingActions[campaign.id] === 'pause'}
               loadingResume={loadingActions[campaign.id] === 'resume'}
               loadingCancel={loadingActions[campaign.id] === 'cancel'}
