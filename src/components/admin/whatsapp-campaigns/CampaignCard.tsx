@@ -87,9 +87,11 @@ export function CampaignCard({
 
   const getEstimatedCompletionTime = () => {
     if (campaign.status !== 'RUNNING' && campaign.status !== 'SCHEDULED') return null;
-    if (campaign.total_recipients === 0 || campaign.sent_count >= campaign.total_recipients) return null;
+    // Usar stats quando disponível (mais preciso), senão usar sent_count da campanha
+    const sentCount = stats?.sent ?? campaign.sent_count;
+    if (campaign.total_recipients === 0 || sentCount >= campaign.total_recipients) return null;
 
-    const remaining = campaign.total_recipients - campaign.sent_count;
+    const remaining = campaign.total_recipients - sentCount;
     const intervalMinutes = campaign.min_interval_minutes || 1; // Default 1 minuto se não especificado
     const estimatedMinutes = remaining * intervalMinutes;
 
