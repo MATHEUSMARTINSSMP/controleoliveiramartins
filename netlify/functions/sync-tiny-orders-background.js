@@ -1326,7 +1326,7 @@ async function processarSyncCompleta(storeId, dataInicioSync, limit, maxPages, s
           // Executar em background (não bloquear sincronização)
           (async () => {
             try {
-              await enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensProcessados, pedidoCompleto);
+              await enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensProcessados, pedidoCompleto, orderSavedId);
             } catch (error) {
               console.error(`[SyncBackground] ❌ Erro ao enviar WhatsApp (não bloqueia sincronização):`, error);
             }
