@@ -2438,16 +2438,30 @@ export default function WhatsAppBulkSend() {
                     
                     return (
                       <div className="space-y-2">
-                        <Select value={primaryPhoneId} onValueChange={setPrimaryPhoneId}>
+                        <Select 
+                          value={primaryPhoneId} 
+                          onValueChange={(value) => {
+                            // VALIDAÇÃO CRÍTICA: Só permitir "PRIMARY" como principal
+                            // NUNCA permitir IDs de backup
+                            if (value === "PRIMARY" || value === "") {
+                              setPrimaryPhoneId(value);
+                            } else {
+                              // Se tentou selecionar um backup, bloquear e resetar para PRIMARY
+                              console.error('[WhatsAppBulkSend] ⚠️⚠️⚠️ BLOQUEADO: Tentativa de usar backup como principal! Value:', value);
+                              const primaryAccount = whatsappAccounts.find(a => a.account_type === "PRIMARY" && a.id === "PRIMARY");
+                              setPrimaryPhoneId(primaryAccount?.id || "");
+                            }
+                          }}
+                        >
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione o número principal" />
                           </SelectTrigger>
                           <SelectContent>
                             {whatsappAccounts
-                              .filter((a) => a.account_type === "PRIMARY")
+                              .filter((a) => a.account_type === "PRIMARY" && a.id === "PRIMARY") // DUPLA VALIDAÇÃO
                               .map((account) => (
                                 <SelectItem key={account.id} value={account.id}>
-                                  {account.phone}
+                                  {account.phone} {account.id !== "PRIMARY" ? "⚠️ INVÁLIDO" : ""}
                                 </SelectItem>
                               ))}
                           </SelectContent>
