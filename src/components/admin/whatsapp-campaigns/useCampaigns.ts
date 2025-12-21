@@ -48,7 +48,7 @@ export function useCampaigns(profileId: string | undefined) {
           min_interval_minutes,
           daily_limit,
           category,
-          stores:store_id (
+          stores (
             name
           )
         `)
