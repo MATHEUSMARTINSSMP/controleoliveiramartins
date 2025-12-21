@@ -2637,18 +2637,31 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
 
     const totalDia = vendasHoje?.reduce((sum, v) => sum + (parseFloat(v.valor) || 0), 0) || 0;
 
-    // ✅ Garantir que sempre incluímos a venda atual no total do dia
-    // Se a venda atual ainda não foi salva em sales, precisamos adicioná-la
     const valorVendaAtual = parseFloat(orderData.valor_total) || 0;
     const dataPedido = orderData.data_pedido ? new Date(orderData.data_pedido).toISOString().split('T')[0] : null;
     
-    // Se a venda é de hoje, garantir que está incluída no total
+    // Se a venda é de hoje, verificar se já está incluída no total
     let totalDiaComVendaAtual = totalDia;
     if (dataPedido === hojeStr) {
-      // Verificar se a venda atual já está no total (pode não estar se foi recém criada)
-      // Sempre incluir para garantir que o total está correto
-      totalDiaComVendaAtual = totalDia + valorVendaAtual;
-      console.log(`[SyncBackground] 📊 Total do dia calculado: ${totalDia.toFixed(2)} + venda atual ${valorVendaAtual.toFixed(2)} = ${totalDiaComVendaAtual.toFixed(2)} (dataPedido: ${dataPedido}, hojeStr: ${hojeStr})`);
+      // Verificar se a venda atual já está em sales (para evitar duplicação)
+      // Buscar vendas com mesmo valor (aproximado) e mesmo dia para esta loja
+      const valorMinimo = valorVendaAtual * 0.99; // 1% de tolerância
+      const valorMaximo = valorVendaAtual * 1.01;
+      
+      const vendaJaExiste = vendasHoje?.some(v => {
+        const valorVenda = parseFloat(v.valor) || 0;
+        return valorVenda >= valorMinimo && valorVenda <= valorMaximo;
+      });
+
+      if (!vendaJaExiste) {
+        // Venda ainda não está em sales, precisamos adicioná-la
+        totalDiaComVendaAtual = totalDia + valorVendaAtual;
+        console.log(`[SyncBackground] 📊 Total do dia: ${totalDia.toFixed(2)} + venda atual ${valorVendaAtual.toFixed(2)} = ${totalDiaComVendaAtual.toFixed(2)} (venda ainda não estava em sales)`);
+      } else {
+        // Venda já está em sales, usar apenas o totalDia
+        totalDiaComVendaAtual = totalDia;
+        console.log(`[SyncBackground] 📊 Total do dia: ${totalDia.toFixed(2)} (venda atual já estava incluída em sales)`);
+      }
     } else {
       console.log(`[SyncBackground] 📊 Total do dia (venda não é de hoje): ${totalDia.toFixed(2)} (dataPedido: ${dataPedido}, hojeStr: ${hojeStr})`);
       // Se não é de hoje, não devemos mostrar total do dia
