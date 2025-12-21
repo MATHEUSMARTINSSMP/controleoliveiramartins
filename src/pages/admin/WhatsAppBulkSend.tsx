@@ -1185,6 +1185,9 @@ export default function WhatsAppBulkSend() {
   const startPollingForBackupAccount = (accountId: string) => {
     if (!selectedStoreId || !profile?.email) return;
 
+    let disconnectedCount = 0;
+    const MAX_DISCONNECTED_ATTEMPTS = 3; // Parar após 3 tentativas com disconnected
+
     const pollInterval = setInterval(async () => {
       try {
         const account = whatsappAccounts.find(acc => acc.id === accountId);
@@ -1209,6 +1212,25 @@ export default function WhatsAppBulkSend() {
           customerId: profile.email!,
           whatsapp_account_id: accountId,
         });
+
+        // Contar tentativas com disconnected
+        if (status.status === 'disconnected' || (!status.connected && !status.qrCode)) {
+          disconnectedCount++;
+          // Se já tentou várias vezes e continua disconnected, parar polling
+          if (disconnectedCount >= MAX_DISCONNECTED_ATTEMPTS) {
+            console.log('[WhatsAppBulkSend] Parando polling - múltiplas tentativas com disconnected para', accountId);
+            clearInterval(pollInterval);
+            setPollingAccounts(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(accountId);
+              return newSet;
+            });
+            return;
+          }
+        } else {
+          // Resetar contador se status mudou
+          disconnectedCount = 0;
+        }
 
         // Determinar backupType baseado no account para atualizar backupQRCodes
         let backupType: "BACKUP_1" | "BACKUP_2" | "BACKUP_3" | null = null;
