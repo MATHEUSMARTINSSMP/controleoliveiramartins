@@ -187,7 +187,7 @@ export function AnalyticsMetrics({
                         Conversão
                       </div>
                       <div className="text-lg font-semibold">
-                        {item.conversion_rate.toFixed(2)}%
+                        {(item.conversion_rate ?? 0).toFixed(2)}%
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {item.total_sales_count} de {item.total_recipients}

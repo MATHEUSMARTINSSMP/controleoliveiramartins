@@ -123,7 +123,7 @@ export function CampaignAnalyticsView({ campaignId, storeId }: CampaignAnalytics
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="p-4 border rounded-lg">
                       <div className="text-sm text-muted-foreground mb-1">Taxa de Conversão</div>
-                      <div className="text-2xl font-bold">{campaignAnalytics.conversion_rate.toFixed(2)}%</div>
+                      <div className="text-2xl font-bold">{(campaignAnalytics.conversion_rate ?? 0).toFixed(2)}%</div>
                       <div className="text-xs text-muted-foreground mt-1">
                         {campaignAnalytics.customers_who_returned} de {campaignAnalytics.unique_customers_reached}
                       </div>

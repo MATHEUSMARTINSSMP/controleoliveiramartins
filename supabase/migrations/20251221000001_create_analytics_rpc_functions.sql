@@ -164,11 +164,11 @@ BEGIN
     csa.contact_id,
     csa.contact_name,
     csa.contact_phone,
-    csa.sent_at as message_sent_at,
-    csa.first_sale_after_message,
+    csa.sent_at::TIMESTAMPTZ as message_sent_at,
+    csa.first_sale_after_message::TIMESTAMPTZ as first_sale_after_message,
     CASE 
       WHEN csa.first_sale_after_message IS NOT NULL THEN
-        EXTRACT(EPOCH FROM (csa.first_sale_after_message - csa.sent_at)) / 86400
+        EXTRACT(EPOCH FROM (csa.first_sale_after_message::TIMESTAMPTZ - csa.sent_at::TIMESTAMPTZ)) / 86400
       ELSE NULL
     END::INTEGER as days_to_return,
     COALESCE(csa.total_sales_count, 0)::BIGINT,
