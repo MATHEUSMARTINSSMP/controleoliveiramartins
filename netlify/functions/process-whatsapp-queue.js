@@ -97,8 +97,10 @@ exports.handler = async (event, context) => {
         }
 
         // Verificar limites antes de enviar
-        // 1. Limite por contato por dia
-        if (queueItem.max_per_day_per_contact) {
+        // ✅ IMPORTANTE: Limites diários APENAS para CAMPANHAS
+        // Notificações críticas (VENDA, CASHBACK, PONTO, CAIXA) devem SEMPRE ser enviadas
+        // 1. Limite por contato por dia (APENAS para campanhas)
+        if (queueItem.max_per_day_per_contact && queueItem.message_type === 'CAMPAIGN') {
           const todayStart = new Date();
           todayStart.setHours(0, 0, 0, 0);
           todayStart.setHours(todayStart.getHours() - 3); // UTC-3
@@ -110,17 +112,18 @@ exports.handler = async (event, context) => {
             .eq('phone', item.phone)
             .eq('store_id', item.store_id)
             .eq('status', 'SENT')
+            .eq('message_type', 'CAMPAIGN') // ✅ Contar apenas mensagens de campanha
             .gte('sent_at', todayStart.toISOString());
 
           if (sentTodayCount && sentTodayCount >= queueItem.max_per_day_per_contact) {
-            console.log(`[ProcessWhatsAppQueue] ⏭️ Limite diário atingido para ${item.phone} (${sentTodayCount}/${queueItem.max_per_day_per_contact})`);
+            console.log(`[ProcessWhatsAppQueue] ⏭️ Limite diário de campanha atingido para ${item.phone} (${sentTodayCount}/${queueItem.max_per_day_per_contact})`);
             
             await supabase
               .schema('sistemaretiradas')
               .from('whatsapp_message_queue')
               .update({ 
                 status: 'CANCELLED',
-                error_message: `Limite diário atingido: ${sentTodayCount}/${queueItem.max_per_day_per_contact}`
+                error_message: `Limite diário de campanha atingido: ${sentTodayCount}/${queueItem.max_per_day_per_contact}`
               })
               .eq('id', item.queue_id);
 
@@ -129,8 +132,8 @@ exports.handler = async (event, context) => {
           }
         }
 
-        // 2. Limite total por dia (se configurado)
-        if (queueItem.max_total_per_day) {
+        // 2. Limite total por dia (APENAS para campanhas)
+        if (queueItem.max_total_per_day && queueItem.message_type === 'CAMPAIGN') {
           const todayStart = new Date();
           todayStart.setHours(0, 0, 0, 0);
           todayStart.setHours(todayStart.getHours() - 3); // UTC-3
@@ -141,10 +144,11 @@ exports.handler = async (event, context) => {
             .select('*', { count: 'exact', head: true })
             .eq('store_id', item.store_id)
             .eq('status', 'SENT')
+            .eq('message_type', 'CAMPAIGN') // ✅ Contar apenas mensagens de campanha
             .gte('sent_at', todayStart.toISOString());
 
           if (totalSentToday && totalSentToday >= queueItem.max_total_per_day) {
-            console.log(`[ProcessWhatsAppQueue] ⏭️ Limite total diário atingido para loja (${totalSentToday}/${queueItem.max_total_per_day})`);
+            console.log(`[ProcessWhatsAppQueue] ⏭️ Limite total diário de campanha atingido para loja (${totalSentToday}/${queueItem.max_total_per_day})`);
             skipped++;
             continue;
           }
