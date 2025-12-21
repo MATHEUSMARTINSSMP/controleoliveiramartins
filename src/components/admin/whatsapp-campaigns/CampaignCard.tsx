@@ -71,6 +71,15 @@ export function CampaignCard({
       'FAILED': 'Falhou',
     };
 
+    // COMPLETED fica verde para diferenciar de RUNNING (laranja)
+    if (status === 'COMPLETED') {
+      return (
+        <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white border-green-600">
+          {labels[status] || status}
+        </Badge>
+      );
+    }
+
     return (
       <Badge variant={variants[status] || 'default'}>
         {labels[status] || status}
