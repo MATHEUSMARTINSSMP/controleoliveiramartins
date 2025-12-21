@@ -1,12 +1,17 @@
 -- =====================================================
--- INTERCALAR MENSAGENS DE CAMPANHAS DIFERENTES
+-- INTERCALAR MENSAGENS POR LOJA E CAMPANHA
 -- =====================================================
 -- Esta migration modifica a função get_next_whatsapp_messages
--- para processar campanhas diferentes em paralelo (intercaladas),
--- respeitando os intervalos de cada campanha individualmente.
+-- para processar mensagens de forma independente por loja.
 -- 
--- Agora campanhas diferentes (que usam números WhatsApp diferentes)
--- podem rodar simultaneamente, alternando mensagens entre elas.
+-- CADA LOJA TEM SUA PRÓPRIA FILA INDEPENDENTE:
+-- - Mensagens de diferentes lojas não bloqueiam umas às outras
+-- - Dentro de cada loja, campanhas diferentes são intercaladas
+-- - Respeita prioridades (cashback, notificações > campanhas)
+-- - Cada loja/campanha respeita seus próprios intervalos
+-- 
+-- Isso permite escalar para 800+ lojas processando em paralelo
+-- sem que uma loja bloqueie outras.
 -- =====================================================
 
 -- Nova função que intercala mensagens de diferentes campanhas
@@ -53,19 +58,41 @@ BEGIN
             OR (v_current_hour >= q.allowed_start_hour AND v_current_hour < q.allowed_end_hour)
         )
     ),
-    campaign_ordering AS (
-        -- Ordenar campanhas pela primeira mensagem criada (para alternar corretamente)
+    store_ordering AS (
+        -- Ordenar lojas pela primeira mensagem criada
         SELECT DISTINCT
+            bf.store_id,
+            MIN(bf.created_at) as first_message_at,
+            ROW_NUMBER() OVER (ORDER BY MIN(bf.created_at)) as store_order
+        FROM base_filter bf
+        WHERE bf.store_id IS NOT NULL
+        GROUP BY bf.store_id
+    ),
+    campaign_ordering AS (
+        -- Ordenar campanhas dentro de cada loja pela primeira mensagem criada
+        SELECT DISTINCT
+            bf.store_id,
             bf.campaign_id,
             MIN(bf.created_at) as first_message_at,
-            ROW_NUMBER() OVER (ORDER BY MIN(bf.created_at)) as campaign_order
+            ROW_NUMBER() OVER (
+                PARTITION BY bf.store_id 
+                ORDER BY MIN(bf.created_at)
+            ) as campaign_order_in_store
         FROM base_filter bf
         WHERE bf.campaign_id IS NOT NULL 
         AND bf.message_type = 'CAMPAIGN'
-        GROUP BY bf.campaign_id
+        GROUP BY bf.store_id, bf.campaign_id
+    ),
+    store_campaign_counts AS (
+        -- Contar quantas campanhas cada loja tem (para calcular round-robin)
+        SELECT 
+            co.store_id,
+            COUNT(*) as campaigns_per_store
+        FROM campaign_ordering co
+        GROUP BY co.store_id
     ),
     ranked_messages AS (
-        -- Rankear mensagens dentro de cada campanha e criar índice de round-robin
+        -- Rankear mensagens criando índice hierárquico: LOJA > CAMPANHA > MENSAGEM
         SELECT 
             bf.id AS queue_id,
             bf.phone,
@@ -76,19 +103,35 @@ BEGIN
             bf.message_type,
             bf.interval_seconds,
             bf.campaign_id,
-            -- Round-robin: mensagem N da campanha M vai ter índice = (N-1) * total_campaigns + M
-            -- Isso garante intercalação: campanha1-msg1, campanha2-msg1, campanha1-msg2, campanha2-msg2, ...
+            -- Estratégia de ordenação:
+            -- 1. PRIORIDADE (cashback=1, notificações=4, campanhas=7-10) - mais importante
+            -- 2. LOJA (intercala entre lojas)
+            -- 3. CAMPANHA dentro da loja (intercala entre campanhas da mesma loja)
+            -- 4. ORDEM da mensagem dentro da campanha
             CASE 
-                WHEN bf.campaign_id IS NOT NULL AND bf.message_type = 'CAMPAIGN' THEN
-                    (ROW_NUMBER() OVER (
-                        PARTITION BY bf.campaign_id 
-                        ORDER BY bf.priority ASC, bf.created_at ASC
-                    ) - 1) * (SELECT COUNT(*) FROM campaign_ordering) + COALESCE(co.campaign_order, 9999)
+                -- Mensagens não-campanha (cashback, notificações): prioridade absoluta
+                WHEN bf.campaign_id IS NULL OR bf.message_type != 'CAMPAIGN' THEN
+                    bf.priority * 1000000000000::BIGINT + -- Prioridade primeiro
+                    COALESCE(so.store_order, 9999) * 1000000000::BIGINT + -- Depois loja
+                    EXTRACT(EPOCH FROM (NOW() - bf.created_at))::BIGINT -- Depois idade
+                
+                -- Mensagens de campanha: intercalar por loja E campanha
                 ELSE
-                    bf.priority * 1000000 + EXTRACT(EPOCH FROM (NOW() - bf.created_at))::BIGINT
+                    bf.priority * 1000000000000::BIGINT + -- Prioridade primeiro
+                    COALESCE(so.store_order, 9999) * 1000000000::BIGINT + -- Depois loja
+                    -- Round-robin dentro da loja: intercala campanhas
+                    -- Mensagem N da campanha M na loja L: (N-1) * total_campanhas_loja + ordem_campanha
+                    (ROW_NUMBER() OVER (
+                        PARTITION BY bf.store_id, bf.campaign_id 
+                        ORDER BY bf.priority ASC, bf.created_at ASC
+                    ) - 1) * COALESCE(scc.campaigns_per_store, 1)::BIGINT * 1000000 +
+                    COALESCE(co.campaign_order_in_store, 9999) * 1000000 +
+                    EXTRACT(EPOCH FROM (NOW() - bf.created_at))::BIGINT
             END as sort_index
         FROM base_filter bf
-        LEFT JOIN campaign_ordering co ON bf.campaign_id = co.campaign_id
+        LEFT JOIN store_ordering so ON bf.store_id = so.store_id
+        LEFT JOIN campaign_ordering co ON bf.store_id = co.store_id AND bf.campaign_id = co.campaign_id
+        LEFT JOIN store_campaign_counts scc ON bf.store_id = scc.store_id
     )
     SELECT 
         rm.queue_id,
@@ -103,7 +146,6 @@ BEGIN
     FROM ranked_messages rm
     ORDER BY 
         rm.sort_index ASC,
-        rm.priority ASC,
         rm.queue_id
     LIMIT p_limit;
 END;
