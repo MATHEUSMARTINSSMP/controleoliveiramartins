@@ -1210,6 +1210,27 @@ export default function WhatsAppBulkSend() {
           whatsapp_account_id: accountId,
         });
 
+        // Determinar backupType baseado no account para atualizar backupQRCodes
+        let backupType: "BACKUP_1" | "BACKUP_2" | "BACKUP_3" | null = null;
+        if (account.account_type === "BACKUP_1") backupType = "BACKUP_1";
+        else if (account.account_type === "BACKUP_2") backupType = "BACKUP_2";
+        else if (account.account_type === "BACKUP_3") backupType = "BACKUP_3";
+        
+        // Atualizar backupQRCodes conforme o status
+        if (backupType) {
+          if (status.qrCode) {
+            // Se há QR code, atualizar
+            setBackupQRCodes(prev => ({ ...prev, [backupType!]: status.qrCode! }));
+          } else if (status.connected || status.status === 'connected') {
+            // Se conectou, limpar QR code
+            setBackupQRCodes(prev => {
+              const newCodes = { ...prev };
+              delete newCodes[backupType!];
+              return newCodes;
+            });
+          }
+        }
+
         setBackupAccountStatus(prev => ({ ...prev, [accountId]: status }));
 
         // Atualizar lista de contas (incluindo phone se conectado)
@@ -2257,8 +2278,8 @@ export default function WhatsAppBulkSend() {
                             )}
                           </div>
 
-                          {/* QR Code display */}
-                          {qrCode && status === 'qr_required' && (
+                          {/* QR Code display - só mostra se status for qr_required */}
+                          {qrCode && (status === 'qr_required' || status === 'connecting') && !isConnected && (
                             <div className="p-4 bg-muted rounded-lg text-center border-2 border-dashed">
                               <p className="text-sm font-medium mb-2">Escaneie o QR Code para conectar:</p>
                               <img 
