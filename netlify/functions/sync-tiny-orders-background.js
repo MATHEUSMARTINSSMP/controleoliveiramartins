@@ -2641,17 +2641,18 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     // Se a venda atual ainda não foi salva em sales, precisamos adicioná-la
     const valorVendaAtual = parseFloat(orderData.valor_total) || 0;
     const dataPedido = orderData.data_pedido ? new Date(orderData.data_pedido).toISOString().split('T')[0] : null;
-    const hojeStr2 = new Date().toISOString().split('T')[0];
     
     // Se a venda é de hoje, garantir que está incluída no total
     let totalDiaComVendaAtual = totalDia;
-    if (dataPedido === hojeStr2) {
+    if (dataPedido === hojeStr) {
       // Verificar se a venda atual já está no total (pode não estar se foi recém criada)
       // Sempre incluir para garantir que o total está correto
       totalDiaComVendaAtual = totalDia + valorVendaAtual;
-      console.log(`[SyncBackground] 📊 Total do dia calculado: ${totalDia.toFixed(2)} + venda atual ${valorVendaAtual.toFixed(2)} = ${totalDiaComVendaAtual.toFixed(2)}`);
+      console.log(`[SyncBackground] 📊 Total do dia calculado: ${totalDia.toFixed(2)} + venda atual ${valorVendaAtual.toFixed(2)} = ${totalDiaComVendaAtual.toFixed(2)} (dataPedido: ${dataPedido}, hojeStr: ${hojeStr})`);
     } else {
-      console.log(`[SyncBackground] 📊 Total do dia (venda não é de hoje): ${totalDia.toFixed(2)}`);
+      console.log(`[SyncBackground] 📊 Total do dia (venda não é de hoje): ${totalDia.toFixed(2)} (dataPedido: ${dataPedido}, hojeStr: ${hojeStr})`);
+      // Se não é de hoje, não devemos mostrar total do dia
+      totalDiaComVendaAtual = null;
     }
 
     // ✅ BUSCAR TOTAL DO MÊS DE SALES (não tiny_orders)
@@ -2870,12 +2871,16 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     message += `*Data:* ${dataFormatada}\n`;
 
     // ✅ Sempre mostrar total do dia se a venda é de hoje e temos um valor
-    if (dataPedido === hojeStr2 && totalDiaComVendaAtual !== undefined && totalDiaComVendaAtual !== null) {
+    // Usar hojeStr (definida anteriormente) para comparar com dataPedido
+    if (dataPedido === hojeStr && totalDiaComVendaAtual !== undefined && totalDiaComVendaAtual !== null) {
       const totalDiaFormatado = new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: 'BRL',
       }).format(totalDiaComVendaAtual);
       message += `*Total Vendido (Hoje):* ${totalDiaFormatado}\n`;
+      console.log(`[SyncBackground] 📊 Total do dia incluído na mensagem: ${totalDiaFormatado} (dataPedido: ${dataPedido}, hojeStr: ${hojeStr})`);
+    } else {
+      console.log(`[SyncBackground] 📊 Total do dia NÃO incluído (dataPedido: ${dataPedido}, hojeStr: ${hojeStr}, totalDiaComVendaAtual: ${totalDiaComVendaAtual})`);
     }
 
     // ✅ Usar total do mês COM a venda atual incluída
