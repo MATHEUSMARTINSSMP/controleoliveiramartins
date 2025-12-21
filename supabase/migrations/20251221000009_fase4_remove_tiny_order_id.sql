@@ -15,6 +15,8 @@ DROP INDEX IF EXISTS sistemaretiradas.idx_sales_tiny_order_id_unique;
 
 -- 3. Remover foreign key constraint (se existir)
 DO $$
+DECLARE
+    r RECORD;
 BEGIN
     IF EXISTS (
         SELECT 1 FROM information_schema.table_constraints 

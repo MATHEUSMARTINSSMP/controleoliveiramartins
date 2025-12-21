@@ -26,7 +26,7 @@ BEGIN
 END $$;
 
 -- 2. Criar nova versão da função gerar_cashback com suporte a external_order_id + order_source
-CREATE FUNCTION sistemaretiradas.gerar_cashback(
+CREATE OR REPLACE FUNCTION sistemaretiradas.gerar_cashback(
     p_sale_id UUID DEFAULT NULL,
     p_external_order_id TEXT DEFAULT NULL,
     p_order_source TEXT DEFAULT NULL,
