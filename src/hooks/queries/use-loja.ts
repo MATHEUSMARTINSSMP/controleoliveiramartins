@@ -24,7 +24,9 @@ interface Sale {
   qtd_pecas: number;
   data_venda: string;
   observacoes: string | null;
-  tiny_order_id: string | null;
+  external_order_id?: string | null; // ✅ Nova estrutura genérica
+  order_source?: string | null; // ✅ Nova estrutura genérica
+  tiny_order_id: string | null; // Mantido para compatibilidade
   forma_pagamento: string | null;
   colaboradora: {
     name: string;
@@ -120,6 +122,7 @@ export function useStoreSales(storeId: string | null | undefined, filterDate?: s
     queryFn: async (): Promise<Sale[]> => {
       if (!storeId) return [];
 
+      // ✅ Usar external_order_id + order_source (nova estrutura genérica)
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('sales')
@@ -130,6 +133,8 @@ export function useStoreSales(storeId: string | null | undefined, filterDate?: s
           qtd_pecas,
           data_venda,
           observacoes,
+          external_order_id,
+          order_source,
           tiny_order_id,
           forma_pagamento,
           colaboradora:profiles!sales_colaboradora_id_fkey(name)

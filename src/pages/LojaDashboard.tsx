@@ -79,7 +79,9 @@ interface Sale {
     qtd_pecas: number;
     data_venda: string;
     observacoes: string | null;
-    tiny_order_id: string | null;
+    external_order_id?: string | null; // ✅ Nova estrutura genérica
+    order_source?: string | null; // ✅ Nova estrutura genérica
+    tiny_order_id: string | null; // Mantido para compatibilidade
     cliente_id?: string | null;
     cliente_nome?: string | null;
     colaboradora: {
