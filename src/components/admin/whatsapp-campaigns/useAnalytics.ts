@@ -118,7 +118,18 @@ export function useCampaignAnalyticsByCategory(
       );
 
       if (err) throw err;
-      setData(result || []);
+      
+      // Normalizar dados: converter null para 0 em campos numéricos
+      const normalizedData = (result || []).map(item => ({
+        ...item,
+        conversion_rate: item.conversion_rate ?? 0,
+        avg_days_to_return: item.avg_days_to_return ?? 0,
+        total_revenue_generated: item.total_revenue_generated ?? 0,
+        avg_ticket_post_campaign: item.avg_ticket_post_campaign ?? 0,
+        roi_percentage: item.roi_percentage ?? 0,
+      }));
+      
+      setData(normalizedData);
     } catch (err: any) {
       console.error("Erro ao buscar analytics por categoria:", err);
       setError(err.message || "Erro ao carregar analytics");
