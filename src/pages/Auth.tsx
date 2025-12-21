@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Eye, EyeOff, Mail, Lock, User, ArrowRight, Sparkles } from "lucide-react";
+import { Loader2, Eye, EyeOff, Mail, Lock, User, ArrowRight } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const Auth = () => {
