@@ -2632,55 +2632,29 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
 
     // 4. Calcular totais (dia e mês) - ✅ BUSCAR DE SALES (não tiny_orders)
     const hojeStr = new Date().toISOString().split('T')[0];
-    // ✅ Usar external_order_id + order_source (genérico para múltiplos ERPs)
-    // Para compatibilidade, também busca tiny_order_id
+    const valorVendaAtual = parseFloat(orderData.valor_total) || 0;
+    const dataPedido = orderData.data_pedido ? new Date(orderData.data_pedido).toISOString().split('T')[0] : null;
+    
+    // ✅ BUSCAR VENDAS DE HOJE DE SALES
     const { data: vendasHoje } = await supabase
       .schema('sistemaretiradas')
       .from('sales')
-      .select('valor, external_order_id, order_source, tiny_order_id')
+      .select('valor')
       .eq('store_id', storeId)
       .gte('data_venda', `${hojeStr}T00:00:00`)
       .lte('data_venda', `${hojeStr}T23:59:59`);
 
     const totalDia = vendasHoje?.reduce((sum, v) => sum + (parseFloat(v.valor) || 0), 0) || 0;
 
-    const valorVendaAtual = parseFloat(orderData.valor_total) || 0;
-    const dataPedido = orderData.data_pedido ? new Date(orderData.data_pedido).toISOString().split('T')[0] : null;
-    
-    // Se a venda é de hoje, verificar se já está incluída no total
-    let totalDiaComVendaAtual = totalDia;
+    // ✅ CRÍTICO: A venda atual AINDA NÃO FOI CRIADA em sales quando esta função é chamada
+    // A venda só é criada depois pela função RPC criar_vendas_de_tiny_orders
+    // SEMPRE adicionar o valor da venda atual ao total do dia se for de hoje
+    let totalDiaComVendaAtual = null;
     if (dataPedido === hojeStr) {
-      // ✅ Verificar se a venda atual já está em sales usando external_order_id + order_source
-      // Isso é mais confiável do que comparar valores (duas vendas podem ter o mesmo valor)
-      // Compatível com múltiplos ERPs (TINY, LINX, MICROVIX, etc)
-      let vendaJaExiste = false;
-      if (tinyOrderId) {
-        // Verificar por external_order_id (nova estrutura genérica)
-        vendaJaExiste = vendasHoje?.some(v => 
-          v.external_order_id === tinyOrderId.toString() && v.order_source === 'TINY'
-        ) || false;
-        
-        // Fallback para tiny_order_id (compatibilidade com dados antigos durante migração)
-        if (!vendaJaExiste) {
-          vendaJaExiste = vendasHoje?.some(v => v.tiny_order_id === tinyOrderId) || false;
-        }
-        
-        console.log(`[SyncBackground] 📊 Verificando se venda já está em sales (external_order_id: ${tinyOrderId}, order_source: TINY): ${vendaJaExiste}`);
-      }
-
-      if (!vendaJaExiste) {
-        // Venda ainda não está em sales, precisamos adicioná-la
-        totalDiaComVendaAtual = totalDia + valorVendaAtual;
-        console.log(`[SyncBackground] 📊 Total do dia: ${totalDia.toFixed(2)} + venda atual ${valorVendaAtual.toFixed(2)} = ${totalDiaComVendaAtual.toFixed(2)} (venda ainda não estava em sales)`);
-      } else {
-        // Venda já está em sales, usar apenas o totalDia
-        totalDiaComVendaAtual = totalDia;
-        console.log(`[SyncBackground] 📊 Total do dia: ${totalDia.toFixed(2)} (venda atual já estava incluída em sales via external_order_id: ${tinyOrderId})`);
-      }
+      totalDiaComVendaAtual = totalDia + valorVendaAtual;
+      console.log(`[SyncBackground] 📊 Total do dia: ${totalDia.toFixed(2)} + venda atual ${valorVendaAtual.toFixed(2)} = ${totalDiaComVendaAtual.toFixed(2)} (venda ainda não criada em sales)`);
     } else {
       console.log(`[SyncBackground] 📊 Total do dia (venda não é de hoje): ${totalDia.toFixed(2)} (dataPedido: ${dataPedido}, hojeStr: ${hojeStr})`);
-      // Se não é de hoje, não devemos mostrar total do dia
-      totalDiaComVendaAtual = null;
     }
 
     // ✅ BUSCAR TOTAL DO MÊS DE SALES (não tiny_orders)
@@ -2698,10 +2672,16 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
 
     const totalMes = vendasMes?.reduce((sum, v) => sum + (parseFloat(v.valor) || 0), 0) || 0;
 
-    // ✅ CORRIGIDO: A venda atual JÁ está em sales quando esta função é chamada
-    // Não precisamos adicionar novamente, senão duplica o valor
-    let totalMesComVendaAtual = totalMes; // Usar o total que já inclui a venda atual
-    console.log(`[SyncBackground] 📊 Total do mês (já inclui venda atual): ${totalMes.toFixed(2)}`);
+    // ✅ CRÍTICO: A venda atual AINDA NÃO FOI CRIADA em sales quando esta função é chamada
+    // SEMPRE adicionar o valor da venda atual ao total do mês se for do mês atual
+    const mesPedido = dataPedido ? dataPedido.slice(0, 7) : null;
+    let totalMesComVendaAtual = totalMes;
+    if (mesPedido === mesAtual) {
+      totalMesComVendaAtual = totalMes + valorVendaAtual;
+      console.log(`[SyncBackground] 📊 Total do mês: ${totalMes.toFixed(2)} + venda atual ${valorVendaAtual.toFixed(2)} = ${totalMesComVendaAtual.toFixed(2)} (venda ainda não criada em sales)`);
+    } else {
+      console.log(`[SyncBackground] 📊 Total do mês (venda não é deste mês): ${totalMes.toFixed(2)} (mesPedido: ${mesPedido}, mesAtual: ${mesAtual})`);
+    }
 
     // 5. Formatar produtos para observações
     // ✅ CRÍTICO: Usar itens ORIGINAIS do pedido completo (não processados) para pegar descrição limpa
