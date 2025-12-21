@@ -558,6 +558,38 @@ export default function WhatsAppBulkSend() {
 
       setWhatsappAccounts(accounts);
 
+      // Verificar status via N8N para número principal (igual WhatsAppStoreConfig)
+      // Isso garante que números conectados no N8N sejam detectados mesmo sem status atualizado no banco
+      if (credentials && profile?.email && selectedStore?.site_slug) {
+        try {
+          const status = await fetchWhatsAppStatus({
+            siteSlug: selectedStore.site_slug,
+            customerId: profile.email,
+          });
+
+          // Atualizar estado do número principal se status mudou (com proteção contra downgrade)
+          const currentStatus = credentials.uazapi_status;
+          const isConnectedInDb = currentStatus === 'connected';
+          const isDisconnectedFromN8N = status.status === 'error' || status.status === 'disconnected' || !status.status;
+          
+          // PROTEÇÃO: Não fazer downgrade de connected para disconnected
+          if (!(isConnectedInDb && isDisconnectedFromN8N)) {
+            setWhatsappAccounts(prev => prev.map(acc => 
+              acc.account_type === "PRIMARY"
+                ? {
+                    ...acc,
+                    uazapi_status: status.status || acc.uazapi_status,
+                    is_connected: status.connected || (status.status === 'connected'),
+                    phone: status.phoneNumber || acc.phone,
+                  }
+                : acc
+            ));
+          }
+        } catch (error) {
+          console.error('[WhatsAppBulkSend] Erro ao verificar status do número principal:', error);
+        }
+      }
+
       // Verificar status via N8N para números reserva (igual WhatsAppStoreConfig)
       // Isso garante que números conectados no N8N sejam detectados mesmo sem status atualizado no banco
       if (backupAccounts && backupAccounts.length > 0 && profile?.email && selectedStore?.site_slug) {
