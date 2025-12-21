@@ -11,6 +11,7 @@
 DO $$
 DECLARE
     _admin_id UUID;
+    _admin_email TEXT;
     _store_id UUID;
     _site_slug TEXT := 'mrkitsch'; -- Slug da loja MR KITSCH
     _uazapi_token TEXT := '2fada9de-3960-4dbb-b47c-be72d00eb1e4';
@@ -18,8 +19,8 @@ DECLARE
     _uazapi_instance_id TEXT := 'r770aaed21d3443'; -- Instance ID do UazAPI
     _backup_count INTEGER;
 BEGIN
-    -- 1. Encontrar o admin_id e store_id da loja 'mrkitsch'
-    SELECT p.id INTO _admin_id
+    -- 1. Encontrar o admin_id, admin_email e store_id da loja 'mrkitsch'
+    SELECT p.id, p.email INTO _admin_id, _admin_email
     FROM sistemaretiradas.profiles p
     JOIN sistemaretiradas.stores s ON p.id = s.admin_id
     WHERE s.site_slug = _site_slug
@@ -27,6 +28,17 @@ BEGIN
 
     IF _admin_id IS NULL THEN
         RAISE EXCEPTION 'Admin ID para a loja % não encontrado.', _site_slug;
+    END IF;
+    
+    IF _admin_email IS NULL THEN
+        -- Tentar buscar email do auth.users como fallback
+        SELECT email INTO _admin_email
+        FROM auth.users
+        WHERE id = _admin_id;
+        
+        IF _admin_email IS NULL THEN
+            RAISE EXCEPTION 'Email do admin não encontrado para admin_id %.', _admin_id;
+        END IF;
     END IF;
 
     SELECT id INTO _store_id
@@ -57,8 +69,10 @@ BEGIN
 
     -- 3. GARANTIR QUE O REGISTRO PRINCIPAL EXISTA E ESTEJA CORRETO
     -- Upsert do número principal em whatsapp_credentials
+    -- NOTA: customer_id é NOT NULL e mantido para compatibilidade (deprecado, mas ainda obrigatório)
     INSERT INTO sistemaretiradas.whatsapp_credentials (
         admin_id,
+        customer_id, -- Mantido para compatibilidade (NOT NULL constraint)
         site_slug,
         uazapi_token,
         uazapi_phone_number,
@@ -68,6 +82,7 @@ BEGIN
         updated_at
     ) VALUES (
         _admin_id,
+        _admin_email, -- customer_id = email (compatibilidade)
         _site_slug, -- site_slug SEM "_backup" - é o principal
         _uazapi_token,
         _uazapi_phone_number,
@@ -77,6 +92,7 @@ BEGIN
         NOW()
     )
     ON CONFLICT (admin_id, site_slug) DO UPDATE SET
+        customer_id = EXCLUDED.customer_id, -- Atualizar customer_id também
         uazapi_token = EXCLUDED.uazapi_token,
         uazapi_phone_number = EXCLUDED.uazapi_phone_number,
         uazapi_instance_id = EXCLUDED.uazapi_instance_id,
