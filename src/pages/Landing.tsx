@@ -717,7 +717,7 @@ export default function Landing() {
                 <span>Sem fidelidade</span>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
