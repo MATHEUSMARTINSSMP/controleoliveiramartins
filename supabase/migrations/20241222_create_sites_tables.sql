@@ -1,11 +1,14 @@
 -- ============================================
 -- SISTEMA DE SITES - SCHEMA SISTEMARETIRADAS
+-- Versão simplificada (sem dependências de users/tenants)
 -- ============================================
+
+-- Criar schema se não existir
+CREATE SCHEMA IF NOT EXISTS sistemaretiradas;
 
 -- Tabela principal de sites
 CREATE TABLE IF NOT EXISTS sistemaretiradas.sites (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL REFERENCES sistemaretiradas.tenants(id),
   
   -- Identificação
   slug VARCHAR(100) UNIQUE NOT NULL,
@@ -97,7 +100,7 @@ CREATE TABLE IF NOT EXISTS sistemaretiradas.sites (
   -- Metadados
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES sistemaretiradas.users(id),
+  created_by UUID,
   
   -- SEO
   seo_title VARCHAR(70),
@@ -124,7 +127,7 @@ CREATE TABLE IF NOT EXISTS sistemaretiradas.site_versions (
   -- Metadados
   created_at TIMESTAMPTZ DEFAULT NOW(),
   published_at TIMESTAMPTZ,
-  created_by UUID REFERENCES sistemaretiradas.users(id),
+  created_by UUID,
   
   -- Prevenir versões duplicadas
   UNIQUE(site_id, version)
@@ -154,7 +157,7 @@ CREATE TABLE IF NOT EXISTS sistemaretiradas.site_files (
   sort_order INTEGER DEFAULT 0,
   
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES sistemaretiradas.users(id)
+  created_by UUID
 );
 
 -- Tabela de logs de deploy
@@ -184,7 +187,6 @@ CREATE TABLE IF NOT EXISTS sistemaretiradas.site_deploys (
 -- ÍNDICES
 -- ============================================
 
-CREATE INDEX IF NOT EXISTS idx_sites_tenant ON sistemaretiradas.sites(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_sites_slug ON sistemaretiradas.sites(slug);
 CREATE INDEX IF NOT EXISTS idx_sites_status ON sistemaretiradas.sites(status);
 CREATE INDEX IF NOT EXISTS idx_sites_segment ON sistemaretiradas.sites(segment_id);
@@ -196,37 +198,6 @@ CREATE INDEX IF NOT EXISTS idx_site_files_site ON sistemaretiradas.site_files(si
 CREATE INDEX IF NOT EXISTS idx_site_files_type ON sistemaretiradas.site_files(file_type);
 
 CREATE INDEX IF NOT EXISTS idx_site_deploys_site ON sistemaretiradas.site_deploys(site_id);
-
--- ============================================
--- RLS (Row Level Security)
--- ============================================
-
-ALTER TABLE sistemaretiradas.sites ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sistemaretiradas.site_versions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sistemaretiradas.site_files ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sistemaretiradas.site_deploys ENABLE ROW LEVEL SECURITY;
-
--- Políticas para sites
-CREATE POLICY sites_tenant_isolation ON sistemaretiradas.sites
-  FOR ALL USING (tenant_id = current_setting('app.current_tenant')::UUID);
-
--- Políticas para versões (via site)
-CREATE POLICY versions_tenant_isolation ON sistemaretiradas.site_versions
-  FOR ALL USING (
-    site_id IN (SELECT id FROM sistemaretiradas.sites WHERE tenant_id = current_setting('app.current_tenant')::UUID)
-  );
-
--- Políticas para arquivos (via site)
-CREATE POLICY files_tenant_isolation ON sistemaretiradas.site_files
-  FOR ALL USING (
-    site_id IN (SELECT id FROM sistemaretiradas.sites WHERE tenant_id = current_setting('app.current_tenant')::UUID)
-  );
-
--- Políticas para deploys (via site)
-CREATE POLICY deploys_tenant_isolation ON sistemaretiradas.site_deploys
-  FOR ALL USING (
-    site_id IN (SELECT id FROM sistemaretiradas.sites WHERE tenant_id = current_setting('app.current_tenant')::UUID)
-  );
 
 -- ============================================
 -- TRIGGERS
@@ -241,6 +212,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS sites_updated_at ON sistemaretiradas.sites;
 CREATE TRIGGER sites_updated_at
   BEFORE UPDATE ON sistemaretiradas.sites
   FOR EACH ROW EXECUTE FUNCTION sistemaretiradas.update_sites_updated_at();
