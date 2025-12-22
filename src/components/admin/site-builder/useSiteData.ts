@@ -391,6 +391,10 @@ export function useSiteData() {
         .update({ status: 'generating' } as any)
         .eq('id', site.id as any);
       
+      const addressFull = site.business_type === 'fisico' && site.address_street
+        ? `${site.address_street}, ${site.address_number || 's/n'}${site.address_complement ? ` - ${site.address_complement}` : ''}, ${site.address_neighborhood || ''}, ${site.address_city || ''} - ${site.address_state || ''}, ${site.address_zip || ''}`
+        : '';
+      
       const response = await fetch(`${webhookUrl}/elevea-sites/generate`, {
         method: 'POST',
         headers: {
@@ -407,6 +411,7 @@ export function useSiteData() {
           custom_area: site.custom_area || '',
           content_type: site.content_type,
           voice_tone: site.voice_tone,
+          
           company_name: site.company_name,
           company_description: site.company_description || '',
           company_history: site.company_history || '',
@@ -416,11 +421,29 @@ export function useSiteData() {
           services_description: site.services_description || '',
           products_description: site.products_description || '',
           differentials: site.differentials || '',
+          
+          slogan: site.slogan || '',
+          tagline: site.tagline || '',
+          founding_year: site.founding_year || null,
+          team_size: site.team_size || '',
+          awards: site.awards || '',
+          certifications: site.certifications || '',
+          
+          featured_products: site.featured_products || [],
+          featured_services: site.featured_services || [],
+          special_offers: site.special_offers || [],
+          testimonials: site.testimonials || [],
+          
           whatsapp: site.whatsapp || '',
           phone: site.phone || '',
           email: site.email || '',
           instagram: site.instagram || '',
           facebook: site.facebook || '',
+          tiktok: site.tiktok || '',
+          youtube: site.youtube || '',
+          linkedin: site.linkedin || '',
+          website: site.website || '',
+          
           address_street: site.address_street || '',
           address_number: site.address_number || '',
           address_complement: site.address_complement || '',
@@ -428,12 +451,39 @@ export function useSiteData() {
           address_city: site.address_city || '',
           address_state: site.address_state || '',
           address_zip: site.address_zip || '',
+          address_full: addressFull,
+          google_maps_embed: site.google_maps_embed || '',
+          google_maps_url: site.google_maps_url || '',
+          latitude: site.latitude || null,
+          longitude: site.longitude || null,
+          
           business_hours: site.business_hours,
+          
+          logo_url: site.logo_url || '',
+          hero_image_url: site.hero_image_url || '',
+          about_image_url: site.about_image_url || '',
+          gallery_images: site.gallery_images || [],
+          product_images: site.product_images || [],
+          ambient_images: site.ambient_images || [],
+          
           color_primary: site.color_primary,
           color_secondary: site.color_secondary,
           color_accent: site.color_accent,
+          color_background: site.color_background || '#FFFFFF',
+          font_primary: site.font_primary || 'Inter',
+          font_secondary: site.font_secondary || 'Inter',
+          visual_style: site.visual_style || 'moderno',
+          
+          cta_button_text: site.cta_button_text || '',
+          cta_whatsapp_message: site.cta_whatsapp_message || '',
+          
+          seo_title: site.seo_title || '',
+          seo_description: site.seo_description || '',
+          seo_keywords: site.seo_keywords || [],
+          
           github_owner: site.github_full_name?.split('/')[0] || 'eleveaone',
-          github_repo: site.github_full_name?.split('/')[1] || site.slug
+          github_repo: site.github_full_name?.split('/')[1] || site.slug,
+          github_branch: site.github_branch || 'main'
         })
       });
       

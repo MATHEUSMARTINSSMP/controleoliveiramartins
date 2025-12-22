@@ -89,6 +89,42 @@ export interface SiteData {
   seo_keywords: string[] | null;
   og_image_url: string | null;
   
+  slogan: string | null;
+  tagline: string | null;
+  founding_year: number | null;
+  team_size: string | null;
+  featured_products: Array<{
+    name: string;
+    description: string;
+    price?: string;
+    image_url?: string;
+  }>;
+  featured_services: Array<{
+    name: string;
+    description: string;
+    price?: string;
+    duration?: string;
+  }>;
+  special_offers: Array<{
+    title: string;
+    description: string;
+    discount?: string;
+    valid_until?: string;
+  }>;
+  testimonials: Array<{
+    name: string;
+    role?: string;
+    text: string;
+    avatar_url?: string;
+    rating?: number;
+  }>;
+  awards: string | null;
+  certifications: string | null;
+  cta_whatsapp_message: string | null;
+  cta_button_text: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  
   generated_content: {
     hero_title?: string;
     hero_subtitle?: string;
@@ -120,6 +156,18 @@ export interface SiteFormData {
   products_description: string;
   differentials: string;
   
+  slogan: string;
+  tagline: string;
+  founding_year: string;
+  team_size: string;
+  awards: string;
+  certifications: string;
+  
+  featured_products: Array<{ name: string; description: string; price?: string }>;
+  featured_services: Array<{ name: string; description: string; price?: string }>;
+  special_offers: Array<{ title: string; description: string; discount?: string }>;
+  testimonials: Array<{ name: string; text: string; role?: string; rating?: number }>;
+  
   whatsapp: string;
   phone: string;
   email: string;
@@ -133,12 +181,21 @@ export interface SiteFormData {
   address_city: string;
   address_state: string;
   address_zip: string;
+  google_maps_embed: string;
+  latitude: string;
+  longitude: string;
   
   business_hours: Record<string, { open: string; close: string; closed?: boolean }>;
   
   color_primary: string;
   color_secondary: string;
   color_accent: string;
+  color_background: string;
+  
+  logo_url: string;
+  hero_image_url: string;
+  cta_button_text: string;
+  cta_whatsapp_message: string;
 }
 
 export interface OnboardingStep {
@@ -213,6 +270,18 @@ export const DEFAULT_FORM_DATA: SiteFormData = {
   products_description: '',
   differentials: '',
   
+  slogan: '',
+  tagline: '',
+  founding_year: '',
+  team_size: '',
+  awards: '',
+  certifications: '',
+  
+  featured_products: [],
+  featured_services: [],
+  special_offers: [],
+  testimonials: [],
+  
   whatsapp: '',
   phone: '',
   email: '',
@@ -226,6 +295,9 @@ export const DEFAULT_FORM_DATA: SiteFormData = {
   address_city: '',
   address_state: '',
   address_zip: '',
+  google_maps_embed: '',
+  latitude: '',
+  longitude: '',
   
   business_hours: {
     monday: { open: '08:00', close: '18:00' },
@@ -239,7 +311,13 @@ export const DEFAULT_FORM_DATA: SiteFormData = {
   
   color_primary: '#8B5CF6',
   color_secondary: '#1F2937',
-  color_accent: '#10B981'
+  color_accent: '#10B981',
+  color_background: '#FFFFFF',
+  
+  logo_url: '',
+  hero_image_url: '',
+  cta_button_text: '',
+  cta_whatsapp_message: ''
 };
 
 export const BRAZILIAN_STATES = [
