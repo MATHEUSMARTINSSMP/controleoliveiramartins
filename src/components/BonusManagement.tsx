@@ -135,6 +135,8 @@ export default function BonusManagement() {
     const [availableCollaboratorsByStore, setAvailableCollaboratorsByStore] = useState<Record<string, any[]>>({});
     const [selectedCollaborators, setSelectedCollaborators] = useState<string[]>([]);
     const [loadingCollaborators, setLoadingCollaborators] = useState(false);
+    // Estado local para controlar o modo de faturamento (RANKING ou VALOR_FIXO) na UI
+    const [faturamentoMode, setFaturamentoMode] = useState<"RANKING" | "VALOR_FIXO" | null>(null);
 
     const [formData, setFormData] = useState({
         nome: "",
@@ -900,7 +902,8 @@ export default function BonusManagement() {
         setEditingBonus(bonus);
 
         // Determinar categoria baseado nos campos existentes
-        let categoria = "LEGADO";
+        // Se não tiver nenhum dos campos novos, usar BASICA como padrão (nunca mais usar LEGADO)
+        let categoria = "BASICA";
         // Para gincana semanal, usar BASICA para mostrar métrica e período
         if ((bonus as any).condicao_meta_tipo === "GINCANA_SEMANAL" || (bonus as any).condicao_meta_tipo === "SUPER_GINCANA_SEMANAL") {
             categoria = "BASICA";
@@ -912,6 +915,15 @@ export default function BonusManagement() {
 
         // Verificar se é prêmio físico (tem valor_bonus_texto ou tipo PRODUTO)
         const isPremioFisico = (bonus as any).valor_bonus_texto || bonus.tipo === "PRODUTO";
+
+        // Inicializar faturamentoMode baseado nos dados existentes
+        if ((bonus as any).condicao_faturamento) {
+            setFaturamentoMode("VALOR_FIXO");
+        } else if ((bonus as any).condicao_tipo === "FATURAMENTO" || (bonus as any).condicao_meta_tipo === "FATURAMENTO") {
+            setFaturamentoMode("RANKING");
+        } else {
+            setFaturamentoMode(null);
+        }
 
         setFormData({
             nome: bonus.nome,
@@ -1278,6 +1290,7 @@ export default function BonusManagement() {
             valor_bonus_texto_2: "",
             valor_bonus_texto_3: "",
         });
+        setFaturamentoMode(null);
         setSelectedCollaborators([]);
         setAvailableCollaborators([]);
     };
@@ -1430,6 +1443,7 @@ export default function BonusManagement() {
                             <Select
                                 value={formData.categoria_condicao}
                                 onValueChange={(v) => {
+                                    setFaturamentoMode(null); // Resetar modo de faturamento ao mudar categoria
                                     setFormData({
                                         ...formData,
                                         categoria_condicao: v,
@@ -1448,7 +1462,6 @@ export default function BonusManagement() {
                                     <SelectContent>
                                     <SelectItem value="BASICA">Condições Básicas (Rankings)</SelectItem>
                                     <SelectItem value="AVANCADA">Filtros Avançados (Metas)</SelectItem>
-                                    <SelectItem value="LEGADO">Legado (Compatibilidade)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -1480,12 +1493,14 @@ export default function BonusManagement() {
                                         <div>
                                             <Label className="text-xs sm:text-sm">Tipo de Condição</Label>
                                             <Select
-                                                value={formData.condicao_faturamento ? "VALOR_FIXO" : "RANKING"}
+                                                value={faturamentoMode || (formData.condicao_faturamento ? "VALOR_FIXO" : "RANKING")}
                                                 onValueChange={(v) => {
                                                     if (v === "RANKING") {
+                                                        setFaturamentoMode("RANKING");
                                                         setFormData({ ...formData, condicao_faturamento: "", condicao_ranking: formData.condicao_ranking || "1" });
-                                                    } else {
-                                                        setFormData({ ...formData, condicao_ranking: "" });
+                                                    } else if (v === "VALOR_FIXO") {
+                                                        setFaturamentoMode("VALOR_FIXO");
+                                                        setFormData({ ...formData, condicao_faturamento: "", condicao_ranking: "TODAS" });
                                                     }
                                                 }}
                                             >
@@ -1499,21 +1514,42 @@ export default function BonusManagement() {
                                             </Select>
                                         </div>
                                         
-                                        {formData.condicao_faturamento ? (
+                                        {(faturamentoMode === "VALOR_FIXO" || (faturamentoMode === null && formData.condicao_faturamento)) ? (
                                             // Modo: Valor Fixo
-                                    <div>
-                                        <Label className="text-xs sm:text-sm">Valor de Faturamento (R$)</Label>
-                                        <Input
-                                            type="number"
-                                            step="0.01"
-                                            value={formData.condicao_faturamento}
-                                            onChange={(e) => setFormData({ ...formData, condicao_faturamento: e.target.value })}
-                                            placeholder="Ex: 50000"
-                                            className="text-xs sm:text-sm"
-                                        />
-                                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
-                                                    💡 Colaboradora que atingir este valor no período definido ganha o bônus
-                                                </p>
+                                            <div className="space-y-3">
+                                                <div>
+                                                    <Label className="text-xs sm:text-sm">Valor de Faturamento (R$)</Label>
+                                                    <Input
+                                                        type="number"
+                                                        step="0.01"
+                                                        value={formData.condicao_faturamento || ""}
+                                                        onChange={(e) => setFormData({ ...formData, condicao_faturamento: e.target.value })}
+                                                        placeholder="Ex: 50000"
+                                                        className="text-xs sm:text-sm"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <Label className="text-xs sm:text-sm">Quantas Colaboradoras Ganham?</Label>
+                                                    <Select
+                                                        value={formData.condicao_ranking || "TODAS"}
+                                                        onValueChange={(v) => setFormData({ ...formData, condicao_ranking: v })}
+                                                    >
+                                                        <SelectTrigger className="text-xs sm:text-sm">
+                                                            <SelectValue placeholder="Selecione" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="TODAS">Todas que atingirem</SelectItem>
+                                                            <SelectItem value="1">Apenas a melhor (1º lugar)</SelectItem>
+                                                            <SelectItem value="2">Top 2</SelectItem>
+                                                            <SelectItem value="3">Top 3</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                                                        💡 {formData.condicao_ranking === "TODAS" || !formData.condicao_ranking
+                                                            ? "Todas as colaboradoras que atingirem este valor no período definido ganham o bônus"
+                                                            : `${formData.condicao_ranking === "1" ? "A melhor" : `As ${formData.condicao_ranking} melhores`} colaboradora(s) que atingirem este valor no período definido ganha(m) o bônus`}
+                                                    </p>
+                                                </div>
                                             </div>
                                         ) : (
                                             // Modo: Ranking
@@ -1534,8 +1570,8 @@ export default function BonusManagement() {
                                                 </Select>
                                                 <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
                                                     💡 Colaboradora que mais vender no período definido (ranking por posição)
-                                        </p>
-                                    </div>
+                                                </p>
+                                            </div>
                                         )}
                                     </>
                                 )}
@@ -1646,12 +1682,14 @@ export default function BonusManagement() {
                                                 <div>
                                                     <Label className="text-xs sm:text-sm">Tipo de Condição</Label>
                                                     <Select
-                                                        value={formData.condicao_faturamento ? "VALOR_FIXO" : "RANKING"}
+                                                        value={faturamentoMode || (formData.condicao_faturamento ? "VALOR_FIXO" : "RANKING")}
                                                         onValueChange={(v) => {
                                                             if (v === "RANKING") {
+                                                                setFaturamentoMode("RANKING");
                                                                 setFormData({ ...formData, condicao_faturamento: "", condicao_ranking: "1" });
-                                                            } else {
-                                                                setFormData({ ...formData, condicao_ranking: "" });
+                                                            } else if (v === "VALOR_FIXO") {
+                                                                setFaturamentoMode("VALOR_FIXO");
+                                                                setFormData({ ...formData, condicao_faturamento: "", condicao_ranking: "TODAS" });
                                                             }
                                                         }}
                                                     >
@@ -1665,21 +1703,42 @@ export default function BonusManagement() {
                                                     </Select>
                                                 </div>
                                                 
-                                                {formData.condicao_faturamento ? (
+                                                {(faturamentoMode === "VALOR_FIXO" || (faturamentoMode === null && formData.condicao_faturamento)) ? (
                                                     // Modo: Valor Fixo
-                                            <div>
-                                                <Label className="text-xs sm:text-sm">Valor de Faturamento (R$)</Label>
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
-                                                    value={formData.condicao_faturamento}
-                                                    onChange={(e) => setFormData({ ...formData, condicao_faturamento: e.target.value })}
-                                                    placeholder="Ex: 50000"
-                                                    className="text-xs sm:text-sm"
-                                                />
-                                                <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
-                                                            💡 {formData.condicao_escopo === "COLABORADORA" ? "Colaboradora" : "Loja"} que atingir este valor no período definido ganha o bônus
-                                                        </p>
+                                                    <div className="space-y-3">
+                                                        <div>
+                                                            <Label className="text-xs sm:text-sm">Valor de Faturamento (R$)</Label>
+                                                            <Input
+                                                                type="number"
+                                                                step="0.01"
+                                                                value={formData.condicao_faturamento || ""}
+                                                                onChange={(e) => setFormData({ ...formData, condicao_faturamento: e.target.value })}
+                                                                placeholder="Ex: 50000"
+                                                                className="text-xs sm:text-sm"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <Label className="text-xs sm:text-sm">Quantas {formData.condicao_escopo === "COLABORADORA" ? "Colaboradoras" : "Lojas"} Ganham?</Label>
+                                                            <Select
+                                                                value={formData.condicao_ranking || "TODAS"}
+                                                                onValueChange={(v) => setFormData({ ...formData, condicao_ranking: v })}
+                                                            >
+                                                                <SelectTrigger className="text-xs sm:text-sm">
+                                                                    <SelectValue placeholder="Selecione" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="TODAS">Todas que atingirem</SelectItem>
+                                                                    <SelectItem value="1">Apenas a melhor (1º lugar)</SelectItem>
+                                                                    <SelectItem value="2">Top 2</SelectItem>
+                                                                    <SelectItem value="3">Top 3</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                                                                💡 {formData.condicao_ranking === "TODAS" || !formData.condicao_ranking
+                                                                    ? `Todas as ${formData.condicao_escopo === "COLABORADORA" ? "colaboradoras" : "lojas"} que atingirem este valor no período definido ganham o bônus`
+                                                                    : `${formData.condicao_ranking === "1" ? `A melhor ${formData.condicao_escopo === "COLABORADORA" ? "colaboradora" : "loja"}` : `As ${formData.condicao_ranking} melhores ${formData.condicao_escopo === "COLABORADORA" ? "colaboradoras" : "lojas"}`} que atingirem este valor no período definido ganha(m) o bônus`}
+                                                            </p>
+                                                        </div>
                                                     </div>
                                                 ) : (
                                                     // Modo: Ranking
@@ -1700,8 +1759,8 @@ export default function BonusManagement() {
                                                         </Select>
                                                         <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
                                                             💡 {formData.condicao_escopo === "COLABORADORA" ? "Colaboradora" : "Loja"} que mais vender no período definido (ranking por posição)
-                                                </p>
-                                            </div>
+                                                        </p>
+                                                    </div>
                                                 )}
                                             </>
                                         )}
@@ -1710,32 +1769,6 @@ export default function BonusManagement() {
                             </div>
                         )}
 
-                        {/* Seção: Condições Legadas (compatibilidade) */}
-                        {formData.categoria_condicao === "LEGADO" && (
-                            <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
-                                <Label className="text-xs sm:text-sm font-semibold">Condições Legadas</Label>
-                                <div>
-                                    <Label className="text-xs sm:text-sm">Tipo de Condição</Label>
-                                    <Select value={formData.tipo_condicao} onValueChange={(v) => {
-                                        setFormData({ ...formData, tipo_condicao: v });
-                                        if (v === 'META_SEMANAL' || v === 'SUPER_META_SEMANAL') {
-                                            setFormData(prev => ({ ...prev, meta_minima_percentual: '100', tipo: 'VALOR_FIXO' }));
-                                        }
-                                    }}>
-                                        <SelectTrigger className="text-xs sm:text-sm">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="PERCENTUAL_META">Meta Percentual</SelectItem>
-                                        <SelectItem value="RANKING">Ranking</SelectItem>
-                                            <SelectItem value="VALOR_FIXO_VENDAS">Valor Fixo de Vendas</SelectItem>
-                                            <SelectItem value="META_SEMANAL">Gincana Semanal (Checkpoint 1)</SelectItem>
-                                            <SelectItem value="SUPER_META_SEMANAL">Super Gincana Semanal (Checkpoint Final)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            </div>
-                        )}
 
                         {/* Seção: Período de Referência */}
                         <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
@@ -2009,27 +2042,6 @@ export default function BonusManagement() {
                             </div>
                         )}
 
-                        {/* Campos condicionais para modo legado */}
-                        {formData.categoria_condicao === "LEGADO" && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                                {(formData.tipo_condicao !== 'META_SEMANAL' && formData.tipo_condicao !== 'SUPER_META_SEMANAL') && (
-                            <div>
-                                        <Label className="text-xs sm:text-sm">
-                                            {formData.tipo_condicao === 'PERCENTUAL_META' ? 'Meta Mínima (%)' : 'Condição'}
-                                        </Label>
-                                <Input
-                                    type="number"
-                                    step="0.01"
-                                            value={formData.meta_minima_percentual}
-                                            onChange={(e) => setFormData({ ...formData, meta_minima_percentual: e.target.value })}
-                                            placeholder={formData.tipo_condicao === 'PERCENTUAL_META' ? "Ex: 100 (para 100%)" : "Valor da condição"}
-                                            required={formData.tipo_condicao !== 'META_SEMANAL' && formData.tipo_condicao !== 'SUPER_META_SEMANAL'}
-                                            className="text-xs sm:text-sm"
-                                />
-                            </div>
-                                )}
-                            </div>
-                        )}
 
                         {/* Valor do Bônus - Mostrar apenas se NÃO for prêmio por posição */}
                         {!(
