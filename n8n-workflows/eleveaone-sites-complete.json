@@ -40,24 +40,37 @@
     },
     {
       "parameters": {
-        "resource": "repository",
-        "operation": "create",
-        "name": "={{ $json.github_repo }}",
-        "additionalFields": {
-          "description": "={{ $json.description }}",
-          "private": false,
-          "autoInit": true
+        "method": "POST",
+        "url": "https://api.github.com/user/repos",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"name\": \"{{ $json.github_repo }}\",\n  \"description\": \"{{ $json.description }}\",\n  \"private\": false,\n  \"auto_init\": true\n}",
+        "options": {},
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
         }
       },
       "id": "github-create-repo",
-      "name": "GitHub - Criar Repo",
-      "type": "n8n-nodes-base.github",
-      "typeVersion": 1,
+      "name": "GitHub - Criar Repo (HTTP)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [440, 0],
       "credentials": {
-        "githubApi": {
-          "id": "LxUioHXlT8VKysef",
-          "name": "GitHub account"
+        "httpHeaderAuth": {
+          "id": "GITHUB_TOKEN_ID",
+          "name": "GitHub Token"
         }
       }
     },
@@ -89,7 +102,7 @@
       "position": [880, 0],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "NETLIFY_CREDENTIAL_ID",
+          "id": "NETLIFY_TOKEN_ID",
           "name": "Netlify Token"
         }
       }
@@ -116,9 +129,6 @@
       "typeVersion": 1,
       "position": [1320, 0]
     },
-
-
-
     {
       "parameters": {
         "httpMethod": "POST",
@@ -148,7 +158,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.item.json.body || $input.item.json;\n\nconst site_slug = body.site_slug || body.siteSlug;\nif (!site_slug) throw new Error('site_slug é obrigatório');\n\n// Tipo de negócio e segmento\nconst business_type = body.business_type || 'fisico';\nconst segment_id = body.segment_id || 'varejo';\nconst segment_name = body.segment_name || 'Varejo';\nconst area_id = body.area_id || '';\nconst area_name = body.area_name || '';\nconst custom_area = body.custom_area || '';\n\n// Determinar tipo de conteúdo baseado no segmento\nconst servicosSegments = ['advocacia', 'saude', 'contabilidade', 'educacao', 'imoveis', 'eventos', 'servicos-gerais'];\nconst mistoSegments = ['farmacia', 'beleza', 'veiculos', 'pets', 'tecnologia', 'outros'];\n\nlet content_type = 'produtos';\nif (servicosSegments.includes(segment_id)) content_type = 'servicos';\nelse if (mistoSegments.includes(segment_id)) content_type = 'misto';\n\n// Determinar tom de voz\nconst voiceToneMap = {\n  'joias': 'elegante',\n  'moda': 'elegante',\n  'casa': 'elegante',\n  'advocacia': 'profissional',\n  'contabilidade': 'profissional',\n  'imoveis': 'profissional',\n  'construcao': 'profissional',\n  'veiculos': 'profissional',\n  'varejo': 'popular',\n  'suplementos': 'tecnico',\n  'tecnologia': 'tecnico',\n  'saude': 'acolhedor',\n  'farmacia': 'acolhedor',\n  'pets': 'acolhedor',\n  'alimentacao': 'acolhedor',\n  'educacao': 'acolhedor',\n  'esportes': 'dinamico',\n  'eventos': 'dinamico',\n  'calcados': 'dinamico',\n  'beleza': 'elegante'\n};\n\nconst voice_tone = body.voice_tone || voiceToneMap[segment_id] || 'profissional';\n\nreturn {\n  json: {\n    site_slug,\n    business_type,\n    segment_id,\n    segment_name,\n    area_id,\n    area_name,\n    custom_area,\n    content_type,\n    voice_tone,\n    \n    // Dados da empresa\n    company_name: body.company_name || body.company || '',\n    company_description: body.company_description || body.description || '',\n    company_history: body.company_history || body.sobre || '',\n    mission: body.mission || '',\n    vision: body.vision || '',\n    company_values: body.company_values || body.values || '',\n    services_description: body.services_description || '',\n    products_description: body.products_description || '',\n    differentials: body.differentials || '',\n    \n    // Contato\n    whatsapp: body.whatsapp || '',\n    phone: body.phone || '',\n    email: body.email || '',\n    instagram: body.instagram || '',\n    facebook: body.facebook || '',\n    tiktok: body.tiktok || '',\n    youtube: body.youtube || '',\n    linkedin: body.linkedin || '',\n    \n    // Endereço\n    address_full: body.address_full || body.address || body.endereco || '',\n    google_maps_url: body.google_maps_url || '',\n    google_maps_embed: body.google_maps_embed || '',\n    \n    // Horário\n    business_hours: body.business_hours || body.horario || '',\n    \n    // Visual\n    logo_url: body.logo_url || '',\n    hero_image_url: body.hero_image_url || '',\n    about_image_url: body.about_image_url || '',\n    product_images: body.product_images || [],\n    ambient_images: body.ambient_images || [],\n    color_primary: body.color_primary || '#8B5CF6',\n    color_secondary: body.color_secondary || '#1F2937',\n    color_accent: body.color_accent || '#10B981',\n    visual_style: body.visual_style || 'moderno',\n    \n    // GitHub\n    github_owner: 'MatheusMartinsSMP',\n    github_repo: site_slug,\n    github_branch: 'main'\n  }\n};"
+        "jsCode": "const body = $input.item.json.body || $input.item.json;\n\nconst site_slug = body.site_slug || body.siteSlug;\nif (!site_slug) throw new Error('site_slug é obrigatório');\n\nconst business_type = body.business_type || 'fisico';\nconst segment_id = body.segment_id || 'varejo';\nconst segment_name = body.segment_name || 'Varejo';\nconst area_id = body.area_id || '';\nconst area_name = body.area_name || '';\nconst custom_area = body.custom_area || '';\n\nconst servicosSegments = ['advocacia', 'saude', 'contabilidade', 'educacao', 'imoveis', 'eventos', 'servicos-gerais'];\nconst mistoSegments = ['farmacia', 'beleza', 'veiculos', 'pets', 'tecnologia', 'outros'];\n\nlet content_type = 'produtos';\nif (servicosSegments.includes(segment_id)) content_type = 'servicos';\nelse if (mistoSegments.includes(segment_id)) content_type = 'misto';\n\nconst voiceToneMap = {\n  'joias': 'elegante',\n  'moda': 'elegante',\n  'casa': 'elegante',\n  'advocacia': 'profissional',\n  'contabilidade': 'profissional',\n  'imoveis': 'profissional',\n  'construcao': 'profissional',\n  'veiculos': 'profissional',\n  'varejo': 'popular',\n  'suplementos': 'tecnico',\n  'tecnologia': 'tecnico',\n  'saude': 'acolhedor',\n  'farmacia': 'acolhedor',\n  'pets': 'acolhedor',\n  'alimentacao': 'acolhedor',\n  'educacao': 'acolhedor',\n  'esportes': 'dinamico',\n  'eventos': 'dinamico',\n  'calcados': 'dinamico',\n  'beleza': 'elegante'\n};\n\nconst voice_tone = body.voice_tone || voiceToneMap[segment_id] || 'profissional';\n\nreturn {\n  json: {\n    site_slug,\n    business_type,\n    segment_id,\n    segment_name,\n    area_id,\n    area_name,\n    custom_area,\n    content_type,\n    voice_tone,\n    company_name: body.company_name || body.company || '',\n    company_description: body.company_description || body.description || '',\n    company_history: body.company_history || '',\n    mission: body.mission || '',\n    vision: body.vision || '',\n    company_values: body.company_values || '',\n    services_description: body.services_description || '',\n    products_description: body.products_description || '',\n    differentials: body.differentials || '',\n    whatsapp: body.whatsapp || '',\n    phone: body.phone || '',\n    email: body.email || '',\n    instagram: body.instagram || '',\n    facebook: body.facebook || '',\n    address_full: body.address_full || '',\n    google_maps_embed: body.google_maps_embed || '',\n    business_hours: body.business_hours || {},\n    logo_url: body.logo_url || '',\n    hero_image_url: body.hero_image_url || '',\n    gallery_images: body.gallery_images || [],\n    product_images: body.product_images || [],\n    ambient_images: body.ambient_images || [],\n    color_primary: body.color_primary || '#8B5CF6',\n    color_secondary: body.color_secondary || '#1F2937',\n    color_accent: body.color_accent || '#10B981',\n    github_owner: 'MatheusMartinsSMP',\n    github_repo: site_slug,\n    github_branch: 'main'\n  }\n};"
       },
       "id": "generate-validate",
       "name": "Validar Geração",
@@ -158,10 +168,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const data = $json;\n\n// Construir prompt adaptativo baseado no tipo de conteúdo e tom de voz\nconst contentLabels = {\n  produtos: {\n    mainSection: 'Nossos Produtos',\n    mainDescription: 'Conheça nossa linha completa de produtos',\n    ctaText: 'Ver Produtos'\n  },\n  servicos: {\n    mainSection: 'Nossos Serviços', \n    mainDescription: 'Conheça nossos serviços especializados',\n    ctaText: 'Agendar Consulta'\n  },\n  misto: {\n    mainSection: 'Produtos e Serviços',\n    mainDescription: 'Conheça nossos produtos e serviços',\n    ctaText: 'Saiba Mais'\n  }\n};\n\nconst voiceToneInstructions = {\n  elegante: 'Use tom sofisticado e exclusivo. Palavras como: exclusivo, refinado, premium, distinção, elegância. Evite linguagem informal.',\n  profissional: 'Use tom sério e confiável. Palavras como: experiência, especialização, confiança, qualidade, excelência. Mantenha formalidade.',\n  popular: 'Use tom acessível e direto. Palavras como: economia, promoção, preço baixo, oferta, imperdível. Pode ser mais informal.',\n  tecnico: 'Use tom técnico focado em resultados. Palavras como: performance, eficiência, tecnologia, resultados, inovação.',\n  acolhedor: 'Use tom caloroso e acolhedor. Palavras como: cuidado, carinho, família, bem-estar, conforto. Transmita empatia.',\n  dinamico: 'Use tom energético e motivacional. Palavras como: energia, movimento, conquista, superação, ação. Transmita entusiasmo.'\n};\n\nconst labels = contentLabels[data.content_type] || contentLabels.produtos;\nconst toneInstr = voiceToneInstructions[data.voice_tone] || voiceToneInstructions.profissional;\n\n// Construir seções baseado no tipo\nlet sectionsPrompt = '';\nif (data.content_type === 'produtos') {\n  sectionsPrompt = `\n- Seção \"${labels.mainSection}\" com grid de produtos/categorias\n- Se houver imagens de produtos, exiba-as em cards elegantes`;\n} else if (data.content_type === 'servicos') {\n  sectionsPrompt = `\n- Seção \"${labels.mainSection}\" com lista de serviços oferecidos\n- Seção \"O Profissional\" ou \"Nossa Equipe\" se houver dados\n- Seção \"Por que nos escolher\" com diferenciais`;\n} else {\n  sectionsPrompt = `\n- Seção \"Serviços\" com os principais serviços\n- Seção \"Produtos\" se houver produtos\n- Combine ambos de forma harmoniosa`;\n}\n\nconst prompt = `Você é um expert em desenvolvimento web e copywriting. Gere uma landing page HTML completa, moderna e responsiva.\n\n## TOM DE VOZ (CRÍTICO)\n${toneInstr}\n\n## TIPO DE NEGÓCIO\n- Tipo: ${data.business_type === 'fisico' ? 'Loja Física' : 'Negócio Digital'}\n- Segmento: ${data.segment_name}\n- Área: ${data.area_name || data.custom_area || 'Geral'}\n- Tipo de conteúdo: ${data.content_type.toUpperCase()}\n\n## DADOS DO NEGÓCIO\n- Nome: ${data.company_name}\n- Descrição: ${data.company_description}\n- Sobre: ${data.company_history}\n- Missão: ${data.mission}\n- Visão: ${data.vision}\n- Valores: ${data.company_values}\n${data.content_type === 'servicos' ? `- Serviços: ${data.services_description}` : `- Produtos: ${data.products_description}`}\n- Diferenciais: ${data.differentials}\n\n## CONTATO\n- WhatsApp: ${data.whatsapp}\n- Telefone: ${data.phone}\n- Email: ${data.email}\n- Instagram: ${data.instagram}\n- Facebook: ${data.facebook}\n- TikTok: ${data.tiktok}\n- YouTube: ${data.youtube}\n- LinkedIn: ${data.linkedin}\n\n## LOCALIZAÇÃO\n- Endereço: ${data.address_full}\n- Google Maps URL: ${data.google_maps_url}\n- Horário: ${data.business_hours}\n\n## VISUAL\n- Logo: ${data.logo_url}\n- Imagem Hero: ${data.hero_image_url}\n- Imagem Sobre: ${data.about_image_url}\n- Cor primária: ${data.color_primary}\n- Cor secundária: ${data.color_secondary}\n- Cor accent: ${data.color_accent}\n- Estilo: ${data.visual_style}\n\n## IMAGENS ENVIADAS\n- Produtos: ${JSON.stringify(data.product_images)}\n- Ambiente: ${JSON.stringify(data.ambient_images)}\n\n## SEÇÕES OBRIGATÓRIAS\n1. Hero Section com:\n   - Headline impactante no tom de voz correto\n   - Sub-headline descritivo\n   - Botão CTA para WhatsApp\n   - Imagem de fundo ou gradiente\n\n2. Seção \"Sobre Nós\" com história e valores\n${sectionsPrompt}\n\n3. Seção \"Diferenciais\" ou \"Por que nos escolher\"\n\n4. Seção \"Localização\" com:\n   - Endereço completo\n   - Iframe do Google Maps (se URL fornecida)\n   - Horário de funcionamento\n\n5. Seção \"Contato\" com:\n   - Formulário simples (nome, email, mensagem)\n   - Links para redes sociais\n   - WhatsApp com link direto\n\n6. Footer com:\n   - Links úteis\n   - Redes sociais\n   - Copyright\n\n## REQUISITOS TÉCNICOS\n1. HTML5 semântico completo (<!DOCTYPE html>)\n2. Tailwind CSS via CDN: <script src=\"https://cdn.tailwindcss.com\"></script>\n3. Google Fonts: Inter (via <link>)\n4. Responsivo mobile-first\n5. Meta tags SEO (title, description, og:image, og:title)\n6. Botão WhatsApp flutuante fixo (canto inferior direito, verde)\n7. Animações suaves (hover transitions)\n8. Ícones: Lucide via CDN ou SVG inline\n9. Cores customizadas via Tailwind config inline\n10. Schema.org básico para LocalBusiness ou ProfessionalService\n\n## IMPORTANTE\n- Use EXATAMENTE o tom de voz especificado\n- Para ${data.content_type === 'servicos' ? 'SERVIÇOS' : 'PRODUTOS'}, adapte o texto adequadamente\n- NÃO use \"Nossos Produtos\" para negócios de serviço\n- NÃO use linguagem de luxo para lojas populares\n- ADAPTE a linguagem ao segmento ${data.segment_name}\n\n## OUTPUT\nRetorne APENAS o código HTML completo. Nenhum texto adicional, explicação ou markdown.\nApenas: <!DOCTYPE html><html>...</html>`;\n\nreturn {\n  json: {\n    ...data,\n    ai_prompt: prompt\n  }\n};"
+        "jsCode": "const data = $json;\n\nconst contentLabels = {\n  produtos: { mainSection: 'Nossos Produtos', ctaText: 'Ver Produtos' },\n  servicos: { mainSection: 'Nossos Serviços', ctaText: 'Agendar Consulta' },\n  misto: { mainSection: 'Produtos e Serviços', ctaText: 'Saiba Mais' }\n};\n\nconst voiceToneInstructions = {\n  elegante: 'Use tom sofisticado e exclusivo. Palavras: exclusivo, refinado, premium, distinção.',\n  profissional: 'Use tom sério e confiável. Palavras: experiência, especialização, confiança.',\n  popular: 'Use tom acessível e direto. Palavras: economia, promoção, preço baixo.',\n  tecnico: 'Use tom técnico focado em resultados. Palavras: performance, eficiência.',\n  acolhedor: 'Use tom caloroso e empático. Palavras: cuidado, carinho, bem-estar.',\n  dinamico: 'Use tom energético e motivacional. Palavras: energia, conquista, ação.'\n};\n\nconst labels = contentLabels[data.content_type] || contentLabels.produtos;\nconst toneInstr = voiceToneInstructions[data.voice_tone] || voiceToneInstructions.profissional;\n\nconst prompt = `Você é um expert em criar sites HTML one-page modernos e responsivos.\n\nCrie um site institucional completo para:\n\n**EMPRESA:**\n- Nome: ${data.company_name}\n- Segmento: ${data.segment_name}\n- Área: ${data.area_name || data.custom_area || 'Geral'}\n- Descrição: ${data.company_description || 'Empresa focada em qualidade.'}\n- Diferenciais: ${data.differentials || ''}\n\n**TOM DE VOZ:** ${toneInstr}\n\n**CONTATO:**\n- WhatsApp: ${data.whatsapp || 'Não informado'}\n- Telefone: ${data.phone || ''}\n- Email: ${data.email || ''}\n- Endereço: ${data.address_full || ''}\n- Instagram: ${data.instagram || ''}\n- Facebook: ${data.facebook || ''}\n\n**CORES:**\n- Primária: ${data.color_primary}\n- Secundária: ${data.color_secondary}\n- Destaque: ${data.color_accent}\n\n**IMAGENS:**\n- Logo: ${data.logo_url || 'Use iniciais da empresa como logo texto'}\n- Hero: ${data.hero_image_url || 'Use gradiente elegante'}\n- Galeria: ${JSON.stringify(data.gallery_images || [])}\n- Produtos: ${JSON.stringify(data.product_images || [])}\n\n**SEÇÕES OBRIGATÓRIAS:**\n1. Header com logo e navegação\n2. Hero com título impactante e CTA WhatsApp\n3. Sobre Nós (história, missão se houver)\n4. ${labels.mainSection} - listar produtos/serviços\n5. Diferenciais (ícones + texto)\n6. Contato com formulário simples + mapa se houver\n7. Footer com redes sociais\n\n**REQUISITOS TÉCNICOS:**\n- HTML5 semântico completo (DOCTYPE, meta tags)\n- CSS inline em <style> no <head>\n- Design 100% responsivo (mobile-first)\n- Google Fonts: Inter\n- Botão WhatsApp flutuante fixo (verde, canto inferior direito)\n- Animações CSS sutis (fade-in, hover)\n- Meta tags SEO e Open Graph\n- Schema.org LocalBusiness\n\n**IMPORTANTE:**\n- Retorne APENAS o código HTML completo\n- Não inclua explicações ou markdown\n- O código deve funcionar standalone`;\n\nreturn {\n  json: {\n    ...data,\n    ai_prompt: prompt\n  }\n};"
       },
       "id": "generate-build-prompt",
-      "name": "Construir Prompt Adaptativo",
+      "name": "Construir Prompt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [440, 400]
@@ -205,7 +215,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const aiResponse = $json;\nconst validateData = $('Construir Prompt Adaptativo').item.json;\n\nlet htmlContent = '';\n\nif (aiResponse.output) {\n  htmlContent = typeof aiResponse.output === 'string' ? aiResponse.output : JSON.stringify(aiResponse.output);\n} else if (aiResponse.text) {\n  htmlContent = aiResponse.text;\n} else if (aiResponse.response) {\n  htmlContent = aiResponse.response;\n} else {\n  htmlContent = JSON.stringify(aiResponse);\n}\n\n// Limpar markdown\nhtmlContent = htmlContent.replace(/```html\\n?/g, '').replace(/```\\n?/g, '').trim();\n\n// Garantir DOCTYPE\nif (!htmlContent.startsWith('<!DOCTYPE') && !htmlContent.startsWith('<html')) {\n  const htmlStart = htmlContent.indexOf('<!DOCTYPE');\n  if (htmlStart > -1) htmlContent = htmlContent.substring(htmlStart);\n}\n\nreturn {\n  json: {\n    site_slug: validateData.site_slug,\n    segment_id: validateData.segment_id,\n    content_type: validateData.content_type,\n    voice_tone: validateData.voice_tone,\n    github_owner: validateData.github_owner,\n    github_repo: validateData.github_repo,\n    github_branch: validateData.github_branch,\n    html_content: htmlContent,\n    html_length: htmlContent.length\n  }\n};"
+        "jsCode": "const aiResponse = $json;\nconst validateData = $('Construir Prompt').item.json;\n\nlet htmlContent = '';\n\nif (aiResponse.output) {\n  htmlContent = typeof aiResponse.output === 'string' ? aiResponse.output : JSON.stringify(aiResponse.output);\n} else if (aiResponse.text) {\n  htmlContent = aiResponse.text;\n} else if (aiResponse.response) {\n  htmlContent = aiResponse.response;\n} else {\n  htmlContent = JSON.stringify(aiResponse);\n}\n\nhtmlContent = htmlContent.replace(/```html\\n?/g, '').replace(/```\\n?/g, '').trim();\n\nif (!htmlContent.startsWith('<!DOCTYPE') && !htmlContent.startsWith('<html')) {\n  const htmlStart = htmlContent.indexOf('<!DOCTYPE');\n  if (htmlStart > -1) htmlContent = htmlContent.substring(htmlStart);\n}\n\nreturn {\n  json: {\n    site_slug: validateData.site_slug,\n    segment_id: validateData.segment_id,\n    content_type: validateData.content_type,\n    voice_tone: validateData.voice_tone,\n    github_owner: validateData.github_owner,\n    github_repo: validateData.github_repo,\n    github_branch: validateData.github_branch,\n    html_content: htmlContent,\n    html_length: htmlContent.length,\n    company_name: validateData.company_name\n  }\n};"
       },
       "id": "generate-normalize",
       "name": "Normalizar HTML",
@@ -215,33 +225,43 @@
     },
     {
       "parameters": {
-        "resource": "file",
-        "operation": "edit",
-        "owner": {
-          "__rl": true,
-          "value": "={{ $json.github_owner }}",
-          "mode": ""
-        },
-        "repository": "={{ $json.github_repo }}",
-        "filePath": "index.html",
-        "fileContent": "={{ $json.html_content }}",
-        "commitMessage": "=Site gerado por AI - {{ $json.segment_id }} ({{ $json.content_type }})"
+        "method": "PUT",
+        "url": "=https://api.github.com/repos/{{ $json.github_owner }}/{{ $json.github_repo }}/contents/index.html",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": \"Site gerado por IA - {{ $json.company_name }}\",\n  \"content\": \"{{ Buffer.from($json.html_content).toString('base64') }}\",\n  \"branch\": \"main\"\n}",
+        "options": {},
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        }
       },
-      "id": "github-commit",
-      "name": "GitHub - Commit HTML",
-      "type": "n8n-nodes-base.github",
-      "typeVersion": 1,
+      "id": "github-commit-html",
+      "name": "GitHub - Criar index.html (HTTP)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [1100, 400],
       "credentials": {
-        "githubApi": {
-          "id": "LxUioHXlT8VKysef",
-          "name": "GitHub account"
+        "httpHeaderAuth": {
+          "id": "GITHUB_TOKEN_ID",
+          "name": "GitHub Token"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const githubResult = $json;\nconst normalizeData = $('Normalizar HTML').item.json;\n\nreturn {\n  json: {\n    success: true,\n    site_slug: normalizeData.site_slug,\n    segment_id: normalizeData.segment_id,\n    content_type: normalizeData.content_type,\n    voice_tone: normalizeData.voice_tone,\n    html_length: normalizeData.html_length,\n    github: {\n      commit_sha: githubResult.commit?.sha || githubResult.sha,\n      file_url: `https://github.com/${normalizeData.github_owner}/${normalizeData.github_repo}/blob/main/index.html`\n    },\n    message: 'Site gerado! O Netlify fará deploy automático em ~30 segundos.'\n  }\n};"
+        "jsCode": "const githubResult = $json;\nconst normalizeData = $('Normalizar HTML').item.json;\n\nreturn {\n  json: {\n    success: true,\n    site_slug: normalizeData.site_slug,\n    segment_id: normalizeData.segment_id,\n    content_type: normalizeData.content_type,\n    voice_tone: normalizeData.voice_tone,\n    html_length: normalizeData.html_length,\n    github: {\n      commit_sha: githubResult.commit?.sha || githubResult.sha,\n      file_url: `https://github.com/${normalizeData.github_owner}/${normalizeData.github_repo}/blob/main/index.html`\n    },\n    netlify_url: `https://${normalizeData.site_slug}.netlify.app`,\n    message: 'Site gerado! Deploy automático em ~30 segundos.'\n  }\n};"
       },
       "id": "generate-result",
       "name": "Resultado Geração",
@@ -261,9 +281,6 @@
       "typeVersion": 1,
       "position": [1540, 400]
     },
-
-
-
     {
       "parameters": {
         "httpMethod": "POST",
@@ -303,27 +320,37 @@
     },
     {
       "parameters": {
-        "resource": "file",
-        "operation": "edit",
-        "owner": {
-          "__rl": true,
-          "value": "={{ $json.github_owner }}",
-          "mode": ""
-        },
-        "repository": "={{ $json.github_repo }}",
-        "filePath": "index.html",
-        "fileContent": "={{ $json.html_content }}",
-        "commitMessage": "={{ $json.commit_message }}"
+        "method": "PUT",
+        "url": "=https://api.github.com/repos/{{ $json.github_owner }}/{{ $json.github_repo }}/contents/index.html",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": \"{{ $json.commit_message }}\",\n  \"content\": \"{{ Buffer.from($json.html_content).toString('base64') }}\",\n  \"branch\": \"main\"\n}",
+        "options": {},
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        }
       },
       "id": "update-github-commit",
-      "name": "GitHub - Commit Update",
-      "type": "n8n-nodes-base.github",
-      "typeVersion": 1,
+      "name": "GitHub - Commit Update (HTTP)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [440, 800],
       "credentials": {
-        "githubApi": {
-          "id": "LxUioHXlT8VKysef",
-          "name": "GitHub account"
+        "httpHeaderAuth": {
+          "id": "GITHUB_TOKEN_ID",
+          "name": "GitHub Token"
         }
       }
     },
@@ -355,9 +382,9 @@
       "main": [[{ "node": "Validar Setup", "type": "main", "index": 0 }]]
     },
     "Validar Setup": {
-      "main": [[{ "node": "GitHub - Criar Repo", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "GitHub - Criar Repo (HTTP)", "type": "main", "index": 0 }]]
     },
-    "GitHub - Criar Repo": {
+    "GitHub - Criar Repo (HTTP)": {
       "main": [[{ "node": "Preparar Netlify", "type": "main", "index": 0 }]]
     },
     "Preparar Netlify": {
@@ -369,14 +396,13 @@
     "Resultado Setup": {
       "main": [[{ "node": "Respond Setup", "type": "main", "index": 0 }]]
     },
-    
     "Webhook - Gerar Site": {
       "main": [[{ "node": "Validar Geração", "type": "main", "index": 0 }]]
     },
     "Validar Geração": {
-      "main": [[{ "node": "Construir Prompt Adaptativo", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Construir Prompt", "type": "main", "index": 0 }]]
     },
-    "Construir Prompt Adaptativo": {
+    "Construir Prompt": {
       "main": [[{ "node": "AI Agent - Gerar HTML", "type": "main", "index": 0 }]]
     },
     "OpenAI Chat Model": {
@@ -386,22 +412,21 @@
       "main": [[{ "node": "Normalizar HTML", "type": "main", "index": 0 }]]
     },
     "Normalizar HTML": {
-      "main": [[{ "node": "GitHub - Commit HTML", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "GitHub - Criar index.html (HTTP)", "type": "main", "index": 0 }]]
     },
-    "GitHub - Commit HTML": {
+    "GitHub - Criar index.html (HTTP)": {
       "main": [[{ "node": "Resultado Geração", "type": "main", "index": 0 }]]
     },
     "Resultado Geração": {
       "main": [[{ "node": "Respond Geração", "type": "main", "index": 0 }]]
     },
-    
     "Webhook - Atualizar Site": {
       "main": [[{ "node": "Validar Atualização", "type": "main", "index": 0 }]]
     },
     "Validar Atualização": {
-      "main": [[{ "node": "GitHub - Commit Update", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "GitHub - Commit Update (HTTP)", "type": "main", "index": 0 }]]
     },
-    "GitHub - Commit Update": {
+    "GitHub - Commit Update (HTTP)": {
       "main": [[{ "node": "Resultado Update", "type": "main", "index": 0 }]]
     },
     "Resultado Update": {
@@ -411,6 +436,6 @@
   "pinData": {},
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "eleveaone-sites-v2"
+    "instanceId": "eleveaone-sites-v3"
   }
 }
