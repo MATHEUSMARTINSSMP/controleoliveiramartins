@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -16,27 +17,31 @@ import {
 } from "@/components/ui/alert-dialog";
 import { 
   ExternalLink, 
-  RefreshCw, 
   Trash2, 
   Globe, 
   Github, 
   Clock,
   AlertTriangle,
   Loader2,
-  Rocket
+  Rocket,
+  Eye,
+  Settings
 } from "lucide-react";
 import { useSiteData } from "./useSiteData";
+import { SitePreview } from "./SitePreview";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export function SiteEditor() {
+  const [activeTab, setActiveTab] = useState('preview');
   const { 
     site, 
     canReset, 
     resetSite, 
     triggerDeploy, 
     isResetting, 
-    isDeploying 
+    isDeploying,
+    refetch
   } = useSiteData();
   
   if (!site) return null;
@@ -57,7 +62,52 @@ export function SiteEditor() {
   const customDomain = `${site.slug}.eleveaone.com.br`;
   
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <Globe className="h-6 w-6 text-primary" />
+          <div>
+            <h2 className="text-xl font-semibold">{site.name}</h2>
+            <p className="text-sm text-muted-foreground">
+              {site.segment_name} {site.area_name && `- ${site.area_name}`}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {getStatusBadge(site.status)}
+          <Button
+            onClick={() => triggerDeploy()}
+            disabled={isDeploying}
+            data-testid="button-deploy-header"
+          >
+            {isDeploying ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Rocket className="h-4 w-4 mr-2" />
+            )}
+            Publicar
+          </Button>
+        </div>
+      </div>
+      
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+        <TabsList className="w-fit">
+          <TabsTrigger value="preview" data-testid="tab-preview">
+            <Eye className="h-4 w-4 mr-2" />
+            Preview
+          </TabsTrigger>
+          <TabsTrigger value="settings" data-testid="tab-settings">
+            <Settings className="h-4 w-4 mr-2" />
+            Configurações
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="preview" className="flex-1 min-h-0 mt-4">
+          <SitePreview site={site} onRefresh={refetch} />
+        </TabsContent>
+        
+        <TabsContent value="settings" className="mt-4">
+          <div className="space-y-6">
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -323,6 +373,9 @@ export function SiteEditor() {
           </div>
         </CardContent>
       </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

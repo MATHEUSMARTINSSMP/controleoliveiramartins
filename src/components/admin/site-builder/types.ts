@@ -88,6 +88,16 @@ export interface SiteData {
   seo_description: string | null;
   seo_keywords: string[] | null;
   og_image_url: string | null;
+  
+  generated_content: {
+    hero_title?: string;
+    hero_subtitle?: string;
+    about_text?: string;
+    services_text?: string;
+    products_text?: string;
+    differentials?: string[];
+    cta_text?: string;
+  } | null;
 }
 
 export interface SiteFormData {
