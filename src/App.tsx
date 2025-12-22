@@ -70,6 +70,7 @@ const WhatsAppBulkSend = lazyWithRetry(() => import("./pages/admin/WhatsAppBulkS
 const WhatsAppCampaigns = lazyWithRetry(() => import("./pages/admin/WhatsAppCampaigns"));
 const WhatsAppAnalytics = lazyWithRetry(() => import("./pages/admin/WhatsAppAnalytics"));
 const Campanhas = lazyWithRetry(() => import("./pages/admin/Campanhas"));
+const SiteBuilder = lazyWithRetry(() => import("./pages/admin/SiteBuilder"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -130,6 +131,7 @@ const App = () => (
                 <Route path="/admin/whatsapp-bulk-send" element={<Suspense fallback={<PageLoader />}><WhatsAppBulkSend /></Suspense>} />
                 <Route path="/admin/whatsapp-campaigns" element={<Suspense fallback={<PageLoader />}><WhatsAppCampaigns /></Suspense>} />
                 <Route path="/admin/whatsapp-analytics" element={<Suspense fallback={<PageLoader />}><WhatsAppAnalytics /></Suspense>} />
+                <Route path="/admin/site" element={<Suspense fallback={<PageLoader />}><SiteBuilder /></Suspense>} />
 
                 <Route path="/dev/login" element={<Suspense fallback={<PageLoader />}><DevLogin /></Suspense>} />
                 <Route path="/dev/erp-config" element={<Suspense fallback={<PageLoader />}><ERPConfig /></Suspense>} />
