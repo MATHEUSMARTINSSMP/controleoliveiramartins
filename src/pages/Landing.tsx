@@ -276,7 +276,9 @@ export default function Landing() {
       price: "R$ 249",
       period: "/mes",
       description: "Para operacoes que buscam organizacao e controle inicial",
+      checkoutUrl: "https://pay.cakto.com.br/32v862z",
       popular: false,
+      cta: "Assinar Agora",
       features: [
         "1 Loja",
         "Ate 5 colaboradoras",
@@ -295,7 +297,9 @@ export default function Landing() {
       price: "R$ 499",
       period: "/mes",
       description: "Para negocios em crescimento que exigem automacao completa",
+      checkoutUrl: "https://pay.cakto.com.br/aapmyzd_625482",
       popular: true,
+      cta: "Assinar Agora",
       features: [
         "Ate 3 Lojas",
         "Ate 25 colaboradoras",
@@ -315,7 +319,9 @@ export default function Landing() {
       price: "R$ 799",
       period: "/mes",
       description: "Para redes que dominam o mercado e exigem excelencia operacional",
+      checkoutUrl: "https://pay.cakto.com.br/pzpdgb7",
       popular: false,
+      cta: "Assinar Agora",
       features: [
         "Ate 10 Lojas (7 + 3 bonus)",
         "Ate 90 colaboradoras (80 + 10 bonus)",
@@ -945,10 +951,10 @@ export default function Landing() {
                   <Button 
                     className="w-full" 
                     variant={plan.popular ? "default" : "outline"}
-                    onClick={() => navigate('/login')}
+                    onClick={() => window.open(plan.checkoutUrl, '_blank')}
                     data-testid={`button-plan-${plan.name.toLowerCase()}`}
                   >
-                    Comecar Agora
+                    {plan.cta}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </CardContent>
