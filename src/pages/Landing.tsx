@@ -1,1422 +1,783 @@
-import { useEffect, useState, useRef } from 'react';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ThemeToggleSimple } from "@/components/theme-toggle";
 import { motion, useScroll, useTransform } from "framer-motion";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { 
   ArrowRight, 
+  Play, 
   Check, 
-  Zap, 
-  BarChart3, 
-  Target, 
-  Trophy, 
-  Users, 
-  Shield, 
-  Clock, 
+  Sparkles,
+  Target,
+  Users,
+  MessageSquare,
+  BarChart3,
+  Clock,
+  Shield,
+  Zap,
   TrendingUp,
-  Smartphone,
-  Globe,
+  Store,
   ChevronRight,
   Star,
-  Sparkles,
-  Gift,
-  MessageSquare,
-  DollarSign,
-  Activity,
-  RefreshCw,
-  ChevronDown,
-  ShoppingCart,
-  Calendar,
-  FileText,
-  Lock,
-  Wallet,
-  Bell,
-  Heart,
-  Eye,
-  Send,
-  Building2,
-  Award,
-  Flame,
-  Play,
-  Headphones,
-  Percent,
-  LayoutDashboard,
-  Store,
-  Fingerprint,
-  LineChart,
-  Package,
-  Banknote,
-  Brain,
-  Cpu,
-  CircleDollarSign,
-  Mail,
   Phone,
-  ExternalLink,
-  CheckCircle2,
-  XCircle,
-  Database,
-  Server,
-  Repeat,
-  UserCheck,
-  ClipboardList,
-  Timer,
-  Settings,
-  TrendingDown,
-  PieChart,
-  Layers,
-  Puzzle,
-  Rocket,
-  ChartBar
+  Mail,
+  MapPin
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useRef, useEffect, useState } from "react";
 
+import dashboardImage from "/images/modern_dashboard_laptop_mockup.png";
+import mobileImage from "/images/mobile_app_interface_mockup.png";
+import whatsappImage from "/images/whatsapp_automation_tablet_mockup.png";
+import heroImage from "/images/futuristic_data_visualization_hero.png";
 
-export default function Landing() {
-  const navigate = useNavigate();
-  const [scrollY, setScrollY] = useState(0);
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [animatedStats, setAnimatedStats] = useState({ economia: 0, lojas: 0, vendas: 0, satisfacao: 0 });
-
-  useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+const AnimatedCounter = ({ value, suffix = "", prefix = "" }: { value: number; suffix?: string; prefix?: string }) => {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !isVisible) {
+          setIsVisible(true);
+        }
+      },
+      { threshold: 0.3 }
+    );
+
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [isVisible]);
+
+  useEffect(() => {
+    if (!isVisible) return;
+    
     const duration = 2000;
     const steps = 60;
-    const interval = duration / steps;
-    let step = 0;
+    const increment = value / steps;
+    let current = 0;
+
     const timer = setInterval(() => {
-      step++;
-      const progress = step / steps;
-      setAnimatedStats({
-        economia: Math.round(70 * progress),
-        lojas: Math.round(150 * progress),
-        vendas: Math.round(35 * progress),
-        satisfacao: Math.round(98 * progress)
-      });
-      if (step >= steps) clearInterval(timer);
-    }, interval);
+      current += increment;
+      if (current >= value) {
+        setCount(value);
+        clearInterval(timer);
+      } else {
+        setCount(Math.floor(current));
+      }
+    }, duration / steps);
+
     return () => clearInterval(timer);
-  }, []);
+  }, [isVisible, value]);
 
-  const tableOfContents = [
-    { num: "01", title: "Visao Geral", desc: "Entenda como o EleveaOne complementa seu ERP" },
-    { num: "02", title: "Por que EleveaOne?", desc: "Metas dinamicas, CRM automatizado e gamificacao" },
-    { num: "03", title: "Controle Total", desc: "Notificacoes em tempo real de tudo que acontece" },
-    { num: "04", title: "Dashboard Admin", desc: "Gerencie multiplas lojas com facilidade" },
-    { num: "05", title: "Dashboard da Loja", desc: "Ferramentas diarias para vendedoras e gerentes" },
-    { num: "06", title: "WhatsApp Profissional", desc: "Transforme conversas em vendas" },
-    { num: "07", title: "Onboarding Rapido", desc: "Comece em minutos, nao em meses" },
-    { num: "08", title: "Inovacao Continua", desc: "Roadmap com IA e analise preditiva" },
-    { num: "09", title: "Planos e Precos", desc: "Opcoes para cada tamanho de operacao" },
-    { num: "10", title: "Contato", desc: "Como comecar sua transformacao digital" }
-  ];
+  return (
+    <span ref={ref} className="tabular-nums">
+      {prefix}{count}{suffix}
+    </span>
+  );
+};
 
-  const erpComparison = [
-    { label: "Seu ERP Atual", items: ["Nota Fiscal e XML", "Estoque Fiscal", "Financeiro Basico", "Contas a Pagar/Receber"], isErp: true },
-    { label: "EleveaOne (Front-Office)", items: ["Metas Dinamicas e Gamificacao", "CRM com Automacao de Vendas", "Cashback e Fidelizacao", "Ponto Digital (REP-P)", "Campanhas WhatsApp", "DRE Gerencial com IA"], isErp: false }
-  ];
+const FloatingOrb = ({ delay, duration, size, color, position }: { 
+  delay: number; 
+  duration: number; 
+  size: string; 
+  color: string;
+  position: { top?: string; left?: string; right?: string; bottom?: string };
+}) => (
+  <motion.div
+    className={`absolute rounded-full blur-3xl opacity-30 ${size} ${color}`}
+    style={position}
+    animate={{
+      y: [0, -30, 0],
+      x: [0, 15, 0],
+      scale: [1, 1.1, 1],
+    }}
+    transition={{
+      duration,
+      delay,
+      repeat: Infinity,
+      ease: "easeInOut",
+    }}
+  />
+);
 
-  const whyChoose = [
+export default function Landing() {
+  const heroRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"]
+  });
+  
+  const heroY = useTransform(scrollYProgress, [0, 1], [0, 150]);
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+
+  const features = [
     {
-      icon: <Target className="h-8 w-8" />,
-      title: "Metas que Realmente Funcionam",
-      description: "Esqueca as metas estaticas de planilha que ninguem acompanha. O EleveaOne usa metas dinamicas que se ajustam automaticamente a realidade da sua loja.",
-      features: [
-        "Ajuste Automatico de Deficit: Se a loja vendeu menos ontem, o sistema dilui a diferenca automaticamente nos dias restantes do mes.",
-        "Pesos Inteligentes: Configure pesos por dia da semana (ex: Sabado vale 2x mais que Segunda-feira) para refletir o fluxo real de clientes.",
-        "Gamificacao Real: Rankings em tempo real, trofeus digitais e bonus automaticos mantem a equipe engajada 100% do tempo."
-      ]
+      icon: Target,
+      title: "Metas Dinâmicas",
+      description: "Defina metas mensais com redistribuição automática baseada no fluxo real da loja. Gamificação que engaja sua equipe."
     },
     {
-      icon: <Heart className="h-8 w-8" />,
-      title: "CRM que Vende Sozinho",
-      description: "Pare de perder vendas por falta de follow-up. Nosso CRM automatizado trabalha 24/7 para converter mais clientes.",
-      features: [
-        "Pos-Venda Automatico: O sistema agenda automaticamente o contato de pos-venda e notifica a vendedora no momento certo.",
-        "Cashback via WhatsApp: O cliente recebe o saldo de cashback no WhatsApp na hora da compra, aumentando drasticamente a recorrencia.",
-        "Wishlist Integrada: Sabe aquele cliente que diz: 'Me avisa quando chegar'? Voce nunca mais vai esquecer de avisar ele!"
-      ]
+      icon: Users,
+      title: "CRM Inteligente",
+      description: "Perfil 360° do cliente com histórico de compras, preferências e segmentação automática (VIP, Black, Gold)."
     },
     {
-      icon: <Wallet className="h-8 w-8" />,
-      title: "Gestao Financeira de Pessoal",
-      description: "Tenha controle total sobre a folha de pagamento e movimentacoes financeiras da equipe, com transparencia e travas de seguranca.",
-      features: [
-        "Adiantamentos Controlados: Sistema de solicitacao com aprovacao automatica baseada em margem consignavel e historico.",
-        "Compras de Funcionarios: Controle total de compras das colaboradoras na propria loja, com limites configuraveis.",
-        "Transparencia Total: Cada movimentacao gera notificacao em tempo real para o gestor."
-      ]
+      icon: MessageSquare,
+      title: "WhatsApp Automatizado",
+      description: "Notificações de cashback, alertas de aniversário e campanhas em massa com rotação de números."
+    },
+    {
+      icon: BarChart3,
+      title: "Dashboards em Tempo Real",
+      description: "Acompanhe vendas, metas e performance da equipe em tempo real com gráficos interativos."
+    },
+    {
+      icon: Clock,
+      title: "Ponto Digital REP-P",
+      description: "Controle de ponto em conformidade com a Portaria 671/2021. PIN digital e geração automática de espelho."
+    },
+    {
+      icon: Shield,
+      title: "Gestão Financeira",
+      description: "Adiantamentos, compras de funcionários e controle de caixa com total transparência."
     }
   ];
 
-  const notifications = [
-    { icon: <DollarSign className="h-5 w-5" />, title: "Nova Venda Realizada", desc: "Receba um alerta instantaneo a cada venda sincronizada do ERP ou emitida manualmente." },
-    { icon: <Clock className="h-5 w-5" />, title: "Ponto Batido", desc: "Seja notificado sempre que uma colaboradora registrar entrada, saida ou intervalo." },
-    { icon: <Banknote className="h-5 w-5" />, title: "Adiantamento Solicitado", desc: "Receba alertas imediatos quando uma colaboradora solicitar adiantamento." },
-    { icon: <FileText className="h-5 w-5" />, title: "Ajuste Criado", desc: "Saiba instantaneamente quando um ajuste ou condicional for gerado para um cliente." },
-    { icon: <Bell className="h-5 w-5" />, title: "Alertas de Tarefas", desc: "O sistema notifica sobre tarefas recorrentes (conferencia de estoque, limpeza, abertura de caixa)." }
-  ];
-
-  const notificationBenefits = [
-    { icon: <Eye className="h-6 w-6" />, title: "Presenca Virtual", desc: "Sinta-se dentro da loja mesmo estando em viagem ou gerenciando outras unidades." },
-    { icon: <UserCheck className="h-6 w-6" />, title: "Accountability Natural", desc: "A equipe sabe que o sistema reporta as acoes em tempo real, aumentando responsabilidade." },
-    { icon: <Zap className="h-6 w-6" />, title: "Decisoes Ageis", desc: "Voce fica por dentro de tudo que esta acontecendo quase em tempo real na sua operacao." },
-    { icon: <Shield className="h-6 w-6" />, title: "Transparencia Total", desc: "Acabe com as 'surpresas' no final do mes. Tudo e registrado e notificado." }
-  ];
-
-  const adminDashboardFeatures = [
-    {
-      num: 1,
-      icon: <Target className="h-6 w-6" />,
-      title: "Gestao de Metas e Performance",
-      items: ["Defina metas mensais e super metas com premiacoes escalonadas", "Configure pesos diarios para distribuir a meta conforme o fluxo da loja", "Redistribuicao automatica quando colaboradora falta", "Compare lojas: melhor Ticket Medio, melhor PA"]
-    },
-    {
-      num: 2,
-      icon: <Trophy className="h-6 w-6" />,
-      title: "Bonus e Gincanas",
-      items: ["Crie gincanas semanais ('Semana do Jeans') para impulsionar produtos especificos", "Configure bonus por meta batida, super meta ou indicadores", "Ranking permanente que gera cultura de alta performance"]
-    },
-    {
-      num: 3,
-      icon: <Fingerprint className="h-6 w-6" />,
-      title: "Gestao de Pessoas e Ponto",
-      items: ["Ponto digital com reconhecimento de local (REP-P - Portaria 671)", "Geracao automatica de espelho de ponto para contabilidade", "Controle visual de escalas e folgas", "Jornada personalizada e flexivel"]
-    },
-    {
-      num: 4,
-      icon: <PieChart className="h-6 w-6" />,
-      title: "Financeiro e DRE",
-      items: ["DRE Gerencial com IA: visualize o resultado real da operacao", "Aprovacao de adiantamentos com validacao de margem consignavel", "Controle de compras de funcionarios com limites mensais"]
-    },
-    {
-      num: 5,
-      icon: <RefreshCw className="h-6 w-6" />,
-      title: "Integracao ERP Profunda",
-      items: ["Sincronizacao em tempo real: pedidos caem segundos apos a venda", "Mapeamento automatico de vendedores entre sistemas", "Suporte multi-ERP: Tiny, Bling, Linx e outros via API"]
-    }
-  ];
-
-  const storeDashboardFeatures = [
-    {
-      icon: <Target className="h-6 w-6" />,
-      title: "Aba: Metas (O Coracao da Loja)",
-      items: ["'Quanto preciso vender hoje?' - A primeira pergunta respondida na tela inicial", "Termometro visual: 'Onde deveriamos estar' vs 'Onde estamos'", "Top 3 do Dia: ranking instantaneo para gerar competicao saudavel"]
-    },
-    {
-      icon: <Gift className="h-6 w-6" />,
-      title: "Cashback e Fidelidade",
-      desc: "Consulta rapida por CPF, resgate seguro com PIN, avisos automaticos de expiracao para criar urgencia (FOMO)."
-    },
-    {
-      icon: <Users className="h-6 w-6" />,
-      title: "CRM e Clientes",
-      desc: "Perfil 360 graus com historico de compras, marcas preferidas, aniversario. Segmentacao automatica (VIP, Black, Gold). Lista de tarefas de hoje: quem contatar."
-    },
-    {
-      icon: <Heart className="h-6 w-6" />,
-      title: "Wishlist (Lista de Desejos)",
-      desc: "Cliente gostou mas nao tem o tamanho? Cadastre na Wishlist. Alerta automatico quando o item entrar no estoque - nunca perca uma venda."
-    },
-    {
-      icon: <Banknote className="h-6 w-6" />,
-      title: "Caixa",
-      desc: "Mais controle para voce na abertura e fechamento do caixa: Quem e a vendedora responsavel, quanto dinheiro em caixa, quais as metas do dia da loja e individuais."
-    }
-  ];
-
-  const whatsappTransactional = [
-    { emoji: "gift", text: "'Cashback gerado!' - Envia para o cliente pelo whatsapp quanto cashback foi gerado, qual o prazo para expirar" },
-    { emoji: "clock", text: "'Seu cashback vai vencer!' - Recupera clientes inativos com senso de urgencia" },
-    { emoji: "cake", text: "'Feliz Aniversario!' - Mensagem personalizada com cupom de presente" },
-    { emoji: "trophy", text: "'Meta Batida!' - Avisa a equipe (e o dono) quando a loja alcanca o objetivo" }
-  ];
-
-  const whatsappCampaigns = [
-    { icon: <Target className="h-6 w-6" />, title: "Segmentacao Cirurgica", desc: "'Enviar para clientes que compraram Jeans nos ultimos 90 dias mas nao compraram nada este mes'" },
-    { icon: <Shield className="h-6 w-6" />, title: "Envio Seguro", desc: "Controle de velocidade e rotacao de numeros para evitar bloqueios do WhatsApp" },
-    { icon: <BarChart3 className="h-6 w-6" />, title: "Metricas Reais", desc: "Saiba exatamente quanto vendeu a partir de cada campanha enviada" }
-  ];
-
-  const onboardingSteps = [
-    { num: 1, title: "Conecte seu ERP", desc: "Faca login com suas credenciais do Tiny, Bling ou outro ERP compativel. Processo 100% seguro." },
-    { num: 2, title: "Importacao Automatica", desc: "Puxamos automaticamente seu historico de vendas, cadastro de clientes e catalogo de produtos." },
-    { num: 3, title: "Configuracao Express", desc: "Defina as metas iniciais, cadastre sua equipe e configure as regras de bonus. Pronto para usar!" }
-  ];
-
-  const securityFeatures = [
-    { icon: <Lock className="h-6 w-6" />, title: "Criptografia Ponta-a-Ponta", desc: "Seus dados trafegam com o mesmo nivel de seguranca usado por bancos." },
-    { icon: <Database className="h-6 w-6" />, title: "Backups Automaticos", desc: "Backups diarios com redundancia geografica. Protecao total contra perda de dados." },
-    { icon: <Globe className="h-6 w-6" />, title: "Infraestrutura Global", desc: "Hospedado em nuvem (AWS/Netlify) com 99.9% de uptime garantido." },
-    { icon: <Shield className="h-6 w-6" />, title: "LGPD Ready", desc: "Ferramentas completas para anonimizacao e exportacao de dados de clientes." }
-  ];
-
-  const roadmapItems = [
-    { quarter: "Q1 2026", title: "AI Sales Assistant", desc: "Um 'copiloto' inteligente que sugere para a vendedora: 'A cliente Maria esta vindo? ela usa esses tamanhos e costuma levar essas cores.'" },
-    { quarter: "Q1 2026", title: "Previsao de Metas", desc: "Inteligencia Artificial analisando historico de vendas, sazonalidade e tendencias para sugerir metas mais precisas e estoque otimizado." },
-    { quarter: "Q1 2026", title: "Analise de Sentimento", desc: "Integracao com WhatsApp para analisar automaticamente se o cliente esta satisfeito ou frustrado nas conversas, permitindo acao proativa." },
-    { quarter: "Q2 2026", title: "Recomendacoes Personalizadas", desc: "Sistema de recomendacao baseado em Machine Learning que sugere produtos com alta probabilidade de conversao para cada cliente." }
-  ];
-
-  const stackComparison = [
-    { name: "Fidelidade/Cashback", min: 200, max: 600 },
-    { name: "WhatsApp Profissional", min: 150, max: 500 },
-    { name: "Controle de Ponto REP-P", min: 100, max: 400 },
-    { name: "CRM", min: 150, max: 600 },
-    { name: "BI/Dashboards", min: 100, max: 400 },
-    { name: "Financeiro/DRE", min: 64, max: 159 }
+  const metrics = [
+    { value: 70, suffix: "%", label: "Economia vs Stack Separado" },
+    { value: 150, suffix: "+", label: "Lojas Ativas" },
+    { value: 35, prefix: "+", suffix: "%", label: "Aumento em Vendas" },
+    { value: 98, suffix: "%", label: "Satisfação" }
   ];
 
   const plans = [
     {
       name: "Starter",
-      price: "R$ 249",
-      period: "/mes",
-      description: "Para operacoes que buscam organizacao e controle inicial",
-      checkoutUrl: "https://pay.cakto.com.br/32v862z",
-      popular: false,
-      cta: "Assinar Agora",
+      price: "249",
+      description: "Para lojas que estão começando sua transformação digital",
       features: [
-        "1 Loja",
-        "Ate 5 colaboradoras",
-        "Dashboard completo de vendas",
-        "Sistema de metas diarias",
-        "Controle de ponto digital (CLT)",
-        "Programa de cashback automatizado",
-        "DRE com IA integrado",
-        "Relatorios basicos em PDF",
-        "Suporte por e-mail (horario comercial)"
+        "Até 3 colaboradores",
+        "1 loja",
+        "Dashboard básico",
+        "Metas e gamificação",
+        "Suporte por e-mail"
       ],
-      notIncluded: ["WhatsApp proprio", "Integracao ERP"]
+      cta: "Começar Agora",
+      href: "https://pay.cakto.com.br/32v862z",
+      popular: false
     },
     {
       name: "Business",
-      price: "R$ 499",
-      period: "/mes",
-      description: "Para negocios em crescimento que exigem automacao completa",
-      checkoutUrl: "https://pay.cakto.com.br/aapmyzd_625482",
-      popular: true,
-      cta: "Assinar Agora",
+      price: "499",
+      description: "Para operações que precisam de automação completa",
       features: [
-        "Ate 3 Lojas",
-        "Ate 25 colaboradoras",
-        "Todas as funcionalidades Starter",
-        "WhatsApp proprio para envio de mensagens",
-        "Programa de cashback automatizado",
-        "DRE com IA integrado",
-        "Integracao com ERP (Tiny, Bling e outros)",
-        "Gincanas e competicoes gamificadas",
-        "CRM completo com historico de clientes",
-        "Suporte prioritario via WhatsApp"
+        "Até 10 colaboradores",
+        "Até 3 lojas",
+        "WhatsApp automatizado",
+        "CRM completo",
+        "Ponto digital REP-P",
+        "Suporte prioritário"
       ],
-      notIncluded: []
+      cta: "Escolher Business",
+      href: "https://pay.cakto.com.br/aapmyzd_625482",
+      popular: true
     },
     {
       name: "Enterprise",
-      price: "R$ 799",
-      period: "/mes",
-      description: "Para redes que dominam o mercado e exigem excelencia operacional",
-      checkoutUrl: "https://pay.cakto.com.br/pzpdgb7",
-      popular: false,
-      cta: "Assinar Agora",
+      price: "799",
+      description: "Para redes que buscam escala e controle total",
       features: [
-        "Ate 10 Lojas (7 + 3 bonus)",
-        "Ate 90 colaboradoras (80 + 10 bonus)",
-        "Todas as funcionalidades Business",
-        "Programa de cashback automatizado",
-        "DRE com IA integrado",
-        "Integracao com ERP (Tiny, Bling e outros)",
-        "Suporte prioritario 24/7",
-        "Treinamento completo da equipe",
-        "Onboarding dedicado com especialista",
-        "Consultoria mensal de performance",
-        "API para integracoes personalizadas"
+        "Colaboradores ilimitados",
+        "Lojas ilimitadas",
+        "API de integração",
+        "Campanhas WhatsApp em massa",
+        "Relatórios avançados",
+        "Gerente de conta dedicado"
       ],
-      notIncluded: []
+      cta: "Falar com Consultor",
+      href: "https://pay.cakto.com.br/pzpdgb7",
+      popular: false
     }
   ];
 
-  const faqs = [
-    { q: "Quanto tempo leva para implantar o EleveaOne?", a: "O EleveaOne e Plug & Play. Voce pode estar operacional no mesmo dia. Basta conectar seu ERP, importar os dados automaticamente e configurar suas metas iniciais." },
-    { q: "O EleveaOne substitui meu ERP?", a: "Nao! O EleveaOne complementa seu ERP. Enquanto seu ERP cuida do backoffice (notas fiscais, estoque fiscal, financeiro basico), o EleveaOne cuida do front-office (metas, CRM, cashback, gamificacao)." },
-    { q: "Quais ERPs sao compativeis?", a: "Atualmente temos integracao nativa com Tiny e Bling. Outros ERPs como Linx podem ser integrados via API. Entre em contato para verificar a compatibilidade com seu sistema." },
-    { q: "Como funciona o sistema de metas dinamicas?", a: "O sistema ajusta automaticamente as metas diarias baseado no desempenho real. Se a loja vendeu menos ontem, o deficit e diluido nos dias restantes do mes. Voce pode configurar pesos por dia da semana para refletir o fluxo real de clientes." },
-    { q: "O sistema esta em conformidade com a legislacao trabalhista?", a: "Sim! Nosso ponto digital segue a Portaria 671 (REP-P) e esta em total conformidade com a CLT brasileira. Geramos automaticamente o espelho de ponto para sua contabilidade." }
-  ];
-
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden relative">
-      {/* Antigravity-Style Animated Background - Behind all content */}
+    <div className="min-h-screen bg-background overflow-x-hidden">
+      {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
-        {/* Base gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted/20" />
-        
-        {/* SVG mesh pattern - works in both themes */}
-        <div 
-          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.08]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg stroke='%239C92AC' stroke-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-        />
-        
-        {/* Large floating orbs - Antigravity style */}
-        <motion.div
-          className="absolute w-[1000px] h-[1000px] rounded-full"
-          style={{
-            background: 'radial-gradient(circle, hsl(var(--primary) / 0.08) 0%, transparent 60%)',
-            filter: 'blur(100px)',
-            top: '-30%',
-            left: '-20%',
-          }}
-          animate={{
-            x: [0, 150, 75, 0],
-            y: [0, 75, 150, 0],
-            scale: [1, 1.15, 1.08, 1],
-          }}
-          transition={{
-            duration: 35,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-        <motion.div
-          className="absolute w-[800px] h-[800px] rounded-full"
-          style={{
-            background: 'radial-gradient(circle, hsl(262 60% 50% / 0.1) 0%, transparent 60%)',
-            filter: 'blur(80px)',
-            top: '20%',
-            right: '-15%',
-          }}
-          animate={{
-            x: [0, -120, -60, 0],
-            y: [0, 100, 50, 0],
-            scale: [1, 1.2, 1.1, 1],
-          }}
-          transition={{
-            duration: 40,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-        <motion.div
-          className="absolute w-[600px] h-[600px] rounded-full"
-          style={{
-            background: 'radial-gradient(circle, hsl(38 90% 55% / 0.06) 0%, transparent 60%)',
-            filter: 'blur(60px)',
-            bottom: '-10%',
-            left: '30%',
-          }}
-          animate={{
-            x: [0, 80, 40, 0],
-            y: [0, -80, -40, 0],
-            scale: [1, 1.1, 1.05, 1],
-          }}
-          transition={{
-            duration: 28,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-        <motion.div
-          className="absolute w-[500px] h-[500px] rounded-full"
-          style={{
-            background: 'radial-gradient(circle, hsl(280 50% 45% / 0.07) 0%, transparent 60%)',
-            filter: 'blur(50px)',
-            top: '50%',
-            left: '60%',
-          }}
-          animate={{
-            x: [0, -60, 30, 0],
-            y: [0, 60, -30, 0],
-            scale: [1, 1.18, 1.09, 1],
-          }}
-          transition={{
-            duration: 32,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-        <motion.div
-          className="absolute w-[400px] h-[400px] rounded-full"
-          style={{
-            background: 'radial-gradient(circle, hsl(var(--primary) / 0.05) 0%, transparent 60%)',
-            filter: 'blur(40px)',
-            top: '70%',
-            left: '10%',
-          }}
-          animate={{
-            x: [0, 50, 25, 0],
-            y: [0, -50, -25, 0],
-            scale: [1, 1.12, 1.06, 1],
-          }}
-          transition={{
-            duration: 25,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-        
-        {/* Floating small particles */}
-        {[...Array(6)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute w-2 h-2 rounded-full bg-primary/20"
-            style={{
-              top: `${20 + i * 15}%`,
-              left: `${10 + i * 15}%`,
-            }}
-            animate={{
-              y: [0, -30, 0],
-              x: [0, 15, 0],
-              opacity: [0.2, 0.5, 0.2],
-            }}
-            transition={{
-              duration: 8 + i * 2,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: i * 0.5,
-            }}
-          />
-        ))}
-        
-        {/* Subtle grid overlay for depth */}
-        <div 
-          className="absolute inset-0 opacity-[0.015] dark:opacity-[0.03]"
-          style={{
-            backgroundImage: `linear-gradient(hsl(var(--foreground)) 1px, transparent 1px),
-                              linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px)`,
-            backgroundSize: '80px 80px'
-          }}
-        />
-        
-        {/* Noise texture overlay */}
-        <div 
-          className="absolute inset-0 opacity-[0.02]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-          }}
-        />
+        <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-primary/5" />
+        <FloatingOrb delay={0} duration={20} size="w-96 h-96" color="bg-primary/20" position={{ top: "10%", left: "-10%" }} />
+        <FloatingOrb delay={5} duration={25} size="w-80 h-80" color="bg-purple-500/20" position={{ top: "60%", right: "-5%" }} />
+        <FloatingOrb delay={10} duration={30} size="w-64 h-64" color="bg-amber-500/10" position={{ bottom: "20%", left: "30%" }} />
       </div>
 
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 glass border-b">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="h-10 w-10 rounded-md bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
-              <Sparkles className="h-6 w-6 text-primary-foreground" />
+      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-background/80 border-b border-border/50">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2" data-testid="link-logo">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold">EleveaOne</span>
-          </div>
-          <div className="hidden md:flex items-center gap-6 text-sm">
-            <a href="#features" className="hover:text-primary transition-colors" data-testid="link-features">Recursos</a>
-            <a href="#pricing" className="hover:text-primary transition-colors" data-testid="link-pricing">Precos</a>
-            <a href="#contact" className="hover:text-primary transition-colors" data-testid="link-contact">Contato</a>
-          </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggleSimple />
-            <Button variant="ghost" onClick={() => navigate('/login')} data-testid="button-login">
-              Entrar
-            </Button>
-            <Button onClick={() => navigate('/login')} data-testid="button-start-free">
-              Comecar Gratis
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
+            <span className="font-bold text-xl">EleveaOne</span>
+          </Link>
+          
+          <nav className="hidden md:flex items-center gap-8">
+            <a href="#recursos" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-recursos">Recursos</a>
+            <a href="#precos" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-precos">Preços</a>
+            <a href="#contato" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-contato">Contato</a>
+          </nav>
+
+          <div className="flex items-center gap-3">
+            <Link to="/login">
+              <Button variant="ghost" size="sm" data-testid="button-login">Entrar</Button>
+            </Link>
+            <Link to="/login">
+              <Button size="sm" className="gap-2" data-testid="button-start-free">
+                Começar Grátis <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 px-4">
-        <div className="container mx-auto text-center max-w-5xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <Badge className="mb-6 px-4 py-2" variant="secondary">
-              <Sparkles className="h-4 w-4 mr-2" />
-              O Parceiro Perfeito para seu ERP
-            </Badge>
-          </motion.div>
-          
-          <motion.h1 
-            className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-          >
-            Solucao completa para o{' '}
-            <span className="text-primary">varejo</span> que eleva a performance
-          </motion.h1>
-          
-          <motion.p 
-            className="text-lg md:text-xl text-muted-foreground mb-8 max-w-3xl mx-auto"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
-            Unindo fidelizacao de clientes, engajamento de times e automacao inteligente de tarefas operacionais e de gestao.
-          </motion.p>
+      <section ref={heroRef} className="relative min-h-screen flex items-center pt-16">
+        <motion.div 
+          className="container mx-auto px-4 py-20"
+          style={{ y: heroY, opacity: heroOpacity }}
+        >
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8 }}
+            >
+              <Badge variant="secondary" className="mb-6 gap-2">
+                <Sparkles className="w-3 h-3" />
+                A revolução do varejo brasileiro
+              </Badge>
+              
+              <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6">
+                Transforme sua loja em uma{" "}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-500">
+                  máquina de vendas
+                </span>
+              </h1>
+              
+              <p className="text-xl text-muted-foreground mb-8 max-w-xl">
+                O EleveaOne é a camada de inteligência que faltava sobre seu ERP. 
+                Metas, cashback, CRM e automação WhatsApp em uma única plataforma.
+              </p>
 
-          <motion.div 
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-          >
-            <Button size="lg" onClick={() => navigate('/login')} className="text-lg px-8" data-testid="button-hero-cta">
-              Comecar Agora
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-            <Button size="lg" variant="outline" className="text-lg px-8" data-testid="button-hero-demo">
-              <Play className="mr-2 h-5 w-5" />
-              Ver Demonstracao
-            </Button>
-          </motion.div>
+              <div className="flex flex-wrap gap-4 mb-12">
+                <Link to="/login">
+                  <Button size="lg" className="gap-2 text-lg px-8" data-testid="button-hero-cta">
+                    Começar Agora <ArrowRight className="w-5 h-5" />
+                  </Button>
+                </Link>
+                <Button size="lg" variant="outline" className="gap-2 text-lg px-8" data-testid="button-hero-demo">
+                  <Play className="w-5 h-5" /> Ver Demonstração
+                </Button>
+              </div>
 
-          {/* Dashboard Preview - CSS Mockup */}
-          <motion.div 
-            className="relative max-w-5xl mx-auto mb-16"
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-          >
-            <div className="relative rounded-xl overflow-hidden shadow-2xl border border-border/50 bg-card">
-              {/* CSS Dashboard Mockup */}
-              <div className="p-4 space-y-4">
-                <div className="flex items-center gap-4 pb-4 border-b border-border">
-                  <div className="w-10 h-10 rounded-lg bg-primary/20" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 w-32 bg-muted rounded" />
-                    <div className="h-3 w-48 bg-muted/50 rounded" />
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="w-8 h-8 rounded-full bg-muted" />
-                    <div className="w-8 h-8 rounded-full bg-muted" />
-                  </div>
+              <div className="flex items-center gap-6 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-primary" />
+                  <span>14 dias grátis</span>
                 </div>
-                <div className="grid grid-cols-4 gap-4">
-                  {[1,2,3,4].map(i => (
-                    <div key={i} className="p-4 rounded-lg bg-muted/30 space-y-2">
-                      <div className="h-8 w-16 bg-primary/20 rounded" />
-                      <div className="h-3 w-20 bg-muted rounded" />
-                    </div>
-                  ))}
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-primary" />
+                  <span>Sem cartão de crédito</span>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="col-span-2 h-48 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 p-4">
-                    <div className="flex items-end h-full gap-2">
-                      {[40, 65, 45, 80, 55, 70, 60, 85, 50].map((h, i) => (
-                        <div key={i} className="flex-1 bg-primary/30 rounded-t" style={{height: `${h}%`}} />
-                      ))}
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    {[1,2,3,4].map(i => (
-                      <div key={i} className="p-3 rounded-lg bg-muted/30 flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/20" />
-                        <div className="flex-1 space-y-1">
-                          <div className="h-3 w-16 bg-muted rounded" />
-                          <div className="h-2 w-12 bg-muted/50 rounded" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-primary" />
+                  <span>Suporte brasileiro</span>
                 </div>
               </div>
-            </div>
-            {/* Floating accent elements */}
-            <div className="absolute -top-4 -right-4 w-24 h-24 bg-primary/20 rounded-full blur-2xl" />
-            <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-primary/15 rounded-full blur-3xl" />
-          </motion.div>
+            </motion.div>
 
-          {/* Stats */}
-          <motion.div 
-            className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-          >
-            <div className="glass rounded-lg p-4 text-center">
-              <div className="text-3xl md:text-4xl font-bold text-primary">{animatedStats.economia}%</div>
-              <div className="text-sm text-muted-foreground">Economia vs Stack Separado</div>
-            </div>
-            <div className="glass rounded-lg p-4 text-center">
-              <div className="text-3xl md:text-4xl font-bold text-primary">{animatedStats.lojas}+</div>
-              <div className="text-sm text-muted-foreground">Lojas Ativas</div>
-            </div>
-            <div className="glass rounded-lg p-4 text-center">
-              <div className="text-3xl md:text-4xl font-bold text-primary">+{animatedStats.vendas}%</div>
-              <div className="text-sm text-muted-foreground">Aumento em Vendas</div>
-            </div>
-            <div className="glass rounded-lg p-4 text-center">
-              <div className="text-3xl md:text-4xl font-bold text-primary">{animatedStats.satisfacao}%</div>
-              <div className="text-sm text-muted-foreground">Satisfacao</div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
+            <motion.div
+              className="relative"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              <div className="relative">
+                <img 
+                  src={heroImage} 
+                  alt="EleveaOne Dashboard" 
+                  className="w-full rounded-2xl shadow-2xl"
+                />
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-background/20 to-transparent" />
+              </div>
+              
+              {/* Floating Stats Card */}
+              <motion.div
+                className="absolute -bottom-6 -left-6 bg-card/90 backdrop-blur-xl rounded-xl p-4 shadow-xl border border-border/50"
+                animate={{ y: [0, -10, 0] }}
+                transition={{ duration: 4, repeat: Infinity }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-green-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Vendas hoje</p>
+                    <p className="text-xl font-bold">R$ 12.450</p>
+                  </div>
+                </div>
+              </motion.div>
 
-      {/* Table of Contents */}
-      <section className="py-16 px-4 bg-muted/30">
-        <div className="container mx-auto max-w-6xl">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">O que voce encontrara nesta apresentacao</h2>
-          <p className="text-center text-muted-foreground mb-12 max-w-2xl mx-auto">
-            Uma jornada completa pelo EleveaOne, da visao geral ate os planos de preco
-          </p>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {tableOfContents.map((item, index) => (
-              <Card key={index} className="hover-elevate cursor-pointer transition-all">
-                <CardContent className="p-4">
-                  <div className="text-3xl font-bold text-primary/30 mb-2">{item.num}</div>
-                  <h3 className="font-semibold mb-1">{item.title}</h3>
-                  <p className="text-xs text-muted-foreground">{item.desc}</p>
-                </CardContent>
-              </Card>
-            ))}
+              {/* Floating Notification */}
+              <motion.div
+                className="absolute -top-4 -right-4 bg-card/90 backdrop-blur-xl rounded-xl p-3 shadow-xl border border-border/50"
+                animate={{ y: [0, -8, 0] }}
+                transition={{ duration: 3, repeat: Infinity, delay: 1 }}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                    <MessageSquare className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium">WhatsApp enviado</p>
+                    <p className="text-xs text-muted-foreground">Cashback notificado</p>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
       </section>
 
-      {/* Visual Store Section */}
-      <section className="py-20 px-4 relative overflow-hidden bg-muted/30">
-        <div className="container mx-auto max-w-6xl">
-          <motion.div 
-            className="max-w-2xl"
-            initial={{ opacity: 0, x: -30 }}
-            whileInView={{ opacity: 1, x: 0 }}
+      {/* Metrics Section */}
+      <section className="py-20 relative">
+        <div className="container mx-auto px-4">
+          <motion.div
+            className="grid grid-cols-2 md:grid-cols-4 gap-8"
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
           >
-            <Badge className="mb-4" variant="secondary">Transforme seu Varejo</Badge>
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">
-              Tecnologia que <span className="text-primary">transforma</span> resultados
-            </h2>
-            <p className="text-lg text-muted-foreground mb-8">
-              O EleveaOne foi desenvolvido por quem entende o varejo brasileiro. 
-              Unimos anos de experiencia em gestao de lojas com tecnologia de ponta 
-              para entregar a solucao que seu negocio precisa.
-            </p>
-            <div className="flex flex-wrap gap-4">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-primary" />
-                <span>Implantacao rapida</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-primary" />
-                <span>Suporte brasileiro</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-primary" />
-                <span>Sem fidelidade</span>
-              </div>
-            </div>
+            {metrics.map((metric, index) => (
+              <motion.div
+                key={index}
+                className="text-center"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                viewport={{ once: true }}
+                data-testid={`metric-${index}`}
+              >
+                <div className="text-4xl md:text-5xl font-bold text-primary mb-2" data-testid={`metric-value-${index}`}>
+                  <AnimatedCounter value={metric.value} suffix={metric.suffix} prefix={metric.prefix || ""} />
+                </div>
+                <p className="text-muted-foreground" data-testid={`metric-label-${index}`}>{metric.label}</p>
+              </motion.div>
+            ))}
           </motion.div>
         </div>
       </section>
 
-      {/* Missing Link Section */}
-      <section id="features" className="py-20 px-4">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <Badge className="mb-4" variant="secondary">Visao Geral</Badge>
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">O "Missing Link" do Varejo Brasileiro</h2>
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              O EleveaOne nao e apenas mais um sistema de gestao. E a camada de inteligencia que faltava sobre o seu ERP. 
-              Enquanto seu ERP (Tiny, Bling, Linx) cuida do "backoffice" - nota fiscal, estoque fiscal, financeiro basico - 
-              o EleveaOne cuida do que realmente importa: <strong>Front-Office</strong>.
+      {/* Features Section */}
+      <section id="recursos" className="py-24 relative">
+        <div className="container mx-auto px-4">
+          <motion.div
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+          >
+            <Badge variant="secondary" className="mb-4">Recursos</Badge>
+            <h2 className="text-3xl md:text-5xl font-bold mb-6">
+              Tudo que você precisa para{" "}
+              <span className="text-primary">vender mais</span>
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Uma plataforma completa que integra metas, pessoas e clientes 
+              em um único lugar inteligente.
             </p>
-          </div>
+          </motion.div>
 
-          {/* ERP vs EleveaOne Comparison */}
-          <div className="grid md:grid-cols-2 gap-8 mb-16">
-            {erpComparison.map((col, index) => (
-              <Card key={index} className={col.isErp ? "border-muted" : "border-primary/30 bg-primary/5"}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
-                    {col.isErp ? <Database className="h-6 w-6 text-muted-foreground" /> : <Rocket className="h-6 w-6 text-primary" />}
-                    {col.label}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3">
-                    {col.items.map((item, i) => (
-                      <li key={i} className="flex items-center gap-3">
-                        <Check className={`h-5 w-5 ${col.isErp ? 'text-muted-foreground' : 'text-primary'}`} />
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {features.map((feature, index) => (
+              <motion.div
+                key={index}
+                className="group relative p-8 rounded-2xl bg-card/50 backdrop-blur-sm border border-border/50 hover:border-primary/30 transition-all duration-300"
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                viewport={{ once: true }}
+                whileHover={{ y: -5 }}
+                data-testid={`feature-card-${index}`}
+              >
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors">
+                  <feature.icon className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-semibold mb-3">{feature.title}</h3>
+                <p className="text-muted-foreground">{feature.description}</p>
+              </motion.div>
             ))}
-          </div>
-
-          <div className="glass rounded-xl p-6 md:p-8 text-center">
-            <p className="text-lg">
-              A maioria das lojas tem um ERP para notas fiscais e talvez uma planilha Excel para metas. 
-              O EleveaOne preenche essa lacuna critica, <strong className="text-primary">unificando vendas, pessoas e clientes</strong> em uma unica plataforma inteligente.
-            </p>
           </div>
         </div>
       </section>
 
-      {/* Why Choose Section */}
-      <section className="py-20 px-4 bg-muted/30">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <Badge className="mb-4" variant="secondary">Por que EleveaOne?</Badge>
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">Por que Escolher o EleveaOne?</h2>
-          </div>
-
-          <div className="space-y-12">
-            {whyChoose.map((item, index) => (
-              <Card key={index} className="overflow-hidden">
-                <CardContent className="p-6 md:p-8">
-                  <div className="flex items-start gap-4 mb-6">
-                    <div className="h-14 w-14 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 text-primary">
-                      {item.icon}
+      {/* Dashboard Section */}
+      <section className="py-24 relative overflow-hidden">
+        <div className="container mx-auto px-4">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+            >
+              <Badge variant="secondary" className="mb-4">Dashboard</Badge>
+              <h2 className="text-3xl md:text-5xl font-bold mb-6">
+                Controle total na{" "}
+                <span className="text-primary">palma da mão</span>
+              </h2>
+              <p className="text-lg text-muted-foreground mb-8">
+                Acompanhe vendas, metas e performance da sua equipe em tempo real. 
+                Dashboards intuitivos para gerentes e visão consolidada para administradores.
+              </p>
+              
+              <div className="space-y-4">
+                {[
+                  "Visualização em tempo real de todas as métricas",
+                  "Comparativos de performance entre lojas",
+                  "Alertas automáticos de metas e indicadores",
+                  "Exportação de relatórios em PDF e Excel"
+                ].map((item, index) => (
+                  <motion.div
+                    key={index}
+                    className="flex items-center gap-3"
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.4, delay: index * 0.1 }}
+                    viewport={{ once: true }}
+                  >
+                    <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                      <Check className="w-4 h-4 text-primary" />
                     </div>
-                    <div>
-                      <h3 className="text-xl md:text-2xl font-bold mb-2">{item.title}</h3>
-                      <p className="text-muted-foreground">{item.description}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-3 pl-0 md:pl-18">
-                    {item.features.map((feature, i) => (
-                      <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                        <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                        <span className="text-sm md:text-base">{feature}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          <div className="mt-12 glass rounded-xl p-6 text-center">
-            <p className="text-lg">
-              Mais controle para voce, mais transparencia com suas colaboradoras. Com nosso sistema elas ficarao cientes de tudo que ja foi descontado e esta previsto para descontar nos proximos meses.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Real-time Control Section */}
-      <section className="py-20 px-4">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <Badge className="mb-4" variant="secondary">Controle Total</Badge>
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">Controle Absoluto em Tempo Real</h2>
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              O EleveaOne foi desenhado para que o dono ou gerente tenha controle absoluto sobre o que acontece na loja, 
-              sem precisar estar presente fisicamente.
-            </p>
-          </div>
-
-          <div className="grid lg:grid-cols-2 gap-8 mb-12">
-            {/* Notifications */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <MessageSquare className="h-6 w-6 text-primary" />
-                  Notificacoes Direto no Seu WhatsApp
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {notifications.map((notif, index) => (
-                  <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-primary">
-                      {notif.icon}
-                    </div>
-                    <div>
-                      <h4 className="font-semibold">{notif.title}</h4>
-                      <p className="text-sm text-muted-foreground">{notif.desc}</p>
-                    </div>
-                  </div>
+                    <span>{item}</span>
+                  </motion.div>
                 ))}
-              </CardContent>
-            </Card>
-
-            {/* Benefits Grid */}
-            <div className="grid grid-cols-2 gap-4">
-              {notificationBenefits.map((benefit, index) => (
-                <Card key={index} className="hover-elevate">
-                  <CardContent className="p-5 text-center">
-                    <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-3 text-primary">
-                      {benefit.icon}
-                    </div>
-                    <h4 className="font-semibold mb-2">{benefit.title}</h4>
-                    <p className="text-xs text-muted-foreground">{benefit.desc}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Admin Dashboard Section */}
-      <section className="py-20 px-4 bg-muted/30">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <Badge className="mb-4" variant="secondary">Dashboard Admin</Badge>
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">Dashboard Admin: Comando Centralizado</h2>
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              O centro de comando para redes de lojas. Gerencie 1 ou 100 lojas com a mesma facilidade. 
-              Todas as ferramentas que voce precisa para maximizar resultados, em um unico lugar.
-            </p>
-          </div>
-
-          {/* Laptop Mockup - CSS */}
-          <div className="flex justify-center mb-12">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6 }}
-              viewport={{ once: true }}
-              className="relative max-w-2xl w-full"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-foreground/5 to-foreground/10 rounded-3xl blur-3xl" />
-              {/* CSS Laptop Mockup */}
-              <div className="relative bg-card rounded-xl border border-border shadow-2xl p-1">
-                <div className="bg-muted/50 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-3 h-3 rounded-full bg-red-400/50" />
-                    <div className="w-3 h-3 rounded-full bg-yellow-400/50" />
-                    <div className="w-3 h-3 rounded-full bg-green-400/50" />
-                  </div>
-                  <div className="grid grid-cols-4 gap-3 mb-4">
-                    {[1,2,3,4].map(i => (
-                      <div key={i} className="p-3 rounded-lg bg-card/80 space-y-2">
-                        <div className="h-6 w-12 bg-primary/20 rounded" />
-                        <div className="h-2 w-16 bg-muted rounded" />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="h-32 rounded-lg bg-gradient-to-r from-primary/10 to-primary/5 flex items-end p-3 gap-2">
-                    {[35, 55, 40, 70, 50, 65, 45, 80].map((h, i) => (
-                      <div key={i} className="flex-1 bg-primary/30 rounded-t" style={{height: `${h}%`}} />
-                    ))}
-                  </div>
-                </div>
               </div>
             </motion.div>
-          </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {adminDashboardFeatures.map((feature, index) => (
-              <Card key={index} className="hover-elevate">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold">
-                      {feature.num}
-                    </div>
-                    <CardTitle className="text-lg">{feature.title}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {feature.items.map((item, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm">
-                        <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                        <span className="text-muted-foreground">{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Store Dashboard Section */}
-      <section className="py-20 px-4">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <Badge className="mb-4" variant="secondary">Dashboard da Loja</Badge>
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">Dashboard da Loja: Poder na Ponta</h2>
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              A ferramenta diaria da gerente e das vendedoras. Interface limpa, rapida e focada em uma coisa: <strong>vender mais</strong>.
-            </p>
-          </div>
-
-          {/* Mobile App Mockup - CSS */}
-          <div className="flex justify-center mb-12">
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              viewport={{ once: true }}
               className="relative"
+              initial={{ opacity: 0, x: 50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-foreground/10 to-foreground/5 rounded-full blur-3xl scale-150" />
-              {/* CSS Phone Mockup */}
-              <div className="relative w-48 bg-card rounded-3xl border-4 border-foreground/10 shadow-2xl p-2">
-                <div className="bg-muted/50 rounded-2xl p-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="h-3 w-16 bg-muted rounded" />
-                    <div className="w-6 h-6 rounded-full bg-primary/20" />
-                  </div>
-                  <div className="h-20 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 p-2">
-                    <div className="flex items-end h-full gap-1">
-                      {[40, 60, 35, 75, 50].map((h, i) => (
-                        <div key={i} className="flex-1 bg-primary/40 rounded-t" style={{height: `${h}%`}} />
-                      ))}
-                    </div>
-                  </div>
-                  {[1,2,3].map(i => (
-                    <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-card/80">
-                      <div className="w-8 h-8 rounded-full bg-primary/20" />
-                      <div className="flex-1 space-y-1">
-                        <div className="h-2 w-12 bg-muted rounded" />
-                        <div className="h-2 w-8 bg-muted/50 rounded" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <img 
+                src={dashboardImage} 
+                alt="Dashboard EleveaOne" 
+                className="w-full rounded-2xl shadow-2xl"
+              />
             </motion.div>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {storeDashboardFeatures.map((feature, index) => (
-              <Card key={index} className="hover-elevate">
-                <CardContent className="p-6">
-                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 text-primary">
-                    {feature.icon}
-                  </div>
-                  <h3 className="font-semibold mb-3">{feature.title}</h3>
-                  {feature.items ? (
-                    <ul className="space-y-2">
-                      {feature.items.map((item, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                          <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">{feature.desc}</p>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
           </div>
         </div>
       </section>
 
       {/* WhatsApp Section */}
-      <section className="py-20 px-4 bg-muted/30">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <Badge className="mb-4" variant="secondary">WhatsApp Profissional</Badge>
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">WhatsApp: Sua Nova Maquina de Vendas</h2>
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              O EleveaOne transforma o WhatsApp em uma ferramenta de vendas profissional, automatizada e extremamente eficaz.
-            </p>
-          </div>
-
-          {/* WhatsApp Mockup - CSS */}
-          <div className="flex justify-center mb-12">
+      <section className="py-24 relative bg-gradient-to-b from-transparent via-primary/5 to-transparent">
+        <div className="container mx-auto px-4">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
+              className="order-2 lg:order-1 relative"
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6 }}
               viewport={{ once: true }}
-              className="relative max-w-md w-full"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-primary/10 rounded-3xl blur-3xl" />
-              {/* CSS WhatsApp Chat Mockup */}
-              <div className="relative bg-card rounded-2xl border border-border shadow-2xl overflow-hidden">
-                <div className="bg-green-600/90 dark:bg-green-700/90 p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-white/20" />
+              <img 
+                src={whatsappImage} 
+                alt="WhatsApp Automation" 
+                className="w-full rounded-2xl shadow-2xl"
+              />
+            </motion.div>
+
+            <motion.div
+              className="order-1 lg:order-2"
+              initial={{ opacity: 0, x: 50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+            >
+              <Badge variant="secondary" className="mb-4 gap-2">
+                <MessageSquare className="w-3 h-3" />
+                WhatsApp Profissional
+              </Badge>
+              <h2 className="text-3xl md:text-5xl font-bold mb-6">
+                Transforme conversas em{" "}
+                <span className="text-primary">vendas</span>
+              </h2>
+              <p className="text-lg text-muted-foreground mb-8">
+                Automatize notificações de cashback, campanhas de marketing e 
+                recuperação de clientes inativos diretamente pelo WhatsApp.
+              </p>
+              
+              <div className="space-y-6">
+                <div className="flex gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                    <Zap className="w-6 h-6 text-green-500" />
+                  </div>
                   <div>
-                    <div className="h-4 w-24 bg-white/80 rounded" />
-                    <div className="h-2 w-16 bg-white/50 rounded mt-1" />
+                    <h4 className="font-semibold mb-1">Notificações Automáticas</h4>
+                    <p className="text-muted-foreground text-sm">
+                      Cashback gerado, aniversários e alertas de compra enviados automaticamente.
+                    </p>
                   </div>
                 </div>
-                <div className="p-4 space-y-3 bg-muted/30">
-                  <div className="flex justify-end">
-                    <div className="bg-green-100 dark:bg-green-900/50 rounded-xl rounded-br-none p-3 max-w-[80%]">
-                      <div className="h-3 w-32 bg-foreground/20 rounded" />
-                      <div className="h-3 w-24 bg-foreground/10 rounded mt-2" />
-                    </div>
+                
+                <div className="flex gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    <Users className="w-6 h-6 text-primary" />
                   </div>
-                  <div className="flex justify-start">
-                    <div className="bg-card rounded-xl rounded-bl-none p-3 max-w-[80%] border border-border">
-                      <div className="h-3 w-40 bg-foreground/20 rounded" />
-                      <div className="h-3 w-28 bg-foreground/10 rounded mt-2" />
-                    </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Campanhas Segmentadas</h4>
+                    <p className="text-muted-foreground text-sm">
+                      Envie ofertas personalizadas baseadas no histórico de compras.
+                    </p>
                   </div>
-                  <div className="flex justify-end">
-                    <div className="bg-green-100 dark:bg-green-900/50 rounded-xl rounded-br-none p-3 max-w-[80%]">
-                      <div className="h-3 w-36 bg-foreground/20 rounded" />
-                    </div>
+                </div>
+                
+                <div className="flex gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                    <Shield className="w-6 h-6 text-amber-500" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Envio Seguro</h4>
+                    <p className="text-muted-foreground text-sm">
+                      Rotação de números e delays inteligentes para proteger suas contas.
+                    </p>
                   </div>
                 </div>
               </div>
             </motion.div>
           </div>
-
-          <div className="grid lg:grid-cols-2 gap-8 mb-12">
-            {/* Transactional Notifications */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Notificacoes Transacionais (Automaticas)</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {whatsappTransactional.map((item, index) => (
-                  <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                    <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    <span className="text-sm">{item.text}</span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Campaigns */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Campanhas de Marketing (Bulk Sender)</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {whatsappCampaigns.map((item, index) => (
-                  <div key={index} className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 text-primary">
-                      {item.icon}
-                    </div>
-                    <div>
-                      <h4 className="font-semibold">{item.title}</h4>
-                      <p className="text-sm text-muted-foreground">{item.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </section>
 
-      {/* Onboarding Section */}
-      <section className="py-20 px-4">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <Badge className="mb-4" variant="secondary">Onboarding Rapido</Badge>
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">Comece em Minutos, Nao em Meses</h2>
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              Diferente de ERPs tradicionais que levam semanas para implantar, o EleveaOne e Plug & Play. 
-              Voce pode estar operacional no mesmo dia.
-            </p>
-          </div>
+      {/* Mobile App Section */}
+      <section className="py-24 relative">
+        <div className="container mx-auto px-4">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+            >
+              <Badge variant="secondary" className="mb-4 gap-2">
+                <Store className="w-3 h-3" />
+                Aplicativo Mobile
+              </Badge>
+              <h2 className="text-3xl md:text-5xl font-bold mb-6">
+                Sua loja no{" "}
+                <span className="text-primary">bolso</span>
+              </h2>
+              <p className="text-lg text-muted-foreground mb-8">
+                Acesse métricas, registre ponto e acompanhe metas de qualquer lugar. 
+                Interface otimizada para vendedoras e gerentes em movimento.
+              </p>
+              
+              <Link to="/login">
+                <Button size="lg" className="gap-2" data-testid="button-mobile-cta">
+                  Experimentar Agora <ChevronRight className="w-5 h-5" />
+                </Button>
+              </Link>
+            </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8 mb-16">
-            {onboardingSteps.map((step, index) => (
-              <div key={index} className="text-center">
-                <div className="h-16 w-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-2xl font-bold mx-auto mb-4">
-                  {step.num}
-                </div>
-                <h3 className="text-xl font-semibold mb-3">{step.title}</h3>
-                <p className="text-muted-foreground">{step.desc}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Security */}
-          <div className="glass rounded-xl p-8">
-            <h3 className="text-2xl font-bold text-center mb-8">Seguranca de Nivel Bancario</h3>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {securityFeatures.map((feature, index) => (
-                <div key={index} className="text-center">
-                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-3 text-primary">
-                    {feature.icon}
-                  </div>
-                  <h4 className="font-semibold mb-2">{feature.title}</h4>
-                  <p className="text-sm text-muted-foreground">{feature.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Roadmap Section */}
-      <section className="py-20 px-4 bg-muted/30">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <Badge className="mb-4" variant="secondary">Inovacao Continua</Badge>
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">O Futuro do Varejo Esta Aqui</h2>
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              Estamos construindo o futuro do varejo brasileiro. Veja o que esta no nosso roadmap de inovacao:
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            {roadmapItems.map((item, index) => (
-              <Card key={index} className="hover-elevate">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shrink-0">
-                      <Brain className="h-6 w-6 text-primary-foreground" />
-                    </div>
-                    <div>
-                      <Badge variant="secondary" className="mb-2">{item.quarter}</Badge>
-                      <h3 className="font-semibold text-lg mb-2">{item.title}</h3>
-                      <p className="text-sm text-muted-foreground">{item.desc}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Comparison Section */}
-      <section className="py-20 px-4">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <Badge className="mb-4" variant="secondary">Comparativo</Badge>
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">Compare: EleveaOne vs Stack Separado</h2>
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              Montar uma infraestrutura equivalente ao EleveaOne usando ferramentas separadas custa entre R$ 764 e R$ 2.659 por mes 
-              - isso para apenas 1 loja e poucos usuarios. E ainda ha o custo oculto de integrar tudo isso.
-            </p>
-          </div>
-
-          {/* Cost bars */}
-          <Card className="mb-12">
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                {stackComparison.map((item, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>{item.name}</span>
-                      <span className="text-muted-foreground">R$ {item.min} - R$ {item.max}</span>
-                    </div>
-                    <div className="h-3 bg-muted rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-destructive/60 to-destructive rounded-full"
-                        style={{ width: `${(item.max / 900) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Comparison Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card className="text-center border-destructive/30">
-              <CardContent className="p-6">
-                <div className="text-3xl font-bold text-destructive mb-1">R$ 764</div>
-                <div className="text-sm text-muted-foreground">Custo Minimo Mensal</div>
-                <div className="text-xs text-muted-foreground mt-1">Stack separado (cenario conservador)</div>
-              </CardContent>
-            </Card>
-            <Card className="text-center border-destructive/30">
-              <CardContent className="p-6">
-                <div className="text-3xl font-bold text-destructive mb-1">R$ 2.659</div>
-                <div className="text-sm text-muted-foreground">Custo Maximo Mensal</div>
-                <div className="text-xs text-muted-foreground mt-1">Stack separado (cenario realista)</div>
-              </CardContent>
-            </Card>
-            <Card className="text-center border-primary/30 bg-primary/5">
-              <CardContent className="p-6">
-                <div className="text-3xl font-bold text-primary mb-1">R$ 499</div>
-                <div className="text-sm text-muted-foreground">EleveaOne Business</div>
-                <div className="text-xs text-muted-foreground mt-1">Tudo incluido, ate 3 lojas</div>
-              </CardContent>
-            </Card>
-            <Card className="text-center border-primary/30 bg-primary/5">
-              <CardContent className="p-6">
-                <div className="text-3xl font-bold text-primary mb-1">70%</div>
-                <div className="text-sm text-muted-foreground">Economia Potencial</div>
-                <div className="text-xs text-muted-foreground mt-1">Comparado ao stack separado</div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="mt-8 glass rounded-xl p-6 text-center">
-            <p className="text-lg">
-              <strong>ROI Comprovado:</strong> O EleveaOne unifica todos esses componentes em um unico produto com auditoria integrada, 
-              eliminando integracoes frageis e dispersao de dados. Economia de 50-70% vs stack separado + ganho operacional massivo por centralizacao.
-            </p>
+            <motion.div
+              className="relative flex justify-center"
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+            >
+              <motion.img 
+                src={mobileImage} 
+                alt="Mobile App EleveaOne" 
+                className="w-64 rounded-3xl shadow-2xl"
+                animate={{ y: [0, -15, 0] }}
+                transition={{ duration: 5, repeat: Infinity }}
+              />
+            </motion.div>
           </div>
         </div>
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-20 px-4 bg-muted/30">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <Badge className="mb-4" variant="secondary">Planos e Precos</Badge>
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">Planos para Cada Etapa do Seu Crescimento</h2>
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              Escolha o plano adequado a sua operacao atual - voce pode escalar a qualquer momento conforme seu negocio cresce.
+      <section id="precos" className="py-24 relative">
+        <div className="container mx-auto px-4">
+          <motion.div
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+          >
+            <Badge variant="secondary" className="mb-4">Preços</Badge>
+            <h2 className="text-3xl md:text-5xl font-bold mb-6">
+              Planos que cabem no seu{" "}
+              <span className="text-primary">bolso</span>
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Escolha o plano ideal para o tamanho da sua operação. 
+              Todos incluem 14 dias de teste grátis.
             </p>
-          </div>
+          </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {plans.map((plan, index) => (
-              <Card 
-                key={index} 
-                className={`relative ${plan.popular ? 'border-primary border-2 shadow-lg' : ''}`}
+              <motion.div
+                key={index}
+                className={`relative p-8 rounded-2xl border transition-all duration-300 ${
+                  plan.popular 
+                    ? "bg-primary/5 border-primary/30 scale-105" 
+                    : "bg-card/50 border-border/50 hover:border-primary/20"
+                }`}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                viewport={{ once: true }}
               >
                 {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-primary text-primary-foreground px-4 py-1">
-                      <Star className="h-3 w-3 mr-1" />
-                      Mais Popular
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <Badge className="gap-1">
+                      <Star className="w-3 h-3" /> Mais Popular
                     </Badge>
                   </div>
                 )}
-                <CardHeader className="text-center pb-4">
-                  <CardTitle className="text-xl">{plan.name}</CardTitle>
-                  <div className="mt-4">
-                    <span className="text-4xl font-bold">{plan.price}</span>
-                    <span className="text-muted-foreground">{plan.period}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-2">{plan.description}</p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <ul className="space-y-3">
-                    {plan.features.map((feature, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm">
-                        <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                    {plan.notIncluded.map((item, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                        <XCircle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                        <span>Nao incluso: {item}</span>
-                      </li>
-                    ))}
-                  </ul>
+                
+                <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
+                <p className="text-muted-foreground text-sm mb-6">{plan.description}</p>
+                
+                <div className="mb-6">
+                  <span className="text-4xl font-bold">R$ {plan.price}</span>
+                  <span className="text-muted-foreground">/mês</span>
+                </div>
+                
+                <ul className="space-y-3 mb-8">
+                  {plan.features.map((feature, i) => (
+                    <li key={i} className="flex items-center gap-3">
+                      <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                      <span className="text-sm">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                
+                <a href={plan.href} target="_blank" rel="noopener noreferrer" className="block">
                   <Button 
-                    className="w-full" 
+                    className="w-full gap-2" 
                     variant={plan.popular ? "default" : "outline"}
-                    onClick={() => window.open(plan.checkoutUrl, '_blank')}
                     data-testid={`button-plan-${plan.name.toLowerCase()}`}
                   >
-                    {plan.cta}
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                    {plan.cta} <ArrowRight className="w-4 h-4" />
                   </Button>
-                </CardContent>
-              </Card>
+                </a>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* FAQ Section */}
-      <section className="py-20 px-4">
-        <div className="container mx-auto max-w-4xl">
-          <div className="text-center mb-16">
-            <Badge className="mb-4" variant="secondary">FAQ</Badge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-6">Perguntas Frequentes</h2>
-          </div>
-
-          <div className="space-y-4">
-            {faqs.map((faq, index) => (
-              <Card 
-                key={index} 
-                className="cursor-pointer hover-elevate"
-                onClick={() => setOpenFaq(openFaq === index ? null : index)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <h3 className="font-semibold">{faq.q}</h3>
-                    <ChevronDown className={`h-5 w-5 shrink-0 transition-transform ${openFaq === index ? 'rotate-180' : ''}`} />
-                  </div>
-                  {openFaq === index && (
-                    <p className="mt-4 text-muted-foreground">{faq.a}</p>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Contact Section */}
-      <section id="contact" className="py-20 px-4 bg-muted/30">
-        <div className="container mx-auto max-w-4xl text-center">
-          <Badge className="mb-4" variant="secondary">Contato</Badge>
-          <h2 className="text-3xl md:text-5xl font-bold mb-6">Entre em Contato</h2>
-          <p className="text-lg text-muted-foreground mb-12">
-            Fale conosco e comece sua transformacao digital hoje mesmo.
-          </p>
-
-          <div className="grid sm:grid-cols-3 gap-6 mb-12">
-            <Card className="hover-elevate">
-              <CardContent className="p-6 text-center">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-4 text-primary">
-                  <Mail className="h-6 w-6" />
-                </div>
-                <h3 className="font-semibold mb-2">E-mail</h3>
-                <a href="mailto:suporte@eleveaone.com.br" className="text-primary hover:underline">
-                  suporte@eleveaone.com.br
-                </a>
-              </CardContent>
-            </Card>
-            <Card className="hover-elevate">
-              <CardContent className="p-6 text-center">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-4 text-primary">
-                  <Phone className="h-6 w-6" />
-                </div>
-                <h3 className="font-semibold mb-2">WhatsApp</h3>
-                <a href="https://wa.me/5596981032928" className="text-primary hover:underline">
-                  (96) 98103-2928
-                </a>
-              </CardContent>
-            </Card>
-            <Card className="hover-elevate">
-              <CardContent className="p-6 text-center">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-4 text-primary">
-                  <Globe className="h-6 w-6" />
-                </div>
-                <h3 className="font-semibold mb-2">Website</h3>
-                <a href="https://eleveaone.com.br" className="text-primary hover:underline">
-                  eleveaone.com.br
-                </a>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Button size="lg" onClick={() => navigate('/login')} className="text-lg px-8" data-testid="button-final-cta">
-            Comecar Minha Transformacao Digital
-            <ArrowRight className="ml-2 h-5 w-5" />
-          </Button>
+      {/* CTA Section */}
+      <section className="py-24 relative">
+        <div className="container mx-auto px-4">
+          <motion.div
+            className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-primary to-purple-600 p-12 md:p-20 text-center"
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+          >
+            <div className="absolute inset-0 opacity-30">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.2),transparent)]" />
+            </div>
+            
+            <div className="relative z-10">
+              <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
+                Pronto para transformar seu varejo?
+              </h2>
+              <p className="text-xl text-white/80 mb-8 max-w-2xl mx-auto">
+                Junte-se a mais de 150 lojas que já estão vendendo mais com o EleveaOne.
+              </p>
+              <div className="flex flex-wrap justify-center gap-4">
+                <Link to="/login">
+                  <Button size="lg" variant="secondary" className="gap-2 text-lg px-8" data-testid="button-cta-start">
+                    Começar Gratuitamente <ArrowRight className="w-5 h-5" />
+                  </Button>
+                </Link>
+                <Button size="lg" variant="outline" className="gap-2 text-lg px-8 bg-white/10 border-white/30 text-white hover:bg-white/20" data-testid="button-cta-sales">
+                  <Phone className="w-5 h-5" /> Falar com Vendas
+                </Button>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-12 px-4 border-t">
-        <div className="container mx-auto max-w-6xl">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-md bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
-                <Sparkles className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <span className="font-bold">EleveaOne</span>
+      <footer id="contato" className="py-16 border-t border-border/50">
+        <div className="container mx-auto px-4">
+          <div className="grid md:grid-cols-4 gap-12 mb-12">
+            <div>
+              <Link to="/" className="flex items-center gap-2 mb-4" data-testid="link-footer-logo">
+                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-primary-foreground" />
+                </div>
+                <span className="font-bold text-xl">EleveaOne</span>
+              </Link>
+              <p className="text-muted-foreground text-sm">
+                A plataforma completa para gestão de varejo brasileiro.
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground text-center">
-              EleveaOne - Tecnologia que vende.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              2024 Todos os direitos reservados.
-            </p>
+            
+            <div>
+              <h4 className="font-semibold mb-4">Produto</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><a href="#recursos" className="hover:text-foreground transition-colors" data-testid="link-footer-recursos">Recursos</a></li>
+                <li><a href="#precos" className="hover:text-foreground transition-colors" data-testid="link-footer-precos">Preços</a></li>
+                <li><Link to="/login" className="hover:text-foreground transition-colors" data-testid="link-footer-login">Login</Link></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-4">Empresa</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><a href="#" className="hover:text-foreground transition-colors" data-testid="link-footer-sobre">Sobre nós</a></li>
+                <li><a href="#" className="hover:text-foreground transition-colors" data-testid="link-footer-blog">Blog</a></li>
+                <li><a href="#" className="hover:text-foreground transition-colors" data-testid="link-footer-carreiras">Carreiras</a></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-4">Contato</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li className="flex items-center gap-2">
+                  <Mail className="w-4 h-4" />
+                  contato@eleveaone.com.br
+                </li>
+                <li className="flex items-center gap-2">
+                  <Phone className="w-4 h-4" />
+                  (11) 99999-9999
+                </li>
+                <li className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  São Paulo, Brasil
+                </li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="pt-8 border-t border-border/50 text-center text-sm text-muted-foreground">
+            <p>&copy; {new Date().getFullYear()} EleveaOne. Todos os direitos reservados.</p>
           </div>
         </div>
       </footer>
