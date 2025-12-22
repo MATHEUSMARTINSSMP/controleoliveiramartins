@@ -112,6 +112,18 @@ export function useSiteData() {
         products_description: formData.products_description || null,
         differentials: formData.differentials || null,
         
+        slogan: formData.slogan || null,
+        tagline: formData.tagline || null,
+        founding_year: formData.founding_year ? parseInt(formData.founding_year) : null,
+        team_size: formData.team_size || null,
+        awards: formData.awards || null,
+        certifications: formData.certifications || null,
+        
+        featured_products: formData.featured_products || [],
+        featured_services: formData.featured_services || [],
+        special_offers: formData.special_offers || [],
+        testimonials: formData.testimonials || [],
+        
         whatsapp: formData.whatsapp || null,
         phone: formData.phone || null,
         email: formData.email || null,
@@ -125,20 +137,28 @@ export function useSiteData() {
         address_city: formData.address_city || null,
         address_state: formData.address_state || null,
         address_zip: formData.address_zip || null,
+        google_maps_embed: formData.google_maps_embed || null,
+        latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+        longitude: formData.longitude ? parseFloat(formData.longitude) : null,
         
         business_hours: formData.business_hours,
         
         color_primary: formData.color_primary || '#8B5CF6',
         color_secondary: formData.color_secondary || '#1F2937',
         color_accent: formData.color_accent || '#10B981',
-        color_background: '#FFFFFF',
+        color_background: formData.color_background || '#FFFFFF',
         font_primary: 'Inter',
         font_secondary: 'Inter',
         visual_style: 'moderno',
         
+        logo_url: formData.logo_url || null,
+        hero_image_url: formData.hero_image_url || null,
         gallery_images: [],
         product_images: [],
         ambient_images: [],
+        
+        cta_button_text: formData.cta_button_text || null,
+        cta_whatsapp_message: formData.cta_whatsapp_message || null,
         
         status: 'draft'
       };
