@@ -351,8 +351,8 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden relative">
-      {/* Antigravity-Style Animated Background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+      {/* Antigravity-Style Animated Background - Behind all content */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         {/* Base gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted/20" />
         
@@ -587,7 +587,6 @@ export default function Landing() {
             transition={{ duration: 0.8, delay: 0.4 }}
           >
             <div className="relative rounded-xl overflow-hidden shadow-2xl border border-border/50 bg-card">
-              <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent z-10" />
               {/* CSS Dashboard Mockup */}
               <div className="p-4 space-y-4">
                 <div className="flex items-center gap-4 pb-4 border-b border-border">
@@ -686,21 +685,15 @@ export default function Landing() {
       </section>
 
       {/* Visual Store Section */}
-      <section className="py-20 px-4 relative overflow-hidden">
-        <div className="absolute inset-0">
-          {/* CSS Wave Pattern */}
-          <div 
-            className="absolute inset-0 opacity-[0.05] dark:opacity-[0.1]"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%239C92AC' fill-opacity='0.4' d='M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,181.3C960,181,1056,235,1152,234.7C1248,235,1344,181,1392,154.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E")`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'bottom',
-            }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/90 to-background/70" />
-        </div>
-        <div className="container mx-auto max-w-6xl relative z-10">
-          <div className="max-w-2xl">
+      <section className="py-20 px-4 relative overflow-hidden bg-muted/30">
+        <div className="container mx-auto max-w-6xl">
+          <motion.div 
+            className="max-w-2xl"
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+          >
             <Badge className="mb-4" variant="secondary">Transforme seu Varejo</Badge>
             <h2 className="text-3xl md:text-5xl font-bold mb-6">
               Tecnologia que <span className="text-primary">transforma</span> resultados
