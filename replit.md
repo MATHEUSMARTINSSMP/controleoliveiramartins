@@ -46,6 +46,9 @@ The system is built with a modern web stack, emphasizing a chic, minimalist, and
         -   One site per tenant with 30-day reset cooldown (cooldown applies to reset, not creation)
         -   Site status workflow: draft → generating → published → archived
         -   Netlify deployment integration with GitHub repository creation
+        -   **HTML Template System**: Modern responsive templates with CSS variables for colors, dynamic sections for services/products, contact info, and business hours
+        -   **Site Preview**: Real-time preview with desktop/mobile modes using secure iframe sandbox
+        -   **HTML Export**: Download generated HTML for offline use or manual deployment
 
 ## External Dependencies
 -   **Supabase**: Core backend for database (PostgreSQL), authentication, and Edge Functions.
