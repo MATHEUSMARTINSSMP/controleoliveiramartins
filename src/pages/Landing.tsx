@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ThemeToggleSimple } from "@/components/theme-toggle";
 import { 
   ArrowRight, 
   Check, 
@@ -390,7 +391,8 @@ export default function Landing() {
             <a href="#pricing" className="hover:text-primary transition-colors" data-testid="link-pricing">Precos</a>
             <a href="#contact" className="hover:text-primary transition-colors" data-testid="link-contact">Contato</a>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <ThemeToggleSimple />
             <Button variant="ghost" onClick={() => navigate('/login')} data-testid="button-login">
               Entrar
             </Button>
