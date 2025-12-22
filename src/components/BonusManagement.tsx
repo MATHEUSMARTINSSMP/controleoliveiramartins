@@ -99,6 +99,130 @@ function parsePreRequisitosTiposFromDB(preRequisitos: any): string[] {
     return preReqs.map(pr => getPreRequisitoTipo(pr));
 }
 
+// Função para formatar a descrição da condição do bônus
+function formatBonusCondition(bonus: any): string {
+    // Condições Básicas (Rankings)
+    if ((bonus as any).categoria_condicao === "BASICA" || (bonus as any).condicao_tipo) {
+        const condicao_tipo = (bonus as any).condicao_tipo;
+        const condicao_ranking = (bonus as any).condicao_ranking;
+        const condicao_faturamento = (bonus as any).condicao_faturamento;
+
+        if (condicao_tipo === "FATURAMENTO") {
+            if (condicao_faturamento) {
+                // Valor Fixo
+                const valor = formatBRL(parseFloat(condicao_faturamento));
+                const rankingText = condicao_ranking === "TODAS" 
+                    ? "Todas que atingirem" 
+                    : condicao_ranking === "1" 
+                        ? "Apenas a melhor (1º lugar)"
+                        : `Top ${condicao_ranking}`;
+                return `${rankingText} R$ ${valor} em faturamento`;
+            } else if (condicao_ranking) {
+                // Ranking
+                const rankingText = condicao_ranking === "1" ? "1º lugar" : `Top ${condicao_ranking}`;
+                return `Ranking: ${rankingText} em faturamento`;
+            }
+        } else if (condicao_tipo === "TICKET_MEDIO") {
+            const rankingText = condicao_ranking === "TODAS" 
+                ? "Todas que atingirem" 
+                : condicao_ranking === "1" 
+                    ? "Apenas a melhor (1º lugar)"
+                    : `Top ${condicao_ranking}`;
+            return `${rankingText} maior ticket médio`;
+        } else if (condicao_tipo === "PA") {
+            const rankingText = condicao_ranking === "TODAS" 
+                ? "Todas que atingirem" 
+                : condicao_ranking === "1" 
+                    ? "Apenas a melhor (1º lugar)"
+                    : `Top ${condicao_ranking}`;
+            return `${rankingText} melhor PA (Peças por Atendimento)`;
+        }
+    }
+
+    // Filtros Avançados (Metas)
+    if ((bonus as any).categoria_condicao === "AVANCADA" || (bonus as any).condicao_meta_tipo) {
+        const condicao_escopo = (bonus as any).condicao_escopo;
+        const condicao_meta_tipo = (bonus as any).condicao_meta_tipo;
+        const condicao_faturamento = (bonus as any).condicao_faturamento;
+        const condicao_ranking = (bonus as any).condicao_ranking;
+
+        const escopoText = condicao_escopo === "LOJA" ? "Loja" : "Colaboradora";
+
+        if (condicao_meta_tipo === "FATURAMENTO") {
+            if (condicao_faturamento) {
+                const valor = formatBRL(parseFloat(condicao_faturamento));
+                const rankingText = condicao_ranking === "TODAS" 
+                    ? "Todas que atingirem" 
+                    : condicao_ranking === "1" 
+                        ? "Apenas a melhor"
+                        : `Top ${condicao_ranking}`;
+                return `${rankingText} ${escopoText.toLowerCase()} que atingir R$ ${valor} em faturamento`;
+            } else if (condicao_ranking) {
+                const rankingText = condicao_ranking === "1" ? "1º lugar" : `Top ${condicao_ranking}`;
+                return `Ranking: ${rankingText} ${escopoText.toLowerCase()} em faturamento`;
+            }
+        } else if (condicao_meta_tipo) {
+            const metaTypes: Record<string, string> = {
+                "META_MENSAL": "Meta Mensal",
+                "META_SEMANAL": "Meta Semanal",
+                "META_DIARIA": "Meta Diária",
+                "SUPER_META_MENSAL": "Super Meta Mensal",
+                "SUPER_META_SEMANAL": "Super Meta Semanal",
+                "SUPER_META": "Super Meta",
+                "GINCANA_SEMANAL": "Gincana Semanal",
+                "SUPER_GINCANA_SEMANAL": "Super Gincana Semanal",
+            };
+            const metaText = metaTypes[condicao_meta_tipo] || condicao_meta_tipo;
+            return `Atingir 100% da ${metaText} da ${escopoText.toLowerCase()}`;
+        }
+    }
+
+    // Condições legadas (fallback)
+    if (bonus.tipo_condicao === 'PERCENTUAL_META' && bonus.meta_minima_percentual) {
+        return `Atingir ${bonus.meta_minima_percentual}% da Meta`;
+    }
+    if (bonus.tipo_condicao === 'RANKING' && bonus.valor_condicao) {
+        return `Ficar em ${bonus.valor_condicao}º Lugar`;
+    }
+    if (bonus.tipo_condicao === 'VALOR_FIXO_VENDAS' && bonus.vendas_minimas) {
+        return `Vender ${formatBRL(bonus.vendas_minimas)}`;
+    }
+    if (bonus.tipo_condicao === 'META_SEMANAL') {
+        return `🎯 Atingir 100% da Gincana Semanal`;
+    }
+    if (bonus.tipo_condicao === 'SUPER_META_SEMANAL') {
+        return `🏆 Atingir 100% da Super Gincana Semanal`;
+    }
+
+    return "Condição não especificada";
+}
+
+// Função para formatar o período do bônus
+function formatBonusPeriod(bonus: any): string | null {
+    const periodo_tipo = (bonus as any).periodo_tipo;
+    
+    if (periodo_tipo === "MES_ATUAL") {
+        return "Mês Atual";
+    }
+    if (periodo_tipo === "CUSTOM" && (bonus as any).periodo_data_inicio && (bonus as any).periodo_data_fim) {
+        const inicio = new Date((bonus as any).periodo_data_inicio).toLocaleDateString('pt-BR');
+        const fim = new Date((bonus as any).periodo_data_fim).toLocaleDateString('pt-BR');
+        return `${inicio} a ${fim}`;
+    }
+    if (periodo_tipo === "MES" && (bonus as any).periodo_mes) {
+        const mes = (bonus as any).periodo_mes;
+        const ano = mes.substring(0, 4);
+        const mesNum = mes.substring(4, 6);
+        const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+        return `${meses[parseInt(mesNum) - 1]} ${ano}`;
+    }
+    if (periodo_tipo === "SEMANA" && (bonus as any).periodo_semana) {
+        return `Semana ${(bonus as any).periodo_semana}`;
+    }
+    
+    return null;
+}
+
 interface Bonus {
     id: string;
     nome: string;
@@ -195,7 +319,28 @@ export default function BonusManagement() {
             }
 
             if (data) {
-                setBonuses(data as any);
+                // Buscar contagem de colaboradoras para cada bônus
+                const bonusesWithCounts = await Promise.all(
+                    data.map(async (bonus: any) => {
+                        const { count, error: countError } = await supabase
+                            .schema("sistemaretiradas")
+                            .from("bonus_collaborators")
+                            .select("*", { count: "exact", head: true })
+                            .eq("bonus_id", bonus.id)
+                            .eq("active", true);
+                        
+                        if (countError) {
+                            console.error(`Error counting collaborators for bonus ${bonus.id}:`, countError);
+                        }
+                        
+                        return {
+                            ...bonus,
+                            colaboradoras_count: count || 0
+                        };
+                    })
+                );
+                
+                setBonuses(bonusesWithCounts as any);
             }
         } catch (err) {
             console.error("Exception fetching bonuses:", err);
@@ -211,7 +356,7 @@ export default function BonusManagement() {
         if (data) setStores(data);
     };
 
-    const fetchCollaborators = async (storeId: string) => {
+    const fetchCollaborators = async (storeId: string, preserveSelected: boolean = false) => {
         if (!storeId) {
             setAvailableCollaborators([]);
             setAvailableCollaboratorsByStore({});
@@ -220,13 +365,16 @@ export default function BonusManagement() {
 
         setLoadingCollaborators(true);
         try {
+            // Preservar colaboradores selecionados se preserveSelected for true
+            const previousSelected = preserveSelected ? selectedCollaborators : [];
             if (storeId === "TODAS") {
                 // Buscar todas as colaboradoras de todas as lojas, agrupadas por loja
+                // Incluir também ADMIN e SUPER_ADMIN para permitir selecionar qualquer perfil
                 const { data: allCollaborators, error } = await supabase
                     .schema("sistemaretiradas")
                     .from("profiles")
-                    .select("id, name, is_active, store_id")
-                    .eq("role", "COLABORADORA")
+                    .select("id, name, is_active, store_id, role")
+                    .in("role", ["COLABORADORA", "ADMIN", "SUPER_ADMIN"])
                     .eq("is_active", true)
                     .order("name");
 
@@ -275,17 +423,19 @@ export default function BonusManagement() {
                 setAvailableCollaborators(allColabs);
 
                 // Se estiver criando um novo bônus, selecionar todas por padrão
-                if (!editingBonus) {
+                // Mas NÃO sobrescrever se preserveSelected for true (quando editando)
+                if (!preserveSelected && !editingBonus) {
                     setSelectedCollaborators(allColabs.map(c => c.id));
                 }
             } else {
                 // Buscar colaboradoras de uma loja específica
+                // Incluir também ADMIN e SUPER_ADMIN para permitir selecionar qualquer perfil
                 const { data, error } = await supabase
                     .schema("sistemaretiradas")
                     .from("profiles")
-                    .select("id, name, is_active")
+                    .select("id, name, is_active, role")
                     .eq("store_id", storeId)
-                    .eq("role", "COLABORADORA")
+                    .in("role", ["COLABORADORA", "ADMIN", "SUPER_ADMIN"])
                     .eq("is_active", true)
                     .order("name");
 
@@ -294,7 +444,8 @@ export default function BonusManagement() {
                 setAvailableCollaboratorsByStore({});
 
                 // Se estiver criando um novo bônus, selecionar todas por padrão
-                if (!editingBonus) {
+                // Mas NÃO sobrescrever se preserveSelected for true (quando editando)
+                if (!preserveSelected && !editingBonus) {
                     setSelectedCollaborators(data?.map(c => c.id) || []);
                 }
             }
@@ -958,18 +1109,25 @@ export default function BonusManagement() {
             pre_requisitos_tipos: parsePreRequisitosTiposFromDB((bonus as any).pre_requisitos),
         });
 
-        // Carregar colaboradoras vinculadas
-        if (bonus.store_id) {
-            const { data } = await supabase
-                .schema("sistemaretiradas")
-                .from("bonus_collaborators")
-                .select("colaboradora_id")
-                .eq("bonus_id", bonus.id)
-                .eq("active", true);
+        // Primeiro carregar os colaboradores selecionados do banco
+        const { data: bonusCollaborators } = await supabase
+            .schema("sistemaretiradas")
+            .from("bonus_collaborators")
+            .select("colaboradora_id")
+            .eq("bonus_id", bonus.id)
+            .eq("active", true);
 
-            if (data) {
-                setSelectedCollaborators(data.map(d => d.colaboradora_id));
-            }
+        const selectedIds = bonusCollaborators && bonusCollaborators.length > 0
+            ? bonusCollaborators.map((d: any) => d.colaboradora_id).filter(Boolean)
+            : [];
+
+        // Definir os colaboradores selecionados ANTES de buscar as colaboradoras disponíveis
+        // Isso evita que o fetchCollaborators sobrescreva com "selecionar todas"
+        setSelectedCollaborators(selectedIds);
+
+        // Agora buscar as colaboradoras disponíveis, preservando os selecionados
+        if (bonus.store_id) {
+            await fetchCollaborators(bonus.store_id || "TODAS", true);
         }
 
         setDialogOpen(true);
@@ -1348,40 +1506,72 @@ export default function BonusManagement() {
                                     {bonus.ativo ? "Ativo" : "Inativo"}
                                 </Badge>
                             </CardHeader>
-                            <CardContent className="space-y-2 text-xs sm:text-sm p-3 sm:p-6 pt-0 sm:pt-0">
-                                <p className="text-muted-foreground text-xs sm:text-sm">{bonus.descricao || "Sem descrição"}</p>
-                                <div className="grid grid-cols-2 gap-2 mt-2">
-                                    <div className="bg-muted p-2 rounded">
-                                        <span className="text-[10px] sm:text-xs text-muted-foreground block">Tipo</span>
-                                        <span className="font-medium text-xs sm:text-sm truncate">{bonus.tipo || "VALOR_FIXO"}</span>
+                            <CardContent className="space-y-3 text-xs sm:text-sm p-3 sm:p-6 pt-0 sm:pt-0">
+                                {bonus.descricao && (
+                                    <p className="text-muted-foreground text-xs sm:text-sm">{bonus.descricao}</p>
+                                )}
+                                
+                                {/* Loja */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">Loja:</span>
+                                    <span className="font-semibold text-xs sm:text-sm">
+                                        {bonus.store_id && bonus.store_id !== "TODAS" 
+                                            ? (bonus.stores?.name || "Não especificada")
+                                            : "Todas as lojas"}
+                                    </span>
+                                </div>
+
+                                {/* Colaboradoras Participantes */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">Participantes:</span>
+                                    <span className="font-semibold text-xs sm:text-sm">
+                                        {(bonus as any).colaboradoras_count > 0 
+                                            ? `${(bonus as any).colaboradoras_count} colaboradora${(bonus as any).colaboradoras_count > 1 ? 's' : ''}`
+                                            : "Não especificadas"}
+                                    </span>
+                                </div>
+
+                                {/* Condição */}
+                                <div className="bg-muted/70 p-2.5 rounded-lg border">
+                                    <span className="text-[10px] sm:text-xs text-muted-foreground block mb-1 font-medium">Condição:</span>
+                                    <span className="font-semibold text-xs sm:text-sm text-foreground leading-relaxed">
+                                        {formatBonusCondition(bonus)}
+                                    </span>
+                                </div>
+
+                                {/* Período */}
+                                {formatBonusPeriod(bonus) && (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">Período:</span>
+                                        <span className="font-semibold text-xs sm:text-sm">{formatBonusPeriod(bonus)}</span>
                                     </div>
-                                    <div className="bg-muted p-2 rounded">
-                                        <span className="text-[10px] sm:text-xs text-muted-foreground block">Valor Bônus</span>
-                                        <span className="font-medium text-status-ahead text-xs sm:text-sm">
-                                            {(bonus as any).valor_bonus_texto
-                                                ? (bonus as any).valor_bonus_texto
+                                )}
+
+                                {/* Valor do Bônus */}
+                                <div className="bg-primary/10 p-2.5 rounded-lg border border-primary/20">
+                                    <span className="text-[10px] sm:text-xs text-muted-foreground block mb-1 font-medium">Valor do Bônus:</span>
+                                    <span className="font-bold text-sm sm:text-base text-primary">
+                                        {(bonus as any).valor_bonus_texto
+                                            ? (bonus as any).valor_bonus_texto
+                                            : (bonus as any).valor_bonus_1 || (bonus as any).valor_bonus_2 || (bonus as any).valor_bonus_3
+                                                ? (() => {
+                                                    const premios: string[] = [];
+                                                    if ((bonus as any).valor_bonus_1) {
+                                                        premios.push(`1º: ${formatBRL((bonus as any).valor_bonus_1)}`);
+                                                    }
+                                                    if ((bonus as any).valor_bonus_2) {
+                                                        premios.push(`2º: ${formatBRL((bonus as any).valor_bonus_2)}`);
+                                                    }
+                                                    if ((bonus as any).valor_bonus_3) {
+                                                        premios.push(`3º: ${formatBRL((bonus as any).valor_bonus_3)}`);
+                                                    }
+                                                    return premios.join(" | ");
+                                                })()
                                                 : bonus.tipo === 'PERCENTUAL'
                                                     ? `${bonus.valor_bonus}%`
                                                     : formatBRL(bonus.valor_bonus)}
-                                        </span>
-                                    </div>
-                                    <div className="bg-muted p-2 rounded col-span-2">
-                                        <span className="text-[10px] sm:text-xs text-muted-foreground block">Condição</span>
-                                        <span className="font-medium text-xs sm:text-sm">
-                                            {bonus.tipo_condicao === 'PERCENTUAL_META' && bonus.meta_minima_percentual && `Atingir ${bonus.meta_minima_percentual}% da Meta`}
-                                            {bonus.tipo_condicao === 'RANKING' && `Ficar em ${bonus.valor_condicao || bonus.meta_minima_percentual}º Lugar`}
-                                            {bonus.tipo_condicao === 'VALOR_FIXO_VENDAS' && bonus.vendas_minimas && `Vender ${formatBRL(bonus.vendas_minimas)}`}
-                                            {bonus.tipo_condicao === 'META_SEMANAL' && `🎯 Atingir 100% da Gincana Semanal`}
-                                            {bonus.tipo_condicao === 'SUPER_META_SEMANAL' && `🏆 Atingir 100% da Super Gincana Semanal (não cumulativo)`}
-                                            {!bonus.tipo_condicao && bonus.meta_minima_percentual && `Atingir ${bonus.meta_minima_percentual}% da Meta`}
-                                        </span>
-                                    </div>
+                                    </span>
                                 </div>
-                                {bonus.stores?.name && (
-                                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-2">
-                                        <strong>Loja:</strong> {bonus.stores.name}
-                                </p>
-                                )}
                             </CardContent>
                             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-center justify-center bg-black/20 transition-opacity rounded-lg gap-2">
                                 <Button size="sm" variant="outline" onClick={() => handleEdit(bonus)}>
@@ -1994,9 +2184,14 @@ export default function BonusManagement() {
                                                                         />
                                                                         <label
                                                                             htmlFor={`colab-${colab.id}`}
-                                                                            className="text-xs sm:text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                                                            className="text-xs sm:text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-2"
                                                                         >
-                                                                            {colab.name}
+                                                                            <span>{colab.name}</span>
+                                                                            {colab.role && colab.role !== "COLABORADORA" && (
+                                                                                <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+                                                                                    {colab.role === "ADMIN" ? "ADMIN" : colab.role === "SUPER_ADMIN" ? "SUPER" : colab.role}
+                                                                                </Badge>
+                                                                            )}
                                                                         </label>
                                                                     </div>
                                                                 ))}
@@ -2027,9 +2222,14 @@ export default function BonusManagement() {
                                                     />
                                                     <label
                                                         htmlFor={`colab-${colab.id}`}
-                                                        className="text-xs sm:text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                                        className="text-xs sm:text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-2"
                                                     >
-                                                        {colab.name}
+                                                        <span>{colab.name}</span>
+                                                        {colab.role && colab.role !== "COLABORADORA" && (
+                                                            <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+                                                                {colab.role === "ADMIN" ? "ADMIN" : colab.role === "SUPER_ADMIN" ? "SUPER" : colab.role}
+                                                            </Badge>
+                                                        )}
                                                     </label>
                                                 </div>
                                             ))}
