@@ -71,21 +71,6 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import retailStoreImage from '@assets/generated_images/luxury_retail_store_interior.png';
-import dashboardImage from '@assets/generated_images/dashboard_analytics_screen.png';
-import teamImage from '@assets/generated_images/professional_team_collaboration.png';
-import gradientBgImage from '@assets/generated_images/abstract_gradient_mesh_background.png';
-import mobileAppImage from '@assets/generated_images/mobile_app_dashboard_mockup.png';
-import geometricShapesImage from '@assets/generated_images/3d_geometric_floating_shapes.png';
-import laptopWorkspaceImage from '@assets/generated_images/laptop_analytics_workspace.png';
-import posTerminalImage from '@assets/generated_images/pos_terminal_retail.png';
-import whatsappImage from '@assets/generated_images/whatsapp_business_notification.png';
-import neutralWavesImage from '@assets/generated_images/neutral_abstract_gradient_waves.png';
-import neutralSpheresImage from '@assets/generated_images/neutral_3d_geometric_spheres.png';
-import neutralMeshImage from '@assets/generated_images/neutral_data_network_mesh.png';
-import neutralLaptopImage from '@assets/generated_images/neutral_laptop_mockup.png';
-import neutralPhoneImage from '@assets/generated_images/neutral_smartphone_mockup.png';
-import glassMorphismImage from '@assets/generated_images/glass_morphism_floating_cards.png';
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -371,39 +356,11 @@ export default function Landing() {
         {/* Base gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted/20" />
         
-        {/* Neutral floating spheres - works in both themes */}
-        <motion.div
-          className="absolute inset-0 opacity-[0.08] dark:opacity-[0.15]"
+        {/* SVG mesh pattern - works in both themes */}
+        <div 
+          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.08]"
           style={{
-            backgroundImage: `url(${neutralSpheresImage})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            mixBlendMode: 'multiply',
-          }}
-          animate={{
-            scale: [1, 1.05, 1],
-            opacity: [0.08, 0.12, 0.08],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-        <motion.div
-          className="absolute inset-0 opacity-[0.06] dark:opacity-[0.12] dark:mix-blend-screen"
-          style={{
-            backgroundImage: `url(${neutralMeshImage})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          }}
-          animate={{
-            scale: [1, 1.03, 1],
-          }}
-          transition={{
-            duration: 30,
-            repeat: Infinity,
-            ease: "easeInOut"
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg stroke='%239C92AC' stroke-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
           }}
         />
         
@@ -622,20 +579,57 @@ export default function Landing() {
             </Button>
           </motion.div>
 
-          {/* Dashboard Preview Image */}
+          {/* Dashboard Preview - CSS Mockup */}
           <motion.div 
             className="relative max-w-5xl mx-auto mb-16"
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
           >
-            <div className="relative rounded-xl overflow-hidden shadow-2xl border border-border/50">
+            <div className="relative rounded-xl overflow-hidden shadow-2xl border border-border/50 bg-card">
               <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent z-10" />
-              <img 
-                src={dashboardImage} 
-                alt="EleveaOne Dashboard" 
-                className="w-full h-auto"
-              />
+              {/* CSS Dashboard Mockup */}
+              <div className="p-4 space-y-4">
+                <div className="flex items-center gap-4 pb-4 border-b border-border">
+                  <div className="w-10 h-10 rounded-lg bg-primary/20" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-32 bg-muted rounded" />
+                    <div className="h-3 w-48 bg-muted/50 rounded" />
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="w-8 h-8 rounded-full bg-muted" />
+                    <div className="w-8 h-8 rounded-full bg-muted" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 gap-4">
+                  {[1,2,3,4].map(i => (
+                    <div key={i} className="p-4 rounded-lg bg-muted/30 space-y-2">
+                      <div className="h-8 w-16 bg-primary/20 rounded" />
+                      <div className="h-3 w-20 bg-muted rounded" />
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-2 h-48 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 p-4">
+                    <div className="flex items-end h-full gap-2">
+                      {[40, 65, 45, 80, 55, 70, 60, 85, 50].map((h, i) => (
+                        <div key={i} className="flex-1 bg-primary/30 rounded-t" style={{height: `${h}%`}} />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {[1,2,3,4].map(i => (
+                      <div key={i} className="p-3 rounded-lg bg-muted/30 flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary/20" />
+                        <div className="flex-1 space-y-1">
+                          <div className="h-3 w-16 bg-muted rounded" />
+                          <div className="h-2 w-12 bg-muted/50 rounded" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
             {/* Floating accent elements */}
             <div className="absolute -top-4 -right-4 w-24 h-24 bg-primary/20 rounded-full blur-2xl" />
@@ -694,10 +688,14 @@ export default function Landing() {
       {/* Visual Store Section */}
       <section className="py-20 px-4 relative overflow-hidden">
         <div className="absolute inset-0">
-          <img 
-            src={neutralWavesImage} 
-            alt="Abstract waves background" 
-            className="w-full h-full object-cover dark:invert dark:opacity-20 opacity-30"
+          {/* CSS Wave Pattern */}
+          <div 
+            className="absolute inset-0 opacity-[0.05] dark:opacity-[0.1]"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%239C92AC' fill-opacity='0.4' d='M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,181.3C960,181,1056,235,1152,234.7C1248,235,1344,181,1392,154.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E")`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'bottom',
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/90 to-background/70" />
         </div>
@@ -884,7 +882,7 @@ export default function Landing() {
             </p>
           </div>
 
-          {/* Laptop Showcase - Neutral */}
+          {/* Laptop Mockup - CSS */}
           <div className="flex justify-center mb-12">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -894,11 +892,29 @@ export default function Landing() {
               className="relative max-w-2xl w-full"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-foreground/5 to-foreground/10 rounded-3xl blur-3xl" />
-              <img 
-                src={neutralLaptopImage} 
-                alt="Dashboard Admin" 
-                className="relative w-full h-auto object-contain drop-shadow-2xl dark:brightness-90"
-              />
+              {/* CSS Laptop Mockup */}
+              <div className="relative bg-card rounded-xl border border-border shadow-2xl p-1">
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-3 h-3 rounded-full bg-red-400/50" />
+                    <div className="w-3 h-3 rounded-full bg-yellow-400/50" />
+                    <div className="w-3 h-3 rounded-full bg-green-400/50" />
+                  </div>
+                  <div className="grid grid-cols-4 gap-3 mb-4">
+                    {[1,2,3,4].map(i => (
+                      <div key={i} className="p-3 rounded-lg bg-card/80 space-y-2">
+                        <div className="h-6 w-12 bg-primary/20 rounded" />
+                        <div className="h-2 w-16 bg-muted rounded" />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="h-32 rounded-lg bg-gradient-to-r from-primary/10 to-primary/5 flex items-end p-3 gap-2">
+                    {[35, 55, 40, 70, 50, 65, 45, 80].map((h, i) => (
+                      <div key={i} className="flex-1 bg-primary/30 rounded-t" style={{height: `${h}%`}} />
+                    ))}
+                  </div>
+                </div>
+              </div>
             </motion.div>
           </div>
 
@@ -940,7 +956,7 @@ export default function Landing() {
             </p>
           </div>
 
-          {/* Mobile App Showcase - Neutral */}
+          {/* Mobile App Mockup - CSS */}
           <div className="flex justify-center mb-12">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
@@ -950,11 +966,31 @@ export default function Landing() {
               className="relative"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-foreground/10 to-foreground/5 rounded-full blur-3xl scale-150" />
-              <img 
-                src={neutralPhoneImage} 
-                alt="App Mobile Dashboard" 
-                className="relative w-72 h-72 object-contain drop-shadow-2xl dark:brightness-90 dark:contrast-110"
-              />
+              {/* CSS Phone Mockup */}
+              <div className="relative w-48 bg-card rounded-3xl border-4 border-foreground/10 shadow-2xl p-2">
+                <div className="bg-muted/50 rounded-2xl p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="h-3 w-16 bg-muted rounded" />
+                    <div className="w-6 h-6 rounded-full bg-primary/20" />
+                  </div>
+                  <div className="h-20 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 p-2">
+                    <div className="flex items-end h-full gap-1">
+                      {[40, 60, 35, 75, 50].map((h, i) => (
+                        <div key={i} className="flex-1 bg-primary/40 rounded-t" style={{height: `${h}%`}} />
+                      ))}
+                    </div>
+                  </div>
+                  {[1,2,3].map(i => (
+                    <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-card/80">
+                      <div className="w-8 h-8 rounded-full bg-primary/20" />
+                      <div className="flex-1 space-y-1">
+                        <div className="h-2 w-12 bg-muted rounded" />
+                        <div className="h-2 w-8 bg-muted/50 rounded" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </motion.div>
           </div>
 
@@ -996,21 +1032,45 @@ export default function Landing() {
             </p>
           </div>
 
-          {/* Glass Morphism Cards Image - Neutral */}
+          {/* WhatsApp Mockup - CSS */}
           <div className="flex justify-center mb-12">
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               whileInView={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6 }}
               viewport={{ once: true }}
-              className="relative max-w-lg w-full"
+              className="relative max-w-md w-full"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-foreground/5 to-foreground/10 rounded-3xl blur-3xl" />
-              <img 
-                src={glassMorphismImage} 
-                alt="Automacao WhatsApp" 
-                className="relative w-full h-auto object-contain rounded-2xl shadow-2xl dark:brightness-90"
-              />
+              <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-primary/10 rounded-3xl blur-3xl" />
+              {/* CSS WhatsApp Chat Mockup */}
+              <div className="relative bg-card rounded-2xl border border-border shadow-2xl overflow-hidden">
+                <div className="bg-green-600/90 dark:bg-green-700/90 p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white/20" />
+                  <div>
+                    <div className="h-4 w-24 bg-white/80 rounded" />
+                    <div className="h-2 w-16 bg-white/50 rounded mt-1" />
+                  </div>
+                </div>
+                <div className="p-4 space-y-3 bg-muted/30">
+                  <div className="flex justify-end">
+                    <div className="bg-green-100 dark:bg-green-900/50 rounded-xl rounded-br-none p-3 max-w-[80%]">
+                      <div className="h-3 w-32 bg-foreground/20 rounded" />
+                      <div className="h-3 w-24 bg-foreground/10 rounded mt-2" />
+                    </div>
+                  </div>
+                  <div className="flex justify-start">
+                    <div className="bg-card rounded-xl rounded-bl-none p-3 max-w-[80%] border border-border">
+                      <div className="h-3 w-40 bg-foreground/20 rounded" />
+                      <div className="h-3 w-28 bg-foreground/10 rounded mt-2" />
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <div className="bg-green-100 dark:bg-green-900/50 rounded-xl rounded-br-none p-3 max-w-[80%]">
+                      <div className="h-3 w-36 bg-foreground/20 rounded" />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </motion.div>
           </div>
 
