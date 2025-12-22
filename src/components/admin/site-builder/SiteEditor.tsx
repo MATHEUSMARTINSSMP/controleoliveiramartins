@@ -25,7 +25,8 @@ import {
   Loader2,
   Rocket,
   Eye,
-  Settings
+  Settings,
+  Sparkles
 } from "lucide-react";
 import { useSiteData } from "./useSiteData";
 import { SitePreview } from "./SitePreview";
@@ -38,9 +39,11 @@ export function SiteEditor() {
     site, 
     canReset, 
     resetSite, 
-    triggerDeploy, 
+    triggerDeploy,
+    generateContent,
     isResetting, 
     isDeploying,
+    isGenerating,
     refetch
   } = useSiteData();
   
@@ -76,8 +79,21 @@ export function SiteEditor() {
         <div className="flex items-center gap-2">
           {getStatusBadge(site.status)}
           <Button
+            variant="outline"
+            onClick={() => generateContent()}
+            disabled={isGenerating || isDeploying}
+            data-testid="button-generate-ai"
+          >
+            {isGenerating ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4 mr-2" />
+            )}
+            Gerar com IA
+          </Button>
+          <Button
             onClick={() => triggerDeploy()}
-            disabled={isDeploying}
+            disabled={isDeploying || isGenerating}
             data-testid="button-deploy-header"
           >
             {isDeploying ? (

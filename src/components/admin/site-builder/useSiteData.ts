@@ -372,6 +372,119 @@ export function useSiteData() {
     }
   });
   
+  const generateContentMutation = useMutation({
+    mutationFn: async () => {
+      if (!site) {
+        throw new Error("Site não encontrado");
+      }
+      
+      const webhookUrl = import.meta.env.VITE_N8N_BASE_URL;
+      const authHeader = import.meta.env.VITE_N8N_AUTH_HEADER;
+      
+      if (!webhookUrl) {
+        throw new Error("Configuração de geração não encontrada");
+      }
+      
+      await supabase
+        .schema('sistemaretiradas')
+        .from('sites')
+        .update({ status: 'generating' } as any)
+        .eq('id', site.id as any);
+      
+      const response = await fetch(`${webhookUrl}/elevea-sites/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-APP-KEY': authHeader || ''
+        },
+        body: JSON.stringify({
+          site_slug: site.slug,
+          business_type: site.business_type,
+          segment_id: site.segment_id,
+          segment_name: site.segment_name,
+          area_id: site.area_id || '',
+          area_name: site.area_name || '',
+          custom_area: site.custom_area || '',
+          content_type: site.content_type,
+          voice_tone: site.voice_tone,
+          company_name: site.company_name,
+          company_description: site.company_description || '',
+          company_history: site.company_history || '',
+          mission: site.mission || '',
+          vision: site.vision || '',
+          company_values: site.company_values || '',
+          services_description: site.services_description || '',
+          products_description: site.products_description || '',
+          differentials: site.differentials || '',
+          whatsapp: site.whatsapp || '',
+          phone: site.phone || '',
+          email: site.email || '',
+          instagram: site.instagram || '',
+          facebook: site.facebook || '',
+          address_street: site.address_street || '',
+          address_number: site.address_number || '',
+          address_complement: site.address_complement || '',
+          address_neighborhood: site.address_neighborhood || '',
+          address_city: site.address_city || '',
+          address_state: site.address_state || '',
+          address_zip: site.address_zip || '',
+          business_hours: site.business_hours,
+          color_primary: site.color_primary,
+          color_secondary: site.color_secondary,
+          color_accent: site.color_accent,
+          github_owner: site.github_full_name?.split('/')[0] || 'eleveaone',
+          github_repo: site.github_full_name?.split('/')[1] || site.slug
+        })
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        await supabase
+          .schema('sistemaretiradas')
+          .from('sites')
+          .update({ status: 'error' } as any)
+          .eq('id', site.id as any);
+        throw new Error(`Falha ao gerar conteúdo: ${errorText}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        const { error: updateError } = await supabase
+          .schema('sistemaretiradas')
+          .from('sites')
+          .update({
+            status: 'published',
+            generated_at: new Date().toISOString()
+          } as any)
+          .eq('id', site.id as any);
+        
+        if (updateError) {
+          console.error('Erro ao atualizar status:', updateError);
+        }
+      }
+      
+      return result;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['site', tenantId] });
+      toast({
+        title: "Conteúdo gerado",
+        description: data.netlify_url 
+          ? `Site publicado: ${data.netlify_url}` 
+          : "O site foi gerado com sucesso pela IA!"
+      });
+    },
+    onError: (error: Error) => {
+      queryClient.invalidateQueries({ queryKey: ['site', tenantId] });
+      toast({
+        title: "Erro na geração",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+  
   return {
     site,
     isLoading,
@@ -383,9 +496,11 @@ export function useSiteData() {
     updateSite: updateSiteMutation.mutateAsync,
     resetSite: resetSiteMutation.mutateAsync,
     triggerDeploy: triggerDeployMutation.mutateAsync,
+    generateContent: generateContentMutation.mutateAsync,
     isCreating: createSiteMutation.isPending,
     isUpdating: updateSiteMutation.isPending,
     isResetting: resetSiteMutation.isPending,
-    isDeploying: triggerDeployMutation.isPending
+    isDeploying: triggerDeployMutation.isPending,
+    isGenerating: generateContentMutation.isPending
   };
 }
