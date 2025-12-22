@@ -37,6 +37,15 @@ The system is built with a modern web stack, emphasizing a chic, minimalist, and
         -   4-step campaign wizard: Filter → Template → Schedule → Review
         -   Downloadable CSV/XLSX template for custom contact import
         -   Campaign lifecycle management (pause, resume, cancel)
+    -   **EleveaOne Sites Module**: AI-powered one-page institutional website generator:
+        -   7-step onboarding wizard: Business Type → Segment → Area → Details → Contact → Visual → Review
+        -   30+ searchable business segments with contextual area selection
+        -   Dual business type support: physical (with address/hours) or digital
+        -   AI content generation via n8n webhook (X-APP-KEY authentication)
+        -   Custom domain format: sitecliente.eleveaone.com.br
+        -   One site per tenant with 30-day reset cooldown (cooldown applies to reset, not creation)
+        -   Site status workflow: draft → generating → published → archived
+        -   Netlify deployment integration with GitHub repository creation
 
 ## External Dependencies
 -   **Supabase**: Core backend for database (PostgreSQL), authentication, and Edge Functions.
