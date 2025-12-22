@@ -106,11 +106,16 @@ export function useCreatePurchase() {
 
       if (purchaseError) throw purchaseError;
 
-      // Insert parcelas
+      // Insert parcelas with the correct compra_id
+      const parcelasWithCompraId = purchaseData.parcelas.map(parcela => ({
+        ...parcela,
+        compra_id: purchase.id, // Use the newly created purchase ID
+      }));
+
       const { error: parcelasError } = await supabase
         .schema('sistemaretiradas')
         .from('parcelas')
-        .insert(purchaseData.parcelas);
+        .insert(parcelasWithCompraId);
 
       if (parcelasError) throw parcelasError;
 
