@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggleSimple } from "@/components/theme-toggle";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { 
   ArrowRight, 
   Check, 
@@ -69,6 +70,22 @@ import {
   ChartBar
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+
+import retailStoreImage from '@assets/generated_images/luxury_retail_store_interior.png';
+import dashboardImage from '@assets/generated_images/dashboard_analytics_screen.png';
+import teamImage from '@assets/generated_images/professional_team_collaboration.png';
+import gradientBgImage from '@assets/generated_images/abstract_gradient_mesh_background.png';
+import mobileAppImage from '@assets/generated_images/mobile_app_dashboard_mockup.png';
+import geometricShapesImage from '@assets/generated_images/3d_geometric_floating_shapes.png';
+import laptopWorkspaceImage from '@assets/generated_images/laptop_analytics_workspace.png';
+import posTerminalImage from '@assets/generated_images/pos_terminal_retail.png';
+import whatsappImage from '@assets/generated_images/whatsapp_business_notification.png';
+import neutralWavesImage from '@assets/generated_images/neutral_abstract_gradient_waves.png';
+import neutralSpheresImage from '@assets/generated_images/neutral_3d_geometric_spheres.png';
+import neutralMeshImage from '@assets/generated_images/neutral_data_network_mesh.png';
+import neutralLaptopImage from '@assets/generated_images/neutral_laptop_mockup.png';
+import neutralPhoneImage from '@assets/generated_images/neutral_smartphone_mockup.png';
+import glassMorphismImage from '@assets/generated_images/glass_morphism_floating_cards.png';
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -348,37 +365,183 @@ export default function Landing() {
   ];
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
-      {/* Animated Background Orbs */}
+    <div className="min-h-screen bg-background overflow-x-hidden relative">
+      {/* Antigravity-Style Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div 
-          className="absolute w-[600px] h-[600px] rounded-full opacity-30"
+        {/* Base gradient */}
+        <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted/20" />
+        
+        {/* Neutral floating spheres - works in both themes */}
+        <motion.div
+          className="absolute inset-0 opacity-[0.08] dark:opacity-[0.15]"
           style={{
-            background: 'var(--gradient-orb-1)',
+            backgroundImage: `url(${neutralSpheresImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            mixBlendMode: 'multiply',
+          }}
+          animate={{
+            scale: [1, 1.05, 1],
+            opacity: [0.08, 0.12, 0.08],
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        <motion.div
+          className="absolute inset-0 opacity-[0.06] dark:opacity-[0.12] dark:mix-blend-screen"
+          style={{
+            backgroundImage: `url(${neutralMeshImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+          animate={{
+            scale: [1, 1.03, 1],
+          }}
+          transition={{
+            duration: 30,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        
+        {/* Large floating orbs - Antigravity style */}
+        <motion.div
+          className="absolute w-[1000px] h-[1000px] rounded-full"
+          style={{
+            background: 'radial-gradient(circle, hsl(var(--primary) / 0.08) 0%, transparent 60%)',
             filter: 'blur(100px)',
-            top: '10%',
-            left: '-10%',
-            transform: `translate(${scrollY * 0.02}px, ${scrollY * 0.01}px)`
+            top: '-30%',
+            left: '-20%',
+          }}
+          animate={{
+            x: [0, 150, 75, 0],
+            y: [0, 75, 150, 0],
+            scale: [1, 1.15, 1.08, 1],
+          }}
+          transition={{
+            duration: 35,
+            repeat: Infinity,
+            ease: "easeInOut"
           }}
         />
-        <div 
-          className="absolute w-[500px] h-[500px] rounded-full opacity-25"
+        <motion.div
+          className="absolute w-[800px] h-[800px] rounded-full"
           style={{
-            background: 'var(--gradient-orb-2)',
+            background: 'radial-gradient(circle, hsl(262 60% 50% / 0.1) 0%, transparent 60%)',
             filter: 'blur(80px)',
-            top: '40%',
-            right: '-5%',
-            transform: `translate(${-scrollY * 0.015}px, ${scrollY * 0.02}px)`
+            top: '20%',
+            right: '-15%',
+          }}
+          animate={{
+            x: [0, -120, -60, 0],
+            y: [0, 100, 50, 0],
+            scale: [1, 1.2, 1.1, 1],
+          }}
+          transition={{
+            duration: 40,
+            repeat: Infinity,
+            ease: "easeInOut"
           }}
         />
-        <div 
-          className="absolute w-[400px] h-[400px] rounded-full opacity-20"
+        <motion.div
+          className="absolute w-[600px] h-[600px] rounded-full"
           style={{
-            background: 'var(--gradient-orb-3)',
+            background: 'radial-gradient(circle, hsl(38 90% 55% / 0.06) 0%, transparent 60%)',
             filter: 'blur(60px)',
-            bottom: '10%',
+            bottom: '-10%',
             left: '30%',
-            transform: `translate(${scrollY * 0.01}px, ${-scrollY * 0.015}px)`
+          }}
+          animate={{
+            x: [0, 80, 40, 0],
+            y: [0, -80, -40, 0],
+            scale: [1, 1.1, 1.05, 1],
+          }}
+          transition={{
+            duration: 28,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        <motion.div
+          className="absolute w-[500px] h-[500px] rounded-full"
+          style={{
+            background: 'radial-gradient(circle, hsl(280 50% 45% / 0.07) 0%, transparent 60%)',
+            filter: 'blur(50px)',
+            top: '50%',
+            left: '60%',
+          }}
+          animate={{
+            x: [0, -60, 30, 0],
+            y: [0, 60, -30, 0],
+            scale: [1, 1.18, 1.09, 1],
+          }}
+          transition={{
+            duration: 32,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        <motion.div
+          className="absolute w-[400px] h-[400px] rounded-full"
+          style={{
+            background: 'radial-gradient(circle, hsl(var(--primary) / 0.05) 0%, transparent 60%)',
+            filter: 'blur(40px)',
+            top: '70%',
+            left: '10%',
+          }}
+          animate={{
+            x: [0, 50, 25, 0],
+            y: [0, -50, -25, 0],
+            scale: [1, 1.12, 1.06, 1],
+          }}
+          transition={{
+            duration: 25,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        
+        {/* Floating small particles */}
+        {[...Array(6)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-2 h-2 rounded-full bg-primary/20"
+            style={{
+              top: `${20 + i * 15}%`,
+              left: `${10 + i * 15}%`,
+            }}
+            animate={{
+              y: [0, -30, 0],
+              x: [0, 15, 0],
+              opacity: [0.2, 0.5, 0.2],
+            }}
+            transition={{
+              duration: 8 + i * 2,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: i * 0.5,
+            }}
+          />
+        ))}
+        
+        {/* Subtle grid overlay for depth */}
+        <div 
+          className="absolute inset-0 opacity-[0.015] dark:opacity-[0.03]"
+          style={{
+            backgroundImage: `linear-gradient(hsl(var(--foreground)) 1px, transparent 1px),
+                              linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px)`,
+            backgroundSize: '80px 80px'
+          }}
+        />
+        
+        {/* Noise texture overlay */}
+        <div 
+          className="absolute inset-0 opacity-[0.02]"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
           }}
         />
       </div>
@@ -413,21 +576,42 @@ export default function Landing() {
       {/* Hero Section */}
       <section className="relative pt-32 pb-20 px-4">
         <div className="container mx-auto text-center max-w-5xl">
-          <Badge className="mb-6 px-4 py-2" variant="secondary">
-            <Sparkles className="h-4 w-4 mr-2" />
-            O Parceiro Perfeito para seu ERP
-          </Badge>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <Badge className="mb-6 px-4 py-2" variant="secondary">
+              <Sparkles className="h-4 w-4 mr-2" />
+              O Parceiro Perfeito para seu ERP
+            </Badge>
+          </motion.div>
           
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
+          <motion.h1 
+            className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+          >
             Solucao completa para o{' '}
             <span className="text-primary">varejo</span> que eleva a performance
-          </h1>
+          </motion.h1>
           
-          <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-3xl mx-auto">
+          <motion.p 
+            className="text-lg md:text-xl text-muted-foreground mb-8 max-w-3xl mx-auto"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
             Unindo fidelizacao de clientes, engajamento de times e automacao inteligente de tarefas operacionais e de gestao.
-          </p>
+          </motion.p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+          <motion.div 
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+          >
             <Button size="lg" onClick={() => navigate('/login')} className="text-lg px-8" data-testid="button-hero-cta">
               Comecar Agora
               <ArrowRight className="ml-2 h-5 w-5" />
@@ -436,10 +620,35 @@ export default function Landing() {
               <Play className="mr-2 h-5 w-5" />
               Ver Demonstracao
             </Button>
-          </div>
+          </motion.div>
+
+          {/* Dashboard Preview Image */}
+          <motion.div 
+            className="relative max-w-5xl mx-auto mb-16"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+          >
+            <div className="relative rounded-xl overflow-hidden shadow-2xl border border-border/50">
+              <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent z-10" />
+              <img 
+                src={dashboardImage} 
+                alt="EleveaOne Dashboard" 
+                className="w-full h-auto"
+              />
+            </div>
+            {/* Floating accent elements */}
+            <div className="absolute -top-4 -right-4 w-24 h-24 bg-primary/20 rounded-full blur-2xl" />
+            <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-primary/15 rounded-full blur-3xl" />
+          </motion.div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
+          <motion.div 
+            className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.5 }}
+          >
             <div className="glass rounded-lg p-4 text-center">
               <div className="text-3xl md:text-4xl font-bold text-primary">{animatedStats.economia}%</div>
               <div className="text-sm text-muted-foreground">Economia vs Stack Separado</div>
@@ -456,7 +665,7 @@ export default function Landing() {
               <div className="text-3xl md:text-4xl font-bold text-primary">{animatedStats.satisfacao}%</div>
               <div className="text-sm text-muted-foreground">Satisfacao</div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -478,6 +687,45 @@ export default function Landing() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Visual Store Section */}
+      <section className="py-20 px-4 relative overflow-hidden">
+        <div className="absolute inset-0">
+          <img 
+            src={neutralWavesImage} 
+            alt="Abstract waves background" 
+            className="w-full h-full object-cover dark:invert dark:opacity-20 opacity-30"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/90 to-background/70" />
+        </div>
+        <div className="container mx-auto max-w-6xl relative z-10">
+          <div className="max-w-2xl">
+            <Badge className="mb-4" variant="secondary">Transforme seu Varejo</Badge>
+            <h2 className="text-3xl md:text-5xl font-bold mb-6">
+              Tecnologia que <span className="text-primary">transforma</span> resultados
+            </h2>
+            <p className="text-lg text-muted-foreground mb-8">
+              O EleveaOne foi desenvolvido por quem entende o varejo brasileiro. 
+              Unimos anos de experiencia em gestao de lojas com tecnologia de ponta 
+              para entregar a solucao que seu negocio precisa.
+            </p>
+            <div className="flex flex-wrap gap-4">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                <span>Implantacao rapida</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                <span>Suporte brasileiro</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                <span>Sem fidelidade</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -636,6 +884,24 @@ export default function Landing() {
             </p>
           </div>
 
+          {/* Laptop Showcase - Neutral */}
+          <div className="flex justify-center mb-12">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+              className="relative max-w-2xl w-full"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-foreground/5 to-foreground/10 rounded-3xl blur-3xl" />
+              <img 
+                src={neutralLaptopImage} 
+                alt="Dashboard Admin" 
+                className="relative w-full h-auto object-contain drop-shadow-2xl dark:brightness-90"
+              />
+            </motion.div>
+          </div>
+
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {adminDashboardFeatures.map((feature, index) => (
               <Card key={index} className="hover-elevate">
@@ -674,6 +940,24 @@ export default function Landing() {
             </p>
           </div>
 
+          {/* Mobile App Showcase - Neutral */}
+          <div className="flex justify-center mb-12">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+              className="relative"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-foreground/10 to-foreground/5 rounded-full blur-3xl scale-150" />
+              <img 
+                src={neutralPhoneImage} 
+                alt="App Mobile Dashboard" 
+                className="relative w-72 h-72 object-contain drop-shadow-2xl dark:brightness-90 dark:contrast-110"
+              />
+            </motion.div>
+          </div>
+
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {storeDashboardFeatures.map((feature, index) => (
               <Card key={index} className="hover-elevate">
@@ -710,6 +994,24 @@ export default function Landing() {
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
               O EleveaOne transforma o WhatsApp em uma ferramenta de vendas profissional, automatizada e extremamente eficaz.
             </p>
+          </div>
+
+          {/* Glass Morphism Cards Image - Neutral */}
+          <div className="flex justify-center mb-12">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+              className="relative max-w-lg w-full"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-foreground/5 to-foreground/10 rounded-3xl blur-3xl" />
+              <img 
+                src={glassMorphismImage} 
+                alt="Automacao WhatsApp" 
+                className="relative w-full h-auto object-contain rounded-2xl shadow-2xl dark:brightness-90"
+              />
+            </motion.div>
           </div>
 
           <div className="grid lg:grid-cols-2 gap-8 mb-12">
