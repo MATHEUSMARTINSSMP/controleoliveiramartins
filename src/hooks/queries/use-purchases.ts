@@ -74,8 +74,6 @@ export function useCreatePurchase() {
       status_compra?: string;
       observacoes?: string | null;
       created_by_id: string;
-      cliente_id?: string | null;
-      cliente_nome?: string | null;
       parcelas: Array<{
         compra_id: string;
         n_parcela: number;
@@ -84,8 +82,8 @@ export function useCreatePurchase() {
         status_parcela: string;
       }>;
     }) => {
-      // Insert purchase
-      const insertData: any = {
+      // Insert purchase (compras de colaboradoras - sem cliente_id)
+      const insertData = {
         colaboradora_id: purchaseData.colaboradora_id,
         loja_id: purchaseData.loja_id,
         data_compra: purchaseData.data_compra,
@@ -98,14 +96,6 @@ export function useCreatePurchase() {
         observacoes: purchaseData.observacoes || null,
         created_by_id: purchaseData.created_by_id,
       };
-
-      // Adicionar cliente_id e cliente_nome se fornecidos (se a tabela tiver esses campos)
-      if (purchaseData.cliente_id !== undefined) {
-        insertData.cliente_id = purchaseData.cliente_id;
-      }
-      if (purchaseData.cliente_nome !== undefined) {
-        insertData.cliente_nome = purchaseData.cliente_nome;
-      }
 
       const { data: purchase, error: purchaseError } = await supabase
         .schema('sistemaretiradas')
