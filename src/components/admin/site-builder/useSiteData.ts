@@ -430,7 +430,16 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
         throw new Error(`Falha ao iniciar deploy: ${errorText}`);
       }
       
-      const result = await response.json();
+      const responseText = await response.text();
+      let result: any = {};
+      
+      if (responseText && responseText.trim()) {
+        try {
+          result = JSON.parse(responseText);
+        } catch (e) {
+          console.warn('Resposta do webhook não é JSON válido:', responseText);
+        }
+      }
       
       if (result.github?.url || result.netlify?.url) {
         const { error: updateError } = await supabase
@@ -631,7 +640,16 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
         throw new Error(`Falha ao gerar conteúdo: ${errorText}`);
       }
       
-      const result = await response.json();
+      const responseText = await response.text();
+      let result: any = {};
+      
+      if (responseText && responseText.trim()) {
+        try {
+          result = JSON.parse(responseText);
+        } catch (e) {
+          console.warn('Resposta do webhook não é JSON válido:', responseText);
+        }
+      }
       
       if (result.success) {
         const { error: updateError } = await supabase
@@ -800,7 +818,16 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
         throw new Error(`Falha ao editar site: ${errorText}`);
       }
       
-      const result = await response.json();
+      const responseText = await response.text();
+      let result: any = {};
+      
+      if (responseText && responseText.trim()) {
+        try {
+          result = JSON.parse(responseText);
+        } catch (e) {
+          console.warn('Resposta do webhook não é JSON válido:', responseText);
+        }
+      }
       
       if (result.success) {
         await supabase
