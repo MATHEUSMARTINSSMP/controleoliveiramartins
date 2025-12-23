@@ -39,8 +39,18 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
       if (error) throw error;
       
       const sites = data as unknown as SiteData[] || [];
-      const activeSite = sites.find(s => s.status !== 'archived');
+      let activeSite = sites.find(s => s.status !== 'archived');
       const archivedSite = sites.find(s => s.status === 'archived');
+      
+      // Auto-fix: Se o site tem netlify_url mas status está "generating", corrigir para "published"
+      if (activeSite && activeSite.status === 'generating' && activeSite.netlify_url) {
+        await supabase
+          .schema('sistemaretiradas')
+          .from('sites')
+          .update({ status: 'published' } as any)
+          .eq('id', activeSite.id as any);
+        activeSite = { ...activeSite, status: 'published' };
+      }
       
       return { site: activeSite || null, archivedSite };
     },
