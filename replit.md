@@ -74,3 +74,33 @@ The system is built with a modern web stack, emphasizing a chic, minimalist, and
 -   **React Query**: Third-party library for data fetching and state management.
 -   **XLSX, jsPDF, Recharts, html2canvas**: Libraries dynamically loaded for reporting and data visualization.
 -   **Framer Motion**: Used for UI animations.
+
+## Planned Modules
+
+### Lista da Vez (Sales Queue Management)
+Sistema de fila de prioridade de atendimento para vendedores no salao de vendas.
+
+**Status**: Planejado - Documentacao completa em `docs/lista-da-vez-spec.md`
+
+**Funcionalidades Principais**:
+- Fila em tempo real por loja (Disponivel / Em Atendimento / Indisponivel)
+- Check-in/out de turno + pausas configuráveis
+- Iniciar/transferir/finalizar atendimento
+- Registro de resultado (venda/perda) com motivos de perda
+- Rankings, metas e campanhas de gamificacao
+- Configuracao personalizada por loja (regras de fila, pausas, transferencias)
+
+**Tabelas Supabase** (em `docs/lista-da-vez-migrations.sql`):
+- `queue_sessions` - Sessoes de fila por dia/turno
+- `queue_members` - Estado atual dos vendedores na fila
+- `attendances` - Registro de atendimentos
+- `attendance_outcomes` - Resultado de cada atendimento
+- `loss_reasons` - Motivos de perda configuráveis
+- `queue_events` - Log de auditoria
+- `queue_store_settings` - Configuracoes por loja
+
+**KPIs**:
+- Taxa de conversao (vendas/atendimentos)
+- Tempo medio de atendimento
+- Motivos de perda (ranking)
+- Participacao de atendimentos/receita por vendedor
