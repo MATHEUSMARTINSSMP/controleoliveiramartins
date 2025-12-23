@@ -41,25 +41,14 @@ export function SiteOnboarding({ tenantId }: SiteOnboardingProps = {}) {
   
   const isEditMode = isPublished && !!site;
   
-  const handleStartSetup = async () => {
+  const handleStartSetup = () => {
     if (!formData.company_name.trim()) {
       setSetupError('Por favor, informe o nome da sua empresa');
       return;
     }
     
-    setSetupPhase('setting_up');
     setSetupError(null);
-    
-    try {
-      const newSite = await createSite(formData);
-      if (newSite) {
-        setSetupPhase('ready');
-      }
-    } catch (error) {
-      console.error('Erro no setup:', error);
-      setSetupError(error instanceof Error ? error.message : 'Erro ao configurar o site');
-      setSetupPhase('error');
-    }
+    setSetupPhase('ready');
   };
   
   const handleRetrySetup = () => {
@@ -105,15 +94,8 @@ export function SiteOnboarding({ tenantId }: SiteOnboardingProps = {}) {
     };
   };
 
-  const handleNext = async () => {
+  const handleNext = () => {
     if (currentStep < ONBOARDING_STEPS.length - 1) {
-      if (site) {
-        try {
-          await updateSite(sanitizeFormData(formData));
-        } catch (error) {
-          console.error('Erro ao salvar progresso:', error);
-        }
-      }
       setCurrentStep(prev => prev + 1);
     }
   };
@@ -126,15 +108,15 @@ export function SiteOnboarding({ tenantId }: SiteOnboardingProps = {}) {
   
   const handleSubmit = async () => {
     try {
-      if (site) {
-        await updateSite(sanitizeFormData(formData));
-      }
-      
       if (isEditMode) {
+        await updateSite(sanitizeFormData(formData));
         await editSite({ formData });
       } else {
-        await triggerDeploy();
-        await generateContent(formData);
+        const newSite = await createSite(sanitizeFormData(formData));
+        if (newSite) {
+          await triggerDeploy();
+          await generateContent(formData);
+        }
       }
     } catch (error) {
       console.error('Erro ao processar site:', error);
