@@ -269,6 +269,7 @@ export function ConditionalsAdjustmentsManager() {
             }
             
             // Combinar resultados e remover duplicatas
+            const allColaboradoras = [...colaboradorasAtivasPorId, ...colaboradorasAtivasPorNome];
             const uniqueColaboradoras = Array.from(
                 new Map(allColaboradoras.map(colab => [colab.id, colab])).values()
             );
