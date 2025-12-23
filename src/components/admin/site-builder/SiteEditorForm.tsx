@@ -12,10 +12,12 @@ import {
   MapPin,
   Save,
   Loader2,
-  FileText
+  FileText,
+  Image
 } from "lucide-react";
 import { useSiteData } from "./useSiteData";
-import type { SiteData, SiteFormData } from "./types";
+import { AssetManager } from "./components/AssetManager";
+import type { SiteData, SiteFormData, SiteAsset } from "./types";
 
 interface SiteEditorFormProps {
   site: SiteData;
@@ -61,13 +63,19 @@ export function SiteEditorForm({ site, tenantId, onClose }: SiteEditorFormProps)
     cta_whatsapp_message: site.cta_whatsapp_message || '',
   });
   
+  const [assets, setAssets] = useState<SiteAsset[]>(site.assets || []);
+  
   const handleChange = (field: keyof SiteFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
   
+  const handleAssetsChange = (newAssets: SiteAsset[]) => {
+    setAssets(newAssets);
+  };
+  
   const handleSave = async () => {
     if (isUpdating) return;
-    await updateSite(formData);
+    await updateSite({ ...formData, assets });
     await refetch();
     onClose();
   };
@@ -92,7 +100,7 @@ export function SiteEditorForm({ site, tenantId, onClose }: SiteEditorFormProps)
       </div>
       
       <Tabs defaultValue="empresa" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="empresa" data-testid="tab-empresa">
             <Building2 className="h-4 w-4 mr-2" />
             Empresa
@@ -104,6 +112,10 @@ export function SiteEditorForm({ site, tenantId, onClose }: SiteEditorFormProps)
           <TabsTrigger value="endereco" data-testid="tab-endereco">
             <MapPin className="h-4 w-4 mr-2" />
             Endereço
+          </TabsTrigger>
+          <TabsTrigger value="imagens" data-testid="tab-imagens">
+            <Image className="h-4 w-4 mr-2" />
+            Imagens
           </TabsTrigger>
           <TabsTrigger value="visual" data-testid="tab-visual">
             <Palette className="h-4 w-4 mr-2" />
@@ -433,6 +445,10 @@ export function SiteEditorForm({ site, tenantId, onClose }: SiteEditorFormProps)
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+        
+        <TabsContent value="imagens" className="mt-4">
+          <AssetManager assets={assets} onChange={handleAssetsChange} />
         </TabsContent>
         
         <TabsContent value="visual" className="mt-4">
