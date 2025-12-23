@@ -2,8 +2,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Palette, Image, MousePointer } from "lucide-react";
+import { Palette, Image, MousePointer, ImagePlus, Store, Package } from "lucide-react";
 import type { SiteFormData } from "../types";
+import { ImageUploadField } from "../components/ImageUploadField";
 
 interface VisualStepProps {
   formData: SiteFormData;
@@ -227,37 +228,92 @@ export function VisualStep({ formData, onChange }: VisualStepProps) {
               Imagens do Site
             </CardTitle>
             <CardDescription>
-              Adicione sua logo e imagem de destaque para personalizar o site
+              Adicione imagens para personalizar seu site. Cole URLs de imagens hospedadas (Google Drive, Imgur, etc)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <ImageUploadField
+              label="Logo da Empresa"
+              value={formData.logo_url}
+              onChange={(url, base64) => onChange({ 
+                logo_url: url,
+                logo_base64: base64 || ''
+              })}
+              placeholder="https://exemplo.com/sua-logo.png"
+              helpText="Formatos: PNG, JPG, SVG. Recomendamos fundo transparente (PNG)."
+              aspectRatio="square"
+            />
+
+            <ImageUploadField
+              label="Imagem de Destaque (Banner Principal)"
+              value={formData.hero_image_url}
+              onChange={(url, base64) => onChange({ 
+                hero_image_url: url,
+                hero_image_base64: base64 || ''
+              })}
+              placeholder="https://exemplo.com/imagem-destaque.jpg"
+              helpText="Foto do seu negocio, equipe ou produto. Aparece no topo do site. Recomendamos 1920x1080 ou maior."
+              aspectRatio="landscape"
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <ImagePlus className="h-5 w-5" />
+              Imagens de Galeria (Opcional)
+            </CardTitle>
+            <CardDescription>
+              Adicione mais fotos do seu estabelecimento, produtos ou serviços
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="logo_url">URL da Logo</Label>
-              <Input
-                id="logo_url"
-                data-testid="input-logo-url"
-                placeholder="https://exemplo.com/sua-logo.png"
-                value={formData.logo_url}
-                onChange={(e) => onChange({ logo_url: e.target.value })}
+            <div className="grid gap-4 md:grid-cols-2">
+              <ImageUploadField
+                label="Imagem da Galeria 1"
+                value={formData.gallery_image_1 || ""}
+                onChange={(url, base64) => onChange({ 
+                  gallery_image_1: url,
+                  gallery_image_1_base64: base64 || ''
+                })}
+                placeholder="https://exemplo.com/galeria1.jpg"
+                aspectRatio="landscape"
               />
-              <p className="text-xs text-muted-foreground">
-                Cole o link de uma imagem da sua logo (hospedada no Google Drive, Imgur, ou outro serviço). Formatos: PNG, JPG, SVG.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="hero_image_url">Imagem de Destaque (Banner Principal)</Label>
-              <Input
-                id="hero_image_url"
-                data-testid="input-hero-image-url"
-                placeholder="https://exemplo.com/imagem-destaque.jpg"
-                value={formData.hero_image_url}
-                onChange={(e) => onChange({ hero_image_url: e.target.value })}
+              <ImageUploadField
+                label="Imagem da Galeria 2"
+                value={formData.gallery_image_2 || ""}
+                onChange={(url, base64) => onChange({ 
+                  gallery_image_2: url,
+                  gallery_image_2_base64: base64 || ''
+                })}
+                placeholder="https://exemplo.com/galeria2.jpg"
+                aspectRatio="landscape"
               />
-              <p className="text-xs text-muted-foreground">
-                Uma foto bonita do seu negócio, equipe ou produto principal. Aparecerá no topo do site. Recomendamos imagens largas (1920x1080 ou maior).
-              </p>
+              <ImageUploadField
+                label="Imagem da Galeria 3"
+                value={formData.gallery_image_3 || ""}
+                onChange={(url, base64) => onChange({ 
+                  gallery_image_3: url,
+                  gallery_image_3_base64: base64 || ''
+                })}
+                placeholder="https://exemplo.com/galeria3.jpg"
+                aspectRatio="landscape"
+              />
+              <ImageUploadField
+                label="Imagem da Galeria 4"
+                value={formData.gallery_image_4 || ""}
+                onChange={(url, base64) => onChange({ 
+                  gallery_image_4: url,
+                  gallery_image_4_base64: base64 || ''
+                })}
+                placeholder="https://exemplo.com/galeria4.jpg"
+                aspectRatio="landscape"
+              />
             </div>
+            <p className="text-xs text-muted-foreground">
+              Estas imagens aparecem em uma galeria no site. Use fotos de alta qualidade do seu espaco, produtos ou trabalhos realizados.
+            </p>
           </CardContent>
         </Card>
 

@@ -49,6 +49,12 @@ The system is built with a modern web stack, emphasizing a chic, minimalist, and
         -   **HTML Template System**: Modern responsive templates with CSS variables for colors, dynamic sections for services/products, contact info, and business hours
         -   **Site Preview**: Real-time preview with desktop/mobile modes using secure iframe sandbox
         -   **HTML Export**: Download generated HTML for offline use or manual deployment
+        -   **Image Upload System**: Dual-mode image handling:
+            -   URL mode: Paste external image URLs (Google Drive, Imgur, etc)
+            -   Upload mode: Drag & drop or click to upload local files (max 5MB, JPG/PNG/WebP/SVG)
+            -   Images converted to Base64 and sent to n8n for GitHub upload
+            -   Gallery support: Logo, hero image, and up to 4 gallery images
+            -   Real-time preview with aspect ratio constraints
 
 ## External Dependencies
 -   **Supabase**: Core backend for database (PostgreSQL), authentication, and Edge Functions.

@@ -61,6 +61,12 @@ export function useSiteData() {
     return { allowed: false, daysRemaining: 30 - diffDays };
   };
   
+  const cleanImageUrl = (url: string | undefined | null): string | null => {
+    if (!url) return null;
+    if (url.startsWith('blob:')) return null;
+    return url;
+  };
+  
   const createSiteMutation = useMutation({
     mutationFn: async (formData: SiteFormData) => {
       if (!tenantId || !profile?.id) {
@@ -151,9 +157,14 @@ export function useSiteData() {
         font_secondary: 'Inter',
         visual_style: 'moderno',
         
-        logo_url: formData.logo_url || null,
-        hero_image_url: formData.hero_image_url || null,
-        gallery_images: [],
+        logo_url: cleanImageUrl(formData.logo_url),
+        hero_image_url: cleanImageUrl(formData.hero_image_url),
+        gallery_images: [
+          cleanImageUrl(formData.gallery_image_1),
+          cleanImageUrl(formData.gallery_image_2),
+          cleanImageUrl(formData.gallery_image_3),
+          cleanImageUrl(formData.gallery_image_4)
+        ].filter(Boolean) as string[],
         product_images: [],
         ambient_images: [],
         
@@ -200,10 +211,27 @@ export function useSiteData() {
         throw new Error("Site não encontrado");
       }
       
+      const sanitizedUpdates: Record<string, any> = {};
+      const base64Keys = ['logo_base64', 'hero_image_base64', 'gallery_image_1_base64', 'gallery_image_2_base64', 'gallery_image_3_base64', 'gallery_image_4_base64'];
+      const imageUrlKeys = ['logo_url', 'hero_image_url', 'gallery_image_1', 'gallery_image_2', 'gallery_image_3', 'gallery_image_4'];
+      
+      for (const [key, value] of Object.entries(updates)) {
+        if (base64Keys.includes(key)) continue;
+        if (imageUrlKeys.includes(key)) {
+          sanitizedUpdates[key] = cleanImageUrl(value as string);
+        } else {
+          sanitizedUpdates[key] = value;
+        }
+      }
+      
+      if (Object.keys(sanitizedUpdates).length === 0) {
+        return site;
+      }
+      
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('sites')
-        .update(updates as any)
+        .update(sanitizedUpdates as any)
         .eq('id', site.id as any)
         .select()
         .single();
@@ -393,16 +421,16 @@ export function useSiteData() {
   });
   
   const generateContentMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (formData?: SiteFormData) => {
       if (!site) {
-        throw new Error("Site não encontrado");
+        throw new Error("Site nao encontrado");
       }
       
       const webhookUrl = import.meta.env.VITE_N8N_BASE_URL;
       const authHeader = import.meta.env.VITE_N8N_AUTH_HEADER;
       
       if (!webhookUrl) {
-        throw new Error("Configuração de geração não encontrada");
+        throw new Error("Configuracao de geracao nao encontrada");
       }
       
       await supabase
@@ -414,6 +442,12 @@ export function useSiteData() {
       const addressFull = site.business_type === 'fisico' && site.address_street
         ? `${site.address_street}, ${site.address_number || 's/n'}${site.address_complement ? ` - ${site.address_complement}` : ''}, ${site.address_neighborhood || ''}, ${site.address_city || ''} - ${site.address_state || ''}, ${site.address_zip || ''}`
         : '';
+      
+      const getImageUrl = (formUrl: string | undefined, siteUrl: string | null) => {
+        if (formUrl && !formUrl.startsWith('blob:')) return formUrl;
+        if (siteUrl && !siteUrl.startsWith('blob:')) return siteUrl;
+        return '';
+      };
       
       const response = await fetch(`${webhookUrl}/elevea-sites/generate`, {
         method: 'POST',
@@ -479,12 +513,28 @@ export function useSiteData() {
           
           business_hours: site.business_hours,
           
-          logo_url: site.logo_url || '',
-          hero_image_url: site.hero_image_url || '',
+          logo_url: getImageUrl(formData?.logo_url, site.logo_url),
+          hero_image_url: getImageUrl(formData?.hero_image_url, site.hero_image_url),
           about_image_url: site.about_image_url || '',
-          gallery_images: site.gallery_images || [],
+          gallery_images: [
+            getImageUrl(formData?.gallery_image_1, site.gallery_images?.[0] || null),
+            getImageUrl(formData?.gallery_image_2, site.gallery_images?.[1] || null),
+            getImageUrl(formData?.gallery_image_3, site.gallery_images?.[2] || null),
+            getImageUrl(formData?.gallery_image_4, site.gallery_images?.[3] || null)
+          ].filter(Boolean),
           product_images: site.product_images || [],
           ambient_images: site.ambient_images || [],
+          
+          images_base64: formData ? {
+            logo: formData.logo_base64 ? { data: formData.logo_base64, filename: `${site.slug}-logo.png` } : null,
+            hero: formData.hero_image_base64 ? { data: formData.hero_image_base64, filename: `${site.slug}-hero.jpg` } : null,
+            gallery: [
+              formData.gallery_image_1_base64 ? { data: formData.gallery_image_1_base64, filename: `${site.slug}-gallery-1.jpg` } : null,
+              formData.gallery_image_2_base64 ? { data: formData.gallery_image_2_base64, filename: `${site.slug}-gallery-2.jpg` } : null,
+              formData.gallery_image_3_base64 ? { data: formData.gallery_image_3_base64, filename: `${site.slug}-gallery-3.jpg` } : null,
+              formData.gallery_image_4_base64 ? { data: formData.gallery_image_4_base64, filename: `${site.slug}-gallery-4.jpg` } : null
+            ].filter(Boolean)
+          } : null,
           
           color_primary: site.color_primary,
           color_secondary: site.color_secondary,

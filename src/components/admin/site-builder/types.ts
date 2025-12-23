@@ -193,7 +193,17 @@ export interface SiteFormData {
   color_background: string;
   
   logo_url: string;
+  logo_base64: string;
   hero_image_url: string;
+  hero_image_base64: string;
+  gallery_image_1: string;
+  gallery_image_1_base64: string;
+  gallery_image_2: string;
+  gallery_image_2_base64: string;
+  gallery_image_3: string;
+  gallery_image_3_base64: string;
+  gallery_image_4: string;
+  gallery_image_4_base64: string;
   cta_button_text: string;
   cta_whatsapp_message: string;
 }
@@ -315,7 +325,17 @@ export const DEFAULT_FORM_DATA: SiteFormData = {
   color_background: '#FFFFFF',
   
   logo_url: '',
+  logo_base64: '',
   hero_image_url: '',
+  hero_image_base64: '',
+  gallery_image_1: '',
+  gallery_image_1_base64: '',
+  gallery_image_2: '',
+  gallery_image_2_base64: '',
+  gallery_image_3: '',
+  gallery_image_3_base64: '',
+  gallery_image_4: '',
+  gallery_image_4_base64: '',
   cta_button_text: '',
   cta_whatsapp_message: ''
 };

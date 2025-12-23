@@ -23,10 +23,8 @@ export function SiteOnboarding() {
   const { 
     createSite, 
     updateSite, 
-    triggerDeploy, 
     generateContent, 
     isCreating, 
-    isDeploying,
     isGenerating,
     site
   } = useSiteData();
@@ -43,7 +41,6 @@ export function SiteOnboarding() {
     try {
       const newSite = await createSite(formData);
       if (newSite) {
-        await triggerDeploy();
         setSetupPhase('ready');
       }
     } catch (error) {
@@ -83,11 +80,24 @@ export function SiteOnboarding() {
     }
   };
   
+  const sanitizeFormData = (data: SiteFormData): SiteFormData => {
+    const cleanUrl = (url: string) => url.startsWith('blob:') ? '' : url;
+    return {
+      ...data,
+      logo_url: cleanUrl(data.logo_url),
+      hero_image_url: cleanUrl(data.hero_image_url),
+      gallery_image_1: cleanUrl(data.gallery_image_1),
+      gallery_image_2: cleanUrl(data.gallery_image_2),
+      gallery_image_3: cleanUrl(data.gallery_image_3),
+      gallery_image_4: cleanUrl(data.gallery_image_4),
+    };
+  };
+
   const handleNext = async () => {
     if (currentStep < ONBOARDING_STEPS.length - 1) {
       if (site) {
         try {
-          await updateSite(formData);
+          await updateSite(sanitizeFormData(formData));
         } catch (error) {
           console.error('Erro ao salvar progresso:', error);
         }
@@ -105,9 +115,9 @@ export function SiteOnboarding() {
   const handleSubmit = async () => {
     try {
       if (site) {
-        await updateSite(formData);
+        await updateSite(sanitizeFormData(formData));
       }
-      await generateContent();
+      await generateContent(formData);
     } catch (error) {
       console.error('Erro ao gerar site:', error);
     }
@@ -136,7 +146,7 @@ export function SiteOnboarding() {
   
   const progress = ((currentStep + 1) / ONBOARDING_STEPS.length) * 100;
   const isLastStep = currentStep === ONBOARDING_STEPS.length - 1;
-  const isSettingUp = isCreating || isDeploying;
+  const isSettingUp = isCreating;
   const isLoading = isSettingUp || isGenerating;
   
   if (setupPhase === 'initial' || setupPhase === 'setting_up' || setupPhase === 'error') {
@@ -188,7 +198,7 @@ export function SiteOnboarding() {
                 {isSettingUp ? (
                   <>
                     <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                    {isCreating ? 'Criando registro...' : 'Configurando hospedagem...'}
+                    Criando seu site...
                   </>
                 ) : (
                   <>
