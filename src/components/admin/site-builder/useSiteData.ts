@@ -499,6 +499,63 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
         .update({ status: 'generating' } as any)
         .eq('id', site.id as any);
       
+      // Se o site ainda não tem github_url, primeiro faz o setup
+      if (!site.github_url || !site.netlify_url) {
+        toast({
+          title: "Configurando infraestrutura...",
+          description: "Criando repositório e projeto. Aguarde..."
+        });
+        
+        const setupResponse = await fetch(`${normalizeWebhookUrl(webhookUrl)}/webhook/elevea-sites/setup`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-APP-KEY': authHeader || ''
+          },
+          body: JSON.stringify({
+            site_id: site.id,
+            site_slug: site.slug,
+            site_name: site.name,
+            company_name: site.company_name,
+            github_owner: 'MATHEUSMARTINSSMP'
+          })
+        });
+        
+        if (!setupResponse.ok) {
+          const errorText = await setupResponse.text();
+          throw new Error(`Falha no setup: ${errorText}`);
+        }
+        
+        const setupResult = await setupResponse.json();
+        
+        // Atualiza os dados do site com as URLs do GitHub e Netlify
+        if (setupResult.github?.url || setupResult.netlify?.url) {
+          await supabase
+            .schema('sistemaretiradas')
+            .from('sites')
+            .update({
+              github_url: setupResult.github?.url || null,
+              github_full_name: setupResult.github?.full_name || null,
+              netlify_url: setupResult.netlify?.url || null,
+              netlify_site_id: setupResult.netlify?.site_id || null,
+              netlify_admin_url: setupResult.netlify?.admin_url || null
+            } as any)
+            .eq('id', site.id as any);
+          
+          // Atualiza o site local para usar nas próximas chamadas
+          site.github_url = setupResult.github?.url;
+          site.github_full_name = setupResult.github?.full_name;
+          site.netlify_url = setupResult.netlify?.url;
+        }
+        
+        // Delay de 5 segundos antes de gerar o conteúdo
+        toast({
+          title: "Infraestrutura pronta!",
+          description: "Agora gerando conteúdo com IA..."
+        });
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+      
       const addressFull = site.business_type === 'fisico' && site.address_street
         ? `${site.address_street}, ${site.address_number || 's/n'}${site.address_complement ? ` - ${site.address_complement}` : ''}, ${site.address_neighborhood || ''}, ${site.address_city || ''} - ${site.address_state || ''}, ${site.address_zip || ''}`
         : '';

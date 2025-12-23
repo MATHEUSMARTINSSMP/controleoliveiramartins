@@ -114,7 +114,7 @@ export function SiteOnboarding({ tenantId }: SiteOnboardingProps = {}) {
       } else {
         const newSite = await createSite(sanitizeFormData(formData));
         if (newSite) {
-          await triggerDeploy();
+          // generateContent agora faz setup automaticamente se necessário
           await generateContent(formData);
         }
       }
