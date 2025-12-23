@@ -1,5 +1,50 @@
 import type { BusinessType, ContentType, VoiceToneStyle } from "@/lib/site-builder-data";
 
+export type AssetType = 'logo' | 'hero' | 'product' | 'ambient' | 'gallery';
+
+export interface ProductMetadata {
+  name: string;
+  price?: string;
+  commission?: string;
+  collection?: string;
+  description?: string;
+}
+
+export interface AmbientMetadata {
+  description?: string;
+  location?: string;
+}
+
+export interface GalleryMetadata {
+  caption?: string;
+}
+
+export interface SiteAsset {
+  id: string;
+  type: AssetType;
+  url: string;
+  base64?: string;
+  filename?: string;
+  displayOrder: number;
+  metadata: ProductMetadata | AmbientMetadata | GalleryMetadata | null;
+}
+
+export const ASSET_TYPE_LABELS: Record<AssetType, string> = {
+  logo: 'Logomarca',
+  hero: 'Banner Principal',
+  product: 'Foto de Produto',
+  ambient: 'Foto do Ambiente',
+  gallery: 'Galeria Geral'
+};
+
+export const ASSET_TYPE_LIMITS: Record<AssetType, number> = {
+  logo: 1,
+  hero: 1,
+  product: 10,
+  ambient: 10,
+  gallery: 12
+};
+
 export interface SiteData {
   id: string;
   slug: string;
@@ -62,6 +107,7 @@ export interface SiteData {
   gallery_images: string[];
   product_images: string[];
   ambient_images: string[];
+  assets: SiteAsset[];
   
   github_repo_id: number | null;
   github_full_name: string | null;
@@ -206,6 +252,7 @@ export interface SiteFormData {
   gallery_image_4_base64: string;
   cta_button_text: string;
   cta_whatsapp_message: string;
+  assets: SiteAsset[];
 }
 
 export interface OnboardingStep {
@@ -337,7 +384,8 @@ export const DEFAULT_FORM_DATA: SiteFormData = {
   gallery_image_4: '',
   gallery_image_4_base64: '',
   cta_button_text: '',
-  cta_whatsapp_message: ''
+  cta_whatsapp_message: '',
+  assets: []
 };
 
 export const BRAZILIAN_STATES = [
