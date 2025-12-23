@@ -228,10 +228,47 @@ export function VisualStep({ formData, onChange }: VisualStepProps) {
               Imagens do Site
             </CardTitle>
             <CardDescription>
-              Adicione imagens para personalizar seu site. Cole URLs de imagens hospedadas (Google Drive, Imgur, etc)
+              Adicione imagens para personalizar seu site. Faca upload direto ou cole URLs de imagens hospedadas.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            <div className="p-4 rounded-lg bg-muted/50 space-y-3">
+              <p className="text-sm font-medium">Como usar links externos:</p>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <div className="flex items-start gap-2">
+                  <span className="font-semibold text-foreground">1. Imgur</span>
+                  <span>(Recomendado)</span>
+                </div>
+                <p className="ml-4 text-xs">
+                  Acesse imgur.com, faca upload da imagem, clique com botao direito na imagem e copie o endereco.
+                  <br />
+                  <span className="font-mono text-xs bg-background px-1 rounded">https://i.imgur.com/abc123.jpg</span>
+                </p>
+                
+                <div className="flex items-start gap-2 mt-3">
+                  <span className="font-semibold text-foreground">2. Imgbox</span>
+                  <span>(Permanente)</span>
+                </div>
+                <p className="ml-4 text-xs">
+                  Acesse imgbox.com, faca upload e copie o link direto da imagem.
+                  <br />
+                  <span className="font-mono text-xs bg-background px-1 rounded">https://images2.imgbox.com/xyz456.jpg</span>
+                </p>
+                
+                <div className="flex items-start gap-2 mt-3">
+                  <span className="font-semibold text-foreground">3. PostImage</span>
+                  <span>(Facil)</span>
+                </div>
+                <p className="ml-4 text-xs">
+                  Acesse postimage.org, faca upload e copie o "Link direto".
+                  <br />
+                  <span className="font-mono text-xs bg-background px-1 rounded">https://i.postimg.cc/abc123/foto.jpg</span>
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2 border-t pt-2">
+                Dica: Imgur e Imgbox mantem imagens hospedadas permanentemente sem custo.
+              </p>
+            </div>
             <ImageUploadField
               label="Logo da Empresa"
               value={formData.logo_url}
