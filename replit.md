@@ -55,6 +55,11 @@ The system is built with a modern web stack, emphasizing a chic, minimalist, and
             -   Images converted to Base64 and sent to n8n for GitHub upload
             -   Gallery support: Logo, hero image, and up to 4 gallery images
             -   Real-time preview with aspect ratio constraints
+        -   **n8n Webhook Flow (3 etapas)**:
+            1. `/elevea-sites/setup` - Cria repositório GitHub + projeto Netlify (~3s)
+            2. `/elevea-sites/generate` - Gera conteúdo HTML com IA (~90s)
+            3. `/ai/editsites` - Edita site já publicado via comandos de IA (~27s)
+        -   **CONHECIDO: Problema no prompt de edição n8n** - O prompt da IA no workflow de edição está apagando código excessivamente (ex: -804 linhas para edição simples). Requer ajuste no n8n para ser mais conservador e cirúrgico.
 
 ## External Dependencies
 -   **Supabase**: Core backend for database (PostgreSQL), authentication, and Edge Functions.

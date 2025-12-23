@@ -24,9 +24,11 @@ export function SiteOnboarding() {
   const { 
     createSite, 
     updateSite, 
+    triggerDeploy,
     generateContent,
     editSite,
     isCreating, 
+    isDeploying,
     isGenerating,
     isEditing,
     isPublished,
@@ -127,6 +129,7 @@ export function SiteOnboarding() {
       if (isEditMode) {
         await editSite({ formData });
       } else {
+        await triggerDeploy();
         await generateContent(formData);
       }
     } catch (error) {
@@ -158,7 +161,7 @@ export function SiteOnboarding() {
   const progress = ((currentStep + 1) / ONBOARDING_STEPS.length) * 100;
   const isLastStep = currentStep === ONBOARDING_STEPS.length - 1;
   const isSettingUp = isCreating;
-  const isLoading = isSettingUp || isGenerating || isEditing;
+  const isLoading = isSettingUp || isDeploying || isGenerating || isEditing;
   
   if (setupPhase === 'initial' || setupPhase === 'setting_up' || setupPhase === 'error') {
     return (
@@ -297,10 +300,10 @@ export function SiteOnboarding() {
               disabled={!canProceed() || isLoading}
               data-testid="button-generate-site"
             >
-              {isGenerating || isEditing ? (
+              {isDeploying || isGenerating || isEditing ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {isEditMode ? 'Atualizando...' : 'Gerando com IA...'}
+                  {isEditMode ? 'Atualizando...' : isDeploying ? 'Configurando repositório...' : 'Gerando com IA...'}
                 </>
               ) : (
                 <>
