@@ -4,6 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -15,6 +24,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { 
   ExternalLink, 
   Trash2, 
@@ -26,32 +44,83 @@ import {
   Rocket,
   Eye,
   Settings,
-  Sparkles
+  Sparkles,
+  Pencil
 } from "lucide-react";
 import { useSiteData } from "./useSiteData";
 import { SitePreview } from "./SitePreview";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import type { VoiceToneStyle } from "@/lib/site-builder-data";
+
+const VOICE_TONES: { value: VoiceToneStyle; label: string }[] = [
+  { value: 'elegante', label: 'Elegante' },
+  { value: 'profissional', label: 'Profissional' },
+  { value: 'popular', label: 'Popular' },
+  { value: 'tecnico', label: 'Técnico' },
+  { value: 'acolhedor', label: 'Acolhedor' },
+  { value: 'dinamico', label: 'Dinâmico' },
+];
 
 interface SiteEditorProps {
   tenantId?: string | null;
 }
 
+interface EditFormData {
+  voice_tone: VoiceToneStyle;
+  whatsapp: string;
+  email: string;
+  instagram: string;
+  color_primary: string;
+  color_secondary: string;
+  color_accent: string;
+}
+
 export function SiteEditor({ tenantId }: SiteEditorProps = {}) {
   const [activeTab, setActiveTab] = useState('preview');
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editForm, setEditForm] = useState<EditFormData>({
+    voice_tone: 'profissional',
+    whatsapp: '',
+    email: '',
+    instagram: '',
+    color_primary: '#000000',
+    color_secondary: '#666666',
+    color_accent: '#0066cc',
+  });
   const { 
     site, 
     canReset, 
     resetSite, 
     triggerDeploy,
     generateContent,
+    updateSite,
     isResetting, 
     isDeploying,
     isGenerating,
+    isUpdating,
     refetch
   } = useSiteData({ tenantId });
   
   if (!site) return null;
+  
+  const openEditDialog = () => {
+    setEditForm({
+      voice_tone: site.voice_tone || 'profissional',
+      whatsapp: site.whatsapp || '',
+      email: site.email || '',
+      instagram: site.instagram || '',
+      color_primary: site.color_primary || '#000000',
+      color_secondary: site.color_secondary || '#666666',
+      color_accent: site.color_accent || '#0066cc',
+    });
+    setEditDialogOpen(true);
+  };
+  
+  const handleSaveEdit = async () => {
+    await updateSite(editForm);
+    setEditDialogOpen(false);
+  };
   
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string }> = {
@@ -322,7 +391,139 @@ export function SiteEditor({ tenantId }: SiteEditorProps = {}) {
       
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Informações do Site</CardTitle>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-lg">Informações do Site</CardTitle>
+            <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" onClick={openEditDialog} data-testid="button-edit-info">
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Editar
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Editar Informações do Site</DialogTitle>
+                  <DialogDescription>
+                    Altere as configurações do seu site. Após salvar, clique em "Gerar com IA" para aplicar as mudanças.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="voice_tone">Tom de Voz</Label>
+                    <Select 
+                      value={editForm.voice_tone} 
+                      onValueChange={(value: VoiceToneStyle) => setEditForm(prev => ({ ...prev, voice_tone: value }))}
+                    >
+                      <SelectTrigger data-testid="select-voice-tone">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {VOICE_TONES.map(tone => (
+                          <SelectItem key={tone.value} value={tone.value}>
+                            {tone.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="whatsapp">WhatsApp</Label>
+                    <Input
+                      id="whatsapp"
+                      value={editForm.whatsapp}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, whatsapp: e.target.value }))}
+                      placeholder="(11) 99999-9999"
+                      data-testid="input-edit-whatsapp"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="email">E-mail</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={editForm.email}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="contato@empresa.com"
+                      data-testid="input-edit-email"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="instagram">Instagram</Label>
+                    <Input
+                      id="instagram"
+                      value={editForm.instagram}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, instagram: e.target.value }))}
+                      placeholder="@suaempresa"
+                      data-testid="input-edit-instagram"
+                    />
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="space-y-2">
+                    <Label>Cores do Site</Label>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <Label htmlFor="color_primary" className="text-xs text-muted-foreground">Primária</Label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            id="color_primary"
+                            value={editForm.color_primary}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, color_primary: e.target.value }))}
+                            className="w-10 h-10 rounded-md border cursor-pointer"
+                            data-testid="input-color-primary"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="color_secondary" className="text-xs text-muted-foreground">Secundária</Label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            id="color_secondary"
+                            value={editForm.color_secondary}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, color_secondary: e.target.value }))}
+                            className="w-10 h-10 rounded-md border cursor-pointer"
+                            data-testid="input-color-secondary"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="color_accent" className="text-xs text-muted-foreground">Destaque</Label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            id="color_accent"
+                            value={editForm.color_accent}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, color_accent: e.target.value }))}
+                            className="w-10 h-10 rounded-md border cursor-pointer"
+                            data-testid="input-color-accent"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleSaveEdit} disabled={isUpdating} data-testid="button-save-edit">
+                    {isUpdating ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : null}
+                    Salvar
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2">
