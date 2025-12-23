@@ -90,7 +90,7 @@ export function AssetManager({ assets, onChange }: AssetManagerProps) {
   const renderMetadataFields = (asset: SiteAsset) => {
     switch (asset.type) {
       case "product":
-        const productMeta = asset.metadata as ProductMetadata || {};
+        const productMeta: ProductMetadata = (asset.metadata as ProductMetadata) || { name: "" };
         return (
           <div className="space-y-3 pt-3 border-t">
             <p className="text-xs font-medium text-muted-foreground">Informacoes do Produto:</p>
@@ -146,7 +146,7 @@ export function AssetManager({ assets, onChange }: AssetManagerProps) {
         );
 
       case "ambient":
-        const ambientMeta = asset.metadata as AmbientMetadata || {};
+        const ambientMeta: AmbientMetadata = (asset.metadata as AmbientMetadata) || {};
         return (
           <div className="space-y-3 pt-3 border-t">
             <p className="text-xs font-medium text-muted-foreground">Informacoes do Ambiente:</p>
@@ -175,7 +175,7 @@ export function AssetManager({ assets, onChange }: AssetManagerProps) {
         );
 
       case "gallery":
-        const galleryMeta = asset.metadata as GalleryMetadata || {};
+        const galleryMeta: GalleryMetadata = (asset.metadata as GalleryMetadata) || {};
         return (
           <div className="space-y-3 pt-3 border-t">
             <div className="space-y-1">

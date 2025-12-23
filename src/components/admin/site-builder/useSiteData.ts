@@ -67,6 +67,17 @@ export function useSiteData() {
     return url;
   };
   
+  const sanitizeAssetsForStorage = (assets: SiteFormData['assets'] | undefined): any[] => {
+    if (!assets || !Array.isArray(assets)) return [];
+    return assets.map(asset => ({
+      id: asset.id,
+      type: asset.type,
+      url: asset.url.startsWith('blob:') ? '' : asset.url,
+      displayOrder: asset.displayOrder,
+      metadata: asset.metadata
+    })).filter(a => a.url || a.type === 'logo' || a.type === 'hero');
+  };
+  
   const createSiteMutation = useMutation({
     mutationFn: async (formData: SiteFormData) => {
       if (!tenantId || !profile?.id) {
@@ -167,6 +178,7 @@ export function useSiteData() {
         ].filter(Boolean) as string[],
         product_images: [],
         ambient_images: [],
+        assets: sanitizeAssetsForStorage(formData.assets),
         
         cta_button_text: formData.cta_button_text || null,
         cta_whatsapp_message: formData.cta_whatsapp_message || null,
@@ -217,7 +229,9 @@ export function useSiteData() {
       
       for (const [key, value] of Object.entries(updates)) {
         if (base64Keys.includes(key)) continue;
-        if (imageUrlKeys.includes(key)) {
+        if (key === 'assets') {
+          sanitizedUpdates[key] = sanitizeAssetsForStorage(value as SiteFormData['assets']);
+        } else if (imageUrlKeys.includes(key)) {
           sanitizedUpdates[key] = cleanImageUrl(value as string);
         } else {
           sanitizedUpdates[key] = value;
@@ -535,6 +549,16 @@ export function useSiteData() {
               formData.gallery_image_4_base64 ? { data: formData.gallery_image_4_base64, filename: `${site.slug}-gallery-4.jpg` } : null
             ].filter(Boolean)
           } : null,
+          
+          assets: formData?.assets?.map((asset, index) => ({
+            id: asset.id,
+            type: asset.type,
+            url: asset.url.startsWith('blob:') ? '' : asset.url,
+            filename: asset.base64 ? `${site.slug}-${asset.type}-${index + 1}.jpg` : undefined,
+            base64: asset.base64 || undefined,
+            metadata: asset.metadata,
+            displayOrder: asset.displayOrder
+          })) || site.assets || [],
           
           color_primary: site.color_primary,
           color_secondary: site.color_secondary,

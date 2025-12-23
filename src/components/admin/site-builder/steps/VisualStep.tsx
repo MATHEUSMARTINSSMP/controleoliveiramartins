@@ -2,9 +2,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Palette, Image, MousePointer, ImagePlus, Store, Package } from "lucide-react";
+import { Palette, MousePointer } from "lucide-react";
 import type { SiteFormData } from "../types";
-import { ImageUploadField } from "../components/ImageUploadField";
+import { AssetManager } from "../components/AssetManager";
 
 interface VisualStepProps {
   formData: SiteFormData;
@@ -221,138 +221,10 @@ export function VisualStep({ formData, onChange }: VisualStepProps) {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Image className="h-5 w-5" />
-              Imagens do Site
-            </CardTitle>
-            <CardDescription>
-              Adicione imagens para personalizar seu site. Faca upload direto ou cole URLs de imagens hospedadas.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="p-4 rounded-lg bg-muted/50 space-y-3">
-              <p className="text-sm font-medium">Como usar links externos:</p>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <div className="flex items-start gap-2">
-                  <span className="font-semibold text-foreground">1. Imgur</span>
-                  <span>(Recomendado)</span>
-                </div>
-                <p className="ml-4 text-xs">
-                  Acesse imgur.com, faca upload da imagem, clique com botao direito na imagem e copie o endereco.
-                  <br />
-                  <span className="font-mono text-xs bg-background px-1 rounded">https://i.imgur.com/abc123.jpg</span>
-                </p>
-                
-                <div className="flex items-start gap-2 mt-3">
-                  <span className="font-semibold text-foreground">2. Imgbox</span>
-                  <span>(Permanente)</span>
-                </div>
-                <p className="ml-4 text-xs">
-                  Acesse imgbox.com, faca upload e copie o link direto da imagem.
-                  <br />
-                  <span className="font-mono text-xs bg-background px-1 rounded">https://images2.imgbox.com/xyz456.jpg</span>
-                </p>
-                
-                <div className="flex items-start gap-2 mt-3">
-                  <span className="font-semibold text-foreground">3. PostImage</span>
-                  <span>(Facil)</span>
-                </div>
-                <p className="ml-4 text-xs">
-                  Acesse postimage.org, faca upload e copie o "Link direto".
-                  <br />
-                  <span className="font-mono text-xs bg-background px-1 rounded">https://i.postimg.cc/abc123/foto.jpg</span>
-                </p>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2 border-t pt-2">
-                Dica: Imgur e Imgbox mantem imagens hospedadas permanentemente sem custo.
-              </p>
-            </div>
-            <ImageUploadField
-              label="Logo da Empresa"
-              value={formData.logo_url}
-              onChange={(url, base64) => onChange({ 
-                logo_url: url,
-                logo_base64: base64 || ''
-              })}
-              placeholder="https://exemplo.com/sua-logo.png"
-              helpText="Formatos: PNG, JPG, SVG. Recomendamos fundo transparente (PNG)."
-              aspectRatio="square"
-            />
-
-            <ImageUploadField
-              label="Imagem de Destaque (Banner Principal)"
-              value={formData.hero_image_url}
-              onChange={(url, base64) => onChange({ 
-                hero_image_url: url,
-                hero_image_base64: base64 || ''
-              })}
-              placeholder="https://exemplo.com/imagem-destaque.jpg"
-              helpText="Foto do seu negocio, equipe ou produto. Aparece no topo do site. Recomendamos 1920x1080 ou maior."
-              aspectRatio="landscape"
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <ImagePlus className="h-5 w-5" />
-              Imagens de Galeria (Opcional)
-            </CardTitle>
-            <CardDescription>
-              Adicione mais fotos do seu estabelecimento, produtos ou serviços
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <ImageUploadField
-                label="Imagem da Galeria 1"
-                value={formData.gallery_image_1 || ""}
-                onChange={(url, base64) => onChange({ 
-                  gallery_image_1: url,
-                  gallery_image_1_base64: base64 || ''
-                })}
-                placeholder="https://exemplo.com/galeria1.jpg"
-                aspectRatio="landscape"
-              />
-              <ImageUploadField
-                label="Imagem da Galeria 2"
-                value={formData.gallery_image_2 || ""}
-                onChange={(url, base64) => onChange({ 
-                  gallery_image_2: url,
-                  gallery_image_2_base64: base64 || ''
-                })}
-                placeholder="https://exemplo.com/galeria2.jpg"
-                aspectRatio="landscape"
-              />
-              <ImageUploadField
-                label="Imagem da Galeria 3"
-                value={formData.gallery_image_3 || ""}
-                onChange={(url, base64) => onChange({ 
-                  gallery_image_3: url,
-                  gallery_image_3_base64: base64 || ''
-                })}
-                placeholder="https://exemplo.com/galeria3.jpg"
-                aspectRatio="landscape"
-              />
-              <ImageUploadField
-                label="Imagem da Galeria 4"
-                value={formData.gallery_image_4 || ""}
-                onChange={(url, base64) => onChange({ 
-                  gallery_image_4: url,
-                  gallery_image_4_base64: base64 || ''
-                })}
-                placeholder="https://exemplo.com/galeria4.jpg"
-                aspectRatio="landscape"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Estas imagens aparecem em uma galeria no site. Use fotos de alta qualidade do seu espaco, produtos ou trabalhos realizados.
-            </p>
-          </CardContent>
-        </Card>
+        <AssetManager
+          assets={formData.assets || []}
+          onChange={(assets) => onChange({ assets })}
+        />
 
         <Card>
           <CardHeader className="pb-3">
