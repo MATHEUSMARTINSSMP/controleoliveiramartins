@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -15,6 +16,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { 
   ExternalLink, 
   Trash2, 
@@ -26,7 +35,8 @@ import {
   Settings,
   Sparkles,
   Pencil,
-  ArrowLeft
+  ArrowLeft,
+  Wand2
 } from "lucide-react";
 import { useSiteData } from "./useSiteData";
 import { SitePreview } from "./SitePreview";
@@ -41,13 +51,17 @@ interface SiteEditorProps {
 export function SiteEditor({ tenantId }: SiteEditorProps = {}) {
   const [activeTab, setActiveTab] = useState('preview');
   const [isEditMode, setIsEditMode] = useState(false);
+  const [aiEditDialogOpen, setAiEditDialogOpen] = useState(false);
+  const [aiEditCommand, setAiEditCommand] = useState('');
   const { 
     site, 
     canReset, 
     resetSite, 
     generateContent,
+    editSite,
     isResetting, 
     isGenerating,
+    isEditing,
     refetch
   } = useSiteData({ tenantId });
   
@@ -205,6 +219,16 @@ export function SiteEditor({ tenantId }: SiteEditorProps = {}) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-3">
+            <Button 
+              variant="outline"
+              onClick={() => setAiEditDialogOpen(true)}
+              disabled={isEditing || site.status !== 'published'}
+              data-testid="button-edit-ai"
+            >
+              <Wand2 className="h-4 w-4 mr-2" />
+              Editar com IA
+            </Button>
+            
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button 
@@ -242,6 +266,12 @@ export function SiteEditor({ tenantId }: SiteEditorProps = {}) {
             </AlertDialog>
           </div>
           
+          {site.status !== 'published' && (
+            <p className="text-sm text-muted-foreground">
+              O site precisa estar publicado para usar a edição com IA.
+            </p>
+          )}
+          
           {!canReset.allowed && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
@@ -250,6 +280,60 @@ export function SiteEditor({ tenantId }: SiteEditorProps = {}) {
           )}
         </CardContent>
       </Card>
+      
+      <Dialog open={aiEditDialogOpen} onOpenChange={setAiEditDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="h-5 w-5" />
+              Editar Site com IA
+            </DialogTitle>
+            <DialogDescription>
+              Descreva as alterações que deseja fazer no seu site. A IA irá interpretar seu comando e aplicar as mudanças automaticamente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Textarea
+              placeholder="Ex: Mude a cor do botão principal para vermelho, adicione uma seção de depoimentos, altere o texto do hero para destacar promoções..."
+              value={aiEditCommand}
+              onChange={(e) => setAiEditCommand(e.target.value)}
+              className="min-h-[120px]"
+              data-testid="input-ai-command"
+            />
+            <div className="text-sm text-muted-foreground space-y-1">
+              <p className="font-medium">Exemplos de comandos:</p>
+              <ul className="list-disc list-inside space-y-0.5 text-xs">
+                <li>Altere a cor de fundo do header para preto</li>
+                <li>Adicione o telefone (96) 99999-9999 no rodapé</li>
+                <li>Mude o texto do botão de WhatsApp para "Fale Conosco"</li>
+                <li>Adicione uma nova seção de serviços com 3 cards</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAiEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={async () => {
+                if (!aiEditCommand.trim()) return;
+                await editSite({ command: aiEditCommand });
+                setAiEditCommand('');
+                setAiEditDialogOpen(false);
+              }}
+              disabled={isEditing || !aiEditCommand.trim()}
+              data-testid="button-submit-ai-edit"
+            >
+              {isEditing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4 mr-2" />
+              )}
+              Aplicar Alterações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       <Card>
         <CardHeader>

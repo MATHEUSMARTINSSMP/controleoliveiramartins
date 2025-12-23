@@ -30,7 +30,6 @@ export function SiteOnboarding({ tenantId }: SiteOnboardingProps = {}) {
     updateSite, 
     triggerDeploy,
     generateContent,
-    editSite,
     isCreating, 
     isDeploying,
     isGenerating,
@@ -110,7 +109,7 @@ export function SiteOnboarding({ tenantId }: SiteOnboardingProps = {}) {
     try {
       if (isEditMode) {
         await updateSite(sanitizeFormData(formData));
-        await editSite({ formData });
+        // Após salvar, o usuário pode usar "Gerar com IA" para regenerar o site
       } else {
         const newSite = await createSite(sanitizeFormData(formData));
         if (newSite) {
