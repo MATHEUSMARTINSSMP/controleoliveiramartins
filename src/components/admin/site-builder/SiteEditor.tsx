@@ -41,7 +41,6 @@ import {
   Clock,
   AlertTriangle,
   Loader2,
-  Rocket,
   Eye,
   Settings,
   Sparkles,
@@ -92,11 +91,9 @@ export function SiteEditor({ tenantId }: SiteEditorProps = {}) {
     site, 
     canReset, 
     resetSite, 
-    triggerDeploy,
     generateContent,
     updateSite,
     isResetting, 
-    isDeploying,
     isGenerating,
     isUpdating,
     refetch
@@ -152,9 +149,8 @@ export function SiteEditor({ tenantId }: SiteEditorProps = {}) {
         <div className="flex items-center gap-2">
           {getStatusBadge(site.status)}
           <Button
-            variant="outline"
             onClick={() => generateContent(undefined)}
-            disabled={isGenerating || isDeploying}
+            disabled={isGenerating}
             data-testid="button-generate-ai"
           >
             {isGenerating ? (
@@ -163,18 +159,6 @@ export function SiteEditor({ tenantId }: SiteEditorProps = {}) {
               <Sparkles className="h-4 w-4 mr-2" />
             )}
             Gerar com IA
-          </Button>
-          <Button
-            onClick={() => triggerDeploy()}
-            disabled={isDeploying || isGenerating}
-            data-testid="button-deploy-header"
-          >
-            {isDeploying ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Rocket className="h-4 w-4 mr-2" />
-            )}
-            Publicar
           </Button>
         </div>
       </div>
@@ -330,19 +314,6 @@ export function SiteEditor({ tenantId }: SiteEditorProps = {}) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-3">
-            <Button
-              onClick={() => triggerDeploy()}
-              disabled={isDeploying}
-              data-testid="button-redeploy"
-            >
-              {isDeploying ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Rocket className="h-4 w-4 mr-2" />
-              )}
-              Republicar Site
-            </Button>
-            
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button 
