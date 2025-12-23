@@ -24,7 +24,7 @@ interface SiteEditorFormProps {
 }
 
 export function SiteEditorForm({ site, tenantId, onClose }: SiteEditorFormProps) {
-  const { updateSite, isUpdating } = useSiteData({ tenantId });
+  const { updateSite, isUpdating, refetch } = useSiteData({ tenantId });
   
   const [formData, setFormData] = useState<Partial<SiteFormData>>({
     company_name: site.company_name || '',
@@ -52,21 +52,23 @@ export function SiteEditorForm({ site, tenantId, onClose }: SiteEditorFormProps)
     address_state: site.address_state || '',
     address_zip: site.address_zip || '',
     
-    color_primary: site.color_primary || '#8B5CF6',
-    color_secondary: site.color_secondary || '#1F2937',
-    color_accent: site.color_accent || '#10B981',
-    color_background: site.color_background || '#FFFFFF',
+    color_primary: site.color_primary || '',
+    color_secondary: site.color_secondary || '',
+    color_accent: site.color_accent || '',
+    color_background: site.color_background || '',
     
     cta_button_text: site.cta_button_text || '',
     cta_whatsapp_message: site.cta_whatsapp_message || '',
   });
   
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: keyof SiteFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
   
   const handleSave = async () => {
-    await updateSite(formData as any);
+    if (isUpdating) return;
+    await updateSite(formData);
+    await refetch();
     onClose();
   };
   
