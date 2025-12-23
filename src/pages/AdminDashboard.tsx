@@ -475,7 +475,7 @@ const AdminDashboard = () => {
                 </TabsContent>
 
                 <TabsContent value="site" className="space-y-4">
-                  <AdminSiteManager />
+                  <AdminSiteManager stores={adminStores} />
                 </TabsContent>
               </Tabs>
             </TabsContent>

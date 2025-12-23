@@ -4,12 +4,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import type { SiteData, SiteFormData } from "./types";
 
-export function useSiteData() {
+interface UseSiteDataOptions {
+  tenantId?: string | null;
+}
+
+export function useSiteData(options: UseSiteDataOptions = {}) {
   const { profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const tenantId = (profile as any)?.store_id;
+  const tenantId = options.tenantId || (profile as any)?.store_id;
   
   const {
     data: siteResult,

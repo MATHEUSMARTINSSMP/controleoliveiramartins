@@ -33,7 +33,11 @@ import { SitePreview } from "./SitePreview";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-export function SiteEditor() {
+interface SiteEditorProps {
+  tenantId?: string | null;
+}
+
+export function SiteEditor({ tenantId }: SiteEditorProps = {}) {
   const [activeTab, setActiveTab] = useState('preview');
   const { 
     site, 
@@ -45,7 +49,7 @@ export function SiteEditor() {
     isDeploying,
     isGenerating,
     refetch
-  } = useSiteData();
+  } = useSiteData({ tenantId });
   
   if (!site) return null;
   
@@ -80,7 +84,7 @@ export function SiteEditor() {
           {getStatusBadge(site.status)}
           <Button
             variant="outline"
-            onClick={() => generateContent()}
+            onClick={() => generateContent(undefined)}
             disabled={isGenerating || isDeploying}
             data-testid="button-generate-ai"
           >

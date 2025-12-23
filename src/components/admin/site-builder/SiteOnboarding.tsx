@@ -16,7 +16,11 @@ import { useSiteData } from "./useSiteData";
 
 type SetupPhase = 'initial' | 'setting_up' | 'ready' | 'error';
 
-export function SiteOnboarding() {
+interface SiteOnboardingProps {
+  tenantId?: string | null;
+}
+
+export function SiteOnboarding({ tenantId }: SiteOnboardingProps = {}) {
   const [setupPhase, setSetupPhase] = useState<SetupPhase>('initial');
   const [setupError, setSetupError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
@@ -33,7 +37,7 @@ export function SiteOnboarding() {
     isEditing,
     isPublished,
     site
-  } = useSiteData();
+  } = useSiteData({ tenantId });
   
   const isEditMode = isPublished && !!site;
   
