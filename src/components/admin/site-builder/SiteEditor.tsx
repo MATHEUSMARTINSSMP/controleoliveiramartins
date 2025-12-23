@@ -40,7 +40,7 @@ import {
 } from "lucide-react";
 import { useSiteData } from "./useSiteData";
 import { SitePreview } from "./SitePreview";
-import { SiteOnboarding } from "./SiteOnboarding";
+import { SiteEditorForm } from "./SiteEditorForm";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -67,19 +67,14 @@ export function SiteEditor({ tenantId }: SiteEditorProps = {}) {
   
   if (!site) return null;
   
-  // Se está no modo de edição, mostra o wizard de onboarding
+  // Se está no modo de edição, mostra o formulário de edição
   if (isEditMode) {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setIsEditMode(false)} data-testid="button-exit-edit">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
-          </Button>
-          <span className="text-sm text-muted-foreground">Editando: {site.name}</span>
-        </div>
-        <SiteOnboarding tenantId={tenantId} />
-      </div>
+      <SiteEditorForm 
+        site={site} 
+        tenantId={tenantId} 
+        onClose={() => setIsEditMode(false)} 
+      />
     );
   }
   
@@ -222,7 +217,7 @@ export function SiteEditor({ tenantId }: SiteEditorProps = {}) {
             <Button 
               variant="outline"
               onClick={() => setAiEditDialogOpen(true)}
-              disabled={isEditing || site.status !== 'published'}
+              disabled={isEditing || isGenerating || !site.netlify_url}
               data-testid="button-edit-ai"
             >
               <Wand2 className="h-4 w-4 mr-2" />
@@ -266,9 +261,9 @@ export function SiteEditor({ tenantId }: SiteEditorProps = {}) {
             </AlertDialog>
           </div>
           
-          {site.status !== 'published' && (
+          {!site.netlify_url && (
             <p className="text-sm text-muted-foreground">
-              O site precisa estar publicado para usar a edição com IA.
+              O site precisa ser gerado pelo menos uma vez para usar a edição com IA.
             </p>
           )}
           

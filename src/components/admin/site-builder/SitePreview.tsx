@@ -79,12 +79,12 @@ export function SitePreview({ site, onRefresh }: SitePreviewProps) {
         </div>
       </div>
       
-      <div className="flex-1 bg-muted/30 p-4 flex items-center justify-center overflow-hidden">
+      <div className="flex-1 bg-muted/30 p-4 flex items-center justify-center overflow-hidden min-h-[600px]">
         <div
           className={`bg-white rounded-lg shadow-lg transition-all duration-300 overflow-hidden ${
             viewMode === 'mobile' 
-              ? 'w-[375px] h-[667px]' 
-              : 'w-full h-full max-w-[1200px]'
+              ? 'w-[375px] h-[750px]' 
+              : 'w-full h-full min-h-[550px]'
           }`}
         >
           <iframe
