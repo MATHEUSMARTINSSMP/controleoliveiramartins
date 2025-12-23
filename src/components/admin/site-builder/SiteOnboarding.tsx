@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, ArrowRight, Loader2, Rocket } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Rocket, Globe, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
 import { BusinessTypeStep } from "./steps/BusinessTypeStep";
 import { SegmentStep } from "./steps/SegmentStep";
 import { AreaStep } from "./steps/AreaStep";
@@ -13,10 +13,50 @@ import { ReviewStep } from "./steps/ReviewStep";
 import { ONBOARDING_STEPS, DEFAULT_FORM_DATA, type SiteFormData } from "./types";
 import { useSiteData } from "./useSiteData";
 
+type SetupPhase = 'initial' | 'setting_up' | 'ready' | 'error';
+
 export function SiteOnboarding() {
+  const [setupPhase, setSetupPhase] = useState<SetupPhase>('initial');
+  const [setupError, setSetupError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<SiteFormData>(DEFAULT_FORM_DATA);
-  const { createSite, triggerDeploy, isCreating, isDeploying } = useSiteData();
+  const { 
+    createSite, 
+    updateSite, 
+    triggerDeploy, 
+    generateContent, 
+    isCreating, 
+    isDeploying,
+    isGenerating,
+    site
+  } = useSiteData();
+  
+  const handleStartSetup = async () => {
+    if (!formData.company_name.trim()) {
+      setSetupError('Por favor, informe o nome da sua empresa');
+      return;
+    }
+    
+    setSetupPhase('setting_up');
+    setSetupError(null);
+    
+    try {
+      const newSite = await createSite(formData);
+      if (newSite) {
+        await triggerDeploy();
+        setSetupPhase('ready');
+      }
+    } catch (error) {
+      console.error('Erro no setup:', error);
+      setSetupError(error instanceof Error ? error.message : 'Erro ao configurar o site');
+      setSetupPhase('error');
+    }
+  };
+  
+  const handleRetrySetup = () => {
+    setSetupPhase('initial');
+    setSetupError(null);
+  };
   
   const handleChange = (data: Partial<SiteFormData>) => {
     setFormData(prev => ({ ...prev, ...data }));
@@ -43,8 +83,15 @@ export function SiteOnboarding() {
     }
   };
   
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep < ONBOARDING_STEPS.length - 1) {
+      if (site) {
+        try {
+          await updateSite(formData);
+        } catch (error) {
+          console.error('Erro ao salvar progresso:', error);
+        }
+      }
       setCurrentStep(prev => prev + 1);
     }
   };
@@ -57,12 +104,12 @@ export function SiteOnboarding() {
   
   const handleSubmit = async () => {
     try {
-      const site = await createSite(formData);
       if (site) {
-        await triggerDeploy();
+        await updateSite(formData);
       }
+      await generateContent();
     } catch (error) {
-      console.error('Erro ao criar site:', error);
+      console.error('Erro ao gerar site:', error);
     }
   };
   
@@ -89,7 +136,99 @@ export function SiteOnboarding() {
   
   const progress = ((currentStep + 1) / ONBOARDING_STEPS.length) * 100;
   const isLastStep = currentStep === ONBOARDING_STEPS.length - 1;
-  const isLoading = isCreating || isDeploying;
+  const isSettingUp = isCreating || isDeploying;
+  const isLoading = isSettingUp || isGenerating;
+  
+  if (setupPhase === 'initial' || setupPhase === 'setting_up' || setupPhase === 'error') {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        <Card>
+          <CardContent className="pt-8 pb-8 text-center space-y-6">
+            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+              <Globe className="h-10 w-10 text-primary" />
+            </div>
+            
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold">Crie seu Site Institucional</h2>
+              <p className="text-muted-foreground max-w-md mx-auto">
+                Em poucos minutos você terá um site profissional para sua empresa, 
+                gerado por inteligência artificial e hospedado gratuitamente.
+              </p>
+            </div>
+            
+            <div className="space-y-4 max-w-sm mx-auto">
+              <div className="text-left">
+                <label className="text-sm font-medium mb-2 block">
+                  Nome da sua empresa
+                </label>
+                <input
+                  type="text"
+                  value={formData.company_name}
+                  onChange={(e) => handleChange({ company_name: e.target.value })}
+                  placeholder="Ex: Studio Glamour, Padaria do João..."
+                  className="w-full px-4 py-3 border rounded-md bg-background text-foreground"
+                  disabled={setupPhase === 'setting_up'}
+                  data-testid="input-company-name-initial"
+                />
+                {setupError && (
+                  <p className="text-sm text-destructive mt-2 flex items-center gap-1">
+                    <AlertCircle className="h-4 w-4" />
+                    {setupError}
+                  </p>
+                )}
+              </div>
+              
+              <Button 
+                onClick={handleStartSetup}
+                disabled={isSettingUp || !formData.company_name.trim()}
+                className="w-full"
+                size="lg"
+                data-testid="button-start-setup"
+              >
+                {isSettingUp ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    {isCreating ? 'Criando registro...' : 'Configurando hospedagem...'}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-5 w-5 mr-2" />
+                    Começar Agora
+                  </>
+                )}
+              </Button>
+              
+              {setupPhase === 'error' && (
+                <Button 
+                  variant="outline" 
+                  onClick={handleRetrySetup}
+                  className="w-full"
+                  data-testid="button-retry-setup"
+                >
+                  Tentar Novamente
+                </Button>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4 pt-4 border-t text-center text-sm text-muted-foreground">
+              <div className="space-y-1">
+                <CheckCircle2 className="h-5 w-5 mx-auto text-green-500" />
+                <p>Hospedagem Grátis</p>
+              </div>
+              <div className="space-y-1">
+                <CheckCircle2 className="h-5 w-5 mx-auto text-green-500" />
+                <p>Design Profissional</p>
+              </div>
+              <div className="space-y-1">
+                <CheckCircle2 className="h-5 w-5 mx-auto text-green-500" />
+                <p>Pronto em Minutos</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   
   return (
     <div className="space-y-6">
@@ -121,17 +260,17 @@ export function SiteOnboarding() {
             <Button
               onClick={handleSubmit}
               disabled={!canProceed() || isLoading}
-              data-testid="button-create-site"
+              data-testid="button-generate-site"
             >
-              {isLoading ? (
+              {isGenerating ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {isCreating ? 'Criando...' : 'Configurando...'}
+                  Gerando com IA...
                 </>
               ) : (
                 <>
                   <Rocket className="h-4 w-4 mr-2" />
-                  Criar Site
+                  Gerar Meu Site
                 </>
               )}
             </Button>
