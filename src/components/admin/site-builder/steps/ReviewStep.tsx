@@ -16,9 +16,10 @@ import type { SiteFormData } from "../types";
 
 interface ReviewStepProps {
   formData: SiteFormData;
+  isEditMode?: boolean;
 }
 
-export function ReviewStep({ formData }: ReviewStepProps) {
+export function ReviewStep({ formData, isEditMode = false }: ReviewStepProps) {
   const segment = getSegmentById(formData.segment_id);
   
   const sections = [
@@ -95,9 +96,19 @@ export function ReviewStep({ formData }: ReviewStepProps) {
         <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
           <CheckCircle className="h-8 w-8 text-primary" />
         </div>
-        <h2 className="text-2xl font-bold">Revisar e Confirmar</h2>
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <h2 className="text-2xl font-bold">Revisar e Confirmar</h2>
+          {isEditMode && (
+            <Badge variant="secondary" className="text-xs">
+              Modo Edição
+            </Badge>
+          )}
+        </div>
         <p className="text-muted-foreground">
-          Confira as informações antes de criar seu site
+          {isEditMode 
+            ? "Confira as alterações antes de atualizar seu site"
+            : "Confira as informações antes de criar seu site"
+          }
         </p>
       </div>
       
@@ -166,8 +177,10 @@ export function ReviewStep({ formData }: ReviewStepProps) {
         
         <div className="text-center text-sm text-muted-foreground">
           <p>
-            Ao clicar em "Criar Site", você confirma que as informações estão corretas
-            e autoriza a geração automática do conteúdo.
+            {isEditMode 
+              ? 'Ao clicar em "Atualizar Site", você confirma as alterações e autoriza a atualização automática do conteúdo.'
+              : 'Ao clicar em "Criar Site", você confirma que as informações estão corretas e autoriza a geração automática do conteúdo.'
+            }
           </p>
         </div>
       </div>

@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, ArrowRight, Loader2, Rocket, Globe, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Rocket, Globe, Sparkles, CheckCircle2, AlertCircle, Pencil, Plus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { BusinessTypeStep } from "./steps/BusinessTypeStep";
 import { SegmentStep } from "./steps/SegmentStep";
 import { AreaStep } from "./steps/AreaStep";
@@ -23,11 +24,16 @@ export function SiteOnboarding() {
   const { 
     createSite, 
     updateSite, 
-    generateContent, 
+    generateContent,
+    editSite,
     isCreating, 
     isGenerating,
+    isEditing,
+    isPublished,
     site
   } = useSiteData();
+  
+  const isEditMode = isPublished && !!site;
   
   const handleStartSetup = async () => {
     if (!formData.company_name.trim()) {
@@ -117,9 +123,14 @@ export function SiteOnboarding() {
       if (site) {
         await updateSite(sanitizeFormData(formData));
       }
-      await generateContent(formData);
+      
+      if (isEditMode) {
+        await editSite({ formData });
+      } else {
+        await generateContent(formData);
+      }
     } catch (error) {
-      console.error('Erro ao gerar site:', error);
+      console.error('Erro ao processar site:', error);
     }
   };
   
@@ -138,7 +149,7 @@ export function SiteOnboarding() {
       case 5:
         return <VisualStep formData={formData} onChange={handleChange} />;
       case 6:
-        return <ReviewStep formData={formData} />;
+        return <ReviewStep formData={formData} isEditMode={isEditMode} />;
       default:
         return null;
     }
@@ -147,7 +158,7 @@ export function SiteOnboarding() {
   const progress = ((currentStep + 1) / ONBOARDING_STEPS.length) * 100;
   const isLastStep = currentStep === ONBOARDING_STEPS.length - 1;
   const isSettingUp = isCreating;
-  const isLoading = isSettingUp || isGenerating;
+  const isLoading = isSettingUp || isGenerating || isEditing;
   
   if (setupPhase === 'initial' || setupPhase === 'setting_up' || setupPhase === 'error') {
     return (
@@ -244,7 +255,21 @@ export function SiteOnboarding() {
     <div className="space-y-6">
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>Passo {currentStep + 1} de {ONBOARDING_STEPS.length}</span>
+          <div className="flex items-center gap-2">
+            <span>Passo {currentStep + 1} de {ONBOARDING_STEPS.length}</span>
+            {isEditMode && (
+              <Badge variant="secondary" className="text-xs gap-1">
+                <Pencil className="h-3 w-3" />
+                Editando
+              </Badge>
+            )}
+            {!isEditMode && site && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <Plus className="h-3 w-3" />
+                Criando
+              </Badge>
+            )}
+          </div>
           <span>{ONBOARDING_STEPS[currentStep].title}</span>
         </div>
         <Progress value={progress} className="h-2" />
@@ -272,15 +297,24 @@ export function SiteOnboarding() {
               disabled={!canProceed() || isLoading}
               data-testid="button-generate-site"
             >
-              {isGenerating ? (
+              {isGenerating || isEditing ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Gerando com IA...
+                  {isEditMode ? 'Atualizando...' : 'Gerando com IA...'}
                 </>
               ) : (
                 <>
-                  <Rocket className="h-4 w-4 mr-2" />
-                  Gerar Meu Site
+                  {isEditMode ? (
+                    <>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Atualizar Site
+                    </>
+                  ) : (
+                    <>
+                      <Rocket className="h-4 w-4 mr-2" />
+                      Gerar Meu Site
+                    </>
+                  )}
                 </>
               )}
             </Button>

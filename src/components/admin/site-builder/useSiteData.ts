@@ -661,11 +661,177 @@ export function useSiteData() {
     }
   });
   
+  const editSiteMutation = useMutation({
+    mutationFn: async ({ formData }: { formData: SiteFormData }) => {
+      if (!site?.slug) {
+        throw new Error("Site não encontrado para edição");
+      }
+      
+      const n8nBaseUrl = import.meta.env.VITE_N8N_BASE_URL;
+      const n8nAuthHeader = import.meta.env.VITE_N8N_AUTH_HEADER;
+      
+      if (!n8nBaseUrl) {
+        throw new Error("URL do n8n não configurada");
+      }
+      
+      await supabase
+        .schema('sistemaretiradas')
+        .from('sites')
+        .update({ status: 'generating' } as any)
+        .eq('id', site.id as any);
+      
+      const addressParts = [
+        formData.address_street,
+        formData.address_number,
+        formData.address_complement,
+        formData.address_neighborhood,
+        formData.address_city,
+        formData.address_state,
+        formData.address_zip
+      ].filter(Boolean);
+      const addressFull = addressParts.join(', ');
+      
+      const response = await fetch(`${n8nBaseUrl}/ai/editsites`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-APP-KEY': n8nAuthHeader || ''
+        },
+        body: JSON.stringify({
+          siteSlug: site.slug,
+          command: 'update_site_content',
+          confirmPreview: true,
+          
+          site_id: site.id,
+          slug: site.slug,
+          tenant_id: tenantId,
+          
+          business_type: formData.business_type || site.business_type,
+          segment_id: formData.segment_id || site.segment_id,
+          segment_name: formData.segment_name || site.segment_name,
+          area_id: formData.area_id || site.area_id,
+          area_name: formData.area_name || site.area_name,
+          custom_area: formData.custom_area || site.custom_area,
+          content_type: formData.content_type || site.content_type,
+          voice_tone: formData.voice_tone || site.voice_tone,
+          
+          company_name: formData.company_name || site.company_name,
+          company_description: formData.company_description || site.company_description,
+          company_history: formData.company_history || site.company_history,
+          mission: formData.mission || site.mission,
+          vision: formData.vision || site.vision,
+          company_values: formData.company_values || site.company_values,
+          services_description: formData.services_description || site.services_description,
+          products_description: formData.products_description || site.products_description,
+          differentials: formData.differentials || site.differentials,
+          
+          slogan: formData.slogan || site.slogan,
+          tagline: formData.tagline || site.tagline,
+          founding_year: formData.founding_year || site.founding_year,
+          team_size: formData.team_size || site.team_size,
+          awards: formData.awards || site.awards,
+          certifications: formData.certifications || site.certifications,
+          
+          featured_products: formData.featured_products || site.featured_products,
+          featured_services: formData.featured_services || site.featured_services,
+          special_offers: formData.special_offers || site.special_offers,
+          testimonials: formData.testimonials || site.testimonials,
+          
+          whatsapp: formData.whatsapp || site.whatsapp,
+          phone: formData.phone || site.phone,
+          email: formData.email || site.email,
+          instagram: formData.instagram || site.instagram,
+          facebook: formData.facebook || site.facebook,
+          
+          address_street: formData.address_street || site.address_street,
+          address_number: formData.address_number || site.address_number,
+          address_complement: formData.address_complement || site.address_complement,
+          address_neighborhood: formData.address_neighborhood || site.address_neighborhood,
+          address_city: formData.address_city || site.address_city,
+          address_state: formData.address_state || site.address_state,
+          address_zip: formData.address_zip || site.address_zip,
+          address_full: addressFull,
+          google_maps_embed: formData.google_maps_embed || site.google_maps_embed,
+          
+          business_hours: formData.business_hours || site.business_hours,
+          
+          color_primary: formData.color_primary || site.color_primary,
+          color_secondary: formData.color_secondary || site.color_secondary,
+          color_accent: formData.color_accent || site.color_accent,
+          color_background: formData.color_background || site.color_background,
+          
+          logo_url: formData.logo_url || site.logo_url,
+          hero_image_url: formData.hero_image_url || site.hero_image_url,
+          
+          assets: formData.assets?.map((asset: any, index: number) => ({
+            id: asset.id,
+            type: asset.type,
+            url: asset.url?.startsWith('blob:') ? '' : (asset.url || ''),
+            filename: asset.base64 ? `${site.slug}-${asset.type}-${index + 1}.jpg` : undefined,
+            base64: asset.base64 || undefined,
+            metadata: asset.metadata || {},
+            displayOrder: asset.displayOrder || index
+          })) || site.assets || [],
+          
+          cta_button_text: formData.cta_button_text || site.cta_button_text,
+          cta_whatsapp_message: formData.cta_whatsapp_message || site.cta_whatsapp_message,
+          
+          github_owner: site.github_full_name?.split('/')[0] || 'eleveaone',
+          github_repo: site.github_full_name?.split('/')[1] || site.slug,
+          github_branch: site.github_branch || 'main'
+        })
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        await supabase
+          .schema('sistemaretiradas')
+          .from('sites')
+          .update({ status: 'error' } as any)
+          .eq('id', site.id as any);
+        throw new Error(`Falha ao editar site: ${errorText}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        await supabase
+          .schema('sistemaretiradas')
+          .from('sites')
+          .update({
+            status: 'published',
+            updated_at: new Date().toISOString()
+          } as any)
+          .eq('id', site.id as any);
+      }
+      
+      return result;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['site', tenantId] });
+      toast({
+        title: "Site atualizado",
+        description: "As alterações foram aplicadas com sucesso!"
+      });
+    },
+    onError: (error: Error) => {
+      queryClient.invalidateQueries({ queryKey: ['site', tenantId] });
+      toast({
+        title: "Erro na edição",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+  
+  const isPublished = site?.status === 'published';
+  
   return {
     site,
     isLoading,
     error,
     hasSite: !!site,
+    isPublished,
     canReset: canReset(),
     refetch,
     createSite: createSiteMutation.mutateAsync,
@@ -673,10 +839,12 @@ export function useSiteData() {
     resetSite: resetSiteMutation.mutateAsync,
     triggerDeploy: triggerDeployMutation.mutateAsync,
     generateContent: generateContentMutation.mutateAsync,
+    editSite: editSiteMutation.mutateAsync,
     isCreating: createSiteMutation.isPending,
     isUpdating: updateSiteMutation.isPending,
     isResetting: resetSiteMutation.isPending,
     isDeploying: triggerDeployMutation.isPending,
-    isGenerating: generateContentMutation.isPending
+    isGenerating: generateContentMutation.isPending,
+    isEditing: editSiteMutation.isPending
   };
 }
