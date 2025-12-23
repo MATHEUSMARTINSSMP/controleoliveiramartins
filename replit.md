@@ -58,8 +58,13 @@ The system is built with a modern web stack, emphasizing a chic, minimalist, and
         -   **n8n Webhook Flow (3 etapas)**:
             1. `/elevea-sites/setup` - Cria repositório GitHub + projeto Netlify (~3s)
             2. `/elevea-sites/generate` - Gera conteúdo HTML com IA (~90s)
-            3. `/ai/editsites` - Edita site já publicado via comandos de IA (~27s)
-        -   **CONHECIDO: Problema no prompt de edição n8n** - O prompt da IA no workflow de edição está apagando código excessivamente (ex: -804 linhas para edição simples). Requer ajuste no n8n para ser mais conservador e cirúrgico.
+            3. `/ai/editsites` - Edita site já publicado via comandos de IA (~27-56s)
+        -   **RESOLVIDO: Edição Cirúrgica** - Workflow n8n corrigido com node "Get a file" que busca HTML atual antes de editar. IA agora faz edições cirúrgicas (+208/-9 linhas) vs anteriores destrutivas (+99/-804). Sequência correta: Get File → Decode Base64 → Process HTML → List Files → Prepare Context → AI Agent → Commit.
+        -   **Frontend Flow**:
+            -   **Criação**: `createSite()` → `triggerDeploy()` → `generateContent()`
+            -   **Edição**: `editSite()` (detecta automaticamente se site.status === 'published')
+        -   **Asset Types**: Logo (1), Hero (1), Product (10), Ambient (5), Gallery (4) - com metadados específicos por tipo
+        -   **Image Upload**: Suporte dual URL/Upload com Base64, validação de tipo/tamanho, preview em tempo real
 
 ## External Dependencies
 -   **Supabase**: Core backend for database (PostgreSQL), authentication, and Edge Functions.
