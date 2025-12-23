@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet, RefreshCw, AlertTriangle, Plus, Link2, Target, Send } from "lucide-react";
+import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet, RefreshCw, AlertTriangle, Plus, Link2, Target, Send, Globe } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +28,7 @@ import { TimeClockManagement } from "@/components/timeclock/TimeClockManagement"
 import { DailyGoalCheckReports } from "@/components/admin/DailyGoalCheckReports";
 import { ConditionalsAdjustmentsManager } from "@/components/admin/ConditionalsAdjustmentsManager";
 import GestaoMetasTab from "@/components/admin/GestaoMetasTab";
+import { AdminSiteManager } from "@/components/admin/AdminSiteManager";
 import { BillingManagement } from "@/components/admin/BillingManagement";
 import { BillingAccessGuard } from "@/components/BillingAccessGuard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -438,6 +439,11 @@ const AdminDashboard = () => {
                     <span className="hidden sm:inline">Ajustes & Condicionais</span>
                     <span className="sm:hidden">Ajustes</span>
                   </TabsTrigger>
+                  <TabsTrigger value="site" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] justify-center" data-testid="tab-site">
+                    <Globe className="h-3 w-3 mr-1" />
+                    <span className="hidden sm:inline">Meu Site</span>
+                    <span className="sm:hidden">Site</span>
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="dashboard" className="space-y-4">
@@ -466,6 +472,10 @@ const AdminDashboard = () => {
 
                 <TabsContent value="ajustes-condicionais" className="space-y-4">
                   <ConditionalsAdjustmentsManager />
+                </TabsContent>
+
+                <TabsContent value="site" className="space-y-4">
+                  <AdminSiteManager />
                 </TabsContent>
               </Tabs>
             </TabsContent>
