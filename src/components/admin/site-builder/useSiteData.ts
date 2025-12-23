@@ -399,7 +399,7 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
           site_id: site.id,
           site_slug: site.slug,
           site_name: site.name,
-          description: site.company_description || '',
+          description: (site.company_description || '').replace(/\n/g, ' '),
           segment: site.segment_name,
           area: site.area_name,
           voice_tone: site.voice_tone,
@@ -527,7 +527,7 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
           voice_tone: site.voice_tone,
           
           company_name: site.company_name,
-          company_description: site.company_description || '',
+          company_description: (site.company_description || '').replace(/\n/g, ' '),
           company_history: site.company_history || '',
           mission: site.mission || '',
           vision: site.vision || '',
@@ -742,7 +742,7 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
           voice_tone: formData.voice_tone || site.voice_tone,
           
           company_name: formData.company_name || site.company_name,
-          company_description: formData.company_description || site.company_description,
+          company_description: (formData.company_description || site.company_description || '').replace(/\n/g, ' '),
           company_history: formData.company_history || site.company_history,
           mission: formData.mission || site.mission,
           vision: formData.vision || site.vision,
