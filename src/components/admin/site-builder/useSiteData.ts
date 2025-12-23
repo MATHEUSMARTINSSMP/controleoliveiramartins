@@ -4,6 +4,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import type { SiteData, SiteFormData } from "./types";
 
+const normalizeWebhookUrl = (url: string): string => {
+  return url.replace(/\/+$/, '');
+};
+
 interface UseSiteDataOptions {
   tenantId?: string | null;
 }
@@ -385,7 +389,7 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
         throw new Error("Configuração de deploy não encontrada");
       }
       
-      const response = await fetch(`${webhookUrl}/elevea-sites/setup`, {
+      const response = await fetch(`${normalizeWebhookUrl(webhookUrl)}/elevea-sites/setup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -496,7 +500,7 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
         return '';
       };
       
-      const response = await fetch(`${webhookUrl}/elevea-sites/generate`, {
+      const response = await fetch(`${normalizeWebhookUrl(webhookUrl)}/elevea-sites/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -695,7 +699,7 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
       ].filter(Boolean);
       const addressFull = addressParts.join(', ');
       
-      const response = await fetch(`${n8nBaseUrl}/ai/editsites`, {
+      const response = await fetch(`${normalizeWebhookUrl(n8nBaseUrl)}/ai/editsites`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
