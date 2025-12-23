@@ -642,16 +642,33 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
           product_images: site.product_images || [],
           ambient_images: site.ambient_images || [],
           
-          images_base64: formData ? {
-            logo: formData.logo_base64 ? { data: formData.logo_base64, filename: `${site.slug}-logo.png` } : null,
-            hero: formData.hero_image_base64 ? { data: formData.hero_image_base64, filename: `${site.slug}-hero.jpg` } : null,
-            gallery: [
-              formData.gallery_image_1_base64 ? { data: formData.gallery_image_1_base64, filename: `${site.slug}-gallery-1.jpg` } : null,
-              formData.gallery_image_2_base64 ? { data: formData.gallery_image_2_base64, filename: `${site.slug}-gallery-2.jpg` } : null,
-              formData.gallery_image_3_base64 ? { data: formData.gallery_image_3_base64, filename: `${site.slug}-gallery-3.jpg` } : null,
-              formData.gallery_image_4_base64 ? { data: formData.gallery_image_4_base64, filename: `${site.slug}-gallery-4.jpg` } : null
-            ].filter(Boolean)
-          } : null,
+          images_base64: (() => {
+            const sourceAssets = formData?.assets || [];
+            const logoAsset = sourceAssets.find((a: any) => a.type === 'logo' && a.base64);
+            const heroAsset = sourceAssets.find((a: any) => a.type === 'hero' && a.base64);
+            const galleryAssets = sourceAssets.filter((a: any) => a.type === 'gallery' && a.base64);
+            
+            const logoBase64 = formData?.logo_base64 || logoAsset?.base64;
+            const heroBase64 = formData?.hero_image_base64 || heroAsset?.base64;
+            
+            if (!logoBase64 && !heroBase64 && galleryAssets.length === 0 && 
+                !formData?.gallery_image_1_base64 && !formData?.gallery_image_2_base64 && 
+                !formData?.gallery_image_3_base64 && !formData?.gallery_image_4_base64) {
+              return null;
+            }
+            
+            return {
+              logo: logoBase64 ? { data: logoBase64, filename: `${site.slug}-logo.png` } : null,
+              hero: heroBase64 ? { data: heroBase64, filename: `${site.slug}-hero.jpg` } : null,
+              gallery: [
+                formData?.gallery_image_1_base64 ? { data: formData.gallery_image_1_base64, filename: `${site.slug}-gallery-1.jpg` } : null,
+                formData?.gallery_image_2_base64 ? { data: formData.gallery_image_2_base64, filename: `${site.slug}-gallery-2.jpg` } : null,
+                formData?.gallery_image_3_base64 ? { data: formData.gallery_image_3_base64, filename: `${site.slug}-gallery-3.jpg` } : null,
+                formData?.gallery_image_4_base64 ? { data: formData.gallery_image_4_base64, filename: `${site.slug}-gallery-4.jpg` } : null,
+                ...galleryAssets.map((a: any, i: number) => ({ data: a.base64, filename: `${site.slug}-gallery-asset-${i + 1}.jpg` }))
+              ].filter(Boolean)
+            };
+          })(),
           
           assets: (() => {
             const sourceAssets = formData?.assets || site.assets || [];
