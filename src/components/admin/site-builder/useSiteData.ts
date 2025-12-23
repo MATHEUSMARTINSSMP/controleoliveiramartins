@@ -69,13 +69,35 @@ export function useSiteData() {
   
   const sanitizeAssetsForStorage = (assets: SiteFormData['assets'] | undefined): any[] => {
     if (!assets || !Array.isArray(assets)) return [];
-    return assets.map(asset => ({
-      id: asset.id,
-      type: asset.type,
-      url: asset.url.startsWith('blob:') ? '' : asset.url,
-      displayOrder: asset.displayOrder,
-      metadata: asset.metadata
-    })).filter(a => a.url || a.type === 'logo' || a.type === 'hero');
+    return assets
+      .filter(asset => {
+        if (!asset.url) return false;
+        if (asset.url.startsWith('blob:')) return false;
+        return true;
+      })
+      .map(asset => ({
+        id: asset.id,
+        type: asset.type,
+        url: asset.url,
+        displayOrder: asset.displayOrder,
+        metadata: asset.metadata
+      }));
+  };
+  
+  const extractLegacyImagesFromAssets = (assets: SiteFormData['assets'] | undefined) => {
+    if (!assets || !Array.isArray(assets)) return {};
+    
+    const logo = assets.find(a => a.type === 'logo');
+    const hero = assets.find(a => a.type === 'hero');
+    const galleryAssets = assets.filter(a => a.type === 'gallery').slice(0, 4);
+    
+    return {
+      logo_url: logo && !logo.url.startsWith('blob:') ? logo.url : null,
+      hero_image_url: hero && !hero.url.startsWith('blob:') ? hero.url : null,
+      gallery_images: galleryAssets
+        .map(a => !a.url.startsWith('blob:') ? a.url : null)
+        .filter(Boolean) as string[]
+    };
   };
   
   const createSiteMutation = useMutation({
@@ -168,16 +190,16 @@ export function useSiteData() {
         font_secondary: 'Inter',
         visual_style: 'moderno',
         
-        logo_url: cleanImageUrl(formData.logo_url),
-        hero_image_url: cleanImageUrl(formData.hero_image_url),
+        logo_url: cleanImageUrl(formData.logo_url) || extractLegacyImagesFromAssets(formData.assets).logo_url,
+        hero_image_url: cleanImageUrl(formData.hero_image_url) || extractLegacyImagesFromAssets(formData.assets).hero_image_url,
         gallery_images: [
           cleanImageUrl(formData.gallery_image_1),
           cleanImageUrl(formData.gallery_image_2),
           cleanImageUrl(formData.gallery_image_3),
           cleanImageUrl(formData.gallery_image_4)
-        ].filter(Boolean) as string[],
-        product_images: [],
-        ambient_images: [],
+        ].filter(Boolean) as string[] || extractLegacyImagesFromAssets(formData.assets).gallery_images || [],
+        product_images: (formData.assets || []).filter(a => a.type === 'product' && !a.url.startsWith('blob:')).map(a => a.url),
+        ambient_images: (formData.assets || []).filter(a => a.type === 'ambient' && !a.url.startsWith('blob:')).map(a => a.url),
         assets: sanitizeAssetsForStorage(formData.assets),
         
         cta_button_text: formData.cta_button_text || null,
@@ -230,7 +252,14 @@ export function useSiteData() {
       for (const [key, value] of Object.entries(updates)) {
         if (base64Keys.includes(key)) continue;
         if (key === 'assets') {
-          sanitizedUpdates[key] = sanitizeAssetsForStorage(value as SiteFormData['assets']);
+          const assets = value as SiteFormData['assets'];
+          sanitizedUpdates[key] = sanitizeAssetsForStorage(assets);
+          const legacyImages = extractLegacyImagesFromAssets(assets);
+          if (legacyImages.logo_url) sanitizedUpdates.logo_url = legacyImages.logo_url;
+          if (legacyImages.hero_image_url) sanitizedUpdates.hero_image_url = legacyImages.hero_image_url;
+          if (legacyImages.gallery_images?.length) sanitizedUpdates.gallery_images = legacyImages.gallery_images;
+          sanitizedUpdates.product_images = (assets || []).filter(a => a.type === 'product' && !a.url.startsWith('blob:')).map(a => a.url);
+          sanitizedUpdates.ambient_images = (assets || []).filter(a => a.type === 'ambient' && !a.url.startsWith('blob:')).map(a => a.url);
         } else if (imageUrlKeys.includes(key)) {
           sanitizedUpdates[key] = cleanImageUrl(value as string);
         } else {
@@ -550,15 +579,18 @@ export function useSiteData() {
             ].filter(Boolean)
           } : null,
           
-          assets: formData?.assets?.map((asset, index) => ({
-            id: asset.id,
-            type: asset.type,
-            url: asset.url.startsWith('blob:') ? '' : asset.url,
-            filename: asset.base64 ? `${site.slug}-${asset.type}-${index + 1}.jpg` : undefined,
-            base64: asset.base64 || undefined,
-            metadata: asset.metadata,
-            displayOrder: asset.displayOrder
-          })) || site.assets || [],
+          assets: (() => {
+            const sourceAssets = formData?.assets || site.assets || [];
+            return sourceAssets.map((asset: any, index: number) => ({
+              id: asset.id,
+              type: asset.type,
+              url: asset.url?.startsWith('blob:') ? '' : (asset.url || ''),
+              filename: asset.base64 ? `${site.slug}-${asset.type}-${index + 1}.jpg` : (asset.url ? undefined : `${site.slug}-${asset.type}-${index + 1}.jpg`),
+              base64: asset.base64 || undefined,
+              metadata: asset.metadata || {},
+              displayOrder: asset.displayOrder || index
+            }));
+          })(),
           
           color_primary: site.color_primary,
           color_secondary: site.color_secondary,
