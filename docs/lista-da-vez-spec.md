@@ -17,14 +17,14 @@ Sistema de fila de prioridade de atendimento para vendedores no salao de vendas,
 CREATE TABLE sistemaretiradas.queue_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES sistemaretiradas.tenants(id),
-  loja_id UUID NOT NULL REFERENCES sistemaretiradas.lojas(id),
+  store_id UUID NOT NULL REFERENCES sistemaretiradas.stores(id),
   session_date DATE NOT NULL DEFAULT CURRENT_DATE,
   shift VARCHAR(20) DEFAULT 'integral', -- 'manha', 'tarde', 'integral'
   started_at TIMESTAMPTZ DEFAULT NOW(),
   ended_at TIMESTAMPTZ,
   status VARCHAR(20) DEFAULT 'active', -- 'active', 'closed'
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(loja_id, session_date, shift)
+  UNIQUE(store_id, session_date, shift)
 );
 ```
 
@@ -33,7 +33,7 @@ CREATE TABLE sistemaretiradas.queue_sessions (
 CREATE TABLE sistemaretiradas.queue_members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID NOT NULL REFERENCES sistemaretiradas.queue_sessions(id),
-  colaboradora_id UUID NOT NULL REFERENCES sistemaretiradas.colaboradoras(id),
+  profile_id UUID NOT NULL REFERENCES sistemaretiradas.profiles(id),
   status VARCHAR(30) DEFAULT 'disponivel', -- 'disponivel', 'em_atendimento', 'indisponivel'
   pause_reason VARCHAR(50), -- 'almoco', 'estoque', 'caixa', 'pos_venda', 'treinamento', 'outro'
   position INTEGER NOT NULL DEFAULT 0,
@@ -53,12 +53,12 @@ CREATE TABLE sistemaretiradas.queue_members (
 CREATE TABLE sistemaretiradas.attendances (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES sistemaretiradas.tenants(id),
-  loja_id UUID NOT NULL REFERENCES sistemaretiradas.lojas(id),
+  store_id UUID NOT NULL REFERENCES sistemaretiradas.stores(id),
   session_id UUID REFERENCES sistemaretiradas.queue_sessions(id),
-  colaboradora_id UUID NOT NULL REFERENCES sistemaretiradas.colaboradoras(id),
-  transferred_from UUID REFERENCES sistemaretiradas.colaboradoras(id),
+  profile_id UUID NOT NULL REFERENCES sistemaretiradas.profiles(id),
+  transferred_from UUID REFERENCES sistemaretiradas.profiles(id),
   transfer_reason VARCHAR(255),
-  cliente_id UUID REFERENCES sistemaretiradas.clientes(id),
+  cliente_id UUID,
   cliente_nome VARCHAR(255),
   cliente_telefone VARCHAR(20),
   started_at TIMESTAMPTZ DEFAULT NOW(),
@@ -90,8 +90,8 @@ CREATE TABLE sistemaretiradas.attendance_outcomes (
 ```sql
 CREATE TABLE sistemaretiradas.loss_reasons (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL REFERENCES sistemaretiradas.tenants(id),
-  loja_id UUID REFERENCES sistemaretiradas.lojas(id), -- NULL = global para tenant
+  tenant_id UUID REFERENCES sistemaretiradas.tenants(id),
+  store_id UUID REFERENCES sistemaretiradas.stores(id), -- NULL = global para tenant
   name VARCHAR(100) NOT NULL,
   description VARCHAR(255),
   is_active BOOLEAN DEFAULT true,
@@ -122,7 +122,7 @@ CREATE TABLE sistemaretiradas.queue_events (
   -- 'check_in', 'check_out', 'status_change', 'position_change', 
   -- 'attendance_start', 'attendance_end', 'transfer', 'force_status'
   event_data JSONB,
-  performed_by UUID REFERENCES sistemaretiradas.colaboradoras(id),
+  performed_by UUID REFERENCES sistemaretiradas.profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
@@ -132,7 +132,7 @@ CREATE TABLE sistemaretiradas.queue_events (
 CREATE TABLE sistemaretiradas.queue_store_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES sistemaretiradas.tenants(id),
-  loja_id UUID NOT NULL REFERENCES sistemaretiradas.lojas(id) UNIQUE,
+  store_id UUID NOT NULL REFERENCES sistemaretiradas.stores(id) UNIQUE,
   
   -- Regras de Fila
   entry_position VARCHAR(20) DEFAULT 'end', -- 'end', 'start', 'by_role'
@@ -173,44 +173,53 @@ CREATE TABLE sistemaretiradas.queue_store_settings (
 ```sql
 -- queue_sessions
 ALTER TABLE sistemaretiradas.queue_sessions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY queue_sessions_tenant ON sistemaretiradas.queue_sessions
-  FOR ALL USING (tenant_id = current_setting('app.tenant_id')::uuid);
+CREATE POLICY queue_sessions_policy ON sistemaretiradas.queue_sessions
+  FOR ALL USING (tenant_id IN (SELECT tenant_id FROM sistemaretiradas.profiles WHERE id = auth.uid()));
 
 -- queue_members
 ALTER TABLE sistemaretiradas.queue_members ENABLE ROW LEVEL SECURITY;
-CREATE POLICY queue_members_tenant ON sistemaretiradas.queue_members
+CREATE POLICY queue_members_policy ON sistemaretiradas.queue_members
   FOR ALL USING (
-    session_id IN (SELECT id FROM sistemaretiradas.queue_sessions WHERE tenant_id = current_setting('app.tenant_id')::uuid)
+    session_id IN (
+      SELECT qs.id FROM sistemaretiradas.queue_sessions qs
+      WHERE qs.tenant_id IN (SELECT tenant_id FROM sistemaretiradas.profiles WHERE id = auth.uid())
+    )
   );
 
 -- attendances
 ALTER TABLE sistemaretiradas.attendances ENABLE ROW LEVEL SECURITY;
-CREATE POLICY attendances_tenant ON sistemaretiradas.attendances
-  FOR ALL USING (tenant_id = current_setting('app.tenant_id')::uuid);
+CREATE POLICY attendances_policy ON sistemaretiradas.attendances
+  FOR ALL USING (tenant_id IN (SELECT tenant_id FROM sistemaretiradas.profiles WHERE id = auth.uid()));
 
 -- attendance_outcomes
 ALTER TABLE sistemaretiradas.attendance_outcomes ENABLE ROW LEVEL SECURITY;
-CREATE POLICY attendance_outcomes_tenant ON sistemaretiradas.attendance_outcomes
+CREATE POLICY attendance_outcomes_policy ON sistemaretiradas.attendance_outcomes
   FOR ALL USING (
-    attendance_id IN (SELECT id FROM sistemaretiradas.attendances WHERE tenant_id = current_setting('app.tenant_id')::uuid)
+    attendance_id IN (
+      SELECT a.id FROM sistemaretiradas.attendances a
+      WHERE a.tenant_id IN (SELECT tenant_id FROM sistemaretiradas.profiles WHERE id = auth.uid())
+    )
   );
 
 -- loss_reasons
 ALTER TABLE sistemaretiradas.loss_reasons ENABLE ROW LEVEL SECURITY;
-CREATE POLICY loss_reasons_tenant ON sistemaretiradas.loss_reasons
-  FOR ALL USING (tenant_id = current_setting('app.tenant_id')::uuid OR tenant_id IS NULL);
+CREATE POLICY loss_reasons_policy ON sistemaretiradas.loss_reasons
+  FOR ALL USING (tenant_id IS NULL OR tenant_id IN (SELECT tenant_id FROM sistemaretiradas.profiles WHERE id = auth.uid()));
 
 -- queue_events
 ALTER TABLE sistemaretiradas.queue_events ENABLE ROW LEVEL SECURITY;
-CREATE POLICY queue_events_tenant ON sistemaretiradas.queue_events
+CREATE POLICY queue_events_policy ON sistemaretiradas.queue_events
   FOR ALL USING (
-    session_id IN (SELECT id FROM sistemaretiradas.queue_sessions WHERE tenant_id = current_setting('app.tenant_id')::uuid)
+    session_id IN (
+      SELECT qs.id FROM sistemaretiradas.queue_sessions qs
+      WHERE qs.tenant_id IN (SELECT tenant_id FROM sistemaretiradas.profiles WHERE id = auth.uid())
+    )
   );
 
 -- queue_store_settings
 ALTER TABLE sistemaretiradas.queue_store_settings ENABLE ROW LEVEL SECURITY;
-CREATE POLICY queue_store_settings_tenant ON sistemaretiradas.queue_store_settings
-  FOR ALL USING (tenant_id = current_setting('app.tenant_id')::uuid);
+CREATE POLICY queue_store_settings_policy ON sistemaretiradas.queue_store_settings
+  FOR ALL USING (tenant_id IN (SELECT tenant_id FROM sistemaretiradas.profiles WHERE id = auth.uid()));
 ```
 
 ---
@@ -218,12 +227,12 @@ CREATE POLICY queue_store_settings_tenant ON sistemaretiradas.queue_store_settin
 ## Indices para Performance
 
 ```sql
-CREATE INDEX idx_queue_sessions_loja_date ON sistemaretiradas.queue_sessions(loja_id, session_date);
+CREATE INDEX idx_queue_sessions_store_date ON sistemaretiradas.queue_sessions(store_id, session_date);
 CREATE INDEX idx_queue_members_session ON sistemaretiradas.queue_members(session_id, status);
-CREATE INDEX idx_queue_members_colaboradora ON sistemaretiradas.queue_members(colaboradora_id);
+CREATE INDEX idx_queue_members_profile ON sistemaretiradas.queue_members(profile_id);
 CREATE INDEX idx_attendances_session ON sistemaretiradas.attendances(session_id);
-CREATE INDEX idx_attendances_colaboradora ON sistemaretiradas.attendances(colaboradora_id, started_at);
-CREATE INDEX idx_attendances_loja_date ON sistemaretiradas.attendances(loja_id, started_at);
+CREATE INDEX idx_attendances_profile ON sistemaretiradas.attendances(profile_id, started_at);
+CREATE INDEX idx_attendances_store_date ON sistemaretiradas.attendances(store_id, started_at);
 CREATE INDEX idx_queue_events_session ON sistemaretiradas.queue_events(session_id, created_at);
 ```
 
@@ -234,7 +243,7 @@ CREATE INDEX idx_queue_events_session ON sistemaretiradas.queue_events(session_i
 ```sql
 -- Funcao para obter ou criar sessao do dia
 CREATE OR REPLACE FUNCTION sistemaretiradas.get_or_create_queue_session(
-  p_loja_id UUID,
+  p_store_id UUID,
   p_tenant_id UUID,
   p_shift VARCHAR DEFAULT 'integral'
 )
@@ -244,20 +253,20 @@ DECLARE
 BEGIN
   SELECT id INTO v_session_id
   FROM sistemaretiradas.queue_sessions
-  WHERE loja_id = p_loja_id
+  WHERE store_id = p_store_id
     AND session_date = CURRENT_DATE
     AND shift = p_shift
     AND status = 'active';
   
   IF v_session_id IS NULL THEN
-    INSERT INTO sistemaretiradas.queue_sessions (tenant_id, loja_id, shift)
-    VALUES (p_tenant_id, p_loja_id, p_shift)
+    INSERT INTO sistemaretiradas.queue_sessions (tenant_id, store_id, shift)
+    VALUES (p_tenant_id, p_store_id, p_shift)
     RETURNING id INTO v_session_id;
   END IF;
   
   RETURN v_session_id;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Funcao para calcular proxima posicao na fila
 CREATE OR REPLACE FUNCTION sistemaretiradas.get_next_queue_position(p_session_id UUID)
@@ -265,18 +274,18 @@ RETURNS INTEGER AS $$
   SELECT COALESCE(MAX(position), 0) + 1
   FROM sistemaretiradas.queue_members
   WHERE session_id = p_session_id;
-$$ LANGUAGE sql;
+$$ LANGUAGE sql SECURITY DEFINER;
 
 -- Funcao para pegar proximo da fila
 CREATE OR REPLACE FUNCTION sistemaretiradas.get_next_in_queue(p_session_id UUID)
 RETURNS UUID AS $$
-  SELECT colaboradora_id
+  SELECT profile_id
   FROM sistemaretiradas.queue_members
   WHERE session_id = p_session_id
     AND status = 'disponivel'
   ORDER BY position ASC
   LIMIT 1;
-$$ LANGUAGE sql;
+$$ LANGUAGE sql SECURITY DEFINER;
 ```
 
 ---

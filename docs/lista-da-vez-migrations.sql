@@ -7,21 +7,21 @@
 CREATE TABLE IF NOT EXISTS sistemaretiradas.queue_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES sistemaretiradas.tenants(id),
-  loja_id UUID NOT NULL REFERENCES sistemaretiradas.lojas(id),
+  store_id UUID NOT NULL REFERENCES sistemaretiradas.stores(id),
   session_date DATE NOT NULL DEFAULT CURRENT_DATE,
   shift VARCHAR(20) DEFAULT 'integral',
   started_at TIMESTAMPTZ DEFAULT NOW(),
   ended_at TIMESTAMPTZ,
   status VARCHAR(20) DEFAULT 'active',
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(loja_id, session_date, shift)
+  UNIQUE(store_id, session_date, shift)
 );
 
 -- 2. TABELA: queue_members (Estado Atual na Fila)
 CREATE TABLE IF NOT EXISTS sistemaretiradas.queue_members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID NOT NULL REFERENCES sistemaretiradas.queue_sessions(id) ON DELETE CASCADE,
-  colaboradora_id UUID NOT NULL REFERENCES sistemaretiradas.colaboradoras(id),
+  profile_id UUID NOT NULL REFERENCES sistemaretiradas.profiles(id),
   status VARCHAR(30) DEFAULT 'disponivel',
   pause_reason VARCHAR(50),
   position INTEGER NOT NULL DEFAULT 0,
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS sistemaretiradas.queue_members (
 CREATE TABLE IF NOT EXISTS sistemaretiradas.loss_reasons (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID REFERENCES sistemaretiradas.tenants(id),
-  loja_id UUID REFERENCES sistemaretiradas.lojas(id),
+  store_id UUID REFERENCES sistemaretiradas.stores(id),
   name VARCHAR(100) NOT NULL,
   description VARCHAR(255),
   is_active BOOLEAN DEFAULT true,
@@ -51,10 +51,10 @@ CREATE TABLE IF NOT EXISTS sistemaretiradas.loss_reasons (
 CREATE TABLE IF NOT EXISTS sistemaretiradas.attendances (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES sistemaretiradas.tenants(id),
-  loja_id UUID NOT NULL REFERENCES sistemaretiradas.lojas(id),
+  store_id UUID NOT NULL REFERENCES sistemaretiradas.stores(id),
   session_id UUID REFERENCES sistemaretiradas.queue_sessions(id),
-  colaboradora_id UUID NOT NULL REFERENCES sistemaretiradas.colaboradoras(id),
-  transferred_from UUID REFERENCES sistemaretiradas.colaboradoras(id),
+  profile_id UUID NOT NULL REFERENCES sistemaretiradas.profiles(id),
+  transferred_from UUID REFERENCES sistemaretiradas.profiles(id),
   transfer_reason VARCHAR(255),
   cliente_id UUID,
   cliente_nome VARCHAR(255),
@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS sistemaretiradas.queue_events (
   attendance_id UUID REFERENCES sistemaretiradas.attendances(id),
   event_type VARCHAR(50) NOT NULL,
   event_data JSONB,
-  performed_by UUID REFERENCES sistemaretiradas.colaboradoras(id),
+  performed_by UUID REFERENCES sistemaretiradas.profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS sistemaretiradas.queue_events (
 CREATE TABLE IF NOT EXISTS sistemaretiradas.queue_store_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES sistemaretiradas.tenants(id),
-  loja_id UUID NOT NULL REFERENCES sistemaretiradas.lojas(id) UNIQUE,
+  store_id UUID NOT NULL REFERENCES sistemaretiradas.stores(id) UNIQUE,
   entry_position VARCHAR(20) DEFAULT 'end',
   return_position VARCHAR(20) DEFAULT 'end',
   cooldown_minutes INTEGER DEFAULT 0,
@@ -121,12 +121,12 @@ CREATE TABLE IF NOT EXISTS sistemaretiradas.queue_store_settings (
 -- INDICES PARA PERFORMANCE
 -- =====================================================
 
-CREATE INDEX IF NOT EXISTS idx_queue_sessions_loja_date ON sistemaretiradas.queue_sessions(loja_id, session_date);
+CREATE INDEX IF NOT EXISTS idx_queue_sessions_store_date ON sistemaretiradas.queue_sessions(store_id, session_date);
 CREATE INDEX IF NOT EXISTS idx_queue_members_session ON sistemaretiradas.queue_members(session_id, status);
-CREATE INDEX IF NOT EXISTS idx_queue_members_colaboradora ON sistemaretiradas.queue_members(colaboradora_id);
+CREATE INDEX IF NOT EXISTS idx_queue_members_profile ON sistemaretiradas.queue_members(profile_id);
 CREATE INDEX IF NOT EXISTS idx_attendances_session ON sistemaretiradas.attendances(session_id);
-CREATE INDEX IF NOT EXISTS idx_attendances_colaboradora ON sistemaretiradas.attendances(colaboradora_id, started_at);
-CREATE INDEX IF NOT EXISTS idx_attendances_loja_date ON sistemaretiradas.attendances(loja_id, started_at);
+CREATE INDEX IF NOT EXISTS idx_attendances_profile ON sistemaretiradas.attendances(profile_id, started_at);
+CREATE INDEX IF NOT EXISTS idx_attendances_store_date ON sistemaretiradas.attendances(store_id, started_at);
 CREATE INDEX IF NOT EXISTS idx_queue_events_session ON sistemaretiradas.queue_events(session_id, created_at);
 
 -- =====================================================
@@ -193,7 +193,7 @@ ON CONFLICT DO NOTHING;
 
 -- Funcao para obter ou criar sessao do dia
 CREATE OR REPLACE FUNCTION sistemaretiradas.get_or_create_queue_session(
-  p_loja_id UUID,
+  p_store_id UUID,
   p_tenant_id UUID,
   p_shift VARCHAR DEFAULT 'integral'
 )
@@ -203,14 +203,14 @@ DECLARE
 BEGIN
   SELECT id INTO v_session_id
   FROM sistemaretiradas.queue_sessions
-  WHERE loja_id = p_loja_id
+  WHERE store_id = p_store_id
     AND session_date = CURRENT_DATE
     AND shift = p_shift
     AND status = 'active';
   
   IF v_session_id IS NULL THEN
-    INSERT INTO sistemaretiradas.queue_sessions (tenant_id, loja_id, shift)
-    VALUES (p_tenant_id, p_loja_id, p_shift)
+    INSERT INTO sistemaretiradas.queue_sessions (tenant_id, store_id, shift)
+    VALUES (p_tenant_id, p_store_id, p_shift)
     RETURNING id INTO v_session_id;
   END IF;
   
@@ -229,7 +229,7 @@ $$ LANGUAGE sql SECURITY DEFINER;
 -- Funcao para pegar proximo da fila
 CREATE OR REPLACE FUNCTION sistemaretiradas.get_next_in_queue(p_session_id UUID)
 RETURNS UUID AS $$
-  SELECT colaboradora_id
+  SELECT profile_id
   FROM sistemaretiradas.queue_members
   WHERE session_id = p_session_id
     AND status = 'disponivel'
