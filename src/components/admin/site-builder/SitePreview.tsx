@@ -30,8 +30,8 @@ export function SitePreview({ site, onRefresh }: SitePreviewProps) {
   };
 
   return (
-    <Card className="flex flex-col h-full">
-      <div className="flex items-center justify-between gap-2 p-3 border-b">
+    <Card className="flex flex-col min-h-[700px]">
+      <div className="flex items-center justify-between gap-2 p-3 border-b flex-shrink-0">
         <div className="flex items-center gap-2">
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'desktop' | 'mobile')}>
             <TabsList className="h-8">
@@ -79,12 +79,12 @@ export function SitePreview({ site, onRefresh }: SitePreviewProps) {
         </div>
       </div>
       
-      <div className="flex-1 bg-muted/30 p-4 flex items-center justify-center overflow-hidden min-h-[600px]">
+      <div className="flex-1 bg-muted/30 p-4 flex items-center justify-center overflow-auto">
         <div
           className={`bg-white rounded-lg shadow-lg transition-all duration-300 overflow-hidden ${
             viewMode === 'mobile' 
-              ? 'w-[375px] h-[750px]' 
-              : 'w-full h-full min-h-[550px]'
+              ? 'w-[375px] h-[667px]' 
+              : 'w-full max-w-[1200px] h-[600px]'
           }`}
         >
           <iframe
@@ -98,7 +98,7 @@ export function SitePreview({ site, onRefresh }: SitePreviewProps) {
         </div>
       </div>
       
-      <div className="p-3 border-t bg-muted/20">
+      <div className="p-3 border-t bg-muted/20 flex-shrink-0">
         <p className="text-xs text-muted-foreground text-center">
           {site.slug}.eleveaone.com.br
           {site.status === 'published' && (
