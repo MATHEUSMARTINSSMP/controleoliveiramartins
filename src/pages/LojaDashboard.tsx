@@ -3141,12 +3141,10 @@ export default function LojaDashboard() {
                                             console.error(`❌ Erro crítico ao enfileirar mensagem para ${phone}:`, queueErr);
                                         }
                                     }
-                                })
-                            ).then(() => {
-                                console.log('📱 Processo de envio de WhatsApp concluído');
-                            }).catch(err => {
-                                console.error('❌ Erro geral ao enviar WhatsApp:', err);
-                            });
+                                })();
+                            }
+                            
+                            console.log('📱 Processo de envio de WhatsApp concluído');
                         } else {
                             console.warn('⚠️ Nenhum destinatário WhatsApp ativo encontrado. Mensagem não será enviada.');
                             console.warn('⚠️ Verifique se há números configurados em "Configurações > Notificações WhatsApp" para o tipo "VENDA".');
