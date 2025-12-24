@@ -15,12 +15,16 @@ export function useListaDaVezAttendances(sessionId: string | null, storeId: stri
     const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [loading, setLoading] = useState(false);
     const channelRef = useRef<any>(null);
+    const isInitialLoadRef = useRef(true); // ✅ Flag para distinguir carregamento inicial de atualizações
 
-    const fetchAttendances = useCallback(async () => {
+    const fetchAttendances = useCallback(async (silent = false) => {
         if (!sessionId) return;
 
         try {
-            setLoading(true);
+            // ✅ Só mostrar loading no carregamento inicial ou quando não for silencioso
+            if (isInitialLoadRef.current || !silent) {
+                setLoading(true);
+            }
             const { data, error } = await supabase
                 .schema('sistemaretiradas')
                 .from('attendances')
@@ -48,17 +52,25 @@ export function useListaDaVezAttendances(sessionId: string | null, storeId: stri
             }));
 
             setAttendances(attendancesData);
+            isInitialLoadRef.current = false; // ✅ Marcar que já carregou inicialmente
         } catch (error: any) {
             console.error('[useListaDaVezAttendances] Erro ao buscar atendimentos:', error);
         } finally {
-            setLoading(false);
+            if (isInitialLoadRef.current || !silent) {
+                setLoading(false);
+            }
         }
     }, [sessionId]);
 
     useEffect(() => {
-        if (!sessionId || !storeId) return;
+        if (!sessionId || !storeId) {
+            isInitialLoadRef.current = true; // Reset flag quando sessionId/storeId mudar
+            return;
+        }
 
-        fetchAttendances();
+        // ✅ Reset flag quando sessionId mudar
+        isInitialLoadRef.current = true;
+        fetchAttendances(false); // Carregamento inicial
 
         // Setup realtime subscription
         const channel = supabase
@@ -73,14 +85,19 @@ export function useListaDaVezAttendances(sessionId: string | null, storeId: stri
                 },
                 (payload) => {
                     console.log('[useListaDaVezAttendances] Mudança detectada:', payload);
-                    fetchAttendances();
+                    // ✅ Atualizar silenciosamente quando detectar mudança (sem loading)
+                    fetchAttendances(true); // silent = true
                 }
             )
             .subscribe((status) => {
                 console.log('[useListaDaVezAttendances] Subscription status:', status);
                 if (status === 'SUBSCRIBED') {
-                    // Forçar atualização inicial após subscribe
-                    fetchAttendances();
+                    // ✅ Só fazer fetch inicial se ainda não carregou, senão atualizar silenciosamente
+                    if (isInitialLoadRef.current) {
+                        fetchAttendances(false); // Carregamento inicial
+                    } else {
+                        fetchAttendances(true); // Reconexão - silencioso
+                    }
                 }
             });
 
@@ -116,8 +133,8 @@ export function useListaDaVezAttendances(sessionId: string | null, storeId: stri
             toast.success('Atendimento iniciado!');
             // Pequeno delay para garantir que o banco processou
             await new Promise(resolve => setTimeout(resolve, 150));
-            // Forçar atualização imediata de ambas as listas
-            await fetchAttendances();
+            // ✅ Atualizar silenciosamente após ação do usuário
+            await fetchAttendances(true); // silent = true
             return attendanceId;
         } catch (error: any) {
             console.error('[useListaDaVezAttendances] Erro ao iniciar atendimento:', error);
@@ -172,8 +189,8 @@ export function useListaDaVezAttendances(sessionId: string | null, storeId: stri
             
             // Pequeno delay para garantir que o banco processou
             await new Promise(resolve => setTimeout(resolve, 200));
-            // Forçar atualização imediata
-            await fetchAttendances();
+            // ✅ Atualizar silenciosamente após ação do usuário
+            await fetchAttendances(true); // silent = true
         } catch (error: any) {
             console.error('[useListaDaVezAttendances] Erro ao finalizar atendimento:', error);
             toast.error('Erro: ' + (error.message || 'Erro desconhecido'));

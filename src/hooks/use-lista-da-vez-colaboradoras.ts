@@ -19,12 +19,16 @@ export function useListaDaVezColaboradoras(
     const [colaboradoras, setColaboradoras] = useState<Colaboradora[]>([]);
     const [loading, setLoading] = useState(false);
     const channelRef = useRef<any>(null);
+    const isInitialLoadRef = useRef(true); // ✅ Flag para distinguir carregamento inicial de atualizações
 
-    const fetchColaboradoras = useCallback(async () => {
+    const fetchColaboradoras = useCallback(async (silent = false) => {
         if (!storeId) return;
 
         try {
-            setLoading(true);
+            // ✅ Só mostrar loading no carregamento inicial ou quando não for silencioso
+            if (isInitialLoadRef.current || !silent) {
+                setLoading(true);
+            }
             const { data: profiles, error } = await supabase
                 .schema('sistemaretiradas')
                 .from('profiles')
@@ -55,17 +59,25 @@ export function useListaDaVezColaboradoras(
             });
 
             setColaboradoras(colaboradorasData);
+            isInitialLoadRef.current = false; // ✅ Marcar que já carregou inicialmente
         } catch (error: any) {
             console.error('[useListaDaVezColaboradoras] Erro ao buscar colaboradoras:', error);
         } finally {
-            setLoading(false);
+            if (isInitialLoadRef.current || !silent) {
+                setLoading(false);
+            }
         }
     }, [storeId, queueMembers]);
 
     useEffect(() => {
-        if (!storeId) return;
+        if (!storeId) {
+            isInitialLoadRef.current = true; // Reset flag quando storeId mudar
+            return;
+        }
 
-        fetchColaboradoras();
+        // ✅ Reset flag quando storeId mudar
+        isInitialLoadRef.current = true;
+        fetchColaboradoras(false); // Carregamento inicial
 
         // Setup realtime subscription para profiles (caso alguém seja ativado/desativado)
         const channel = supabase
@@ -80,13 +92,19 @@ export function useListaDaVezColaboradoras(
                 },
                 (payload) => {
                     console.log('[useListaDaVezColaboradoras] Mudança em profiles:', payload);
-                    fetchColaboradoras();
+                    // ✅ Atualizar silenciosamente quando detectar mudança (sem loading)
+                    fetchColaboradoras(true); // silent = true
                 }
             )
             .subscribe((status) => {
                 console.log('[useListaDaVezColaboradoras] Subscription status:', status);
                 if (status === 'SUBSCRIBED') {
-                    fetchColaboradoras();
+                    // ✅ Só fazer fetch inicial se ainda não carregou, senão atualizar silenciosamente
+                    if (isInitialLoadRef.current) {
+                        fetchColaboradoras(false); // Carregamento inicial
+                    } else {
+                        fetchColaboradoras(true); // Reconexão - silencioso
+                    }
                 }
             });
 

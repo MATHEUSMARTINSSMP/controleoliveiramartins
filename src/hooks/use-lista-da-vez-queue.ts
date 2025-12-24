@@ -15,12 +15,16 @@ export function useListaDaVezQueue(sessionId: string | null, storeId: string | n
     const [queueMembers, setQueueMembers] = useState<QueueMember[]>([]);
     const [loading, setLoading] = useState(false);
     const channelRef = useRef<any>(null);
+    const isInitialLoadRef = useRef(true); // ✅ Flag para distinguir carregamento inicial de atualizações
 
-    const fetchQueueMembers = useCallback(async () => {
+    const fetchQueueMembers = useCallback(async (silent = false) => {
         if (!sessionId) return;
 
         try {
-            setLoading(true);
+            // ✅ Só mostrar loading no carregamento inicial ou quando não for silencioso
+            if (isInitialLoadRef.current || !silent) {
+                setLoading(true);
+            }
             const { data, error } = await supabase
                 .schema('sistemaretiradas')
                 .from('queue_members')
@@ -48,17 +52,25 @@ export function useListaDaVezQueue(sessionId: string | null, storeId: string | n
             }));
 
             setQueueMembers(members);
+            isInitialLoadRef.current = false; // ✅ Marcar que já carregou inicialmente
         } catch (error: any) {
             console.error('[useListaDaVezQueue] Erro ao buscar fila:', error);
         } finally {
-            setLoading(false);
+            if (isInitialLoadRef.current || !silent) {
+                setLoading(false);
+            }
         }
     }, [sessionId]);
 
     useEffect(() => {
-        if (!sessionId || !storeId) return;
+        if (!sessionId || !storeId) {
+            isInitialLoadRef.current = true; // Reset flag quando sessionId/storeId mudar
+            return;
+        }
 
-        fetchQueueMembers();
+        // ✅ Reset flag quando sessionId mudar
+        isInitialLoadRef.current = true;
+        fetchQueueMembers(false); // Carregamento inicial
 
         // Setup realtime subscription
         const channel = supabase
@@ -73,17 +85,21 @@ export function useListaDaVezQueue(sessionId: string | null, storeId: string | n
                 },
                 (payload) => {
                     console.log('[useListaDaVezQueue] Mudança detectada:', payload);
-                    // Atualizar imediatamente quando detectar mudança
+                    // ✅ Atualizar silenciosamente quando detectar mudança (sem loading)
                     setTimeout(() => {
-                        fetchQueueMembers();
+                        fetchQueueMembers(true); // silent = true
                     }, 100);
                 }
             )
             .subscribe((status) => {
                 console.log('[useListaDaVezQueue] Subscription status:', status);
                 if (status === 'SUBSCRIBED') {
-                    // Forçar atualização inicial após subscribe
-                    fetchQueueMembers();
+                    // ✅ Só fazer fetch inicial se ainda não carregou, senão atualizar silenciosamente
+                    if (isInitialLoadRef.current) {
+                        fetchQueueMembers(false); // Carregamento inicial
+                    } else {
+                        fetchQueueMembers(true); // Reconexão - silencioso
+                    }
                 }
             });
 
@@ -115,7 +131,8 @@ export function useListaDaVezQueue(sessionId: string | null, storeId: string | n
             toast.success('Habilitada para entrar na vez!');
             // Pequeno delay para garantir que o banco processou
             await new Promise(resolve => setTimeout(resolve, 100));
-            await fetchQueueMembers();
+            // ✅ Atualizar silenciosamente após ação do usuário
+            await fetchQueueMembers(true); // silent = true
             return memberId;
         } catch (error: any) {
             console.error('[useListaDaVezQueue] Erro ao adicionar na fila:', error);
@@ -142,7 +159,8 @@ export function useListaDaVezQueue(sessionId: string | null, storeId: string | n
 
             if (error) throw error;
             toast.success('Desabilitada da vez');
-            await fetchQueueMembers();
+            // ✅ Atualizar silenciosamente após ação do usuário
+            await fetchQueueMembers(true); // silent = true
         } catch (error: any) {
             console.error('[useListaDaVezQueue] Erro ao remover da fila:', error);
             toast.error('Erro: ' + (error.message || 'Erro desconhecido'));

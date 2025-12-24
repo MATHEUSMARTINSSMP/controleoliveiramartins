@@ -17,12 +17,16 @@ export function useListaDaVezMetrics(storeId: string | null) {
     const [metrics, setMetrics] = useState<Metrics | null>(null);
     const [loading, setLoading] = useState(false);
     const channelRef = useRef<any>(null);
+    const isInitialLoadRef = useRef(true); // ✅ Flag para distinguir carregamento inicial de atualizações
 
-    const fetchMetrics = useCallback(async () => {
+    const fetchMetrics = useCallback(async (silent = false) => {
         if (!storeId) return;
 
         try {
-            setLoading(true);
+            // ✅ Só mostrar loading no carregamento inicial ou quando não for silencioso
+            if (isInitialLoadRef.current || !silent) {
+                setLoading(true);
+            }
             const { data, error } = await supabase.rpc('get_store_metrics', {
                 p_store_id: storeId,
                 p_start_date: format(new Date(), 'yyyy-MM-dd'),
@@ -45,17 +49,25 @@ export function useListaDaVezMetrics(storeId: string | null) {
                     active_collaborators: 0
                 });
             }
+            isInitialLoadRef.current = false; // ✅ Marcar que já carregou inicialmente
         } catch (error: any) {
             console.error('[useListaDaVezMetrics] Erro ao buscar métricas:', error);
         } finally {
-            setLoading(false);
+            if (isInitialLoadRef.current || !silent) {
+                setLoading(false);
+            }
         }
     }, [storeId]);
 
     useEffect(() => {
-        if (!storeId) return;
+        if (!storeId) {
+            isInitialLoadRef.current = true; // Reset flag quando storeId mudar
+            return;
+        }
 
-        fetchMetrics();
+        // ✅ Reset flag quando storeId mudar
+        isInitialLoadRef.current = true;
+        fetchMetrics(false); // Carregamento inicial
 
         // Setup realtime subscription para attendances e outcomes
         const channel = supabase
@@ -69,8 +81,8 @@ export function useListaDaVezMetrics(storeId: string | null) {
                 },
                 (payload) => {
                     console.log('[useListaDaVezMetrics] Mudança em outcomes:', payload);
-                    // Aguardar um pouco para garantir que o banco processou
-                    setTimeout(() => fetchMetrics(), 500);
+                    // ✅ Atualizar silenciosamente quando detectar mudança (sem loading)
+                    setTimeout(() => fetchMetrics(true), 500); // silent = true
                 }
             )
             .on(
@@ -83,13 +95,19 @@ export function useListaDaVezMetrics(storeId: string | null) {
                 },
                 (payload) => {
                     console.log('[useListaDaVezMetrics] Mudança em attendances:', payload);
-                    setTimeout(() => fetchMetrics(), 500);
+                    // ✅ Atualizar silenciosamente quando detectar mudança (sem loading)
+                    setTimeout(() => fetchMetrics(true), 500); // silent = true
                 }
             )
             .subscribe((status) => {
                 console.log('[useListaDaVezMetrics] Subscription status:', status);
                 if (status === 'SUBSCRIBED') {
-                    fetchMetrics();
+                    // ✅ Só fazer fetch inicial se ainda não carregou, senão atualizar silenciosamente
+                    if (isInitialLoadRef.current) {
+                        fetchMetrics(false); // Carregamento inicial
+                    } else {
+                        fetchMetrics(true); // Reconexão - silencioso
+                    }
                 }
             });
 
