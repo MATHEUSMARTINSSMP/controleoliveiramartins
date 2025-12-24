@@ -2703,10 +2703,13 @@ export default function LojaDashboard() {
 
             // Se a venda foi linkada a um atendimento, atualizar attendance_outcome
             // Nota: O atendimento já foi finalizado quando o usuário selecionou "Venda Realizada"
-            // Aqui apenas linkamos a venda ao atendimento
+            // A função end_attendance já criou um attendance_outcome com result='venda' mas sem sale_id
+            // Aqui linkamos a venda ao atendimento atualizando o attendance_outcome existente
+            // O trigger trigger_link_sale_to_attendance também faz essa linkagem automaticamente
             if (formData.attendance_id && insertedSale?.id) {
                 try {
                     // Atualizar attendance_outcome com sale_id e sale_value
+                    // O attendance_outcome já existe (criado pelo end_attendance), apenas atualizamos
                     const { error: outcomeError } = await supabase
                         .schema('sistemaretiradas')
                         .from('attendance_outcomes')
@@ -2715,10 +2718,11 @@ export default function LojaDashboard() {
                             sale_value: valorVenda
                         })
                         .eq('attendance_id', formData.attendance_id)
-                        .is('sale_id', null); // Apenas se ainda não tiver sale_id
+                        .is('sale_id', null); // Apenas se ainda não tiver sale_id (proteção contra duplicatas)
 
                     if (outcomeError) {
                         console.error('[LojaDashboard] Erro ao linkar venda com atendimento:', outcomeError);
+                        // Não bloquear o fluxo se houver erro na linkagem
                     } else {
                         console.log('[LojaDashboard] ✅ Venda linkada com atendimento:', {
                             sale_id: insertedSale.id,
@@ -2727,6 +2731,7 @@ export default function LojaDashboard() {
                     }
                 } catch (error: any) {
                     console.error('[LojaDashboard] Erro ao processar linkagem:', error);
+                    // Não bloquear o fluxo se houver erro na linkagem
                 }
             }
 
