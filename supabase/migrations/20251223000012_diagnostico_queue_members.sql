@@ -4,18 +4,19 @@
 -- Execute esta query no SQL Editor do Supabase para diagnosticar problemas
 -- ============================================================================
 
--- 1. Verificar registros duplicados (mesma colaboradora, mesma sessão, status ativo)
+-- 1. Verificar registros duplicados e registros 'finalizado' órfãos
 SELECT 
     session_id,
     profile_id,
     COUNT(*) as total_registros,
     STRING_AGG(id::text, ', ') as ids,
     STRING_AGG(status, ', ') as status_list,
-    STRING_AGG(position::text, ', ') as positions
+    STRING_AGG(position::text, ', ') as positions,
+    STRING_AGG(updated_at::text, ', ') as updated_dates
 FROM sistemaretiradas.queue_members
-WHERE status IN ('disponivel', 'em_atendimento', 'pausado')
+WHERE status IN ('disponivel', 'em_atendimento', 'pausado', 'finalizado')
 GROUP BY session_id, profile_id
-HAVING COUNT(*) > 1
+HAVING COUNT(*) > 1 OR COUNT(*) FILTER (WHERE status = 'finalizado') > 0
 ORDER BY total_registros DESC;
 
 -- 2. Verificar todos os registros de uma sessão específica (substitua o session_id)
