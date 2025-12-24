@@ -102,10 +102,13 @@ BEGIN
         )
         RETURNING id INTO v_sale_id;
         
-        RETURN QUERY SELECT 'SUCESSO'::TEXT, 'Venda criada com sucesso'::TEXT, true, v_sale_id;
+        -- Retornar sucesso
+        RETURN QUERY SELECT 'SUCESSO'::TEXT, 'Venda criada: ' || v_sale_id::TEXT, true::BOOLEAN, v_sale_id;
+        RETURN;
         
     EXCEPTION WHEN OTHERS THEN
-        RETURN QUERY SELECT 'ERRO'::TEXT, 'Erro: ' || SQLERRM, false, NULL::UUID;
+        -- Retornar erro
+        RETURN QUERY SELECT 'ERRO'::TEXT, 'Erro: ' || SQLERRM, false::BOOLEAN, NULL::UUID;
         RETURN;
     END;
 END;
