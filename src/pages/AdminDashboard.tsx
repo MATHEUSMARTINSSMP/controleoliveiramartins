@@ -20,6 +20,8 @@ import { FinancialDashboard } from "@/components/admin/FinancialDashboard";
 import { StorePerformanceReports } from "@/components/admin/StorePerformanceReports";
 import { WhatsAppManagement } from "@/components/admin/WhatsAppManagement";
 import { GoalsTracking } from "@/components/admin/GoalsTracking";
+import { SalesPerformanceAnalytics } from "@/components/admin/SalesPerformanceAnalytics";
+import { ListaDaVezAnalytics } from "@/components/admin/ListaDaVezAnalytics";
 import { CashbackStoreConfig } from "@/components/admin/CashbackStoreConfig";
 import { CRMStoreConfig } from "@/components/admin/CRMStoreConfig";
 import { ModulesStoreConfig } from "@/components/admin/ModulesStoreConfig";
@@ -322,6 +324,8 @@ const AdminDashboard = () => {
 
               <CommercialDashboard />
               <StorePerformanceReports />
+              <SalesPerformanceAnalytics />
+              <ListaDaVezAnalytics />
               <GoalsTracking />
               <DailyGoalCheckReports />
             </TabsContent>

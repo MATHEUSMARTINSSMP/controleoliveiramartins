@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award, Download, FileSpreadsheet, FileText, Database, ChevronDown, ChevronRight, Loader2, Store, AlertTriangle, X, RefreshCw } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, Calendar, ClipboardList, Check, Trophy, LogOut, Medal, Award, Download, FileSpreadsheet, FileText, Database, ChevronDown, ChevronRight, Loader2, Store, AlertTriangle, X, RefreshCw, Users } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Switch } from "@/components/ui/switch";
 import { useFolgas } from "@/hooks/useFolgas";
@@ -71,6 +71,7 @@ const WishlistLojaView = lazy(() => import("@/components/loja/WishlistLojaView")
 // const TimeClockLojaView = lazy(() => import("@/components/timeclock/TimeClockLojaView").then(m => ({ default: m.TimeClockLojaView })));
 const StoreConditionalsAdjustments = lazy(() => import("@/components/loja/StoreConditionalsAdjustments"));
 const CaixaLojaView = lazy(() => import("@/components/loja/CaixaLojaView"));
+import { ListaDaVez } from "@/components/loja/ListaDaVez";
 
 interface Sale {
     id: string;
@@ -122,7 +123,9 @@ export default function LojaDashboard() {
     const [wishlistAtivo, setWishlistAtivo] = useState<boolean>(false);
     const [ajustesCondicionaisAtivo, setAjustesCondicionaisAtivo] = useState<boolean>(false);
     const [caixaAtivo, setCaixaAtivo] = useState<boolean>(false);
+    const [listaDaVezAtivo, setListaDaVezAtivo] = useState<boolean>(false);
     const [activeView, setActiveView] = useState<'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes' | 'caixa'>('metas');
+    const [listaDaVezOpen, setListaDaVezOpen] = useState(false);
 
     const [formasPagamento, setFormasPagamento] = useState<FormaPagamentoType[]>([{
         tipo: 'DINHEIRO',
@@ -137,6 +140,8 @@ export default function LojaDashboard() {
         observacoes: "",
         cliente_id: "", // ID do cliente cadastrado (opcional)
         cliente_nome: "", // Nome do cliente (opcional, pode ser texto livre ou "Consumidor Final")
+        venda_perdida: false, // Flag para venda perdida
+        motivo_perda_venda: "", // Motivo da perda de venda
     });
 
     // Estados para busca de cliente
@@ -696,6 +701,7 @@ export default function LojaDashboard() {
                 const wishlist = Boolean(storeSettings.wishlist_ativo);
                 const ajustesCondicionais = Boolean(storeSettings.ajustes_condicionais_ativo);
                 const caixa = Boolean(storeSettings.caixa_ativo);
+                const listaDaVez = Boolean(storeSettings.lista_da_vez_ativo);
 
                 console.log('[LojaDashboard] ✅ Valores booleanos calculados:', {
                     cashback,
@@ -704,8 +710,10 @@ export default function LojaDashboard() {
                     wishlist,
                     ajustesCondicionais,
                     caixa,
+                    listaDaVez,
                     rawCashback: storeSettings.cashback_ativo,
-                    rawCrm: storeSettings.crm_ativo
+                    rawCrm: storeSettings.crm_ativo,
+                    rawListaDaVez: storeSettings.lista_da_vez_ativo
                 });
 
                 setCashbackAtivo(cashback);
@@ -714,6 +722,7 @@ export default function LojaDashboard() {
                 setWishlistAtivo(wishlist);
                 setAjustesCondicionaisAtivo(ajustesCondicionais);
                 setCaixaAtivo(caixa);
+                setListaDaVezAtivo(listaDaVez);
 
                 console.log('[LojaDashboard] ✅ Estados atualizados via storeSettings');
                 return;
@@ -726,7 +735,7 @@ export default function LojaDashboard() {
                     const { data, error } = await supabase
                         .schema('sistemaretiradas')
                         .from('stores')
-                        .select('cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo, ajustes_condicionais_ativo, caixa_ativo')
+                        .select('cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo')
                         .eq('id', storeId)
                         .maybeSingle(); // ✅ Usar maybeSingle() para evitar erro quando não encontrar
 
@@ -749,6 +758,7 @@ export default function LojaDashboard() {
                             wishlist: data.wishlist_ativo,
                             ajustesCondicionais: data.ajustes_condicionais_ativo,
                             caixa: data.caixa_ativo,
+                            listaDaVez: data.lista_da_vez_ativo,
                             cashbackType: typeof data.cashback_ativo
                         });
 
@@ -758,6 +768,7 @@ export default function LojaDashboard() {
                         const wishlist = data.wishlist_ativo === true;
                         const ajustesCondicionais = data.ajustes_condicionais_ativo === true;
                         const caixa = data.caixa_ativo === true;
+                        const listaDaVez = data.lista_da_vez_ativo === true;
 
                         console.log('[LojaDashboard] ✅ Setando módulos (fallback):', {
                             cashback,
@@ -765,7 +776,8 @@ export default function LojaDashboard() {
                             ponto,
                             wishlist,
                             ajustesCondicionais,
-                            caixa
+                            caixa,
+                            listaDaVez
                         });
 
                         setCashbackAtivo(cashback);
@@ -774,6 +786,7 @@ export default function LojaDashboard() {
                         setWishlistAtivo(wishlist);
                         setAjustesCondicionaisAtivo(ajustesCondicionais);
                         setCaixaAtivo(caixa);
+                        setListaDaVezAtivo(listaDaVez);
                     } else {
                         console.warn('[LojaDashboard] ⚠️ data é null ou undefined no fallback');
                     }
@@ -2626,6 +2639,8 @@ export default function LojaDashboard() {
                     formas_pagamento_json: formasPagamento,
                     cliente_id: formData.cliente_id || null, // ID do cliente (opcional)
                     cliente_nome: formData.cliente_nome || null, // Nome do cliente (opcional)
+                    venda_perdida: formData.venda_perdida || false, // Flag de venda perdida
+                    motivo_perda_venda: formData.venda_perdida ? (formData.motivo_perda_venda || null) : null, // Motivo apenas se venda perdida
                 })
                 .select()
                 .single();
@@ -3097,6 +3112,8 @@ export default function LojaDashboard() {
             observacoes: "",
             cliente_id: "",
             cliente_nome: "",
+            venda_perdida: false,
+            motivo_perda_venda: "",
         });
         setSearchCliente("");
         setSelectedClienteId(null);
@@ -3194,6 +3211,9 @@ export default function LojaDashboard() {
     };
 
     const handleEdit = (sale: Sale) => {
+        const motivoPerda = (sale as any).motivo_perda_venda || "";
+        const vendaPerdida = (sale as any).venda_perdida || false;
+        
         setFormData({
             colaboradora_id: sale.colaboradora_id,
             valor: sale.valor.toString(),
@@ -3202,6 +3222,8 @@ export default function LojaDashboard() {
             observacoes: sale.observacoes || "",
             cliente_id: sale.cliente_id || "",
             cliente_nome: sale.cliente_nome || "",
+            venda_perdida: vendaPerdida,
+            motivo_perda_venda: motivoPerda,
         });
         setEditingSaleId(sale.id);
         setDialogOpen(true);
@@ -3255,6 +3277,8 @@ export default function LojaDashboard() {
                     observacoes: observacoesComPagamento || null,
                     forma_pagamento: formaPrincipal,
                     formas_pagamento_json: formasPagamento,
+                    venda_perdida: formData.venda_perdida || false,
+                    motivo_perda_venda: formData.venda_perdida ? (formData.motivo_perda_venda || null) : null,
                 })
                 .eq('id', editingSaleId!);
 
@@ -4104,6 +4128,71 @@ export default function LojaDashboard() {
                                                     rows={4}
                                                     className="resize-y"
                                                 />
+                                            </div>
+
+                                            {/* Campo de Venda Perdida */}
+                                            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="space-y-0.5">
+                                                        <Label htmlFor="venda_perdida" className="text-base font-medium">
+                                                            Venda Perdida
+                                                        </Label>
+                                                        <p className="text-sm text-muted-foreground">
+                                                            Marque se a venda não foi concretizada
+                                                        </p>
+                                                    </div>
+                                                    <Switch
+                                                        id="venda_perdida"
+                                                        checked={formData.venda_perdida}
+                                                        onCheckedChange={(checked) => {
+                                                            setFormData({
+                                                                ...formData,
+                                                                venda_perdida: checked,
+                                                                motivo_perda_venda: checked ? formData.motivo_perda_venda : "",
+                                                            });
+                                                        }}
+                                                    />
+                                                </div>
+                                                
+                                                {formData.venda_perdida && (
+                                                    <div className="space-y-2 pt-2">
+                                                        <Label htmlFor="motivo_perda_venda">Motivo da Perda de Venda *</Label>
+                                                        <Select
+                                                            value={formData.motivo_perda_venda && !formData.motivo_perda_venda.startsWith("OUTRO:") ? formData.motivo_perda_venda : "OUTRO"}
+                                                            onValueChange={(value) => {
+                                                                if (value === "OUTRO") {
+                                                                    setFormData({ ...formData, motivo_perda_venda: "OUTRO:" });
+                                                                } else {
+                                                                    setFormData({ ...formData, motivo_perda_venda: value });
+                                                                }
+                                                            }}
+                                                        >
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Selecione o motivo" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="PRECO_ALTO">Preço alto</SelectItem>
+                                                                <SelectItem value="NAO_GOSTOU_PRODUTO">Não gostou do produto</SelectItem>
+                                                                <SelectItem value="SEM_ESTOQUE">Sem estoque/tamanho</SelectItem>
+                                                                <SelectItem value="PENSAR_MELHOR">Vai pensar melhor</SelectItem>
+                                                                <SelectItem value="COMPRAR_OUTRO_DIA">Vai comprar outro dia</SelectItem>
+                                                                <SelectItem value="ATENDIMENTO">Problema no atendimento</SelectItem>
+                                                                <SelectItem value="OUTRO">Outro motivo</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                        {(formData.motivo_perda_venda === "OUTRO" || formData.motivo_perda_venda.startsWith("OUTRO:")) && (
+                                                            <Textarea
+                                                                placeholder="Descreva o motivo da perda de venda"
+                                                                value={formData.motivo_perda_venda.startsWith("OUTRO:") ? formData.motivo_perda_venda.replace("OUTRO:", "") : ""}
+                                                                onChange={(e) => {
+                                                                    setFormData({ ...formData, motivo_perda_venda: `OUTRO:${e.target.value}` });
+                                                                }}
+                                                                rows={3}
+                                                                className="mt-2"
+                                                            />
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
 
                                             <div className="flex gap-2">
@@ -6157,6 +6246,28 @@ export default function LojaDashboard() {
                 onClientCreated={handleNewClientCreated}
                 storeId={storeId || undefined}
             />
+
+            {/* Lista da Vez - Botão Flutuante e Dialog */}
+            {storeId && listaDaVezAtivo && (
+                <>
+                    {/* Botão Flutuante */}
+                    <Button
+                        onClick={() => setListaDaVezOpen(true)}
+                        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50 hover:scale-110 transition-transform"
+                        size="icon"
+                        title="Lista da Vez"
+                    >
+                        <Users className="h-6 w-6" />
+                    </Button>
+
+                    {/* Dialog da Lista da Vez */}
+                    <ListaDaVez
+                        storeId={storeId}
+                        open={listaDaVezOpen}
+                        onOpenChange={setListaDaVezOpen}
+                    />
+                </>
+            )}
         </div>
     );
 }

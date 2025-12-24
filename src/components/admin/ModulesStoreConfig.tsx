@@ -164,28 +164,47 @@ export const ModulesStoreConfig = () => {
       return;
     }
 
+    const newValue = !currentValue;
+    console.log('[ModulesStoreConfig] Toggle módulo:', {
+      storeId,
+      module: module.id,
+      moduleField: module.field,
+      currentValue,
+      newValue
+    });
+
     try {
       setSaving({ storeId, module: module.id });
-      const { error } = await supabase
+      
+      const updateData: any = { [module.field]: newValue };
+      console.log('[ModulesStoreConfig] Atualizando com:', updateData);
+      
+      const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .update({ [module.field]: !currentValue })
-        .eq('id', storeId);
+        .update(updateData)
+        .eq('id', storeId)
+        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, daily_goal_check_ativo');
 
-      if (error) throw error;
+      if (error) {
+        console.error('[ModulesStoreConfig] Erro na atualização:', error);
+        throw error;
+      }
+
+      console.log('[ModulesStoreConfig] Atualização bem-sucedida:', data);
 
       setStores(prev =>
         prev.map(store =>
           store.id === storeId
-            ? { ...store, [module.field]: !currentValue }
+            ? { ...store, [module.field]: newValue }
             : store
         )
       );
 
-      toast.success(`${module.name} ${!currentValue ? 'ativado' : 'desativado'} para ${stores.find(s => s.id === storeId)?.name}`);
+      toast.success(`${module.name} ${newValue ? 'ativado' : 'desativado'} para ${stores.find(s => s.id === storeId)?.name}`);
     } catch (error: any) {
-      console.error(`Erro ao ${currentValue ? 'desativar' : 'ativar'} ${module.name}:`, error);
-      toast.error(`Erro ao ${currentValue ? 'desativar' : 'ativar'} ${module.name}`);
+      console.error(`[ModulesStoreConfig] Erro ao ${currentValue ? 'desativar' : 'ativar'} ${module.name}:`, error);
+      toast.error(`Erro ao ${currentValue ? 'desativar' : 'ativar'} ${module.name}: ${error.message || 'Erro desconhecido'}`);
     } finally {
       setSaving(null);
     }
@@ -195,7 +214,16 @@ export const ModulesStoreConfig = () => {
     if (module.id === 'erp') {
       return true;
     }
-    return store[module.field] || false;
+    const value = (store as any)[module.field];
+    const result = Boolean(value);
+    console.log('[ModulesStoreConfig] getModuleStatus:', {
+      module: module.id,
+      field: module.field,
+      rawValue: value,
+      booleanValue: result,
+      storeId: store.id
+    });
+    return result;
   };
 
   const openConfigDialog = (store: Store) => {
