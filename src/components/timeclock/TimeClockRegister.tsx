@@ -257,6 +257,12 @@ export function TimeClockRegister({
   };
 
   const handleRegisterClick = (tipo: 'ENTRADA' | 'SAIDA_INTERVALO' | 'ENTRADA_INTERVALO' | 'SAIDA') => {
+    // ✅ Proteção contra cliques duplicados
+    if (processingSignature || loading) {
+      console.warn('[TimeClockRegister] Tentativa de registrar enquanto já está processando');
+      return;
+    }
+
     if (hasPin === false) {
       setSetupPinDialogOpen(true);
       return;
