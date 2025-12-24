@@ -74,22 +74,21 @@ export function EmAtendimento({
                                         <Badge variant="secondary" className="text-xs ml-2">Você</Badge>
                                     )}
                                 </div>
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between mt-2">
                                     <p className="text-xs text-muted-foreground">
                                         {duration} min
                                     </p>
-                                    {/* Botão STOP para finalizar */}
-                                    {isMe && (
-                                        <Button
-                                            size="sm"
-                                            variant="destructive"
-                                            onClick={() => onStopAttendance(attendance.id)}
-                                            disabled={loading}
-                                        >
-                                            <Square className="h-3 w-3 mr-1" />
-                                            Finalizar
-                                        </Button>
-                                    )}
+                                    {/* Botão STOP para finalizar - sempre visível */}
+                                    <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={() => onStopAttendance(attendance.id)}
+                                        disabled={loading}
+                                        className="ml-auto"
+                                    >
+                                        <Square className="h-3 w-3 mr-1" />
+                                        Finalizar
+                                    </Button>
                                 </div>
                             </div>
                         );

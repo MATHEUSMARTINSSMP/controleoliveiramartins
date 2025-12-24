@@ -89,10 +89,13 @@ export function ListaDaVez({ storeId, open, onOpenChange, onOpenNewSale }: Lista
 
     const handleMoveToTop = async (memberId: string) => {
         try {
-            const { error } = await supabase.rpc('move_member_to_top', {
+            const { data, error } = await supabase.rpc('move_member_to_top', {
                 p_member_id: memberId
             });
-            if (error) throw error;
+            if (error) {
+                console.error('[ListaDaVez] Erro RPC move_member_to_top:', error);
+                throw error;
+            }
             toast.success('Colaboradora movida para o topo da fila');
         } catch (error: any) {
             console.error('[ListaDaVez] Erro ao mover para topo:', error);
@@ -102,10 +105,13 @@ export function ListaDaVez({ storeId, open, onOpenChange, onOpenNewSale }: Lista
 
     const handleMoveToEnd = async (memberId: string) => {
         try {
-            const { error } = await supabase.rpc('move_member_to_end', {
+            const { data, error } = await supabase.rpc('move_member_to_end', {
                 p_member_id: memberId
             });
-            if (error) throw error;
+            if (error) {
+                console.error('[ListaDaVez] Erro RPC move_member_to_end:', error);
+                throw error;
+            }
             toast.success('Colaboradora movida para o final da fila');
         } catch (error: any) {
             console.error('[ListaDaVez] Erro ao mover para final:', error);
