@@ -199,16 +199,21 @@ export function ListaDaVez({ storeId, open, onOpenChange, onOpenNewSale }: Lista
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
                 <DialogContent className={`max-w-6xl ${minimized ? 'max-h-[200px]' : 'max-h-[90vh]'} overflow-y-auto transition-all`}>
-                    <DialogHeader className="flex flex-row items-center justify-between">
-                        <DialogTitle className="flex items-center gap-2">
-                            <Users className="h-5 w-5" />
-                            Lista da Vez
+                    <DialogHeader className="flex flex-row items-center justify-between pb-4 border-b">
+                        <DialogTitle className="flex items-center gap-3 text-xl font-semibold">
+                            <div className="p-2 rounded-lg bg-primary/10">
+                                <Users className="h-5 w-5 text-primary" />
+                            </div>
+                            <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                                Lista da Vez
+                            </span>
                         </DialogTitle>
                         <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => setMinimized(!minimized)}
                             title={minimized ? "Maximizar" : "Minimizar"}
+                            className="h-8 w-8"
                         >
                             {minimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
                         </Button>
@@ -216,12 +221,16 @@ export function ListaDaVez({ storeId, open, onOpenChange, onOpenNewSale }: Lista
 
                     {!minimized && (
                         <Tabs defaultValue="fila" className="w-full">
-                            <TabsList className="grid w-full grid-cols-2">
-                                <TabsTrigger value="fila">Fila de Atendimento</TabsTrigger>
-                                <TabsTrigger value="historico">Histórico</TabsTrigger>
+                            <TabsList className="grid w-full grid-cols-2 mb-6 bg-muted/50">
+                                <TabsTrigger value="fila" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                                    Fila de Atendimento
+                                </TabsTrigger>
+                                <TabsTrigger value="historico" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                                    Histórico
+                                </TabsTrigger>
                             </TabsList>
                             
-                            <TabsContent value="fila" className="space-y-4 mt-4">
+                            <TabsContent value="fila" className="space-y-6 mt-0">
                                 {/* Métricas */}
                                 <ListaDaVezMetrics metrics={metrics} loading={metricsLoading} />
 

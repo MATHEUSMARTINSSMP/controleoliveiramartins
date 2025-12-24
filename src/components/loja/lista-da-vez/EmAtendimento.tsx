@@ -40,15 +40,20 @@ export function EmAtendimento({
     };
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-base">Em Atendimento</CardTitle>
+        <Card className="border-2 shadow-sm">
+            <CardHeader className="pb-3 border-b bg-gradient-to-r from-background to-muted/30">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div>
+                    Em Atendimento
+                </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 max-h-[400px] overflow-y-auto">
+            <CardContent className="space-y-3 max-h-[400px] overflow-y-auto pt-4">
                 {attendances.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                        Nenhum atendimento em andamento
-                    </p>
+                    <div className="text-center py-12">
+                        <p className="text-sm text-muted-foreground">
+                            Nenhum atendimento em andamento
+                        </p>
+                    </div>
                 ) : (
                     attendances.map((attendance) => {
                         const isMe = attendance.profile_id === profile?.id;
@@ -57,36 +62,45 @@ export function EmAtendimento({
                         return (
                             <div
                                 key={attendance.id}
-                                className={`p-3 border rounded-lg transition-all ${
-                                    isMe ? 'bg-primary/5 border-primary/30' : ''
+                                className={`p-4 border-2 rounded-xl transition-all hover:shadow-md ${
+                                    isMe 
+                                        ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-800 shadow-sm' 
+                                        : 'bg-card border-border hover:border-blue-300'
                                 }`}
                             >
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium">{attendance.profile_name}</p>
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex-1 min-w-0">
+                                        <p className={`text-sm font-semibold ${
+                                            isMe ? 'text-blue-900 dark:text-blue-100' : ''
+                                        }`}>
+                                            {attendance.profile_name}
+                                        </p>
                                         {attendance.cliente_nome && (
-                                            <p className="text-xs text-muted-foreground">
+                                            <p className="text-xs text-muted-foreground mt-1">
                                                 {attendance.cliente_nome}
                                             </p>
                                         )}
                                     </div>
                                     {isMe && (
-                                        <Badge variant="secondary" className="text-xs ml-2">Você</Badge>
+                                        <Badge variant="secondary" className="text-xs ml-2 shrink-0">Você</Badge>
                                     )}
                                 </div>
-                                <div className="flex items-center justify-between mt-2">
-                                    <p className="text-xs text-muted-foreground">
-                                        {duration} min
-                                    </p>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div>
+                                        <p className="text-xs font-medium text-muted-foreground">
+                                            {duration} min
+                                        </p>
+                                    </div>
                                     {/* Botão STOP para finalizar - sempre visível */}
                                     <Button
                                         size="sm"
                                         variant="destructive"
                                         onClick={() => onStopAttendance(attendance.id)}
                                         disabled={loading}
-                                        className="ml-auto"
+                                        className="font-semibold"
                                     >
-                                        <Square className="h-3 w-3 mr-1" />
+                                        <Square className="h-4 w-4 mr-2" />
                                         Finalizar
                                     </Button>
                                 </div>

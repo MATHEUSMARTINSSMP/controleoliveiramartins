@@ -34,36 +34,44 @@ export function ListaDaVezMetrics({ metrics, loading }: ListaDaVezMetricsProps) 
 
     return (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card>
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Atendimentos Hoje</CardTitle>
+            <Card className="border-2 hover:border-primary/30 transition-all shadow-sm hover:shadow-md">
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Atendimentos Hoje
+                    </CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <p className="text-2xl font-bold">{metrics.total_attendances}</p>
+                <CardContent className="pt-0">
+                    <p className="text-3xl font-bold text-primary">{metrics.total_attendances}</p>
                 </CardContent>
             </Card>
-            <Card>
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Taxa Conversão</CardTitle>
+            <Card className="border-2 hover:border-emerald-500/30 transition-all shadow-sm hover:shadow-md">
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Taxa Conversão
+                    </CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <p className="text-2xl font-bold">{metrics.conversion_rate.toFixed(1)}%</p>
+                <CardContent className="pt-0">
+                    <p className="text-3xl font-bold text-emerald-600">{metrics.conversion_rate.toFixed(1)}%</p>
                 </CardContent>
             </Card>
-            <Card>
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Vendas</CardTitle>
+            <Card className="border-2 hover:border-blue-500/30 transition-all shadow-sm hover:shadow-md">
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Vendas
+                    </CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <p className="text-2xl font-bold">{metrics.total_sales}</p>
+                <CardContent className="pt-0">
+                    <p className="text-3xl font-bold text-blue-600">{metrics.total_sales}</p>
                 </CardContent>
             </Card>
-            <Card>
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Tempo Médio</CardTitle>
+            <Card className="border-2 hover:border-amber-500/30 transition-all shadow-sm hover:shadow-md">
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Tempo Médio
+                    </CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <p className="text-2xl font-bold">
+                <CardContent className="pt-0">
+                    <p className="text-3xl font-bold text-amber-600">
                         {Math.floor(metrics.avg_attendance_duration / 60)}min
                     </p>
                 </CardContent>
