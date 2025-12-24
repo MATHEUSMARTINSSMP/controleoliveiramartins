@@ -320,16 +320,17 @@ BEGIN
     -- IMPORTANTE: Limpar duplicatas ANTES de remover
     PERFORM sistemaretiradas.cleanup_duplicate_queue_members(v_session_id, v_profile_id);
     
+    -- ✅ IMPORTANTE: Registrar evento ANTES de deletar o membro
+    -- Isso evita violação de foreign key constraint em queue_events
+    INSERT INTO sistemaretiradas.queue_events (session_id, member_id, event_type, performed_by)
+    VALUES (v_session_id, p_member_id, 'check_out', v_profile_id);
+    
     -- Deletar o registro (não atualizar para 'finalizado', apenas deletar)
     DELETE FROM sistemaretiradas.queue_members
     WHERE id = p_member_id;
     
     -- Reorganizar posições
     PERFORM sistemaretiradas.reorganize_queue_positions(v_session_id);
-    
-    -- Registrar evento
-    INSERT INTO sistemaretiradas.queue_events (session_id, member_id, event_type, performed_by)
-    VALUES (v_session_id, p_member_id, 'check_out', v_profile_id);
     
     RETURN true;
 END;
